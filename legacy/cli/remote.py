@@ -10,7 +10,7 @@ class RemoteCli(CliBase):
         super().__init__(arg_parser)
         self.route = self.args.route
         try:
-            route_cmd = RouteCmd(self.route, baud=self.args.baudrate)
+            RouteCmd(self.route, baudrate=self.args.baudrate, port=self.args.port).fire()
         except ValueError as ve:
             print(ve)
 
