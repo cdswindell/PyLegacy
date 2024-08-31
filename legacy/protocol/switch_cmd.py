@@ -15,12 +15,13 @@ class SwitchCmd(CommandBase):
             raise ValueError("Switch must be between 1 and 99")
         self._switch = switch
         self._state = state
+        self._is_legacy_cmd = False
+        self._command = self._build_command()
 
-    def fire(self) -> None:
+    def _build_command(self) -> bytes:
         switch_command = TMCC1_SWITCH_THROUGH_COMMAND if self._state == SwitchState.THROUGH \
             else TMCC1_SWITCH_OUT_COMMAND
         cmd = (TMCC1_COMMAND_PREFIX.to_bytes(1, 'big') +
                ((self._switch << 7) | switch_command).to_bytes(2, 'big'))
 
-        # cue the command to send to the LCS SER2
-        self.queue_cmd(cmd)
+        return cmd

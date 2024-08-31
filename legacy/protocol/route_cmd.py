@@ -11,14 +11,16 @@ class RouteCmd(CommandBase):
         if route < 1 or route > 99:
             raise ValueError("Route must be between 1 and 99")
         self._route = route
+        self._command = self._build_command()
 
-    def fire(self) -> None:
+    def _build_command(self) -> bytes:
         if self._route < 10:
             cmd = (TMCC1_COMMAND_PREFIX.to_bytes(1, 'big') +
                    ((self._route << 7) | TMCC1_ROUTE_COMMAND).to_bytes(2, 'big'))
+            self._is_legacy_cmd = False
         else:
             cmd = (LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX.to_bytes(1, 'big') +
                    ((self._route << 9) | LEGACY_EXTENDED_ROUTE_COMMAND).to_bytes(2, 'big'))
+            self._is_legacy_cmd = True
 
-        # cue the command to send to the LCS SER2
-        self.queue_cmd(cmd)
+        return cmd
