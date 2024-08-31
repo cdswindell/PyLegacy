@@ -1,4 +1,8 @@
-from . import CommandBase
+from .command_base import CommandBase
+from .constants import TMCC1_COMMAND_PREFIX
+from .constants import TMCC1_ROUTE_COMMAND
+from .constants import LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX
+from .constants import LEGACY_EXTENDED_ROUTE_COMMAND
 
 
 class RouteCmd(CommandBase):
@@ -10,7 +14,11 @@ class RouteCmd(CommandBase):
 
     def fire(self) -> None:
         if self._route < 10:
-            pass
+            cmd = (TMCC1_COMMAND_PREFIX.to_bytes(1, 'big') +
+                   ((self._route << 7) | TMCC1_ROUTE_COMMAND).to_bytes(2, 'big'))
         else:
-            pass
-        print(f"Fire Route {self._route}")
+            cmd = (LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX.to_bytes(1, 'big') +
+                   ((self._route << 9) | LEGACY_EXTENDED_ROUTE_COMMAND).to_bytes(2, 'big'))
+
+        # cue the command to send to the LCS SER2
+        self.queue_cmd(cmd)
