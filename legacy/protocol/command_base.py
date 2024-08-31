@@ -1,6 +1,7 @@
 import abc
 
 import serial
+from serial.serialutil import SerialException
 
 
 class CommandBase:
@@ -13,7 +14,10 @@ class CommandBase:
         self._command = None  # provided by _build_command method in subclasses
 
     def fire(self) -> None:
-        self.queue_cmd(self._command)
+        try:
+            self.queue_cmd(self._command)
+        except SerialException as se:
+            print(se)
 
     def queue_cmd(self, cmd: bytes) -> None:
         print(f"Fire command {cmd.hex()}")
