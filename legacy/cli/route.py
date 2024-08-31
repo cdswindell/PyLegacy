@@ -5,7 +5,7 @@ from legacy.cli.cli_base import cli_parser_factory
 from legacy.protocol.route_cmd import RouteCmd
 
 
-class RemoteCli(CliBase):
+class RouteCli(CliBase):
     def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
         super().__init__(arg_parser)
         self.route = self.args.route
@@ -21,4 +21,4 @@ if __name__ == '__main__':
     parser.add_argument("route", metavar='Route Number', type=int, help="route to fire")
 
     args = parser.parse_args()
-    RemoteCli(parser)
+    RouteCli(parser)
