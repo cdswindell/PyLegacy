@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+#
 import argparse
 
 from legacy.cli.cli_base import CliBase
@@ -15,7 +17,7 @@ class HaltCli(CliBase):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Fire specified route (1 - 99)",
+    parser = argparse.ArgumentParser("Fire specified base_sh (1 - 99)",
                                      parents=[cli_parser_factory()])
 
     args = parser.parse_args()

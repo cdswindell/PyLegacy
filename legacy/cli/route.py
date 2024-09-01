@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+#
 import argparse
 
 from legacy.cli.cli_base import CliBase
@@ -16,7 +18,7 @@ class RouteCli(CliBase):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Fire specified route (1 - 99)",
+    parser = argparse.ArgumentParser("Fire specified base_sh (1 - 99)",
                                      parents=[cli_parser_factory()])
     parser.add_argument("route", metavar='Route Number', type=int, help="route to fire")
 
