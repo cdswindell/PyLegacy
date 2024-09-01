@@ -45,5 +45,19 @@ TMCC1_ACC_AUX_2_COMMAND: int = 0x800D
     Legacy/TMCC2 Protocol Constants
 """
 LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: int = 0xFA
-
 LEGACY_EXTENDED_ROUTE_COMMAND: int = 0x00FD
+
+LEGACY_ENGINE_COMMAND_PREFIX: int = 0xF8
+LEGACY_TRAIN_COMMAND_PREFIX: int = 0xF9
+
+# Engine/Train 2 digit address are first 7 bits of first byte
+LEGACY_SET_ABSOLUTE_SPEED_COMMAND: int = 0x0000  # encode speed in last byte (0 - 199)
+LEGACY_SET_MOMENTUM_COMMAND: int = 0x00C8  # encode momentum in last 3 bits (0 - 7)
+LEGACY_SET_BRAKE_COMMAND: int = 0x00E0  # encode brake level in last 3 bits (0 - 7)
+LEGACY_SET_BOOST_COMMAND: int = 0x00E8  # encode boost level in last 3 bits (0 - 7)
+LEGACY_SET_TRAIN_BRAKE_COMMAND: int = 0x00F0  # encode train brake in last 3 bits (0 - 7)
+LEGACY_STALL_COMMAND: int = 0x00F8
+LEGACY_STOP_IMMEDIATE_COMMAND: int = 0x00FB
+
+LEGACY_PARAMETER_COMMAND_PREFIX: int = 0xFB
+
