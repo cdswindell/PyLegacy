@@ -10,7 +10,7 @@ from src.protocol.constants import TMCC1_COMMAND_PREFIX, TMCC2CommandScope
 class CommandBase(ABC):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, command_scope: TMCC2CommandScope, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
+    def __init__(self, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
         self._command = None  # provided by _build_command method in subclasses
         # validate baudrate
         if baudrate is None or baudrate < 110 or baudrate > 115000 or not isinstance(baudrate, int):
@@ -83,7 +83,7 @@ class TMCC1Command(CommandBase, ABC):
 class TMCC2Command(CommandBase, ABC):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
+    def __init__(self, command_scope: TMCC2CommandScope, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
         CommandBase.__init__(self, baudrate, port)
 
     def _encode_address(self, address: int, command_op: int) -> bytes:

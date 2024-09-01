@@ -6,6 +6,12 @@ from .constants import LEGACY_ROUTE_COMMAND
 
 
 class RouteCmd(CommandBase):
+    def _encode_address(self, address: int, command_op: int) -> bytes | None:
+        pass
+
+    def _command_prefix(self) -> bytes | None:
+        pass
+
     def __init__(self, route: int, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
         CommandBase.__init__(self, baudrate, port)
         if route < 1 or route > 99:
@@ -15,11 +21,11 @@ class RouteCmd(CommandBase):
 
     def _build_command(self) -> bytes:
         if self._route < 10:
-            cmd = (TMCC1_COMMAND_PREFIX.to_bytes(1, 'big') +
+            cmd = (TMCC1_COMMAND_PREFIX +
                    ((self._route << 7) | TMCC1_ROUTE_COMMAND).to_bytes(2, 'big'))
             self._is_legacy_cmd = False
         else:
-            cmd = (LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX.to_bytes(1, 'big') +
+            cmd = (LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX +
                    ((self._route << 9) | LEGACY_ROUTE_COMMAND).to_bytes(2, 'big'))
             self._is_legacy_cmd = True
 
