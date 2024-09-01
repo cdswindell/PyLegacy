@@ -59,8 +59,8 @@ LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: bytes = int(0xFA).to_bytes(1, 'big')
 LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 # Engine/Train 2 digit address are first 7 bits of first byte
-LEGACY_ENGINE_COMMAND_PREFIX: int = 0xF8
-LEGACY_TRAIN_COMMAND_PREFIX: int = 0xF9
+LEGACY_ENGINE_COMMAND_PREFIX: bytes = int(0xF8).to_bytes(1, 'big')
+LEGACY_TRAIN_COMMAND_PREFIX: bytes = int(0xF9).to_bytes(1, 'big')
 
 # TMCC2 Commands with Bit 9 = "0"
 TMCC2_SET_ABSOLUTE_SPEED_COMMAND: int = 0x0000  # encode speed in last byte (0 - 199)
@@ -73,4 +73,4 @@ TMCC2_STOP_IMMEDIATE_COMMAND: int = 0x00FB
 
 # TMCC2 Commands with Bit 9 = "1"
 
-LEGACY_PARAMETER_COMMAND_PREFIX: int = 0xFB
+LEGACY_PARAMETER_COMMAND_PREFIX: bytes = int(0xFB).to_bytes(1, 'big')
