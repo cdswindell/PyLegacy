@@ -1,10 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 import argparse
 
-from legacy.cli.cli_base import CliBase
-from legacy.cli.cli_base import cli_parser_factory
-from legacy.protocol.halt_cmd import HaltCmd
+from src.cli.cli_base import cli_parser_factory, CliBase
+from src.protocol.halt_cmd import HaltCmd
 
 
 class HaltCli(CliBase):

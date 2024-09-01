@@ -1,11 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 import argparse
 
-from legacy.cli.cli_base import CliBase
-from legacy.cli.cli_base import cli_parser_factory
-from legacy.protocol import SwitchState
-from legacy.protocol.switch_cmd import SwitchCmd
+from src.cli.cli_base import CliBase, cli_parser_factory
+from src.protocol.constants import SwitchState
+from src.protocol.switch_cmd import SwitchCmd
 
 
 class SwitchCli(CliBase):

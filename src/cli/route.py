@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 import argparse
 
-from legacy.cli.cli_base import CliBase
-from legacy.cli.cli_base import cli_parser_factory
-from legacy.protocol.route_cmd import RouteCmd
+from src.cli.cli_base import CliBase
+from src.cli.cli_base import cli_parser_factory
+from src.protocol.route_cmd import RouteCmd
 
 
 class RouteCli(CliBase):

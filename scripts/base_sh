@@ -1,4 +1,0 @@
-#!/usr/bin/env sh
-export PYTHONPATH=../
-python ../legacy/cli/$0.py "$@"
-
