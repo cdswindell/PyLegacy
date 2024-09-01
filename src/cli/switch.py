@@ -4,7 +4,7 @@ import argparse
 
 from src.cli.cli_base import CliBase, cli_parser_factory
 from src.protocol.constants import SwitchState
-from src.protocol.switch_cmd import SwitchCmd
+from src.protocol.tmcc1.switch_cmd import SwitchCmd
 
 
 class SwitchCli(CliBase):

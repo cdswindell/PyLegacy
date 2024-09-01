@@ -3,7 +3,7 @@
 import argparse
 
 from src.cli.cli_base import cli_parser_factory, CliBase
-from src.protocol.halt_cmd import HaltCmd
+from src.protocol.tmcc1.halt_cmd import HaltCmd
 
 
 class HaltCli(CliBase):

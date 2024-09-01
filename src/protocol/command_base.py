@@ -4,8 +4,6 @@ from abc import ABC
 import serial
 from serial.serialutil import SerialException
 
-from src.protocol.constants import TMCC1_COMMAND_PREFIX, TMCC2CommandScope
-
 
 class CommandBase(ABC):
     __metaclass__ = abc.ABCMeta
@@ -67,27 +65,3 @@ class CommandBase(ABC):
         return None
 
 
-class TMCC1Command(CommandBase, ABC):
-    __metaclass__ = abc.ABCMeta
-
-    def __init__(self, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
-        CommandBase.__init__(self, baudrate, port)
-
-    def _encode_address(self, address: int, command_op: int) -> bytes:
-        return self._encode_command((address << 7) | command_op)
-
-    def _command_prefix(self) -> bytes:
-        return TMCC1_COMMAND_PREFIX
-
-
-class TMCC2Command(CommandBase, ABC):
-    __metaclass__ = abc.ABCMeta
-
-    def __init__(self, command_scope: TMCC2CommandScope, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
-        CommandBase.__init__(self, baudrate, port)
-
-    def _encode_address(self, address: int, command_op: int) -> bytes:
-        return self._encode_command((address << 1) | command_op)
-
-    def _command_prefix(self) -> bytes:
-        return TMCC1_COMMAND_PREFIX

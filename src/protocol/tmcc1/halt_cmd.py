@@ -1,6 +1,6 @@
-from .command_base import TMCC1Command
-from .constants import TMCC1_COMMAND_PREFIX, DEFAULT_BAUDRATE, DEFAULT_PORT
-from .constants import TMCC1_HALT_COMMAND
+from src.protocol.tmcc1.tmcc1_command import TMCC1Command
+from src.protocol.constants import TMCC1_COMMAND_PREFIX, DEFAULT_BAUDRATE, DEFAULT_PORT
+from src.protocol.constants import TMCC1_HALT_COMMAND
 
 
 class HaltCmd(TMCC1Command):
@@ -8,7 +8,7 @@ class HaltCmd(TMCC1Command):
         Issue TMCC1 Halt command; stops all engines in motion
     """
     def __init__(self, baudrate: int = DEFAULT_BAUDRATE, port: str = DEFAULT_PORT) -> None:
-        TMCC1Command.__init__(self, baudrate, port)
+        super().__init__(baudrate, port)
         self._command = self._build_command()
 
     def _build_command(self) -> bytes:

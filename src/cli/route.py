@@ -4,7 +4,7 @@ import argparse
 
 from src.cli.cli_base import CliBase
 from src.cli.cli_base import cli_parser_factory
-from src.protocol.route_cmd import RouteCmd
+from src.protocol.tmcc1.route_cmd import RouteCmd
 
 
 class RouteCli(CliBase):
