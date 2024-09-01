@@ -1,14 +1,16 @@
 import abc
+from abc import ABC
 
 import serial
 from serial.serialutil import SerialException
 
+from src.protocol.constants import TMCC1_COMMAND_PREFIX, TMCC2CommandScope
 
-class CommandBase:
+
+class CommandBase(ABC):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
-        self._is_legacy_cmd = None  # set value once we know what kind of command we have
+    def __init__(self, command_scope: TMCC2CommandScope, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
         self._command = None  # provided by _build_command method in subclasses
         # validate baudrate
         if baudrate is None or baudrate < 110 or baudrate > 115000 or not isinstance(baudrate, int):
@@ -18,14 +20,6 @@ class CommandBase:
         if port is None:
             raise ValueError("port cannot be None")
         self._port = port
-
-    @property
-    def is_legacy_cmd(self) -> bool:
-        return bool(self._is_legacy_cmd)
-
-    @property
-    def is_tmcc1_cmd(self) -> bool:
-        return self._is_legacy_cmd is not None and self._is_legacy_cmd is False
 
     @property
     def port(self) -> str:
@@ -38,6 +32,10 @@ class CommandBase:
     @property
     def command_bytes(self) -> bytes:
         return self._command
+
+    @property
+    def command_prefix(self) -> bytes:
+        return self._command_prefix()
 
     def fire(self) -> None:
         try:
@@ -52,6 +50,44 @@ class CommandBase:
             # Write the byte sequence
             ser.write(cmd)
 
+    @staticmethod
+    def _encode_command(command: int, num_bytes: int = 2) -> bytes:
+        return command.to_bytes(num_bytes, byteorder='big')
+
     @abc.abstractmethod
     def _build_command(self) -> bytes | None:
         return None
+
+    @abc.abstractmethod
+    def _command_prefix(self) -> bytes | None:
+        return None
+
+    @abc.abstractmethod
+    def _encode_address(self, address: int, command_op: int) -> bytes | None:
+        return None
+
+
+class TMCC1Command(CommandBase, ABC):
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
+        CommandBase.__init__(self, baudrate, port)
+
+    def _encode_address(self, address: int, command_op: int) -> bytes:
+        return self._encode_command((address << 7) | command_op)
+
+    def _command_prefix(self) -> bytes:
+        return TMCC1_COMMAND_PREFIX
+
+
+class TMCC2Command(CommandBase, ABC):
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
+        CommandBase.__init__(self, baudrate, port)
+
+    def _encode_address(self, address: int, command_op: int) -> bytes:
+        return self._encode_command((address << 1) | command_op)
+
+    def _command_prefix(self) -> bytes:
+        return TMCC1_COMMAND_PREFIX
