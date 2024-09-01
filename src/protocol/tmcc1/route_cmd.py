@@ -3,12 +3,6 @@ from ..constants import TMCC1_ROUTE_COMMAND
 
 
 class RouteCmd(TMCC1Command):
-    def _encode_address(self, address: int, command_op: int) -> bytes | None:
-        pass
-
-    def _command_prefix(self) -> bytes | None:
-        pass
-
     def __init__(self, route: int, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
         super().__init__(baudrate, port)
         if route < 1 or route > 99:

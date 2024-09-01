@@ -9,7 +9,7 @@ class TMCC1Command(CommandBase, ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
-        super().__init__(self, baudrate, port)
+        super().__init__(baudrate, port)
 
     def _encode_address(self, address: int, command_op: int) -> bytes:
         return self._encode_command((address << 7) | command_op)
