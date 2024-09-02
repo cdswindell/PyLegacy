@@ -2,12 +2,12 @@
 #
 import argparse
 
-from src.cli.cli_base import CliBaseTMCC, tmcc1_cli_parser_factory
+from src.cli.cli_base import CliBase, cli_parser_factory
 from src.protocol.constants import AuxChoice, AuxOption
 from src.protocol.tmcc1.acc_cmd import AccCmd as AccCmdTMCC1
 
 
-class AccCli(CliBaseTMCC):
+class AccCli(CliBase):
     """
         Issue Accessory Commands.
 
@@ -20,19 +20,18 @@ class AccCli(CliBaseTMCC):
         self._choice = self._args.choice
         self._option = self._args.option
         try:
-            if self.use_tmcc1_format:
-                AccCmdTMCC1(self._acc, self._choice, self._option,
-                            baudrate=self._args.baudrate, port=self._args.port).fire()
+            AccCmdTMCC1(self._acc, self._choice, self._option,
+                        baudrate=self._args.baudrate, port=self._args.port).fire()
         except ValueError as ve:
             print(ve)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("Fire specified accessory (1 - 99)",
-                                     parents=[tmcc1_cli_parser_factory()])
+                                     parents=[cli_parser_factory()])
     parser.add_argument("acc", metavar='Accessory Number', type=int, help="accessory to fire")
 
-    aux_group = parser.add_mutually_exclusive_group()
+    aux_group = parser.add_mutually_exclusive_group(required=True)
     aux_group.add_argument("-aux1", "--aux1", action="store_const", const=AuxChoice.AUX1, dest='choice',
                            help="Aux 1")
     aux_group.add_argument("-aux2", "--aux2", action="store_const", const=AuxChoice.AUX2, dest='choice',
