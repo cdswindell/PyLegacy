@@ -32,6 +32,11 @@ class CliBaseTMCC(CliBase):
     def use_tmcc2_format(self) -> bool:
         return self._command_format == CommandFormat.TMCC2
 
+    @property
+    def is_train_command(self) -> bool:
+        if 'train' in self._args:
+            return bool(self._args.train)
+
 
 def cli_parser() -> argparse.ArgumentParser:
     """

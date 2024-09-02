@@ -12,11 +12,11 @@ class HaltCli(CliBaseTMCC):
     def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
         super().__init__(arg_parser)
         try:
-            if self.use_tmcc1_format:
-                HaltCmdTMCC1(baudrate=self._args.baudrate, port=self._args.port).fire()
-            else:
+            if self.is_train_command or self.use_tmcc2_format:
                 scope = TMCC2CommandScope.TRAIN if self._args.train else TMCC2CommandScope.ENGINE
                 HaltCmdTMCC2(scope=scope, baudrate=self._args.baudrate, port=self._args.port).fire()
+            else:
+                HaltCmdTMCC1(baudrate=self._args.baudrate, port=self._args.port).fire()
         except ValueError as ve:
             print(ve)
 
