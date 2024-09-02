@@ -43,7 +43,6 @@ class CommandBase(ABC):
 
     def queue_cmd(self, cmd: bytes) -> None:
         print(f"Fire command {cmd.hex()}")
-
         with serial.Serial(self.port, self.baudrate) as ser:
             # Write the byte sequence
             ser.write(cmd)
@@ -63,5 +62,3 @@ class CommandBase(ABC):
     @abc.abstractmethod
     def _encode_address(self, address: int, command_op: int) -> bytes | None:
         return None
-
-

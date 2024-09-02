@@ -2,22 +2,25 @@
 #
 import argparse
 
-from src.cli.cli_base import cli_parser_factory, CliBase
-from src.protocol.tmcc1.halt_cmd import HaltCmd
+from src.cli.cli_base import tmcc1_cli_parser_factory, CliBaseTMCC
+from src.protocol.constants import CommandFormat
+from src.protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
+from src.protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
 
 
-class HaltCli(CliBase):
+class HaltCli(CliBaseTMCC):
     def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
         super().__init__(arg_parser)
         try:
-            HaltCmd(baudrate=self.args.baudrate, port=self.args.port).fire()
+            if self.use_tmcc1_format:
+                HaltCmdTMCC1(baudrate=self._args.baudrate, port=self._args.port).fire()
+            else:
+                HaltCmdTMCC2(baudrate=self._args.baudrate, port=self._args.port).fire()
         except ValueError as ve:
             print(ve)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Fire specified base_sh (1 - 99)",
-                                     parents=[cli_parser_factory()])
-
-    args = parser.parse_args()
+    parser = argparse.ArgumentParser("Emergency halt; stop all trains",
+                                     parents=[tmcc1_cli_parser_factory(CommandFormat.TMCC1)])
     HaltCli(parser)

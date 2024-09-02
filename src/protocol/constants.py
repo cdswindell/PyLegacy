@@ -34,6 +34,12 @@ class TMCC2CommandScope(Enum):
     EXTENDED = 4
 
 
+@verify(UNIQUE)
+class CommandFormat(Enum):
+    TMCC1 = 1
+    TMCC2 = 2
+
+
 """
     General Constants
 """
@@ -72,6 +78,7 @@ TMCC2_STALL_COMMAND: int = 0x00F8
 TMCC2_STOP_IMMEDIATE_COMMAND: int = 0x00FB
 
 # TMCC2 Commands with Bit 9 = "1"
+LEGACY_HALT_COMMAND: int = 0x01AB
 
 LEGACY_PARAMETER_COMMAND_PREFIX: bytes = int(0xFB).to_bytes(1, 'big')
 
