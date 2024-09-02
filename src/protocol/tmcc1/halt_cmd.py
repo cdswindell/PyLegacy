@@ -1,5 +1,5 @@
 from src.protocol.tmcc1.tmcc1_command import TMCC1Command
-from src.protocol.constants import TMCC1_COMMAND_PREFIX, DEFAULT_BAUDRATE, DEFAULT_PORT
+from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
 from src.protocol.constants import TMCC1_HALT_COMMAND
 
 
