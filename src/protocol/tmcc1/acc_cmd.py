@@ -17,4 +17,9 @@ class AccCmd(TMCC1Command):
         self._command = self._build_command()
 
     def _build_command(self) -> bytes:
-        return self.command_prefix + self._encode_address(self._acc, TMCC1_ACC_CHOICE_MAP[self._choice][self._option])
+        choices = TMCC1_ACC_CHOICE_MAP[self._choice]
+        if isinstance(choices, int):
+            choice = int(choices)
+        else:
+            choice = choices[self._option]
+        return self.command_prefix + self._encode_address(self._acc, choice)

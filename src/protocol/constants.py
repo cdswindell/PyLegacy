@@ -1,5 +1,5 @@
 from enum import Enum, verify, UNIQUE
-from typing import Dict
+from typing import Dict, Union
 
 
 @verify(UNIQUE)
@@ -9,6 +9,7 @@ class SwitchState(Enum):
     """
     THROUGH = 1
     OUT = 2
+    SET_ADDRESS = 3
 
     @classmethod
     def by_name(cls, name: str) -> Enum | None:
@@ -45,6 +46,9 @@ class CommandFormat(Enum):
 class AuxChoice(Enum):
     AUX1 = 1
     AUX2 = 2
+    ON = 3
+    OFF = 4
+    SET_ADDRESS = 5
 
 
 class AuxOption(Enum):
@@ -67,9 +71,16 @@ DEFAULT_PORT: str = "/dev/ttyUSB0"
 TMCC1_COMMAND_PREFIX: bytes = int(0xFE).to_bytes(1, 'big')
 
 TMCC1_HALT_COMMAND: int = 0xFFFF
+
 TMCC1_ROUTE_COMMAND: int = 0xD01F
+
 TMCC1_SWITCH_THROUGH_COMMAND: int = 0x4000
 TMCC1_SWITCH_OUT_COMMAND: int = 0x401F
+TMCC1_SWITCH_SET_ADDRESS_COMMAND: int = 0x402B
+
+TMCC1_ACC_ON_COMMAND: int = 0x802F
+TMCC1_ACC_OFF_COMMAND: int = 0x8020
+TMCC1_ACC_SET_ADDRESS_COMMAND: int = 0x802B
 
 TMCC1_ACC_AUX_1_OFF_COMMAND: int = 0x8008
 TMCC1_ACC_AUX_1_OPTION_1_COMMAND: int = 0x8009  # Cab1 Aux1 button
@@ -98,9 +109,12 @@ TMCC1_ACC_AUX_2_OPTIONS_MAP: Dict[AuxOption, int] = {
     AuxOption.OPTION2: TMCC1_ACC_AUX_2_OPTION_2_COMMAND,
 }
 
-TMCC1_ACC_CHOICE_MAP: Dict[AuxChoice, Dict[AuxOption, int]] = {
+TMCC1_ACC_CHOICE_MAP: Dict[AuxChoice, Union[int, Dict[AuxOption, int]]] = {
     AuxChoice.AUX1: TMCC1_ACC_AUX_1_OPTIONS_MAP,
     AuxChoice.AUX2: TMCC1_ACC_AUX_2_OPTIONS_MAP,
+    AuxChoice.ON: TMCC1_ACC_ON_COMMAND,
+    AuxChoice.OFF: TMCC1_ACC_OFF_COMMAND,
+    AuxChoice.SET_ADDRESS: TMCC1_ACC_SET_ADDRESS_COMMAND,
 }
 
 """

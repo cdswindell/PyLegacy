@@ -1,5 +1,5 @@
 from .tmcc1_command import TMCC1Command
-from ..constants import SwitchState, DEFAULT_BAUDRATE, DEFAULT_PORT
+from ..constants import SwitchState, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCC1_SWITCH_SET_ADDRESS_COMMAND
 from ..constants import TMCC1_SWITCH_THROUGH_COMMAND, TMCC1_SWITCH_OUT_COMMAND
 
 
@@ -18,5 +18,7 @@ class SwitchCmd(TMCC1Command):
     def _build_command(self) -> bytes:
         if self._state == SwitchState.OUT:
             return self.command_prefix + self._encode_address(self._switch, TMCC1_SWITCH_OUT_COMMAND)
+        if self._state == SwitchState.SET_ADDRESS:
+            return self.command_prefix + self._encode_address(self._switch, TMCC1_SWITCH_SET_ADDRESS_COMMAND)
         else:
             return self.command_prefix + self._encode_address(self._switch, TMCC1_SWITCH_THROUGH_COMMAND)
