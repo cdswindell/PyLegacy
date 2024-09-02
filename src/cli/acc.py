@@ -32,9 +32,9 @@ if __name__ == '__main__':
     parser.add_argument("acc", metavar='Accessory Number', type=int, help="accessory to fire")
 
     aux_group = parser.add_mutually_exclusive_group(required=True)
-    aux_group.add_argument("-aux1", "--aux1", action="store_const", const=AuxChoice.AUX1, dest='choice',
+    aux_group.add_argument("-a1", "--aux1", action="store_const", const=AuxChoice.AUX1, dest='choice',
                            help="Aux 1")
-    aux_group.add_argument("-aux2", "--aux2", action="store_const", const=AuxChoice.AUX2, dest='choice',
+    aux_group.add_argument("-a2", "--aux2", action="store_const", const=AuxChoice.AUX2, dest='choice',
                            help="Aux 2")
 
     option_group = parser.add_mutually_exclusive_group()
@@ -42,9 +42,9 @@ if __name__ == '__main__':
                               help="On")
     option_group.add_argument("-off", "--off", action="store_const", const=AuxOption.OFF, dest='option',
                               help="Off")
-    option_group.add_argument("-1", "--option1", action="store_const", const=AuxOption.OPTION1, dest='option',
+    option_group.add_argument("-o1", "--option1", action="store_const", const=AuxOption.OPTION1, dest='option',
                               help="Option 1 (Aux 1/Aux 2 button")
-    option_group.add_argument("-2", "--option2", action="store_const", const=AuxOption.OPTION2, dest='option',
+    option_group.add_argument("-o2", "--option2", action="store_const", const=AuxOption.OPTION2, dest='option',
                               help="Off")
     option_group.set_defaults(option=AuxOption.OPTION1)
 

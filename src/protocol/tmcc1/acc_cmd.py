@@ -1,5 +1,5 @@
 from .tmcc1_command import TMCC1Command
-from ..constants import AuxChoice, AuxOption, DEFAULT_BAUDRATE, DEFAULT_PORT
+from ..constants import AuxChoice, AuxOption, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCC1_ACC_CHOICE_MAP
 
 
 class AccCmd(TMCC1Command):
@@ -17,4 +17,4 @@ class AccCmd(TMCC1Command):
         self._command = self._build_command()
 
     def _build_command(self) -> bytes:
-        return self.command_prefix
+        return self.command_prefix + self._encode_address(self._acc, TMCC1_ACC_CHOICE_MAP[self._choice][self._option])
