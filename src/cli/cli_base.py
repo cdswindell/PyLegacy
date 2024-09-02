@@ -11,6 +11,7 @@ class CliBase(ABC):
     def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
         self._args = arg_parser.parse_args()
         self._command_format = CommandFormat.TMCC2  # Use TMCC2-style commands by default, if supported
+        print(self._args)
 
 
 class CliBaseTMCC(CliBase):
@@ -32,7 +33,7 @@ class CliBaseTMCC(CliBase):
         return self._command_format == CommandFormat.TMCC2
 
 
-def cli_parser_factory() -> argparse.ArgumentParser:
+def cli_parser() -> argparse.ArgumentParser:
     """
         Add options common to all CLI commands here. Command handlers
         can inherit from this parser to add other command-specific options.
@@ -47,11 +48,11 @@ def cli_parser_factory() -> argparse.ArgumentParser:
     return parser
 
 
-def tmcc1_cli_parser_factory(default: CommandFormat = CommandFormat.TMCC2) -> argparse.ArgumentParser:
+def tmcc1_cli_parser(default: CommandFormat = CommandFormat.TMCC2) -> argparse.ArgumentParser:
     """
         Add option to run command using TMCC1 command syntax
     """
-    parser = cli_parser_factory()
+    parser = argparse.ArgumentParser(add_help=False)
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-tmcc", "--tmcc1",
                        action="store_const",
@@ -65,4 +66,16 @@ def tmcc1_cli_parser_factory(default: CommandFormat = CommandFormat.TMCC2) -> ar
                        help="Use TMCC2/Legacy command syntax.")
     group.set_defaults(format=default)
 
+    return parser
+
+
+def train_cli_parser() -> argparse.ArgumentParser:
+    """
+        Add option to run command TMCC2 command as train rather than engine
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("-t", "--train",
+                        action="store_const",
+                        const=True,
+                        help="Direct command to addressed train rather than engine (for TMCC2 commands)")
     return parser

@@ -2,7 +2,7 @@ import abc
 from abc import ABC
 
 from ..command_base import CommandBase
-from ..constants import TMCC2CommandScope, TMCC2_COMMAND_SCOPE_TO_COMMAND_PREFIX
+from ..constants import TMCC2CommandScope
 
 
 class TMCC2Command(CommandBase, ABC):
@@ -16,4 +16,4 @@ class TMCC2Command(CommandBase, ABC):
         return self._encode_command((address << 9) | command_op)
 
     def _command_prefix(self) -> bytes:
-        return TMCC2_COMMAND_SCOPE_TO_COMMAND_PREFIX[self._command_scope]
+        return self._command_scope.to_bytes(1, byteorder='big')

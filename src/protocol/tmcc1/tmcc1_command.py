@@ -15,4 +15,4 @@ class TMCC1Command(CommandBase, ABC):
         return self._encode_command((address << 7) | command_op)
 
     def _command_prefix(self) -> bytes:
-        return TMCC1_COMMAND_PREFIX
+        return TMCC1_COMMAND_PREFIX.to_bytes(1, 'big')

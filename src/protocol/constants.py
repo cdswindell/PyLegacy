@@ -1,4 +1,4 @@
-from enum import Enum, verify, UNIQUE
+from enum import Enum, verify, UNIQUE, IntFlag
 from typing import Dict, Union
 
 
@@ -29,14 +29,6 @@ class SwitchState(Enum):
 
 
 @verify(UNIQUE)
-class TMCC2CommandScope(Enum):
-    ENGINE = 1
-    TRAIN = 2
-    PARAMETER = 3
-    EXTENDED = 4
-
-
-@verify(UNIQUE)
 class CommandFormat(Enum):
     TMCC1 = 1
     TMCC2 = 2
@@ -51,6 +43,7 @@ class AuxChoice(Enum):
     SET_ADDRESS = 5
 
 
+@verify(UNIQUE)
 class AuxOption(Enum):
     ON = 1
     OFF = 2
@@ -68,7 +61,7 @@ DEFAULT_PORT: str = "/dev/ttyUSB0"
 """
     TMCC1 Protocol Constants
 """
-TMCC1_COMMAND_PREFIX: bytes = int(0xFE).to_bytes(1, 'big')
+TMCC1_COMMAND_PREFIX: int = 0xFE
 
 TMCC1_HALT_COMMAND: int = 0xFFFF
 
@@ -120,12 +113,12 @@ TMCC1_ACC_CHOICE_MAP: Dict[AuxChoice, Union[int, Dict[AuxOption, int]]] = {
 """
     Legacy/TMCC2 Protocol Constants
 """
-LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: bytes = int(0xFA).to_bytes(1, 'big')
+LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: int = 0xFA
 LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 # Engine/Train 2 digit address are first 7 bits of first byte
-LEGACY_ENGINE_COMMAND_PREFIX: bytes = int(0xF8).to_bytes(1, 'big')
-LEGACY_TRAIN_COMMAND_PREFIX: bytes = int(0xF9).to_bytes(1, 'big')
+LEGACY_ENGINE_COMMAND_PREFIX: int = 0xF8
+LEGACY_TRAIN_COMMAND_PREFIX: int = 0xF9
 
 # TMCC2 Commands with Bit 9 = "0"
 TMCC2_SET_ABSOLUTE_SPEED_COMMAND: int = 0x0000  # encode speed in last byte (0 - 199)
@@ -137,16 +130,30 @@ TMCC2_STALL_COMMAND: int = 0x00F8
 TMCC2_STOP_IMMEDIATE_COMMAND: int = 0x00FB
 
 # TMCC2 Commands with Bit 9 = "1"
-LEGACY_HALT_COMMAND: int = 0x01AB
+TMCC2_HALT_COMMAND: int = 0x01AB
+TMCC2_BELL_OFF_COMMAND: int = 0x01F4
+TMCC2_BELL_ON_COMMAND: int = 0x01F5
 
-LEGACY_PARAMETER_COMMAND_PREFIX: bytes = int(0xFB).to_bytes(1, 'big')
+LEGACY_PARAMETER_COMMAND_PREFIX: int = 0xFB
 
-"""
-    map TMCC2CommandScope to command prefixes
-"""
-TMCC2_COMMAND_SCOPE_TO_COMMAND_PREFIX: Dict[TMCC2CommandScope, bytes] = {
-    TMCC2CommandScope.ENGINE: LEGACY_ENGINE_COMMAND_PREFIX,
-    TMCC2CommandScope.TRAIN: LEGACY_TRAIN_COMMAND_PREFIX,
-    TMCC2CommandScope.PARAMETER: LEGACY_PARAMETER_COMMAND_PREFIX,
-    TMCC2CommandScope.EXTENDED: LEGACY_ENGINE_COMMAND_PREFIX
-}
+
+@verify(UNIQUE)
+class TMCC2CommandScope(IntFlag):
+    ENGINE = LEGACY_ENGINE_COMMAND_PREFIX
+    TRAIN = LEGACY_TRAIN_COMMAND_PREFIX
+    PARAMETER = LEGACY_PARAMETER_COMMAND_PREFIX
+    EXTENDED = LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX
+
+
+@verify(UNIQUE)
+class EngineOption(IntFlag):
+    ABSOLUTE_SPEED = TMCC2_SET_ABSOLUTE_SPEED_COMMAND
+    MOMENTUM = TMCC2_SET_MOMENTUM_COMMAND
+    BRAKE_LEVEL = TMCC2_SET_BRAKE_COMMAND
+    BOOST_LEVEL = TMCC2_SET_BOOST_COMMAND
+    TRAIN_BRAKE = TMCC2_SET_TRAIN_BRAKE_COMMAND
+    SET_STALL = TMCC2_STALL_COMMAND
+    STOP_IMMEDIATE = TMCC2_STOP_IMMEDIATE_COMMAND
+    SYSTEM_HALT = TMCC2_HALT_COMMAND
+    BELL_OFF = TMCC2_BELL_OFF_COMMAND
+    BELL_ON_COMMAND = TMCC2_BELL_ON_COMMAND

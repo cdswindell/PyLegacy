@@ -2,7 +2,7 @@
 #
 import argparse
 
-from src.cli.cli_base import CliBase, cli_parser_factory
+from src.cli.cli_base import CliBase, cli_parser
 from src.protocol.constants import AuxChoice, AuxOption
 from src.protocol.tmcc1.acc_cmd import AccCmd as AccCmdTMCC1
 
@@ -28,7 +28,7 @@ class AccCli(CliBase):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("Fire specified accessory (1 - 99)",
-                                     parents=[cli_parser_factory()])
+                                     parents=[cli_parser()])
     parser.add_argument("acc", metavar='Accessory Number', type=int, help="accessory to fire")
 
     aux_group = parser.add_mutually_exclusive_group(required=True)

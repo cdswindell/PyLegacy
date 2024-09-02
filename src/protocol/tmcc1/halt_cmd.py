@@ -12,4 +12,4 @@ class HaltCmd(TMCC1Command):
         self._command = self._build_command()
 
     def _build_command(self) -> bytes:
-        return TMCC1_COMMAND_PREFIX + self._encode_command(TMCC1_HALT_COMMAND)
+        return self.command_prefix + self._encode_command(TMCC1_HALT_COMMAND)

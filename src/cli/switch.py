@@ -2,7 +2,7 @@
 #
 import argparse
 
-from src.cli.cli_base import CliBase, cli_parser_factory
+from src.cli.cli_base import CliBase, cli_parser
 from src.protocol.constants import SwitchState
 from src.protocol.tmcc1.switch_cmd import SwitchCmd
 
@@ -24,7 +24,7 @@ class SwitchCli(CliBase):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Fire specified switch (1 - 99)", parents=[cli_parser_factory()])
+    parser = argparse.ArgumentParser("Fire specified switch (1 - 99)", parents=[cli_parser()])
     parser.add_argument("switch", metavar='Switch Number', type=int, help="switch to fire")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-t", "--through",
