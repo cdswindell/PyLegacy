@@ -40,6 +40,20 @@ class CommandFormat(Enum):
     TMCC2 = 2
 
 
+@verify(UNIQUE)
+class AuxChoice(Enum):
+    AUX1 = 1
+    AUX2 = 2
+
+
+class AuxOption(Enum):
+    ON = 1
+    OFF = 2
+    OPTION1 = 3
+    OPTION2 = 4
+    NUMERIC = 5
+
+
 """
     General Constants
 """
