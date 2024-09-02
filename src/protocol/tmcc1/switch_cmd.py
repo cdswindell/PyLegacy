@@ -17,8 +17,9 @@ class SwitchCmd(TMCC1Command):
 
     def _build_command(self) -> bytes:
         if self._state == SwitchState.OUT:
-            return self.command_prefix + self._encode_address(self._switch, TMCC1_SWITCH_OUT_COMMAND)
-        if self._state == SwitchState.SET_ADDRESS:
-            return self.command_prefix + self._encode_address(self._switch, TMCC1_SWITCH_SET_ADDRESS_COMMAND)
+            cmd = TMCC1_SWITCH_OUT_COMMAND
+        elif self._state == SwitchState.SET_ADDRESS:
+            cmd = TMCC1_SWITCH_SET_ADDRESS_COMMAND
         else:
-            return self.command_prefix + self._encode_address(self._switch, TMCC1_SWITCH_THROUGH_COMMAND)
+            cmd = TMCC1_SWITCH_THROUGH_COMMAND
+        return self.command_prefix + self._encode_address(self._switch, cmd)
