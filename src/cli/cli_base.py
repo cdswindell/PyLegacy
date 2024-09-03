@@ -108,7 +108,7 @@ def train_parser() -> argparse.ArgumentParser:
         Add option to run command TMCC2 command as train rather than engine
     """
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("-t", "--train",
+    parser.add_argument("-tr", "--train",
                         action="store_const",
                         const=True,
                         help="Direct command to addressed train rather than engine (for TMCC2 commands)")

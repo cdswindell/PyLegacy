@@ -58,7 +58,7 @@ if __name__ == '__main__':
                      dest='option',
                      help="Set reverse direction")
 
-    ops.add_argument("-tgl", "--toggle_direction",
+    ops.add_argument("-t", "--toggle_direction",
                      action="store_const",
                      const='TOGGLE_DIRECTION',
                      dest='option',
