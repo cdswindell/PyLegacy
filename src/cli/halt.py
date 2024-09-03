@@ -22,9 +22,9 @@ class HaltCli(CliBaseTMCC):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Emergency halt; stop all trains",
-                                     parents=[cli_parser(),
-                                              train_parser(),
+    parser = argparse.ArgumentParser("Emergency halt; stop all engines and trains",
+                                     parents=[train_parser(),
                                               command_format_parser(CommandFormat.TMCC1),
+                                              cli_parser()
                                               ])
     HaltCli(parser)

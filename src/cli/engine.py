@@ -2,8 +2,7 @@
 #
 import argparse
 
-from src.cli.cli_base import CliBaseTMCC, cli_parser
-from src.cli.cli_base import command_format_parser
+from src.cli.cli_base import CliBaseTMCC, cli_parser, command_format_parser, train_parser
 from src.protocol.constants import EngineOption, TMCC1EngineOption, TMCC2EngineOption
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
@@ -37,6 +36,6 @@ class EngineCli(CliBaseTMCC):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("Fire specified route (1 - 99)",
-                                     parents=[cli_parser(), command_format_parser()])
-    parser.add_argument("engine", metavar='Train/Engine', type=int, help="route to fire")
+                                     parents=[train_parser(), command_format_parser(), cli_parser()])
+    parser.add_argument("engine", metavar='Engine/Train', type=int, help="Engine/Train to control")
     EngineCli(parser)
