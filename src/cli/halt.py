@@ -3,7 +3,7 @@
 import argparse
 
 from src.cli.cli_base import command_format_parser, CliBaseTMCC, train_parser, cli_parser
-from src.protocol.constants import CommandFormat, TMCC2CommandScope
+from src.protocol.constants import CommandFormat
 from src.protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
 from src.protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
 
@@ -13,7 +13,7 @@ class HaltCli(CliBaseTMCC):
         super().__init__(arg_parser)
         try:
             if self.is_train_command or self.use_tmcc2_format:
-                scope = TMCC2CommandScope.TRAIN if self._args.train else TMCC2CommandScope.ENGINE
+                scope = self._determine_scope()
                 HaltCmdTMCC2(scope=scope, baudrate=self._args.baudrate, port=self._args.port).fire()
             else:
                 HaltCmdTMCC1(baudrate=self._args.baudrate, port=self._args.port).fire()

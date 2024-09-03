@@ -2,7 +2,7 @@ import argparse
 import abc
 from abc import ABC
 
-from src.protocol.constants import CommandFormat, DEFAULT_BAUDRATE, DEFAULT_PORT
+from src.protocol.constants import CommandFormat, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCC2CommandScope
 
 
 class CliBase(ABC):
@@ -12,6 +12,9 @@ class CliBase(ABC):
         self._args = arg_parser.parse_args()
         self._command_format = CommandFormat.TMCC2  # Use TMCC2-style commands by default, if supported
         print(self._args)
+
+    def _determine_scope(self):
+        return TMCC2CommandScope.TRAIN if self._args.train else TMCC2CommandScope.ENGINE
 
 
 class CliBaseTMCC(CliBase):
