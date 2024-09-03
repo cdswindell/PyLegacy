@@ -12,7 +12,7 @@ class HaltCli(CliBaseTMCC):
     def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
         super().__init__(arg_parser)
         try:
-            if self.is_train_command or self.use_tmcc2_format:
+            if self.is_train_command or self.is_tmcc2:
                 scope = self._determine_scope()
                 HaltCmdTMCC2(scope=scope, baudrate=self._args.baudrate, port=self._args.port).fire()
             else:

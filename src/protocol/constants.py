@@ -214,7 +214,9 @@ class EngineOptionEnum:
     def num_data_bits(self) -> int:
         return self._d_bits
 
-    def apply_data(self, data: int = 0) -> int:
+    def apply_data(self, data: int | None = None) -> int:
+        if self._d_bits and data is None:
+            raise ValueError("Data is required")
         if self._d_bits == 0:
             return self.command
         elif self._d_map:
@@ -236,7 +238,13 @@ class EngineOption(ByNameMixin):
         Marker Interface to allow TMCC1EngineOption and TMCC2EngineOption enums
         to be handled by engine commands
     """
-    pass
+    @classmethod
+    def _missing_(cls, value):
+        if type(value) is str:
+            value = str(value).upper()
+            if value in dir(cls):
+                return cls[value]
+            raise ValueError(f"{value} is not a valid {cls.__name__}")
 
 
 @verify(UNIQUE)
@@ -284,4 +292,4 @@ class TMCC2EngineOption(EngineOption, Enum):
     STOP_IMMEDIATE = EngineOptionEnum(TMCC2_STOP_IMMEDIATE_COMMAND)
     SYSTEM_HALT = EngineOptionEnum(TMCC2_HALT_COMMAND)
     BELL_OFF = EngineOptionEnum(TMCC2_BELL_OFF_COMMAND)
-    BELL_ON_COMMAND = EngineOptionEnum(TMCC2_BELL_ON_COMMAND)
+    BELL_ON = EngineOptionEnum(TMCC2_BELL_ON_COMMAND)

@@ -13,7 +13,7 @@ class RouteCli(CliBaseTMCC):
         super().__init__(arg_parser)
         self.route = self._args.route
         try:
-            if self.use_tmcc1_format:
+            if self.is_tmcc1:
                 RouteCmdTMCC1(self.route, baudrate=self._args.baudrate, port=self._args.port).fire()
             else:
                 RouteCmdTMCC2(self.route, baudrate=self._args.baudrate, port=self._args.port).fire()

@@ -2,7 +2,8 @@ import argparse
 import abc
 from abc import ABC
 
-from src.protocol.constants import CommandFormat, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCC2CommandScope
+from src.protocol.constants import CommandFormat, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCC2CommandScope, EngineOption, \
+    TMCC1EngineOption, TMCC2EngineOption
 
 
 class CliBase(ABC):
@@ -13,8 +14,38 @@ class CliBase(ABC):
         self._command_format = CommandFormat.TMCC2  # Use TMCC2-style commands by default, if supported
         print(self._args)
 
-    def _determine_scope(self):
-        return TMCC2CommandScope.TRAIN if self._args.train else TMCC2CommandScope.ENGINE
+    @property
+    def is_tmcc1(self) -> bool:
+        return self._command_format == CommandFormat.TMCC1
+
+    @property
+    def is_tmcc2(self) -> bool:
+        return self._command_format == CommandFormat.TMCC2
+
+    @property
+    def command_format(self) -> CommandFormat:
+        return self._command_format
+
+    def _decode_option(self) -> EngineOption | None:
+        """
+            Decode the 'option' argument, if present, into a valid
+            TMCC1EngineOption or TMCC2EngineOption enum. Use the specified
+            command format, if present, to help resolve, as the two enum
+            classes share element names
+        """
+        if 'option' not in self._args or self._args.option is None:
+            return None
+
+        # if scope is TMCC1, resolve via TMCC1EngineOption
+        option = self._args.option.strip().upper()
+        if self.is_tmcc1:
+            enum_class = TMCC1EngineOption
+        else:
+            enum_class = TMCC2EngineOption
+        if option in dir(enum_class):
+            return enum_class[option]
+        else:
+            raise ValueError(f'Invalid {self.command_format.name} option: {option}')
 
 
 class CliBaseTMCC(CliBase):
@@ -27,13 +58,8 @@ class CliBaseTMCC(CliBase):
         else:
             self._command_format = CommandFormat.TMCC2
 
-    @property
-    def use_tmcc1_format(self) -> bool:
-        return self._command_format == CommandFormat.TMCC1
-
-    @property
-    def use_tmcc2_format(self) -> bool:
-        return self._command_format == CommandFormat.TMCC2
+    def _determine_scope(self):
+        return TMCC2CommandScope.TRAIN if self._args.train else TMCC2CommandScope.ENGINE
 
     @property
     def is_train_command(self) -> bool:
@@ -49,7 +75,7 @@ def cli_parser() -> argparse.ArgumentParser:
     # define arguments common to all Legacy CLI commands
     parser = argparse.ArgumentParser(add_help=False)
 
-    parser.add_argument('-b', '--baudrate', action='store',
+    parser.add_argument('-baud', '--baudrate', action='store',
                         type=int, default=DEFAULT_BAUDRATE, help=f"Baud Rate ({DEFAULT_BAUDRATE})")
     parser.add_argument('-p', '--port', action='store',
                         default=DEFAULT_PORT, help=f"Serial Port ({DEFAULT_PORT})")
