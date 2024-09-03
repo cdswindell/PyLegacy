@@ -10,8 +10,7 @@ class AccCmd(TMCC1Command):
                  port: str = DEFAULT_PORT) -> None:
         if acc < 1 or acc > 99:
             raise ValueError("Accessory must be between 1 and 99")
-        super().__init__(baudrate, port)
-        self._acc = acc
+        super().__init__(acc, baudrate, port)
         self._choice = choice
         self._option = option
         self._command = self._build_command()
@@ -22,4 +21,4 @@ class AccCmd(TMCC1Command):
             choice = int(choices)
         else:
             choice = choices[self._option]
-        return self.command_prefix + self._encode_address(self._acc, choice)
+        return self.command_prefix + self._encode_address(choice)

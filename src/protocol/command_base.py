@@ -4,11 +4,17 @@ from abc import ABC
 import serial
 from serial.serialutil import SerialException
 
+from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+
 
 class CommandBase(ABC):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
+    def __init__(self,
+                 address: int,
+                 baudrate: int = DEFAULT_BAUDRATE,
+                 port: str = DEFAULT_PORT) -> None:
+        self._address = address
         self._command = None  # provided by _build_command method in subclasses
         # validate baudrate
         if baudrate is None or baudrate < 110 or baudrate > 115000 or not isinstance(baudrate, int):
@@ -18,6 +24,10 @@ class CommandBase(ABC):
         if port is None:
             raise ValueError("port cannot be None")
         self._port = port
+
+    @property
+    def address(self) -> int:
+        return self._address
 
     @property
     def port(self) -> str:
@@ -60,5 +70,5 @@ class CommandBase(ABC):
         return None
 
     @abc.abstractmethod
-    def _encode_address(self, address: int, command_op: int) -> bytes | None:
+    def _encode_address(self, command_op: int) -> bytes | None:
         return None

@@ -62,6 +62,7 @@ class AuxOption(ByNameMixin, Enum):
 """
 DEFAULT_BAUDRATE: int = 9600
 DEFAULT_PORT: str = "/dev/ttyUSB0"
+DEFAULT_ADDRESS: int = 99
 
 """
     TMCC1 Protocol Constants

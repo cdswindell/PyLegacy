@@ -10,8 +10,7 @@ class SwitchCmd(TMCC1Command):
                  port: str = DEFAULT_PORT) -> None:
         if switch < 1 or switch > 99:
             raise ValueError("Switch must be between 1 and 99")
-        super().__init__(baudrate, port)
-        self._switch = switch
+        super().__init__(switch, baudrate, port)
         self._state = state
         self._command = self._build_command()
 
@@ -22,4 +21,4 @@ class SwitchCmd(TMCC1Command):
             cmd = TMCC1_SWITCH_SET_ADDRESS_COMMAND
         else:
             cmd = TMCC1_SWITCH_THROUGH_COMMAND
-        return self.command_prefix + self._encode_address(self._switch, cmd)
+        return self.command_prefix + self._encode_address(cmd)
