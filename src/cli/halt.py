@@ -2,7 +2,7 @@
 #
 import argparse
 
-from src.cli.cli_base import tmcc1_cli_parser, CliBaseTMCC, train_cli_parser, cli_parser
+from src.cli.cli_base import command_format_parser, CliBaseTMCC, train_parser, cli_parser
 from src.protocol.constants import CommandFormat, TMCC2CommandScope
 from src.protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
 from src.protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
@@ -24,7 +24,7 @@ class HaltCli(CliBaseTMCC):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("Emergency halt; stop all trains",
                                      parents=[cli_parser(),
-                                              train_cli_parser(),
-                                              tmcc1_cli_parser(CommandFormat.TMCC1),
+                                              train_parser(),
+                                              command_format_parser(CommandFormat.TMCC1),
                                               ])
     HaltCli(parser)

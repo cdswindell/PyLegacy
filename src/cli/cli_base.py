@@ -53,7 +53,7 @@ def cli_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def tmcc1_cli_parser(default: CommandFormat = CommandFormat.TMCC2) -> argparse.ArgumentParser:
+def command_format_parser(default: CommandFormat = CommandFormat.TMCC2) -> argparse.ArgumentParser:
     """
         Add option to run command using TMCC1 command syntax
     """
@@ -74,7 +74,7 @@ def tmcc1_cli_parser(default: CommandFormat = CommandFormat.TMCC2) -> argparse.A
     return parser
 
 
-def train_cli_parser() -> argparse.ArgumentParser:
+def train_parser() -> argparse.ArgumentParser:
     """
         Add option to run command TMCC2 command as train rather than engine
     """
