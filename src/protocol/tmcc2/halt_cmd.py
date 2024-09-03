@@ -1,6 +1,5 @@
 from .tmcc2_command import TMCC2Command
-from ..constants import TMCC2CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
-from ..constants import TMCC2_HALT_COMMAND
+from ..constants import TMCC2_HALT_COMMAND, TMCC2CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 
 
 class HaltCmd(TMCC2Command):

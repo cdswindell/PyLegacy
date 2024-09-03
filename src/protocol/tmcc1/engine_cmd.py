@@ -1,5 +1,5 @@
-from ..constants import TMCC1EngineOption, DEFAULT_BAUDRATE, DEFAULT_PORT
 from .tmcc1_command import TMCC1Command
+from ..constants import TMCC1EngineOption, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
 class EngineCmd(TMCC1Command):

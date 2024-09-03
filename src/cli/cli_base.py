@@ -2,7 +2,7 @@ import argparse
 import abc
 from abc import ABC
 
-from src.protocol.constants import CommandFormat
+from src.protocol.constants import CommandFormat, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
 class CliBase(ABC):
@@ -47,9 +47,9 @@ def cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(add_help=False)
 
     parser.add_argument('-b', '--baudrate', action='store',
-                        type=int, default=9600, help='''Baud Rate (9600)''')
+                        type=int, default=DEFAULT_BAUDRATE, help=f"Baud Rate ({DEFAULT_BAUDRATE})")
     parser.add_argument('-p', '--port', action='store',
-                        default="/dev/ttyUSB0", help='''Serial Port (/dev/ttyUSB0)''')
+                        default=DEFAULT_PORT, help=f"Serial Port ({DEFAULT_PORT})")
     return parser
 
 

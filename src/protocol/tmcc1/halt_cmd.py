@@ -1,6 +1,5 @@
-from src.protocol.tmcc1.tmcc1_command import TMCC1Command
-from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
-from src.protocol.constants import TMCC1_HALT_COMMAND
+from .tmcc1_command import TMCC1Command
+from ..constants import TMCC1_HALT_COMMAND, DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 
 
 class HaltCmd(TMCC1Command):

@@ -1,9 +1,9 @@
 from .tmcc1_command import TMCC1Command
-from ..constants import TMCC1_ROUTE_COMMAND
+from ..constants import TMCC1_ROUTE_COMMAND, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
 class RouteCmd(TMCC1Command):
-    def __init__(self, route: int, baudrate: int = 9600, port: str = "/dev/ttyUSB0") -> None:
+    def __init__(self, route: int, baudrate: int = DEFAULT_BAUDRATE, port: str = DEFAULT_PORT) -> None:
         if route < 1 or route > 99:
             raise ValueError("Route must be between 1 and 99")
         super().__init__(route, baudrate, port)
