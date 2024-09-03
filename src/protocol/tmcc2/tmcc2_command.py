@@ -12,6 +12,10 @@ class TMCC2Command(CommandBase, ABC):
         super().__init__(baudrate, port)
         self._command_scope = command_scope
 
+    @property
+    def scope(self) -> TMCC2CommandScope:
+        return self._command_scope
+
     def _encode_address(self, address: int, command_op: int) -> bytes:
         return self._encode_command((address << 9) | command_op)
 
