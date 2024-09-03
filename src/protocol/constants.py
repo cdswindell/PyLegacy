@@ -4,7 +4,7 @@ from typing import Dict, Union
 
 class ByNameMixin(Enum):
     @classmethod
-    def by_name(cls, name: str) -> Enum | None:
+    def by_name(cls, name: str, raise_exception: bool = False) -> Enum | None:
         orig_name = name = name.strip()
         if name in cls.__members__:
             return cls[name]
@@ -14,6 +14,8 @@ class ByNameMixin(Enum):
             if k.lower() == name:
                 return v
         else:
+            if not raise_exception:
+                return None
             if name:
                 raise ValueError(f"'{orig_name}' is not a valid {cls.__name__}")
             else:
