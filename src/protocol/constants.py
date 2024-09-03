@@ -1,3 +1,4 @@
+import math
 from enum import Enum, verify, UNIQUE, IntFlag
 from typing import Dict, Union
 
@@ -156,6 +157,8 @@ LEGACY_PARAMETER_COMMAND_PREFIX: int = 0xFB
 LEGACY_ENGINE_COMMAND_PREFIX: int = 0xF8
 LEGACY_TRAIN_COMMAND_PREFIX: int = 0xF9
 
+RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
+
 
 @verify(UNIQUE)
 class TMCC2CommandScope(ByNameMixin, IntFlag):
@@ -187,6 +190,46 @@ TMCC2_BELL_ON_COMMAND: int = 0x01F5
 TMCC2_SET_RELATIVE_SPEED_COMMAND: int = 0x0140  # Relative Speed -5 - 5 encoded in last 4 bits (offset by 5)
 
 
+class EngineOptionEnum:
+    def __init__(self, command_op: int, d_min: int = 0, d_max: int = 0, d_map: Dict[int, int] = None) -> None:
+        self._command_op = command_op
+        self._d_min = d_min
+        self._d_max = d_max
+        self._d_map = d_map
+        self._d_bits = 0
+        if d_max:
+            self._d_bits = math.ceil(math.log2(d_max))
+        elif d_map is not None:
+            self._d_bits = math.ceil(math.log2(max(d_map.values())))
+
+    def __repr__(self) -> str:
+        return f"0x{self.command:04x}: {self.num_data_bits} data bits"
+
+    @property
+    def command(self) -> int:
+        return self._command_op
+
+    @property
+    def num_data_bits(self) -> int:
+        return self._d_bits
+
+    def apply_data(self, data: int = 0) -> int:
+        if self._d_bits == 0:
+            return self.command
+        elif self._d_map:
+            if data in self._d_map:
+                data = self._d_map[data]
+            else:
+                raise ValueError(f"Invalid data value: {data} (not in map)")
+        elif data < self._d_min or data > self._d_max:
+            raise ValueError(f"Invalid data value: {data} (not in range)")
+        # sanitize data so we don't set bits we shouldn't
+        filtered_data = data & (2 ** self._d_bits - 1)
+        if data != filtered_data:
+            raise ValueError(f"Invalid data value: {data} (not in range)")
+        return data | self._command_op
+
+
 class EngineOption(ByNameMixin):
     """
         Marker Interface to allow TMCC1EngineOption and TMCC2EngineOption enums
@@ -196,48 +239,48 @@ class EngineOption(ByNameMixin):
 
 
 @verify(UNIQUE)
-class TMCC1EngineOption(EngineOption, IntFlag):
-    ABSOLUTE_SPEED = TMCC1_ENG_ABSOLUTE_SPEED_COMMAND
-    RELATIVE_SPEED = TMCC1_ENG_RELATIVE_SPEED_COMMAND
-    FORWARD_DIRECTION = TMCC1_ENG_FORWARD_DIRECTION_COMMAND
-    TOGGLE_DIRECTION = TMCC1_ENG_TOGGLE_DIRECTION_COMMAND
-    REVERSE_DIRECTION = TMCC1_ENG_REVERSE_DIRECTION_COMMAND
-    BOOST_SPEED = TMCC1_ENG_BOOST_SPEED_COMMAND
-    BRAKE_SPEED = TMCC1_ENG_BRAKE_SPEED_COMMAND
-    OPEN_FRONT_COUPLER = TMCC1_ENG_OPEN_FRONT_COUPLER_COMMAND
-    OPEN_REAR_COUPLER = TMCC1_ENG_OPEN_REAR_COUPLER_COMMAND
-    BLOW_HORN_ONE = TMCC1_ENG_BLOW_HORN_ONE_COMMAND
-    BLOW_HORN_TWO = TMCC1_ENG_BLOW_HORN_TWO_COMMAND
-    RING_BELL = TMCC1_ENG_RING_BELL_COMMAND
-    LET_OFF_SOUND = TMCC1_ENG_LET_OFF_SOUND_COMMAND
-    AUX1_OFF = TMCC1_ENG_AUX1_OFF_COMMAND
-    AUX1_ON = TMCC1_ENG_AUX1_ON_COMMAND
-    AUX1_OPTION_ONE = TMCC1_ENG_AUX1_OPTION_ONE_COMMAND
-    AUX1_OPTION_TWO = TMCC1_ENG_AUX1_OPTION_TWO_COMMAND
-    AUX2_OFF = TMCC1_ENG_AUX2_OFF_COMMAND
-    AUX2_ON = TMCC1_ENG_AUX2_ON_COMMAND
-    AUX2_OPTION_ONE = TMCC1_ENG_AUX2_OPTION_ONE_COMMAND
-    AUX2_OPTION_TWO = TMCC1_ENG_AUX2_OPTION_TWO_COMMAND
-    SET_MOMENTUM_LOW = TMCC1_ENG_SET_MOMENTUM_LOW_COMMAND
-    SET_MOMENTUM_MEDIUM = TMCC1_ENG_SET_MOMENTUM_MEDIUM_COMMAND
-    SET_MOMENTUM_HIGH = TMCC1_ENG_SET_MOMENTUM_HIGH_COMMAND
-    SET_ADDRESS = TMCC1_ENG_SET_ADDRESS_COMMAND
+class TMCC1EngineOption(EngineOption, Enum):
+    ABSOLUTE_SPEED = EngineOptionEnum(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, d_max=31)
+    RELATIVE_SPEED = EngineOptionEnum(TMCC1_ENG_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
+    FORWARD_DIRECTION = EngineOptionEnum(TMCC1_ENG_FORWARD_DIRECTION_COMMAND)
+    TOGGLE_DIRECTION = EngineOptionEnum(TMCC1_ENG_TOGGLE_DIRECTION_COMMAND)
+    REVERSE_DIRECTION = EngineOptionEnum(TMCC1_ENG_REVERSE_DIRECTION_COMMAND)
+    BOOST_SPEED = EngineOptionEnum(TMCC1_ENG_BOOST_SPEED_COMMAND)
+    BRAKE_SPEED = EngineOptionEnum(TMCC1_ENG_BRAKE_SPEED_COMMAND)
+    OPEN_FRONT_COUPLER = EngineOptionEnum(TMCC1_ENG_OPEN_FRONT_COUPLER_COMMAND)
+    OPEN_REAR_COUPLER = EngineOptionEnum(TMCC1_ENG_OPEN_REAR_COUPLER_COMMAND)
+    BLOW_HORN_ONE = EngineOptionEnum(TMCC1_ENG_BLOW_HORN_ONE_COMMAND)
+    BLOW_HORN_TWO = EngineOptionEnum(TMCC1_ENG_BLOW_HORN_TWO_COMMAND)
+    RING_BELL = EngineOptionEnum(TMCC1_ENG_RING_BELL_COMMAND)
+    LET_OFF_SOUND = EngineOptionEnum(TMCC1_ENG_LET_OFF_SOUND_COMMAND)
+    AUX1_OFF = EngineOptionEnum(TMCC1_ENG_AUX1_OFF_COMMAND)
+    AUX1_ON = EngineOptionEnum(TMCC1_ENG_AUX1_ON_COMMAND)
+    AUX1_OPTION_ONE = EngineOptionEnum(TMCC1_ENG_AUX1_OPTION_ONE_COMMAND)
+    AUX1_OPTION_TWO = EngineOptionEnum(TMCC1_ENG_AUX1_OPTION_TWO_COMMAND)
+    AUX2_OFF = EngineOptionEnum(TMCC1_ENG_AUX2_OFF_COMMAND)
+    AUX2_ON = EngineOptionEnum(TMCC1_ENG_AUX2_ON_COMMAND)
+    AUX2_OPTION_ONE = EngineOptionEnum(TMCC1_ENG_AUX2_OPTION_ONE_COMMAND)
+    AUX2_OPTION_TWO = EngineOptionEnum(TMCC1_ENG_AUX2_OPTION_TWO_COMMAND)
+    SET_MOMENTUM_LOW = EngineOptionEnum(TMCC1_ENG_SET_MOMENTUM_LOW_COMMAND)
+    SET_MOMENTUM_MEDIUM = EngineOptionEnum(TMCC1_ENG_SET_MOMENTUM_MEDIUM_COMMAND)
+    SET_MOMENTUM_HIGH = EngineOptionEnum(TMCC1_ENG_SET_MOMENTUM_HIGH_COMMAND)
+    SET_ADDRESS = EngineOptionEnum(TMCC1_ENG_SET_ADDRESS_COMMAND)
 
 
 @verify(UNIQUE)
-class TMCC2EngineOption(EngineOption, IntFlag):
-    ABSOLUTE_SPEED = TMCC2_SET_ABSOLUTE_SPEED_COMMAND
-    RELATIVE_SPEED = TMCC2_SET_RELATIVE_SPEED_COMMAND
-    FORWARD_DIRECTION = TMCC2_FORWARD_DIRECTION_COMMAND
-    TOGGLE_DIRECTION = TMCC2_TOGGLE_DIRECTION_COMMAND
-    REVERSE_DIRECTION = TMCC2_REVERSE_DIRECTION_COMMAND
-    RING_BELL = TMCC2_RING_BELL_COMMAND
-    MOMENTUM = TMCC2_SET_MOMENTUM_COMMAND
-    BRAKE_LEVEL = TMCC2_SET_BRAKE_COMMAND
-    BOOST_LEVEL = TMCC2_SET_BOOST_COMMAND
-    TRAIN_BRAKE = TMCC2_SET_TRAIN_BRAKE_COMMAND
-    SET_STALL = TMCC2_STALL_COMMAND
-    STOP_IMMEDIATE = TMCC2_STOP_IMMEDIATE_COMMAND
-    SYSTEM_HALT = TMCC2_HALT_COMMAND
-    BELL_OFF = TMCC2_BELL_OFF_COMMAND
-    BELL_ON_COMMAND = TMCC2_BELL_ON_COMMAND
+class TMCC2EngineOption(EngineOption, Enum):
+    ABSOLUTE_SPEED = EngineOptionEnum(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199)
+    RELATIVE_SPEED = EngineOptionEnum(TMCC2_SET_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
+    FORWARD_DIRECTION = EngineOptionEnum(TMCC2_FORWARD_DIRECTION_COMMAND)
+    TOGGLE_DIRECTION = EngineOptionEnum(TMCC2_TOGGLE_DIRECTION_COMMAND)
+    REVERSE_DIRECTION = EngineOptionEnum(TMCC2_REVERSE_DIRECTION_COMMAND)
+    RING_BELL = EngineOptionEnum(TMCC2_RING_BELL_COMMAND)
+    MOMENTUM = EngineOptionEnum(TMCC2_SET_MOMENTUM_COMMAND, d_max=7)
+    BRAKE_LEVEL = EngineOptionEnum(TMCC2_SET_BRAKE_COMMAND, d_max=7)
+    BOOST_LEVEL = EngineOptionEnum(TMCC2_SET_BOOST_COMMAND, d_max=7)
+    TRAIN_BRAKE = EngineOptionEnum(TMCC2_SET_TRAIN_BRAKE_COMMAND, d_max=7)
+    SET_STALL = EngineOptionEnum(TMCC2_STALL_COMMAND)
+    STOP_IMMEDIATE = EngineOptionEnum(TMCC2_STOP_IMMEDIATE_COMMAND)
+    SYSTEM_HALT = EngineOptionEnum(TMCC2_HALT_COMMAND)
+    BELL_OFF = EngineOptionEnum(TMCC2_BELL_OFF_COMMAND)
+    BELL_ON_COMMAND = EngineOptionEnum(TMCC2_BELL_ON_COMMAND)
