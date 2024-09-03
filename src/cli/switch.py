@@ -24,9 +24,9 @@ class SwitchCli(CliBase):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Fire specified switch (1 - 99)", parents=[cli_parser()])
-    parser.add_argument("switch", metavar='Switch Number', type=int, help="switch to fire")
-    group = parser.add_mutually_exclusive_group()
+    sw_parser = argparse.ArgumentParser(add_help=False)
+    sw_parser.add_argument("switch", metavar='Switch Number', type=int, help="switch to fire")
+    group = sw_parser.add_mutually_exclusive_group()
     group.add_argument("-t", "--through",
                        action="store_const",
                        const=SwitchState.THROUGH,
@@ -37,10 +37,11 @@ if __name__ == '__main__':
                        const=SwitchState.OUT,
                        dest="switch_state",
                        help="Throw Out")
-    group.add_argument("-s", "--set_address",
+    group.add_argument("-a", "--set_address",
                        action="store_const",
                        const=SwitchState.SET_ADDRESS,
                        dest="switch_state",
                        help="Set switch address")
     group.set_defaults(switch_state=SwitchState.THROUGH)
+    parser = argparse.ArgumentParser("Fire specified switch (1 - 99)", parents=[sw_parser, cli_parser()])
     SwitchCli(parser)

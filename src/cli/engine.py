@@ -35,11 +35,16 @@ class EngineCli(CliBaseTMCC):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Control specified engine/train (1 - 99)",
-                                     parents=[train_parser(), command_format_parser(), cli_parser()])
-    parser.add_argument("engine", metavar='Engine/Train', type=int, help="Engine/Train to control")
+    engine_parser = argparse.ArgumentParser(add_help=False)
+    engine_parser.add_argument("engine", metavar='Engine/Train', type=int, help="Engine/Train to control")
 
-    ops = parser.add_mutually_exclusive_group()
+    ops = engine_parser.add_mutually_exclusive_group()
+    ops.add_argument("-a", "--SET_ADDRESS",
+                     action="store_const",
+                     const='SET_ADDRESS',
+                     dest='option',
+                     help="Set engine address")
+
     ops.add_argument("-s", "--stop_immediate",
                      action="store_const",
                      const='STOP_IMMEDIATE',
@@ -77,7 +82,7 @@ if __name__ == '__main__':
                      help="Blow horn")
 
     # create subparsers to handle train/engine-specific operations
-    sp = parser.add_subparsers(dest='command', help='sub-command help')
+    sp = engine_parser.add_subparsers(dest='command', help='Engine/train sub-commands')
 
     # Speed operations
     speed = sp.add_parser('speed', help='Speed of engine/train')
@@ -118,4 +123,10 @@ if __name__ == '__main__':
                             help="Turn bell off")
     bell_group.set_defaults(option='RING_BELL')
 
+    # construct final parser with all components in order
+    parser = argparse.ArgumentParser("Control specified engine/train (1 - 99)",
+                                     parents=[engine_parser,
+                                              train_parser(),
+                                              command_format_parser(),
+                                              cli_parser()])
     EngineCli(parser)

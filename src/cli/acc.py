@@ -27,11 +27,10 @@ class AccCli(CliBase):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Fire specified accessory (1 - 99)",
-                                     parents=[cli_parser()])
-    parser.add_argument("acc", metavar='Accessory Number', type=int, help="accessory to fire")
+    acc_parser = argparse.ArgumentParser(add_help=False)
+    acc_parser.add_argument("acc", metavar='Accessory Number', type=int, help="accessory to fire")
 
-    aux_group = parser.add_mutually_exclusive_group(required=True)
+    aux_group = acc_parser.add_mutually_exclusive_group(required=True)
     aux_group.add_argument("-a1", "--aux1",
                            action="store_const",
                            const=AuxChoice.AUX1,
@@ -52,13 +51,13 @@ if __name__ == '__main__':
                            const=AuxChoice.OFF,
                            dest='choice',
                            help="Accessory Off")
-    aux_group.add_argument("-s", "--set_address",
+    aux_group.add_argument("-a", "--set_address",
                            action="store_const",
                            const=AuxChoice.SET_ADDRESS,
                            dest='choice',
                            help="Set Accessory Address")
 
-    option_group = parser.add_mutually_exclusive_group()
+    option_group = acc_parser.add_mutually_exclusive_group()
     option_group.add_argument("-on", "--on",
                               action="store_const",
                               const=AuxOption.ON,
@@ -82,4 +81,6 @@ if __name__ == '__main__':
     option_group.set_defaults(option=AuxOption.OPTION1)
 
     # fire command
+    parser = argparse.ArgumentParser("Fire specified accessory (1 - 99)",
+                                     parents=[acc_parser, cli_parser()])
     AccCli(parser)

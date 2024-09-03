@@ -22,7 +22,8 @@ class RouteCli(CliBaseTMCC):
 
 
 if __name__ == '__main__':
+    route_parser = argparse.ArgumentParser(add_help=False)
+    route_parser.add_argument("route", metavar='Route', type=int, help="route to fire")
     parser = argparse.ArgumentParser("Fire specified route (1 - 99)",
-                                     parents=[command_format_parser(), cli_parser()])
-    parser.add_argument("route", metavar='Route', type=int, help="route to fire")
+                                     parents=[route_parser, command_format_parser(), cli_parser()])
     RouteCli(parser)
