@@ -198,6 +198,10 @@ TMCC2_SET_RELATIVE_SPEED_COMMAND: int = 0x0140  # Relative Speed -5 - 5 encoded 
 
 
 class EngineOptionEnum:
+    """
+        Marker class for TMCC1EngineOptionEnum and TMCC2EngineOptionEnum, allowing the CLI layer
+        to work with them in a command format agnostic manner.
+    """
     def __init__(self, command_op: int, d_min: int = 0, d_max: int = 0, d_map: Dict[int, int] = None) -> None:
         self._command_op = command_op
         self._d_min = d_min
@@ -221,6 +225,11 @@ class EngineOptionEnum:
         return self._d_bits
 
     def apply_data(self, data: int | None = None) -> int:
+        """
+            For commands that take parameters, such as engine speed and brake level,
+            apply the data bits to the command op bytes to form the complete byte
+            set to send to the Lionel LCS SER2.
+        """
         if self._d_bits and data is None:
             raise ValueError("Data is required")
         if self._d_bits == 0:
