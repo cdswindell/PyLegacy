@@ -113,11 +113,33 @@ if __name__ == '__main__':
                      dest='option',
                      help="Brake speed")
 
+    ops.add_argument("-bl", "--boost_level",
+                     action=DataAction,
+                     dest='option',
+                     choices=range(0,8),
+                     metavar="0 - 7",
+                     type=int,
+                     nargs='?',
+                     default=3,
+                     const='BOOST_LEVEL',
+                     help="Boost level")
+
     ops.add_argument("-brake", "--brake_speed",
                      action="store_const",
                      const='BRAKE_SPEED',
                      dest='option',
                      help="Boost speed")
+
+    ops.add_argument("-kl", "--brake_level",
+                     action=DataAction,
+                     dest='option',
+                     choices=range(0,8),
+                     metavar="0 - 7",
+                     type=int,
+                     nargs='?',
+                     default=3,
+                     const='BRAKE_LEVEL',
+                     help="Brake level")
 
     # create subparsers to handle train/engine-specific operations
     sp = engine_parser.add_subparsers(dest='command', help='Engine/train sub-commands')
