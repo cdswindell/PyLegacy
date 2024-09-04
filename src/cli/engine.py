@@ -167,7 +167,7 @@ if __name__ == '__main__':
                             metavar="0 - 3",
                             type=int,
                             nargs='?',
-                            default=1,
+                            default=3,
                             const='BELL_ONE_SHOT_DING',
                             help="Bell one shot ding")
     bell_group.add_argument("-s", "--slider",
