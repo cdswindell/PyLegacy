@@ -109,13 +109,13 @@ if __name__ == '__main__':
 
     ops.add_argument("-boost", "--boost_speed",
                      action="store_const",
-                     const='BRAKE_SPEED',
+                     const='BOOST_SPEED',
                      dest='option',
                      help="Brake speed")
 
     ops.add_argument("-brake", "--brake_speed",
                      action="store_const",
-                     const='BOOST_SPEED',
+                     const='BRAKE_SPEED',
                      dest='option',
                      help="Boost speed")
 
