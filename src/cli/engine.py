@@ -225,6 +225,12 @@ if __name__ == '__main__':
                            const='MOMENTUM_HIGH',
                            dest='option',
                            help="Set momentum to high")
+    mom_group.add_argument("-off",
+                           action="store_const",
+                           const='MOMENTUM',
+                           dest='option',
+                           help="Set momentum off")
+
     mom_group.add_argument("-a", "--absolute",
                            action=DataAction,
                            dest='option',
