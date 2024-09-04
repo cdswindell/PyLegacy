@@ -41,16 +41,16 @@ if __name__ == '__main__':
                            const=AuxChoice.AUX2,
                            dest='choice',
                            help="Aux 2")
-    aux_group.add_argument("-ao", "--acc_on",
+    aux_group.add_argument("-on",
                            action="store_const",
                            const=AuxChoice.ON,
                            dest='choice',
-                           help="Accessory On")
-    aux_group.add_argument("-af", "--acc_off",
+                           help="Cab1 AUX1 button")
+    aux_group.add_argument("-off",
                            action="store_const",
                            const=AuxChoice.OFF,
                            dest='choice',
-                           help="Accessory Off")
+                           help="Cab1 AUX2 button")
     aux_group.add_argument("-a", "--set_address",
                            action="store_const",
                            const=AuxChoice.SET_ADDRESS,
@@ -58,12 +58,12 @@ if __name__ == '__main__':
                            help="Set Accessory Address")
 
     option_group = acc_parser.add_mutually_exclusive_group()
-    option_group.add_argument("-on", "--on",
+    option_group.add_argument("-aon", "--aux_on",
                               action="store_const",
                               const=AuxOption.ON,
                               dest='option',
                               help="Aux1/Aux2 On")
-    option_group.add_argument("-off", "--off",
+    option_group.add_argument("-aoff", "--aux_off",
                               action="store_const",
                               const=AuxOption.OFF,
                               dest='option',

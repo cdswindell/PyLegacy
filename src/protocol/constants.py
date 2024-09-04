@@ -43,8 +43,8 @@ class CommandFormat(ByNameMixin, Enum):
 class AuxChoice(ByNameMixin, Enum):
     AUX1 = 1
     AUX2 = 2
-    ON = 3
-    OFF = 4
+    ON = 3      # Cab1 AUX1 button
+    OFF = 4     # Cab2 AUX2 button
     SET_ADDRESS = 5
 
 
@@ -141,8 +141,8 @@ TMCC1_ACC_AUX_2_OPTIONS_MAP: Dict[AuxOption, int] = {
 TMCC1_ACC_CHOICE_MAP: Dict[AuxChoice, Union[int, Dict[AuxOption, int]]] = {
     AuxChoice.AUX1: TMCC1_ACC_AUX_1_OPTIONS_MAP,
     AuxChoice.AUX2: TMCC1_ACC_AUX_2_OPTIONS_MAP,
-    AuxChoice.ON: TMCC1_ACC_ON_COMMAND,
-    AuxChoice.OFF: TMCC1_ACC_OFF_COMMAND,
+    AuxChoice.ON: TMCC1_ACC_AUX_1_OPTION_1_COMMAND,
+    AuxChoice.OFF: TMCC1_ACC_AUX_2_OPTION_1_COMMAND,
     AuxChoice.SET_ADDRESS: TMCC1_ACC_SET_ADDRESS_COMMAND,
 }
 
