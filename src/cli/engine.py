@@ -34,12 +34,37 @@ class EngineCli(CliBaseTMCC):
             print(ve)
 
 
+class DataAction(argparse.Action):
+    """
+        Custom action that sets both the option and data fields
+        with the option value specified by 'const', and the data value
+        specified by the user-provided argument or 'default'
+    """
+    def __init__(self,  option_strings, dest, **kwargs):
+        """
+            We need to capture both the values of const and default, as we use the
+            'const' value to specify the command_op to execute if this action is taken.
+            Once saved, we reset its value to the default value.
+        """
+        self._default = kwargs.get('default')
+        self._command_op = kwargs.get('const')
+        kwargs['const'] = self._default
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, psr, namespace, values, option_string=None) -> None:
+        setattr(namespace, self.dest, self._command_op)
+        if values is not None:
+            setattr(namespace, "data", values)
+        else:
+            setattr(namespace, "data", self._default)
+
+
 if __name__ == '__main__':
     engine_parser = argparse.ArgumentParser(add_help=False)
     engine_parser.add_argument("engine", metavar='Engine/Train', type=int, help="Engine/Train to control")
 
     ops = engine_parser.add_mutually_exclusive_group()
-    ops.add_argument("-a", "--SET_ADDRESS",
+    ops.add_argument("-a", "--set_address",
                      action="store_const",
                      const='SET_ADDRESS',
                      dest='option',
@@ -121,6 +146,25 @@ if __name__ == '__main__':
                             const='BELL_OFF',
                             dest='option',
                             help="Turn bell off")
+    bell_group.add_argument("-d", "--ding",
+                            action=DataAction,
+                            dest='option',
+                            choices=range(0, 4),
+                            type=int,
+                            nargs='?',
+                            default=1,
+                            const='BELL_ONE_SHOT_DING',
+                            help="Bell one shot ding")
+    bell_group.add_argument("-s", "--slider",
+                            action=DataAction,
+                            dest='option',
+                            choices=range(2, 6),
+                            type=int,
+                            nargs='?',
+                            default=2,
+                            const='BELL_SLIDER_POSITION',
+                            help="Bell slider position")
+
     bell_group.set_defaults(option='RING_BELL')
 
     # construct final parser with all components in order
