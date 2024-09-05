@@ -43,9 +43,10 @@ class CommandFormat(ByNameMixin, Enum):
 class AuxChoice(ByNameMixin, Enum):
     AUX1 = 1
     AUX2 = 2
-    ON = 3      # Cab1 AUX1 button
-    OFF = 4     # Cab2 AUX2 button
-    SET_ADDRESS = 5
+    ON = 3  # Cab1 AUX1 button
+    OFF = 4  # Cab2 AUX2 button
+    NUMERIC = 5
+    SET_ADDRESS = 6
 
 
 @verify(UNIQUE)
@@ -54,7 +55,6 @@ class AuxOption(ByNameMixin, Enum):
     OFF = 2
     OPTION1 = 3
     OPTION2 = 4
-    NUMERIC = 5
 
 
 """
@@ -79,6 +79,7 @@ TMCC1_SWITCH_SET_ADDRESS_COMMAND: int = 0x402B
 
 TMCC1_ACC_ON_COMMAND: int = 0x802F
 TMCC1_ACC_OFF_COMMAND: int = 0x8020
+TMCC1_ACC_NUMERIC_COMMAND: int = 0x8010
 TMCC1_ACC_SET_ADDRESS_COMMAND: int = 0x802B
 
 TMCC1_ACC_AUX_1_OFF_COMMAND: int = 0x8008
@@ -122,6 +123,8 @@ TMCC1_ENG_SET_MOMENTUM_LOW_COMMAND: int = 0x0028
 TMCC1_ENG_SET_MOMENTUM_MEDIUM_COMMAND: int = 0x0029
 TMCC1_ENG_SET_MOMENTUM_HIGH_COMMAND: int = 0x002A
 
+TMCC1_ENG_NUMERIC_COMMAND: int = 0x0010
+
 TMCC1_ENG_SET_ADDRESS_COMMAND: int = 0x002B
 
 """
@@ -147,6 +150,7 @@ TMCC1_ACC_CHOICE_MAP: Dict[AuxChoice, Union[int, Dict[AuxOption, int]]] = {
     AuxChoice.ON: TMCC1_ACC_AUX_1_OPTION_1_COMMAND,
     AuxChoice.OFF: TMCC1_ACC_AUX_2_OPTION_1_COMMAND,
     AuxChoice.SET_ADDRESS: TMCC1_ACC_SET_ADDRESS_COMMAND,
+    AuxChoice.NUMERIC: TMCC1_ACC_NUMERIC_COMMAND
 }
 
 """
@@ -205,6 +209,8 @@ TMCC2_BRAKE_SPEED_COMMAND: int = 0x0107
 
 TMCC2_HALT_COMMAND: int = 0x01AB
 
+TMCC2_NUMERIC_COMMAND: int = 0x0110
+
 TMCC2_SET_RELATIVE_SPEED_COMMAND: int = 0x0140  # Relative Speed -5 - 5 encoded in last 4 bits (offset by 5)
 
 
@@ -213,6 +219,7 @@ class EngineOptionEnum:
         Marker class for TMCC1EngineOptionEnum and TMCC2EngineOptionEnum, allowing the CLI layer
         to work with them in a command format agnostic manner.
     """
+
     def __init__(self, command_op: int, d_min: int = 0, d_max: int = 0, d_map: Dict[int, int] = None) -> None:
         self._command_op = command_op
         self._d_min = d_min
@@ -264,6 +271,7 @@ class EngineOption(ByNameMixin):
         Marker Interface to allow TMCC1EngineOption and TMCC2EngineOption enums
         to be handled by engine commands
     """
+
     @classmethod
     def _missing_(cls, value):
         if type(value) is str:
@@ -300,6 +308,7 @@ class TMCC1EngineOption(EngineOption, Enum):
     RING_BELL = EngineOptionEnum(TMCC1_ENG_RING_BELL_COMMAND)
     SET_ADDRESS = EngineOptionEnum(TMCC1_ENG_SET_ADDRESS_COMMAND)
     TOGGLE_DIRECTION = EngineOptionEnum(TMCC1_ENG_TOGGLE_DIRECTION_COMMAND)
+    NUMERIC = EngineOptionEnum(TMCC1_ENG_NUMERIC_COMMAND, d_max=10)
 
 
 @verify(UNIQUE)
@@ -329,3 +338,4 @@ class TMCC2EngineOption(EngineOption, Enum):
     SYSTEM_HALT = EngineOptionEnum(TMCC2_HALT_COMMAND)
     TOGGLE_DIRECTION = EngineOptionEnum(TMCC2_TOGGLE_DIRECTION_COMMAND)
     TRAIN_BRAKE = EngineOptionEnum(TMCC2_SET_TRAIN_BRAKE_COMMAND, d_max=7)
+    NUMERIC = EngineOptionEnum(TMCC2_NUMERIC_COMMAND, d_max=10)

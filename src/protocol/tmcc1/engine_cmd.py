@@ -30,6 +30,6 @@ class EngineCmd(TMCC1Command):
     def _build_command(self) -> bytes:
         command_op = self._option.value.apply_data(self._option_data)
         if self._scope == TMCC2CommandScope.TRAIN:
-            command_op &= TMCC1_TRAIN_COMMAND_PURIFIER
-            command_op |= TMCC1_TRAIN_COMMAND_MODIFIER
+            command_op &= TMCC1_TRAIN_COMMAND_PURIFIER  # remove unwanted bits from ENG command
+            command_op |= TMCC1_TRAIN_COMMAND_MODIFIER  # add bits to specify train command
         return self.command_prefix + self._encode_address(command_op)
