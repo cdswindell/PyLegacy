@@ -120,7 +120,7 @@ if __name__ == '__main__':
     sp = engine_parser.add_subparsers(dest='command', help='Engine/train sub-commands')
 
     # Speed operations
-    speed = sp.add_parser('speed', help='Speed of engine/train')
+    speed = sp.add_parser('speed', aliases=['sp'], help='Speed of engine/train')
     speed.add_argument('data',
                        type=int,
                        action='store',
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     speed_group.set_defaults(option='ABSOLUTE_SPEED')
 
     # Bell operations
-    bell = sp.add_parser('bell', help='Bell operations')
+    bell = sp.add_parser('bell', aliases=['be'], help='Bell operations')
     bell_group = bell.add_mutually_exclusive_group()
     bell_group.add_argument("-r", "--ring",
                             action="store_const",
@@ -179,7 +179,7 @@ if __name__ == '__main__':
                             help="Bell slider position")
 
     # Horn operations
-    horn = sp.add_parser('horn', help='Horn operations')
+    horn = sp.add_parser('horn', aliases=['ho'],  help='Horn operations')
     horn_group = horn.add_mutually_exclusive_group()
     horn_group.add_argument("-1", "--blow_horn_one",
                             action="store_const",
@@ -204,7 +204,7 @@ if __name__ == '__main__':
                             help="Quilling horn intensity")
 
     # Momentum operations
-    momentum = sp.add_parser('momentum', help='Momentum operations')
+    momentum = sp.add_parser('momentum', aliases=['mo'], help='Momentum operations')
     mom_group = momentum.add_mutually_exclusive_group()
     mom_group.add_argument("-l", "--low",
                            action="store_const",
@@ -238,6 +238,9 @@ if __name__ == '__main__':
                            default=0,
                            const='MOMENTUM',
                            help="Set absolute momentum")
+
+    sound = sp.add_parser('sounds', aliases=['so'], help='Sound operations')
+    sound_group = sound.add_mutually_exclusive_group()
 
     # construct final parser with all components in order
     parser = argparse.ArgumentParser("Control specified engine/train (1 - 99)",
