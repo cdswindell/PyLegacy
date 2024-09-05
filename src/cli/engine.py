@@ -15,8 +15,8 @@ class EngineCli(CliBaseTMCC):
         option_data: int = self._args.data if 'data' in self._args else 0
         try:
             option: EngineOption = self._decode_option()  # raise ValueError if can't decode
-            if self.is_train_command or self.is_tmcc2 or isinstance(option, TMCC2EngineOption):
-                scope = self._determine_scope()
+            scope = self._determine_scope()
+            if self.is_tmcc2 or isinstance(option, TMCC2EngineOption):
                 cmd = EngineCmdTMCC2(engine,
                                      TMCC2EngineOption(option),
                                      option_data,
@@ -27,6 +27,7 @@ class EngineCli(CliBaseTMCC):
                 cmd = EngineCmdTMCC1(engine,
                                      TMCC1EngineOption(option),
                                      option_data,
+                                     scope,
                                      baudrate=self._args.baudrate,
                                      port=self._args.port)
             cmd.fire()
@@ -116,7 +117,7 @@ if __name__ == '__main__':
     ops.add_argument("-bl", "--boost_level",
                      action=DataAction,
                      dest='option',
-                     choices=range(0,8),
+                     choices=range(0, 8),
                      metavar="0 - 7",
                      type=int,
                      nargs='?',
@@ -133,7 +134,7 @@ if __name__ == '__main__':
     ops.add_argument("-kl", "--brake_level",
                      action=DataAction,
                      dest='option',
-                     choices=range(0,8),
+                     choices=range(0, 8),
                      metavar="0 - 7",
                      type=int,
                      nargs='?',

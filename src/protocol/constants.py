@@ -91,6 +91,9 @@ TMCC1_ACC_AUX_2_OPTION_1_COMMAND: int = 0x800D  # Cab1 Aux2 button
 TMCC1_ACC_AUX_2_OPTION_2_COMMAND: int = 0x800E
 TMCC1_ACC_AUX_2_ON_COMMAND: int = 0x800F
 
+# Engine/Train commands
+TMCC1_TRAIN_COMMAND_MODIFIER: int = 0xC800  # Logically OR with engine command to make train command
+TMCC1_TRAIN_COMMAND_PURIFIER: int = 0x07FF  # Logically AND with engine command to reset engine bits
 TMCC1_ENG_ABSOLUTE_SPEED_COMMAND: int = 0x0060  # Absolute speed 0 - 31 encoded in last 5 bits
 TMCC1_ENG_RELATIVE_SPEED_COMMAND: int = 0x0040  # Relative Speed -5 - 5 encoded in last 4 bits (offset by 5)
 TMCC1_ENG_FORWARD_DIRECTION_COMMAND: int = 0x0000
