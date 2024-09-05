@@ -6,6 +6,8 @@ from typing import Dict, Union
 class ByNameMixin(Enum):
     @classmethod
     def by_name(cls, name: str, raise_exception: bool = False) -> Enum | None:
+        if name is None:
+            raise ValueError(f"None is not a valid {cls.__name__}")
         orig_name = name = name.strip()
         if name in cls.__members__:
             return cls[name]
