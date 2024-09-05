@@ -239,7 +239,7 @@ if __name__ == '__main__':
                            const='MOMENTUM',
                            help="Set absolute momentum")
 
-    sound = sp.add_parser('sounds', aliases=['so'], help='Sound operations')
+    sound = sp.add_parser('sound', aliases=['so'], help='Sound operations')
     sound_group = sound.add_mutually_exclusive_group()
 
     # construct final parser with all components in order
