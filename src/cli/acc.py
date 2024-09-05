@@ -2,7 +2,7 @@
 #
 import argparse
 
-from src.cli.cli_base import CliBase, cli_parser
+from src.cli.cli_base import CliBase, cli_parser, DataAction
 from src.protocol.constants import AuxChoice, AuxOption
 from src.protocol.tmcc1.acc_cmd import AccCmd as AccCmdTMCC1
 
@@ -31,12 +31,12 @@ if __name__ == '__main__':
     acc_parser.add_argument("acc", metavar='Accessory Number', type=int, help="accessory to fire")
 
     aux_group = acc_parser.add_mutually_exclusive_group(required=True)
-    aux_group.add_argument("-a1", "--aux1",
+    aux_group.add_argument("-aux1",
                            action="store_const",
                            const=AuxChoice.AUX1,
                            dest='choice',
                            help="Aux 1")
-    aux_group.add_argument("-a2", "--aux2",
+    aux_group.add_argument("-aux2",
                            action="store_const",
                            const=AuxChoice.AUX2,
                            dest='choice',
@@ -51,6 +51,16 @@ if __name__ == '__main__':
                            const=AuxChoice.OFF,
                            dest='choice',
                            help="Cab1 AUX2 button")
+    aux_group.add_argument("-n",
+                           action=DataAction,
+                           dest='choice',
+                           choices=range(0, 10),
+                           metavar="0 - 9",
+                           type=int,
+                           nargs='?',
+                           default=0,
+                           const=AuxChoice.NUMERIC,
+                           help="Numeric value")
     aux_group.add_argument("-a", "--set_address",
                            action="store_const",
                            const=AuxChoice.SET_ADDRESS,
@@ -58,22 +68,22 @@ if __name__ == '__main__':
                            help="Set Accessory Address")
 
     option_group = acc_parser.add_mutually_exclusive_group()
-    option_group.add_argument("-aon", "--aux_on",
+    option_group.add_argument("-xon", "--aux_on",
                               action="store_const",
                               const=AuxOption.ON,
                               dest='option',
                               help="Aux1/Aux2 On")
-    option_group.add_argument("-aoff", "--aux_off",
+    option_group.add_argument("-xoff", "--aux_off",
                               action="store_const",
                               const=AuxOption.OFF,
                               dest='option',
                               help="Aux1/Aux2 Off")
-    option_group.add_argument("-o1", "--option1",
+    option_group.add_argument("-opt1", "--option1",
                               action="store_const",
                               const=AuxOption.OPTION1,
                               dest='option',
                               help="Aux1/Aux2 Option 1 (Aux 1/Aux 2 button")
-    option_group.add_argument("-o2", "--option2",
+    option_group.add_argument("-opt2", "--option2",
                               action="store_const",
                               const=AuxOption.OPTION2,
                               dest='option',

@@ -67,6 +67,32 @@ class CliBaseTMCC(CliBase):
             return bool(self._args.train)
 
 
+class DataAction(argparse.Action):
+    """
+        Custom action that sets both the option and data fields
+        with the option value specified by 'const', and the data value
+        specified by the user-provided argument or 'default'
+    """
+
+    def __init__(self, option_strings, dest, **kwargs):
+        """
+            We need to capture both the values of const and default, as we use the
+            'const' value to specify the command_op to execute if this action is taken.
+            Once saved, we reset its value to the default value.
+        """
+        self._default = kwargs.get('default')
+        self._command_op = kwargs.get('const')
+        kwargs['const'] = self._default
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, psr, namespace, values, option_string=None) -> None:
+        setattr(namespace, self.dest, self._command_op)
+        if values is not None:
+            setattr(namespace, "data", values)
+        else:
+            setattr(namespace, "data", self._default)
+
+
 def cli_parser() -> argparse.ArgumentParser:
     """
         Add options common to all CLI commands here. Command handlers

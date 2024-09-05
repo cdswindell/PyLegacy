@@ -6,6 +6,7 @@ class AccCmd(TMCC1Command):
     def __init__(self, acc: int,
                  choice: AuxChoice,
                  option: AuxOption,
+                 option_data: int = None,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT) -> None:
         if acc < 1 or acc > 99:
@@ -13,6 +14,7 @@ class AccCmd(TMCC1Command):
         super().__init__(acc, baudrate, port)
         self._choice = choice
         self._option = option
+        self._option_data = option_data
         self._command = self._build_command()
 
     def _build_command(self) -> bytes:
