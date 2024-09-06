@@ -2,7 +2,7 @@ import argparse
 import abc
 from abc import ABC
 
-from src.protocol.constants import CommandFormat, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCC2CommandScope, EngineOption, \
+from src.protocol.constants import CommandFormat, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCCCommandScope, EngineOption, \
     TMCC1EngineOption, TMCC2EngineOption
 
 
@@ -59,7 +59,7 @@ class CliBaseTMCC(CliBase):
             self._command_format = CommandFormat.TMCC2
 
     def _determine_scope(self):
-        return TMCC2CommandScope.TRAIN if self._args.train else TMCC2CommandScope.ENGINE
+        return TMCCCommandScope.TRAIN if self._args.train else TMCCCommandScope.ENGINE
 
     @property
     def is_train_command(self) -> bool:

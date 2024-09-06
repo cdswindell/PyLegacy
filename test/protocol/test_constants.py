@@ -40,7 +40,7 @@ class TestConstants(TestBase):
                  CommandFormat,
                  AuxChoice,
                  AuxOption,
-                 TMCC2CommandScope,
+                 TMCCCommandScope,
                  TMCC1EngineOption,
                  TMCC2EngineOption
                  ]
@@ -113,3 +113,13 @@ class TestConstants(TestBase):
         assert TMCC1_ENG_NUMERIC_COMMAND == eng_cmd_prefix | 0b0010000
 
         assert TMCC1_ENG_SET_ADDRESS_COMMAND == eng_cmd_prefix | 0b0101011
+
+    def test_tmcc2_constants(self) -> None:
+        """
+            All bit patterns are from the Lionel LCS Partner Documentation,
+            Legacy Command Protocol, rev 1.21
+        """
+        pass
+
+    def test_tmcc_command_scope_enum(self) -> None:
+        assert TMCCCommandScope.ENGINE.value == LEGACY_ENGINE_COMMAND_PREFIX

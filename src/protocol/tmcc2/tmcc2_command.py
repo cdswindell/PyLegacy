@@ -2,14 +2,14 @@ import abc
 from abc import ABC
 
 from ..command_base import CommandBase
-from ..constants import TMCC2CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
+from ..constants import TMCCCommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
 class TMCC2Command(CommandBase, ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self,
-                 command_scope: TMCC2CommandScope,
+                 command_scope: TMCCCommandScope,
                  address: int = 99,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT) -> None:
@@ -17,7 +17,7 @@ class TMCC2Command(CommandBase, ABC):
         self._command_scope = command_scope
 
     @property
-    def scope(self) -> TMCC2CommandScope:
+    def scope(self) -> TMCCCommandScope:
         return self._command_scope
 
     def _encode_address(self, command_op: int) -> bytes:

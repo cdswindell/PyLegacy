@@ -1,5 +1,5 @@
 from .tmcc2_command import TMCC2Command
-from ..constants import TMCC2CommandScope, TMCC2EngineOption, DEFAULT_BAUDRATE, DEFAULT_PORT
+from ..constants import TMCCCommandScope, TMCC2EngineOption, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
 class EngineCmd(TMCC2Command):
@@ -7,7 +7,7 @@ class EngineCmd(TMCC2Command):
                  engine: int,
                  option: TMCC2EngineOption,
                  option_data: int = 0,
-                 scope: TMCC2CommandScope = TMCC2CommandScope.ENGINE,
+                 scope: TMCCCommandScope = TMCCCommandScope.ENGINE,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT) -> None:
         if engine < 1 or engine > 99:
