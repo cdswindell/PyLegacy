@@ -161,6 +161,16 @@ if __name__ == '__main__':
                      const='SHUTDOWN_DELAYED',
                      dest='option',
                      help="Shutdown delayed with announcement")
+    ops.add_argument("-e", "--engine_labor",
+                     action=DataAction,
+                     dest='option',
+                     choices=range(0, 32),
+                     metavar="0 - 31",
+                     type=int,
+                     nargs='?',
+                     default=0,
+                     const='ENGINE_LABOR',
+                     help="Engine labor")
 
     # create subparsers to handle train/engine-specific operations
     sp = engine_parser.add_subparsers(dest='command', help='Engine/train sub-commands')
@@ -312,16 +322,6 @@ if __name__ == '__main__':
                              default=0,
                              const='DIESEL_LEVEL',
                              help="Diesel run level sound")
-    sound_group.add_argument("-e", "--engine_labor",
-                             action=DataAction,
-                             dest='option',
-                             choices=range(0, 32),
-                             metavar="0 - 31",
-                             type=int,
-                             nargs='?',
-                             default=0,
-                             const='ENGINE_LABOR',
-                             help="Engine labor")
     sound_group.add_argument("-f", "--refueling",
                              action="store_const",
                              const='REFUELLING',
