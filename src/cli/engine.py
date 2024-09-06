@@ -70,6 +70,18 @@ if __name__ == '__main__':
                      dest='option',
                      help="Toggle direction")
 
+    ops.add_argument("-fc", "--front_coupler",
+                     action="store_const",
+                     const='FRONT_COUPLER',
+                     dest='option',
+                     help="Open front coupler")
+
+    ops.add_argument("-rc", "--rear_coupler",
+                     action="store_const",
+                     const='REAR_COUPLER',
+                     dest='option',
+                     help="Open rear coupler")
+
     ops.add_argument("-r", "--ring_bell",
                      action="store_const",
                      const='RING_BELL',
