@@ -123,3 +123,17 @@ class TestConstants(TestBase):
 
     def test_tmcc_command_scope_enum(self) -> None:
         assert TMCCCommandScope.ENGINE.value == LEGACY_ENGINE_COMMAND_PREFIX
+        assert TMCCCommandScope.TRAIN.value == LEGACY_TRAIN_COMMAND_PREFIX
+        assert TMCCCommandScope.PARAMETER.value == LEGACY_PARAMETER_COMMAND_PREFIX
+        assert TMCCCommandScope.EXTENDED.value == LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX
+
+    def test_engine_option_enum(self) -> None:
+        # should contain no elements
+        assert len(EngineOptionEnum) == 0
+
+        # validate _missing_ method is present and throws exception
+        with pytest.raises(ValueError, match="FOO is not a valid EngineOptionEnum"):
+            EngineOptionEnum._missing_('foo')
+
+    def test_engine_option(self) -> None:
+        pass

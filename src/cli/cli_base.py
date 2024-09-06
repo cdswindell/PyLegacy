@@ -2,7 +2,7 @@ import argparse
 import abc
 from abc import ABC
 
-from src.protocol.constants import CommandFormat, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCCCommandScope, EngineOption, \
+from src.protocol.constants import CommandFormat, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCCCommandScope, EngineOptionEnum, \
     TMCC1EngineOption, TMCC2EngineOption
 
 
@@ -26,7 +26,7 @@ class CliBase(ABC):
     def command_format(self) -> CommandFormat:
         return self._command_format
 
-    def _decode_option(self) -> EngineOption | None:
+    def _decode_option(self) -> EngineOptionEnum | None:
         """
             Decode the 'option' argument, if present, into a valid
             TMCC1EngineOption or TMCC2EngineOption enum. Use the specified

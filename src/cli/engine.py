@@ -3,7 +3,7 @@
 import argparse
 
 from src.cli.cli_base import CliBaseTMCC, DataAction, cli_parser, command_format_parser, train_parser
-from src.protocol.constants import EngineOption, TMCC1EngineOption, TMCC2EngineOption
+from src.protocol.constants import EngineOptionEnum, TMCC1EngineOption, TMCC2EngineOption
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 
@@ -14,7 +14,7 @@ class EngineCli(CliBaseTMCC):
         engine: int = self._args.engine
         option_data: int = self._args.data if 'data' in self._args else 0
         try:
-            option: EngineOption = self._decode_option()  # raise ValueError if can't decode
+            option: EngineOptionEnum = self._decode_option()  # raise ValueError if can't decode
             scope = self._determine_scope()
             if self.is_tmcc2 or isinstance(option, TMCC2EngineOption):
                 cmd = EngineCmdTMCC2(engine,
