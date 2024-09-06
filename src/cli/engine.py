@@ -277,7 +277,7 @@ if __name__ == '__main__':
 
     sound = sp.add_parser('sound', aliases=['so'], help='Sound operations')
     sound_group = sound.add_mutually_exclusive_group(required=True)
-    sound_group.add_argument("d", "--diesel_run_level",
+    sound_group.add_argument("-d", "--diesel_run_level",
                              action=DataAction,
                              dest='option',
                              choices=range(0, 8),
@@ -287,7 +287,17 @@ if __name__ == '__main__':
                              default=0,
                              const='DIESEL_LEVEL',
                              help="Diesel run level")
-    sound_group.add_argument("l", "--let_off",
+    sound_group.add_argument("-e", "--engine_labor",
+                             action=DataAction,
+                             dest='option',
+                             choices=range(0, 32),
+                             metavar="0 - 31",
+                             type=int,
+                             nargs='?',
+                             default=0,
+                             const='ENGINE_LABOR',
+                             help="Engine labor")
+    sound_group.add_argument("-l", "--let_off",
                              action="store_const",
                              const='LET_OFF',
                              dest='option',
