@@ -276,7 +276,7 @@ if __name__ == '__main__':
                            help="Set absolute momentum")
 
     sound = sp.add_parser('sound', aliases=['so'], help='Sound operations')
-    sound_group = sound.add_mutually_exclusive_group(required=True)
+    sound_group = sound.add_mutually_exclusive_group()
     sound_group.add_argument("-d", "--diesel_run_level",
                              action=DataAction,
                              dest='option',
