@@ -277,6 +277,21 @@ if __name__ == '__main__':
 
     sound = sp.add_parser('sound', aliases=['so'], help='Sound operations')
     sound_group = sound.add_mutually_exclusive_group()
+    sound_group.add_argument("-a", "--auger",
+                             action="store_const",
+                             const='AUGER',
+                             dest='option',
+                             help="Auger sound")
+    sound_group.add_argument("-b", "--brake_squeal",
+                             action="store_const",
+                             const='BRAKE_SQUEAL',
+                             dest='option',
+                             help="Brake squeal sound")
+    sound_group.add_argument("-r", "--brake_air_release",
+                             action="store_const",
+                             const='BRAKE_AIR_RELEASE',
+                             dest='option',
+                             help="Brake air release sound")
     sound_group.add_argument("-d", "--diesel_run_level",
                              action=DataAction,
                              dest='option',
@@ -286,7 +301,7 @@ if __name__ == '__main__':
                              nargs='?',
                              default=0,
                              const='DIESEL_LEVEL',
-                             help="Diesel run level")
+                             help="Diesel run level sound")
     sound_group.add_argument("-e", "--engine_labor",
                              action=DataAction,
                              dest='option',
@@ -297,12 +312,26 @@ if __name__ == '__main__':
                              default=0,
                              const='ENGINE_LABOR',
                              help="Engine labor")
+    sound_group.add_argument("-f", "--refueling",
+                             action="store_const",
+                             const='REFUELLING',
+                             dest='option',
+                             help="Refueling sound")
     sound_group.add_argument("-l", "--let_off",
                              action="store_const",
                              const='LET_OFF',
                              dest='option',
-                             help="Let off sound")
-
+                             help="Short let-off sound")
+    sound_group.add_argument("-ll", "--let_off_long",
+                             action="store_const",
+                             const='LET_OFF_LONG',
+                             dest='option',
+                             help="Long let-off sound")
+    sound_group.add_argument("-w", "--water_injector",
+                             action="store_const",
+                             const='WATER_INJECTOR',
+                             dest='option',
+                             help="Water injector sound")
     # construct final parser with all components in order
     parser = argparse.ArgumentParser("Control specified engine/train (1 - 99)",
                                      parents=[engine_parser,
