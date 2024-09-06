@@ -116,6 +116,30 @@ if __name__ == '__main__':
                      const='BRAKE_LEVEL',
                      help="Brake level")
 
+    ops.add_argument("-sui", "--start_up_immediate",
+                     action="store_const",
+                     const='START_UP_IMMEDIATE',
+                     dest='option',
+                     help="Start up immediate")
+
+    ops.add_argument("-sud", "--start_up_delayed",
+                     action="store_const",
+                     const='START_UP_DELAYED',
+                     dest='option',
+                     help="Start up delayed (prime mover)")
+
+    ops.add_argument("-sdi", "--shutdown_immediate",
+                     action="store_const",
+                     const='SHUTDOWN_IMMEDIATE',
+                     dest='option',
+                     help="Shutdown Immediate")
+
+    ops.add_argument("-sdd", "--shutdown_delayed",
+                     action="store_const",
+                     const='SHUTDOWN_DELAYED',
+                     dest='option',
+                     help="Shutdown delayed with announcement")
+
     # create subparsers to handle train/engine-specific operations
     sp = engine_parser.add_subparsers(dest='command', help='Engine/train sub-commands')
 
