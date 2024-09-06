@@ -282,6 +282,16 @@ if __name__ == '__main__':
                              const='LET_OFF',
                              dest='option',
                              help="Let off sound")
+    sound_group.add_argument("-d", "--diesel_run_level",
+                             action=DataAction,
+                             dest='option',
+                             choices=range(0, 8),
+                             metavar="0 - 7",
+                             type=int,
+                             nargs='?',
+                             default=0,
+                             const='DIESEL_LEVEL',
+                             help="Diesel run level")
 
     # construct final parser with all components in order
     parser = argparse.ArgumentParser("Control specified engine/train (1 - 99)",
