@@ -215,7 +215,7 @@ if __name__ == '__main__':
                             help="Bell slider position")
 
     # Horn operations
-    horn = sp.add_parser('horn', aliases=['ho'],  help='Horn operations')
+    horn = sp.add_parser('horn', aliases=['ho'], help='Horn operations')
     horn_group = horn.add_mutually_exclusive_group()
     horn_group.add_argument("-1", "--blow_horn_one",
                             action="store_const",
@@ -276,7 +276,12 @@ if __name__ == '__main__':
                            help="Set absolute momentum")
 
     sound = sp.add_parser('sound', aliases=['so'], help='Sound operations')
-    sound_group = sound.add_mutually_exclusive_group()
+    sound_group = sound.add_mutually_exclusive_group(required=True)
+    sound_group.add_argument("-l", "--let_off",
+                             action="store_const",
+                             const='LET_OFF',
+                             dest='option',
+                             help="Let off sound")
 
     # construct final parser with all components in order
     parser = argparse.ArgumentParser("Control specified engine/train (1 - 99)",
