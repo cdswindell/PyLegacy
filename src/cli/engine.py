@@ -277,22 +277,22 @@ if __name__ == '__main__':
 
     sound = sp.add_parser('sound', aliases=['so'], help='Sound operations')
     sound_group = sound.add_mutually_exclusive_group()
-    sound_group.add_argument("-a", "--auger",
+    sound_group.add_argument("-as", "--auger",
                              action="store_const",
                              const='AUGER',
                              dest='option',
                              help="Auger sound")
-    sound_group.add_argument("-b", "--brake_squeal",
+    sound_group.add_argument("-bs", "--brake_squeal",
                              action="store_const",
                              const='BRAKE_SQUEAL',
                              dest='option',
                              help="Brake squeal sound")
-    sound_group.add_argument("-r", "--brake_air_release",
+    sound_group.add_argument("-rs", "--brake_air_release",
                              action="store_const",
                              const='BRAKE_AIR_RELEASE',
                              dest='option',
                              help="Brake air release sound")
-    sound_group.add_argument("-d", "--diesel_run_level",
+    sound_group.add_argument("-ds", "--diesel_run_level",
                              action=DataAction,
                              dest='option',
                              choices=range(0, 8),
@@ -302,7 +302,7 @@ if __name__ == '__main__':
                              default=0,
                              const='DIESEL_LEVEL',
                              help="Diesel run level sound")
-    sound_group.add_argument("-e", "--engine_labor",
+    sound_group.add_argument("-es", "--engine_labor",
                              action=DataAction,
                              dest='option',
                              choices=range(0, 32),
@@ -312,22 +312,22 @@ if __name__ == '__main__':
                              default=0,
                              const='ENGINE_LABOR',
                              help="Engine labor")
-    sound_group.add_argument("-f", "--refueling",
+    sound_group.add_argument("-fs", "--refueling",
                              action="store_const",
                              const='REFUELLING',
                              dest='option',
                              help="Refueling sound")
-    sound_group.add_argument("-l", "--let_off",
+    sound_group.add_argument("-ls", "--let_off",
                              action="store_const",
                              const='LET_OFF',
                              dest='option',
                              help="Short let-off sound")
-    sound_group.add_argument("-ll", "--let_off_long",
+    sound_group.add_argument("-lls", "--let_off_long",
                              action="store_const",
                              const='LET_OFF_LONG',
                              dest='option',
                              help="Long let-off sound")
-    sound_group.add_argument("-w", "--water_injector",
+    sound_group.add_argument("-ws", "--water_injector",
                              action="store_const",
                              const='WATER_INJECTOR',
                              dest='option',
