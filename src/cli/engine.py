@@ -127,6 +127,16 @@ if __name__ == '__main__':
                      default=3,
                      const='BRAKE_LEVEL',
                      help="Brake level")
+    ops.add_argument("-tb", "--train_brake",
+                     action=DataAction,
+                     dest='option',
+                     choices=range(0, 8),
+                     metavar="0 - 7",
+                     type=int,
+                     nargs='?',
+                     default=3,
+                     const='TRAIN_BRAKE',
+                     help="Train brake")
 
     ops.add_argument("-sui", "--start_up_immediate",
                      action="store_const",
