@@ -158,16 +158,17 @@ TMCC1_ACC_CHOICE_MAP: Dict[AuxChoice, Union[int, Dict[AuxOption, int]]] = {
 """
     Legacy/TMCC2 Protocol Constants
 """
+# All Legacy/TMCC2 commands begin with one of the following 1 byte sequences
+# Engine/Train/Parameter 2 digit address are first 7 bits of first byte
 LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: int = 0xFA
-LEGACY_ROUTE_COMMAND: int = 0x00FD
-
 LEGACY_PARAMETER_COMMAND_PREFIX: int = 0xFB
-
-# Engine/Train 2 digit address are first 7 bits of first byte
 LEGACY_ENGINE_COMMAND_PREFIX: int = 0xF8
 LEGACY_TRAIN_COMMAND_PREFIX: int = 0xF9
 
 RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
+
+# The TMCC2 route command is an undocumented "extended block command" (0xFA)
+LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 
 @verify(UNIQUE)
@@ -395,3 +396,9 @@ class TMCC2EngineOption(EngineOptionEnum, Enum):
     TOGGLE_DIRECTION = EngineOption(TMCC2_TOGGLE_DIRECTION_COMMAND)
     TRAIN_BRAKE = EngineOption(TMCC2_SET_TRAIN_BRAKE_COMMAND, d_max=7)
     WATER_INJECTOR = EngineOption(TMCC2_WATER_INJECTOR_SOUND_COMMAND)
+
+
+"""
+    Legacy/TMCC2 Multi-byte Command sequences
+"""
+TMCC2_PARAMETER_INDEX_PREFIX: int = 0x70
