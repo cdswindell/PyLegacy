@@ -2,8 +2,8 @@ import abc
 from abc import ABC
 
 from ..command_base import CommandBase
-from ..constants import TMCCCommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS, TMCC2_PARAMETER_INDEX_PREFIX, \
-    LEGACY_PARAMETER_COMMAND_PREFIX
+from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
+from ..constants import TMCCCommandScope, TMCC2_PARAMETER_INDEX_PREFIX, LEGACY_PARAMETER_COMMAND_PREFIX
 
 
 class TMCC2Command(CommandBase, ABC):
@@ -48,11 +48,19 @@ class TMCC2ParameterCommand(TMCC2Command, ABC):
         self._command = self._build_command()
 
     @property
-    def parameter_index(self) -> bytes:
+    def parameter_index(self) -> int:
+        return self._parameter_index
+
+    @property
+    def _parameter_index_byte(self) -> bytes:
         return (TMCC2_PARAMETER_INDEX_PREFIX | self._parameter_index).to_bytes(1, byteorder='big')
 
     @property
-    def parameter_data(self) -> bytes:
+    def parameter_data(self) -> int:
+        return self._parameter_data
+
+    @property
+    def _parameter_data_byte(self) -> bytes:
         return self._parameter_data.to_bytes(1, byteorder='big')
 
     @property
@@ -62,15 +70,15 @@ class TMCC2ParameterCommand(TMCC2Command, ABC):
 
     @property
     def _word_1(self) -> bytes:
-        return ((self.address << 1) + 1).to_bytes(1, 'big') + self.parameter_index
+        return ((self.address << 1) + 1).to_bytes(1, 'big') + self._parameter_index_byte
 
     @property
     def _word_2(self) -> bytes:
-        return self._word_2_3_prefix + self.parameter_data
+        return self._word_2_3_prefix + self._parameter_data_byte
 
     @property
     def _word_3(self) -> bytes:
-        return self._word_2_3_prefix  + self._checksum()
+        return self._word_2_3_prefix + self._checksum()
 
     def _checksum(self) -> bytes:
         """
@@ -82,10 +90,10 @@ class TMCC2ParameterCommand(TMCC2Command, ABC):
             We make use of self.command_scope to determine if the command directed at
             an engine or train.
         """
-        byte_sum = int.from_bytes(self._word_1, byteorder='big')
-        byte_sum += int.from_bytes(self._word_2, byteorder='big')
-        byte_sum += int.from_bytes(self._word_2_3_prefix, byteorder='big')
-
+        cmd_bytes = self._word_1 + self._word_2 + self._word_2_3_prefix
+        byte_sum = 0
+        for b in cmd_bytes:
+            byte_sum += int(b)
         return (~(byte_sum % 256) & 0xFF).to_bytes(1, byteorder='big')  # return 1's complement of sum mod 256
 
     @property
