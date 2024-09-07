@@ -9,12 +9,22 @@ from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 
 
 class EngineCli(CliBaseTMCC):
+    AUX_COMMAND_MAP = {
+        'on': '_ON',
+        'off': '_OFF',
+        'opt1': '_OPTION_ONE',
+        "opt2": "_OPTION_TWO",
+    }
+
     def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
         super().__init__(arg_parser)
         engine: int = self._args.engine
         option_data: int = self._args.data if 'data' in self._args else 0
         try:
-            option: EngineOptionEnum = self._decode_option()  # raise ValueError if can't decode
+            option: EngineOptionEnum = self._decode_engine_option()  # raise ValueError if can't decode
+            if option is None:
+                raise ValueError("Must specify an option, use -h for help")
+            print(self._args)
             scope = self._determine_scope()
             if self.is_tmcc2 or isinstance(option, TMCC2EngineOption):
                 cmd = EngineCmdTMCC2(engine,
@@ -33,6 +43,41 @@ class EngineCli(CliBaseTMCC):
             cmd.fire()
         except ValueError as ve:
             print(ve)
+
+    def _decode_engine_option(self) -> EngineOptionEnum | None:
+        """
+            Decode the 'option' argument, if present, into a valid
+            TMCC1EngineOption or TMCC2EngineOption enum. Use the specified
+            command format, if present, to help resolve, as the two enum
+            classes share element names
+        """
+        if 'option' not in self._args:
+            return None
+
+        # if option is None, check if an aux command was specified
+        option = self._args.option
+        if not option or not option.strip():
+            if 'aux1' in self._args and self._args.aux1 is not None:
+                option = f"AUX1{self.AUX_COMMAND_MAP[self._args.aux1.lower()]}"
+            elif 'aux2' in self._args and self._args.aux2 is not None:
+                option = f"AUX2{self.AUX_COMMAND_MAP[self._args.aux2.lower()]}"
+            else:
+                raise ValueError("Must specify an option, use -h for help")
+        else:
+            option = option.strip().upper()
+
+        # reset option in args, for display purposes
+        self._args.option = option
+
+        # if scope is TMCC1, resolve via TMCC1EngineOption
+        if self.is_tmcc1:
+            enum_class = TMCC1EngineOption
+        else:
+            enum_class = TMCC2EngineOption
+        if option in dir(enum_class):
+            return enum_class[option]
+        else:
+            raise ValueError(f'Invalid {self.command_format.name} option: {option}')
 
 
 if __name__ == '__main__':
@@ -171,6 +216,18 @@ if __name__ == '__main__':
                      default=0,
                      const='ENGINE_LABOR',
                      help="Engine labor")
+    ops.add_argument("-aux1",
+                     dest='aux1',
+                     choices=['on', 'off', 'opt1', 'opt2'],
+                     nargs='?',
+                     type=str,
+                     const='opt1')
+    ops.add_argument("-aux2",
+                     dest='aux2',
+                     choices=['on', 'off', 'opt1', 'opt2'],
+                     nargs='?',
+                     type=str,
+                     const='opt1')
 
     # create subparsers to handle train/engine-specific operations
     sp = engine_parser.add_subparsers(dest='command', help='Engine/train sub-commands')
