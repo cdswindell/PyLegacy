@@ -3,6 +3,8 @@ from abc import ABC
 
 from ..command_base import CommandBase
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
+from ..constants import TMCC2ParameterIndex, TMCC2ParameterData
+from ..constants import TMCC2LightingControl, TMCC2EffectsControl
 from ..constants import TMCCCommandScope, TMCC2_PARAMETER_INDEX_PREFIX, LEGACY_PARAMETER_COMMAND_PREFIX
 
 
@@ -28,13 +30,13 @@ class TMCC2Command(CommandBase, ABC):
         return self.scope.to_bytes(1, byteorder='big')
 
 
-class TMCC2ParameterCommand(TMCC2Command, ABC):
+class TMCC2FixedParameterCommand(TMCC2Command, ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self,
                  command_scope: TMCCCommandScope,
-                 parameter_index: int,
-                 parameter_data: int,
+                 parameter_index: TMCC2ParameterIndex | int,
+                 parameter_data: TMCC2ParameterData | int,
                  address: int = DEFAULT_ADDRESS,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT) -> None:
@@ -46,6 +48,17 @@ class TMCC2ParameterCommand(TMCC2Command, ABC):
         self._parameter_index = parameter_index
         self._parameter_data = parameter_data
         self._command = self._build_command()
+
+    def __repr__(self):
+        if isinstance(self._parameter_index, TMCC2ParameterIndex):
+            p_idx = f"{self._parameter_index.name} ({hex(self._parameter_index)})"
+        else:
+            p_idx = f"{hex(self._parameter_index)}"
+        if isinstance(self._parameter_data, TMCC2ParameterData):
+            p_data = f"{self._parameter_data.name} ({hex(self._parameter_data)})"
+        else:
+            p_data = f"{hex(self._parameter_data)}"
+        return f"<{self.scope.name} {self.address} {p_idx} {p_data}: 0x{self.command_bytes.hex()}>"
 
     @property
     def parameter_index(self) -> int:
@@ -107,5 +120,25 @@ class TMCC2ParameterCommand(TMCC2Command, ABC):
         return self.command_prefix + self._word_1 + self._identifier + self._word_2 + self._identifier + self._word_3
 
 
-class Foo(TMCC2ParameterCommand):
-    pass
+class TMCC2LightingCommand(TMCC2FixedParameterCommand):
+    def __init__(self,
+                 command_scope: TMCCCommandScope,
+                 option: TMCC2LightingControl | int,
+                 address: int = DEFAULT_ADDRESS,
+                 baudrate: int = DEFAULT_BAUDRATE,
+                 port: str = DEFAULT_PORT) -> None:
+        if type(option) is int:
+            option = TMCC2LightingControl.by_value(option, True)
+        super().__init__(command_scope, TMCC2ParameterIndex.LIGHTING_CONTROLS, option, address, baudrate, port)
+
+
+class TMCC2EffectsCommand(TMCC2FixedParameterCommand):
+    def __init__(self,
+                 command_scope: TMCCCommandScope,
+                 option: TMCC2EffectsControl | int,
+                 address: int = DEFAULT_ADDRESS,
+                 baudrate: int = DEFAULT_BAUDRATE,
+                 port: str = DEFAULT_PORT) -> None:
+        if type(option) is int:
+            option = TMCC2EffectsControl.by_value(option, True)
+        super().__init__(command_scope, TMCC2ParameterIndex.EFFECTS_CONTROLS, option, address, baudrate, port)

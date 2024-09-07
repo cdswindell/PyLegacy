@@ -1,13 +1,16 @@
 import math
 from enum import Enum, verify, UNIQUE, IntEnum
-from typing import Dict, Union
+from typing import Dict, Union, Any
 
 
 class ByNameMixin(Enum):
     @classmethod
     def by_name(cls, name: str, raise_exception: bool = False) -> Enum | None:
         if name is None:
-            raise ValueError(f"None is not a valid {cls.__name__}")
+            if raise_exception:
+                raise ValueError(f"None is not a valid {cls.__name__}")
+            else:
+                return None
         orig_name = name = name.strip()
         if name in cls.__members__:
             return cls[name]
@@ -23,6 +26,17 @@ class ByNameMixin(Enum):
                 raise ValueError(f"'{orig_name}' is not a valid {cls.__name__}")
             else:
                 raise ValueError(f"None/Empty is not a valid {cls.__name__}")
+
+    @classmethod
+    def by_value(cls, value: Any, raise_exception: bool = False) -> Enum | None:
+        print("In by_value")
+        for _, member in cls.__members__.items():
+            if member.value == value:
+                return member
+        if raise_exception:
+            raise ValueError(f"'{value}' is not a valid {cls.__name__}")
+        else:
+            return None
 
 
 @verify(UNIQUE)
@@ -408,17 +422,16 @@ class TMCC2EngineOption(EngineOptionEnum, Enum):
 """
 TMCC2_PARAMETER_INDEX_PREFIX: int = 0x70
 
-
 """
     Word #1 - Parameter indexes
 """
-TMCC2_PARAMETER_ASSIGNMENT_PARAMETER_INDEX: int = 0x71
-TMCC2_RAIL_SOUNDS_DIALOG_TRIGGERS_PARAMETER_INDEX: int = 0x72
-TMCC2_RAIL_SOUNDS_EFFECTS_TRIGGERS_PARAMETER_INDEX: int = 0x74
-TMCC2_RAIL_SOUNDS_MASKING_CONTROL_PARAMETER_INDEX: int = 0x76
-TMCC2_EFFECTS_CONTROLS_PARAMETER_INDEX: int = 0x7C
-TMCC2_LIGHTING_CONTROLS_PARAMETER_INDEX: int = 0x7D
-TMCC2_VARIABLE_LENGTH_COMMAND_PARAMETER_INDEX: int = 0x7F
+TMCC2_PARAMETER_ASSIGNMENT_PARAMETER_INDEX: int = 0x01
+TMCC2_RAIL_SOUNDS_DIALOG_TRIGGERS_PARAMETER_INDEX: int = 0x02
+TMCC2_RAIL_SOUNDS_EFFECTS_TRIGGERS_PARAMETER_INDEX: int = 0x04
+TMCC2_RAIL_SOUNDS_MASKING_CONTROL_PARAMETER_INDEX: int = 0x06
+TMCC2_EFFECTS_CONTROLS_PARAMETER_INDEX: int = 0x0C
+TMCC2_LIGHTING_CONTROLS_PARAMETER_INDEX: int = 0x0D
+TMCC2_VARIABLE_LENGTH_COMMAND_PARAMETER_INDEX: int = 0x0F
 
 
 @verify(UNIQUE)
@@ -430,6 +443,30 @@ class TMCC2ParameterIndex(ByNameMixin, IntEnum):
     EFFECTS_CONTROLS = TMCC2_EFFECTS_CONTROLS_PARAMETER_INDEX
     LIGHTING_CONTROLS = TMCC2_LIGHTING_CONTROLS_PARAMETER_INDEX
     VARIABLE_LENGTH_COMMAND = TMCC2_VARIABLE_LENGTH_COMMAND_PARAMETER_INDEX
+
+
+class TMCC2ParameterData(ByNameMixin, IntEnum):
+    """
+        Marker interface for all Parameter Data enums
+    """
+    pass
+
+
+"""
+    Word #2 - Effects controls (index 0xC)
+"""
+TMCC2_EFFECTS_CONTROL_SMOKE_OFF: int = 0x00
+TMCC2_EFFECTS_CONTROL_SMOKE_LOW: int = 0x01
+TMCC2_EFFECTS_CONTROL_SMOKE_MEDIUM: int = 0x02
+TMCC2_EFFECTS_CONTROL_SMOKE_HIGH: int = 0x03
+
+
+@verify(UNIQUE)
+class TMCC2EffectsControl(TMCC2ParameterData):
+    SMOKE_OFF = TMCC2_EFFECTS_CONTROL_SMOKE_OFF
+    SMOKE_LOW = TMCC2_EFFECTS_CONTROL_SMOKE_LOW
+    SMOKE_MEDIUM = TMCC2_EFFECTS_CONTROL_SMOKE_MEDIUM
+    SMOKE_HIGH = TMCC2_EFFECTS_CONTROL_SMOKE_HIGH
 
 
 """
@@ -478,7 +515,7 @@ TMCC2_LIGHTING_CONTROL_TENDER_MARKER_LIGHT_ON: int = 0xCD
 
 
 @verify(UNIQUE)
-class TMCC2LightingControl(ByNameMixin, IntEnum):
+class TMCC2LightingControl(TMCC2ParameterData):
     CAB_AUTO = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_AUTO
     CAB_OFF = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_OFF
     CAB_ON = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_ON
