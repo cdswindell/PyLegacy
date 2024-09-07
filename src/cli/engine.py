@@ -182,6 +182,17 @@ if __name__ == '__main__':
     ops.add_argument("-tb", "--train_brake",
                      action=DataAction,
                      dest='option',
+                     choices=range(0, 11),
+                     metavar="0 - 10",
+                     type=int,
+                     nargs='?',
+                     default=1,
+                     const='NUMERIC',
+                     help="Train brake")
+
+    ops.add_argument("-n",
+                     action=DataAction,
+                     dest='option',
                      choices=range(0, 8),
                      metavar="0 - 7",
                      type=int,
@@ -189,7 +200,6 @@ if __name__ == '__main__':
                      default=3,
                      const='TRAIN_BRAKE',
                      help="Train brake")
-
     ops.add_argument("-sui", "--start_up_immediate",
                      action="store_const",
                      const='START_UP_IMMEDIATE',
