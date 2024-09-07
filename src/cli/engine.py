@@ -68,7 +68,7 @@ class EngineCli(CliBaseTMCC):
             else:
                 raise ValueError("Must specify an option, use -h for help")
         else:
-            option = option.strip().upper()
+            option = str(option).strip().upper()
 
         # reset option in args, for display purposes
         self._args.option = option

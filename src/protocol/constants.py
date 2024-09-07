@@ -1,5 +1,5 @@
 import math
-from enum import Enum, verify, UNIQUE, IntFlag
+from enum import Enum, verify, UNIQUE, IntEnum
 from typing import Dict, Union
 
 
@@ -171,7 +171,7 @@ RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
 
 
 @verify(UNIQUE)
-class TMCCCommandScope(ByNameMixin, IntFlag):
+class TMCCCommandScope(ByNameMixin, IntEnum):
     ENGINE = LEGACY_ENGINE_COMMAND_PREFIX
     TRAIN = LEGACY_TRAIN_COMMAND_PREFIX
     PARAMETER = LEGACY_PARAMETER_COMMAND_PREFIX
