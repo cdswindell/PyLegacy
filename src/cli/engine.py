@@ -7,15 +7,15 @@ from src.protocol.constants import EngineOptionEnum, TMCC1EngineOption, TMCC2Eng
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 
+AUX_COMMAND_MAP = {
+    'on': '_ON',
+    'off': '_OFF',
+    'opt1': '_OPTION_ONE',
+    "opt2": "_OPTION_TWO",
+}
+
 
 class EngineCli(CliBaseTMCC):
-    AUX_COMMAND_MAP = {
-        'on': '_ON',
-        'off': '_OFF',
-        'opt1': '_OPTION_ONE',
-        "opt2": "_OPTION_TWO",
-    }
-
     def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
         super().__init__(arg_parser)
         engine: int = self._args.engine
@@ -54,13 +54,17 @@ class EngineCli(CliBaseTMCC):
         if 'option' not in self._args:
             return None
 
-        # if option is None, check if an aux command was specified
+        # if option is None, check if an aux command was specified via
+        # the aux1/aux2 arguments; only one should have a value
         option = self._args.option
         if not option or not option.strip():
+            # construct the EngineOptionEnum by prepending the aux choice
+            # (AUX1/AUX2) to the suffix based on the argument value
+            # (on, off, opt1, opt2)
             if 'aux1' in self._args and self._args.aux1 is not None:
-                option = f"AUX1{self.AUX_COMMAND_MAP[self._args.aux1.lower()]}"
+                option = f"AUX1{AUX_COMMAND_MAP[self._args.aux1.lower()]}"
             elif 'aux2' in self._args and self._args.aux2 is not None:
-                option = f"AUX2{self.AUX_COMMAND_MAP[self._args.aux2.lower()]}"
+                option = f"AUX2{AUX_COMMAND_MAP[self._args.aux2.lower()]}"
             else:
                 raise ValueError("Must specify an option, use -h for help")
         else:
@@ -82,7 +86,10 @@ class EngineCli(CliBaseTMCC):
 
 if __name__ == '__main__':
     engine_parser = argparse.ArgumentParser(add_help=False)
-    engine_parser.add_argument("engine", metavar='Engine/Train', type=int, help="Engine/Train to control")
+    engine_parser.add_argument("engine",
+                               metavar='Engine/Train',
+                               type=int,
+                               help="Engine/Train to operate")
 
     ops = engine_parser.add_mutually_exclusive_group()
     ops.add_argument("-a", "--set_address",
@@ -230,7 +237,7 @@ if __name__ == '__main__':
                      const='opt1')
 
     # create subparsers to handle train/engine-specific operations
-    sp = engine_parser.add_subparsers(dest='command', help='Engine/train sub-commands')
+    sp = engine_parser.add_subparsers(dest='sub_command', help='Engine/train sub-commands')
 
     # Speed operations
     speed = sp.add_parser('speed', aliases=['sp'], help='Speed of engine/train')
