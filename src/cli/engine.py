@@ -187,7 +187,7 @@ if __name__ == '__main__':
                      type=int,
                      nargs='?',
                      default=1,
-                     const='NUMERIC',
+                     const='TRAIN_BRAKE',
                      help="Train brake")
 
     ops.add_argument("-n",
@@ -198,8 +198,9 @@ if __name__ == '__main__':
                      type=int,
                      nargs='?',
                      default=3,
-                     const='TRAIN_BRAKE',
+                     const='Send numeric value',
                      help="Train brake")
+
     ops.add_argument("-sui", "--start_up_immediate",
                      action="store_const",
                      const='START_UP_IMMEDIATE',
