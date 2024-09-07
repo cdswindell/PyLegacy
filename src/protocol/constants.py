@@ -181,8 +181,8 @@ class TMCCCommandScope(ByNameMixin, IntFlag):
 # TMCC2 Commands with Bit 9 = "0"
 TMCC2_SET_ABSOLUTE_SPEED_COMMAND: int = 0x0000  # encode speed in last byte (0 - 199)
 TMCC2_SET_MOMENTUM_COMMAND: int = 0x00C8  # encode momentum in last 3 bits (0 - 7)
-TMCC2_SET_BRAKE_COMMAND: int = 0x00E0  # encode brake level in last 3 bits (0 - 7)
-TMCC2_SET_BOOST_COMMAND: int = 0x00E8  # encode boost level in last 3 bits (0 - 7)
+TMCC2_SET_BRAKE_LEVEL_COMMAND: int = 0x00E0  # encode brake level in last 3 bits (0 - 7)
+TMCC2_SET_BOOST_LEVEL_COMMAND: int = 0x00E8  # encode boost level in last 3 bits (0 - 7)
 TMCC2_SET_TRAIN_BRAKE_COMMAND: int = 0x00F0  # encode train brake in last 3 bits (0 - 7)
 TMCC2_STALL_COMMAND: int = 0x00F8
 TMCC2_STOP_IMMEDIATE_COMMAND: int = 0x00FB
@@ -222,7 +222,7 @@ TMCC2_WATER_INJECTOR_SOUND_COMMAND: int = 0x01A8
 TMCC2_ENG_BRAKE_SQUEAL_SOUND_COMMAND: int = 0x01F6
 TMCC2_ENG_AUGER_SOUND_COMMAND: int = 0x01F7
 TMCC2_ENG_BRAKE_AIR_RELEASE_SOUND_COMMAND: int = 0x01F8
-TMCC2_ENG_REFUELLING_SOUND_COMMAND: int = 0x012C
+TMCC2_ENG_REFUELLING_SOUND_COMMAND: int = 0x012D
 
 TMCC2_DIESEL_RUN_LEVEL_SOUND_COMMAND: int = 0x01A0  # run level 0 - 7 encoded in last 3 bits
 
@@ -361,10 +361,10 @@ class TMCC2EngineOption(EngineOptionEnum, Enum):
     BELL_SLIDER_POSITION = EngineOption(TMCC2_BELL_SLIDER_POSITION_COMMAND, d_min=2, d_max=5)
     BLOW_HORN_ONE = EngineOption(TMCC2_BLOW_HORN_ONE_COMMAND)
     BLOW_HORN_TWO = EngineOption(TMCC2_BLOW_HORN_TWO_COMMAND)
-    BOOST_LEVEL = EngineOption(TMCC2_SET_BOOST_COMMAND, d_max=7)
+    BOOST_LEVEL = EngineOption(TMCC2_SET_BOOST_LEVEL_COMMAND, d_max=7)
     BOOST_SPEED = EngineOption(TMCC2_BOOST_SPEED_COMMAND)
     BRAKE_AIR_RELEASE = EngineOption(TMCC2_ENG_BRAKE_AIR_RELEASE_SOUND_COMMAND)
-    BRAKE_LEVEL = EngineOption(TMCC2_SET_BRAKE_COMMAND, d_max=7)
+    BRAKE_LEVEL = EngineOption(TMCC2_SET_BRAKE_LEVEL_COMMAND, d_max=7)
     BRAKE_SPEED = EngineOption(TMCC2_BRAKE_SPEED_COMMAND)
     BRAKE_SQUEAL = EngineOption(TMCC2_ENG_BRAKE_SQUEAL_SOUND_COMMAND)
     DIESEL_LEVEL = EngineOption(TMCC2_DIESEL_RUN_LEVEL_SOUND_COMMAND, d_max=7)
