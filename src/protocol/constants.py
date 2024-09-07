@@ -302,7 +302,6 @@ class EngineOptionEnum(ByNameMixin):
         Marker Interface to allow TMCC1EngineOption and TMCC2EngineOption enums
         to be handled by engine commands
     """
-
     @classmethod
     def _missing_(cls, value):
         if type(value) is str:
