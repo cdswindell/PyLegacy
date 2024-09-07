@@ -170,13 +170,11 @@ class TestConstants(TestBase):
         assert TMCC2_WATER_INJECTOR_SOUND_COMMAND == 0b110101000
 
     def test_tmcc_command_scope_enum(self) -> None:
-        # should contain 4 elements
+        # should contain 2 elements
 
-        assert len(TMCCCommandScope) == 4
+        assert len(TMCCCommandScope) == 2
         assert TMCCCommandScope.ENGINE.value == LEGACY_ENGINE_COMMAND_PREFIX
         assert TMCCCommandScope.TRAIN.value == LEGACY_TRAIN_COMMAND_PREFIX
-        assert TMCCCommandScope.PARAMETER.value == LEGACY_PARAMETER_COMMAND_PREFIX
-        assert TMCCCommandScope.EXTENDED.value == LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX
 
     def test_engine_option_enum(self) -> None:
         # should contain no elements
