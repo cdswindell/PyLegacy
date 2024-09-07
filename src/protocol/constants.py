@@ -165,8 +165,6 @@ LEGACY_PARAMETER_COMMAND_PREFIX: int = 0xFB
 LEGACY_ENGINE_COMMAND_PREFIX: int = 0xF8
 LEGACY_TRAIN_COMMAND_PREFIX: int = 0xF9
 
-RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
-
 # The TMCC2 route command is an undocumented "extended block command" (0xFA)
 LEGACY_ROUTE_COMMAND: int = 0x00FD
 
@@ -310,6 +308,13 @@ class EngineOptionEnum(ByNameMixin):
             if value in dir(cls):
                 return cls[value]
             raise ValueError(f"{value} is not a valid {cls.__name__}")
+
+
+"""
+    Relative speed is specified with values ranging from -5 to 5 that are 
+    mapped to values 0 - 10
+"""
+RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
 
 
 @verify(UNIQUE)
