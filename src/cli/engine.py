@@ -198,8 +198,8 @@ if __name__ == '__main__':
                      type=int,
                      nargs='?',
                      default=3,
-                     const='Send numeric value',
-                     help="Train brake")
+                     const='NUMERIC',
+                     help="Send numeric value")
 
     ops.add_argument("-sui", "--start_up_immediate",
                      action="store_const",
