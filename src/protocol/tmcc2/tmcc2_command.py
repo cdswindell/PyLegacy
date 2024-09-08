@@ -3,7 +3,7 @@ from abc import ABC
 
 from ..command_base import CommandBase
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
-from ..constants import TMCC2ParameterIndex, TMCC2ParameterData
+from ..constants import TMCC2ParameterIndex, TMCC2ParameterDataEnum
 from ..constants import TMCC2LightingControl, TMCC2EffectsControl
 from ..constants import TMCCCommandScope, TMCC2_PARAMETER_INDEX_PREFIX, LEGACY_PARAMETER_COMMAND_PREFIX
 
@@ -36,7 +36,7 @@ class TMCC2FixedParameterCommand(TMCC2Command, ABC):
     def __init__(self,
                  command_scope: TMCCCommandScope,
                  parameter_index: TMCC2ParameterIndex | int,
-                 parameter_data: TMCC2ParameterData | int,
+                 parameter_data: TMCC2ParameterDataEnum | int,
                  address: int = DEFAULT_ADDRESS,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT) -> None:
@@ -54,7 +54,7 @@ class TMCC2FixedParameterCommand(TMCC2Command, ABC):
             p_idx = f"{self._parameter_index.name} ({hex(self._parameter_index)})"
         else:
             p_idx = f"{hex(self._parameter_index)}"
-        if isinstance(self._parameter_data, TMCC2ParameterData):
+        if isinstance(self._parameter_data, TMCC2ParameterDataEnum):
             p_data = f"{self._parameter_data.name} ({hex(self._parameter_data)})"
         else:
             p_data = f"{hex(self._parameter_data)}"

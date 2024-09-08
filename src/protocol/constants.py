@@ -415,7 +415,7 @@ class TMCC2ParameterIndex(ByNameMixin, IntEnum):
     VARIABLE_LENGTH_COMMAND = TMCC2_VARIABLE_LENGTH_COMMAND_PARAMETER_INDEX
 
 
-class TMCC2ParameterData(ByNameMixin, IntEnum):
+class TMCC2ParameterDataEnum(ByNameMixin, IntEnum):
     """
         Marker interface for all Parameter Data enums
     """
@@ -456,7 +456,7 @@ TMCC2_EFFECTS_CONTROL_STOCK_CAR_GAME_OFF: int = 0x3B
 
 
 @verify(UNIQUE)
-class TMCC2EffectsControl(TMCC2ParameterData):
+class TMCC2EffectsControl(TMCC2ParameterDataEnum):
     PANTO_FRONT_DOWN = TMCC2_EFFECTS_CONTROL_PANTOGRAPH_FRONT_DOWN
     PANTO_FRONT_UP = TMCC2_EFFECTS_CONTROL_PANTOGRAPH_FRONT_UP
     PANTO_REAR_DOWN = TMCC2_EFFECTS_CONTROL_PANTOGRAPH_REAR_DOWN
@@ -529,7 +529,7 @@ TMCC2_LIGHTING_CONTROL_TENDER_MARKER_LIGHT_ON: int = 0xCD
 
 
 @verify(UNIQUE)
-class TMCC2LightingControl(TMCC2ParameterData):
+class TMCC2LightingControl(TMCC2ParameterDataEnum):
     CAB_AUTO = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_AUTO
     CAB_OFF = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_OFF
     CAB_ON = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_ON
