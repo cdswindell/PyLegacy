@@ -178,11 +178,11 @@ class TestConstants(TestBase):
 
     def test_engine_option_enum(self) -> None:
         # should contain no elements
-        assert len(EngineOptionEnum) == 0
+        assert len(OptionEnum) == 0
 
         # validate _missing_ method is present and throws exception
         with pytest.raises(ValueError, match="FOO is not a valid EngineOptionEnum"):
-            EngineOptionEnum._missing_('foo')
+            OptionEnum._missing_('foo')
 
     def test_engine_option(self) -> None:
         pass

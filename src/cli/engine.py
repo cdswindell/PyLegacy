@@ -3,7 +3,7 @@
 import argparse
 
 from src.cli.cli_base import CliBaseTMCC, DataAction, cli_parser, command_format_parser, train_parser
-from src.protocol.constants import EngineOptionEnum, TMCC1EngineOption, TMCC2EngineOption
+from src.protocol.constants import OptionEnum, TMCC1EngineOption, TMCC2EngineOption
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 
@@ -21,7 +21,7 @@ class EngineCli(CliBaseTMCC):
         engine: int = self._args.engine
         option_data: int = self._args.data if 'data' in self._args else 0
         try:
-            option: EngineOptionEnum = self._decode_engine_option()  # raise ValueError if can't decode
+            option: OptionEnum = self._decode_engine_option()  # raise ValueError if can't decode
             if option is None:
                 raise ValueError("Must specify an option, use -h for help")
             print(self._args)
@@ -44,7 +44,7 @@ class EngineCli(CliBaseTMCC):
         except ValueError as ve:
             print(ve)
 
-    def _decode_engine_option(self) -> EngineOptionEnum | None:
+    def _decode_engine_option(self) -> OptionEnum | None:
         """
             Decode the 'option' argument, if present, into a valid
             TMCC1EngineOption or TMCC2EngineOption enum. Use the specified
@@ -197,7 +197,7 @@ if __name__ == '__main__':
                      metavar="0 - 9",
                      type=int,
                      nargs='?',
-                     default=3,
+                     default=7,  # random radio chatter
                      const='NUMERIC',
                      help="Send numeric value")
 
