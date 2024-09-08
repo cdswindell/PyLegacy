@@ -207,6 +207,12 @@ if __name__ == '__main__':
                      const='NUMERIC',
                      help="Send numeric value")
 
+    ops.add_argument("-stall",
+                     action="store_const",
+                     const='STALL',
+                     dest='option',
+                     help="Set stall")
+
     ops.add_argument("-sui", "--start_up_immediate",
                      action="store_const",
                      const='START_UP_IMMEDIATE',
