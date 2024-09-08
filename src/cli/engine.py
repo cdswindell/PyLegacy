@@ -278,12 +278,14 @@ if __name__ == '__main__':
     sp = engine_parser.add_subparsers(dest='sub_command', help='Engine/train sub-commands')
 
     # Speed operations
+    sp_metavar = ("Engine/Train speed: 0 - 199 (Legacy) or 0 - 31 (TMCC) or roll, restricted, slow, medium, limited, "
+                  "normal, or highball")
     speed = sp.add_parser('speed', aliases=['sp'], help='Speed of engine/train')
     speed.add_argument('data',
                        type=_validate_speed,
                        action='store',
+                       metavar=sp_metavar,
                        help="Absolute/Relative speed")
-    # metavar="Engine/Train speed: 0 - 199 (Legacy) or 0 - 31 (TMCC) or roll, restricted, slow, medium, limited, normal, or highball",
 
     speed_group = speed.add_mutually_exclusive_group()
     speed_group.add_argument("-a", "--absolute",
