@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 #
 import argparse
+import sys
+from typing import Any
 
 from src.cli.cli_base import CliBaseTMCC, DataAction, cli_parser, command_format_parser, train_parser
-from src.protocol.constants import OptionEnum, TMCC1EngineOption, TMCC2EngineOption
+from src.protocol.constants import OptionEnum, TMCC1EngineOption, TMCC2EngineOption, TMCC2_SPEED_MAP, TMCC1_SPEED_MAP
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 
@@ -84,13 +86,26 @@ class EngineCli(CliBaseTMCC):
             raise ValueError(f'Invalid {self.command_format.name} option: {option}')
 
 
+def _validate_speed(arg: Any) -> int:
+    try:
+        return int(arg)  # try convert to int
+    except ValueError:
+        pass
+    uc_arg = str(arg).upper()
+    if uc_arg in TMCC2_SPEED_MAP:
+        # feels a little hacky, but need a way to use a different map for TMCC commands
+        if '-tmcc' in sys.argv or '--tmcc1' in sys.argv:
+            return TMCC1_SPEED_MAP[uc_arg]
+        return TMCC2_SPEED_MAP[uc_arg]
+    raise argparse.ArgumentTypeError("Speed must be between 0 and 199 (0 and 31, for tmcc)")
+
+
 if __name__ == '__main__':
     engine_parser = argparse.ArgumentParser(add_help=False)
     engine_parser.add_argument("engine",
                                metavar='Engine/Train',
                                type=int,
                                help="Engine/Train to operate")
-
     engine_parser.add_argument("-re", "--repeat",
                                action="store",
                                type=int,
@@ -265,9 +280,11 @@ if __name__ == '__main__':
     # Speed operations
     speed = sp.add_parser('speed', aliases=['sp'], help='Speed of engine/train')
     speed.add_argument('data',
-                       type=int,
+                       type=_validate_speed,
                        action='store',
                        help="Absolute/Relative speed")
+    # metavar="Engine/Train speed: 0 - 199 (Legacy) or 0 - 31 (TMCC) or roll, restricted, slow, medium, limited, normal, or highball",
+
     speed_group = speed.add_mutually_exclusive_group()
     speed_group.add_argument("-a", "--absolute",
                              action="store_const",
