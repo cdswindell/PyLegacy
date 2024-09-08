@@ -40,7 +40,7 @@ class EngineCli(CliBaseTMCC):
                                      scope,
                                      baudrate=self._args.baudrate,
                                      port=self._args.port)
-            cmd.fire()
+            cmd.fire(self._args.repeat)
         except ValueError as ve:
             print(ve)
 
@@ -90,6 +90,12 @@ if __name__ == '__main__':
                                metavar='Engine/Train',
                                type=int,
                                help="Engine/Train to operate")
+
+    engine_parser.add_argument("-re", "--repeat",
+                               action="store",
+                               type=int,
+                               default=1,
+                               help="Number of times to repeat command (default: 1)")
 
     ops = engine_parser.add_mutually_exclusive_group()
     ops.add_argument("-a", "--set_address",

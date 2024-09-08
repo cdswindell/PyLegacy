@@ -45,17 +45,21 @@ class CommandBase(ABC):
     def command_prefix(self) -> bytes:
         return self._command_prefix()
 
-    def fire(self) -> None:
+    def fire(self, repeat: int = 1) -> None:
         try:
-            self.queue_cmd(self._command)
+            for _ in range(repeat):
+                self.queue_cmd(self.command_bytes)
         except SerialException as se:
             print(se)
 
     def queue_cmd(self, cmd: bytes) -> None:
         print(f"Fire command {cmd.hex()}")
-        with serial.Serial(self.port, self.baudrate) as ser:
-            # Write the byte sequence
-            ser.write(cmd)
+        try:
+            with serial.Serial(self.port, self.baudrate) as ser:
+                # Write the byte sequence
+                ser.write(cmd)
+        except SerialException as se:
+            print(se)
 
     @staticmethod
     def _encode_command(command: int, num_bytes: int = 2) -> bytes:
