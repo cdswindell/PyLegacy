@@ -4,7 +4,7 @@ from abc import ABC
 from ..command_base import CommandBase
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from ..constants import TMCC2ParameterIndex, TMCC2ParameterDataEnum
-from ..constants import TMCC2LightingControl, TMCC2EffectsControl
+from ..constants import TMCC2LightingControl, TMCC2EffectsControl, TMCC2DialogControl
 from ..constants import TMCCCommandScope, TMCC2_PARAMETER_INDEX_PREFIX, LEGACY_PARAMETER_COMMAND_PREFIX
 
 
@@ -118,6 +118,18 @@ class TMCC2FixedParameterCommand(TMCC2Command, ABC):
 
     def _build_command(self) -> bytes:
         return self.command_prefix + self._word_1 + self._identifier + self._word_2 + self._identifier + self._word_3
+
+
+class TMCC2DialogCommand(TMCC2FixedParameterCommand):
+    def __init__(self,
+                 command_scope: TMCCCommandScope,
+                 option: TMCC2DialogControl | int,
+                 address: int = DEFAULT_ADDRESS,
+                 baudrate: int = DEFAULT_BAUDRATE,
+                 port: str = DEFAULT_PORT) -> None:
+        if type(option) is int:
+            option = TMCC2LightingControl.by_value(option, True)
+        super().__init__(command_scope, TMCC2ParameterIndex.DIALOG_CONTROLS, option, address, baudrate, port)
 
 
 class TMCC2LightingCommand(TMCC2FixedParameterCommand):
