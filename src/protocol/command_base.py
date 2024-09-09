@@ -16,7 +16,7 @@ class CommandBase(ABC):
         self._command = None  # provided by _build_command method in subclasses
         # validate baudrate
         if baudrate is None or baudrate < 110 or baudrate > 115200 or not isinstance(baudrate, int):
-            raise ValueError("baudrate must be between 110 and 115000")
+            raise ValueError("baudrate must be between 110 and 115200")
         self._baudrate = baudrate
         # validate port
         if port is None:
