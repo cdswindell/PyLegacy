@@ -1,2 +1,4 @@
+colorzero==2.0
+gpiozero==2.0.1
 pyserial==3.5
-
+setuptools==74.1.2
