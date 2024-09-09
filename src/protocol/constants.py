@@ -128,6 +128,8 @@ DEFAULT_BAUDRATE: int = 9600
 DEFAULT_PORT: str = "/dev/ttyUSB0"
 DEFAULT_ADDRESS: int = 99
 
+DEFAULT_QUEUE_SIZE: int = 2**14  # 16,484 entries
+
 """
     TMCC1 Protocol Constants
 """

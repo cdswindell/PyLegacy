@@ -42,7 +42,7 @@ class EngineCli(CliBaseTMCC):
                                      scope,
                                      baudrate=self._args.baudrate,
                                      port=self._args.port)
-            cmd.fire(self._args.repeat)
+            cmd.fire(repeat=self._args.repeat)
         except ValueError as ve:
             print(ve)
 

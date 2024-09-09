@@ -1,10 +1,9 @@
 import abc
+import time
 from abc import ABC
 
-import serial
-from serial.serialutil import SerialException
-
 from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+from ..comm.comm_buffer import CommBuffer
 
 
 class CommandBase(ABC):
@@ -24,6 +23,8 @@ class CommandBase(ABC):
         if port is None:
             raise ValueError("port cannot be None")
         self._port = port
+        # create a CommBuffer to enque commands
+        self._comm_buffer = CommBuffer(baudrate=self.baudrate, port=self.port)
 
     @property
     def address(self) -> int:
@@ -45,21 +46,21 @@ class CommandBase(ABC):
     def command_prefix(self) -> bytes:
         return self._command_prefix()
 
-    def fire(self, repeat: int = 1) -> None:
-        try:
-            for _ in range(repeat):
-                self.queue_cmd(self.command_bytes)
-        except SerialException as se:
-            print(se)
+    def send(self, repeat: int = 1, shutdown: bool = False):
+        """
+            Send the command to the LCS SER2 and keep comm buffer alive.
+        """
+        for _ in range(repeat):
+            self._comm_buffer.enqueue_command(self.command_bytes)
+        if shutdown:
+            time.sleep(1)
+            self._comm_buffer.shutdown()
 
-    def queue_cmd(self, cmd: bytes) -> None:
-        print(f"Fire command {cmd.hex()}")
-        try:
-            with serial.Serial(self.port, self.baudrate) as ser:
-                # Write the byte sequence
-                ser.write(cmd)
-        except SerialException as se:
-            print(se)
+    def fire(self, repeat: int = 1) -> None:
+        """
+            Fire the command immediately and shut down comm buffers, once empty
+        """
+        self.send(repeat=repeat, shutdown=True)
 
     @staticmethod
     def _encode_command(command: int, num_bytes: int = 2) -> bytes:

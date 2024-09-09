@@ -51,7 +51,6 @@ class DataAction(argparse.Action):
         with the option value specified by 'const', and the data value
         specified by the user-provided argument or 'default'
     """
-
     def __init__(self, option_strings, dest, **kwargs):
         """
             We need to capture both the values of const and default, as we use the
@@ -103,7 +102,6 @@ def command_format_parser(default: CommandFormat = CommandFormat.TMCC2) -> argpa
                        dest='format',
                        help="Use TMCC2/Legacy command syntax.")
     group.set_defaults(format=default)
-
     return parser
 
 
