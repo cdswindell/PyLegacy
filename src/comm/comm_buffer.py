@@ -5,7 +5,7 @@ from threading import Thread
 import serial
 from serial.serialutil import SerialException
 
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY
 
 
 class CommBuffer(Thread):
@@ -37,6 +37,9 @@ class CommBuffer(Thread):
 
     @staticmethod
     def _current_milli_time() -> int:
+        """
+            Return the current time, in milliseconds past the "epoch"
+        """
         return round(time.time() * 1000)
 
     @property
@@ -53,14 +56,16 @@ class CommBuffer(Thread):
             print(f"Fire command {data.hex()}")
             try:
                 with serial.Serial(self.port, self.baudrate) as ser:
-                    # Write the byte sequence
+                    millis_since_last_output = self._current_milli_time() - self._last_output_at
+                    if millis_since_last_output < DEFAULT_THROTTLE_DELAY:
+                        time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output)/1000.)
+                    # Write the command byte sequence
                     ser.write(data)
                     self._last_output_at = self._current_milli_time()
             except SerialException as se:
                 # TODO: handle serial errors
                 print(se)
             self._queue.task_done()
-        print(f"Queue size {self._queue.qsize()}")
 
     def enqueue_command(self, command: bytes) -> None:
         if command:
@@ -70,4 +75,6 @@ class CommBuffer(Thread):
         with self._queue.mutex:
             if immediate:
                 self._queue.queue.clear()
+                self._queue.all_tasks_done.notify_all()
+                self._queue.unfinished_tasks = 0
             self._shutdown_signalled = True
