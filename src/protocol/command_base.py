@@ -23,7 +23,7 @@ class CommandBase(ABC):
         if port is None:
             raise ValueError("port cannot be None")
         self._port = port
-        # create a CommBuffer to enque commands
+        # create a CommBuffer to enqueue commands
         self._comm_buffer = CommBuffer(baudrate=self.baudrate, port=self.port)
 
     @property

@@ -38,11 +38,13 @@ class TestConstants(TestBase):
         """
         enums = [SwitchState,
                  CommandFormat,
-                 AuxChoice,
-                 AuxOption,
+                 TMCC1AuxOption,
+                 TMCC2ParameterIndex,
                  TMCCCommandScope,
                  TMCC1EngineOption,
-                 TMCC2EngineOption
+                 TMCC2EngineOption,
+                 TMCC2EffectsControl,
+                 TMCC2LightingControl
                  ]
         for env in enums:
             for en in env:
@@ -181,7 +183,7 @@ class TestConstants(TestBase):
         assert len(OptionEnum) == 0
 
         # validate _missing_ method is present and throws exception
-        with pytest.raises(ValueError, match="FOO is not a valid EngineOptionEnum"):
+        with pytest.raises(ValueError, match="FOO is not a valid OptionEnum"):
             OptionEnum._missing_('foo')
 
     def test_engine_option(self) -> None:
