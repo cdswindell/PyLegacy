@@ -66,5 +66,8 @@ class CommBuffer(Thread):
         if command:
             self._queue.put(command)
 
-    def shutdown(self) -> None:
-        self._shutdown_signalled = True
+    def shutdown(self, immediate: bool = False) -> None:
+        with self._queue.mutex:
+            if immediate:
+                self._queue.queue.clear()
+            self._shutdown_signalled = True
