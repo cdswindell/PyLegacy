@@ -53,7 +53,6 @@ class CommandBase(ABC):
         for _ in range(repeat):
             self._comm_buffer.enqueue_command(self.command_bytes)
         if shutdown:
-            time.sleep(1)
             self._comm_buffer.shutdown()
 
     def fire(self, repeat: int = 1) -> None:

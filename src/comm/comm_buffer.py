@@ -20,7 +20,7 @@ class CommBuffer(Thread):
         self._baudrate = baudrate
         self._port = port
         self._queue_size = queue_size
-        self._buffer = Queue(queue_size)
+        self._queue = Queue(queue_size)
         self._shutdown_signalled = False
         self._last_output_at = 0  # used to throttle writes to LCS SER2
         # start the consumer thread
@@ -48,23 +48,23 @@ class CommBuffer(Thread):
         return self._baudrate
 
     def run(self) -> None:
-        while not self._shutdown_signalled:
-            if not self._buffer.empty():
-                data = self._buffer.get()
-                print(f"Fire command {data.hex()}")
-                try:
-                    with serial.Serial(self.port, self.baudrate) as ser:
-                        # Write the byte sequence
-                        ser.write(data)
-                        self._last_output_at = self._current_milli_time()
-                except SerialException as se:
-                    # TODO: handle serial errors
-                    print(se)
-                self._buffer.task_done()
+        while self._queue.qsize() or not self._shutdown_signalled:
+            data = self._queue.get()
+            print(f"Fire command {data.hex()}")
+            try:
+                with serial.Serial(self.port, self.baudrate) as ser:
+                    # Write the byte sequence
+                    ser.write(data)
+                    self._last_output_at = self._current_milli_time()
+            except SerialException as se:
+                # TODO: handle serial errors
+                print(se)
+            self._queue.task_done()
+        print(f"Queue size {self._queue.qsize()}")
 
     def enqueue_command(self, command: bytes) -> None:
         if command:
-            self._buffer.put(command)
+            self._queue.put(command)
 
     def shutdown(self) -> None:
         self._shutdown_signalled = True
