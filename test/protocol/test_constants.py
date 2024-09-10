@@ -7,41 +7,43 @@ from ..test_base import TestBase
 class TestConstants(TestBase):
     def test_by_name_mixin(self) -> None:
         # assert all enums are found
-        for ss in SwitchState:
-            assert SwitchState.by_name(ss.name) == ss
+        for ss in TMCC1SwitchState:
+            assert TMCC1SwitchState.by_name(ss.name) == ss
 
         # assert by_name is case-insensitive
-        assert SwitchState.by_name('through') == SwitchState.THROUGH
-        assert SwitchState.by_name('THROUGH') == SwitchState.THROUGH
+        assert TMCC1SwitchState.by_name('through') == TMCC1SwitchState.THROUGH
+        assert TMCC1SwitchState.by_name('THROUGH') == TMCC1SwitchState.THROUGH
 
         # assert non-members return None
-        assert SwitchState.by_name('NOT_PRESENT') is None
+        assert TMCC1SwitchState.by_name('NOT_PRESENT') is None
 
         # assert None return None
-        assert SwitchState.by_name(str(None)) is None
+        assert TMCC1SwitchState.by_name(str(None)) is None
 
         # check ValueError is thrown
-        with pytest.raises(ValueError, match="'NOT_PRESENT' is not a valid SwitchState"):
-            SwitchState.by_name('NOT_PRESENT', raise_exception=True)
+        with pytest.raises(ValueError, match="'NOT_PRESENT' is not a valid TMCC1SwitchState"):
+            TMCC1SwitchState.by_name('NOT_PRESENT', raise_exception=True)
 
         # check ValueError is thrown
-        with pytest.raises(ValueError, match="None is not a valid SwitchState"):
-            SwitchState.by_name(None, raise_exception=True)  # noqa
+        with pytest.raises(ValueError, match="None is not a valid TMCC1SwitchState"):
+            TMCC1SwitchState.by_name(None, raise_exception=True)  # noqa
 
         # check ValueError is thrown
-        with pytest.raises(ValueError, match="Empty is not a valid SwitchState"):
-            SwitchState.by_name("  ", raise_exception=True)
+        with pytest.raises(ValueError, match="Empty is not a valid TMCC1SwitchState"):
+            TMCC1SwitchState.by_name("  ", raise_exception=True)
 
     def test_by_name_mixin_in_enums(self) -> None:
         """
             Test that all defined enums have ByNameMixin
         """
-        enums = [SwitchState,
-                 CommandFormat,
+        enums = [CommandSyntax,
+                 CommandScope,
+                 TMCC1SwitchState,
+                 TMCC1HaltOption,
+                 TMCC1RouteOption,
                  TMCC1AuxOption,
-                 TMCC2ParameterIndex,
-                 TMCCCommandScope,
                  TMCC1EngineOption,
+                 TMCC2ParameterIndex,
                  TMCC2EngineOption,
                  TMCC2EffectsControl,
                  TMCC2LightingControl
@@ -171,12 +173,17 @@ class TestConstants(TestBase):
         assert TMCC2_TOGGLE_DIRECTION_COMMAND == 0b100000001
         assert TMCC2_WATER_INJECTOR_SOUND_COMMAND == 0b110101000
 
-    def test_tmcc_command_scope_enum(self) -> None:
-        # should contain 2 elements
+    def test_command_scope_enum(self) -> None:
+        # should contain 4 elements
+        assert len(CommandScope) == 4
 
-        assert len(TMCCCommandScope) == 2
-        assert TMCCCommandScope.ENGINE.value == LEGACY_ENGINE_COMMAND_PREFIX
-        assert TMCCCommandScope.TRAIN.value == LEGACY_TRAIN_COMMAND_PREFIX
+        # check that engine and train elements are in TMCC1CommandPrefix
+        assert TMCC1CommandPrefix.ENGINE == TMCC1CommandPrefix(CommandScope.ENGINE.name)
+        assert TMCC1CommandPrefix.TRAIN == TMCC1CommandPrefix(CommandScope.TRAIN.name)
+
+        # check that engine and train elements are in TMCC2CommandPrefix
+        assert TMCC2CommandPrefix.ENGINE == TMCC2CommandPrefix(CommandScope.ENGINE.name)
+        assert TMCC2CommandPrefix.TRAIN == TMCC2CommandPrefix(CommandScope.TRAIN.name)
 
     def test_engine_option_enum(self) -> None:
         # should contain no elements

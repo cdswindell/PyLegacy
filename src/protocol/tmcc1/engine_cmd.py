@@ -1,5 +1,5 @@
 from .tmcc1_command import TMCC1Command
-from ..constants import TMCC1EngineOption, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCCCommandScope, \
+from ..constants import TMCC1EngineOption, DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, \
     TMCC1_TRAIN_COMMAND_MODIFIER, TMCC1_TRAIN_COMMAND_PURIFIER
 
 
@@ -8,13 +8,13 @@ class EngineCmd(TMCC1Command):
                  engine: int,
                  option: TMCC1EngineOption,
                  option_data: int = 0,
-                 scope: TMCCCommandScope = TMCCCommandScope.ENGINE,
+                 scope: CommandScope = CommandScope.ENGINE,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT) -> None:
-        if scope == TMCCCommandScope.ENGINE:
+        if scope == CommandScope.ENGINE:
             if engine < 1 or engine > 99:
                 raise ValueError("Engine must be between 1 and 99")
-        elif scope == TMCCCommandScope.TRAIN:
+        elif scope == CommandScope.TRAIN:
             if engine < 1 or engine > 10:
                 raise ValueError("Train must be between 1 and 10")
         super().__init__(engine, baudrate, port)
@@ -29,7 +29,7 @@ class EngineCmd(TMCC1Command):
 
     def _build_command(self) -> bytes:
         command_op = self._option.value.apply_data(self._option_data)
-        if self._scope == TMCCCommandScope.TRAIN:
+        if self._scope == CommandScope.TRAIN:
             command_op &= TMCC1_TRAIN_COMMAND_PURIFIER  # remove unwanted bits from ENG command
             command_op |= TMCC1_TRAIN_COMMAND_MODIFIER  # add bits to specify train command
         return self.command_prefix + self._encode_address(command_op)

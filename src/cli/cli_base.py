@@ -2,7 +2,7 @@ import abc
 import argparse
 from abc import ABC
 
-from src.protocol.constants import CommandFormat, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCCCommandScope
+from src.protocol.constants import CommandSyntax, DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 
 
 class CliBase(ABC):
@@ -10,19 +10,19 @@ class CliBase(ABC):
 
     def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
         self._args = arg_parser.parse_args()
-        self._command_format = CommandFormat.TMCC2  # Use TMCC2-style commands by default, if supported
+        self._command_format = CommandSyntax.TMCC2  # Use TMCC2-style commands by default, if supported
         print(self._args)
 
     @property
     def is_tmcc1(self) -> bool:
-        return self._command_format == CommandFormat.TMCC1
+        return self._command_format == CommandSyntax.TMCC1
 
     @property
     def is_tmcc2(self) -> bool:
-        return self._command_format == CommandFormat.TMCC2
+        return self._command_format == CommandSyntax.TMCC2
 
     @property
-    def command_format(self) -> CommandFormat:
+    def command_format(self) -> CommandSyntax:
         return self._command_format
 
 
@@ -34,10 +34,10 @@ class CliBaseTMCC(CliBase):
         if 'format' in self._args and self._args.format:
             self._command_format = self._args.format
         else:
-            self._command_format = CommandFormat.TMCC2
+            self._command_format = CommandSyntax.TMCC2
 
     def _determine_scope(self):
-        return TMCCCommandScope.TRAIN if self._args.train else TMCCCommandScope.ENGINE
+        return CommandScope.TRAIN if self._args.train else CommandScope.ENGINE
 
     @property
     def is_train_command(self) -> bool:
@@ -85,7 +85,7 @@ def cli_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def command_format_parser(default: CommandFormat = CommandFormat.TMCC2) -> argparse.ArgumentParser:
+def command_format_parser(default: CommandSyntax = CommandSyntax.TMCC2) -> argparse.ArgumentParser:
     """
         Add option to run command using TMCC1 command syntax
     """
@@ -93,12 +93,12 @@ def command_format_parser(default: CommandFormat = CommandFormat.TMCC2) -> argpa
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-tmcc", "--tmcc1",
                        action="store_const",
-                       const=CommandFormat.TMCC1,
+                       const=CommandSyntax.TMCC1,
                        dest='format',
                        help="Use TMCC1 command syntax.")
     group.add_argument("-legacy", "--tmcc2",
                        action="store_const",
-                       const=CommandFormat.TMCC2,
+                       const=CommandSyntax.TMCC2,
                        dest='format',
                        help="Use TMCC2/Legacy command syntax.")
     group.set_defaults(format=default)

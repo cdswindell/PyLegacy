@@ -2,6 +2,17 @@ import math
 from enum import Enum, verify, UNIQUE, IntEnum
 from typing import Dict, Any
 
+"""
+    General Constants
+"""
+DEFAULT_BAUDRATE: int = 9600
+DEFAULT_PORT: str = "/dev/ttyUSB0"
+DEFAULT_ADDRESS: int = 99
+
+DEFAULT_QUEUE_SIZE: int = 2**11  # 2,048 entries
+
+DEFAULT_THROTTLE_DELAY: int = 50  # milliseconds
+
 
 class ByNameMixin(Enum):
     @classmethod
@@ -37,6 +48,29 @@ class ByNameMixin(Enum):
             raise ValueError(f"'{value}' is not a valid {cls.__name__}")
         else:
             return None
+
+    @classmethod
+    def _missing_(cls, value):
+        if type(value) is str:
+            value = str(value).upper()
+            if value in dir(cls):
+                return cls[value]
+            raise ValueError(f"{value} is not a valid {cls.__name__}")
+
+
+@verify(UNIQUE)
+class CommandSyntax(ByNameMixin, Enum):
+    TMCC1 = 1
+    TMCC2 = 2
+
+
+@verify(UNIQUE)
+class CommandScope(ByNameMixin, Enum):
+    ENGINE = 1
+    TRAIN = 2
+    SWITCH = 3
+    ROUTE = 4
+    ACC = 5
 
 
 class Option:
@@ -87,7 +121,21 @@ class Option:
         filtered_data = data & (2 ** self._d_bits - 1)
         if data != filtered_data:
             raise ValueError(f"Invalid data value: {data} (not in range)")
-        return data | self._command_op
+        self._command_op |= data
+        return self._command_op
+
+    def apply_address(self,
+                      address: int = DEFAULT_ADDRESS,
+                      syntax: CommandSyntax = CommandSyntax.TMCC2) -> int:
+        if syntax == CommandSyntax.TMCC1:
+            self._command_op |= address << 7
+        else:
+            self._command_op |= address << 9
+        return self._command_op
+
+    @property
+    def as_bytes(self) -> bytes:
+        return self._command_op.to_bytes(2, byteorder='big')
 
 
 class OptionEnum(ByNameMixin, Enum):
@@ -96,41 +144,18 @@ class OptionEnum(ByNameMixin, Enum):
         to be handled by engine commands
     """
 
-    @classmethod
-    def _missing_(cls, value):
-        if type(value) is str:
-            value = str(value).upper()
-            if value in dir(cls):
-                return cls[value]
-            raise ValueError(f"{value} is not a valid {cls.__name__}")
-
-
-@verify(UNIQUE)
-class SwitchState(ByNameMixin, Enum):
-    """
-        Switch State
-    """
-    THROUGH = 1
-    OUT = 2
-    SET_ADDRESS = 3
-
-
-@verify(UNIQUE)
-class CommandFormat(ByNameMixin, Enum):
-    TMCC1 = 1
-    TMCC2 = 2
-
 
 """
-    General Constants
+    TMCC1 Constants
 """
-DEFAULT_BAUDRATE: int = 9600
-DEFAULT_PORT: str = "/dev/ttyUSB0"
-DEFAULT_ADDRESS: int = 99
 
-DEFAULT_QUEUE_SIZE: int = 2**11  # 2,048 entries
 
-DEFAULT_THROTTLE_DELAY: int = 50  # milliseconds
+class TMCC1Enum(OptionEnum):
+    """
+        Marker Interface for all TMCC1 enums
+    """
+    pass
+
 
 """
     TMCC1 Protocol Constants
@@ -139,11 +164,34 @@ TMCC1_COMMAND_PREFIX: int = 0xFE
 
 TMCC1_HALT_COMMAND: int = 0xFFFF
 
+
+@verify(UNIQUE)
+class TMCC1HaltOption(TMCC1Enum):
+    HALT = Option(TMCC1_HALT_COMMAND)
+
+
 TMCC1_ROUTE_COMMAND: int = 0xD01F
+
+
+@verify(UNIQUE)
+class TMCC1RouteOption(TMCC1Enum):
+    ROUTE = Option(TMCC1_ROUTE_COMMAND)
+
 
 TMCC1_SWITCH_THROUGH_COMMAND: int = 0x4000
 TMCC1_SWITCH_OUT_COMMAND: int = 0x401F
 TMCC1_SWITCH_SET_ADDRESS_COMMAND: int = 0x402B
+
+
+@verify(UNIQUE)
+class TMCC1SwitchState(TMCC1Enum):
+    """
+        Switch State
+    """
+    THROUGH = Option(TMCC1_SWITCH_THROUGH_COMMAND)
+    OUT = Option(TMCC1_SWITCH_OUT_COMMAND)
+    SET_ADDRESS = Option(TMCC1_SWITCH_SET_ADDRESS_COMMAND)
+
 
 TMCC1_ACC_ON_COMMAND: int = 0x802F
 TMCC1_ACC_OFF_COMMAND: int = 0x8020
@@ -162,7 +210,7 @@ TMCC1_ACC_AUX_2_ON_COMMAND: int = 0x800F
 
 
 @verify(UNIQUE)
-class TMCC1AuxOption(OptionEnum):
+class TMCC1AuxOption(TMCC1Enum):
     SET_ADDRESS = Option(TMCC1_ACC_SET_ADDRESS_COMMAND)
     NUMERIC = Option(TMCC1_ACC_NUMERIC_COMMAND, d_max=9)
     AUX1_OFF = Option(TMCC1_ACC_AUX_1_OFF_COMMAND)
@@ -254,7 +302,7 @@ RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
 
 
 @verify(UNIQUE)
-class TMCC1EngineOption(OptionEnum):
+class TMCC1EngineOption(TMCC1Enum):
     ABSOLUTE_SPEED = Option(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, d_max=31)
     AUX1_OFF = Option(TMCC1_ENG_AUX1_OFF_COMMAND)
     AUX1_ON = Option(TMCC1_ENG_AUX1_ON_COMMAND)
@@ -294,6 +342,27 @@ class TMCC1EngineOption(OptionEnum):
     VOLUME_UP = Option(TMCC1_ENG_VOLUME_UP_COMMAND)
 
 
+@verify(UNIQUE)
+class TMCC1CommandPrefix(ByNameMixin, IntEnum):
+    ENGINE = 0x00
+    TRAIN = 0xC0
+    SWITCH = 0x40
+    ACC = 0x80
+    ROUTE = 0xD0
+
+
+"""
+    TMCC2 constants
+"""
+
+
+class TMCC2Enum(OptionEnum):
+    """
+        Marker Interface for all TMCC2 enums
+    """
+    pass
+
+
 """
     Legacy/TMCC2 Protocol Constants
 """
@@ -309,9 +378,20 @@ LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 
 @verify(UNIQUE)
-class TMCCCommandScope(ByNameMixin, IntEnum):
+class TMCC2RouteOption(TMCC2Enum):
+    ROUTE = Option(LEGACY_ROUTE_COMMAND)
+
+
+@verify(UNIQUE)
+class TMCC2CommandPrefix(ByNameMixin, IntEnum):
     ENGINE = LEGACY_ENGINE_COMMAND_PREFIX
     TRAIN = LEGACY_TRAIN_COMMAND_PREFIX
+    ROUTE = LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX  # probably used for other things
+    PARAMETER = LEGACY_PARAMETER_COMMAND_PREFIX
+
+    @property
+    def as_bytes(self) -> bytes:
+        return self.to_bytes(1, byteorder='big')
 
 
 # TMCC2 Commands with Bit 9 = "0"
@@ -399,7 +479,7 @@ TMCC2_SPEED_MAP = dict(ROLL=TMCC2_ROLL_SPEED, RO=TMCC2_ROLL_SPEED,
 
 
 @verify(UNIQUE)
-class TMCC2EngineOption(OptionEnum):
+class TMCC2EngineOption(TMCC2Enum):
     ABSOLUTE_SPEED = Option(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199)
     AUGER = Option(TMCC2_ENG_AUGER_SOUND_COMMAND)
     AUX1_OFF = Option(TMCC2_AUX1_OFF_COMMAND)
