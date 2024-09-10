@@ -15,15 +15,15 @@ class TMCC2Command(CommandBase, ABC):
 
     @classmethod
     def send_command(cls,
-                   address: int,
-                   command: OptionEnum,
-                   data: int = 0,
-                   scope: TMCC2CommandPrefix = TMCC2CommandPrefix.ENGINE,
-                   repeat: int = 1,
-                   delay: int = 0,
-                   baudrate: int = DEFAULT_BAUDRATE,
-                   port: str = DEFAULT_PORT
-                   ) -> None:
+                     address: int,
+                     command: OptionEnum,
+                     data: int = 0,
+                     scope: TMCC2CommandPrefix = TMCC2CommandPrefix.ENGINE,
+                     repeat: int = 1,
+                     delay: int = 0,
+                     baudrate: int = DEFAULT_BAUDRATE,
+                     port: str = DEFAULT_PORT
+                     ) -> None:
         if command is None or not isinstance(command, TMCC2Enum):
             raise TypeError(f"Command must be of type TMCC2Enum {command}")
         address = Validations.validate_int(address, min_value=1, max_value=99, label=scope.name.capitalize())
