@@ -2,12 +2,10 @@ import abc
 from abc import ABC
 
 from ..command_base import CommandBase
-from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS, TMCC2CommandPrefix
-from ..constants import TMCC2ParameterIndex, TMCC2ParameterDataEnum, OptionEnum, TMCC2Enum, Option
+from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS, TMCC2CommandPrefix, TMCC2Enum
+from ..constants import TMCC2ParameterIndex, TMCC2ParameterDataEnum, OptionEnum
 from ..constants import TMCC2LightingControl, TMCC2EffectsControl, TMCC2DialogControl
 from ..constants import CommandScope, TMCC2_PARAMETER_INDEX_PREFIX, LEGACY_PARAMETER_COMMAND_PREFIX
-from ..validations import Validations
-from ...comm.comm_buffer import CommBuffer
 
 
 class TMCC2Command(CommandBase, ABC):
@@ -24,27 +22,11 @@ class TMCC2Command(CommandBase, ABC):
                      baudrate: int = DEFAULT_BAUDRATE,
                      port: str = DEFAULT_PORT
                      ) -> None:
-        if command is None or not isinstance(command, TMCC2Enum):
-            raise TypeError(f"Command must be of type TMCC2Enum {command}")
-        address = Validations.validate_int(address, min_value=1, max_value=99, label=scope.name.capitalize())
-        repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
-        delay = Validations.validate_int(delay, min_value=0, label="delay")
-
-        # validate data field and apply data bits
-        command_op: Option = command.value
-        if command_op.num_data_bits > 0:
-            command_op.apply_data(data)
-
-        # apply address
-        command_op.apply_address(address)
-
         # build command
+        command_op = cls._vet_option(TMCC2Enum, command, address, data, scope)
         cmd = scope.as_bytes + command_op.as_bytes
-
-        # and send to comms
-        buffer = CommBuffer(baudrate=baudrate, port=port)
-        for _ in range(repeat):
-            buffer.enqueue_command(cmd)
+        # and queue it to send
+        cls._enqueue_command(cmd, repeat, delay, baudrate, port)
 
     def __init__(self,
                  command_scope: CommandScope,

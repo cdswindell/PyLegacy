@@ -1,14 +1,59 @@
 import abc
 import time
 from abc import ABC
+from enum import Enum
+from typing import Type
 
 from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+from .constants import CommandSyntax, OptionEnum, Option
+from .constants import TMCC2Enum, TMCC1RouteOption, TMCC1CommandPrefix
 from .validations import Validations
 from ..comm.comm_buffer import CommBuffer
 
 
 class CommandBase(ABC):
     __metaclass__ = abc.ABCMeta
+
+    @classmethod
+    def _vet_option(cls,
+                    enum_class: Type[OptionEnum],
+                    command: OptionEnum,
+                    address: int,
+                    data: int,
+                    scope: Enum,
+                    ) -> Option:
+        if command is None or not isinstance(command, enum_class):
+            raise TypeError(f"Command must be of type TMCC1Enum {command}")
+
+        max_val = 99
+        syntax = CommandSyntax.TMCC2 if enum_class == TMCC2Enum else CommandSyntax.TMCC1
+        if syntax == CommandSyntax.TMCC1 and command == TMCC1RouteOption.ROUTE:
+            scope = TMCC1CommandPrefix.ROUTE
+            max_val = 31
+        address = Validations.validate_int(address, min_value=1, max_value=max_val, label=scope.name.capitalize())
+
+        # validate data field and apply data bits
+        command_op: Option = command.value
+        if command_op.num_data_bits > 0:
+            command_op.apply_data(data)
+
+        # apply address
+        command_op.apply_address(address, syntax)
+        return command_op
+
+    @classmethod
+    def _enqueue_command(cls, cmd: bytes, repeat: int, delay: int, baudrate: int, port: str):
+        repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
+        delay = Validations.validate_int(delay, min_value=0, label="delay")
+
+        # send command to comm buffer
+        buffer = CommBuffer(baudrate=baudrate, port=port)
+        for _ in range(repeat):
+            if delay > 0 and repeat == 1:
+                time.sleep(delay)
+            buffer.enqueue_command(cmd)
+            if repeat != 1 and delay > 0 and _ != repeat - 1:
+                time.sleep(delay)
 
     def __init__(self,
                  address: int,

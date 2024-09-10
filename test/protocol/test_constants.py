@@ -175,7 +175,7 @@ class TestConstants(TestBase):
 
     def test_command_scope_enum(self) -> None:
         # should contain 4 elements
-        assert len(CommandScope) == 4
+        assert len(CommandScope) == 5
 
         # check that engine and train elements are in TMCC1CommandPrefix
         assert TMCC1CommandPrefix.ENGINE == TMCC1CommandPrefix(CommandScope.ENGINE.name)

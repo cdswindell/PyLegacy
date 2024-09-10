@@ -1,6 +1,5 @@
 from .tmcc1_command import TMCC1Command
-from ..constants import TMCC1SwitchState, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCC1_SWITCH_SET_ADDRESS_COMMAND
-from ..constants import TMCC1_SWITCH_THROUGH_COMMAND, TMCC1_SWITCH_OUT_COMMAND
+from ..constants import TMCC1SwitchState, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
 class SwitchCmd(TMCC1Command):

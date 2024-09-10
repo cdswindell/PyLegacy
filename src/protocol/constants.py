@@ -40,7 +40,6 @@ class ByNameMixin(Enum):
 
     @classmethod
     def by_value(cls, value: Any, raise_exception: bool = False) -> Enum | None:
-        print("In by_value")
         for _, member in cls.__members__.items():
             if member.value == value:
                 return member
