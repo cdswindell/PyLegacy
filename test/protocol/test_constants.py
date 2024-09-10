@@ -34,7 +34,7 @@ class TestConstants(TestBase):
 
     def test_by_name_mixin_in_enums(self) -> None:
         """
-            Test that all defined enums have ByNameMixin
+            Test that all defined enums have Mixins
         """
         enums = [CommandSyntax,
                  CommandScope,

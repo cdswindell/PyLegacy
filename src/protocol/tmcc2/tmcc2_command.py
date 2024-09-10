@@ -2,7 +2,7 @@ import abc
 from abc import ABC
 
 from ..command_base import CommandBase
-from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS, TMCC2CommandPrefix, TMCC2Enum
+from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS, TMCC2CommandPrefix
 from ..constants import TMCC2ParameterIndex, TMCC2ParameterDataEnum, OptionEnum
 from ..constants import TMCC2LightingControl, TMCC2EffectsControl, TMCC2DialogControl
 from ..constants import CommandScope, TMCC2_PARAMETER_INDEX_PREFIX, LEGACY_PARAMETER_COMMAND_PREFIX
@@ -10,51 +10,6 @@ from ..constants import CommandScope, TMCC2_PARAMETER_INDEX_PREFIX, LEGACY_PARAM
 
 class TMCC2Command(CommandBase, ABC):
     __metaclass__ = abc.ABCMeta
-
-    @classmethod
-    def _build_command_bytes(cls,
-                             address: int,
-                             command: OptionEnum,
-                             data: int = 0,
-                             scope: TMCC2CommandPrefix = TMCC2CommandPrefix.ENGINE,
-                             ) -> bytes:
-        # build command
-        command_op = cls._vet_option(TMCC2Enum, command, address, data, scope)
-        return scope.as_bytes + command_op.as_bytes
-
-    @classmethod
-    def send_func(cls,
-                  address: int,
-                  command: OptionEnum,
-                  data: int = 0,
-                  scope: TMCC2CommandPrefix = TMCC2CommandPrefix.ENGINE,
-                  repeat: int = 1,
-                  delay: int = 0,
-                  baudrate: int = DEFAULT_BAUDRATE,
-                  port: str = DEFAULT_PORT
-                  ):
-        # build & queue
-        cmd = cls._build_command_bytes(address, command, data, scope)
-
-        def send_func() -> None:
-            cls._enqueue_command(cmd, repeat, delay, baudrate, port)
-
-        return send_func
-
-    @classmethod
-    def send_command(cls,
-                     address: int,
-                     command: OptionEnum,
-                     data: int = 0,
-                     scope: TMCC2CommandPrefix = TMCC2CommandPrefix.ENGINE,
-                     repeat: int = 1,
-                     delay: int = 0,
-                     baudrate: int = DEFAULT_BAUDRATE,
-                     port: str = DEFAULT_PORT
-                     ) -> None:
-        # build & queue
-        cmd = cls._build_command_bytes(address, command, data, scope)
-        cls._enqueue_command(cmd, repeat, delay, baudrate, port)
 
     def __init__(self,
                  command_scope: CommandScope,

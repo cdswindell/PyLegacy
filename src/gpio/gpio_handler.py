@@ -1,8 +1,8 @@
 from gpiozero import Button
 
+from src.protocol.command_base import CommandBase
 from src.protocol.constants import OptionEnum, DEFAULT_BAUDRATE, DEFAULT_PORT
-from src.protocol.constants import CommandScope, TMCC1Enum, TMCC2Enum, TMCC2CommandPrefix
-from src.protocol.tmcc2.tmcc2_command import TMCC2Command
+from src.protocol.constants import CommandScope
 
 
 class GpioHandler:
@@ -12,7 +12,7 @@ class GpioHandler:
                             address: int,
                             command: OptionEnum,
                             data: int = 0,
-                            scope: CommandScope = CommandScope.ENGINE,
+                            scope: CommandScope = None,
                             baudrate: int = DEFAULT_BAUDRATE,
                             port: str = DEFAULT_PORT
                             ) -> Button:
@@ -21,13 +21,12 @@ class GpioHandler:
 
         # create a command function to fire when button pressed
         # this queues the tmcc/tmcc2 command to the buffer
-        if isinstance(command, TMCC2Enum):
-            tmcc_scope = TMCC2CommandPrefix(scope.name)
-            func = TMCC2Command.send_func(address,
-                                          command,
-                                          data,
-                                          scope=tmcc_scope,
-                                          baudrate=baudrate,
-                                          port=port)
+        func = CommandBase.send_func(address,
+                                     command,
+                                     data,
+                                     scope,
+                                     baudrate=baudrate,
+                                     port=port)
+
         button.when_pressed = func
         return button
