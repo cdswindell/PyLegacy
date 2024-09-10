@@ -42,7 +42,7 @@ class EngineCli(CliBaseTMCC):
                                      scope,
                                      baudrate=self._args.baudrate,
                                      port=self._args.port)
-            cmd.fire(repeat=self._args.repeat)
+            cmd.fire(repeat=self._args.repeat, delay=self._args.delay)
         except ValueError as ve:
             print(ve)
 
@@ -100,6 +100,26 @@ def _validate_speed(arg: Any) -> int:
     raise argparse.ArgumentTypeError("Speed must be between 0 and 199 (0 and 31, for tmcc)")
 
 
+def _validate_delay(arg: Any) -> int:
+    try:
+        arg = int(arg)  # try convert to int
+        if arg >= 0:
+            return arg
+    except ValueError:
+        pass
+    raise argparse.ArgumentTypeError("Delay must be 0 or greater")
+
+
+def _validate_repeat(arg: Any) -> int:
+    try:
+        arg = int(arg)  # try convert to int
+        if arg > 0:
+            return arg
+    except ValueError:
+        pass
+    raise argparse.ArgumentTypeError("Delay must be 1 or greater")
+
+
 if __name__ == '__main__':
     engine_parser = argparse.ArgumentParser(add_help=False)
     engine_parser.add_argument("engine",
@@ -108,9 +128,15 @@ if __name__ == '__main__':
                                help="Engine/Train to operate")
     engine_parser.add_argument("-re", "--repeat",
                                action="store",
-                               type=int,
+                               type=_validate_repeat,
                                default=1,
                                help="Number of times to repeat command (default: 1)")
+
+    engine_parser.add_argument("-de", "--delay",
+                               action="store",
+                               type=_validate_delay,
+                               default=0,
+                               help="Second(s) to delay between repeated commands (default: 0)")
 
     ops = engine_parser.add_mutually_exclusive_group()
     ops.add_argument("-a", "--set_address",

@@ -1,7 +1,9 @@
 import abc
+import time
 from abc import ABC
 
 from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+from .validations import Validations
 from ..comm.comm_buffer import CommBuffer
 
 
@@ -45,20 +47,27 @@ class CommandBase(ABC):
     def command_prefix(self) -> bytes:
         return self._command_prefix()
 
-    def send(self, repeat: int = 1, shutdown: bool = False):
+    def send(self, repeat: int = 1, delay: int = 0, shutdown: bool = False):
         """
             Send the command to the LCS SER2 and keep comm buffer alive.
         """
+        Validations.validate_int(repeat, min_value=1)
+        Validations.validate_int(delay, min_value=0)
         for _ in range(repeat):
+            if delay > 0 and repeat == 1:
+                time.sleep(delay)
             self._comm_buffer.enqueue_command(self.command_bytes)
+            if repeat != 1 and delay > 0 and _ != repeat - 1:
+                time.sleep(delay)
         if shutdown:
             self._comm_buffer.shutdown()
+            self._comm_buffer.join()
 
-    def fire(self, repeat: int = 1) -> None:
+    def fire(self, repeat: int = 1, delay: int = 0) -> None:
         """
             Fire the command immediately and shut down comm buffers, once empty
         """
-        self.send(repeat=repeat, shutdown=True)
+        self.send(repeat=repeat, delay=delay, shutdown=True)
 
     @staticmethod
     def _encode_command(command: int, num_bytes: int = 2) -> bytes:
