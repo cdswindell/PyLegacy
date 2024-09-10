@@ -76,20 +76,23 @@ class CommandBase(ABC):
                              scope: CommandScope = None,
                              ) -> bytes:
         # build command
-        command_op = cls._vet_option(TMCC2Enum, command, address, data, scope)
+        command_op = cls._vet_option(command, address, data, scope)
         prefix_bytes = cls._determine_command_prefix_bytes(command, scope)
         return prefix_bytes + command_op.as_bytes
 
     @classmethod
     def _vet_option(cls,
-                    enum_class: Type[OptionEnum],
                     command: OptionEnum,
                     address: int,
                     data: int,
-                    scope: Enum,
+                    scope: CommandScope,
                     ) -> Option:
-        if command is None or not isinstance(command, enum_class):
-            raise TypeError(f"Command must be of type TMCC1Enum {command}")
+        if isinstance(command, TMCC1Enum):
+            enum_class = TMCC1Enum
+        elif isinstance(command, TMCC2Enum):
+            enum_class = TMCC2Enum
+        else:
+            raise TypeError(f"Command type not recognized {command}")
 
         max_val = 99
         syntax = CommandSyntax.TMCC2 if enum_class == TMCC2Enum else CommandSyntax.TMCC1
@@ -99,12 +102,12 @@ class CommandBase(ABC):
         address = Validations.validate_int(address, min_value=1, max_value=max_val, label=scope.name.capitalize())
 
         # validate data field and apply data bits
-        command_op: Option = command.value
+        command_op: Option = command.option
         if command_op.num_data_bits > 0:
             command_op.apply_data(data)
 
-        # apply address
-        command_op.apply_address(address, syntax)
+        # apply address; also handles work for TMCC1 train commands
+        command_op.apply_address(address, scope)
         return command_op
 
     @classmethod

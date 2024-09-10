@@ -153,14 +153,24 @@ class Option(ABC):
         self._command_op |= data
         return self._command_op
 
-    def apply_address(self,
-                      address: int = DEFAULT_ADDRESS,
-                      syntax: CommandSyntax = CommandSyntax.TMCC2) -> int:
-        if syntax == CommandSyntax.TMCC1:
+    def apply_address(self, address: int = DEFAULT_ADDRESS, scope: CommandScope = None) -> int:
+        if self.syntax == CommandSyntax.TMCC1:
             self._command_op |= address << 7
+            if scope == CommandScope.TRAIN and self.command_prefix == TMCC1CommandPrefix.ENGINE:
+                self._command_op &= TMCC1_TRAIN_COMMAND_PURIFIER
+                self._command_op |= TMCC1_TRAIN_COMMAND_MODIFIER
         else:
             self._command_op |= address << 9
         return self._command_op
+
+    @property
+    def syntax(self) -> CommandSyntax:
+        if isinstance(self, TMCC1Enum):
+            return CommandSyntax.TMCC1
+        elif isinstance(self, TMCC2Enum):
+            return CommandSyntax.TMCC2
+        else:
+            raise ValueError(f"Invalid command syntax: {self}")
 
     @property
     def as_bytes(self) -> bytes:
@@ -180,6 +190,10 @@ class OptionEnum(Mixins, Enum):
         Marker Interface to allow TMCC1EngineOption and TMCC2EngineOption enums
         to be handled by engine commands
     """
+    @property
+    def option(self) -> Option:
+        return self.value
+
     @property
     def command_prefix(self) -> CommandPrefix:
         return self.value.command_prefix
@@ -228,6 +242,17 @@ class TMCC1Option(Option):
                  d_max: int = 0,
                  d_map: Dict[int, int] = None) -> None:
         super().__init__(command_op, prefix, d_min=d_min, d_max=d_max, d_map=d_map)
+
+    def apply_address(self, address: int = DEFAULT_ADDRESS, scope: CommandScope = None) -> int:
+        """
+            Handle bit modifications needed to turn a TMCC1 Engine Command into
+            a Train command
+        """
+        super().apply_address(address=address, scope=scope)
+        if scope == CommandScope.TRAIN and self.command_prefix == TMCC1CommandPrefix.ENGINE:
+            self._command_op &= TMCC1_TRAIN_COMMAND_PURIFIER
+            self._command_op |= TMCC1_TRAIN_COMMAND_MODIFIER
+        return self._command_op
 
     @property
     def command_prefix_bytes(self) -> bytes:
