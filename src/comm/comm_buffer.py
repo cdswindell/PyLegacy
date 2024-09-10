@@ -65,7 +65,6 @@ class CommBuffer(Thread):
                         ser.write(data)
                         self._last_output_at = self._current_milli_time()
                         self._queue.task_done()
-                        print(".....")
                 except SerialException as se:
                     # TODO: handle serial errors
                     print(se)
