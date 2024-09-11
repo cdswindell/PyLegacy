@@ -64,10 +64,12 @@ class CommBuffer(Thread):
                         # Write the command byte sequence
                         ser.write(data)
                         self._last_output_at = self._current_milli_time()
+                        print(f"Task Done:  {data.hex()}")
                         self._queue.task_done()
                 except SerialException as se:
                     # TODO: handle serial errors
                     print(se)
+                    print(f"Task Done (*** SE ***):  {data.hex()}")
                     self._queue.task_done()  # processing is complete, albeit unsuccessful
             except Empty:
                 pass
