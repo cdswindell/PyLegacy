@@ -6,6 +6,8 @@ from src.protocol.command_req import CommandReq
 from src.protocol.constants import CommandDefEnum, DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from src.protocol.constants import CommandScope
 
+DEFAULT_BOUNCE_TIME: float = 0.2
+
 
 class GpioHandler:
     BUTTON_CACHE = set()
@@ -21,7 +23,7 @@ class GpioHandler:
                             port: str = DEFAULT_PORT
                             ) -> Button:
         # create the button object we will associate an action with
-        button = Button(pin)
+        button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
 
         # if command is actually a CommandDefEnum, build a CommandReq
         if isinstance(command, CommandDefEnum):
@@ -44,7 +46,7 @@ class GpioHandler:
                          port: str = DEFAULT_PORT
                          ) -> Button:
         # create the button object we will associate an action with
-        button = Button(pin)
+        button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
 
         # if command is actually a CommandDefEnum, build a CommandReq
         if isinstance(command, CommandDefEnum):
@@ -67,11 +69,11 @@ class GpioHandler:
                            port: str = DEFAULT_PORT
                            ) -> Tuple[Button, Button]:
         # create the off button
-        off_button = Button(off_pin)
+        off_button = Button(off_pin, bounce_time=DEFAULT_BOUNCE_TIME)
         off_button.when_pressed = off_command.as_action(baudrate=baudrate, port=port)
 
         # create the on button
-        on_button = Button(on_pin)
+        on_button = Button(on_pin, bounce_time=DEFAULT_BOUNCE_TIME)
         on_button.when_pressed = on_command.as_action(baudrate=baudrate, port=port)
 
         cls._cache_button(off_button)
