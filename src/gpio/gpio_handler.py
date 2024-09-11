@@ -79,8 +79,23 @@ class GpioHandler:
         return off_button, on_button
 
     @classmethod
+    def reset_all(cls) -> None:
+        for button in cls.BUTTON_CACHE:
+            button.close()
+        cls.BUTTON_CACHE = set()
+
+    @classmethod
+    def release_button(cls, button: Button) -> None:
+        cls._release_button(button)
+
+    @classmethod
     def _cache_button(cls, button: Button) -> None:
         """
             Keep buttons around after creation so they remain in scope
         """
         cls.BUTTON_CACHE.add(button)
+
+    @classmethod
+    def _release_button(cls, button: Button) -> None:
+        button.close()
+        cls.BUTTON_CACHE.remove(button)
