@@ -1,4 +1,5 @@
 import time
+from typing import Callable
 
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
 from .constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC2CommandPrefix, TMCC2CommandDef
@@ -28,25 +29,20 @@ class CommandReq:
         cls._enqueue_command(req.as_bytes, repeat, delay, baudrate, port)
 
     @classmethod
-    def as_action(cls,
-                  command: CommandDefEnum,
-                  address: int,
-                  data: int = 0,
-                  scope: CommandScope = CommandScope.ENGINE,
-                  repeat: int = 1,
-                  delay: int = 0,
-                  baudrate: int = DEFAULT_BAUDRATE,
-                  port: str = DEFAULT_PORT
-                  ):
-        # build & queue
+    def build_action(cls,
+                     command: CommandDefEnum,
+                     address: int,
+                     data: int = 0,
+                     scope: CommandScope = CommandScope.ENGINE,
+                     repeat: int = 1,
+                     delay: int = 0,
+                     baudrate: int = DEFAULT_BAUDRATE,
+                     port: str = DEFAULT_PORT
+                     ) -> Callable:
+        # build & return action function
         cls._vet_request(command, address, data, scope)
-        req = CommandReq(command, address=address, data=data, scope=scope)
-
-        def send_func() -> None:
-            print(f"cmd: {req} repeat: {repeat} delay: {delay}")
-            cls._enqueue_command(req.as_bytes, repeat, delay, baudrate, port)
-
-        return send_func
+        req: CommandReq = CommandReq(command, address=address, data=data, scope=scope)
+        return req.as_action(repeat=repeat, delay=delay, baudrate=baudrate, port=port)
 
     @classmethod
     def _determine_first_byte(cls, command: CommandDef, scope: CommandScope) -> bytes:
@@ -151,6 +147,10 @@ class CommandReq:
         return self._command_def.syntax
 
     @property
+    def identifier(self) -> int | None:
+        return self.command_def.identifier
+
+    @property
     def as_bytes(self) -> bytes:
         if self.scope is None:
             first_byte = self.command_def.first_byte
@@ -158,9 +158,17 @@ class CommandReq:
             first_byte = self._determine_first_byte(self.command_def, self.scope)
         return first_byte + self._command_bits.to_bytes(2, byteorder='big')
 
-    @property
-    def identifier(self) -> int | None:
-        return self.command_def.identifier
+    def as_action(self,
+                  repeat: int = 1,
+                  delay: int = 0,
+                  baudrate: int = DEFAULT_BAUDRATE,
+                  port: str = DEFAULT_PORT
+                  ) -> Callable:
+        def send_func() -> None:
+            print(f"cmd: {self} repeat: {repeat} delay: {delay}")
+            self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port)
+
+        return send_func
 
     def _apply_address(self) -> int:
         if self.syntax == CommandSyntax.TMCC1:

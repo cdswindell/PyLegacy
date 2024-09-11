@@ -9,8 +9,8 @@ class GpioHandler:
     @classmethod
     def when_button_pressed(cls,
                             pin: int | str,
-                            command: CommandDefEnum,
-                            address: int,
+                            command: CommandReq | CommandDefEnum,
+                            address: int | None = None,
                             data: int = 0,
                             scope: CommandScope = None,
                             baudrate: int = DEFAULT_BAUDRATE,
@@ -19,23 +19,19 @@ class GpioHandler:
         # create the button object we will associate an action with
         button = Button(pin)
 
-        # create a command function to fire when button pressed
-        # this queues the tmcc/tmcc2 command to the buffer
-        func = CommandReq.as_action(command,
-                                    address,
-                                    data,
-                                    scope,
-                                    baudrate=baudrate,
-                                    port=port)
+        # if command is actually a CommandDefEnum, build a CommandReq
+        if isinstance(command, CommandDefEnum):
+            command = CommandReq(command, address=address, data=data, scope=scope)
 
-        button.when_pressed = func
+        # create a command function to fire when button pressed
+        button.when_pressed = command.as_action(baudrate=baudrate, port=port)
         return button
 
     @classmethod
     def when_button_held(cls,
                          pin: int | str,
-                         command: CommandDefEnum,
-                         address: int,
+                         command: CommandReq | CommandDefEnum,
+                         address: int = None,
                          data: int = 0,
                          scope: CommandScope = None,
                          frequency: float = 1,
@@ -45,16 +41,12 @@ class GpioHandler:
         # create the button object we will associate an action with
         button = Button(pin)
 
-        # create a command function to fire when button pressed
-        # this queues the tmcc/tmcc2 command to the buffer
-        func = CommandReq.as_action(address,
-                                    command,
-                                    data,
-                                    scope,
-                                    baudrate=baudrate,
-                                    port=port)
+        # if command is actually a CommandDefEnum, build a CommandReq
+        if isinstance(command, CommandDefEnum):
+            command = CommandReq(command, address=address, data=data, scope=scope)
 
-        button.when_held = func
+        # create a command function to fire when button held
+        button.when_held = command.as_action(baudrate=baudrate, port=port)
         button.hold_repeat = True
         button.hold_time = frequency
         return button
