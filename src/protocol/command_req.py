@@ -28,9 +28,9 @@ class CommandReq:
         cls._enqueue_command(req.as_bytes, repeat, delay, baudrate, port)
 
     @classmethod
-    def send_func(cls,
-                  address: int,
+    def as_action(cls,
                   command: CommandDefEnum,
+                  address: int,
                   data: int = 0,
                   scope: CommandScope = CommandScope.ENGINE,
                   repeat: int = 1,

@@ -21,8 +21,8 @@ class GpioHandler:
 
         # create a command function to fire when button pressed
         # this queues the tmcc/tmcc2 command to the buffer
-        func = CommandReq.send_func(address,
-                                    command,
+        func = CommandReq.as_action(command,
+                                    address,
                                     data,
                                     scope,
                                     baudrate=baudrate,
@@ -47,7 +47,7 @@ class GpioHandler:
 
         # create a command function to fire when button pressed
         # this queues the tmcc/tmcc2 command to the buffer
-        func = CommandReq.send_func(address,
+        func = CommandReq.as_action(address,
                                     command,
                                     data,
                                     scope,
