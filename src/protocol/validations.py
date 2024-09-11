@@ -6,9 +6,11 @@ class Validations:
         else:
             label = f"{label}"
         try:
-            _ = int(value)
+            value = int(value)
         except ValueError:
             raise ValueError(f"{label} is not an integer")
+        except TypeError:
+            raise TypeError(f"{label} is not an integer")
         if min_value is not None and value < min_value:
             raise ValueError(f"{label} must be greater or equal to {min_value}")
         if max_value is not None and value > max_value:
