@@ -482,7 +482,7 @@ LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 
 @verify(UNIQUE)
-class TMCC2RouteOption(TMCC2Enum):
+class TMCC2RouteCommandDef(TMCC2Enum):
     ROUTE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, first_byte=TMCC2CommandPrefix.ROUTE)
 
 
