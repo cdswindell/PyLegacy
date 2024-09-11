@@ -1,4 +1,4 @@
-from typing import List
+from typing import Tuple
 
 from gpiozero import Button
 
@@ -53,6 +53,7 @@ class GpioHandler:
         button.hold_time = frequency
         return button
 
+    @classmethod
     def when_toggle_switch(cls,
                            off_pin: int | str,
                            on_pin: int | str,
@@ -60,13 +61,13 @@ class GpioHandler:
                            on_command: CommandReq,
                            baudrate: int = DEFAULT_BAUDRATE,
                            port: str = DEFAULT_PORT
-                           ) -> List[Button]:
+                           ) -> Tuple[Button, Button]:
         # create the off button
         off_button = Button(off_pin)
-        off_button.when_pressed = off_command.as_action()
+        off_button.when_pressed = off_command.as_action(baudrate=baudrate, port=port)
 
         # create the on button
         on_button = Button(on_pin)
-        on_button.when_pressed = on_command.as_action()
+        on_button.when_pressed = on_command.as_action(baudrate=baudrate, port=port)
 
-        return [off_button, on_button]
+        return off_button, on_button
