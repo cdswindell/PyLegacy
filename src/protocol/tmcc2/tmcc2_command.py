@@ -3,7 +3,7 @@ from abc import ABC
 
 from ..command_base import CommandBase
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS, TMCC2CommandPrefix
-from ..constants import TMCC2ParameterIndex, TMCC2ParameterDataEnum, OptionEnum
+from ..constants import TMCC2ParameterIndex, TMCC2ParameterDataEnum
 from ..constants import TMCC2LightingControl, TMCC2EffectsControl, TMCC2DialogControl
 from ..constants import CommandScope, TMCC2_PARAMETER_INDEX_PREFIX, LEGACY_PARAMETER_COMMAND_PREFIX
 

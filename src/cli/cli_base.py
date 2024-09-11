@@ -47,8 +47,8 @@ class CliBaseTMCC(CliBase):
 
 class DataAction(argparse.Action):
     """
-        Custom action that sets both the option and data fields
-        with the option value specified by 'const', and the data value
+        Custom action that sets both the command_def and data fields
+        with the command_def value specified by 'const', and the data value
         specified by the user-provided argument or 'default'
     """
     def __init__(self, option_strings, dest, **kwargs):
@@ -87,7 +87,7 @@ def cli_parser() -> argparse.ArgumentParser:
 
 def command_format_parser(default: CommandSyntax = CommandSyntax.TMCC2) -> argparse.ArgumentParser:
     """
-        Add option to run command using TMCC1 command syntax
+        Add command_def to run command using TMCC1 command syntax
     """
     parser = argparse.ArgumentParser(add_help=False)
     group = parser.add_mutually_exclusive_group()
@@ -107,7 +107,7 @@ def command_format_parser(default: CommandSyntax = CommandSyntax.TMCC2) -> argpa
 
 def train_parser() -> argparse.ArgumentParser:
     """
-        Add option to run command TMCC2 command as train rather than engine
+        Add command_def to run command TMCC2 command as train rather than engine
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-tr", "--train",

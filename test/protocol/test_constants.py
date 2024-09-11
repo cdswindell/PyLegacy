@@ -177,9 +177,9 @@ class TestConstants(TestBase):
         # should contain 4 elements
         assert len(CommandScope) == 5
 
-        # check that engine and train elements are in TMCC1CommandPrefix
-        assert TMCC1CommandPrefix.ENGINE == TMCC1CommandPrefix(CommandScope.ENGINE.name)
-        assert TMCC1CommandPrefix.TRAIN == TMCC1CommandPrefix(CommandScope.TRAIN.name)
+        # check that engine and train elements are in TMCC1CommandIdentifier
+        assert TMCC1CommandIdentifier.ENGINE == TMCC1CommandIdentifier(CommandScope.ENGINE.name)
+        assert TMCC1CommandIdentifier.TRAIN == TMCC1CommandIdentifier(CommandScope.TRAIN.name)
 
         # check that engine and train elements are in TMCC2CommandPrefix
         assert TMCC2CommandPrefix.ENGINE == TMCC2CommandPrefix(CommandScope.ENGINE.name)
@@ -187,11 +187,11 @@ class TestConstants(TestBase):
 
     def test_engine_option_enum(self) -> None:
         # should contain no elements
-        assert len(OptionEnum) == 0
+        assert len(CommandDefEnum) == 0
 
         # validate _missing_ method is present and throws exception
-        with pytest.raises(ValueError, match="FOO is not a valid OptionEnum"):
-            OptionEnum._missing_('foo')
+        with pytest.raises(ValueError, match="FOO is not a valid CommandDefEnum"):
+            CommandDefEnum._missing_('foo')
 
     def test_engine_option(self) -> None:
         pass

@@ -75,6 +75,7 @@ class CommandScope(Mixins, Enum):
     SWITCH = 3
     ROUTE = 4
     ACC = 5
+    SYSTEM = 6
 
 
 class CommandPrefix(Mixins, IntEnum):
@@ -95,20 +96,18 @@ class CommandPrefix(Mixins, IntEnum):
         return self.as_int.to_bytes(1, byteorder='big')
 
 
-class Option(ABC):
+class CommandDef(ABC):
     __metaclass__ = abc.ABCMeta
     """
         Marker class for TMCC1 and TMCC2 Command Options, allowing the CLI layer
         to work with them in a command format agnostic manner.
     """
     def __init__(self,
-                 command_op: int,
-                 command_prefix: CommandPrefix,
+                 command_bits: int,
                  d_min: int = 0,
                  d_max: int = 0,
                  d_map: Dict[int, int] = None) -> None:
-        self._command_op = command_op
-        self._command_prefix = command_prefix
+        self._command_bits = command_bits
         self._d_min = d_min
         self._d_max = d_max
         self._d_map = d_map
@@ -119,49 +118,27 @@ class Option(ABC):
             self._d_bits = math.ceil(math.log2(max(d_map.values())))
 
     def __repr__(self) -> str:
-        return f"0x{self.command:04x}: {self.num_data_bits} data bits"
+        return f"{self}0x{self.bits:04x}: {self.num_data_bits} data bits"
 
     @property
-    def command(self) -> int:
-        return self._command_op
+    def bits(self) -> int:
+        return self._command_bits
 
     @property
     def num_data_bits(self) -> int:
         return self._d_bits
 
-    def apply_data(self, data: int | None = None) -> int:
-        """
-            For commands that take parameters, such as engine speed and brake level,
-            apply the data bits to the command op bytes to form the complete byte
-            set to send to the Lionel LCS SER2.
-        """
-        if self._d_bits and data is None:
-            raise ValueError("Data is required")
-        if self._d_bits == 0:
-            return self.command
-        elif self._d_map:
-            if data in self._d_map:
-                data = self._d_map[data]
-            else:
-                raise ValueError(f"Invalid data value: {data} (not in map)")
-        elif data < self._d_min or data > self._d_max:
-            raise ValueError(f"Invalid data value: {data} (not in range)")
-        # sanitize data so we don't set bits we shouldn't
-        filtered_data = data & (2 ** self._d_bits - 1)
-        if data != filtered_data:
-            raise ValueError(f"Invalid data value: {data} (not in range)")
-        self._command_op |= data
-        return self._command_op
+    @property
+    def data_min(self) -> int:
+        return self._d_min
 
-    def apply_address(self, address: int = DEFAULT_ADDRESS, scope: CommandScope = None) -> int:
-        if self.syntax == CommandSyntax.TMCC1:
-            self._command_op |= address << 7
-            if scope == CommandScope.TRAIN and self.command_prefix == TMCC1CommandPrefix.ENGINE:
-                self._command_op &= TMCC1_TRAIN_COMMAND_PURIFIER
-                self._command_op |= TMCC1_TRAIN_COMMAND_MODIFIER
-        else:
-            self._command_op |= address << 9
-        return self._command_op
+    @property
+    def data_max(self) -> int:
+        return self._d_max
+
+    @property
+    def data_map(self) -> Dict[int, int] | None:
+        return self._d_map
 
     @property
     def syntax(self) -> CommandSyntax:
@@ -170,37 +147,38 @@ class Option(ABC):
         elif isinstance(self, TMCC2Enum):
             return CommandSyntax.TMCC2
         else:
-            raise ValueError(f"Invalid command syntax: {self}")
+            raise TypeError(f"Invalid command syntax: {self}")
 
     @property
-    def as_bytes(self) -> bytes:
-        return self._command_op.to_bytes(2, byteorder='big')
+    def identifier(self) -> int | None:
+        """
+            Only relevant for TMCC1-style commands
+        """
+        return None
 
     @property
-    def command_prefix(self) -> CommandPrefix | None:
-        return self._command_prefix
+    @abc.abstractmethod
+    def first_byte(self) -> bytes | None:
+        return None
 
     @property
-    def command_prefix_bytes(self) -> bytes:
-        return self.command_prefix.as_bytes
+    @abc.abstractmethod
+    def scope(self) -> CommandScope | None:
+        return None
 
 
-class OptionEnum(Mixins, Enum):
+class CommandDefEnum(Mixins, Enum):
     """
         Marker Interface to allow TMCC1EngineOption and TMCC2EngineOption enums
         to be handled by engine commands
     """
     @property
-    def option(self) -> Option:
+    def command_def(self) -> CommandDef:
         return self.value
 
     @property
-    def command_prefix(self) -> CommandPrefix:
-        return self.value.command_prefix
-
-    @property
-    def command_prefix_bytes(self) -> bytes:
-        return self.command_prefix.as_bytes
+    def scope(self) -> CommandScope:
+        return self.value.scope
 
 
 """
@@ -208,7 +186,7 @@ class OptionEnum(Mixins, Enum):
 """
 
 
-class TMCC1Enum(OptionEnum):
+class TMCC1Enum(CommandDefEnum):
     """
         Marker Interface for all TMCC1 enums
     """
@@ -222,7 +200,7 @@ TMCC1_COMMAND_PREFIX: int = 0xFE
 
 
 @verify(UNIQUE)
-class TMCC1CommandPrefix(CommandPrefix):
+class TMCC1CommandIdentifier(CommandPrefix):
     ENGINE = 0x00
     TRAIN = 0xC0
     SWITCH = 0x40
@@ -231,37 +209,44 @@ class TMCC1CommandPrefix(CommandPrefix):
     HALT = 0xFF
 
 
+TMCC1_IDENT_TO_SCOPE_MAP: Dict[TMCC1CommandIdentifier, CommandScope] = {
+    TMCC1CommandIdentifier.ENGINE: CommandScope.ENGINE,
+    TMCC1CommandIdentifier.TRAIN: CommandScope.TRAIN,
+    TMCC1CommandIdentifier.SWITCH: CommandScope.SWITCH,
+    TMCC1CommandIdentifier.ACC: CommandScope.ACC,
+    TMCC1CommandIdentifier.ROUTE: CommandScope.ROUTE,
+    TMCC1CommandIdentifier.HALT: CommandScope.SYSTEM,
+}
+
 TMCC1_HALT_COMMAND: int = 0xFFFF
 
 
-class TMCC1Option(Option):
+class TMCC1CommandDef(CommandDef):
     def __init__(self,
-                 command_op: int,
-                 prefix: TMCC1CommandPrefix = TMCC1CommandPrefix.ENGINE,
+                 command_bits: int,
+                 command_ident: TMCC1CommandIdentifier = TMCC1CommandIdentifier.ENGINE,
                  d_min: int = 0,
                  d_max: int = 0,
                  d_map: Dict[int, int] = None) -> None:
-        super().__init__(command_op, prefix, d_min=d_min, d_max=d_max, d_map=d_map)
-
-    def apply_address(self, address: int = DEFAULT_ADDRESS, scope: CommandScope = None) -> int:
-        """
-            Handle bit modifications needed to turn a TMCC1 Engine Command into
-            a Train command
-        """
-        super().apply_address(address=address, scope=scope)
-        if scope == CommandScope.TRAIN and self.command_prefix == TMCC1CommandPrefix.ENGINE:
-            self._command_op &= TMCC1_TRAIN_COMMAND_PURIFIER
-            self._command_op |= TMCC1_TRAIN_COMMAND_MODIFIER
-        return self._command_op
+        super().__init__(command_bits, d_min=d_min, d_max=d_max, d_map=d_map)
+        self._command_ident = command_ident
 
     @property
-    def command_prefix_bytes(self) -> bytes:
+    def identifier(self) -> TMCC1CommandIdentifier:
+        return self._command_ident
+
+    @property
+    def first_byte(self) -> bytes:
         return TMCC1_COMMAND_PREFIX.to_bytes(1, byteorder='big')
+
+    @property
+    def scope(self) -> CommandScope:
+        return TMCC1_IDENT_TO_SCOPE_MAP[self.identifier]
 
 
 @verify(UNIQUE)
 class TMCC1HaltOption(TMCC1Enum):
-    HALT = TMCC1Option(TMCC1_HALT_COMMAND, TMCC1CommandPrefix.HALT)
+    HALT = TMCC1CommandDef(TMCC1_HALT_COMMAND, TMCC1CommandIdentifier.HALT)
 
 
 TMCC1_ROUTE_COMMAND: int = 0xD01F
@@ -269,7 +254,7 @@ TMCC1_ROUTE_COMMAND: int = 0xD01F
 
 @verify(UNIQUE)
 class TMCC1RouteOption(TMCC1Enum):
-    ROUTE = TMCC1Option(TMCC1_ROUTE_COMMAND, TMCC1CommandPrefix.ROUTE)
+    ROUTE = TMCC1CommandDef(TMCC1_ROUTE_COMMAND, TMCC1CommandIdentifier.ROUTE)
 
 
 TMCC1_SWITCH_THROUGH_COMMAND: int = 0x4000
@@ -282,9 +267,9 @@ class TMCC1SwitchState(TMCC1Enum):
     """
         Switch State
     """
-    THROUGH = TMCC1Option(TMCC1_SWITCH_THROUGH_COMMAND, TMCC1CommandPrefix.SWITCH)
-    OUT = TMCC1Option(TMCC1_SWITCH_OUT_COMMAND, TMCC1CommandPrefix.SWITCH)
-    SET_ADDRESS = TMCC1Option(TMCC1_SWITCH_SET_ADDRESS_COMMAND, TMCC1CommandPrefix.SWITCH)
+    THROUGH = TMCC1CommandDef(TMCC1_SWITCH_THROUGH_COMMAND, TMCC1CommandIdentifier.SWITCH)
+    OUT = TMCC1CommandDef(TMCC1_SWITCH_OUT_COMMAND, TMCC1CommandIdentifier.SWITCH)
+    SET_ADDRESS = TMCC1CommandDef(TMCC1_SWITCH_SET_ADDRESS_COMMAND, TMCC1CommandIdentifier.SWITCH)
 
 
 TMCC1_ACC_ON_COMMAND: int = 0x802F
@@ -305,16 +290,16 @@ TMCC1_ACC_AUX_2_ON_COMMAND: int = 0x800F
 
 @verify(UNIQUE)
 class TMCC1AuxOption(TMCC1Enum):
-    SET_ADDRESS = TMCC1Option(TMCC1_ACC_SET_ADDRESS_COMMAND, TMCC1CommandPrefix.ACC)
-    NUMERIC = TMCC1Option(TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandPrefix.ACC, d_max=9)
-    AUX1_OFF = TMCC1Option(TMCC1_ACC_AUX_1_OFF_COMMAND, TMCC1CommandPrefix.ACC)
-    AUX1_ON = TMCC1Option(TMCC1_ACC_AUX_1_ON_COMMAND, TMCC1CommandPrefix.ACC)
-    AUX1_OPTION_ONE = TMCC1Option(TMCC1_ACC_AUX_1_OPTION_1_COMMAND, TMCC1CommandPrefix.ACC)
-    AUX1_OPTION_TWO = TMCC1Option(TMCC1_ACC_AUX_1_OPTION_2_COMMAND, TMCC1CommandPrefix.ACC)
-    AUX2_OFF = TMCC1Option(TMCC1_ACC_AUX_2_OFF_COMMAND, TMCC1CommandPrefix.ACC)
-    AUX2_ON = TMCC1Option(TMCC1_ACC_AUX_2_ON_COMMAND, TMCC1CommandPrefix.ACC)
-    AUX2_OPTION_ONE = TMCC1Option(TMCC1_ACC_AUX_2_OPTION_1_COMMAND, TMCC1CommandPrefix.ACC)
-    AUX2_OPTION_TWO = TMCC1Option(TMCC1_ACC_AUX_2_OPTION_2_COMMAND, TMCC1CommandPrefix.ACC)
+    SET_ADDRESS = TMCC1CommandDef(TMCC1_ACC_SET_ADDRESS_COMMAND, TMCC1CommandIdentifier.ACC)
+    NUMERIC = TMCC1CommandDef(TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandIdentifier.ACC, d_max=9)
+    AUX1_OFF = TMCC1CommandDef(TMCC1_ACC_AUX_1_OFF_COMMAND, TMCC1CommandIdentifier.ACC)
+    AUX1_ON = TMCC1CommandDef(TMCC1_ACC_AUX_1_ON_COMMAND, TMCC1CommandIdentifier.ACC)
+    AUX1_OPTION_ONE = TMCC1CommandDef(TMCC1_ACC_AUX_1_OPTION_1_COMMAND, TMCC1CommandIdentifier.ACC)
+    AUX1_OPTION_TWO = TMCC1CommandDef(TMCC1_ACC_AUX_1_OPTION_2_COMMAND, TMCC1CommandIdentifier.ACC)
+    AUX2_OFF = TMCC1CommandDef(TMCC1_ACC_AUX_2_OFF_COMMAND, TMCC1CommandIdentifier.ACC)
+    AUX2_ON = TMCC1CommandDef(TMCC1_ACC_AUX_2_ON_COMMAND, TMCC1CommandIdentifier.ACC)
+    AUX2_OPTION_ONE = TMCC1CommandDef(TMCC1_ACC_AUX_2_OPTION_1_COMMAND, TMCC1CommandIdentifier.ACC)
+    AUX2_OPTION_TWO = TMCC1CommandDef(TMCC1_ACC_AUX_2_OPTION_2_COMMAND, TMCC1CommandIdentifier.ACC)
 
 
 # Engine/Train commands
@@ -397,43 +382,43 @@ RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
 
 @verify(UNIQUE)
 class TMCC1EngineOption(TMCC1Enum):
-    ABSOLUTE_SPEED = TMCC1Option(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, d_max=31)
-    AUX1_OFF = TMCC1Option(TMCC1_ENG_AUX1_OFF_COMMAND)
-    AUX1_ON = TMCC1Option(TMCC1_ENG_AUX1_ON_COMMAND)
-    AUX1_OPTION_ONE = TMCC1Option(TMCC1_ENG_AUX1_OPTION_ONE_COMMAND)
-    AUX1_OPTION_TWO = TMCC1Option(TMCC1_ENG_AUX1_OPTION_TWO_COMMAND)
-    AUX2_OFF = TMCC1Option(TMCC1_ENG_AUX2_OFF_COMMAND)
-    AUX2_ON = TMCC1Option(TMCC1_ENG_AUX2_ON_COMMAND)
-    AUX2_OPTION_ONE = TMCC1Option(TMCC1_ENG_AUX2_OPTION_ONE_COMMAND)
-    AUX2_OPTION_TWO = TMCC1Option(TMCC1_ENG_AUX2_OPTION_TWO_COMMAND)
-    BLOW_HORN_ONE = TMCC1Option(TMCC1_ENG_BLOW_HORN_ONE_COMMAND)
-    BLOW_HORN_TWO = TMCC1Option(TMCC1_ENG_BLOW_HORN_TWO_COMMAND)
-    BOOST_SPEED = TMCC1Option(TMCC1_ENG_BOOST_SPEED_COMMAND)
-    BRAKE_SPEED = TMCC1Option(TMCC1_ENG_BRAKE_SPEED_COMMAND)
-    FORWARD_DIRECTION = TMCC1Option(TMCC1_ENG_FORWARD_DIRECTION_COMMAND)
-    FRONT_COUPLER = TMCC1Option(TMCC1_ENG_OPEN_FRONT_COUPLER_COMMAND)
-    FUNC_MINUS = TMCC1Option(TMCC1_ENG_FUNC_MINUS_COMMAND)
-    FUNC_PLUS = TMCC1Option(TMCC1_ENG_FUNC_PLUS_COMMAND)
-    LET_OFF = TMCC1Option(TMCC1_ENG_LET_OFF_SOUND_COMMAND)
-    MOMENTUM_HIGH = TMCC1Option(TMCC1_ENG_SET_MOMENTUM_HIGH_COMMAND)
-    MOMENTUM_LOW = TMCC1Option(TMCC1_ENG_SET_MOMENTUM_LOW_COMMAND)
-    MOMENTUM_MEDIUM = TMCC1Option(TMCC1_ENG_SET_MOMENTUM_MEDIUM_COMMAND)
-    NUMERIC = TMCC1Option(TMCC1_ENG_NUMERIC_COMMAND, d_max=9)
-    OPEN_FRONT_COUPLER = TMCC1Option(TMCC1_ENG_OPEN_FRONT_COUPLER_COMMAND)
-    OPEN_REAR_COUPLER = TMCC1Option(TMCC1_ENG_OPEN_REAR_COUPLER_COMMAND)
-    REAR_COUPLER = TMCC1Option(TMCC1_ENG_OPEN_REAR_COUPLER_COMMAND)
-    RELATIVE_SPEED = TMCC1Option(TMCC1_ENG_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
-    REVERSE_DIRECTION = TMCC1Option(TMCC1_ENG_REVERSE_DIRECTION_COMMAND)
-    RING_BELL = TMCC1Option(TMCC1_ENG_RING_BELL_COMMAND)
-    RPM_DOWN = TMCC1Option(TMCC1_ENG_RPM_DOWN_COMMAND)
-    RPM_UP = TMCC1Option(TMCC1_ENG_RPM_UP_COMMAND)
-    SET_ADDRESS = TMCC1Option(TMCC1_ENG_SET_ADDRESS_COMMAND)
-    SHUTDOWN_DELAYED = TMCC1Option(TMCC1_ENG_SHUTDOWN_COMMAND)
-    SOUND_ONE = TMCC1Option(TMCC1_ENG_SOUND_ONE_COMMAND)
-    SOUND_TWO = TMCC1Option(TMCC1_ENG_SOUND_TWO_COMMAND)
-    TOGGLE_DIRECTION = TMCC1Option(TMCC1_ENG_TOGGLE_DIRECTION_COMMAND)
-    VOLUME_DOWN = TMCC1Option(TMCC1_ENG_VOLUME_DOWN_COMMAND)
-    VOLUME_UP = TMCC1Option(TMCC1_ENG_VOLUME_UP_COMMAND)
+    ABSOLUTE_SPEED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, d_max=31)
+    AUX1_OFF = TMCC1CommandDef(TMCC1_ENG_AUX1_OFF_COMMAND)
+    AUX1_ON = TMCC1CommandDef(TMCC1_ENG_AUX1_ON_COMMAND)
+    AUX1_OPTION_ONE = TMCC1CommandDef(TMCC1_ENG_AUX1_OPTION_ONE_COMMAND)
+    AUX1_OPTION_TWO = TMCC1CommandDef(TMCC1_ENG_AUX1_OPTION_TWO_COMMAND)
+    AUX2_OFF = TMCC1CommandDef(TMCC1_ENG_AUX2_OFF_COMMAND)
+    AUX2_ON = TMCC1CommandDef(TMCC1_ENG_AUX2_ON_COMMAND)
+    AUX2_OPTION_ONE = TMCC1CommandDef(TMCC1_ENG_AUX2_OPTION_ONE_COMMAND)
+    AUX2_OPTION_TWO = TMCC1CommandDef(TMCC1_ENG_AUX2_OPTION_TWO_COMMAND)
+    BLOW_HORN_ONE = TMCC1CommandDef(TMCC1_ENG_BLOW_HORN_ONE_COMMAND)
+    BLOW_HORN_TWO = TMCC1CommandDef(TMCC1_ENG_BLOW_HORN_TWO_COMMAND)
+    BOOST_SPEED = TMCC1CommandDef(TMCC1_ENG_BOOST_SPEED_COMMAND)
+    BRAKE_SPEED = TMCC1CommandDef(TMCC1_ENG_BRAKE_SPEED_COMMAND)
+    FORWARD_DIRECTION = TMCC1CommandDef(TMCC1_ENG_FORWARD_DIRECTION_COMMAND)
+    FRONT_COUPLER = TMCC1CommandDef(TMCC1_ENG_OPEN_FRONT_COUPLER_COMMAND)
+    FUNC_MINUS = TMCC1CommandDef(TMCC1_ENG_FUNC_MINUS_COMMAND)
+    FUNC_PLUS = TMCC1CommandDef(TMCC1_ENG_FUNC_PLUS_COMMAND)
+    LET_OFF = TMCC1CommandDef(TMCC1_ENG_LET_OFF_SOUND_COMMAND)
+    MOMENTUM_HIGH = TMCC1CommandDef(TMCC1_ENG_SET_MOMENTUM_HIGH_COMMAND)
+    MOMENTUM_LOW = TMCC1CommandDef(TMCC1_ENG_SET_MOMENTUM_LOW_COMMAND)
+    MOMENTUM_MEDIUM = TMCC1CommandDef(TMCC1_ENG_SET_MOMENTUM_MEDIUM_COMMAND)
+    NUMERIC = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND, d_max=9)
+    OPEN_FRONT_COUPLER = TMCC1CommandDef(TMCC1_ENG_OPEN_FRONT_COUPLER_COMMAND)
+    OPEN_REAR_COUPLER = TMCC1CommandDef(TMCC1_ENG_OPEN_REAR_COUPLER_COMMAND)
+    REAR_COUPLER = TMCC1CommandDef(TMCC1_ENG_OPEN_REAR_COUPLER_COMMAND)
+    RELATIVE_SPEED = TMCC1CommandDef(TMCC1_ENG_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
+    REVERSE_DIRECTION = TMCC1CommandDef(TMCC1_ENG_REVERSE_DIRECTION_COMMAND)
+    RING_BELL = TMCC1CommandDef(TMCC1_ENG_RING_BELL_COMMAND)
+    RPM_DOWN = TMCC1CommandDef(TMCC1_ENG_RPM_DOWN_COMMAND)
+    RPM_UP = TMCC1CommandDef(TMCC1_ENG_RPM_UP_COMMAND)
+    SET_ADDRESS = TMCC1CommandDef(TMCC1_ENG_SET_ADDRESS_COMMAND)
+    SHUTDOWN_DELAYED = TMCC1CommandDef(TMCC1_ENG_SHUTDOWN_COMMAND)
+    SOUND_ONE = TMCC1CommandDef(TMCC1_ENG_SOUND_ONE_COMMAND)
+    SOUND_TWO = TMCC1CommandDef(TMCC1_ENG_SOUND_TWO_COMMAND)
+    TOGGLE_DIRECTION = TMCC1CommandDef(TMCC1_ENG_TOGGLE_DIRECTION_COMMAND)
+    VOLUME_DOWN = TMCC1CommandDef(TMCC1_ENG_VOLUME_DOWN_COMMAND)
+    VOLUME_UP = TMCC1CommandDef(TMCC1_ENG_VOLUME_UP_COMMAND)
 
 
 """
@@ -441,7 +426,7 @@ class TMCC1EngineOption(TMCC1Enum):
 """
 
 """
-    Legacy/TMCC2 Protocol/prefix Constants
+    Legacy/TMCC2 Protocol/first_byte Constants
 """
 # All Legacy/TMCC2 commands begin with one of the following 1 byte sequences
 # Engine/Train/Parameter 2 digit address are first 7 bits of first byte
@@ -451,7 +436,7 @@ LEGACY_ENGINE_COMMAND_PREFIX: int = 0xF8
 LEGACY_TRAIN_COMMAND_PREFIX: int = 0xF9
 
 
-class TMCC2Enum(OptionEnum):
+class TMCC2Enum(CommandDefEnum):
     """
         Marker Interface for all TMCC2 enums
     """
@@ -466,18 +451,30 @@ class TMCC2CommandPrefix(CommandPrefix):
     PARAMETER = LEGACY_PARAMETER_COMMAND_PREFIX
 
 
-class TMCC2Option(Option):
+TMCC2_FIRST_BYTE_TO_SCOPE_MAP = {
+    TMCC2CommandPrefix.ENGINE: CommandScope.ENGINE,
+    TMCC2CommandPrefix.TRAIN: CommandScope.TRAIN,
+    TMCC2CommandPrefix.ROUTE: CommandScope.ROUTE,
+}
+
+
+class TMCC2CommandDef(CommandDef):
     def __init__(self,
-                 command_op: int,
-                 prefix: TMCC2CommandPrefix = TMCC2CommandPrefix.ENGINE,
+                 command_bits: int,
+                 first_byte: TMCC2CommandPrefix = TMCC2CommandPrefix.ENGINE,
                  d_min: int = 0,
                  d_max: int = 0,
                  d_map: Dict[int, int] = None) -> None:
-        super().__init__(command_op, prefix, d_min=d_min, d_max=d_max, d_map=d_map)
-        self._option_prefix = prefix
+        super().__init__(command_bits,  d_min=d_min, d_max=d_max, d_map=d_map)
+        self._first_byte = first_byte
 
-    def _option_prefix(self) -> int:
-        return self._option_prefix
+    @property
+    def first_byte(self) -> bytes:
+        return self._first_byte.as_bytes
+
+    @property
+    def scope(self) -> CommandScope:
+        return TMCC2_FIRST_BYTE_TO_SCOPE_MAP[self._first_byte]
 
 
 # The TMCC2 route command is an undocumented "extended block command" (0xFA)
@@ -486,7 +483,7 @@ LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 @verify(UNIQUE)
 class TMCC2RouteOption(TMCC2Enum):
-    ROUTE = TMCC2Option(LEGACY_ROUTE_COMMAND, prefix=TMCC2CommandPrefix.ROUTE)
+    ROUTE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, first_byte=TMCC2CommandPrefix.ROUTE)
 
 
 # TMCC2 Commands with Bit 9 = "0"
@@ -575,63 +572,63 @@ TMCC2_SPEED_MAP = dict(ROLL=TMCC2_ROLL_SPEED, RO=TMCC2_ROLL_SPEED,
 
 @verify(UNIQUE)
 class TMCC2EngineOption(TMCC2Enum):
-    ABSOLUTE_SPEED = TMCC2Option(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199)
-    AUGER = TMCC2Option(TMCC2_ENG_AUGER_SOUND_COMMAND)
-    AUX1_OFF = TMCC2Option(TMCC2_AUX1_OFF_COMMAND)
-    AUX1_ON = TMCC2Option(TMCC2_AUX1_ON_COMMAND)
-    AUX1_OPTION_ONE = TMCC2Option(TMCC2_AUX1_OPTION_ONE_COMMAND)
-    AUX1_OPTION_TWO = TMCC2Option(TMCC2_AUX1_OPTION_TWO_COMMAND)
-    AUX2_OFF = TMCC2Option(TMCC2_AUX2_OFF_COMMAND)
-    AUX2_ON = TMCC2Option(TMCC2_AUX2_ON_COMMAND)
-    AUX2_OPTION_ONE = TMCC2Option(TMCC2_AUX2_OPTION_ONE_COMMAND)
-    AUX2_OPTION_TWO = TMCC2Option(TMCC2_AUX2_OPTION_TWO_COMMAND)
-    BELL_OFF = TMCC2Option(TMCC2_BELL_OFF_COMMAND)
-    BELL_ON = TMCC2Option(TMCC2_BELL_ON_COMMAND)
-    BELL_ONE_SHOT_DING = TMCC2Option(TMCC2_BELL_ONE_SHOT_DING_COMMAND, d_max=3)
-    BELL_SLIDER_POSITION = TMCC2Option(TMCC2_BELL_SLIDER_POSITION_COMMAND, d_min=2, d_max=5)
-    BLOW_HORN_ONE = TMCC2Option(TMCC2_BLOW_HORN_ONE_COMMAND)
-    BLOW_HORN_TWO = TMCC2Option(TMCC2_BLOW_HORN_TWO_COMMAND)
-    BOOST_LEVEL = TMCC2Option(TMCC2_SET_BOOST_LEVEL_COMMAND, d_max=7)
-    BOOST_SPEED = TMCC2Option(TMCC2_BOOST_SPEED_COMMAND)
-    BRAKE_AIR_RELEASE = TMCC2Option(TMCC2_ENG_BRAKE_AIR_RELEASE_SOUND_COMMAND)
-    BRAKE_LEVEL = TMCC2Option(TMCC2_SET_BRAKE_LEVEL_COMMAND, d_max=7)
-    BRAKE_SPEED = TMCC2Option(TMCC2_BRAKE_SPEED_COMMAND)
-    BRAKE_SQUEAL = TMCC2Option(TMCC2_ENG_BRAKE_SQUEAL_SOUND_COMMAND)
-    DIESEL_LEVEL = TMCC2Option(TMCC2_DIESEL_RUN_LEVEL_SOUND_COMMAND, d_max=7)
-    ENGINE_LABOR = TMCC2Option(TMCC2_ENGINE_LABOR_COMMAND, d_max=31)
-    FORWARD_DIRECTION = TMCC2Option(TMCC2_FORWARD_DIRECTION_COMMAND)
-    FRONT_COUPLER = TMCC2Option(TMCC2_OPEN_FRONT_COUPLER_COMMAND)
-    LET_OFF = TMCC2Option(TMCC2_ENG_LET_OFF_SOUND_COMMAND)
-    LET_OFF_LONG = TMCC2Option(TMCC2_ENG_LET_OFF_LONG_SOUND_COMMAND)
-    MOMENTUM = TMCC2Option(TMCC2_SET_MOMENTUM_COMMAND, d_max=7)
-    MOMENTUM_HIGH = TMCC2Option(TMCC2_SET_MOMENTUM_HIGH_COMMAND)
-    MOMENTUM_LOW = TMCC2Option(TMCC2_SET_MOMENTUM_LOW_COMMAND)
-    MOMENTUM_MEDIUM = TMCC2Option(TMCC2_SET_MOMENTUM_MEDIUM_COMMAND)
-    NUMERIC = TMCC2Option(TMCC2_NUMERIC_COMMAND, d_max=9)
-    QUILLING_HORN_INTENSITY = TMCC2Option(TMCC2_QUILLING_HORN_INTENSITY_COMMAND, d_max=16)
-    REAR_COUPLER = TMCC2Option(TMCC2_OPEN_REAR_COUPLER_COMMAND)
-    REFUELLING = TMCC2Option(TMCC2_ENG_REFUELLING_SOUND_COMMAND)
-    RELATIVE_SPEED = TMCC2Option(TMCC2_SET_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
-    REVERSE_DIRECTION = TMCC2Option(TMCC2_REVERSE_DIRECTION_COMMAND)
-    RING_BELL = TMCC2Option(TMCC2_RING_BELL_COMMAND)
-    SET_ADDRESS = TMCC2Option(TMCC1_ENG_SET_ADDRESS_COMMAND)
-    SHUTDOWN_DELAYED = TMCC2Option(TMCC2_SHUTDOWN_SEQ_ONE_COMMAND)
-    SHUTDOWN_IMMEDIATE = TMCC2Option(TMCC2_SHUTDOWN_SEQ_TWO_COMMAND)
-    SPEED_HIGH_BALL = TMCC2Option(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_HIGHBALL_SPEED)
-    SPEED_LIMITED = TMCC2Option(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_LIMITED_SPEED)
-    SPEED_MEDIUM = TMCC2Option(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_MEDIUM_SPEED)
-    SPEED_NORMAL = TMCC2Option(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_NORMAL_SPEED)
-    SPEED_RESTRICTED = TMCC2Option(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_RESTRICTED_SPEED)
-    SPEED_ROLL = TMCC2Option(TMCC2_ROLL_SPEED | TMCC2_ROLL_SPEED)
-    SPEED_SLOW = TMCC2Option(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_SLOW_SPEED)
-    STALL = TMCC2Option(TMCC2_STALL_COMMAND)
-    START_UP_DELAYED = TMCC2Option(TMCC2_START_UP_SEQ_ONE_COMMAND)
-    START_UP_IMMEDIATE = TMCC2Option(TMCC2_START_UP_SEQ_TWO_COMMAND)
-    STOP_IMMEDIATE = TMCC2Option(TMCC2_STOP_IMMEDIATE_COMMAND)
-    SYSTEM_HALT = TMCC2Option(TMCC2_HALT_COMMAND)
-    TOGGLE_DIRECTION = TMCC2Option(TMCC2_TOGGLE_DIRECTION_COMMAND)
-    TRAIN_BRAKE = TMCC2Option(TMCC2_SET_TRAIN_BRAKE_COMMAND, d_max=7)
-    WATER_INJECTOR = TMCC2Option(TMCC2_WATER_INJECTOR_SOUND_COMMAND)
+    ABSOLUTE_SPEED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199)
+    AUGER = TMCC2CommandDef(TMCC2_ENG_AUGER_SOUND_COMMAND)
+    AUX1_OFF = TMCC2CommandDef(TMCC2_AUX1_OFF_COMMAND)
+    AUX1_ON = TMCC2CommandDef(TMCC2_AUX1_ON_COMMAND)
+    AUX1_OPTION_ONE = TMCC2CommandDef(TMCC2_AUX1_OPTION_ONE_COMMAND)
+    AUX1_OPTION_TWO = TMCC2CommandDef(TMCC2_AUX1_OPTION_TWO_COMMAND)
+    AUX2_OFF = TMCC2CommandDef(TMCC2_AUX2_OFF_COMMAND)
+    AUX2_ON = TMCC2CommandDef(TMCC2_AUX2_ON_COMMAND)
+    AUX2_OPTION_ONE = TMCC2CommandDef(TMCC2_AUX2_OPTION_ONE_COMMAND)
+    AUX2_OPTION_TWO = TMCC2CommandDef(TMCC2_AUX2_OPTION_TWO_COMMAND)
+    BELL_OFF = TMCC2CommandDef(TMCC2_BELL_OFF_COMMAND)
+    BELL_ON = TMCC2CommandDef(TMCC2_BELL_ON_COMMAND)
+    BELL_ONE_SHOT_DING = TMCC2CommandDef(TMCC2_BELL_ONE_SHOT_DING_COMMAND, d_max=3)
+    BELL_SLIDER_POSITION = TMCC2CommandDef(TMCC2_BELL_SLIDER_POSITION_COMMAND, d_min=2, d_max=5)
+    BLOW_HORN_ONE = TMCC2CommandDef(TMCC2_BLOW_HORN_ONE_COMMAND)
+    BLOW_HORN_TWO = TMCC2CommandDef(TMCC2_BLOW_HORN_TWO_COMMAND)
+    BOOST_LEVEL = TMCC2CommandDef(TMCC2_SET_BOOST_LEVEL_COMMAND, d_max=7)
+    BOOST_SPEED = TMCC2CommandDef(TMCC2_BOOST_SPEED_COMMAND)
+    BRAKE_AIR_RELEASE = TMCC2CommandDef(TMCC2_ENG_BRAKE_AIR_RELEASE_SOUND_COMMAND)
+    BRAKE_LEVEL = TMCC2CommandDef(TMCC2_SET_BRAKE_LEVEL_COMMAND, d_max=7)
+    BRAKE_SPEED = TMCC2CommandDef(TMCC2_BRAKE_SPEED_COMMAND)
+    BRAKE_SQUEAL = TMCC2CommandDef(TMCC2_ENG_BRAKE_SQUEAL_SOUND_COMMAND)
+    DIESEL_LEVEL = TMCC2CommandDef(TMCC2_DIESEL_RUN_LEVEL_SOUND_COMMAND, d_max=7)
+    ENGINE_LABOR = TMCC2CommandDef(TMCC2_ENGINE_LABOR_COMMAND, d_max=31)
+    FORWARD_DIRECTION = TMCC2CommandDef(TMCC2_FORWARD_DIRECTION_COMMAND)
+    FRONT_COUPLER = TMCC2CommandDef(TMCC2_OPEN_FRONT_COUPLER_COMMAND)
+    LET_OFF = TMCC2CommandDef(TMCC2_ENG_LET_OFF_SOUND_COMMAND)
+    LET_OFF_LONG = TMCC2CommandDef(TMCC2_ENG_LET_OFF_LONG_SOUND_COMMAND)
+    MOMENTUM = TMCC2CommandDef(TMCC2_SET_MOMENTUM_COMMAND, d_max=7)
+    MOMENTUM_HIGH = TMCC2CommandDef(TMCC2_SET_MOMENTUM_HIGH_COMMAND)
+    MOMENTUM_LOW = TMCC2CommandDef(TMCC2_SET_MOMENTUM_LOW_COMMAND)
+    MOMENTUM_MEDIUM = TMCC2CommandDef(TMCC2_SET_MOMENTUM_MEDIUM_COMMAND)
+    NUMERIC = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND, d_max=9)
+    QUILLING_HORN_INTENSITY = TMCC2CommandDef(TMCC2_QUILLING_HORN_INTENSITY_COMMAND, d_max=16)
+    REAR_COUPLER = TMCC2CommandDef(TMCC2_OPEN_REAR_COUPLER_COMMAND)
+    REFUELLING = TMCC2CommandDef(TMCC2_ENG_REFUELLING_SOUND_COMMAND)
+    RELATIVE_SPEED = TMCC2CommandDef(TMCC2_SET_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
+    REVERSE_DIRECTION = TMCC2CommandDef(TMCC2_REVERSE_DIRECTION_COMMAND)
+    RING_BELL = TMCC2CommandDef(TMCC2_RING_BELL_COMMAND)
+    SET_ADDRESS = TMCC2CommandDef(TMCC1_ENG_SET_ADDRESS_COMMAND)
+    SHUTDOWN_DELAYED = TMCC2CommandDef(TMCC2_SHUTDOWN_SEQ_ONE_COMMAND)
+    SHUTDOWN_IMMEDIATE = TMCC2CommandDef(TMCC2_SHUTDOWN_SEQ_TWO_COMMAND)
+    SPEED_HIGH_BALL = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_HIGHBALL_SPEED)
+    SPEED_LIMITED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_LIMITED_SPEED)
+    SPEED_MEDIUM = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_MEDIUM_SPEED)
+    SPEED_NORMAL = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_NORMAL_SPEED)
+    SPEED_RESTRICTED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_RESTRICTED_SPEED)
+    SPEED_ROLL = TMCC2CommandDef(TMCC2_ROLL_SPEED | TMCC2_ROLL_SPEED)
+    SPEED_SLOW = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_SLOW_SPEED)
+    STALL = TMCC2CommandDef(TMCC2_STALL_COMMAND)
+    START_UP_DELAYED = TMCC2CommandDef(TMCC2_START_UP_SEQ_ONE_COMMAND)
+    START_UP_IMMEDIATE = TMCC2CommandDef(TMCC2_START_UP_SEQ_TWO_COMMAND)
+    STOP_IMMEDIATE = TMCC2CommandDef(TMCC2_STOP_IMMEDIATE_COMMAND)
+    SYSTEM_HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND)
+    TOGGLE_DIRECTION = TMCC2CommandDef(TMCC2_TOGGLE_DIRECTION_COMMAND)
+    TRAIN_BRAKE = TMCC2CommandDef(TMCC2_SET_TRAIN_BRAKE_COMMAND, d_max=7)
+    WATER_INJECTOR = TMCC2CommandDef(TMCC2_WATER_INJECTOR_SOUND_COMMAND)
 
 
 """
