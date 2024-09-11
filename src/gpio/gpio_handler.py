@@ -1,3 +1,5 @@
+from typing import List
+
 from gpiozero import Button
 
 from src.protocol.command_req import CommandReq
@@ -50,3 +52,21 @@ class GpioHandler:
         button.hold_repeat = True
         button.hold_time = frequency
         return button
+
+    def when_toggle_switch(cls,
+                           off_pin: int | str,
+                           on_pin: int | str,
+                           off_command: CommandReq,
+                           on_command: CommandReq,
+                           baudrate: int = DEFAULT_BAUDRATE,
+                           port: str = DEFAULT_PORT
+                           ) -> List[Button]:
+        # create the off button
+        off_button = Button(off_pin)
+        off_button.when_pressed = off_command.as_action()
+
+        # create the on button
+        on_button = Button(on_pin)
+        on_button.when_pressed = on_command.as_action()
+
+        return [off_button, on_button]
