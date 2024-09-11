@@ -13,4 +13,6 @@ GpioHandler.when_button_pressed(21, TMCC2RouteCommandDef.ROUTE, 10)
 GpioHandler.when_button_pressed(19, TMCC1AuxCommandDef.AUX1_OPTION_ONE, 9)
 GpioHandler.when_button_pressed(13, TMCC1AuxCommandDef.AUX2_OPTION_ONE, 9)
 
+print("Buttons registered...")
+
 pause()
