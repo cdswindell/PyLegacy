@@ -1,7 +1,7 @@
 from gpiozero import Button
 
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import CommandDefEnum, DEFAULT_BAUDRATE, DEFAULT_PORT
+from src.protocol.constants import CommandDefEnum, DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from src.protocol.constants import CommandScope
 
 
@@ -10,7 +10,7 @@ class GpioHandler:
     def when_button_pressed(cls,
                             pin: int | str,
                             command: CommandReq | CommandDefEnum,
-                            address: int | None = None,
+                            address: int = DEFAULT_ADDRESS,
                             data: int = 0,
                             scope: CommandScope = None,
                             baudrate: int = DEFAULT_BAUDRATE,
@@ -31,7 +31,7 @@ class GpioHandler:
     def when_button_held(cls,
                          pin: int | str,
                          command: CommandReq | CommandDefEnum,
-                         address: int = None,
+                         address: int = DEFAULT_ADDRESS,
                          data: int = 0,
                          scope: CommandScope = None,
                          frequency: float = 1,
