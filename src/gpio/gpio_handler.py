@@ -6,7 +6,7 @@ from src.protocol.command_req import CommandReq
 from src.protocol.constants import CommandDefEnum, DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from src.protocol.constants import CommandScope
 
-DEFAULT_BOUNCE_TIME: float = 0.2
+DEFAULT_BOUNCE_TIME: float = 0.05
 
 
 class GpioHandler:
