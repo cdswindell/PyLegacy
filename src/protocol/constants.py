@@ -178,8 +178,7 @@ class CommandDefEnum(Mixins, Enum):
 
     @property
     def scope(self) -> CommandScope:
-        print(f"{self} {self.value} {self.value.name}")
-        return self.value.scope
+        return self.command_def.scope
 
 
 """

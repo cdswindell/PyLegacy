@@ -83,7 +83,7 @@ class CommandReq:
             scope = TMCC1CommandIdentifier.ROUTE
             max_val = 31
         if scope is None:
-            scope = CommandDefEnum.scope
+            scope = command.scope
         Validations.validate_int(address, min_value=1, max_value=max_val, label=scope.name.capitalize())
         Validations.validate_int(data, label=scope.name.capitalize())
 
