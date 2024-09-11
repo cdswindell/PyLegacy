@@ -8,6 +8,8 @@ from src.protocol.constants import CommandScope
 
 
 class GpioHandler:
+    BUTTON_CACHE = set()
+
     @classmethod
     def when_button_pressed(cls,
                             pin: int | str,
@@ -27,6 +29,7 @@ class GpioHandler:
 
         # create a command function to fire when button pressed
         button.when_pressed = command.as_action(baudrate=baudrate, port=port)
+        cls._cache_button(button)
         return button
 
     @classmethod
@@ -51,6 +54,7 @@ class GpioHandler:
         button.when_held = command.as_action(baudrate=baudrate, port=port)
         button.hold_repeat = True
         button.hold_time = frequency
+        cls._cache_button(button)
         return button
 
     @classmethod
@@ -70,4 +74,13 @@ class GpioHandler:
         on_button = Button(on_pin)
         on_button.when_pressed = on_command.as_action(baudrate=baudrate, port=port)
 
+        cls._cache_button(off_button)
+        cls._cache_button(on_button)
         return off_button, on_button
+
+    @classmethod
+    def _cache_button(cls, button: Button) -> None:
+        """
+            Keep buttons around after creation so they remain in scope
+        """
+        cls.BUTTON_CACHE.add(button)
