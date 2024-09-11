@@ -188,9 +188,7 @@ class CommandReq:
             apply the data bits to the command op bytes to form the complete byte
             set to send to the Lionel LCS SER2.
         """
-        print(f"num bits {self._command_bits}")
         if self.num_data_bits and data is None:
-            print('THIS IS BAD')
             raise ValueError("Data is required")
         if self.num_data_bits == 0:
             return self.bits
