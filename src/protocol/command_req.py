@@ -24,7 +24,7 @@ class CommandReq:
                      ) -> None:
         # build & queue
         cls._vet_request(command, address, data, scope)
-        req = CommandReq(command.command_def, address=address, data=data, scope=scope)
+        req = CommandReq(command, address=address, data=data, scope=scope)
         cls._enqueue_command(req.as_bytes, repeat, delay, baudrate, port)
 
     @classmethod
@@ -40,7 +40,7 @@ class CommandReq:
                   ):
         # build & queue
         cls._vet_request(command, address, data, scope)
-        req = CommandReq(command.command_def, address=address, data=data, scope=scope)
+        req = CommandReq(command, address=address, data=data, scope=scope)
 
         def send_func() -> None:
             print(f"cmd: {req} repeat: {repeat} delay: {delay}")
@@ -102,24 +102,25 @@ class CommandReq:
                 time.sleep(delay)
 
     def __init__(self,
-                 command_def: CommandDef,
+                 command_def_enum: CommandDefEnum,
                  address: int = DEFAULT_ADDRESS,
                  data: int = 0,
                  scope: CommandScope = None) -> None:
-        self._command_def = command_def  # read only; do not modify
+        self._command_def_enum = command_def_enum
+        self._command_def = command_def_enum.value  # read only; do not modify
         self._address = address
         self._data = data
         self._scope = scope
 
         # save the command bits from the def, as we will be modifying them
-        self._command_bits = command_def.bits
+        self._command_bits = self._command_def.bits
 
         # apply the given address and data
         self._apply_address()
         self._apply_data()
 
     def __repr__(self) -> str:
-        return f"0x{self.bits:04x}: {self.num_data_bits} data bits"
+        return f"<{self._command_def_enum.name} 0x{self.bits:04x}: {self.num_data_bits} data bits>"
 
     @property
     def address(self) -> int:
@@ -167,8 +168,10 @@ class CommandReq:
             if self.scope == CommandScope.TRAIN and self.identifier == TMCC1CommandIdentifier.ENGINE:
                 self._command_bits &= TMCC1_TRAIN_COMMAND_PURIFIER
                 self._command_bits |= TMCC1_TRAIN_COMMAND_MODIFIER
-        else:
+        elif self.syntax == CommandSyntax.TMCC2:
             self._command_bits |= self.address << 9
+        else:
+            raise ValueError(f"Command type not recognized {self.syntax}")
         return self._command_bits
 
     def _apply_data(self, data: int | None = None) -> int:
@@ -177,7 +180,9 @@ class CommandReq:
             apply the data bits to the command op bytes to form the complete byte
             set to send to the Lionel LCS SER2.
         """
+        print(f"num bits {self._command_bits}")
         if self.num_data_bits and data is None:
+            print('THIS IS BAD')
             raise ValueError("Data is required")
         if self.num_data_bits == 0:
             return self.bits

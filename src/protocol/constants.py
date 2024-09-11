@@ -142,9 +142,9 @@ class CommandDef(ABC):
 
     @property
     def syntax(self) -> CommandSyntax:
-        if isinstance(self, TMCC1Enum):
+        if isinstance(self, TMCC1CommandDef):
             return CommandSyntax.TMCC1
-        elif isinstance(self, TMCC2Enum):
+        elif isinstance(self, TMCC2CommandDef):
             return CommandSyntax.TMCC2
         else:
             raise TypeError(f"Invalid command syntax: {self}")
@@ -178,6 +178,7 @@ class CommandDefEnum(Mixins, Enum):
 
     @property
     def scope(self) -> CommandScope:
+        print(f"{self} {self.value} {self.value.name}")
         return self.value.scope
 
 
