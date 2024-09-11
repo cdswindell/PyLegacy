@@ -44,7 +44,7 @@ class TestConstants(TestBase):
                  TMCC1AuxOption,
                  TMCC1EngineOption,
                  TMCC2ParameterIndex,
-                 TMCC2EngineOption,
+                 TMCC2EngineCommandDef,
                  TMCC2EffectsControl,
                  TMCC2LightingControl
                  ]

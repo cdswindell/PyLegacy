@@ -169,7 +169,7 @@ class CommandDef(ABC):
 
 class CommandDefEnum(Mixins, Enum):
     """
-        Marker Interface to allow TMCC1EngineOption and TMCC2EngineOption enums
+        Marker Interface to allow TMCC1EngineOption and TMCC2EngineCommandDef enums
         to be handled by engine commands
     """
     @property
@@ -571,7 +571,7 @@ TMCC2_SPEED_MAP = dict(ROLL=TMCC2_ROLL_SPEED, RO=TMCC2_ROLL_SPEED,
 
 
 @verify(UNIQUE)
-class TMCC2EngineOption(TMCC2Enum):
+class TMCC2EngineCommandDef(TMCC2Enum):
     ABSOLUTE_SPEED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199)
     AUGER = TMCC2CommandDef(TMCC2_ENG_AUGER_SOUND_COMMAND)
     AUX1_OFF = TMCC2CommandDef(TMCC2_AUX1_OFF_COMMAND)

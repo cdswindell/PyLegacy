@@ -5,7 +5,7 @@ import sys
 from typing import Any
 
 from src.cli.cli_base import CliBaseTMCC, DataAction, cli_parser, command_format_parser, train_parser
-from src.protocol.constants import CommandDefEnum, TMCC1EngineOption, TMCC2EngineOption
+from src.protocol.constants import CommandDefEnum, TMCC1EngineOption, TMCC2EngineCommandDef
 from src.protocol.constants import TMCC2_SPEED_MAP, TMCC1_SPEED_MAP
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
@@ -29,9 +29,9 @@ class EngineCli(CliBaseTMCC):
                 raise ValueError("Must specify an command_def, use -h for help")
             print(self._args)
             scope = self._determine_scope()
-            if self.is_tmcc2 or isinstance(option, TMCC2EngineOption):
+            if self.is_tmcc2 or isinstance(option, TMCC2EngineCommandDef):
                 cmd = EngineCmdTMCC2(engine,
-                                     TMCC2EngineOption(option),
+                                     TMCC2EngineCommandDef(option),
                                      option_data,
                                      scope,
                                      baudrate=self._args.baudrate,
@@ -50,7 +50,7 @@ class EngineCli(CliBaseTMCC):
     def _decode_engine_option(self) -> CommandDefEnum | None:
         """
             Decode the 'command_def' argument, if present, into a valid
-            TMCC1EngineOption or TMCC2EngineOption enum. Use the specified
+            TMCC1EngineOption or TMCC2EngineCommandDef enum. Use the specified
             command format, if present, to help resolve, as the two enum
             classes share element names
         """
@@ -80,7 +80,7 @@ class EngineCli(CliBaseTMCC):
         if self.is_tmcc1:
             enum_class = TMCC1EngineOption
         else:
-            enum_class = TMCC2EngineOption
+            enum_class = TMCC2EngineCommandDef
         if option in dir(enum_class):
             return enum_class[option]
         else:
