@@ -39,10 +39,10 @@ class TestConstants(TestBase):
         enums = [CommandSyntax,
                  CommandScope,
                  TMCC1SwitchState,
-                 TMCC1HaltOption,
-                 TMCC1RouteOption,
-                 TMCC1AuxOption,
-                 TMCC1EngineOption,
+                 TMCC1HaltCommandDef,
+                 TMCC1RouteCommandDef,
+                 TMCC1AuxCommandDef,
+                 TMCC1EngineCommandDef,
                  TMCC2ParameterIndex,
                  TMCC2EngineCommandDef,
                  TMCC2EffectsControl,
@@ -175,7 +175,7 @@ class TestConstants(TestBase):
 
     def test_command_scope_enum(self) -> None:
         # should contain 4 elements
-        assert len(CommandScope) == 5
+        assert len(CommandScope) == 6
 
         # check that engine and train elements are in TMCC1CommandIdentifier
         assert TMCC1CommandIdentifier.ENGINE == TMCC1CommandIdentifier(CommandScope.ENGINE.name)

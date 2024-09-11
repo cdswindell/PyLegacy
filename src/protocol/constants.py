@@ -99,7 +99,7 @@ class CommandPrefix(Mixins, IntEnum):
 class CommandDef(ABC):
     __metaclass__ = abc.ABCMeta
     """
-        Marker class for TMCC1 and TMCC2 Command Options, allowing the CLI layer
+        Marker class for TMCC1 and TMCC2 Command Defs, allowing the CLI layer
         to work with them in a command format agnostic manner.
     """
     def __init__(self,
@@ -169,7 +169,7 @@ class CommandDef(ABC):
 
 class CommandDefEnum(Mixins, Enum):
     """
-        Marker Interface to allow TMCC1EngineOption and TMCC2EngineCommandDef enums
+        Marker Interface to allow TMCC1EngineCommandDef and TMCC2EngineCommandDef enums
         to be handled by engine commands
     """
     @property
@@ -245,7 +245,7 @@ class TMCC1CommandDef(CommandDef):
 
 
 @verify(UNIQUE)
-class TMCC1HaltOption(TMCC1Enum):
+class TMCC1HaltCommandDef(TMCC1Enum):
     HALT = TMCC1CommandDef(TMCC1_HALT_COMMAND, TMCC1CommandIdentifier.HALT)
 
 
@@ -253,7 +253,7 @@ TMCC1_ROUTE_COMMAND: int = 0xD01F
 
 
 @verify(UNIQUE)
-class TMCC1RouteOption(TMCC1Enum):
+class TMCC1RouteCommandDef(TMCC1Enum):
     ROUTE = TMCC1CommandDef(TMCC1_ROUTE_COMMAND, TMCC1CommandIdentifier.ROUTE)
 
 
@@ -289,7 +289,7 @@ TMCC1_ACC_AUX_2_ON_COMMAND: int = 0x800F
 
 
 @verify(UNIQUE)
-class TMCC1AuxOption(TMCC1Enum):
+class TMCC1AuxCommandDef(TMCC1Enum):
     SET_ADDRESS = TMCC1CommandDef(TMCC1_ACC_SET_ADDRESS_COMMAND, TMCC1CommandIdentifier.ACC)
     NUMERIC = TMCC1CommandDef(TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandIdentifier.ACC, d_max=9)
     AUX1_OFF = TMCC1CommandDef(TMCC1_ACC_AUX_1_OFF_COMMAND, TMCC1CommandIdentifier.ACC)
@@ -381,7 +381,7 @@ RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
 
 
 @verify(UNIQUE)
-class TMCC1EngineOption(TMCC1Enum):
+class TMCC1EngineCommandDef(TMCC1Enum):
     ABSOLUTE_SPEED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, d_max=31)
     AUX1_OFF = TMCC1CommandDef(TMCC1_ENG_AUX1_OFF_COMMAND)
     AUX1_ON = TMCC1CommandDef(TMCC1_ENG_AUX1_ON_COMMAND)

@@ -1,12 +1,12 @@
 from .tmcc1_command import TMCC1Command
-from ..constants import TMCC1EngineOption, DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, \
+from ..constants import TMCC1EngineCommandDef, DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, \
     TMCC1_TRAIN_COMMAND_MODIFIER, TMCC1_TRAIN_COMMAND_PURIFIER
 
 
 class EngineCmd(TMCC1Command):
     def __init__(self,
                  engine: int,
-                 option: TMCC1EngineOption,
+                 option: TMCC1EngineCommandDef,
                  option_data: int = 0,
                  scope: CommandScope = CommandScope.ENGINE,
                  baudrate: int = DEFAULT_BAUDRATE,

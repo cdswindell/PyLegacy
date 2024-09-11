@@ -3,7 +3,7 @@ from typing import Callable
 
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
 from .constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC2CommandPrefix, TMCC2CommandDef
-from .constants import CommandDefEnum, TMCC1Enum, TMCC2Enum, TMCC1RouteOption
+from .constants import CommandDefEnum, TMCC1Enum, TMCC2Enum, TMCC1RouteCommandDef
 from .constants import TMCC1_TRAIN_COMMAND_PURIFIER, TMCC1_TRAIN_COMMAND_MODIFIER
 
 from .constants import CommandDef, CommandScope, CommandSyntax, TMCC1CommandIdentifier
@@ -75,7 +75,7 @@ class CommandReq:
 
         max_val = 99
         syntax = CommandSyntax.TMCC2 if enum_class == TMCC2Enum else CommandSyntax.TMCC1
-        if syntax == CommandSyntax.TMCC1 and command == TMCC1RouteOption.ROUTE:
+        if syntax == CommandSyntax.TMCC1 and command == TMCC1RouteCommandDef.ROUTE:
             scope = TMCC1CommandIdentifier.ROUTE
             max_val = 31
         if scope is None:

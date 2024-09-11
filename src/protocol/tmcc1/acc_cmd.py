@@ -1,10 +1,10 @@
 from .tmcc1_command import TMCC1Command
-from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, TMCC1AuxOption
+from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, TMCC1AuxCommandDef
 
 
 class AccCmd(TMCC1Command):
     def __init__(self, acc: int,
-                 option: TMCC1AuxOption,
+                 option: TMCC1AuxCommandDef,
                  option_data: int = None,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT) -> None:
