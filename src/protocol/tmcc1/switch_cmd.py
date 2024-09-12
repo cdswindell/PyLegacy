@@ -10,9 +10,6 @@ class SwitchCmd(TMCC1Command):
                  port: str = DEFAULT_PORT) -> None:
         if switch < 1 or switch > 99:
             raise ValueError("Switch must be between 1 and 99")
-        super().__init__(switch, baudrate, port)
-        self._command_req = CommandReq(state, switch)
+        req = CommandReq(state, switch)
+        super().__init__(state, req, switch, 0, None, baudrate, port)
         self._command = self._build_command()
-
-    def _build_command(self) -> bytes:
-        return self._command_req.as_bytes

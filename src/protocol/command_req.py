@@ -172,6 +172,8 @@ class CommandReq:
         return send_func
 
     def _apply_address(self) -> int:
+        if not self.command_def.is_addressable:  # HALT command
+            return self._command_bits
         if self.syntax == CommandSyntax.TMCC1:
             self._command_bits |= self.address << 7
             if self.scope == CommandScope.TRAIN and self.identifier == TMCC1CommandIdentifier.ENGINE:

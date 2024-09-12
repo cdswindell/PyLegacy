@@ -104,10 +104,12 @@ class CommandDef(ABC):
     """
     def __init__(self,
                  command_bits: int,
+                 is_addressable: bool = True,
                  d_min: int = 0,
                  d_max: int = 0,
                  d_map: Dict[int, int] = None) -> None:
         self._command_bits = command_bits
+        self._is_addressable = is_addressable
         self._d_min = d_min
         self._d_max = d_max
         self._d_map = d_map
@@ -123,6 +125,10 @@ class CommandDef(ABC):
     @property
     def bits(self) -> int:
         return self._command_bits
+
+    @property
+    def is_addressable(self) -> bool:
+        return self._is_addressable
 
     @property
     def num_data_bits(self) -> int:
@@ -225,10 +231,11 @@ class TMCC1CommandDef(CommandDef):
     def __init__(self,
                  command_bits: int,
                  command_ident: TMCC1CommandIdentifier = TMCC1CommandIdentifier.ENGINE,
+                 is_addressable: bool = True,
                  d_min: int = 0,
                  d_max: int = 0,
                  d_map: Dict[int, int] = None) -> None:
-        super().__init__(command_bits, d_min=d_min, d_max=d_max, d_map=d_map)
+        super().__init__(command_bits, is_addressable, d_min=d_min, d_max=d_max, d_map=d_map)
         self._command_ident = command_ident
 
     @property
@@ -246,7 +253,7 @@ class TMCC1CommandDef(CommandDef):
 
 @verify(UNIQUE)
 class TMCC1HaltCommandDef(TMCC1Enum):
-    HALT = TMCC1CommandDef(TMCC1_HALT_COMMAND, TMCC1CommandIdentifier.HALT)
+    HALT = TMCC1CommandDef(TMCC1_HALT_COMMAND, TMCC1CommandIdentifier.HALT, is_addressable=False)
 
 
 TMCC1_ROUTE_COMMAND: int = 0xD01F
@@ -462,10 +469,11 @@ class TMCC2CommandDef(CommandDef):
     def __init__(self,
                  command_bits: int,
                  first_byte: TMCC2CommandPrefix = TMCC2CommandPrefix.ENGINE,
+                 is_addressable: bool = True,
                  d_min: int = 0,
                  d_max: int = 0,
                  d_map: Dict[int, int] = None) -> None:
-        super().__init__(command_bits,  d_min=d_min, d_max=d_max, d_map=d_map)
+        super().__init__(command_bits,  is_addressable, d_min=d_min, d_max=d_max, d_map=d_map)
         self._first_byte = first_byte
 
     @property

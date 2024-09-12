@@ -11,9 +11,6 @@ class AccCmd(TMCC1Command):
                  port: str = DEFAULT_PORT) -> None:
         if acc < 1 or acc > 99:
             raise ValueError("Accessory must be between 1 and 99")
-        super().__init__(acc, baudrate, port)
-        self._command_req = CommandReq(command, acc, data=data)
+        req = CommandReq(command, acc, data=data)
+        super().__init__(command, req, acc, data, None, baudrate, port)
         self._command = self._build_command()
-
-    def _build_command(self) -> bytes:
-        return self._command_req.as_bytes
