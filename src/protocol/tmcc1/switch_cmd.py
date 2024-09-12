@@ -1,4 +1,5 @@
 from .tmcc1_command import TMCC1Command
+from ..command_req import CommandReq
 from ..constants import TMCC1SwitchState, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
@@ -10,8 +11,8 @@ class SwitchCmd(TMCC1Command):
         if switch < 1 or switch > 99:
             raise ValueError("Switch must be between 1 and 99")
         super().__init__(switch, baudrate, port)
-        self._state = state
+        self._command_req = CommandReq(state, switch)
         self._command = self._build_command()
 
     def _build_command(self) -> bytes:
-        return self.command_prefix + self._encode_address(self._state.value.command)
+        return self._command_req.as_bytes

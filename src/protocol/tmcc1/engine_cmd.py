@@ -19,17 +19,43 @@ class EngineCmd(TMCC1Command):
                 raise ValueError("Train must be between 1 and 10")
         super().__init__(engine, baudrate, port)
         self._option = option
-        self._option_data = option_data
+        self.data = option_data
         self._scope = scope
         self._command = self._build_command()
 
     def __repr__(self):
-        data = f" [{self._option_data}] " if self._option.value.num_data_bits else ''
+        data = f" [{self.data}] " if self._option.value.num_data_bits else ''
         return f"<Engine {self.address} {self._option.name}{data}: 0x{self.command_bytes.hex()}>"
 
     def _build_command(self) -> bytes:
-        command_op = self._option.value.apply_data(self._option_data)
+        command_op = self._apply_data()
         if self._scope == CommandScope.TRAIN:
             command_op &= TMCC1_TRAIN_COMMAND_PURIFIER  # remove unwanted bits from ENG command
             command_op |= TMCC1_TRAIN_COMMAND_MODIFIER  # add bits to specify train command
         return self.command_prefix + self._encode_address(command_op)
+
+    def _apply_data(self) -> int:
+        """
+            For commands that take parameters, such as engine speed and brake level,
+            apply the data bits to the command op bytes to form the complete byte
+            set to send to the Lionel LCS SER2.
+        """
+        data = self.data
+        cmd = self._option.command_def
+        if cmd.num_data_bits and data is None:
+            raise ValueError("Data is required")
+        if cmd.num_data_bits == 0:
+            return cmd.bits
+        elif cmd.data_map:
+            d_map = cmd.data_map
+            if data in d_map:
+                data = d_map[data]
+            else:
+                raise ValueError(f"Invalid data value: {data} (not in map)")
+        elif data < cmd.data_min or data > cmd.data_max:
+            raise ValueError(f"Invalid data value: {data} (not in range)")
+        # sanitize data so we don't set bits we shouldn't
+        filtered_data = data & (2 ** cmd.num_data_bits - 1)
+        if data != filtered_data:
+            raise ValueError(f"Invalid data value: {data} (not in range)")
+        return cmd.bits | data

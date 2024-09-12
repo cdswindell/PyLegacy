@@ -118,7 +118,7 @@ class CommandDef(ABC):
             self._d_bits = math.ceil(math.log2(max(d_map.values())))
 
     def __repr__(self) -> str:
-        return f"{self}0x{self.bits:04x}: {self.num_data_bits} data bits"
+        return f"{self.__class__.__name__} 0x{self.bits:04x}: {self.num_data_bits} data bits"
 
     @property
     def bits(self) -> int:

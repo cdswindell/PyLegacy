@@ -24,19 +24,18 @@ class AccCli(CliBase):
     def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
         super().__init__(arg_parser)
         self._acc = self._args.acc
-        self._option = self._args.command_def
+        self._command = self._args.command
         self._data = self._args.data if 'data' in self._args else 0
         self._aux1 = self._args.aux1
         self._aux2 = self._args.aux2
         if self._args.aux1 and self._args.aux1 in AUX_OPTIONS_MAP:
-            self._option = TMCC1AuxCommandDef.by_name(f"AUX1_{AUX_OPTIONS_MAP[self._args.aux1]}")
+            self._command = TMCC1AuxCommandDef.by_name(f"AUX1_{AUX_OPTIONS_MAP[self._args.aux1]}")
         if self._args.aux2 and self._args.aux2 in AUX_OPTIONS_MAP:
-            self._option = TMCC1AuxCommandDef.by_name(f"AUX2_{AUX_OPTIONS_MAP[self._args.aux2]}")
+            self._command = TMCC1AuxCommandDef.by_name(f"AUX2_{AUX_OPTIONS_MAP[self._args.aux2]}")
         try:
-            if self._option is None or not isinstance(self._option, TMCC1AuxCommandDef):
-                raise ValueError("Must specify an command_def, use -h for help")
-            AccCmdTMCC1(self._acc, self._option, self._data,
-                        baudrate=self._args.baudrate, port=self._args.port).fire()
+            if self._command is None or not isinstance(self._command, TMCC1AuxCommandDef):
+                raise ValueError("Must specify an option, use -h for help")
+            AccCmdTMCC1(self._acc, self._command, self._data, baudrate=self._args.baudrate, port=self._args.port).fire()
         except ValueError as ve:
             print(ve)
 
@@ -60,7 +59,7 @@ if __name__ == '__main__':
                            const='opt1')
     aux_group.add_argument("-n",
                            action=DataAction,
-                           dest='command_def',
+                           dest='data',
                            choices=range(0, 10),
                            metavar="0 - 9",
                            type=int,
@@ -71,9 +70,8 @@ if __name__ == '__main__':
     aux_group.add_argument("-a", "--set_address",
                            action="store_const",
                            const=TMCC1AuxCommandDef.SET_ADDRESS,
-                           dest='command_def',
+                           dest='command',
                            help="Set Accessory Address")
     # fire command
-    parser = argparse.ArgumentParser("Fire specified accessory (1 - 99)",
-                                     parents=[acc_parser, cli_parser()])
+    parser = argparse.ArgumentParser("Operate specified accessory (1 - 99)", parents=[acc_parser, cli_parser()])
     AccCli(parser)

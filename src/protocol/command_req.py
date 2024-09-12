@@ -15,7 +15,7 @@ class CommandReq:
     @classmethod
     def send_command(cls,
                      command: CommandDefEnum,
-                     address: int,
+                     address: int = DEFAULT_ADDRESS,
                      data: int = 0,
                      scope: CommandScope = None,
                      repeat: int = 1,
@@ -81,7 +81,8 @@ class CommandReq:
         if scope is None:
             scope = command.scope
         Validations.validate_int(address, min_value=1, max_value=max_val, label=scope.name.capitalize())
-        Validations.validate_int(data, label=scope.name.capitalize())
+        if data is not None:
+            Validations.validate_int(data, label=scope.name.capitalize())
 
     @classmethod
     def _enqueue_command(cls, cmd: bytes, repeat: int, delay: int, baudrate: int, port: str):
@@ -182,12 +183,13 @@ class CommandReq:
             raise ValueError(f"Command type not recognized {self.syntax}")
         return self._command_bits
 
-    def _apply_data(self, data: int | None = None) -> int:
+    def _apply_data(self) -> int:
         """
             For commands that take parameters, such as engine speed and brake level,
             apply the data bits to the command op bytes to form the complete byte
             set to send to the Lionel LCS SER2.
         """
+        data = self.data
         if self.num_data_bits and data is None:
             raise ValueError("Data is required")
         if self.num_data_bits == 0:
