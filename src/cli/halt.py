@@ -13,8 +13,7 @@ class HaltCli(CliBaseTMCC):
         super().__init__(arg_parser)
         try:
             if self.is_train_command or self.is_tmcc2:
-                scope = self._determine_scope()
-                HaltCmdTMCC2(scope=scope, baudrate=self._args.baudrate, port=self._args.port).fire()
+                HaltCmdTMCC2(baudrate=self._args.baudrate, port=self._args.port).fire()
             else:
                 HaltCmdTMCC1(baudrate=self._args.baudrate, port=self._args.port).fire()
         except ValueError as ve:

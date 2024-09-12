@@ -2,8 +2,10 @@ import abc
 from abc import ABC
 
 from ..command_base import CommandBase
-from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS, TMCC2CommandPrefix
-from ..constants import TMCC2ParameterIndex, TMCC2ParameterDataEnum
+from ..command_req import CommandReq
+from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
+from ..constants import TMCC2CommandPrefix, CommandDefEnum
+from ..constants import TMCC2ParameterIndex, TMCC2ParameterData
 from ..constants import TMCC2LightingControl, TMCC2EffectsControl, TMCC2DialogControl
 from ..constants import CommandScope, TMCC2_PARAMETER_INDEX_PREFIX, LEGACY_PARAMETER_COMMAND_PREFIX
 
@@ -12,16 +14,31 @@ class TMCC2Command(CommandBase, ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self,
-                 command_scope: CommandScope,
-                 address: int = DEFAULT_ADDRESS,
+                 command: CommandDefEnum,
+                 command_req: CommandReq,
+                 address: int = 99,
+                 data: int = 0,
+                 scope: CommandScope = None,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT) -> None:
         super().__init__(address, baudrate, port)
-        self._command_scope = command_scope
+        self._command_def_enum = command
+        self._command_req = command_req
+        self._data = data
+        self._scope = scope
+
+    def __repr__(self):
+        name = self._command_def_enum.name
+        data = f" [{self._command_req.data}] " if self._command_req.num_data_bits else ''
+        entity = {self._command_req.scope.name.capitalize(): self._command_req.scope.name}
+        return f"<{name}: {entity} {self.address} {data}: 0x{self.command_bytes.hex()}>"
+
+    def _build_command(self) -> bytes:
+        return self._command_req.as_bytes
 
     @property
     def scope(self) -> CommandScope:
-        return self._command_scope
+        return self._scope
 
     def _encode_address(self, command_op: int) -> bytes:
         return self._encode_command((self.address << 9) | command_op)
@@ -35,13 +52,13 @@ class TMCC2FixedParameterCommand(TMCC2Command, ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self,
-                 command_scope: CommandScope,
+                 scope: CommandScope,
                  parameter_index: TMCC2ParameterIndex | int,
-                 parameter_data: TMCC2ParameterDataEnum | int,
+                 parameter_data: TMCC2ParameterData | int,
                  address: int = DEFAULT_ADDRESS,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT) -> None:
-        super().__init__(command_scope, address, baudrate, port)
+        super().__init__(None, None, address, 0, scope, baudrate, port)
         if parameter_index < 0 or parameter_index >= 15:
             raise ValueError('Parameter index must be between 0 and 15')
         if parameter_data < 0 or parameter_data > 0xFF:
@@ -55,7 +72,7 @@ class TMCC2FixedParameterCommand(TMCC2Command, ABC):
             p_idx = f"{self._parameter_index.name} ({hex(self._parameter_index)})"
         else:
             p_idx = f"{hex(self._parameter_index)}"
-        if isinstance(self._parameter_data, TMCC2ParameterDataEnum):
+        if isinstance(self._parameter_data, TMCC2ParameterData):
             p_data = f"{self._parameter_data.name} ({hex(self._parameter_data)})"
         else:
             p_data = f"{hex(self._parameter_data)}"

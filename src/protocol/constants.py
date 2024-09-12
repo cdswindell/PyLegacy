@@ -464,6 +464,8 @@ TMCC2_FIRST_BYTE_TO_SCOPE_MAP = {
     TMCC2CommandPrefix.ROUTE: CommandScope.ROUTE,
 }
 
+TMCC2_SCOPE_TO_FIRST_BYTE_MAP = {s: p for p, s in TMCC2_FIRST_BYTE_TO_SCOPE_MAP.items()}
+
 
 class TMCC2CommandDef(CommandDef):
     def __init__(self,
@@ -485,13 +487,21 @@ class TMCC2CommandDef(CommandDef):
         return TMCC2_FIRST_BYTE_TO_SCOPE_MAP[self._first_byte]
 
 
+TMCC2_HALT_COMMAND: int = 0x01AB
+
+
+@verify(UNIQUE)
+class TMCC2HaltCommandDef(TMCC2Enum):
+    HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND, first_byte=TMCC2CommandPrefix.ROUTE)
+
+
 # The TMCC2 route command is an undocumented "extended block command" (0xFA)
 LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 
 @verify(UNIQUE)
 class TMCC2RouteCommandDef(TMCC2Enum):
-    ROUTE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, first_byte=TMCC2CommandPrefix.ROUTE)
+    ROUTE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, first_byte=TMCC2CommandPrefix.ENGINE)
 
 
 # TMCC2 Commands with Bit 9 = "0"
@@ -527,8 +537,6 @@ TMCC2_SET_MOMENTUM_HIGH_COMMAND: int = 0x012A
 
 TMCC2_BOOST_SPEED_COMMAND: int = 0x0104
 TMCC2_BRAKE_SPEED_COMMAND: int = 0x0107
-
-TMCC2_HALT_COMMAND: int = 0x01AB
 
 TMCC2_NUMERIC_COMMAND: int = 0x0110
 
@@ -667,11 +675,33 @@ class TMCC2ParameterIndex(Mixins, IntEnum):
     VARIABLE_LENGTH_COMMAND = TMCC2_VARIABLE_LENGTH_COMMAND_PARAMETER_INDEX
 
 
-class TMCC2ParameterDataEnum(Mixins, IntEnum):
+class TMCC2ParameterData(Mixins, IntEnum):
     """
         Marker interface for all Parameter Data enums
     """
     pass
+
+
+class TMCC2ParameterCommandDef(CommandDef):
+    def __init__(self,
+                 command_bits: int,
+                 index: TMCC2ParameterIndex,
+                 data: TMCC2ParameterData,
+                 command_scope: CommandScope = CommandScope.ENGINE) -> None:
+        super().__init__(command_bits)
+        self._command_scope = command_scope
+        self._first_byte = TMCC2_SCOPE_TO_FIRST_BYTE_MAP[command_scope]
+
+    @property
+    def first_byte(self) -> bytes:
+        return self._first_byte.as_bytes
+
+    @property
+    def scope(self) -> CommandScope:
+        return self._command_scope
+
+
+
 
 
 """
@@ -686,7 +716,7 @@ TMCC2_DIALOG_CONTROL_CONVENTIONAL_SHUTDOWN: int = 0x01
 
 
 @verify(UNIQUE)
-class TMCC2DialogControl(TMCC2ParameterDataEnum):
+class TMCC2DialogControl(TMCC2ParameterData):
     CONVENTIONAL_SHUTDOWN = TMCC2_DIALOGS_CONTROL_SHUTDOWN
 
 
@@ -724,7 +754,7 @@ TMCC2_EFFECTS_CONTROL_STOCK_CAR_GAME_OFF: int = 0x3B
 
 
 @verify(UNIQUE)
-class TMCC2EffectsControl(TMCC2ParameterDataEnum):
+class TMCC2EffectsControl(TMCC2ParameterData):
     PANTO_FRONT_DOWN = TMCC2_EFFECTS_CONTROL_PANTOGRAPH_FRONT_DOWN
     PANTO_FRONT_UP = TMCC2_EFFECTS_CONTROL_PANTOGRAPH_FRONT_UP
     PANTO_REAR_DOWN = TMCC2_EFFECTS_CONTROL_PANTOGRAPH_REAR_DOWN
@@ -797,7 +827,7 @@ TMCC2_LIGHTING_CONTROL_TENDER_MARKER_LIGHT_ON: int = 0xCD
 
 
 @verify(UNIQUE)
-class TMCC2LightingControl(TMCC2ParameterDataEnum):
+class TMCC2LightingControl(TMCC2ParameterData):
     CAB_AUTO = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_AUTO
     CAB_OFF = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_OFF
     CAB_ON = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_ON

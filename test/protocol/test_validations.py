@@ -32,7 +32,7 @@ class TestValidations(TestBase):
             assert Validations.validate_int(5, min_value=10) == 10
 
         # test maximum value
-        v=15
+        v = 15
         with pytest.raises(ValueError, match=f"'{v}' must be less or equal to {10}"):
             assert Validations.validate_int(15, max_value=10) == 10
 
