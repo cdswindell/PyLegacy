@@ -195,6 +195,10 @@ class CommandDefEnum(Mixins, Enum):
     def scope(self) -> CommandScope:
         return self.command_def.scope
 
+    @property
+    def syntax(self) -> CommandSyntax:
+        return self.value.syntax
+
 
 """
     TMCC1 Constants

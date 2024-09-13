@@ -1,6 +1,10 @@
+from typing import List, TypeVar
+
+from src.protocol.constants import *
 from src.protocol.command_req import CommandReq, ParameterCommandReq
-from src.protocol.constants import CommandScope, TMCC2ParameterEnum
 from src.protocol.validations import Validations
+
+T = TypeVar("T", TMCC1Enum, TMCC2Enum)
 
 
 # noinspection PyMethodMayBeStatic
@@ -17,6 +21,21 @@ class TestBase:
         else:
             req = CommandReq(cmd, address, data, scope)
         return req
+
+    @property
+    def all_command_enums(self) -> List[T]:
+        return [TMCC1HaltCommandDef,
+                TMCC1RouteCommandDef,
+                TMCC1AuxCommandDef,
+                TMCC1SwitchState,
+                TMCC1EngineCommandDef,
+                TMCC2HaltCommandDef,
+                TMCC2RouteCommandDef,
+                TMCC2EngineCommandDef,
+                TMCC2DialogControl,
+                TMCC2EffectsControl,
+                TMCC2LightingControl,
+                ]
 
 
 # noinspection PyUnusedLocal
