@@ -62,7 +62,8 @@ class CommandReq:
         if isinstance(command, TMCC1CommandDef):
             return TMCC1_COMMAND_PREFIX.to_bytes(1, byteorder='big')
         elif isinstance(command, TMCC2CommandDef):
-            return TMCC2CommandPrefix(scope.name).as_bytes
+            validated_scope = command._validate_requested_scope(scope)
+            return TMCC2CommandPrefix(validated_scope.name).as_bytes
         raise TypeError(f"Command type not recognized {command}")
 
     @classmethod
@@ -113,7 +114,8 @@ class CommandReq:
         self._command_def = command_def_enum.value  # read only; do not modify
         self._address = address
         self._data = data
-        self._scope = scope
+        self._native_scope = self._command_def.scope
+        self._scope = self._command_def._validate_requested_scope(scope)
 
         # save the command bits from the def, as we will be modifying them
         self._command_bits = self._command_def.bits
@@ -136,6 +138,10 @@ class CommandReq:
     @property
     def scope(self) -> CommandScope:
         return self._scope
+
+    @property
+    def native_scope(self) -> CommandScope:
+        return self._native_scope
 
     @property
     def command_def(self) -> CommandDef:

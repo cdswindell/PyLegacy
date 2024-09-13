@@ -124,6 +124,13 @@ class CommandDef(ABC):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__} 0x{self.bits:04x}: {self.num_data_bits} data bits"
 
+    def _validate_requested_scope(self, request: CommandScope) -> CommandScope:
+        if request in [CommandScope.ENGINE, CommandScope.TRAIN]:
+            if self.scope in [CommandScope.ENGINE, CommandScope.TRAIN]:
+                return request
+        # otherwise, return the scope associated with the native command def
+        return self.scope
+
     @property
     def bits(self) -> int:
         return self._command_bits

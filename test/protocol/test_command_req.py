@@ -132,10 +132,7 @@ class TestCommandReq(TestBase):
                     else:
                         data = 0
                     # build a request object as a convenience to get byte streem command
-                    if isinstance(cmd, TMCC2ParameterEnum):
-                        req = ParameterCommandReq(cmd, 1, data)
-                    else:
-                        req = CommandReq(cmd, 1, data)
+                    req = self.build_request(cmd, 1, data)
                     action = CommandReq.build_action(cmd, 1, data)
                     assert action is not None
                     action()
@@ -168,7 +165,8 @@ class TestCommandReq(TestBase):
                                                                1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT)
                     mk_enqueue_command.reset_mock()
 
-        with mock.patch.object(CommBuffer, 'enqueue_command') as mk_comm_enqueue_command:      # test build_request with repeat set
+        # test build_request with repeat set
+        with mock.patch.object(CommBuffer, 'enqueue_command') as mk_comm_enqueue_command:
             for cmd in TMCC2EffectsControl:
                 action = CommandReq.build_action(cmd, 1, data, repeat=3)
                 assert action is not None
@@ -176,9 +174,42 @@ class TestCommandReq(TestBase):
                 assert mk_comm_enqueue_command.call_count == 3
                 mk_comm_enqueue_command.reset_mock()
 
-    # def test__determine_first_byte(self):
-    #     assert False
-    #
+    def test__determine_first_byte(self):
+        for cdef in [TMCC1HaltCommandDef,
+                     TMCC1RouteCommandDef,
+                     TMCC1AuxCommandDef,
+                     TMCC1SwitchState,
+                     TMCC1EngineCommandDef,
+                     TMCC2HaltCommandDef,
+                     TMCC2RouteCommandDef,
+                     TMCC2EngineCommandDef,
+                     TMCC2DialogControl,
+                     TMCC2EffectsControl,
+                     TMCC2LightingControl,
+                     ]:
+            for cmd in cdef:
+                assert isinstance(cmd.value, CommandDef)
+                assert cmd.value.first_byte == CommandReq._determine_first_byte(cmd.value, cmd.value.scope)
+
+        # retest for Trains
+        for cdef in [TMCC1HaltCommandDef,
+                     TMCC1RouteCommandDef,
+                     TMCC1AuxCommandDef,
+                     TMCC1SwitchState,
+                     TMCC1EngineCommandDef,
+                     TMCC2HaltCommandDef,
+                     TMCC2RouteCommandDef,
+                     TMCC2EngineCommandDef,
+                     TMCC2DialogControl,
+                     TMCC2EffectsControl,
+                     TMCC2LightingControl,
+                     ]:
+            for cmd in cdef:
+                req = self.build_request(cmd, 1, 2, CommandScope.TRAIN)
+                cmd_bytes = req.as_bytes
+                fb = cmd_bytes[0].to_bytes(1, byteorder='big')
+                assert fb == CommandReq._determine_first_byte(cmd.value, CommandScope.TRAIN)
+
     def test__vet_request(self):
         # all command defs should pass
         for cdef in [TMCC1HaltCommandDef,

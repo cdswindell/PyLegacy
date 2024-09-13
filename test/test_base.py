@@ -1,3 +1,5 @@
+from src.protocol.command_req import CommandReq, ParameterCommandReq
+from src.protocol.constants import CommandScope, TMCC2ParameterEnum
 from src.protocol.validations import Validations
 
 
@@ -8,6 +10,13 @@ class TestBase:
 
     def setup_method(self, test_method):
         pass
+
+    def build_request(self, cmd, address: int, data: int = 0, scope: CommandScope = None) -> CommandReq:
+        if isinstance(cmd, TMCC2ParameterEnum):
+            req = ParameterCommandReq(cmd, address, data, scope)
+        else:
+            req = CommandReq(cmd, address, data, scope)
+        return req
 
 
 # noinspection PyUnusedLocal
