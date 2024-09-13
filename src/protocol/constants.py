@@ -48,6 +48,8 @@ class Mixins(Enum):
         for _, member in cls.__members__.items():
             if member.value == value:
                 return member
+            if isinstance(member, CommandDef) and CommandDef(value).bits == value:
+                return member
         if raise_exception:
             raise ValueError(f"'{value}' is not a valid {cls.__name__}")
         else:
@@ -492,7 +494,7 @@ TMCC2_HALT_COMMAND: int = 0x01AB
 
 @verify(UNIQUE)
 class TMCC2HaltCommandDef(TMCC2Enum):
-    HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND, first_byte=TMCC2CommandPrefix.ROUTE)
+    HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND, first_byte=TMCC2CommandPrefix.ENGINE)
 
 
 # The TMCC2 route command is an undocumented "extended block command" (0xFA)
@@ -501,7 +503,7 @@ LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 @verify(UNIQUE)
 class TMCC2RouteCommandDef(TMCC2Enum):
-    ROUTE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, first_byte=TMCC2CommandPrefix.ENGINE)
+    ROUTE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, first_byte=TMCC2CommandPrefix.ROUTE)
 
 
 # TMCC2 Commands with Bit 9 = "0"
