@@ -33,10 +33,10 @@ class CommandReq:
 
     @classmethod
     def build_action(cls,
-                     command: CommandDefEnum,
-                     address: int,
+                     command: CommandDefEnum | None,
+                     address: int = DEFAULT_ADDRESS,
                      data: int = 0,
-                     scope: CommandScope = CommandScope.ENGINE,
+                     scope: CommandScope = None,
                      repeat: int = 1,
                      delay: int = 0,
                      baudrate: int = DEFAULT_BAUDRATE,
@@ -44,7 +44,10 @@ class CommandReq:
                      ) -> Callable:
         # build & return action function
         cls._vet_request(command, address, data, scope)
-        req: CommandReq = CommandReq(command, address=address, data=data, scope=scope)
+        if isinstance(command, TMCC2ParameterEnum):
+            req = ParameterCommandReq(command, address=address, data=data, scope=scope)
+        else:
+            req = CommandReq(command, address=address, data=data, scope=scope)
         return req.as_action(repeat=repeat, delay=delay, baudrate=baudrate, port=port)
 
     @classmethod
@@ -169,7 +172,6 @@ class CommandReq:
                   port: str = DEFAULT_PORT
                   ) -> Callable:
         def send_func() -> None:
-            print(f"cmd: {self} repeat: {repeat} delay: {delay}")
             self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port)
 
         return send_func

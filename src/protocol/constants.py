@@ -693,19 +693,10 @@ class TMCC2ParameterData(CommandDefEnum):
     pass
 
 
-class TMCC2ParameterCommandDef(CommandDef):
-    def __init__(self, command_bits: int, scope: CommandScope = CommandScope.ENGINE) -> None:
+class TMCC2ParameterCommandDef(TMCC1CommandDef):
+    def __init__(self, command_bits: int) -> None:
         super().__init__(command_bits)
-        self._scope = scope
-        self._first_byte = TMCC2_SCOPE_TO_FIRST_BYTE_MAP[scope].to_bytes(1, byteorder='big')
-
-    @property
-    def first_byte(self) -> bytes:
-        return self._first_byte
-
-    @property
-    def scope(self) -> CommandScope:
-        return self._scope
+        self._first_byte = TMCC2CommandPrefix.ENGINE.to_bytes(1, byteorder='big')
 
 
 """

@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 
 from src.comm.comm_buffer import CommBuffer
-from src.protocol.command_req import CommandReq
+from src.protocol.command_req import CommandReq, ParameterCommandReq
 from src.protocol.constants import *
 from ..test_base import TestBase
 
@@ -102,7 +102,6 @@ class TestCommandReq(TestBase):
                     CommandReq.send_command(cmd, address, data)
                     if cmd.command_def.num_data_bits > 0:
                         bits |= data
-
                     mk_enqueue_command.assert_called_once_with(bits.to_bytes(3, byteorder='big'),
                                                                1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT)
                     mk_enqueue_command.reset_mock()
@@ -112,9 +111,71 @@ class TestCommandReq(TestBase):
                                                        1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT)
             mk_enqueue_command.reset_mock()
 
-    # def test_build_action(self):
-    #     assert False
-    #
+    def test_build_action(self):
+        # all command defs should pass
+        with mock.patch.object(CommandReq, '_enqueue_command') as mk_enqueue_command:
+            for cdef in [TMCC1HaltCommandDef,
+                         TMCC1RouteCommandDef,
+                         TMCC1AuxCommandDef,
+                         TMCC1SwitchState,
+                         TMCC1EngineCommandDef,
+                         TMCC2HaltCommandDef,
+                         TMCC2RouteCommandDef,
+                         TMCC2EngineCommandDef,
+                         TMCC2DialogControl,
+                         TMCC2EffectsControl,
+                         TMCC2LightingControl,
+                         ]:
+                for cmd in cdef:
+                    if cmd.command_def.num_data_bits:
+                        data = 3
+                    else:
+                        data = 0
+                    # build a request object as a convenience to get byte streem command
+                    if isinstance(cmd, TMCC2ParameterEnum):
+                        req = ParameterCommandReq(cmd, 1, data)
+                    else:
+                        req = CommandReq(cmd, 1, data)
+                    action = CommandReq.build_action(cmd, 1, data)
+                    assert action is not None
+                    action()
+                    mk_enqueue_command.assert_called_once_with(req.as_bytes,
+                                                               1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT)
+                    mk_enqueue_command.reset_mock()
+
+            # repeat for some train commands
+            for cdef in [TMCC1EngineCommandDef,
+                         TMCC2EngineCommandDef,
+                         TMCC2DialogControl,
+                         TMCC2EffectsControl,
+                         TMCC2LightingControl,
+                         ]:
+                for cmd in cdef:
+                    if cmd.command_def.num_data_bits:
+                        data = 2
+                    else:
+                        data = 0
+                    # build a request object as a convenience to get byte streem command
+                    if isinstance(cmd, TMCC2ParameterEnum):
+                        req = ParameterCommandReq(cmd, 1, data, scope=CommandScope.TRAIN)
+                    else:
+                        req = CommandReq(cmd, 1, data, scope=CommandScope.TRAIN)
+                    action = CommandReq.build_action(cmd, 1, data, scope=CommandScope.TRAIN)
+                    assert req.scope == CommandScope.TRAIN
+                    assert action is not None
+                    action()
+                    mk_enqueue_command.assert_called_once_with(req.as_bytes,
+                                                               1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT)
+                    mk_enqueue_command.reset_mock()
+
+        with mock.patch.object(CommBuffer, 'enqueue_command') as mk_comm_enqueue_command:      # test build_request with repeat set
+            for cmd in TMCC2EffectsControl:
+                action = CommandReq.build_action(cmd, 1, data, repeat=3)
+                assert action is not None
+                action()
+                assert mk_comm_enqueue_command.call_count == 3
+                mk_comm_enqueue_command.reset_mock()
+
     # def test__determine_first_byte(self):
     #     assert False
     #
