@@ -237,7 +237,7 @@ class ParameterCommandReq(CommandReq):
         return TMCC2_PARAMETER_ENUM_TO_TMCC2_PARAMETER_INDEX_MAP[type(self._command_def_enum)]
 
     @property
-    def _parameter_index_byte(self) -> bytes:
+    def parameter_index_byte(self) -> bytes:
         return (TMCC2_PARAMETER_INDEX_PREFIX | self.parameter_index).to_bytes(1, byteorder='big')
 
     @property
@@ -245,8 +245,21 @@ class ParameterCommandReq(CommandReq):
         return TMCC2ParameterCommandDef(self._command_def)
 
     @property
-    def _parameter_data_byte(self) -> bytes:
-        return self._parameter_data.to_bytes(1, byteorder='big')
+    def parameter_data_byte(self) -> bytes:
+        return self.command_def.bits.to_bytes(1, byteorder='big')
+
+    @property
+    def identifier(self) -> bytes:
+        return LEGACY_PARAMETER_COMMAND_PREFIX.to_bytes(1, byteorder='big')
+
+    @property
+    def as_bytes(self) -> bytes:
+        return (self.command_def.first_byte +
+                self._word_1 +
+                self.identifier +
+                self._word_2 +
+                self.identifier +
+                self._word_3)
 
     @property
     def _word_2_3_prefix(self) -> bytes:
@@ -255,11 +268,11 @@ class ParameterCommandReq(CommandReq):
 
     @property
     def _word_1(self) -> bytes:
-        return ((self.address << 1) + 1).to_bytes(1, 'big') + self._parameter_index_byte
+        return ((self.address << 1) + 1).to_bytes(1, 'big') + self.parameter_index_byte
 
     @property
     def _word_2(self) -> bytes:
-        return self._word_2_3_prefix + self._parameter_data_byte
+        return self._word_2_3_prefix + self.parameter_data_byte
 
     @property
     def _word_3(self) -> bytes:
@@ -281,9 +294,8 @@ class ParameterCommandReq(CommandReq):
             byte_sum += int(b)
         return (~(byte_sum % 256) & 0xFF).to_bytes(1, byteorder='big')  # return 1's complement of sum mod 256
 
-    @property
-    def _identifier(self) -> bytes:
-        return LEGACY_PARAMETER_COMMAND_PREFIX.to_bytes(1, byteorder='big')
+    def _apply_address(self) -> int:
+        return self.command_def.bits
 
-    def _build_command(self) -> bytes:
-        return self.command_prefix + self._word_1 + self._identifier + self._word_2 + self._identifier + self._word_3
+    def _apply_data(self) -> int:
+        return self.command_def.bits
