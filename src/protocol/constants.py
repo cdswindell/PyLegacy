@@ -650,6 +650,15 @@ class TMCC2EngineCommandDef(TMCC2Enum):
 """
     Legacy/TMCC2 Multi-byte Command sequences
 """
+
+
+class TMCC2ParameterEnum(TMCC2Enum):
+    """
+        Marker Interface for all TMCC2 enums
+    """
+    pass
+
+
 TMCC2_PARAMETER_INDEX_PREFIX: int = 0x70
 
 """
@@ -675,7 +684,7 @@ class TMCC2ParameterIndex(Mixins, IntEnum):
     VARIABLE_LENGTH_COMMAND = TMCC2_VARIABLE_LENGTH_COMMAND_PARAMETER_INDEX
 
 
-class TMCC2ParameterData(Mixins, IntEnum):
+class TMCC2ParameterData(CommandDefEnum):
     """
         Marker interface for all Parameter Data enums
     """
@@ -685,12 +694,12 @@ class TMCC2ParameterData(Mixins, IntEnum):
 class TMCC2ParameterCommandDef(CommandDef):
     def __init__(self,
                  command_bits: int,
-                 index: TMCC2ParameterIndex,
                  data: TMCC2ParameterData,
-                 command_scope: CommandScope = CommandScope.ENGINE) -> None:
+                 scope: CommandScope = CommandScope.ENGINE) -> None:
         super().__init__(command_bits)
-        self._command_scope = command_scope
-        self._first_byte = TMCC2_SCOPE_TO_FIRST_BYTE_MAP[command_scope]
+        self._data = data
+        self._scope = scope
+        self._first_byte = TMCC2_SCOPE_TO_FIRST_BYTE_MAP[scope]
 
     @property
     def first_byte(self) -> bytes:
@@ -698,10 +707,7 @@ class TMCC2ParameterCommandDef(CommandDef):
 
     @property
     def scope(self) -> CommandScope:
-        return self._command_scope
-
-
-
+        return self._scope
 
 
 """
@@ -716,7 +722,7 @@ TMCC2_DIALOG_CONTROL_CONVENTIONAL_SHUTDOWN: int = 0x01
 
 
 @verify(UNIQUE)
-class TMCC2DialogControl(TMCC2ParameterData):
+class TMCC2DialogControl(TMCC2ParameterEnum):
     CONVENTIONAL_SHUTDOWN = TMCC2_DIALOGS_CONTROL_SHUTDOWN
 
 
@@ -754,7 +760,7 @@ TMCC2_EFFECTS_CONTROL_STOCK_CAR_GAME_OFF: int = 0x3B
 
 
 @verify(UNIQUE)
-class TMCC2EffectsControl(TMCC2ParameterData):
+class TMCC2EffectsControl(TMCC2ParameterEnum):
     PANTO_FRONT_DOWN = TMCC2_EFFECTS_CONTROL_PANTOGRAPH_FRONT_DOWN
     PANTO_FRONT_UP = TMCC2_EFFECTS_CONTROL_PANTOGRAPH_FRONT_UP
     PANTO_REAR_DOWN = TMCC2_EFFECTS_CONTROL_PANTOGRAPH_REAR_DOWN
@@ -827,7 +833,7 @@ TMCC2_LIGHTING_CONTROL_TENDER_MARKER_LIGHT_ON: int = 0xCD
 
 
 @verify(UNIQUE)
-class TMCC2LightingControl(TMCC2ParameterData):
+class TMCC2LightingControl(TMCC2ParameterEnum):
     CAB_AUTO = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_AUTO
     CAB_OFF = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_OFF
     CAB_ON = TMCC2_LIGHTING_CONTROL_CAB_LIGHT_ON

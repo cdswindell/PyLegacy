@@ -1,7 +1,10 @@
 import time
-from typing import Callable
+from typing import Callable, Dict
 
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
+from .constants import TMCC2ParameterEnum, LEGACY_PARAMETER_COMMAND_PREFIX, TMCC2ParameterIndex
+from .constants import TMCC2DialogControl, TMCC2EffectsControl, TMCC2LightingControl
+from .constants import TMCC2_PARAMETER_INDEX_PREFIX, TMCC2ParameterCommandDef
 from .constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC2CommandPrefix, TMCC2CommandDef
 from .constants import CommandDefEnum, TMCC1Enum, TMCC2Enum, TMCC1RouteCommandDef
 from .constants import TMCC1_TRAIN_COMMAND_PURIFIER, TMCC1_TRAIN_COMMAND_MODIFIER
@@ -210,3 +213,77 @@ class CommandReq:
             raise ValueError(f"Invalid data value: {data} (not in range)")
         self._command_bits |= data
         return self._command_bits
+
+
+# noinspection PyTypeChecker
+TMCC2_PARAMETER_ENUM_TO_TMCC2_PARAMETER_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {
+    TMCC2DialogControl: TMCC2ParameterIndex.DIALOG_CONTROLS,
+    TMCC2EffectsControl: TMCC2ParameterIndex.EFFECTS_CONTROLS,
+    TMCC2LightingControl: TMCC2ParameterIndex.LIGHTING_CONTROLS,
+}
+
+
+class ParameterCommandReq(CommandReq):
+    def __init__(self,
+                 command_def_enum: TMCC2ParameterEnum,
+                 address: int = DEFAULT_ADDRESS,
+                 data: int = 0,
+                 scope: CommandScope = None) -> None:
+        super().__init__(command_def_enum, address, data, scope)
+
+    @property
+    def parameter_index(self) -> TMCC2ParameterIndex:
+        # noinspection PyTypeChecker
+        return TMCC2_PARAMETER_ENUM_TO_TMCC2_PARAMETER_INDEX_MAP[type(self._command_def_enum)]
+
+    @property
+    def _parameter_index_byte(self) -> bytes:
+        return (TMCC2_PARAMETER_INDEX_PREFIX | self.parameter_index).to_bytes(1, byteorder='big')
+
+    @property
+    def parameter_data(self) -> TMCC2ParameterCommandDef:
+        return TMCC2ParameterCommandDef(self._command_def)
+
+    @property
+    def _parameter_data_byte(self) -> bytes:
+        return self._parameter_data.to_bytes(1, byteorder='big')
+
+    @property
+    def _word_2_3_prefix(self) -> bytes:
+        e_t = 1 if self.scope == CommandScope.TRAIN else 0
+        return ((self.address << 1) + e_t).to_bytes(1, 'big')
+
+    @property
+    def _word_1(self) -> bytes:
+        return ((self.address << 1) + 1).to_bytes(1, 'big') + self._parameter_index_byte
+
+    @property
+    def _word_2(self) -> bytes:
+        return self._word_2_3_prefix + self._parameter_data_byte
+
+    @property
+    def _word_3(self) -> bytes:
+        return self._word_2_3_prefix + self._checksum()
+
+    def _checksum(self) -> bytes:
+        """
+            Calculate the checksum of a lionel tmcc2 multibyte command. The checksum
+            is calculated adding together the second 2 bytes of the parameter index
+            and parameter data words, and the 2 byte of the checksum word, and returning
+            the 1's complement of that sum mod 256.
+
+            We make use of self.command_scope to determine if the command directed at
+            an engine or train.
+        """
+        cmd_bytes = self._word_1 + self._word_2 + self._word_2_3_prefix
+        byte_sum = 0
+        for b in cmd_bytes:
+            byte_sum += int(b)
+        return (~(byte_sum % 256) & 0xFF).to_bytes(1, byteorder='big')  # return 1's complement of sum mod 256
+
+    @property
+    def _identifier(self) -> bytes:
+        return LEGACY_PARAMETER_COMMAND_PREFIX.to_bytes(1, byteorder='big')
+
+    def _build_command(self) -> bytes:
+        return self.command_prefix + self._word_1 + self._identifier + self._word_2 + self._identifier + self._word_3

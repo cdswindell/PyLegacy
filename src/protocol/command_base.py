@@ -2,7 +2,8 @@ import abc
 import time
 from abc import ABC
 
-from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+from .command_req import CommandReq
+from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandDefEnum, CommandDef, CommandScope
 from .validations import Validations
 from ..comm.comm_buffer import CommBuffer
 
@@ -11,7 +12,11 @@ class CommandBase(ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self,
-                 address: int,
+                 command: CommandDefEnum,
+                 command_req: CommandReq,
+                 address: int = 99,
+                 data: int = 0,
+                 scope: CommandScope = None,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT) -> None:
         self._address = address
@@ -24,8 +29,23 @@ class CommandBase(ABC):
         if port is None:
             raise ValueError("port cannot be None")
         self._port = port
+        # persist command information
+        self._command_def_enum: CommandDefEnum = command
+        self._command_def: CommandDef = command.value
+        self._command_req: CommandReq = command_req
+        self._data: int = data
+        self._scope: CommandScope = scope
+
         # create a CommBuffer to enqueue commands
         self._comm_buffer = CommBuffer(baudrate=self.baudrate, port=self.port)
+
+    @property
+    def scope(self) -> CommandScope:
+        return self._scope
+
+    @property
+    def bits(self) -> int:
+        return self._command_req.bits
 
     @property
     def address(self) -> int:
