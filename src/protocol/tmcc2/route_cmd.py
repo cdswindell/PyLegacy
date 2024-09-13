@@ -14,4 +14,3 @@ class RouteCmd(TMCC2Command):
 
     def _command_prefix(self) -> bytes:
         return LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX.to_bytes(1, byteorder='big')
-

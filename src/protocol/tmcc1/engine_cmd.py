@@ -20,6 +20,3 @@ class EngineCmd(TMCC1Command):
         req = CommandReq(command, engine, data=data, scope=scope)
         super().__init__(command, req, engine, data, scope, baudrate, port)
         self._command = self._build_command()
-
-
-
