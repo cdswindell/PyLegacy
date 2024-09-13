@@ -74,7 +74,7 @@ class CommandReq:
         elif isinstance(command, TMCC2Enum):
             enum_class = TMCC2Enum
         else:
-            raise TypeError(f"Command type not recognized {command}")
+            raise TypeError(f"Command def not recognized: '{command}'")
 
         max_val = 99
         syntax = CommandSyntax.TMCC2 if enum_class == TMCC2Enum else CommandSyntax.TMCC1
@@ -88,7 +88,7 @@ class CommandReq:
             Validations.validate_int(data, label=scope.name.capitalize())
 
     @classmethod
-    def _enqueue_command(cls, cmd: bytes, repeat: int, delay: int, baudrate: int, port: str):
+    def _enqueue_command(cls, cmd: bytes, repeat: int, delay: int, baudrate: int, port: str) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_int(delay, min_value=0, label="delay")
 
@@ -185,7 +185,7 @@ class CommandReq:
         elif self.syntax == CommandSyntax.TMCC2:
             self._command_bits |= self.address << 9
         else:
-            raise ValueError(f"Command type not recognized {self.syntax}")
+            raise ValueError(f"Command syntax not recognized {self.syntax}")
         return self._command_bits
 
     def _apply_data(self) -> int:

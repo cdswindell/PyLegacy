@@ -17,4 +17,3 @@ class EngineCmd(TMCC2Command):
             raise ValueError(f"{scope.name.capitalize()} must be between 1 and 99")
         req = CommandReq(command, engine, data, scope)
         super().__init__(command, req, engine, data, scope, baudrate, port)
-        self._command = self._build_command()

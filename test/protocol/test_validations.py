@@ -1,3 +1,4 @@
+import re
 import pytest
 
 from src.protocol.validations import Validations
@@ -28,14 +29,14 @@ class TestValidations(TestBase):
 
         # test minimum value
         v = 5
-        with pytest.raises(ValueError, match=f"'{v}' must be greater or equal to {10}"):
+        with pytest.raises(ValueError, match=f"'{v}' must be equal to or greater than {10}"):
             assert Validations.validate_int(5, min_value=10) == 10
 
         # test maximum value
         v = 15
-        with pytest.raises(ValueError, match=f"'{v}' must be less or equal to {10}"):
+        with pytest.raises(ValueError, match=f"'{v}' must be less than or equal to {10}"):
             assert Validations.validate_int(15, max_value=10) == 10
 
         # test label
-        with pytest.raises(ValueError, match=f"Value must be less or equal to {10}"):
+        with pytest.raises(ValueError, match=re.escape("Value must be less than or equal to 10 (15)")):
             assert Validations.validate_int(15, max_value=10, label='Value') == 10

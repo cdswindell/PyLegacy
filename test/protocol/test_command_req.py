@@ -1,14 +1,20 @@
+import re
 from unittest import mock
 
+import pytest
+
+from src.comm.comm_buffer import CommBuffer
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import TMCC2RouteCommandDef, TMCC1RouteCommandDef, DEFAULT_BAUDRATE, DEFAULT_PORT, \
-    TMCC1HaltCommandDef, TMCC1SwitchState, TMCC1AuxCommandDef, TMCC1EngineCommandDef, CommandScope, \
-    TMCC1_TRAIN_COMMAND_MODIFIER, TMCC1_TRAIN_COMMAND_PURIFIER, TMCC2EngineCommandDef
+from src.protocol.constants import *
 from ..test_base import TestBase
 
 
 # noinspection PyMethodMayBeStatic
 class TestCommandReq(TestBase):
+    def teardown_method(self, test_method):
+        super().teardown_method(test_method)
+        CommBuffer().shutdown()
+
     def test_send_command(self):
         with mock.patch.object(CommandReq, '_enqueue_command') as mk_enqueue_command:
             # test TMCC1 commands, beginning with HALT
@@ -112,12 +118,46 @@ class TestCommandReq(TestBase):
     # def test__determine_first_byte(self):
     #     assert False
     #
-    # def test__vet_request(self):
-    #     assert False
-    #
-    # def test__enqueue_command(self):
-    #     assert False
-    #
+    def test__vet_request(self):
+        # all command defs should pass
+        for cdef in [TMCC1HaltCommandDef,
+                     TMCC1RouteCommandDef,
+                     TMCC1AuxCommandDef,
+                     TMCC1SwitchState,
+                     TMCC1EngineCommandDef,
+                     TMCC2HaltCommandDef,
+                     TMCC2RouteCommandDef,
+                     TMCC2EngineCommandDef,
+                     TMCC2DialogControl,
+                     TMCC2EffectsControl,
+                     TMCC2LightingControl,
+                     ]:
+            for cmd in cdef:
+                CommandReq._vet_request(cmd, 1, 0, CommandScope.ENGINE)
+
+        # test that non-CommandDefEnums fail
+        with pytest.raises(TypeError, match="Command def not recognized: 'invalid_command'"):
+            # noinspection PyTypeChecker
+            CommandReq._vet_request("invalid_command", 1, 0, CommandScope.ENGINE)
+
+    def test__enqueue_command(self):
+        with mock.patch.object(CommBuffer, 'enqueue_command') as mk_enqueue_command:
+            # test _enqueue_command with byte string
+            CommandReq._enqueue_command(b'\x01\x02\x03', 1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT)
+            mk_enqueue_command.assert_called_once_with(b'\x01\x02\x03')
+            mk_enqueue_command.reset_mock()
+
+            # test repeat argument
+            CommandReq._enqueue_command(b'\x01\x02\x03', 5, 0, DEFAULT_BAUDRATE, DEFAULT_PORT)
+            assert mk_enqueue_command.call_count == 5
+            mk_enqueue_command.reset_mock()
+
+        # test for invalid arguments
+        with pytest.raises(ValueError, match=re.escape("repeat must be equal to or greater than 1 (-5)")):
+            CommandReq._enqueue_command(b'\x01\x02\x03', -5, 0, DEFAULT_BAUDRATE, DEFAULT_PORT)
+        with pytest.raises(ValueError, match=re.escape("delay must be equal to or greater than 0 (-6)")):
+            CommandReq._enqueue_command(b'\x01\x02\x03', 1, -6, DEFAULT_BAUDRATE, DEFAULT_PORT)
+
     # def test_address(self):
     #     assert False
     #

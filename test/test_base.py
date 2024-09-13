@@ -1,11 +1,15 @@
 from src.protocol.validations import Validations
 
 
-class TestBase:
-    pass
-
-
 # noinspection PyMethodMayBeStatic
+class TestBase:
+    def teardown_method(self, test_method):
+        pass
+
+    def setup_method(self, test_method):
+        pass
+
+
 # noinspection PyUnusedLocal
 class MockCommandReq:
     @classmethod

@@ -29,6 +29,7 @@ class CommandBase(ABC):
         if port is None:
             raise ValueError("port cannot be None")
         self._port = port
+
         # persist command information
         self._command_def_enum: CommandDefEnum = command
         self._command_def: CommandDef = command.value
@@ -36,8 +37,8 @@ class CommandBase(ABC):
         self._data: int = data
         self._scope: CommandScope = scope
 
-        # create a CommBuffer to enqueue commands
-        self._comm_buffer = CommBuffer(baudrate=self.baudrate, port=self.port)
+        # build the command
+        self._command = self._build_command()
 
     @property
     def scope(self) -> CommandScope:
@@ -73,15 +74,18 @@ class CommandBase(ABC):
         """
         Validations.validate_int(repeat, min_value=1)
         Validations.validate_int(delay, min_value=0)
+
+        # create a CommBuffer to enqueue commands
+        comm_buffer = CommBuffer(baudrate=self.baudrate, port=self.port)
         for _ in range(repeat):
             if delay > 0 and repeat == 1:
                 time.sleep(delay)
-            self._comm_buffer.enqueue_command(self.command_bytes)
+            comm_buffer.enqueue_command(self.command_bytes)
             if repeat != 1 and delay > 0 and _ != repeat - 1:
                 time.sleep(delay)
         if shutdown:
-            self._comm_buffer.shutdown()
-            self._comm_buffer.join()
+            comm_buffer.shutdown()
+            comm_buffer.join()
 
     def fire(self, repeat: int = 1, delay: int = 0) -> None:
         """
