@@ -9,11 +9,11 @@ from src.protocol.constants import TMCC2EngineCommandDef, TMCC2RouteCommandDef, 
 """
 GpioHandler.when_button_held(26, TMCC2EngineCommandDef.BLOW_HORN_ONE)
 
-GpioHandler.when_button_pressed(21, TMCC2RouteCommandDef.ROUTE, 10)
+GpioHandler.when_button_pressed(21, TMCC2RouteCommandDef.ROUTE, 10, led_pin=20)
 
 off = CommandReq(TMCC1AuxCommandDef.AUX2_OPTION_ONE, 9)
 on = CommandReq(TMCC1AuxCommandDef.AUX1_OPTION_ONE, 9)
-GpioHandler.when_toggle_switch(13, 19, off, on, 20)
+GpioHandler.when_toggle_switch(13, 19, off, on)
 
 
 print("Buttons registered...")

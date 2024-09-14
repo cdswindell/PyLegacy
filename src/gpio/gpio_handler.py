@@ -19,15 +19,23 @@ class GpioHandler:
                             address: int = DEFAULT_ADDRESS,
                             data: int = 0,
                             scope: CommandScope = None,
+                            led_pin: int | str = None,
                             baudrate: int = DEFAULT_BAUDRATE,
                             port: str = DEFAULT_PORT
                             ) -> Button:
+
         # create the button object we will associate an action with
         button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
 
         # if command is actually a CommandDefEnum, build a CommandReq
         if isinstance(command, CommandDefEnum):
             command = CommandReq(command, address=address, data=data, scope=scope)
+
+        # create a LED, if asked, and tie its source to the button
+        if led_pin is not None and led_pin != 0:
+            led = LED(led_pin)
+            led.source = button
+            cls._cache_device(led)
 
         # create a command function to fire when button pressed
         button.when_pressed = command.as_action(baudrate=baudrate, port=port)
