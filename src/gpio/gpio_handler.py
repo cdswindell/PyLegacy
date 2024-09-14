@@ -24,22 +24,11 @@ class GpioHandler:
                             port: str = DEFAULT_PORT
                             ) -> Button:
 
-        # create the button object we will associate an action with
-        button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
-
-        # if command is actually a CommandDefEnum, build a CommandReq
-        if isinstance(command, CommandDefEnum):
-            command = CommandReq(command, address=address, data=data, scope=scope)
-
-        # create a LED, if asked, and tie its source to the button
-        if led_pin is not None and led_pin != 0:
-            led = LED(led_pin)
-            led.source = button
-            cls._cache_device(led)
+        # Use helper method to construct objects
+        command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
 
         # create a command function to fire when button pressed
         button.when_pressed = command.as_action(baudrate=baudrate, port=port)
-        cls._cache_device(button)
         return button
 
     @classmethod
@@ -50,21 +39,18 @@ class GpioHandler:
                          data: int = 0,
                          scope: CommandScope = None,
                          frequency: float = 1,
+                         led_pin: int | str = None,
                          baudrate: int = DEFAULT_BAUDRATE,
                          port: str = DEFAULT_PORT
                          ) -> Button:
-        # create the button object we will associate an action with
-        button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
 
-        # if command is actually a CommandDefEnum, build a CommandReq
-        if isinstance(command, CommandDefEnum):
-            command = CommandReq(command, address=address, data=data, scope=scope)
+        # Use helper method to construct objects
+        command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
 
         # create a command function to fire when button held
         button.when_held = command.as_action(baudrate=baudrate, port=port)
         button.hold_repeat = True
         button.hold_time = frequency
-        cls._cache_device(button)
         return button
 
     @classmethod
@@ -127,10 +113,36 @@ class GpioHandler:
         cls.GPIO_DEVICE_CACHE.remove(device)
 
     @classmethod
+    def _make_button(cls,
+                     pin: int | str,
+                     command: CommandReq | CommandDefEnum,
+                     address: int,
+                     data: int,
+                     scope: CommandScope,
+                     led_pin: int | str) -> Tuple[CommandReq, Button, LED]:
+        # if command is actually a CommandDefEnum, build a CommandReq
+        if isinstance(command, CommandDefEnum):
+            command = CommandReq(command, address=address, data=data, scope=scope)
+
+        # create the button object we will associate an action with
+        button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
+        cls._cache_device(button)
+
+        # create a LED, if asked, and tie its source to the button
+        if led_pin is not None and led_pin != 0:
+            led = LED(led_pin)
+            led.source = button
+            cls._cache_device(led)
+        else:
+            led = None
+        return command, button, led
+
+    @classmethod
     def _with_off_action(cls, action: Callable, led: LED) -> Callable:
         def off_action() -> None:
             action()
             led.off()
+
         return off_action
 
     @classmethod
@@ -138,4 +150,5 @@ class GpioHandler:
         def on_action() -> None:
             action()
             led.on()
+
         return on_action
