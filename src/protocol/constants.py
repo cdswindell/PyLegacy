@@ -241,6 +241,8 @@ TMCC1_HALT_COMMAND: int = 0xFFFF
 
 
 class TMCC1CommandDef(CommandDef):
+    __metaclass__ = abc.ABCMeta
+
     def __init__(self,
                  command_bits: int,
                  command_ident: TMCC1CommandIdentifier = TMCC1CommandIdentifier.ENGINE,
@@ -481,23 +483,25 @@ TMCC2_SCOPE_TO_FIRST_BYTE_MAP = {s: p for p, s in TMCC2_FIRST_BYTE_TO_SCOPE_MAP.
 
 
 class TMCC2CommandDef(CommandDef):
+    __metaclass__ = abc.ABCMeta
+
     def __init__(self,
                  command_bits: int,
-                 first_byte: TMCC2CommandPrefix = TMCC2CommandPrefix.ENGINE,
+                 scope: CommandScope = CommandScope.ENGINE,
                  is_addressable: bool = True,
                  d_min: int = 0,
                  d_max: int = 0,
                  d_map: Dict[int, int] = None) -> None:
         super().__init__(command_bits,  is_addressable, d_min=d_min, d_max=d_max, d_map=d_map)
-        self._first_byte = first_byte
+        self._scope = scope
 
     @property
     def first_byte(self) -> bytes:
-        return self._first_byte.as_bytes
+        return TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder='big')
 
     @property
     def scope(self) -> CommandScope:
-        return TMCC2_FIRST_BYTE_TO_SCOPE_MAP[self._first_byte]
+        return self._scope
 
 
 TMCC2_HALT_COMMAND: int = 0x01AB
@@ -505,7 +509,7 @@ TMCC2_HALT_COMMAND: int = 0x01AB
 
 @verify(UNIQUE)
 class TMCC2HaltCommandDef(TMCC2Enum):
-    HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND, first_byte=TMCC2CommandPrefix.ENGINE)
+    HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND, CommandScope.ENGINE)
 
 
 # The TMCC2 route command is an undocumented "extended block command" (0xFA)
@@ -514,7 +518,7 @@ LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 @verify(UNIQUE)
 class TMCC2RouteCommandDef(TMCC2Enum):
-    ROUTE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, first_byte=TMCC2CommandPrefix.ROUTE)
+    ROUTE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, scope=CommandScope.ROUTE)
 
 
 # TMCC2 Commands with Bit 9 = "0"
@@ -704,10 +708,12 @@ class TMCC2ParameterData(CommandDefEnum):
     pass
 
 
-class TMCC2ParameterCommandDef(TMCC1CommandDef):
+class TMCC2ParameterCommandDef(TMCC2CommandDef):
+    __metaclass__ = abc.ABCMeta
+
     def __init__(self, command_bits: int) -> None:
         super().__init__(command_bits)
-        self._first_byte = TMCC2CommandPrefix.ENGINE.to_bytes(1, byteorder='big')
+        self._first_byte = TMCC2CommandPrefix.ENGINE
 
 
 """

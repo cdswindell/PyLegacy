@@ -238,22 +238,18 @@ class TestCommandReq(TestBase):
     def test_syntax(self):
         for cdef in self.all_command_enums:
             for cmd in cdef:
-                address = self.generate_random_address(cmd)
-                data = self.generate_random_data(cmd)
-                req = self.build_request(cmd, address, data)
+                req = self.build_request(cmd)
                 assert req.syntax == cmd.syntax
 
-    # def test_identifier(self):
-    #     assert False
-    #
+    def test_identifier(self):
+        for cdef in self.all_command_enums:
+            for cmd in cdef:
+                req = self.build_request(cmd)
+                assert req.identifier == cmd.value.identifier
+
     # def test_as_bytes(self):
     #     assert False
     #
     # def test_as_action(self):
     #     assert False
     #
-    # def test__apply_address(self):
-    #     assert False
-    #
-    # def test__apply_data(self):
-    #     assert False

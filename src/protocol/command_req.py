@@ -1,7 +1,7 @@
 import time
 from typing import Callable, Dict
 
-from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
+from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCC2_SCOPE_TO_FIRST_BYTE_MAP
 from .constants import TMCC2ParameterEnum, LEGACY_PARAMETER_COMMAND_PREFIX, TMCC2ParameterIndex
 from .constants import TMCC2DialogControl, TMCC2EffectsControl, TMCC2LightingControl
 from .constants import TMCC2_PARAMETER_INDEX_PREFIX, TMCC2ParameterCommandDef
@@ -257,16 +257,12 @@ class ParameterCommandReq(CommandReq):
         return self.command_def.bits.to_bytes(1, byteorder='big')
 
     @property
-    def identifier(self) -> bytes:
-        return LEGACY_PARAMETER_COMMAND_PREFIX.to_bytes(1, byteorder='big')
-
-    @property
     def as_bytes(self) -> bytes:
-        return (self.command_def.first_byte +
+        return (TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder='big') +
                 self._word_1 +
-                self.identifier +
+                LEGACY_PARAMETER_COMMAND_PREFIX.to_bytes(1, byteorder='big') +
                 self._word_2 +
-                self.identifier +
+                LEGACY_PARAMETER_COMMAND_PREFIX.to_bytes(1, byteorder='big') +
                 self._word_3)
 
     @property

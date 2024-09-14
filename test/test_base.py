@@ -16,7 +16,18 @@ class TestBase:
     def setup_method(self, test_method):
         pass
 
-    def build_request(self, cmd, address: int, data: int = 0, scope: CommandScope = None) -> CommandReq:
+    def build_request(self,
+                      cmd,
+                      address: int = None,
+                      data: int = None,
+                      scope: CommandScope = None) -> CommandReq:
+        if address is None:
+            address = self.generate_random_address(cmd)
+        if data is None:
+            if cmd.value.num_data_bits > 0:
+                data = self.generate_random_data(cmd)
+            else:
+                data = 0
         if isinstance(cmd, TMCC2ParameterEnum):
             req = ParameterCommandReq(cmd, address, data, scope)
         else:
