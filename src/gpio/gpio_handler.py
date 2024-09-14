@@ -1,6 +1,6 @@
-from typing import Tuple
+from typing import Tuple, Callable
 
-from gpiozero import Button
+from gpiozero import Button, LED, GPIODevice
 
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import CommandDefEnum, DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
@@ -10,7 +10,7 @@ DEFAULT_BOUNCE_TIME: float = 0.05
 
 
 class GpioHandler:
-    BUTTON_CACHE = set()
+    GPIO_DEVICE_CACHE = set()
 
     @classmethod
     def when_button_pressed(cls,
@@ -31,7 +31,7 @@ class GpioHandler:
 
         # create a command function to fire when button pressed
         button.when_pressed = command.as_action(baudrate=baudrate, port=port)
-        cls._cache_button(button)
+        cls._cache_device(button)
         return button
 
     @classmethod
@@ -56,7 +56,7 @@ class GpioHandler:
         button.when_held = command.as_action(baudrate=baudrate, port=port)
         button.hold_repeat = True
         button.hold_time = frequency
-        cls._cache_button(button)
+        cls._cache_device(button)
         return button
 
     @classmethod
@@ -65,39 +65,69 @@ class GpioHandler:
                            on_pin: int | str,
                            off_command: CommandReq,
                            on_command: CommandReq,
+                           led_pin: int | str = None,
                            baudrate: int = DEFAULT_BAUDRATE,
                            port: str = DEFAULT_PORT
-                           ) -> Tuple[Button, Button]:
-        # create the off button
+                           ) -> Tuple[Button, Button, LED]:
+        # create a LED, if requested. It is turned on by pressing the
+        # ON button, and turned off by pressing the OFF button
+        if led_pin is not None and led_pin != 0:
+            led = LED(led_pin)
+        else:
+            led = None
+
+        # create the off and on buttons
         off_button = Button(off_pin, bounce_time=DEFAULT_BOUNCE_TIME)
-        off_button.when_pressed = off_command.as_action(baudrate=baudrate, port=port)
-
-        # create the on button
         on_button = Button(on_pin, bounce_time=DEFAULT_BOUNCE_TIME)
-        on_button.when_pressed = on_command.as_action(baudrate=baudrate, port=port)
 
-        cls._cache_button(off_button)
-        cls._cache_button(on_button)
-        return off_button, on_button
+        # bind them to functions; we need to wrap the functions if we're using a LED
+        off_action = off_command.as_action(baudrate=baudrate, port=port)
+        on_action = on_command.as_action(baudrate=baudrate, port=port)
+        if led is not None:
+            off_button.when_pressed = cls._with_off_action(off_action, led)
+            on_button.when_pressed = cls._with_on_action(on_action, led)
+        else:
+            off_button.when_pressed = off_action
+            on_button.when_pressed = on_action
+
+        cls._cache_device(off_button)
+        cls._cache_device(on_button)
+        if led is not None:
+            cls._cache_device(led)
+        return off_button, on_button, led
 
     @classmethod
     def reset_all(cls) -> None:
-        for button in cls.BUTTON_CACHE:
-            button.close()
-        cls.BUTTON_CACHE = set()
+        for device in cls.GPIO_DEVICE_CACHE:
+            device.close()
+        cls.GPIO_DEVICE_CACHE = set()
 
     @classmethod
-    def release_button(cls, button: Button) -> None:
-        cls._release_button(button)
+    def release_device(cls, device: GPIODevice) -> None:
+        cls._release_device(device)
 
     @classmethod
-    def _cache_button(cls, button: Button) -> None:
+    def _cache_device(cls, device: GPIODevice) -> None:
         """
-            Keep buttons around after creation so they remain in scope
+            Keep devices around after creation so they remain in scope
         """
-        cls.BUTTON_CACHE.add(button)
+        cls.GPIO_DEVICE_CACHE.add(device)
 
     @classmethod
-    def _release_button(cls, button: Button) -> None:
-        button.close()
-        cls.BUTTON_CACHE.remove(button)
+    def _release_device(cls, device: GPIODevice) -> None:
+        device.close()
+        cls.GPIO_DEVICE_CACHE.remove(device)
+
+    @classmethod
+    def _with_off_action(cls, action: Callable, led: LED) -> Callable:
+        def off_action() -> None:
+            action()
+            led.off()
+        return off_action
+
+    @classmethod
+    def _with_on_action(cls, action: Callable, led: LED) -> Callable:
+        def on_action() -> None:
+            action()
+            led.on()
+        return on_action
