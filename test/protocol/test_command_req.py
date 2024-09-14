@@ -213,9 +213,12 @@ class TestCommandReq(TestBase):
                 req = self.build_request(cmd, address, data)
                 assert req.scope == cmd.scope
 
-    # def test_command_def(self):
-    #     assert False
-    #
+    def test_command_def(self):
+        for cdef in self.all_command_enums:
+            for cmd in cdef:
+                req = self.build_request(cmd)
+                assert req.command_def == cmd.command_def
+
     def test_bits(self):
         for cdef in self.all_command_enums:
             for cmd in cdef:
@@ -246,10 +249,3 @@ class TestCommandReq(TestBase):
             for cmd in cdef:
                 req = self.build_request(cmd)
                 assert req.identifier == cmd.value.identifier
-
-    # def test_as_bytes(self):
-    #     assert False
-    #
-    # def test_as_action(self):
-    #     assert False
-    #
