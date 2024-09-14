@@ -1,4 +1,3 @@
-import random
 import re
 from unittest import mock
 
@@ -34,16 +33,13 @@ class TestCommandReq(TestBase):
             address = 23
             for cdef in [TMCC1AuxCommandDef, TMCC1SwitchState, TMCC1EngineCommandDef]:
                 for cmd in cdef:
-                    if cmd.command_def.num_data_bits:
-                        data = 1
-                    else:
-                        data = None
                     if cmd == TMCC1EngineCommandDef.RELATIVE_SPEED:
                         continue  # can't test defs that map data, yet
+                    data = self.generate_random_data(cmd)
                     CommandReq.send_command(cmd, address, data)
                     bits = cmd.command_def.bits | (int.from_bytes(cmd.command_def.first_byte) << 16)
                     bits |= address << 7
-                    if cmd.command_def.num_data_bits > 0:
+                    if data != 0:
                         bits |= data
                     mk_enqueue_command.assert_called_once_with(bits.to_bytes(3, byteorder='big'),
                                                                1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT)
@@ -52,12 +48,9 @@ class TestCommandReq(TestBase):
             # test engine defs again with TRAIN scope
             address = 1
             for cmd in TMCC1EngineCommandDef:
-                if cmd.command_def.num_data_bits:
-                    data = 1
-                else:
-                    data = None
                 if cmd == TMCC1EngineCommandDef.RELATIVE_SPEED:
                     continue  # can't test defs that map data, yet
+                data = self.generate_random_data(cmd)
                 CommandReq.send_command(cmd, address, data, CommandScope.TRAIN)
                 bits = cmd.command_def.bits
                 bits |= address << 7
@@ -91,12 +84,9 @@ class TestCommandReq(TestBase):
             # test TMCC2 commands
             for cdef in [TMCC2RouteCommandDef, TMCC2EngineCommandDef]:
                 for cmd in cdef:
-                    if cmd.command_def.num_data_bits:
-                        data = 2  # BELL_SLIDER_POSITION, min data is 2
-                    else:
-                        data = None
                     if cmd == TMCC2EngineCommandDef.RELATIVE_SPEED:
                         continue  # can't test defs that map data, yet
+                    data = self.generate_random_data(cmd)
                     bits = cmd.command_def.bits
                     bits |= address << 9
                     bits |= (int.from_bytes(cmd.command_def.first_byte) << 16)
@@ -117,10 +107,7 @@ class TestCommandReq(TestBase):
         with mock.patch.object(CommandReq, '_enqueue_command') as mk_enqueue_command:
             for cdef in self.all_command_enums:
                 for cmd in cdef:
-                    if cmd.command_def.num_data_bits:
-                        data = 3
-                    else:
-                        data = 0
+                    data = self.generate_random_data(cmd)
                     # build a request object as a convenience to get byte streem command
                     req = self.build_request(cmd, 1, data)
                     action = CommandReq.build_action(cmd, 1, data)
@@ -138,10 +125,7 @@ class TestCommandReq(TestBase):
                          TMCC2LightingControl,
                          ]:
                 for cmd in cdef:
-                    if cmd.command_def.num_data_bits:
-                        data = 2
-                    else:
-                        data = 0
+                    data = self.generate_random_data(cmd)
                     # build a request object as a convenience to get byte streem command
                     if isinstance(cmd, TMCC2ParameterEnum):
                         req = ParameterCommandReq(cmd, 1, data, scope=CommandScope.TRAIN)
@@ -210,38 +194,55 @@ class TestCommandReq(TestBase):
     def test_address(self):
         for cdef in self.all_command_enums:
             for cmd in cdef:
-                if cmd.syntax == CommandSyntax.TMCC1:
-                    address = random.randint(1, 31)
-                else:
-                    address = random.randint(1, 99)
-                req = self.build_request(cmd, address, 2, CommandScope.TRAIN)
+                address = self.generate_random_address(cmd)
+                req = self.build_request(cmd, address, 2)
                 assert req.address == address
 
     def test_data(self):
         for cdef in self.all_command_enums:
             for cmd in cdef:
-                if cmd.command_def.num_data_bits > 0:
-                    data = random.randint(2, 5)
-                else:
-                    data = 0
-                req = self.build_request(cmd, 1, data, CommandScope.TRAIN)
+                data = self.generate_random_data(cmd)
+                req = self.build_request(cmd, 1, data)
                 assert req.data == data
 
-    # def test_scope(self):
-    #     assert False
-    #
+    def test_scope(self):
+        for cdef in self.all_command_enums:
+            for cmd in cdef:
+                address = self.generate_random_address(cmd)
+                data = self.generate_random_data(cmd)
+                req = self.build_request(cmd, address, data)
+                assert req.scope == cmd.scope
+
     # def test_command_def(self):
     #     assert False
     #
-    # def test_bits(self):
-    #     assert False
-    #
-    # def test_num_data_bits(self):
-    #     assert False
-    #
-    # def test_syntax(self):
-    #     assert False
-    #
+    def test_bits(self):
+        for cdef in self.all_command_enums:
+            for cmd in cdef:
+                address = self.generate_random_address(cmd)
+                data = self.generate_random_data(cmd)
+                req = self.build_request(cmd, address, data)
+                if isinstance(cmd, TMCC2ParameterEnum):
+                    pass
+                else:
+                    # make sure all bits in the definition are also in the request
+                    # the other bits in the request are the address and data values
+                    assert req.bits & cmd.value.bits == cmd.value.bits
+
+    def test_num_data_bits(self):
+        for cdef in self.all_command_enums:
+            for cmd in cdef:
+                req = self.build_request(cmd, 1, 2, CommandScope.TRAIN)
+                assert req.num_data_bits == cmd.command_def.num_data_bits
+
+    def test_syntax(self):
+        for cdef in self.all_command_enums:
+            for cmd in cdef:
+                address = self.generate_random_address(cmd)
+                data = self.generate_random_data(cmd)
+                req = self.build_request(cmd, address, data)
+                assert req.syntax == cmd.syntax
+
     # def test_identifier(self):
     #     assert False
     #

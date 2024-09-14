@@ -1,3 +1,4 @@
+import random
 from typing import List, TypeVar
 
 from src.protocol.constants import *
@@ -36,6 +37,25 @@ class TestBase:
                 TMCC2EffectsControl,
                 TMCC2LightingControl,
                 ]
+
+    def generate_random_address(self,  cmd: CommandDefEnum) -> int:
+        if cmd.syntax == CommandSyntax.TMCC1:
+            address = random.randint(1, 31)
+        else:
+            address = random.randint(1, 99)
+        return address
+
+    def generate_random_data(self, cmd: CommandDefEnum) -> int:
+        command_def = cmd.value
+        if command_def.data_max != 0:
+            data = random.randint(command_def.data_min, command_def.data_max)
+        elif command_def.data_map:
+            data = random.randint(min(command_def.data_map), max(command_def.data_map))
+        elif command_def.num_data_bits == 0:
+            data = 0
+        else:
+            raise ValueError(f"Invalid command def: {cmd.name}")
+        return data
 
 
 # noinspection PyUnusedLocal
