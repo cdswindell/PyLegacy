@@ -62,7 +62,7 @@ class CommandReq:
         if isinstance(command, TMCC1CommandDef):
             return TMCC1_COMMAND_PREFIX.to_bytes(1, byteorder='big')
         elif isinstance(command, TMCC2CommandDef):
-            validated_scope = command._validate_requested_scope(scope)
+            validated_scope = cls._validate_requested_scope(command, scope)
             return TMCC2CommandPrefix(validated_scope.name).as_bytes
         raise TypeError(f"Command type not recognized {command}")
 
@@ -105,6 +105,14 @@ class CommandReq:
             if repeat != 1 and delay > 0 and _ != repeat - 1:
                 time.sleep(delay)
 
+    @staticmethod
+    def _validate_requested_scope(command_def: CommandDef, request: CommandScope) -> CommandScope:
+        if request in [CommandScope.ENGINE, CommandScope.TRAIN]:
+            if command_def.scope in [CommandScope.ENGINE, CommandScope.TRAIN]:
+                return request
+        # otherwise, return the scope associated with the native command def
+        return command_def.scope
+
     def __init__(self,
                  command_def_enum: CommandDefEnum,
                  address: int = DEFAULT_ADDRESS,
@@ -115,7 +123,7 @@ class CommandReq:
         self._address = address
         self._data = data
         self._native_scope = self._command_def.scope
-        self._scope = self._command_def._validate_requested_scope(scope)
+        self._scope = self._validate_requested_scope(self._command_def, scope)
 
         # save the command bits from the def, as we will be modifying them
         self._command_bits = self._command_def.bits
