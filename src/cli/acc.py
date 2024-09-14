@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #
 import argparse
+from typing import List
 
 from src.cli.cli_base import CliBase, cli_parser, DataAction
 from src.protocol.constants import TMCC1AuxCommandDef
@@ -15,14 +16,53 @@ AUX_OPTIONS_MAP = {
 
 
 class AccCli(CliBase):
+    @classmethod
+    def command_parser(cls) -> argparse.ArgumentParser:
+        acc_parser = argparse.ArgumentParser(add_help=False)
+        acc_parser.add_argument("acc", metavar='Accessory Number', type=int, help="accessory to fire")
+
+        aux_group = acc_parser.add_mutually_exclusive_group()
+        aux_group.add_argument("-aux1",
+                               dest='aux1',
+                               choices=['on', 'off', 'opt1', 'opt2'],
+                               nargs='?',
+                               type=str,
+                               const='opt1')
+        aux_group.add_argument("-aux2",
+                               dest='aux2',
+                               choices=['on', 'off', 'opt1', 'opt2'],
+                               nargs='?',
+                               type=str,
+                               const='opt1')
+        aux_group.add_argument("-n",
+                               action=DataAction,
+                               dest='data',
+                               choices=range(0, 10),
+                               metavar="0 - 9",
+                               type=int,
+                               nargs='?',
+                               default=1,
+                               const=TMCC1AuxCommandDef.NUMERIC,
+                               help="Numeric value")
+        aux_group.add_argument("-a", "--set_address",
+                               action="store_const",
+                               const=TMCC1AuxCommandDef.SET_ADDRESS,
+                               dest='command',
+                               help="Set Accessory Address")
+        # fire command
+        return argparse.ArgumentParser("Operate specified accessory (1 - 99)", parents=[acc_parser, cli_parser()])
+
     """
         Issue Accessory Commands.
 
         Currently only available via the TMCC1 command format
     """
 
-    def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
-        super().__init__(arg_parser)
+    def __init__(self,
+                 arg_parser: argparse.ArgumentParser,
+                 cmd_line: List[str] = None,
+                 do_fire: bool = True) -> None:
+        super().__init__(arg_parser, cmd_line)
         self._acc = self._args.acc
         self._command = self._args.command
         self._data = self._args.data if 'data' in self._args else 0
@@ -35,43 +75,12 @@ class AccCli(CliBase):
         try:
             if self._command is None or not isinstance(self._command, TMCC1AuxCommandDef):
                 raise ValueError("Must specify an option, use -h for help")
-            AccCmdTMCC1(self._acc, self._command, self._data, baudrate=self._args.baudrate, port=self._args.port).fire()
+            cmd = AccCmdTMCC1(self._acc, self._command, self._data, baudrate=self._args.baudrate, port=self._args.port)
+            if do_fire:
+                cmd.fire()
         except ValueError as ve:
             print(ve)
 
 
 if __name__ == '__main__':
-    acc_parser = argparse.ArgumentParser(add_help=False)
-    acc_parser.add_argument("acc", metavar='Accessory Number', type=int, help="accessory to fire")
-
-    aux_group = acc_parser.add_mutually_exclusive_group()
-    aux_group.add_argument("-aux1",
-                           dest='aux1',
-                           choices=['on', 'off', 'opt1', 'opt2'],
-                           nargs='?',
-                           type=str,
-                           const='opt1')
-    aux_group.add_argument("-aux2",
-                           dest='aux2',
-                           choices=['on', 'off', 'opt1', 'opt2'],
-                           nargs='?',
-                           type=str,
-                           const='opt1')
-    aux_group.add_argument("-n",
-                           action=DataAction,
-                           dest='data',
-                           choices=range(0, 10),
-                           metavar="0 - 9",
-                           type=int,
-                           nargs='?',
-                           default=1,
-                           const=TMCC1AuxCommandDef.NUMERIC,
-                           help="Numeric value")
-    aux_group.add_argument("-a", "--set_address",
-                           action="store_const",
-                           const=TMCC1AuxCommandDef.SET_ADDRESS,
-                           dest='command',
-                           help="Set Accessory Address")
-    # fire command
-    parser = argparse.ArgumentParser("Operate specified accessory (1 - 99)", parents=[acc_parser, cli_parser()])
-    AccCli(parser)
+    AccCli(AccCli.command_parser())

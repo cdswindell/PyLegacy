@@ -9,6 +9,14 @@ from src.protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
 
 
 class HaltCli(CliBaseTMCC):
+    @classmethod
+    def command_parser(cls):
+        return argparse.ArgumentParser("Emergency halt; stop all engines and trains",
+                                       parents=[train_parser(),
+                                                command_format_parser(CommandSyntax.TMCC1),
+                                                cli_parser()
+                                                ])
+
     def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
         super().__init__(arg_parser)
         try:
@@ -21,9 +29,4 @@ class HaltCli(CliBaseTMCC):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Emergency halt; stop all engines and trains",
-                                     parents=[train_parser(),
-                                              command_format_parser(CommandSyntax.TMCC1),
-                                              cli_parser()
-                                              ])
-    HaltCli(parser)
+    HaltCli(HaltCli.command_parser())

@@ -1,6 +1,7 @@
 import abc
 import argparse
 from abc import ABC
+from typing import List
 
 from src.protocol.constants import CommandSyntax, DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 
@@ -8,8 +9,17 @@ from src.protocol.constants import CommandSyntax, DEFAULT_BAUDRATE, DEFAULT_PORT
 class CliBase(ABC):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
-        self._args = arg_parser.parse_args()
+    @classmethod
+    def command_parser(cls) -> argparse.ArgumentParser | None:
+        return None
+
+    def __init__(self,
+                 arg_parser: argparse.ArgumentParser,
+                 cmd_line: List[str] = None) -> None:
+        if cmd_line is None:
+            self._args = arg_parser.parse_args()
+        else:
+            self._args = arg_parser.parse_args(cmd_line)
         self._command_format = CommandSyntax.TMCC2  # Use TMCC2-style commands by default, if supported
         print(self._args)
 
@@ -29,8 +39,10 @@ class CliBase(ABC):
 class CliBaseTMCC(CliBase):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, arg_parser: argparse.ArgumentParser) -> None:
-        super().__init__(arg_parser)
+    def __init__(self,
+                 arg_parser: argparse.ArgumentParser,
+                 cmd_line: List[str] = None) -> None:
+        super().__init__(arg_parser, cmd_line)
         if 'format' in self._args and self._args.format:
             self._command_format = self._args.format
         else:
