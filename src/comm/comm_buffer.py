@@ -60,7 +60,7 @@ class CommBuffer(Thread):
                     with serial.Serial(self.port, self.baudrate) as ser:
                         millis_since_last_output = self._current_milli_time() - self._last_output_at
                         if millis_since_last_output < DEFAULT_THROTTLE_DELAY:
-                            time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output)/1000.)
+                            time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.)
                         # Write the command byte sequence
                         ser.write(data)
                         self._last_output_at = self._current_milli_time()
@@ -86,3 +86,14 @@ class CommBuffer(Thread):
                 self._queue.all_tasks_done.notify_all()
                 self._queue.unfinished_tasks = 0
         self._shutdown_signalled = True
+
+
+def comm_buffer_factory(queue_size: int = DEFAULT_QUEUE_SIZE,
+                        server: str = None,
+                        baudrate: int = DEFAULT_BAUDRATE,
+                        port: str = DEFAULT_PORT
+                        ) -> CommBuffer:
+    if server is None:
+        return CommBuffer(queue_size=queue_size, baudrate=baudrate, port=port)
+    else:
+        return CommBuffer()

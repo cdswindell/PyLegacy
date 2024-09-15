@@ -116,6 +116,8 @@ def cli_parser() -> argparse.ArgumentParser:
                         type=int, default=DEFAULT_BAUDRATE, help=f"Baud Rate ({DEFAULT_BAUDRATE})")
     parser.add_argument('-p', '--port', action='store',
                         default=DEFAULT_PORT, help=f"Serial Port ({DEFAULT_PORT})")
+    parser.add_argument('-s', '--server', action='store',
+                        help=f"IP Address of PyLegacy server, if slave. Server communicates with LCS SER2")
     return parser
 
 

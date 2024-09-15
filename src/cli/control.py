@@ -6,7 +6,7 @@ from src.cli.engine import EngineCli
 from src.cli.halt import HaltCli
 from src.cli.route import RouteCli
 from src.cli.switch import SwitchCli
-from src.comm.comm_buffer import CommBuffer
+from src.comm.comm_buffer import CommBuffer, comm_buffer_factory
 
 command_parser = argparse.ArgumentParser(add_help=False)
 group = command_parser.add_mutually_exclusive_group()
@@ -42,6 +42,8 @@ class TrainControl:
         self.run()
 
     def run(self) -> None:
+        # configure command buffer
+        comm_buffer_factory(baudrate=self._args.baudrate, port=self._args.port)
         while True:
             try:
                 ui: str = input(">> ")
@@ -85,7 +87,7 @@ class TrainControl:
 if __name__ == '__main__':
     tc_parser = argparse.ArgumentParser(add_help=False)
     tc_parser.add_argument('-s', '--server',
-                           help='IP address of the Train Control Server connected to the LCS Ser2')
+                           help='IP Address of PyLegacy server, if slave. Server communicates with LCS SER2')
     parser = argparse.ArgumentParser("Send TMCC and Legacy-formatted commands to a LCS SER2",
                                      parents=[tc_parser, cli_parser()])
     TrainControl(parser.parse_args())
