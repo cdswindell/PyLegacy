@@ -1,10 +1,13 @@
 import abc
 import argparse
+import sys
 from abc import ABC
-from typing import List
+from typing import List, Any
 
 from ..protocol.command_base import CommandBase
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax
+from ..protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
+from ..protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
 
 
 class CliBase(ABC):
@@ -55,6 +58,40 @@ class CliBase(ABC):
     @property
     def command_format(self) -> CommandSyntax:
         return self._command_format
+
+    @staticmethod
+    def _validate_speed(arg: Any) -> int:
+        try:
+            return int(arg)  # try convert to int
+        except ValueError:
+            pass
+        uc_arg = str(arg).upper()
+        if uc_arg in TMCC2_SPEED_MAP:
+            # feels a little hacky, but need a way to use a different map for TMCC commands
+            if '-tmcc' in sys.argv or '--tmcc1' in sys.argv:
+                return TMCC1_SPEED_MAP[uc_arg]
+            return TMCC2_SPEED_MAP[uc_arg]
+        raise argparse.ArgumentTypeError("Speed must be between 0 and 199 (0 and 31, for tmcc)")
+
+    @staticmethod
+    def _validate_delay(arg: Any) -> int:
+        try:
+            arg = int(arg)  # try convert to int
+            if arg >= 0:
+                return arg
+        except ValueError:
+            pass
+        raise argparse.ArgumentTypeError("Delay must be 0 or greater")
+
+    @staticmethod
+    def _validate_repeat(arg: Any) -> int:
+        try:
+            arg = int(arg)  # try convert to int
+            if arg > 0:
+                return arg
+        except ValueError:
+            pass
+        raise argparse.ArgumentTypeError("Delay must be 1 or greater")
 
 
 class CliBaseTMCC(CliBase):

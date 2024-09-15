@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 #
 import argparse
-import sys
-from typing import Any, List
+from typing import List
 
 from src.cli.cli_base import CliBaseTMCC, DataAction, cli_parser, command_format_parser, train_parser
 from src.protocol.command_def import CommandDefEnum
-from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_SPEED_MAP
-from src.protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP, TMCC2EngineCommandDef
+from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
+from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 
@@ -21,7 +20,7 @@ AUX_COMMAND_MAP = {
 
 class EngineCli(CliBaseTMCC):
     @classmethod
-    def command_parser(cls):
+    def command_parser(cls) -> argparse.ArgumentParser:
         engine_parser = argparse.ArgumentParser(add_help=False)
         engine_parser.add_argument("engine",
                                    metavar='Engine/Train',
@@ -29,13 +28,13 @@ class EngineCli(CliBaseTMCC):
                                    help="Engine/Train to operate")
         engine_parser.add_argument("-re", "--repeat",
                                    action="store",
-                                   type=_validate_repeat,
+                                   type=EngineCli._validate_repeat,
                                    default=1,
                                    help="Number of times to repeat command (default: 1)")
 
         engine_parser.add_argument("-de", "--delay",
                                    action="store",
-                                   type=_validate_delay,
+                                   type=EngineCli._validate_delay,
                                    default=0,
                                    help="Second(s) to delay between repeated commands (default: 0)")
 
@@ -210,7 +209,7 @@ class EngineCli(CliBaseTMCC):
             "normal, or highball")
         speed = sp.add_parser('speed', aliases=['sp'], help='Speed of engine/train')
         speed.add_argument('data',
-                           type=_validate_speed,
+                           type=EngineCli._validate_speed,
                            action='store',
                            metavar=sp_metavar,
                            help="Absolute/Relative speed")
@@ -454,40 +453,6 @@ class EngineCli(CliBaseTMCC):
             return enum_class[option]
         else:
             raise ValueError(f'Invalid {self.command_format.name} option: {option}')
-
-
-def _validate_speed(arg: Any) -> int:
-    try:
-        return int(arg)  # try convert to int
-    except ValueError:
-        pass
-    uc_arg = str(arg).upper()
-    if uc_arg in TMCC2_SPEED_MAP:
-        # feels a little hacky, but need a way to use a different map for TMCC commands
-        if '-tmcc' in sys.argv or '--tmcc1' in sys.argv:
-            return TMCC1_SPEED_MAP[uc_arg]
-        return TMCC2_SPEED_MAP[uc_arg]
-    raise argparse.ArgumentTypeError("Speed must be between 0 and 199 (0 and 31, for tmcc)")
-
-
-def _validate_delay(arg: Any) -> int:
-    try:
-        arg = int(arg)  # try convert to int
-        if arg >= 0:
-            return arg
-    except ValueError:
-        pass
-    raise argparse.ArgumentTypeError("Delay must be 0 or greater")
-
-
-def _validate_repeat(arg: Any) -> int:
-    try:
-        arg = int(arg)  # try convert to int
-        if arg > 0:
-            return arg
-    except ValueError:
-        pass
-    raise argparse.ArgumentTypeError("Delay must be 1 or greater")
 
 
 if __name__ == '__main__':

@@ -6,6 +6,7 @@ from src.cli.cli_base import cli_parser
 from src.cli.acc import AccCli
 from src.cli.engine import EngineCli
 from src.cli.halt import HaltCli
+from src.cli.lighting import LightingCli
 from src.cli.route import RouteCli
 from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, comm_buffer_factory
@@ -54,6 +55,8 @@ class TrainControl:
                         raise KeyboardInterrupt()
                     ui_parser = args.command.command_parser()
                     cli = args.command(ui_parser, ui_parts[1:], False).command
+                    if cli is None:
+                        return
                     cli.send()
                 except argparse.ArgumentError:
                     print(f"'{ui}' is not a valid command")
@@ -77,6 +80,10 @@ class TrainControl:
         group.add_argument("-halt",
                            action="store_const",
                            const=HaltCli,
+                           dest="command")
+        group.add_argument("-lighting",
+                           action="store_const",
+                           const=LightingCli,
                            dest="command")
         group.add_argument("-route",
                            action="store_const",
