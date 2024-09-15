@@ -42,13 +42,14 @@ class SwitchCli(CliBase):
                  arg_parser: argparse.ArgumentParser,
                  cmd_line: List[str] = None,
                  do_fire: bool = True) -> None:
-        super().__init__(arg_parser, cmd_line)
+        super().__init__(arg_parser, cmd_line, do_fire)
         self._switch = self._args.switch
         self._switch_state = self._args.command
         try:
-            sc = SwitchCmd(self._switch, self._switch_state, baudrate=self._args.baudrate, port=self._args.port)
-            if do_fire:
-                sc.fire()
+            cmd = SwitchCmd(self._switch, self._switch_state, baudrate=self._args.baudrate, port=self._args.port)
+            if self.do_fire:
+                cmd.fire()
+            self._command = cmd
         except ValueError as ve:
             print(ve)
 

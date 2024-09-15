@@ -3,7 +3,8 @@ import argparse
 from abc import ABC
 from typing import List
 
-from src.protocol.constants import CommandSyntax, DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
+from ..protocol.command_base import CommandBase
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax
 
 
 class CliBase(ABC):
@@ -15,13 +16,33 @@ class CliBase(ABC):
 
     def __init__(self,
                  arg_parser: argparse.ArgumentParser,
-                 cmd_line: List[str] = None) -> None:
+                 cmd_line: List[str] = None,
+                 do_fire: bool = True) -> None:
         if cmd_line is None:
             self._args = arg_parser.parse_args()
         else:
             self._args = arg_parser.parse_args(cmd_line)
+        self._command = None
         self._command_format = CommandSyntax.TMCC2  # Use TMCC2-style commands by default, if supported
-        print(self._args)
+        self._command_line: List[str] = cmd_line
+        self._do_fire = do_fire
+        # print(self._args)
+
+    @property
+    def command(self) -> CommandBase:
+        return self._command
+
+    @property
+    def command_line(self) -> List[str]:
+        return self._command_line
+
+    @property
+    def args(self) -> argparse.Namespace:
+        return self._args
+
+    @property
+    def do_fire(self) -> bool:
+        return self._do_fire
 
     @property
     def is_tmcc1(self) -> bool:
@@ -41,8 +62,9 @@ class CliBaseTMCC(CliBase):
 
     def __init__(self,
                  arg_parser: argparse.ArgumentParser,
-                 cmd_line: List[str] = None) -> None:
-        super().__init__(arg_parser, cmd_line)
+                 cmd_line: List[str] = None,
+                 do_fire: bool = True) -> None:
+        super().__init__(arg_parser, cmd_line, do_fire)
         if 'format' in self._args and self._args.format:
             self._command_format = self._args.format
         else:

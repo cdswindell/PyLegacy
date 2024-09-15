@@ -386,14 +386,14 @@ class EngineCli(CliBaseTMCC):
                  arg_parser: argparse.ArgumentParser,
                  cmd_line: List[str] = None,
                  do_fire: bool = True) -> None:
-        super().__init__(arg_parser, cmd_line)
+        super().__init__(arg_parser, cmd_line, do_fire)
         engine: int = self._args.engine
         option_data: int = self._args.data if 'data' in self._args else 0
         try:
             option: CommandDefEnum = self._decode_engine_option()  # raise ValueError if can't decode
             if option is None:
                 raise ValueError("Must specify an option, use -h for help")
-            print(self._args)
+            # print(self._args)
             scope = self._determine_scope()
             if self.is_tmcc2 or isinstance(option, TMCC2EngineCommandDef):
                 cmd = EngineCmdTMCC2(engine,
@@ -409,8 +409,9 @@ class EngineCli(CliBaseTMCC):
                                      scope,
                                      baudrate=self._args.baudrate,
                                      port=self._args.port)
-            if do_fire:
+            if self.do_fire:
                 cmd.fire(repeat=self._args.repeat, delay=self._args.delay)
+            self._command = cmd
         except ValueError as ve:
             print(ve)
 

@@ -62,7 +62,7 @@ class AccCli(CliBase):
                  arg_parser: argparse.ArgumentParser,
                  cmd_line: List[str] = None,
                  do_fire: bool = True) -> None:
-        super().__init__(arg_parser, cmd_line)
+        super().__init__(arg_parser, cmd_line, do_fire)
         self._acc = self._args.acc
         self._command = self._args.command
         self._data = self._args.data if 'data' in self._args else 0
@@ -76,8 +76,9 @@ class AccCli(CliBase):
             if self._command is None or not isinstance(self._command, TMCC1AuxCommandDef):
                 raise ValueError("Must specify an option, use -h for help")
             cmd = AccCmdTMCC1(self._acc, self._command, self._data, baudrate=self._args.baudrate, port=self._args.port)
-            if do_fire:
+            if self.do_fire:
                 cmd.fire()
+            self._command = cmd
         except ValueError as ve:
             print(ve)
 
