@@ -3,7 +3,8 @@ import time
 from abc import ABC
 
 from .command_req import CommandReq
-from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandDefEnum, CommandDef, CommandScope
+from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
+from .command_def import CommandDef, CommandDefEnum
 from .validations import Validations
 from ..comm.comm_buffer import CommBuffer
 

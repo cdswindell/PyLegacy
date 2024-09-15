@@ -4,9 +4,9 @@ from abc import ABC
 from ..command_base import CommandBase
 from ..command_req import CommandReq, ParameterCommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
-from ..constants import TMCC2CommandPrefix, CommandDefEnum
-from ..constants import TMCC2ParameterEnum
-from ..constants import TMCC2LightingControl, TMCC2EffectsControl, TMCC2DialogControl
+from ..command_def import CommandDefEnum
+from ..tmcc2_constants import TMCC2CommandPrefix
+from ..multibyte_constants import TMCC2ParameterEnum, TMCC2DialogControl, TMCC2EffectsControl, TMCC2LightingControl
 from ..constants import CommandScope
 
 

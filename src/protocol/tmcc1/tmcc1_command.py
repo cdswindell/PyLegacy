@@ -4,7 +4,9 @@ from abc import ABC
 from ..command_base import CommandBase
 from ..command_req import CommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT
-from ..constants import TMCC1_COMMAND_PREFIX, CommandDefEnum, CommandScope
+from ..constants import CommandScope
+from ..command_def import CommandDefEnum
+from ..tmcc1_constants import TMCC1_COMMAND_PREFIX
 
 
 class TMCC1Command(CommandBase, ABC):

@@ -1,15 +1,17 @@
 import time
 from typing import Callable, Dict
 
-from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT, TMCC2_SCOPE_TO_FIRST_BYTE_MAP
-from .constants import TMCC2ParameterEnum, LEGACY_PARAMETER_COMMAND_PREFIX, TMCC2ParameterIndex
-from .constants import TMCC2DialogControl, TMCC2EffectsControl, TMCC2LightingControl
-from .constants import TMCC2_PARAMETER_INDEX_PREFIX, TMCC2ParameterCommandDef
-from .constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC2CommandPrefix, TMCC2CommandDef
-from .constants import CommandDefEnum, TMCC1Enum, TMCC2Enum, TMCC1RouteCommandDef
-from .constants import TMCC1_TRAIN_COMMAND_PURIFIER, TMCC1_TRAIN_COMMAND_MODIFIER
+from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
+from .tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX, TMCC2Enum, TMCC2CommandPrefix
+from .tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, TMCC2CommandDef
+from .multibyte_constants import TMCC2ParameterEnum, TMCC2_PARAMETER_INDEX_PREFIX, TMCC2ParameterIndex
+from .multibyte_constants import TMCC2DialogControl, TMCC2EffectsControl, TMCC2LightingControl, TMCC2ParameterCommandDef
 
-from .constants import CommandDef, CommandScope, CommandSyntax, TMCC1CommandIdentifier
+from .constants import CommandScope, CommandSyntax
+from .command_def import CommandDef, CommandDefEnum
+from .tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum
+from .tmcc1_constants import TMCC1CommandIdentifier, TMCC1RouteCommandDef, TMCC1_TRAIN_COMMAND_PURIFIER
+from .tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
 from .validations import Validations
 from ..comm.comm_buffer import CommBuffer
 

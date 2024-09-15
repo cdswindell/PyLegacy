@@ -1,8 +1,10 @@
 import random
 from typing import List, TypeVar
 
-from src.protocol.constants import *
 from src.protocol.command_req import CommandReq, ParameterCommandReq
+from src.protocol.multibyte_constants import *
+from src.protocol.tmcc1_constants import *
+from src.protocol.tmcc2_constants import *
 from src.protocol.validations import Validations
 
 T = TypeVar("T", TMCC1Enum, TMCC2Enum)

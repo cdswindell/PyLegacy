@@ -3,7 +3,8 @@ from typing import Tuple, Callable
 from gpiozero import Button, LED, GPIODevice
 
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import CommandDefEnum, DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
+from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
+from src.protocol.command_def import CommandDefEnum
 from src.protocol.constants import CommandScope
 
 DEFAULT_BOUNCE_TIME: float = 0.05

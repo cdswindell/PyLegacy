@@ -2,7 +2,8 @@ from signal import pause
 
 from src.gpio.gpio_handler import GpioHandler
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import TMCC2EngineCommandDef, TMCC2RouteCommandDef, TMCC1AuxCommandDef
+from src.protocol.constants import TMCC1AuxCommandDef
+from src.protocol.tmcc2_constants import TMCC2RouteCommandDef, TMCC2EngineCommandDef
 
 """
     Simple examples of how to associate Lionel commands to Raspberry Pi buttons

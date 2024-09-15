@@ -1,6 +1,7 @@
 from .tmcc1_command import TMCC1Command
 from ..command_req import CommandReq
-from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS, TMCC1HaltCommandDef
+from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
+from ..tmcc1_constants import TMCC1HaltCommandDef
 
 
 class HaltCmd(TMCC1Command):

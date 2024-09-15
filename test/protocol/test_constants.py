@@ -1,6 +1,8 @@
 import pytest
 
-from src.protocol.constants import *
+from src.protocol.multibyte_constants import *
+from src.protocol.tmcc1_constants import *
+from src.protocol.tmcc2_constants import *
 from ..test_base import TestBase
 
 

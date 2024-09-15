@@ -5,8 +5,9 @@ import sys
 from typing import Any, List
 
 from src.cli.cli_base import CliBaseTMCC, DataAction, cli_parser, command_format_parser, train_parser
-from src.protocol.constants import CommandDefEnum, TMCC1EngineCommandDef, TMCC2EngineCommandDef
-from src.protocol.constants import TMCC2_SPEED_MAP, TMCC1_SPEED_MAP
+from src.protocol.command_def import CommandDefEnum
+from src.protocol.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_SPEED_MAP
+from src.protocol.tmcc2_constants import TMCC2_SPEED_MAP, TMCC2EngineCommandDef
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 
