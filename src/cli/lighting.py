@@ -55,6 +55,21 @@ class LightingCli(CliBaseTMCC):
                                dest='option',
                                help="Car cabin lights off")
 
+        dog = sp.add_parser('doghouse', aliases=['dog'], help='Doghouse lighting options')
+        dog_group = dog.add_mutually_exclusive_group()
+
+        dog_group.add_argument("-on",
+                               action="store_const",
+                               const=TMCC2LightingControl.DOGHOUSE_ON,
+                               dest='option',
+                               default=TMCC2LightingControl.DOGHOUSE_ON,
+                               help="Dog house light on")
+        dog_group.add_argument("-off",
+                               action="store_const",
+                               const=TMCC2LightingControl.DOGHOUSE_OFF,
+                               dest='option',
+                               help="Dog house light off")
+
         ground = sp.add_parser('ground', aliases=['gr'], help='Ground lighting options')
         ground_group = ground.add_mutually_exclusive_group()
         ground_group.add_argument("-a", "--auto",
@@ -73,6 +88,7 @@ class LightingCli(CliBaseTMCC):
                                   const=TMCC2LightingControl.GROUND_OFF,
                                   dest='option',
                                   help="Ground lights off")
+
         hazard = sp.add_parser('hazard', aliases=['ha'], help='Hazard lighting options')
         hazard_group = hazard.add_mutually_exclusive_group()
         hazard_group.add_argument("-a", "--auto",
@@ -92,20 +108,88 @@ class LightingCli(CliBaseTMCC):
                                   dest='option',
                                   help="Hazard lights off")
 
-        dog = sp.add_parser('doghouse', aliases=['dog'], help='Doghouse lighting options')
-        dog_group = dog.add_mutually_exclusive_group()
+        loco = sp.add_parser('engine_marker', aliases=['em'], help='Engine marker lighting options')
+        loco_group = loco.add_mutually_exclusive_group()
 
-        dog_group.add_argument("-on",
+        loco_group.add_argument("-on",
+                                action="store_const",
+                                const=TMCC2LightingControl.LOCO_MARKER_ON,
+                                dest='option',
+                                default=TMCC2LightingControl.LOCO_MARKER_ON,
+                                help="Engine marker lights on")
+        loco_group.add_argument("-off",
+                                action="store_const",
+                                const=TMCC2LightingControl.LOCO_MARKER_OFF,
+                                dest='option',
+                                help="Engine marker lights off")
+
+        mars = sp.add_parser('mars', aliases=['ma'], help='Mars lighting options')
+        mars_group = mars.add_mutually_exclusive_group()
+
+        mars_group.add_argument("-on",
+                                action="store_const",
+                                const=TMCC2LightingControl.MARS_ON,
+                                dest='option',
+                                default=TMCC2LightingControl.MARS_ON,
+                                help="Mars lights on")
+        mars_group.add_argument("-off",
+                                action="store_const",
+                                const=TMCC2LightingControl.MARS_OFF,
+                                dest='option',
+                                help="Mars lights off")
+
+        r17 = sp.add_parser('rule17', aliases=['17'], help='Rule 17 lighting options')
+        r17_group = r17.add_mutually_exclusive_group()
+        r17_group.add_argument("-a", "--auto",
                                action="store_const",
-                               const=TMCC2LightingControl.DOGHOUSE_ON,
+                               const=TMCC2LightingControl.RULE_17_AUTO,
                                dest='option',
-                               default=TMCC2LightingControl.DOGHOUSE_ON,
-                               help="Dog house light on")
-        dog_group.add_argument("-off",
+                               default=TMCC2LightingControl.RULE_17_AUTO,
+                               help="Rule 17 auto")
+        r17_group.add_argument("-on",
                                action="store_const",
-                               const=TMCC2LightingControl.DOGHOUSE_OFF,
+                               const=TMCC2LightingControl.RULE_17_ON,
                                dest='option',
-                               help="Dog house light off")
+                               help="Rule 17 on")
+        r17_group.add_argument("-off",
+                               action="store_const",
+                               const=TMCC2LightingControl.RULE_17_OFF,
+                               dest='option',
+                               help="Rule 17 off")
+
+        strobe = sp.add_parser('strobe', aliases=['st'], help='Strobe lighting options')
+        strobe_group = strobe.add_mutually_exclusive_group()
+        strobe_group.add_argument("-on",
+                                  action="store_const",
+                                  const=TMCC2LightingControl.STROBE_LIGHT_ON,
+                                  dest='option',
+                                  default=TMCC2LightingControl.STROBE_LIGHT_ON,
+                                  help="Strobe lights on, single-flash")
+        strobe_group.add_argument("-df", "--double_flash",
+                                  action="store_const",
+                                  const=TMCC2LightingControl.STROBE_LIGHT_ON_DOUBLE,
+                                  dest='option',
+                                  help="Strobe lights on, double-flash")
+        strobe_group.add_argument("-off",
+                                  action="store_const",
+                                  const=TMCC2LightingControl.STROBE_LIGHT_OFF,
+                                  dest='option',
+                                  help="Strobe lights off")
+
+        tender = sp.add_parser('tender_marker', aliases=['tm'], help='Tender marker lighting options')
+        tender_group = tender.add_mutually_exclusive_group()
+
+        tender_group.add_argument("-on",
+                                  action="store_const",
+                                  const=TMCC2LightingControl.TENDER_MARKER_ON,
+                                  dest='option',
+                                  default=TMCC2LightingControl.TENDER_MARKER_ON,
+                                  help="Tender marker lights on")
+        tender_group.add_argument("-off",
+                                  action="store_const",
+                                  const=TMCC2LightingControl.TENDER_MARKER_OFF,
+                                  dest='option',
+                                  help="Tender marker lights off")
 
         return argparse.ArgumentParser("Lighting control",
                                        parents=[lighting_parser,
