@@ -85,9 +85,6 @@ class TrainControl:
 
 
 if __name__ == '__main__':
-    tc_parser = argparse.ArgumentParser(add_help=False)
-    tc_parser.add_argument('-s', '--server',
-                           help='IP Address of PyLegacy server, if client. Server communicates with LCS SER2')
     parser = argparse.ArgumentParser("Send TMCC and Legacy-formatted commands to a LCS SER2",
-                                     parents=[tc_parser, cli_parser()])
+                                     parents=[cli_parser()])
     TrainControl(parser.parse_args())
