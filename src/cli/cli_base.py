@@ -85,6 +85,7 @@ class DataAction(argparse.Action):
         with the command_def value specified by 'const', and the data value
         specified by the user-provided argument or 'default'
     """
+
     def __init__(self, option_strings, dest, **kwargs):
         """
             We need to capture both the values of const and default, as we use the
@@ -116,7 +117,7 @@ def cli_parser() -> argparse.ArgumentParser:
                         type=int, default=DEFAULT_BAUDRATE, help=f"Baud Rate ({DEFAULT_BAUDRATE})")
     parser.add_argument('-p', '--port', action='store',
                         default=DEFAULT_PORT, help=f"Serial Port ({DEFAULT_PORT})")
-    parser.add_argument('-s', '--server', action='store',
+    parser.add_argument('-server', action='store',
                         help=f"IP Address of PyLegacy server, if client. Server communicates with LCS SER2")
     return parser
 

@@ -8,33 +8,6 @@ from src.cli.route import RouteCli
 from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, comm_buffer_factory
 
-command_parser = argparse.ArgumentParser(add_help=False)
-group = command_parser.add_mutually_exclusive_group()
-group.add_argument("-accessory",
-                   action="store_const",
-                   const=AccCli,
-                   dest="command")
-group.add_argument("-engine",
-                   action="store_const",
-                   const=EngineCli,
-                   dest="command")
-group.add_argument("-halt",
-                   action="store_const",
-                   const=HaltCli,
-                   dest="command")
-group.add_argument("-route",
-                   action="store_const",
-                   const=RouteCli,
-                   dest="command")
-group.add_argument("-switch",
-                   action="store_const",
-                   const=SwitchCli,
-                   dest="command")
-group.add_argument("-quit",
-                   action="store_const",
-                   const="quit",
-                   dest="command")
-
 
 class TrainControl:
     def __init__(self, args: argparse.Namespace) -> None:
@@ -44,6 +17,8 @@ class TrainControl:
     def run(self) -> None:
         # configure command buffer
         comm_buffer_factory(baudrate=self._args.baudrate, port=self._args.port)
+        # print opening line
+        print(f"PyLegacy train controller, Ver 0.1")
         while True:
             try:
                 ui: str = input(">> ")
@@ -56,8 +31,7 @@ class TrainControl:
                 CommBuffer().shutdown()
                 break
 
-    @staticmethod
-    def _handle_command(ui: str) -> None:
+    def _handle_command(self, ui: str) -> None:
         """
             Parse the user's input, reusing the individual CLI command parsers.
             If a valid command is specified, send it to the Lionel LCS SER2.
@@ -73,15 +47,48 @@ class TrainControl:
                 try:
                     # if the keyboard input starts with a valid command, args.command
                     # is set to the corresponding CLI command class, or the verb 'quit'
-                    args = command_parser.parse_args(['-'+ui_parts[0]])
+                    args = self._command_parser().parse_args(['-'+ui_parts[0]])
                     if args.command == 'quit':
                         raise KeyboardInterrupt()
                     ui_parser = args.command.command_parser()
                     cli = args.command(ui_parser, ui_parts[1:], False).command
                     cli.send()
                 except argparse.ArgumentError:
-                    print(f"{ui} is not a valid command")
+                    print(f"'{ui}' is not a valid command")
                     return
+
+    @staticmethod
+    def _command_parser() -> argparse.ArgumentParser:
+        """
+            Parse the first token of the user's input
+        """
+        command_parser = argparse.ArgumentParser(add_help=False, exit_on_error=False)
+        group = command_parser.add_mutually_exclusive_group()
+        group.add_argument("-accessory",
+                           action="store_const",
+                           const=AccCli,
+                           dest="command")
+        group.add_argument("-engine",
+                           action="store_const",
+                           const=EngineCli,
+                           dest="command")
+        group.add_argument("-halt",
+                           action="store_const",
+                           const=HaltCli,
+                           dest="command")
+        group.add_argument("-route",
+                           action="store_const",
+                           const=RouteCli,
+                           dest="command")
+        group.add_argument("-switch",
+                           action="store_const",
+                           const=SwitchCli,
+                           dest="command")
+        group.add_argument("-quit",
+                           action="store_const",
+                           const="quit",
+                           dest="command")
+        return command_parser
 
 
 if __name__ == '__main__':
