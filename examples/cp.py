@@ -2,7 +2,7 @@ from signal import pause
 
 from src.gpio.gpio_handler import GpioHandler
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import TMCC1AuxCommandDef
+from src.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
 from src.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef, TMCC2EngineCommandDef
 
 """
