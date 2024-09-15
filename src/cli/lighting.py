@@ -55,6 +55,30 @@ class LightingCli(CliBaseTMCC):
                                dest='option',
                                help="Car cabin lights off")
 
+        ditch = sp.add_parser('ditch', aliases=['di'], help='Ditch lighting options')
+        ditch_group = ditch.add_mutually_exclusive_group()
+        ditch_group.add_argument("-on",
+                                 action="store_const",
+                                 const=TMCC2LightingControl.DITCH_ON,
+                                 dest='option',
+                                 default=TMCC2LightingControl.DITCH_ON,
+                                 help="Ditch lights on")
+        ditch_group.add_argument("-onh", "--on_off_w_horn",
+                                 action="store_const",
+                                 const=TMCC2LightingControl.DITCH_ON_PULSE_OFF_WITH_HORN,
+                                 dest='option',
+                                 help="Ditch lights on, pulse off w/ horn")
+        ditch_group.add_argument("-ofh", "--off_on_w_horn",
+                                 action="store_const",
+                                 const=TMCC2LightingControl.DITCH_OFF_PULSE_ON_WITH_HORN,
+                                 dest='option',
+                                 help="Ditch lights off, pulse on w/ horn")
+        ditch_group.add_argument("-off",
+                                 action="store_const",
+                                 const=TMCC2LightingControl.DITCH_OFF,
+                                 dest='option',
+                                 help="Ditch lights off")
+
         dog = sp.add_parser('doghouse', aliases=['dog'], help='Doghouse lighting options')
         dog_group = dog.add_mutually_exclusive_group()
 
