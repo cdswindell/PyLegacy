@@ -4,9 +4,9 @@ from typing import Callable, Dict
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
 from .tmcc2.tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX, TMCC2Enum, TMCC2CommandPrefix
 from .tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, TMCC2CommandDef
-from .tmcc2.multibyte_constants import TMCC2ParameterEnum, TMCC2_PARAMETER_INDEX_PREFIX, TMCC2ParameterIndex
-from .tmcc2.multibyte_constants import TMCC2DialogControl, TMCC2EffectsControl
-from .tmcc2.multibyte_constants import TMCC2LightingControl, TMCC2ParameterCommandDef
+from .tmcc2.tmcc2_param_constants import TMCC2ParameterEnum, TMCC2_PARAMETER_INDEX_PREFIX, TMCC2ParameterIndex
+from .tmcc2.tmcc2_param_constants import TMCC2DialogControl, TMCC2EffectsControl
+from .tmcc2.tmcc2_param_constants import TMCC2LightingControl, TMCC2ParameterCommandDef
 
 from .constants import CommandScope, CommandSyntax
 from .command_def import CommandDef, CommandDefEnum

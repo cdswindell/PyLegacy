@@ -2,7 +2,7 @@ import random
 from typing import List, TypeVar
 
 from src.protocol.command_req import CommandReq, ParameterCommandReq
-from src.protocol.tmcc2.multibyte_constants import *
+from src.protocol.tmcc2.tmcc2_param_constants import *
 from src.protocol.tmcc1.tmcc1_constants import *
 from src.protocol.tmcc2.tmcc2_constants import *
 from src.protocol.validations import Validations
