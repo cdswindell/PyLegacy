@@ -5,7 +5,7 @@ from typing import List
 
 from src.cli.cli_base import CliBase, cli_parser, DataAction
 from src.protocol.tmcc1.acc_cmd import AccCmd as AccCmdTMCC1
-from src.protocol.tmcc1_constants import TMCC1AuxCommandDef
+from src.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
 
 AUX_OPTIONS_MAP = {
     'on': 'ON',

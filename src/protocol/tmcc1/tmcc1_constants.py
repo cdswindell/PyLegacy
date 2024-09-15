@@ -5,8 +5,8 @@ import abc
 from enum import verify, UNIQUE
 from typing import Dict
 
-from .command_def import CommandDef, CommandDefEnum
-from .constants import CommandPrefix, CommandScope, CommandSyntax, RELATIVE_SPEED_MAP
+from src.protocol.command_def import CommandDef, CommandDefEnum
+from src.protocol.constants import CommandPrefix, CommandScope, CommandSyntax, RELATIVE_SPEED_MAP
 
 
 class TMCC1Enum(CommandDefEnum):

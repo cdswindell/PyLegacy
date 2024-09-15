@@ -1,7 +1,7 @@
 from .tmcc2_command import TMCC2Command
 from ..command_req import CommandReq
 from ..constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
-from ..tmcc2_constants import TMCC2EngineCommandDef
+from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 
 class EngineCmd(TMCC2Command):

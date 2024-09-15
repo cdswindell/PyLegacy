@@ -5,7 +5,7 @@ from typing import List
 
 from src.cli.cli_base import CliBase, cli_parser
 from src.protocol.tmcc1.switch_cmd import SwitchCmd
-from src.protocol.tmcc1_constants import TMCC1SwitchState
+from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
 
 
 class SwitchCli(CliBase):

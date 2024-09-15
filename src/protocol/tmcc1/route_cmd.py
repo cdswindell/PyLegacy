@@ -1,7 +1,7 @@
 from .tmcc1_command import TMCC1Command
 from ..command_req import CommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT
-from ..tmcc1_constants import TMCC1RouteCommandDef
+from src.protocol.tmcc1.tmcc1_constants import TMCC1RouteCommandDef
 
 
 class RouteCmd(TMCC1Command):

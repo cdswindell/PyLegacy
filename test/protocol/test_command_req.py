@@ -6,9 +6,9 @@ import pytest
 from src.comm.comm_buffer import CommBuffer
 from src.protocol.command_req import CommandReq, ParameterCommandReq
 from src.protocol.constants import *
-from src.protocol.multibyte_constants import *
-from src.protocol.tmcc1_constants import *
-from src.protocol.tmcc2_constants import *
+from src.protocol.tmcc2.multibyte_constants import *
+from src.protocol.tmcc1.tmcc1_constants import *
+from src.protocol.tmcc2.tmcc2_constants import *
 from ..test_base import TestBase
 
 
