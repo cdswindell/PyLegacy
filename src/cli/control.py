@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #
 import argparse
+import readline
 
 from src.cli.cli_base import cli_parser
 from src.cli.acc import AccCli
@@ -25,6 +26,7 @@ class TrainControl:
         while True:
             try:
                 ui: str = input(">> ")
+                readline.add_history(ui)
                 self._handle_command(ui)
             except SystemExit:
                 pass
