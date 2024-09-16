@@ -6,6 +6,7 @@ from typing import List
 from src.cli.cli_base import CliBase, cli_parser, DataAction
 from src.protocol.tmcc1.acc_cmd import AccCmd as AccCmdTMCC1
 from src.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
+from src.utils.argument_parser import ArgumentParser
 
 AUX_OPTIONS_MAP = {
     'on': 'ON',
@@ -17,8 +18,8 @@ AUX_OPTIONS_MAP = {
 
 class AccCli(CliBase):
     @classmethod
-    def command_parser(cls) -> argparse.ArgumentParser:
-        acc_parser = argparse.ArgumentParser(add_help=False)
+    def command_parser(cls) -> ArgumentParser:
+        acc_parser = ArgumentParser(add_help=False)
         acc_parser.add_argument("acc", metavar='Accessory Number', type=int, help="accessory to fire")
 
         aux_group = acc_parser.add_mutually_exclusive_group()
@@ -59,7 +60,7 @@ class AccCli(CliBase):
     """
 
     def __init__(self,
-                 arg_parser: argparse.ArgumentParser,
+                 arg_parser: ArgumentParser,
                  cmd_line: List[str] = None,
                  do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)

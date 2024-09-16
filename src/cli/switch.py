@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 #
-import argparse
 from typing import List
 
 from src.cli.cli_base import CliBase, cli_parser
 from src.protocol.tmcc1.switch_cmd import SwitchCmd
 from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
+from src.utils.argument_parser import ArgumentParser
 
 
 class SwitchCli(CliBase):
     @classmethod
-    def command_parser(cls) -> argparse.ArgumentParser:
-        sw_parser = argparse.ArgumentParser(add_help=False)
+    def command_parser(cls) -> ArgumentParser:
+        sw_parser = ArgumentParser(add_help=False)
         sw_parser.add_argument("switch", metavar='Switch Number', type=int, help="switch to fire")
         group = sw_parser.add_mutually_exclusive_group()
         group.add_argument("-t", "--through",
@@ -30,7 +30,7 @@ class SwitchCli(CliBase):
                            dest="command",
                            help="Set switch address")
         group.set_defaults(command=TMCC1SwitchState.THROUGH)
-        return argparse.ArgumentParser("Fire specified switch (1 - 99)", parents=[sw_parser, cli_parser()])
+        return ArgumentParser("Fire specified switch (1 - 99)", parents=[sw_parser, cli_parser()])
 
     """
         Throw the specified switch.
@@ -39,7 +39,7 @@ class SwitchCli(CliBase):
     """
 
     def __init__(self,
-                 arg_parser: argparse.ArgumentParser,
+                 arg_parser: ArgumentParser,
                  cmd_line: List[str] = None,
                  do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)

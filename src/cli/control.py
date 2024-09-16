@@ -11,6 +11,7 @@ from src.cli.lighting import LightingCli
 from src.cli.route import RouteCli
 from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, comm_buffer_factory
+from src.utils.argument_parser import ArgumentParser
 
 
 class TrainControl:
@@ -52,10 +53,11 @@ class TrainControl:
                 try:
                     # if the keyboard input starts with a valid command, args.command
                     # is set to the corresponding CLI command class, or the verb 'quit'
-                    args = self._command_parser().parse_args(['-'+ui_parts[0]])
+                    args = self._command_parser().parse_args(['-' + ui_parts[0]])
                     if args.command == 'quit':
                         raise KeyboardInterrupt()
                     ui_parser = args.command.command_parser()
+                    ui_parser.remove_args(['baudrate', 'port', 'server'])
                     cli = args.command(ui_parser, ui_parts[1:], False).command
                     if cli is None:
                         return
@@ -65,7 +67,7 @@ class TrainControl:
                     return
 
     @staticmethod
-    def _command_parser() -> argparse.ArgumentParser:
+    def _command_parser() -> ArgumentParser:
         """
             Parse the first token of the user's input
         """
@@ -103,6 +105,6 @@ class TrainControl:
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Send TMCC and Legacy-formatted commands to a LCS SER2",
-                                     parents=[cli_parser()])
+    parser = ArgumentParser("Send TMCC and Legacy-formatted commands to a LCS SER2",
+                            parents=[cli_parser()])
     TrainControl(parser.parse_args())

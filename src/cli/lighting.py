@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-#
-import argparse
 from typing import List
 
 from src.cli.cli_base import CliBaseTMCC, train_parser, cli_parser
 from src.protocol.tmcc2.lighting_cmd import LightingCmd
 from src.protocol.tmcc2.tmcc2_param_constants import TMCC2LightingControl
+from src.utils.argument_parser import ArgumentParser
 
 
 class LightingCli(CliBaseTMCC):
     @classmethod
     def command_parser(cls):
-        lighting_parser = argparse.ArgumentParser(add_help=False)
+        lighting_parser = ArgumentParser(add_help=False)
         lighting_parser.add_argument("engine",
                                      metavar='Engine/Train',
                                      type=int,
@@ -222,7 +221,7 @@ class LightingCli(CliBaseTMCC):
                                                 ])
 
     def __init__(self,
-                 arg_parser: argparse.ArgumentParser,
+                 arg_parser: ArgumentParser,
                  cmd_line: List[str] = None,
                  do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)

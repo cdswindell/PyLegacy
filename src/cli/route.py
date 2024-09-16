@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
-#
-import argparse
 from typing import List
 
 from src.cli.cli_base import CliBaseTMCC, cli_parser
 from src.cli.cli_base import command_format_parser
 from src.protocol.tmcc1.route_cmd import RouteCmd as RouteCmdTMCC1
 from src.protocol.tmcc2.route_cmd import RouteCmd as RouteCmdTMCC2
+from src.utils.argument_parser import ArgumentParser
 
 
 class RouteCli(CliBaseTMCC):
     @classmethod
     def command_parser(cls):
-        route_parser = argparse.ArgumentParser(add_help=False)
+        route_parser = ArgumentParser(add_help=False)
         route_parser.add_argument("route", metavar='Route', type=int, help="route to fire")
-        return argparse.ArgumentParser("Fire specified route (1 - 99)",
-                                       parents=[route_parser, command_format_parser(), cli_parser()])
+        return ArgumentParser("Fire specified route (1 - 99)",
+                              parents=[route_parser, command_format_parser(), cli_parser()])
 
     def __init__(self,
-                 arg_parser: argparse.ArgumentParser,
+                 arg_parser: ArgumentParser,
                  cmd_line: List[str] = None,
                  do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)

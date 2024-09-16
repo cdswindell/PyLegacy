@@ -8,17 +8,18 @@ from ..protocol.command_base import CommandBase
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
+from ..utils.argument_parser import ArgumentParser
 
 
 class CliBase(ABC):
     __metaclass__ = abc.ABCMeta
 
     @classmethod
-    def command_parser(cls) -> argparse.ArgumentParser | None:
+    def command_parser(cls) -> ArgumentParser | None:
         return None
 
     def __init__(self,
-                 arg_parser: argparse.ArgumentParser,
+                 arg_parser: ArgumentParser,
                  cmd_line: List[str] = None,
                  do_fire: bool = True) -> None:
         if cmd_line is None:
@@ -98,7 +99,7 @@ class CliBaseTMCC(CliBase):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self,
-                 arg_parser: argparse.ArgumentParser,
+                 arg_parser: ArgumentParser,
                  cmd_line: List[str] = None,
                  do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
@@ -142,13 +143,13 @@ class DataAction(argparse.Action):
             setattr(namespace, "data", self._default)
 
 
-def cli_parser() -> argparse.ArgumentParser:
+def cli_parser() -> ArgumentParser:
     """
         Add options common to all CLI commands here. Command handlers
         can inherit from this parser to add other command-specific options.
     """
     # define arguments common to all Legacy CLI commands
-    parser = argparse.ArgumentParser(add_help=False)
+    parser = ArgumentParser(add_help=False)
 
     parser.add_argument('-baud', '--baudrate', action='store',
                         type=int, default=DEFAULT_BAUDRATE, help=f"Baud Rate ({DEFAULT_BAUDRATE})")
@@ -159,11 +160,11 @@ def cli_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def command_format_parser(default: CommandSyntax = CommandSyntax.TMCC2) -> argparse.ArgumentParser:
+def command_format_parser(default: CommandSyntax = CommandSyntax.TMCC2) -> ArgumentParser:
     """
         Add command_def to run command using TMCC1 command syntax
     """
-    parser = argparse.ArgumentParser(add_help=False)
+    parser = ArgumentParser(add_help=False)
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-tmcc", "--tmcc1",
                        action="store_const",
@@ -179,11 +180,11 @@ def command_format_parser(default: CommandSyntax = CommandSyntax.TMCC2) -> argpa
     return parser
 
 
-def train_parser() -> argparse.ArgumentParser:
+def train_parser() -> ArgumentParser:
     """
         Add command_def to run command TMCC2 command as train rather than engine
     """
-    parser = argparse.ArgumentParser(add_help=False)
+    parser = ArgumentParser(add_help=False)
     parser.add_argument("-tr", "--train",
                         action="store_const",
                         const=True,

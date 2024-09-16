@@ -9,6 +9,7 @@ from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
+from src.utils.argument_parser import ArgumentParser
 
 AUX_COMMAND_MAP = {
     'on': '_ON',
@@ -20,8 +21,8 @@ AUX_COMMAND_MAP = {
 
 class EngineCli(CliBaseTMCC):
     @classmethod
-    def command_parser(cls) -> argparse.ArgumentParser:
-        engine_parser = argparse.ArgumentParser(add_help=False)
+    def command_parser(cls) -> ArgumentParser:
+        engine_parser = ArgumentParser(add_help=False)
         engine_parser.add_argument("engine",
                                    metavar='Engine/Train',
                                    type=int,

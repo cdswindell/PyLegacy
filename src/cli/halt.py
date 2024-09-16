@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 #
-import argparse
 from typing import List
 
 from src.cli.cli_base import command_format_parser, CliBaseTMCC, train_parser, cli_parser
 from src.protocol.constants import CommandSyntax
 from src.protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
 from src.protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
+from src.utils.argument_parser import ArgumentParser
 
 
 class HaltCli(CliBaseTMCC):
     @classmethod
     def command_parser(cls):
-        return argparse.ArgumentParser("Emergency halt; stop all engines and trains",
-                                       parents=[train_parser(),
-                                                command_format_parser(CommandSyntax.TMCC1),
-                                                cli_parser()
-                                                ])
+        return ArgumentParser("Emergency halt; stop all engines and trains",
+                              parents=[train_parser(),
+                                       command_format_parser(CommandSyntax.TMCC1),
+                                       cli_parser()
+                                       ])
 
     def __init__(self,
-                 arg_parser: argparse.ArgumentParser,
+                 arg_parser: ArgumentParser,
                  cmd_line: List[str] = None,
                  do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
