@@ -7,7 +7,7 @@ from .command_req import CommandReq
 from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from .command_def import CommandDef, CommandDefEnum
 from .validations import Validations
-from ..comm.comm_buffer import comm_buffer_factory, CommBuffer
+from ..comm.comm_buffer import CommBuffer
 
 
 class CommandBase(ABC):
@@ -85,7 +85,7 @@ class CommandBase(ABC):
         Validations.validate_int(delay, min_value=0)
 
         # create a CommBuffer to enqueue commands
-        comm_buffer = comm_buffer_factory(baudrate=self.baudrate, port=self.port, server=self.server)
+        comm_buffer = CommBuffer.build(baudrate=self.baudrate, port=self.port, server=self.server)
         for _ in range(repeat):
             if delay > 0 and repeat == 1:
                 time.sleep(delay)

@@ -3,7 +3,7 @@ from unittest import mock
 
 import pytest
 
-from src.comm.comm_buffer import CommBuffer, comm_buffer_factory, CommBufferSingleton
+from src.comm.comm_buffer import CommBufferSingleton, CommBuffer
 from src.protocol.command_req import CommandReq, ParameterCommandReq
 from src.protocol.constants import *
 from src.protocol.tmcc2.tmcc2_param_constants import *
@@ -16,7 +16,7 @@ from ..test_base import TestBase
 class TestCommandReq(TestBase):
     def teardown_method(self, test_method):
         super().teardown_method(test_method)
-        comm_buffer_factory().shutdown()
+        CommBuffer.build().shutdown()
 
     def test_send_command(self):
         with mock.patch.object(CommandReq, '_enqueue_command') as mk_enqueue_command:

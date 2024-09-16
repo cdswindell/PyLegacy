@@ -14,7 +14,7 @@ from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1E
 from .tmcc1.tmcc1_constants import TMCC1CommandIdentifier, TMCC1RouteCommandDef, TMCC1_TRAIN_COMMAND_PURIFIER
 from .tmcc1.tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
 from .validations import Validations
-from ..comm.comm_buffer import comm_buffer_factory, CommBuffer
+from ..comm.comm_buffer import CommBuffer
 
 
 class CommandReq:
@@ -109,7 +109,7 @@ class CommandReq:
         # vet server args
         server, port = CommBuffer.parse_server(server, port)
         # send command to comm buffer
-        buffer = comm_buffer_factory(baudrate=baudrate, port=port, server=server)
+        buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
         for _ in range(repeat):
             if delay > 0 and repeat == 1:
                 time.sleep(delay)

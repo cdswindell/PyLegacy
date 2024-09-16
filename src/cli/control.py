@@ -10,7 +10,7 @@ from src.cli.halt import HaltCli
 from src.cli.lighting import LightingCli
 from src.cli.route import RouteCli
 from src.cli.switch import SwitchCli
-from src.comm.comm_buffer import comm_buffer_factory, CommBuffer
+from src.comm.comm_buffer import CommBuffer
 from src.utils.argument_parser import ArgumentParser
 
 
@@ -18,9 +18,9 @@ class TrainControl:
     def __init__(self, args: argparse.Namespace) -> None:
         self._args = args
         self._server, self._port = CommBuffer.parse_server(self._args.server, self._args.port)
-        self._comm_buffer = comm_buffer_factory(baudrate=self._args.baudrate,
-                                                port=self._args.port,
-                                                server=self._args.server)
+        self._comm_buffer = CommBuffer.build(baudrate=self._args.baudrate,
+                                             port=self._args.port,
+                                             server=self._args.server)
         self.run()
 
     def run(self) -> None:

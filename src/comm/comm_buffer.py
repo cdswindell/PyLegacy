@@ -6,6 +6,7 @@ from abc import ABC
 from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
 from threading import Thread
+from typing import Self
 
 import serial
 from serial.serialutil import SerialException
@@ -29,6 +30,17 @@ class CommBuffer(ABC):
                 print(f"Failed to resolve {server}: {e} ({type(e)})")
                 raise e
         return server, port
+
+    @classmethod
+    def build(cls, queue_size: int = DEFAULT_QUEUE_SIZE,
+              baudrate: int = DEFAULT_BAUDRATE,
+              port: str = DEFAULT_PORT,
+              server: IPv4Address | IPv6Address = None
+              ) -> Self:
+        if server is None:
+            return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port)
+        else:
+            return CommBufferProxy(server, int(port))
 
     @abc.abstractmethod
     def enqueue_command(self, command: bytes) -> None:
@@ -158,16 +170,3 @@ class CommBufferProxy(CommBuffer):
 
     def join(self):
         pass
-
-
-
-
-def comm_buffer_factory(queue_size: int = DEFAULT_QUEUE_SIZE,
-                        baudrate: int = DEFAULT_BAUDRATE,
-                        port: str = DEFAULT_PORT,
-                        server: IPv4Address | IPv6Address = None
-                        ) -> CommBuffer:
-    if server is None:
-        return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port)
-    else:
-        return CommBufferProxy(server, int(port))
