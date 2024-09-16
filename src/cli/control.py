@@ -10,7 +10,8 @@ from src.cli.halt import HaltCli
 from src.cli.lighting import LightingCli
 from src.cli.route import RouteCli
 from src.cli.switch import SwitchCli
-from src.comm.comm_buffer import CommBuffer
+from src.comm.comm_buffer import CommBuffer, CommBufferSingleton, EnqueueReceiver
+from src.protocol.constants import DEFAULT_SERVER_PORT
 from src.utils.argument_parser import ArgumentParser
 
 
@@ -21,7 +22,13 @@ class TrainControl:
         self._comm_buffer = CommBuffer.build(baudrate=self._args.baudrate,
                                              port=self._args.port,
                                              server=self._args.server)
+        if isinstance(self.buffer, CommBufferSingleton):
+            self.receiver_thread = EnqueueReceiver(self.buffer, DEFAULT_SERVER_PORT)
         self.run()
+
+    @property
+    def buffer(self) -> CommBuffer:
+        return self._comm_buffer
 
     def run(self) -> None:
         # configure command buffer
@@ -61,10 +68,10 @@ class TrainControl:
                         raise KeyboardInterrupt()
                     ui_parser = args.command.command_parser()
                     ui_parser.remove_args(['baudrate', 'port', 'server'])
-                    cli = args.command(ui_parser, ui_parts[1:], False).command
-                    if cli is None:
+                    cmd = args.command(ui_parser, ui_parts[1:], False).command
+                    if cmd is None:
                         return
-                    cli.send()
+                    cmd.send(buffer=self.buffer)
                 except argparse.ArgumentError:
                     print(f"'{ui}' is not a valid command")
                     return
@@ -74,7 +81,7 @@ class TrainControl:
         """
             Parse the first token of the user's input
         """
-        command_parser = argparse.ArgumentParser(add_help=False, exit_on_error=False)
+        command_parser = ArgumentParser(add_help=False, exit_on_error=False)
         group = command_parser.add_mutually_exclusive_group()
         group.add_argument("-accessory",
                            action="store_const",

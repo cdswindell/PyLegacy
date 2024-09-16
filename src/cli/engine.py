@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 #
-import argparse
 from typing import List
 
 from src.cli.cli_base import CliBaseTMCC, DataAction, cli_parser, command_format_parser, train_parser
@@ -377,14 +376,14 @@ class EngineCli(CliBaseTMCC):
                                  dest='option',
                                  help="Water injector sound")
         # construct final parser with all components in order
-        return argparse.ArgumentParser("Control specified engine/train (1 - 99)",
-                                       parents=[engine_parser,
-                                                train_parser(),
-                                                command_format_parser(),
-                                                cli_parser()])
+        return ArgumentParser("Control specified engine/train (1 - 99)",
+                              parents=[engine_parser,
+                                       train_parser(),
+                                       command_format_parser(),
+                                       cli_parser()])
 
     def __init__(self,
-                 arg_parser: argparse.ArgumentParser,
+                 arg_parser: ArgumentParser,
                  cmd_line: List[str] = None,
                  do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
@@ -401,17 +400,17 @@ class EngineCli(CliBaseTMCC):
                                      TMCC2EngineCommandDef(option),
                                      option_data,
                                      scope,
-                                     baudrate=self._args.baudrate,
-                                     port=self._args.port,
-                                     server=self._args.server)
+                                     baudrate=self._baudrate,
+                                     port=self._port,
+                                     server=self._server)
             else:
                 cmd = EngineCmdTMCC1(engine,
                                      TMCC1EngineCommandDef(option),
                                      option_data,
                                      scope,
-                                     baudrate=self._args.baudrate,
-                                     port=self._args.port,
-                                     server=self._args.server)
+                                     baudrate=self._baudrate,
+                                     port=self._port,
+                                     server=self._server)
             if self.do_fire:
                 cmd.fire(repeat=self._args.repeat, delay=self._args.delay)
             self._command = cmd

@@ -30,6 +30,19 @@ class CliBase(ABC):
         self._command_format = CommandSyntax.TMCC2  # Use TMCC2-style commands by default, if supported
         self._command_line: List[str] = cmd_line
         self._do_fire = do_fire
+        # as the TrainControl cli strips out some commands, we need to restore them
+        if 'baudrate' in self._args:
+            self._baudrate = self._args.baudrate
+        else:
+            self._baudrate = DEFAULT_BAUDRATE
+        if 'baudrate' in self._args:
+            self._port = self._args.port
+        else:
+            self._port = DEFAULT_PORT
+        if 'server' in self._args:
+            self._server = self._args.server
+        else:
+            self._server = None
         # print(self._args)
 
     @property

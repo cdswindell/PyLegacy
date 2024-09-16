@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 #
-import argparse
 from typing import List
 
 from src.cli.cli_base import CliBase, cli_parser, DataAction
@@ -51,7 +50,7 @@ class AccCli(CliBase):
                                dest='command',
                                help="Set Accessory Address")
         # fire command
-        return argparse.ArgumentParser("Operate specified accessory (1 - 99)", parents=[acc_parser, cli_parser()])
+        return ArgumentParser("Operate specified accessory (1 - 99)", parents=[acc_parser, cli_parser()])
 
     """
         Issue Accessory Commands.
