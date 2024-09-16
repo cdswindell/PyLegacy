@@ -11,10 +11,11 @@ class EngineCmd(TMCC2Command):
                  data: int = 0,
                  scope: CommandScope = CommandScope.ENGINE,
                  baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
+                 port: str = DEFAULT_PORT,
+                 server: str = None) -> None:
         if scope is None or scope not in [CommandScope.ENGINE, CommandScope.TRAIN]:
             raise ValueError(f"Scope must be ENGINE or TRAIN ({scope})")
         if engine < 1 or engine > 99:
             raise ValueError(f"{scope.name.capitalize()} must be between 1 and 99")
         req = CommandReq(command, engine, data, scope)
-        super().__init__(command, req, engine, data, scope, baudrate, port)
+        super().__init__(command, req, engine, data, scope, baudrate, port, server)

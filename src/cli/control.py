@@ -10,18 +10,21 @@ from src.cli.halt import HaltCli
 from src.cli.lighting import LightingCli
 from src.cli.route import RouteCli
 from src.cli.switch import SwitchCli
-from src.comm.comm_buffer import CommBuffer, comm_buffer_factory
+from src.comm.comm_buffer import comm_buffer_factory, CommBuffer
 from src.utils.argument_parser import ArgumentParser
 
 
 class TrainControl:
     def __init__(self, args: argparse.Namespace) -> None:
         self._args = args
+        self._server, self._port = CommBuffer.parse_server(self._args.server, self._args.port)
+        self._comm_buffer = comm_buffer_factory(baudrate=self._args.baudrate,
+                                                port=self._args.port,
+                                                server=self._args.server)
         self.run()
 
     def run(self) -> None:
         # configure command buffer
-        comm_buffer_factory(baudrate=self._args.baudrate, port=self._args.port)
         # print opening line
         print(f"PyLegacy train controller, Ver 0.1")
         while True:
@@ -34,7 +37,7 @@ class TrainControl:
             except argparse.ArgumentError:
                 pass
             except KeyboardInterrupt:
-                CommBuffer().shutdown()
+                self._comm_buffer.shutdown()
                 break
 
     def _handle_command(self, ui: str) -> None:

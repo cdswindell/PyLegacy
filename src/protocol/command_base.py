@@ -1,12 +1,13 @@
 import abc
 import time
 from abc import ABC
+from ipaddress import IPv4Address, IPv6Address
 
 from .command_req import CommandReq
 from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from .command_def import CommandDef, CommandDefEnum
 from .validations import Validations
-from ..comm.comm_buffer import CommBuffer
+from ..comm.comm_buffer import comm_buffer_factory, CommBuffer
 
 
 class CommandBase(ABC):
@@ -19,7 +20,8 @@ class CommandBase(ABC):
                  data: int = 0,
                  scope: CommandScope = None,
                  baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
+                 port: str = DEFAULT_PORT,
+                 server: str = None) -> None:
         self._address = address
         self._command = None  # provided by _build_command method in subclasses
         # validate baudrate
@@ -30,6 +32,8 @@ class CommandBase(ABC):
         if port is None:
             raise ValueError("port cannot be None")
         self._port = port
+        # validate server ip address
+        self._server, self._port = CommBuffer.parse_server(server, port)
 
         # persist command information
         self._command_def_enum: CommandDefEnum = command
@@ -58,6 +62,10 @@ class CommandBase(ABC):
         return self._port
 
     @property
+    def server(self) -> IPv4Address | IPv6Address | None:
+        return self._server
+
+    @property
     def baudrate(self) -> int:
         return self._baudrate
 
@@ -77,7 +85,7 @@ class CommandBase(ABC):
         Validations.validate_int(delay, min_value=0)
 
         # create a CommBuffer to enqueue commands
-        comm_buffer = CommBuffer(baudrate=self.baudrate, port=self.port)
+        comm_buffer = comm_buffer_factory(baudrate=self.baudrate, port=self.port, server=self.server)
         for _ in range(repeat):
             if delay > 0 and repeat == 1:
                 time.sleep(delay)

@@ -10,5 +10,6 @@ class LightingCmd(TMCC2FixedParameterCommand):
                  data: int = 0,
                  scope: CommandScope = CommandScope.ENGINE,
                  baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
-        super().__init__(command, engine, data, scope, baudrate, port)
+                 port: str = DEFAULT_PORT,
+                 server: str = None) -> None:
+        super().__init__(command, engine, data, scope, baudrate, port, server)

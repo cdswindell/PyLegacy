@@ -24,9 +24,15 @@ class RouteCli(CliBaseTMCC):
         self.route = self._args.route
         try:
             if self.is_tmcc1:
-                cmd = RouteCmdTMCC1(self.route, baudrate=self._args.baudrate, port=self._args.port)
+                cmd = RouteCmdTMCC1(self.route,
+                                    baudrate=self._args.baudrate,
+                                    port=self._args.port,
+                                    server=self._args.server)
             else:
-                cmd = RouteCmdTMCC2(self.route, baudrate=self._args.baudrate, port=self._args.port)
+                cmd = RouteCmdTMCC2(self.route,
+                                    baudrate=self._args.baudrate,
+                                    port=self._args.port,
+                                    server=self._args.server)
             if self.do_fire:
                 cmd.fire()
             self._command = cmd

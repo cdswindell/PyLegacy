@@ -1,30 +1,73 @@
+import abc
+import ipaddress
+import socket
 import time
+from abc import ABC
+from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
 from threading import Thread
 
 import serial
 from serial.serialutil import SerialException
 
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY, \
+    DEFAULT_SERVER_PORT
 
 
-class CommBuffer(Thread):
+class CommBuffer(ABC):
+    __metaclass__ = abc.ABCMeta
+
+    @staticmethod
+    def parse_server(server: str, port: str) -> tuple[IPv4Address | IPv6Address | None, str]:
+        if server:
+            try:
+                server = ipaddress.ip_address(socket.gethostbyname(server))
+                if not port.isnumeric():
+                    port = str(DEFAULT_SERVER_PORT)
+                print(f"Server {server} IP: {server} Port: {port}")
+            except Exception as e:
+                print(f"Failed to resolve {server}: {e} ({type(e)})")
+                raise e
+        return server, port
+
+    @abc.abstractmethod
+    def enqueue_command(self, command: bytes) -> None:
+        """
+            Enqueue the command to send to the Lionel LCS SER2
+        """
+        pass
+
+    @abc.abstractmethod
+    def shutdown(self, immediate: bool = False) -> None:
+        pass
+
+    @abc.abstractmethod
+    def join(self):
+        pass
+
+
+class CommBufferSingleton(CommBuffer, Thread):
     _instance = None
 
     def __init__(self,
                  queue_size: int = DEFAULT_QUEUE_SIZE,
                  baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT
+                 port: str = DEFAULT_PORT,
+                 start_thread: bool = True,
                  ) -> None:
         super().__init__(daemon=False, name="PyLegacy Comm Buffer")
         self._baudrate = baudrate
         self._port = port
         self._queue_size = queue_size
-        self._queue = Queue(queue_size)
+        if queue_size:
+            self._queue = Queue(queue_size)
+        else:
+            self._queue = None
         self._shutdown_signalled = False
         self._last_output_at = 0  # used to throttle writes to LCS SER2
         # start the consumer thread
-        self.start()
+        if start_thread:
+            self.start()
 
     def __new__(cls, *args, **kwargs):
         """
@@ -32,7 +75,7 @@ class CommBuffer(Thread):
             of this class in the system
         """
         if not cls._instance:
-            cls._instance = super(CommBuffer, cls).__new__(cls)
+            cls._instance = super(CommBufferSingleton, cls).__new__(cls)
         return cls._instance
 
     @staticmethod
@@ -49,6 +92,22 @@ class CommBuffer(Thread):
     @property
     def baudrate(self) -> int:
         return self._baudrate
+
+    def enqueue_command(self, command: bytes) -> None:
+        if command:
+            print(f"Enqueue command 0x{command.hex()}")
+            self._queue.put(command)
+
+    def shutdown(self, immediate: bool = False) -> None:
+        if immediate:
+            with self._queue.mutex:
+                self._queue.queue.clear()
+                self._queue.all_tasks_done.notify_all()
+                self._queue.unfinished_tasks = 0
+        self._shutdown_signalled = True
+
+    def join(self) -> None:
+        super().join()
 
     def run(self) -> None:
         # if the queue is empty AND _shutdown_signaled is True, then continue looping
@@ -74,26 +133,41 @@ class CommBuffer(Thread):
             except Empty:
                 pass
 
+
+class CommBufferProxy(CommBuffer):
+    """
+        Allows a Raspberry Pi to "slave" to another so only one serial connection is needed
+    """
+
+    def __init__(self,
+                 server: IPv4Address | IPv6Address,
+                 port: int = DEFAULT_SERVER_PORT) -> None:
+        super().__init__()
+        self._server = server
+        self._port = port
+
     def enqueue_command(self, command: bytes) -> None:
-        if command:
-            print(f"Enqueue command 0x{command.hex()}")
-            self._queue.put(command)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((str(self._server), self._port))
+            s.sendall(command)
+            data = s.recv(1024)
+            print(f"CommBufferProxy.enqueue_command({command}) {data}")
 
     def shutdown(self, immediate: bool = False) -> None:
-        if immediate:
-            with self._queue.mutex:
-                self._queue.queue.clear()
-                self._queue.all_tasks_done.notify_all()
-                self._queue.unfinished_tasks = 0
-        self._shutdown_signalled = True
+        pass
+
+    def join(self):
+        pass
+
+
 
 
 def comm_buffer_factory(queue_size: int = DEFAULT_QUEUE_SIZE,
-                        server: str = None,
                         baudrate: int = DEFAULT_BAUDRATE,
-                        port: str = DEFAULT_PORT
+                        port: str = DEFAULT_PORT,
+                        server: IPv4Address | IPv6Address = None
                         ) -> CommBuffer:
     if server is None:
-        return CommBuffer(queue_size=queue_size, baudrate=baudrate, port=port)
+        return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port)
     else:
-        return CommBuffer()
+        return CommBufferProxy(server, int(port))

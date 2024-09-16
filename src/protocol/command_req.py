@@ -14,7 +14,7 @@ from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1E
 from .tmcc1.tmcc1_constants import TMCC1CommandIdentifier, TMCC1RouteCommandDef, TMCC1_TRAIN_COMMAND_PURIFIER
 from .tmcc1.tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
 from .validations import Validations
-from ..comm.comm_buffer import CommBuffer
+from ..comm.comm_buffer import comm_buffer_factory, CommBuffer
 
 
 class CommandReq:
@@ -27,12 +27,13 @@ class CommandReq:
                      repeat: int = 1,
                      delay: int = 0,
                      baudrate: int = DEFAULT_BAUDRATE,
-                     port: str = DEFAULT_PORT
+                     port: str = DEFAULT_PORT,
+                     server: str = None
                      ) -> None:
         # build & queue
         cls._vet_request(command, address, data, scope)
         req = CommandReq(command, address=address, data=data, scope=scope)
-        cls._enqueue_command(req.as_bytes, repeat, delay, baudrate, port)
+        cls._enqueue_command(req.as_bytes, repeat, delay, baudrate, port, server)
 
     @classmethod
     def build_action(cls,
@@ -43,7 +44,8 @@ class CommandReq:
                      repeat: int = 1,
                      delay: int = 0,
                      baudrate: int = DEFAULT_BAUDRATE,
-                     port: str = DEFAULT_PORT
+                     port: str = DEFAULT_PORT,
+                     server: str = None
                      ) -> Callable:
         # build & return action function
         cls._vet_request(command, address, data, scope)
@@ -51,7 +53,7 @@ class CommandReq:
             req = ParameterCommandReq(command, address=address, data=data, scope=scope)
         else:
             req = CommandReq(command, address=address, data=data, scope=scope)
-        return req.as_action(repeat=repeat, delay=delay, baudrate=baudrate, port=port)
+        return req.as_action(repeat=repeat, delay=delay, baudrate=baudrate, port=port, server=server)
 
     @classmethod
     def _determine_first_byte(cls, command: CommandDef, scope: CommandScope) -> bytes:
@@ -95,12 +97,19 @@ class CommandReq:
             Validations.validate_int(data, label=scope.name.capitalize())
 
     @classmethod
-    def _enqueue_command(cls, cmd: bytes, repeat: int, delay: int, baudrate: int, port: str) -> None:
+    def _enqueue_command(cls,
+                         cmd: bytes,
+                         repeat: int,
+                         delay: int,
+                         baudrate: int,
+                         port: str,
+                         server: str | None) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_int(delay, min_value=0, label="delay")
-
+        # vet server args
+        server, port = CommBuffer.parse_server(server, port)
         # send command to comm buffer
-        buffer = CommBuffer(baudrate=baudrate, port=port)
+        buffer = comm_buffer_factory(baudrate=baudrate, port=port, server=server)
         for _ in range(repeat):
             if delay > 0 and repeat == 1:
                 time.sleep(delay)
@@ -186,10 +195,12 @@ class CommandReq:
                   repeat: int = 1,
                   delay: int = 0,
                   baudrate: int = DEFAULT_BAUDRATE,
-                  port: str = DEFAULT_PORT
+                  port: str = DEFAULT_PORT,
+                  server: str = None
                   ) -> Callable:
+
         def send_func() -> None:
-            self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port)
+            self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port, server)
 
         return send_func
 

@@ -10,7 +10,8 @@ class HaltCmd(TMCC2Command):
     """
     def __init__(self,
                  baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
+                 port: str = DEFAULT_PORT,
+                 server: str = None) -> None:
         req = CommandReq(TMCC2HaltCommandDef.HALT, DEFAULT_ADDRESS)
-        super().__init__(TMCC2HaltCommandDef.HALT, req, DEFAULT_ADDRESS, 0, None, baudrate, port)
+        super().__init__(TMCC2HaltCommandDef.HALT, req, DEFAULT_ADDRESS, 0, None, baudrate, port, server)
         self._command = self._build_command()

@@ -402,14 +402,16 @@ class EngineCli(CliBaseTMCC):
                                      option_data,
                                      scope,
                                      baudrate=self._args.baudrate,
-                                     port=self._args.port)
+                                     port=self._args.port,
+                                     server=self._args.server)
             else:
                 cmd = EngineCmdTMCC1(engine,
                                      TMCC1EngineCommandDef(option),
                                      option_data,
                                      scope,
                                      baudrate=self._args.baudrate,
-                                     port=self._args.port)
+                                     port=self._args.port,
+                                     server=self._args.server)
             if self.do_fire:
                 cmd.fire(repeat=self._args.repeat, delay=self._args.delay)
             self._command = cmd

@@ -5,9 +5,12 @@ from src.protocol.tmcc1.tmcc1_constants import TMCC1RouteCommandDef
 
 
 class RouteCmd(TMCC1Command):
-    def __init__(self, route: int, baudrate: int = DEFAULT_BAUDRATE, port: str = DEFAULT_PORT) -> None:
+    def __init__(self, route: int,
+                 baudrate: int = DEFAULT_BAUDRATE,
+                 port: str = DEFAULT_PORT,
+                 server: str = None) -> None:
         if route < 1 or route > 31:
             raise ValueError("TMCC1 Route must be between 1 and 31")
         req = CommandReq(TMCC1RouteCommandDef.ROUTE, route)
-        super().__init__(TMCC1RouteCommandDef.ROUTE, req, route, 0, None, baudrate, port)
+        super().__init__(TMCC1RouteCommandDef.ROUTE, req, route, 0, None, baudrate, port, server)
         self._command = self._build_command()

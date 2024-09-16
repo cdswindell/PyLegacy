@@ -46,7 +46,11 @@ class SwitchCli(CliBase):
         self._switch = self._args.switch
         self._switch_state = self._args.command
         try:
-            cmd = SwitchCmd(self._switch, self._switch_state, baudrate=self._args.baudrate, port=self._args.port)
+            cmd = SwitchCmd(self._switch,
+                            self._switch_state,
+                            baudrate=self._args.baudrate,
+                            port=self._args.port,
+                            server=self._args.server)
             if self.do_fire:
                 cmd.fire()
             self._command = cmd

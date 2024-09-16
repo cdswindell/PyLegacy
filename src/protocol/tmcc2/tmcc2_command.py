@@ -6,7 +6,7 @@ from ..command_req import CommandReq, ParameterCommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from ..command_def import CommandDefEnum
 from .tmcc2_constants import TMCC2CommandPrefix
-from .tmcc2_param_constants import TMCC2ParameterEnum, TMCC2DialogControl, TMCC2EffectsControl, TMCC2LightingControl
+from .tmcc2_param_constants import TMCC2ParameterEnum
 from ..constants import CommandScope
 
 
@@ -20,8 +20,9 @@ class TMCC2Command(CommandBase, ABC):
                  data: int = 0,
                  scope: CommandScope = None,
                  baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
-        super().__init__(command, command_req, address, data, scope, baudrate, port)
+                 port: str = DEFAULT_PORT,
+                 server: str = None) -> None:
+        super().__init__(command, command_req, address, data, scope, baudrate, port, server)
 
     def _build_command(self) -> bytes:
         return self._command_req.as_bytes
@@ -43,49 +44,14 @@ class TMCC2FixedParameterCommand(TMCC2Command, ABC):
                  data: int = 0,
                  scope: CommandScope = CommandScope.ENGINE,
                  baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
+                 port: str = DEFAULT_PORT,
+                 server: str = None) -> None:
         if scope is None or scope not in [CommandScope.ENGINE, CommandScope.TRAIN]:
             raise ValueError(f"Scope must be ENGINE or TRAIN ({scope})")
         if address < 1 or address > 99:
             raise ValueError(f"{scope.name.capitalize()} must be between 1 and 99")
         req = ParameterCommandReq(parameter_enum, address, data, scope)
-        super().__init__(parameter_enum, req, address, data, scope, baudrate, port)
+        super().__init__(parameter_enum, req, address, data, scope, baudrate, port, server)
         if self.bits < 0 or self.bits > 0xFF:
             raise ValueError('Parameter data must be between 0 and 255')
         self._command = self._build_command()
-
-
-class TMCC2DialogCommand(TMCC2FixedParameterCommand):
-    def __init__(self,
-                 parameter_enum: TMCC2DialogControl | int,
-                 address: int = DEFAULT_ADDRESS,
-                 scope: CommandScope = CommandScope.ENGINE,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
-        if type(parameter_enum) is int:
-            parameter_enum = TMCC2LightingControl.by_value(parameter_enum, True)
-        super().__init__(parameter_enum, address, 0, scope, baudrate, port)
-
-
-class TMCC2LightingCommand(TMCC2FixedParameterCommand):
-    def __init__(self,
-                 parameter_enum: TMCC2LightingControl | int,
-                 address: int = DEFAULT_ADDRESS,
-                 scope: CommandScope = CommandScope.ENGINE,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
-        if type(parameter_enum) is int:
-            parameter_enum = TMCC2LightingControl.by_value(parameter_enum, True)
-        super().__init__(parameter_enum, address, 0, scope, baudrate, port)
-
-
-class TMCC2EffectsCommand(TMCC2FixedParameterCommand):
-    def __init__(self,
-                 parameter_enum: TMCC2EffectsControl | int,
-                 address: int = DEFAULT_ADDRESS,
-                 scope: CommandScope = CommandScope.ENGINE,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
-        if type(parameter_enum) is int:
-            parameter_enum = TMCC2EffectsControl.by_value(parameter_enum, True)
-        super().__init__(parameter_enum, address, 0, scope, baudrate, port)

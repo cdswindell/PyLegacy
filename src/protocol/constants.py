@@ -8,6 +8,8 @@ DEFAULT_BAUDRATE: int = 9600
 DEFAULT_PORT: str = "/dev/ttyUSB0"
 DEFAULT_ADDRESS: int = 99
 
+DEFAULT_SERVER_PORT: int = 5110  # unassigned by IANA as of 9/16/2024
+
 DEFAULT_QUEUE_SIZE: int = 2**11  # 2,048 entries
 
 DEFAULT_THROTTLE_DELAY: int = 50  # milliseconds

@@ -214,11 +214,11 @@ class LightingCli(CliBaseTMCC):
                                   dest='option',
                                   help="Tender marker lights off")
 
-        return argparse.ArgumentParser("Lighting control",
-                                       parents=[lighting_parser,
-                                                train_parser(),
-                                                cli_parser()
-                                                ])
+        return ArgumentParser("Lighting control",
+                              parents=[lighting_parser,
+                                       train_parser(),
+                                       cli_parser()
+                                       ])
 
     def __init__(self,
                  arg_parser: ArgumentParser,
@@ -234,7 +234,8 @@ class LightingCli(CliBaseTMCC):
                               0,
                               scope,
                               baudrate=self._args.baudrate,
-                              port=self._args.port)
+                              port=self._args.port,
+                              server=self._args.server)
             if self.do_fire:
                 cmd.fire()
             self._command = cmd

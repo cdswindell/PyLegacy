@@ -76,7 +76,12 @@ class AccCli(CliBase):
         try:
             if self._command is None or not isinstance(self._command, TMCC1AuxCommandDef):
                 raise ValueError("Must specify an option, use -h for help")
-            cmd = AccCmdTMCC1(self._acc, self._command, self._data, baudrate=self._args.baudrate, port=self._args.port)
+            cmd = AccCmdTMCC1(self._acc,
+                              self._command,
+                              self._data,
+                              baudrate=self._args.baudrate,
+                              port=self._args.port,
+                              server=self._args.server)
             if self.do_fire:
                 cmd.fire()
             self._command = cmd

@@ -25,9 +25,13 @@ class HaltCli(CliBaseTMCC):
         super().__init__(arg_parser, cmd_line, do_fire)
         try:
             if self.is_train_command or self.is_tmcc2:
-                cmd = HaltCmdTMCC2(baudrate=self._args.baudrate, port=self._args.port)
+                cmd = HaltCmdTMCC2(baudrate=self._args.baudrate,
+                                   port=self._args.port,
+                                   server=self._args.server)
             else:
-                cmd = HaltCmdTMCC1(baudrate=self._args.baudrate, port=self._args.port)
+                cmd = HaltCmdTMCC1(baudrate=self._args.baudrate,
+                                   port=self._args.port,
+                                   server=self._args.server)
             if self.do_fire:
                 cmd.fire()
             self._command = cmd

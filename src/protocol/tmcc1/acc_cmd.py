@@ -9,9 +9,10 @@ class AccCmd(TMCC1Command):
                  command: TMCC1AuxCommandDef,  # enum
                  data: int = None,
                  baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
+                 port: str = DEFAULT_PORT,
+                 server: str = None) -> None:
         if acc < 1 or acc > 99:
             raise ValueError("Accessory must be between 1 and 99")
         req = CommandReq(command, acc, data=data)
-        super().__init__(command, req, acc, data, None, baudrate, port)
+        super().__init__(command, req, acc, data, None, baudrate, port, server=server)
         self._command = self._build_command()

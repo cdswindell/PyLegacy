@@ -19,8 +19,9 @@ class TMCC1Command(CommandBase, ABC):
                  data: int = 0,
                  scope: CommandScope = None,
                  baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
-        super().__init__(command, command_req, address, data, scope, baudrate, port)
+                 port: str = DEFAULT_PORT,
+                 server: str = None) -> None:
+        super().__init__(command, command_req, address, data, scope, baudrate, port, server)
 
     def __repr__(self):
         name = self._command_def_enum.name
