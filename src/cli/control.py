@@ -10,7 +10,8 @@ from src.cli.halt import HaltCli
 from src.cli.lighting import LightingCli
 from src.cli.route import RouteCli
 from src.cli.switch import SwitchCli
-from src.comm.comm_buffer import CommBuffer, CommBufferSingleton, EnqueueReceiver
+from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
+from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
 from src.protocol.constants import DEFAULT_SERVER_PORT
 from src.utils.argument_parser import ArgumentParser
 
@@ -23,7 +24,8 @@ class TrainControl:
                                              port=self._args.port,
                                              server=self._args.server)
         if isinstance(self.buffer, CommBufferSingleton):
-            self.receiver_thread = EnqueueReceiver(self.buffer, DEFAULT_SERVER_PORT)
+            print(f"Listening for client connections on port {self._args.server_port}...")
+            self.receiver_thread = EnqueueProxyRequests(self.buffer, DEFAULT_SERVER_PORT)
         self.run()
 
     @property
@@ -117,4 +119,8 @@ class TrainControl:
 if __name__ == '__main__':
     parser = ArgumentParser("Send TMCC and Legacy-formatted commands to a LCS SER2",
                             parents=[cli_parser()])
+    parser.add_argument("-sp", "--server_port",
+                        type=int,
+                        default=DEFAULT_SERVER_PORT,
+                        help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})")
     TrainControl(parser.parse_args())
