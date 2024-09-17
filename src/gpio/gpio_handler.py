@@ -31,7 +31,7 @@ class PotHandler(Thread):
             self._interp = self.make_interpolator(31)
         else:
             self._interp = self.make_interpolator(199)
-            self._threshold = 3
+            self._threshold = 2
         self.start()
 
     @property
