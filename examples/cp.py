@@ -14,8 +14,8 @@ GpioHandler.when_button_pressed(21, TMCC2RouteCommandDef.ROUTE, 10)
 
 off = CommandReq(TMCC1AuxCommandDef.AUX2_OPTION_ONE, 9)
 on = CommandReq(TMCC1AuxCommandDef.AUX1_OPTION_ONE, 9)
-GpioHandler.when_toggle_button_pressed(19,  on, led_pin=20)
-
+GpioHandler.when_toggle_switch(13, 19, off, on, led_pin=20)
+# GpioHandler.when_toggle_button_pressed(19,  on, led_pin=20)
 
 print("Buttons registered...")
 
