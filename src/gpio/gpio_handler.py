@@ -3,7 +3,6 @@ from typing import Tuple, Callable
 
 from gpiozero import Button, LED, MCP3008, Device
 
-from src.comm.comm_buffer import CommBuffer
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from src.protocol.command_def import CommandDefEnum
@@ -16,14 +15,15 @@ DEFAULT_VARIANCE: float = 0.001  # pot difference variance
 class PotHandler(Thread):
     def __init__(self,
                  command: CommandReq,
-                 buffer: CommBuffer,
-                 channel: int = 0) -> None:
+                 channel: int = 0,
+                 baudrate: int = DEFAULT_BAUDRATE,
+                 port: int | str = DEFAULT_PORT,
+                 server: str = None) -> None:
         super().__init__(daemon=True)
         self._pot = MCP3008(channel=channel)
         self._command = command
-        self._buffer = buffer
         self._last_value = 0.0
-        self._action = command.as_action()
+        self._action = command.as_action(baudrate=baudrate, port=port, server=server)
         if command.is_tmcc1:
             self._interp = self.make_interpolator(31)
         else:
@@ -37,8 +37,6 @@ class PotHandler(Thread):
     def run(self) -> None:
         while True:
             value = self._interp(self._pot.value)
-            # if math.fabs(self._last_value - value) < DEFAULT_VARIANCE:
-            #     continue
             if value == self._last_value:
                 continue
             self._last_value = value
@@ -192,8 +190,7 @@ class GpioHandler:
                  ) -> PotHandler:
         if isinstance(command, CommandDefEnum):
             command = CommandReq.build_request(command, address, 0, scope)
-        buffer = CommBuffer.build(baudrate, port, server)
-        knob = PotHandler(command, buffer, channel)
+        knob = PotHandler(command, channel, baudrate, port, server)
         cls._cache_device(knob.pot)
         return knob
 

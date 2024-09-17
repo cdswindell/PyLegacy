@@ -1,3 +1,4 @@
+import abc
 import ipaddress
 import socket
 import time
@@ -13,7 +14,9 @@ from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_S
     DEFAULT_SERVER_PORT
 
 
-class CommBuffer:
+class CommBuffer(abc.ABC):
+    __metaclass__ = abc.ABCMeta
+
     @staticmethod
     def parse_server(server: str, port: str, server_port: int = 0) -> tuple[IPv4Address | IPv6Address | None, str]:
         if server is not None:
@@ -38,21 +41,21 @@ class CommBuffer:
             return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port)
         else:
             return CommBufferProxy(server, int(port))
-    #
-    # @abc.abstractmethod
-    # def enqueue_command(self, command: bytes) -> None:
-    #     """
-    #         Enqueue the command to send to the Lionel LCS SER2
-    #     """
-    #     pass
-    #
-    # @abc.abstractmethod
-    # def shutdown(self, immediate: bool = False) -> None:
-    #     pass
-    #
-    # @abc.abstractmethod
-    # def join(self):
-    #     pass
+
+    @abc.abstractmethod
+    def enqueue_command(self, command: bytes) -> None:
+        """
+            Enqueue the command to send to the Lionel LCS SER2
+        """
+        pass
+
+    @abc.abstractmethod
+    def shutdown(self, immediate: bool = False) -> None:
+        pass
+
+    @abc.abstractmethod
+    def join(self):
+        pass
 
 
 class CommBufferSingleton(CommBuffer, Thread):
@@ -118,6 +121,9 @@ class CommBufferSingleton(CommBuffer, Thread):
                 self._queue.unfinished_tasks = 0
         self._shutdown_signalled = True
 
+    def join(self) -> None:
+        super().join()
+
     def run(self) -> None:
         # if the queue is empty AND _shutdown_signaled is True, then continue looping
         while not self._queue.empty() or not self._shutdown_signalled:
@@ -147,13 +153,28 @@ class CommBufferProxy(CommBuffer):
     """
         Allows a Raspberry Pi to "slave" to another so only one serial connection is needed
     """
+    _instance = None
 
     def __init__(self,
                  server: IPv4Address | IPv6Address,
                  port: int = DEFAULT_SERVER_PORT) -> None:
+        if self.__initialized:
+            return
+        else:
+            self.__initialized = True
         super().__init__()
         self._server = server
         self._port = port
+
+    def __new__(cls, *args, **kwargs):
+        """
+            Provides singleton functionality. We only want one instance
+            of this class in the system
+        """
+        if cls._instance is None:
+            cls._instance = super(CommBufferProxy, cls).__new__(cls)
+            cls._instance.__initialized = False
+        return cls._instance
 
     def enqueue_command(self, command: bytes) -> None:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -111,13 +111,15 @@ class CommandReq:
                          delay: int,
                          baudrate: int,
                          port: str,
-                         server: str | None) -> None:
+                         server: str | None,
+                         buffer: CommBuffer = None) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_int(delay, min_value=0, label="delay")
         # vet server args
         server, port = CommBuffer.parse_server(server, port)
         # send command to comm buffer
-        buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
+        if buffer is None:
+            buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
         for _ in range(repeat):
             if delay > 0 and repeat == 1:
                 time.sleep(delay)
@@ -144,6 +146,7 @@ class CommandReq:
         self._data = data
         self._native_scope = self._command_def.scope
         self._scope = self._validate_requested_scope(self._command_def, scope)
+        self._buffer: CommBuffer | None = None
 
         # save the command bits from the def, as we will be modifying them
         self._command_bits = self._command_def.bits
@@ -226,13 +229,21 @@ class CommandReq:
                   port: str = DEFAULT_PORT,
                   server: str = None
                   ) -> Callable:
+        buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
+
         def send_func(new_address: int = None, new_data: int = None) -> None:
             print(f"{self}, {new_address}, {new_data}")
             if new_address and new_address != self.address:
                 self.address = new_address
             if self.num_data_bits and new_data and new_data != self.data:
                 self.data = new_data
-            self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port, server)
+            self._enqueue_command(self.as_bytes,
+                                  repeat=repeat,
+                                  delay=delay,
+                                  baudrate=baudrate,
+                                  port=port,
+                                  server=server,
+                                  buffer=buffer)
 
         return send_func
 
