@@ -1,5 +1,5 @@
 import time
-from typing import Callable, Dict
+from typing import Callable, Dict, Self
 
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
 from .tmcc2.tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX, TMCC2Enum, TMCC2CommandPrefix
@@ -19,6 +19,19 @@ from ..comm.comm_buffer import CommBuffer
 
 class CommandReq:
     @classmethod
+    def build_request(cls,
+                      command: CommandDefEnum | None,
+                      address: int = DEFAULT_ADDRESS,
+                      data: int = 0,
+                      scope: CommandScope = None) -> Self:
+        cls._vet_request(command, address, data, scope)
+        if isinstance(command, TMCC2ParameterEnum):
+            req = ParameterCommandReq(command, address, data, scope)
+        else:
+            req = CommandReq(command, address, data, scope)
+        return req
+
+    @classmethod
     def send_command(cls,
                      command: CommandDefEnum,
                      address: int = DEFAULT_ADDRESS,
@@ -31,8 +44,7 @@ class CommandReq:
                      server: str = None
                      ) -> None:
         # build & queue
-        cls._vet_request(command, address, data, scope)
-        req = CommandReq(command, address=address, data=data, scope=scope)
+        req = cls.build_request(command, address, data, scope)
         cls._enqueue_command(req.as_bytes, repeat, delay, baudrate, port, server)
 
     @classmethod
@@ -48,11 +60,7 @@ class CommandReq:
                      server: str = None
                      ) -> Callable:
         # build & return action function
-        cls._vet_request(command, address, data, scope)
-        if isinstance(command, TMCC2ParameterEnum):
-            req = ParameterCommandReq(command, address=address, data=data, scope=scope)
-        else:
-            req = CommandReq(command, address=address, data=data, scope=scope)
+        req = cls.build_request(command, address, data, scope)
         return req.as_action(repeat=repeat, delay=delay, baudrate=baudrate, port=port, server=server)
 
     @classmethod
@@ -192,6 +200,14 @@ class CommandReq:
         return self._command_def.syntax
 
     @property
+    def is_tmcc1(self) -> bool:
+        return self._command_def.is_tmcc1
+
+    @property
+    def is_tmcc2(self) -> bool:
+        return self._command_def.is_tmcc2
+
+    @property
     def identifier(self) -> int | None:
         return self.command_def.identifier
 
@@ -210,7 +226,6 @@ class CommandReq:
                   port: str = DEFAULT_PORT,
                   server: str = None
                   ) -> Callable:
-
         def send_func(new_address: int = None, new_data: int = None) -> None:
             print(f"{self}, {new_address}, {new_data}")
             if new_address and new_address != self.address:
