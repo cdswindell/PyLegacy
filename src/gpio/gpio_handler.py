@@ -43,6 +43,7 @@ class PotHandler(Thread):
                 continue
             self._last_value = value
             print(f"New Speed: {value}")
+            self._command.data = value
             self._action(new_data=value)
 
     @staticmethod

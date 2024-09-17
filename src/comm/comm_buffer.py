@@ -78,6 +78,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._shutdown_signalled = False
         self._last_output_at = 0  # used to throttle writes to LCS SER2
         # start the consumer threads
+        print("************* NEW COMMBUFFER *******************")
         self.start()
 
     def __new__(cls, *args, **kwargs):
