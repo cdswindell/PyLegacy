@@ -5,6 +5,7 @@ import readline
 
 from src.cli.cli_base import cli_parser
 from src.cli.acc import AccCli
+from src.cli.effects import EffectsCli
 from src.cli.engine import EngineCli
 from src.cli.halt import HaltCli
 from src.cli.lighting import LightingCli
@@ -92,6 +93,10 @@ class TrainControl:
         group.add_argument("-accessory",
                            action="store_const",
                            const=AccCli,
+                           dest="command")
+        group.add_argument("-effects",
+                           action="store_const",
+                           const=EffectsCli,
                            dest="command")
         group.add_argument("-engine",
                            action="store_const",
