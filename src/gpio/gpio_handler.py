@@ -43,7 +43,7 @@ class PotHandler(Thread):
             value = self._interp(self._pot.value)
             if math.fabs(self._last_value - value) < self._threshold:
                 continue  # pots can take a bit to settle; ignore small changes
-            print(f"New Speed: {value}  ({self._last_value})")
+            print(f"New Speed: {self._last_value} -> {value}")
             self._command.data = value
             self._action(new_data=value)
 
