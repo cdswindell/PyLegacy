@@ -1,4 +1,3 @@
-import math
 from threading import Thread
 from typing import Tuple, Callable
 
@@ -37,11 +36,12 @@ class PotHandler(Thread):
 
     def run(self) -> None:
         while True:
-            value = self._pot.value
-            if math.fabs(self._last_value - value) < DEFAULT_VARIANCE:
+            value = self._interp(self._pot.value)
+            # if math.fabs(self._last_value - value) < DEFAULT_VARIANCE:
+            #     continue
+            if value == self._last_value:
                 continue
             self._last_value = value
-            value = self._interp(value)
             print(f"New Speed: {value}")
             self._action(new_data=value)
 
