@@ -115,7 +115,7 @@ class GpioHandler:
         action = command.as_action(baudrate=baudrate, port=port, server=server)
         if led_pin is not None and led_pin != 0:
             button.when_pressed = cls._with_toggle_action(action, led)
-            led.source = None  # we want led to stay lit when button pressed
+            led.source = None  # want led to stay lit when button pressed
             if initial_state:
                 led.on()
             else:
