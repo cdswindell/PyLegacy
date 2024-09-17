@@ -43,7 +43,7 @@ class PotHandler(Thread):
             self._last_value = value
             value = self._interp(value)
             print(f"New Speed: {value}")
-            self._action(data=value)
+            self._action(new_data=value)
 
     @staticmethod
     def make_interpolator(to_max: int,
