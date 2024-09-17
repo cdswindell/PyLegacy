@@ -69,6 +69,18 @@ class CommandDef(ABC):
         raise TypeError(f"Invalid command syntax: {self}")
 
     @property
+    def is_tmcc1(self) -> bool:
+        return self.syntax == CommandSyntax.TMCC1
+
+    @property
+    def is_tmcc2(self) -> bool:
+        return self.syntax == CommandSyntax.TMCC2
+
+    @property
+    def is_legacy(self) -> bool:
+        return self.is_tmcc2
+
+    @property
     def identifier(self) -> int | None:
         """
             Only relevant for TMCC1-style commands
