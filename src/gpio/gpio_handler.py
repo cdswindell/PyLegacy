@@ -1,3 +1,4 @@
+import math
 from threading import Thread
 from typing import Tuple, Callable
 
@@ -23,11 +24,14 @@ class PotHandler(Thread):
         self._pot = MCP3008(channel=channel)
         self._command = command
         self._last_value = 0.0
+
         self._action = command.as_action(baudrate=baudrate, port=port, server=server)
         if command.is_tmcc1:
+            self._threshold = 1
             self._interp = self.make_interpolator(31)
         else:
             self._interp = self.make_interpolator(199)
+            self._threshold = 3
         self.start()
 
     @property
@@ -39,7 +43,8 @@ class PotHandler(Thread):
             value = self._interp(self._pot.value)
             if value == self._last_value:
                 continue
-            self._last_value = value
+            if math.fabs(self._last_value - value) < self._threshold:
+                continue  # pots can take a bit to settle; ignore small changes
             print(f"New Speed: {value}")
             self._command.data = value
             self._action(new_data=value)
