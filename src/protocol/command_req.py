@@ -110,15 +110,15 @@ class CommandReq:
                          repeat: int,
                          delay: int,
                          baudrate: int,
-                         port: str,
+                         port: str | int,
                          server: str | None,
                          buffer: CommBuffer = None) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_int(delay, min_value=0, label="delay")
-        # vet server args
-        server, port = CommBuffer.parse_server(server, port)
         # send command to comm buffer
         if buffer is None:
+            # vet server args
+            server, port = CommBuffer.parse_server(server, port)
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
         for _ in range(repeat):
             if delay > 0 and repeat == 1:
@@ -232,7 +232,6 @@ class CommandReq:
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
 
         def send_func(new_address: int = None, new_data: int = None) -> None:
-            print(f"{self}, {new_address}, {new_data}")
             if new_address and new_address != self.address:
                 self.address = new_address
             if self.num_data_bits and new_data and new_data != self.data:

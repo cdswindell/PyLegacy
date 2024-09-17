@@ -35,8 +35,9 @@ class CommBuffer(abc.ABC):
     def build(cls, queue_size: int = DEFAULT_QUEUE_SIZE,
               baudrate: int = DEFAULT_BAUDRATE,
               port: str = DEFAULT_PORT,
-              server: IPv4Address | IPv6Address = None
+              server: str = None
               ) -> Self:
+        server, port = cls.parse_server(server, port)
         if server is None:
             return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port)
         else:
