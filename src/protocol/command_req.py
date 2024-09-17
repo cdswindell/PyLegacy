@@ -201,6 +201,12 @@ class CommandReq:
 
         def send_func(new_address: int = None, new_data: int = None) -> None:
             print(f"{self}, {new_address}, {new_data}")
+            if new_address and new_address != self.address:
+                self._address = new_address
+                self._apply_address()
+            if self.num_data_bits and new_data and new_data != self.data:
+                self._data = new_data
+                self._apply_data()
             self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port, server)
 
         return send_func
