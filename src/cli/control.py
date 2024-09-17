@@ -19,13 +19,17 @@ from src.utils.argument_parser import ArgumentParser
 class TrainControl:
     def __init__(self, args: argparse.Namespace) -> None:
         self._args = args
-        self._server, self._port = CommBuffer.parse_server(self._args.server, self._args.port)
-        self._comm_buffer = CommBuffer.build(baudrate=self._args.baudrate,
-                                             port=self._args.port,
-                                             server=self._args.server)
+        self._baudrate = args.baudrate
+        self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
+        self._comm_buffer = CommBuffer.build(baudrate=self._baudrate,
+                                             port=self._port,
+                                             server=self._server)
         if isinstance(self.buffer, CommBufferSingleton):
+            print("Sending commands directly to LCS Ser2...")
             print(f"Listening for client connections on port {self._args.server_port}...")
-            self.receiver_thread = EnqueueProxyRequests(self.buffer, DEFAULT_SERVER_PORT)
+            self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
+        else:
+            print(f"Sending commands to Proxy at {self._server}:{self._port}...")
         self.run()
 
     @property

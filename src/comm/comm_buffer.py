@@ -19,13 +19,14 @@ class CommBuffer(ABC):
     __metaclass__ = abc.ABCMeta
 
     @staticmethod
-    def parse_server(server: str, port: str) -> tuple[IPv4Address | IPv6Address | None, str]:
+    def parse_server(server: str, port: str, server_port: int = 0) -> tuple[IPv4Address | IPv6Address | None, str]:
         if server is not None:
             try:
                 server = ipaddress.ip_address(socket.gethostbyname(server))
-                if not port.isnumeric():
+                if server_port > 0:
+                    port = server_port
+                elif not port.isnumeric():
                     port = str(DEFAULT_SERVER_PORT)
-                print(f"Server {server} IP: {server} Port: {port}")
             except Exception as e:
                 print(f"Failed to resolve {server}: {e} ({type(e)})")
                 raise e
@@ -38,10 +39,8 @@ class CommBuffer(ABC):
               server: IPv4Address | IPv6Address = None
               ) -> Self:
         if server is None:
-            print("Sending commands directly to LCS Ser2...")
             return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port)
         else:
-            print(f"Sending commands to Proxy at {server}:{port}...")
             return CommBufferProxy(server, int(port))
 
     @abc.abstractmethod
@@ -162,11 +161,11 @@ class CommBufferProxy(CommBuffer):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((str(self._server), self._port))
         try:
-            print(f"sending command 0x{command.hex()}")
+            # print(f"sending command 0x{command.hex()}")
             s.sendall(command)
-            print("Waiting for ACK...")
-            data = s.recv(1024)
-            print(f"CommBufferProxy.enqueue_command({command}) {data}")
+            # print("Waiting for ACK...")
+            _ = s.recv(16)
+            # print(f"CommBufferProxy.enqueue_command({command}) {_}")
         finally:
             s.close()
 

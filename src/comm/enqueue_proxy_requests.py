@@ -33,18 +33,18 @@ class EnqueueProxyRequests(Thread):
             while True:
                 conn, addr = s.accept()
                 try:
-                    print(f"Connected {conn} {addr}")
+                    # print(f"Connected {conn} {addr}")
                     byte_stream = bytes()
                     while True:
                         data = conn.recv(128)
                         if data:
-                            print(f"Received data: {data.hex()}, sending ack")
+                            # print(f"Received data: {data.hex()}, sending ack")
                             byte_stream += data
                             conn.sendall(str.encode("ack"))
                         else:
-                            print("no more data from client")
+                            # print("no more data from client")
                             break
-                    print(f"Received {byte_stream.hex()}")
+                    # print(f"Received {byte_stream.hex()}")
                     self._buffer.enqueue_command(byte_stream)
                 finally:
                     conn.close()
