@@ -1,8 +1,6 @@
-import abc
 import ipaddress
 import socket
 import time
-from abc import ABC
 from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
 from threading import Thread
@@ -15,9 +13,7 @@ from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_S
     DEFAULT_SERVER_PORT
 
 
-class CommBuffer(ABC):
-    __metaclass__ = abc.ABCMeta
-
+class CommBuffer:
     @staticmethod
     def parse_server(server: str, port: str, server_port: int = 0) -> tuple[IPv4Address | IPv6Address | None, str]:
         if server is not None:
@@ -42,21 +38,21 @@ class CommBuffer(ABC):
             return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port)
         else:
             return CommBufferProxy(server, int(port))
-
-    @abc.abstractmethod
-    def enqueue_command(self, command: bytes) -> None:
-        """
-            Enqueue the command to send to the Lionel LCS SER2
-        """
-        pass
-
-    @abc.abstractmethod
-    def shutdown(self, immediate: bool = False) -> None:
-        pass
-
-    @abc.abstractmethod
-    def join(self):
-        pass
+    #
+    # @abc.abstractmethod
+    # def enqueue_command(self, command: bytes) -> None:
+    #     """
+    #         Enqueue the command to send to the Lionel LCS SER2
+    #     """
+    #     pass
+    #
+    # @abc.abstractmethod
+    # def shutdown(self, immediate: bool = False) -> None:
+    #     pass
+    #
+    # @abc.abstractmethod
+    # def join(self):
+    #     pass
 
 
 class CommBufferSingleton(CommBuffer, Thread):
@@ -67,6 +63,10 @@ class CommBufferSingleton(CommBuffer, Thread):
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT,
                  ) -> None:
+        if self.__initialized:
+            return
+        else:
+            self.__initialized = True
         super().__init__(daemon=False, name="PyLegacy Comm Buffer")
         self._baudrate = baudrate
         self._port = port
@@ -78,7 +78,6 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._shutdown_signalled = False
         self._last_output_at = 0  # used to throttle writes to LCS SER2
         # start the consumer threads
-        print("************* NEW COMMBUFFER *******************")
         self.start()
 
     def __new__(cls, *args, **kwargs):
@@ -86,8 +85,10 @@ class CommBufferSingleton(CommBuffer, Thread):
             Provides singleton functionality. We only want one instance
             of this class in the system
         """
-        if not cls._instance:
+        print(f"CommBufferSingleton New {cls} {cls._instance}")
+        if cls._instance is None:
             cls._instance = super(CommBufferSingleton, cls).__new__(cls)
+            cls._instance.__initialized = False
         return cls._instance
 
     @staticmethod
@@ -117,9 +118,6 @@ class CommBufferSingleton(CommBuffer, Thread):
                 self._queue.all_tasks_done.notify_all()
                 self._queue.unfinished_tasks = 0
         self._shutdown_signalled = True
-
-    def join(self) -> None:
-        super().join()
 
     def run(self) -> None:
         # if the queue is empty AND _shutdown_signaled is True, then continue looping
