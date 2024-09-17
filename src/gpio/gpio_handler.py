@@ -95,6 +95,36 @@ class GpioHandler:
         return off_button, on_button, led
 
     @classmethod
+    def when_toggle_button_pressed(cls,
+                                   pin: int | str,
+                                   command: CommandReq | CommandDefEnum,
+                                   address: int = DEFAULT_ADDRESS,
+                                   data: int = 0,
+                                   scope: CommandScope = None,
+                                   led_pin: int | str = None,
+                                   initial_state: bool = False,  # off
+                                   baudrate: int = DEFAULT_BAUDRATE,
+                                   port: str = DEFAULT_PORT | int,
+                                   server: str = None
+                                   ) -> Button | tuple[Button, LED]:
+
+        # Use helper method to construct objects
+        command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
+
+        # create a command function to fire when button pressed
+        action = command.as_action(baudrate=baudrate, port=port, server=server)
+        if led_pin is not None and led_pin != 0:
+            button.when_pressed = cls._with_toggle_action(action, led)
+            if initial_state:
+                led.on()
+            else:
+                led.off()
+            return button, led
+        else:
+            button.when_pressed = action
+            return button
+
+    @classmethod
     def reset_all(cls) -> None:
         for device in cls.GPIO_DEVICE_CACHE:
             device.close()
@@ -142,11 +172,20 @@ class GpioHandler:
         return command, button, led
 
     @classmethod
+    def _with_toggle_action(cls, action: Callable, led: LED) -> Callable:
+        def toggle_action() -> None:
+            action()
+            if led.value:
+                led.off()
+            else:
+                led.on()
+        return toggle_action
+
+    @classmethod
     def _with_off_action(cls, action: Callable, led: LED) -> Callable:
         def off_action() -> None:
             action()
             led.off()
-
         return off_action
 
     @classmethod
@@ -154,5 +193,4 @@ class GpioHandler:
         def on_action() -> None:
             action()
             led.on()
-
         return on_action
