@@ -73,6 +73,10 @@ class TMCC2CommandDef(CommandDef):
     def syntax(self) -> CommandSyntax:
         return CommandSyntax.TMCC2
 
+    @property
+    def address_mask(self) -> int:
+        return 0xFFFF & ~((2 ** self.num_address_bits - 1) << 9)
+
 
 TMCC2_HALT_COMMAND: int = 0x01AB
 

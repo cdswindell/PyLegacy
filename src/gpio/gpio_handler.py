@@ -22,14 +22,15 @@ class GpioHandler:
                             scope: CommandScope = None,
                             led_pin: int | str = None,
                             baudrate: int = DEFAULT_BAUDRATE,
-                            port: str = DEFAULT_PORT
+                            port: str = DEFAULT_PORT | int,
+                            server: str = None
                             ) -> Button:
 
         # Use helper method to construct objects
         command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
 
         # create a command function to fire when button pressed
-        button.when_pressed = command.as_action(baudrate=baudrate, port=port)
+        button.when_pressed = command.as_action(baudrate=baudrate, port=port, server=server)
         return button
 
     @classmethod
@@ -42,14 +43,15 @@ class GpioHandler:
                          frequency: float = 1,
                          led_pin: int | str = None,
                          baudrate: int = DEFAULT_BAUDRATE,
-                         port: str = DEFAULT_PORT
+                         port: str = DEFAULT_PORT,
+                         server: str = None
                          ) -> Button:
 
         # Use helper method to construct objects
         command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
 
         # create a command function to fire when button held
-        button.when_held = command.as_action(baudrate=baudrate, port=port)
+        button.when_held = command.as_action(baudrate=baudrate, port=port, server=server)
         button.hold_repeat = True
         button.hold_time = frequency
         return button
@@ -62,7 +64,8 @@ class GpioHandler:
                            on_command: CommandReq,
                            led_pin: int | str = None,
                            baudrate: int = DEFAULT_BAUDRATE,
-                           port: str = DEFAULT_PORT
+                           port: str = DEFAULT_PORT,
+                           server: str = None
                            ) -> Tuple[Button, Button, LED]:
         # create a LED, if requested. It is turned on by pressing the
         # ON button, and turned off by pressing the OFF button
@@ -76,8 +79,8 @@ class GpioHandler:
         on_button = Button(on_pin, bounce_time=DEFAULT_BOUNCE_TIME)
 
         # bind them to functions; we need to wrap the functions if we're using a LED
-        off_action = off_command.as_action(baudrate=baudrate, port=port)
-        on_action = on_command.as_action(baudrate=baudrate, port=port)
+        off_action = off_command.as_action(baudrate=baudrate, port=port, server=server)
+        on_action = on_command.as_action(baudrate=baudrate, port=port, server=server)
         if led is not None:
             off_button.when_pressed = cls._with_off_action(off_action, led)
             on_button.when_pressed = cls._with_on_action(on_action, led)

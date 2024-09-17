@@ -17,11 +17,13 @@ class CommandDef(ABC):
     def __init__(self,
                  command_bits: int,
                  is_addressable: bool = True,
+                 num_address_bits: int = 7,
                  d_min: int = 0,
                  d_max: int = 0,
                  d_map: Dict[int, int] = None) -> None:
         self._command_bits = command_bits
         self._is_addressable = is_addressable
+        self._num_address_bits = num_address_bits
         self._d_min = d_min
         self._d_max = d_max
         self._d_map = d_map
@@ -47,6 +49,10 @@ class CommandDef(ABC):
         return self._d_bits
 
     @property
+    def num_address_bits(self) -> int:
+        return self._num_address_bits
+
+    @property
     def data_min(self) -> int:
         return self._d_min
 
@@ -67,6 +73,11 @@ class CommandDef(ABC):
         """
             Only relevant for TMCC1-style commands
         """
+        return None
+
+    @property
+    @abc.abstractmethod
+    def address_mask(self) -> bytes | None:
         return None
 
     @property

@@ -49,10 +49,16 @@ class TMCC1CommandDef(CommandDef):
                  command_bits: int,
                  command_ident: TMCC1CommandIdentifier = TMCC1CommandIdentifier.ENGINE,
                  is_addressable: bool = True,
+                 num_address_bits: int = 7,
                  d_min: int = 0,
                  d_max: int = 0,
                  d_map: Dict[int, int] = None) -> None:
-        super().__init__(command_bits, is_addressable, d_min=d_min, d_max=d_max, d_map=d_map)
+        super().__init__(command_bits,
+                         is_addressable=is_addressable,
+                         num_address_bits=num_address_bits,
+                         d_min=d_min,
+                         d_max=d_max,
+                         d_map=d_map)
         self._command_ident = command_ident
 
     @property
@@ -71,6 +77,10 @@ class TMCC1CommandDef(CommandDef):
     def scope(self) -> CommandScope:
         return TMCC1_IDENT_TO_SCOPE_MAP[self.identifier]
 
+    @property
+    def address_mask(self) -> int:
+        return 0xFFFF & ~((2 ** self.num_address_bits - 1) << 7)
+
 
 TMCC1_HALT_COMMAND: int = 0xFFFF
 
@@ -85,7 +95,7 @@ TMCC1_ROUTE_COMMAND: int = 0xD01F
 
 @verify(UNIQUE)
 class TMCC1RouteCommandDef(TMCC1Enum):
-    ROUTE = TMCC1CommandDef(TMCC1_ROUTE_COMMAND, TMCC1CommandIdentifier.ROUTE)
+    ROUTE = TMCC1CommandDef(TMCC1_ROUTE_COMMAND, TMCC1CommandIdentifier.ROUTE, num_address_bits=5)
 
 
 TMCC1_SWITCH_THROUGH_COMMAND: int = 0x4000

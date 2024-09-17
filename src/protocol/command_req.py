@@ -199,32 +199,37 @@ class CommandReq:
                   server: str = None
                   ) -> Callable:
 
-        def send_func() -> None:
+        def send_func(new_address: int = None, new_data: int = None) -> None:
+            print(f"{self}, {new_address}, {new_data}")
             self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port, server)
 
         return send_func
 
-    def _apply_address(self) -> int:
+    def _apply_address(self, new_address: int = None) -> int:
         if not self.command_def.is_addressable:  # HALT command
             return self._command_bits
+        # reset existing address bits, if any
+        self._command_bits &= self._command_def.address_mask
+        # figure out which address we're using
+        the_address = new_address if new_address and new_address > 0 else self._address
         if self.syntax == CommandSyntax.TMCC1:
-            self._command_bits |= self.address << 7
+            self._command_bits |= the_address << 7
             if self.scope == CommandScope.TRAIN and self.identifier == TMCC1CommandIdentifier.ENGINE:
                 self._command_bits &= TMCC1_TRAIN_COMMAND_PURIFIER
                 self._command_bits |= TMCC1_TRAIN_COMMAND_MODIFIER
         elif self.syntax == CommandSyntax.TMCC2:
-            self._command_bits |= self.address << 9
+            self._command_bits |= the_address << 9
         else:
             raise ValueError(f"Command syntax not recognized {self.syntax}")
         return self._command_bits
 
-    def _apply_data(self) -> int:
+    def _apply_data(self, new_data: int = None) -> int:
         """
             For commands that take parameters, such as engine speed and brake level,
             apply the data bits to the command op bytes to form the complete byte
             set to send to the Lionel LCS SER2.
         """
-        data = self.data
+        data = new_data if new_data is not None else self.data
         if self.num_data_bits and data is None:
             raise ValueError("Data is required")
         if self.num_data_bits == 0:
@@ -238,9 +243,13 @@ class CommandReq:
         elif data < self.command_def.data_min or data > self.command_def.data_max:
             raise ValueError(f"Invalid data value: {data} (not in range)")
         # sanitize data so we don't set bits we shouldn't
-        filtered_data = data & (2 ** self.num_data_bits - 1)
+        data_bits = (2 ** self.num_data_bits - 1)
+        filtered_data = data & data_bits
         if data != filtered_data:
             raise ValueError(f"Invalid data value: {data} (not in range)")
+        # clear out old data
+        self._command_bits &= 0xFFFF & ~data_bits
+        # set new data
         self._command_bits |= data
         return self._command_bits
 
@@ -320,8 +329,8 @@ class ParameterCommandReq(CommandReq):
             byte_sum += int(b)
         return (~(byte_sum % 256) & 0xFF).to_bytes(1, byteorder='big')  # return 1's complement of sum mod 256
 
-    def _apply_address(self) -> int:
+    def _apply_address(self, **kwargs) -> int:
         return self.command_def.bits
 
-    def _apply_data(self) -> int:
+    def _apply_data(self, **kwargs) -> int:
         return self.command_def.bits
