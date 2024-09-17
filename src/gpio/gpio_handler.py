@@ -22,7 +22,7 @@ class GpioHandler:
                             scope: CommandScope = None,
                             led_pin: int | str = None,
                             baudrate: int = DEFAULT_BAUDRATE,
-                            port: str = DEFAULT_PORT | int,
+                            port: str | int = DEFAULT_PORT,
                             server: str = None
                             ) -> Button:
 
@@ -43,7 +43,7 @@ class GpioHandler:
                          frequency: float = 1,
                          led_pin: int | str = None,
                          baudrate: int = DEFAULT_BAUDRATE,
-                         port: str = DEFAULT_PORT,
+                         port: str | int = DEFAULT_PORT,
                          server: str = None
                          ) -> Button:
 
@@ -64,7 +64,7 @@ class GpioHandler:
                            on_command: CommandReq,
                            led_pin: int | str = None,
                            baudrate: int = DEFAULT_BAUDRATE,
-                           port: str = DEFAULT_PORT,
+                           port: str | int = DEFAULT_PORT,
                            server: str = None
                            ) -> Tuple[Button, Button, LED]:
         # create a LED, if requested. It is turned on by pressing the
@@ -104,7 +104,7 @@ class GpioHandler:
                                    led_pin: int | str = None,
                                    initial_state: bool = False,  # off
                                    baudrate: int = DEFAULT_BAUDRATE,
-                                   port: str = DEFAULT_PORT | int,
+                                   port: str | int = DEFAULT_PORT,
                                    server: str = None
                                    ) -> Button | tuple[Button, LED]:
 
