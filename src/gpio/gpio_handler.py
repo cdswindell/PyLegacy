@@ -23,7 +23,7 @@ class PotHandler(Thread):
         super().__init__(daemon=True)
         self._pot = MCP3008(channel=channel)
         self._command = command
-        self._last_value = 0.0
+        self._last_value = 1000
 
         self._action = command.as_action(baudrate=baudrate, port=port, server=server)
         if command.is_tmcc1:
@@ -41,11 +41,9 @@ class PotHandler(Thread):
     def run(self) -> None:
         while True:
             value = self._interp(self._pot.value)
-            if value == self._last_value:
-                continue
             if math.fabs(self._last_value - value) < self._threshold:
                 continue  # pots can take a bit to settle; ignore small changes
-            print(f"New Speed: {value}")
+            print(f"New Speed: {value}  ({self._last_value})")
             self._command.data = value
             self._action(new_data=value)
 
