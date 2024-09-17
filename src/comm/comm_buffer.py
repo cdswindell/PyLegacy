@@ -85,7 +85,6 @@ class CommBufferSingleton(CommBuffer, Thread):
             Provides singleton functionality. We only want one instance
             of this class in the system
         """
-        print(f"CommBufferSingleton New {cls} {cls._instance}")
         if cls._instance is None:
             cls._instance = super(CommBufferSingleton, cls).__new__(cls)
             cls._instance.__initialized = False
