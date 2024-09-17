@@ -28,7 +28,7 @@ class EnqueueProxyRequests(Thread):
 
     def run(self) -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("localhost", self._port))
+            s.bind(("0.0.0.0", self._port))
             s.listen(1)
             while True:
                 conn, addr = s.accept()
