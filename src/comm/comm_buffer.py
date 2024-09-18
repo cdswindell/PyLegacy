@@ -1,6 +1,7 @@
 import abc
 import ipaddress
 import socket
+import threading
 import time
 from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
@@ -16,6 +17,20 @@ from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_S
 
 class CommBuffer(abc.ABC):
     __metaclass__ = abc.ABCMeta
+
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls, *args, **kwargs):
+        """
+            Provides singleton functionality. We only want one instance
+            of this class in a process
+        """
+        with cls._lock:
+            if CommBuffer._instance is None:
+                CommBuffer._instance = super(CommBuffer, cls).__new__(cls)
+                CommBuffer._instance._initialized = False
+            return CommBuffer._instance
 
     @staticmethod
     def parse_server(server: str | IPv4Address | IPv6Address,
@@ -40,6 +55,9 @@ class CommBuffer(abc.ABC):
               port: str = DEFAULT_PORT,
               server: str = None
               ) -> Self:
+        """
+            We only want one or the other of these buffers per process
+        """
         server, port = cls.parse_server(server, port)
         if server is None:
             return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port)
@@ -63,17 +81,15 @@ class CommBuffer(abc.ABC):
 
 
 class CommBufferSingleton(CommBuffer, Thread):
-    _instance = None
-
     def __init__(self,
                  queue_size: int = DEFAULT_QUEUE_SIZE,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT,
                  ) -> None:
-        if self.__initialized:
+        if self._initialized:
             return
         else:
-            self.__initialized = True
+            self._initialized = True
         super().__init__(daemon=False, name="PyLegacy Comm Buffer")
         self._baudrate = baudrate
         self._port = port
@@ -86,16 +102,6 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._last_output_at = 0  # used to throttle writes to LCS SER2
         # start the consumer threads
         self.start()
-
-    def __new__(cls, *args, **kwargs):
-        """
-            Provides singleton functionality. We only want one instance
-            of this class in the system
-        """
-        if cls._instance is None:
-            cls._instance = super(CommBufferSingleton, cls).__new__(cls)
-            cls._instance.__initialized = False
-        return cls._instance
 
     @staticmethod
     def _current_milli_time() -> int:
@@ -157,28 +163,16 @@ class CommBufferProxy(CommBuffer):
     """
         Allows a Raspberry Pi to "slave" to another so only one serial connection is needed
     """
-    _instance = None
-
     def __init__(self,
                  server: IPv4Address | IPv6Address,
                  port: int = DEFAULT_SERVER_PORT) -> None:
-        if self.__initialized:
+        if self._initialized:
             return
         else:
-            self.__initialized = True
+            self._initialized = True
         super().__init__()
         self._server = server
         self._port = port
-
-    def __new__(cls, *args, **kwargs):
-        """
-            Provides singleton functionality. We only want one instance
-            of this class in the system
-        """
-        if cls._instance is None:
-            cls._instance = super(CommBufferProxy, cls).__new__(cls)
-            cls._instance.__initialized = False
-        return cls._instance
 
     def enqueue_command(self, command: bytes) -> None:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -24,14 +24,9 @@ class PotHandler(Thread):
         self._pot = MCP3008(channel=channel)
         self._command = command
         self._last_value = 1000
-
         self._action = command.as_action(baudrate=baudrate, port=port, server=server)
-        if command.is_tmcc1:
-            self._threshold = 1
-            self._interp = self.make_interpolator(31)
-        else:
-            self._interp = self.make_interpolator(199)
-            self._threshold = 2
+        self._interp = self.make_interpolator(command.data_max, command.data_min)
+        self._threshold = 1 if command.num_data_bits < 6 else 2
         self._running = True
         self.start()
 
@@ -44,7 +39,7 @@ class PotHandler(Thread):
             value = self._interp(self._pot.value)
             if math.fabs(self._last_value - value) < self._threshold:
                 continue  # pots can take a bit to settle; ignore small changes
-            print(f"New Speed: {self._last_value} -> {value}")
+            # print(f"New Speed: {self._last_value} -> {value}")
             self._last_value = value
             self._command.data = value
             self._action(new_data=value)
@@ -199,6 +194,8 @@ class GpioHandler:
                  ) -> PotHandler:
         if isinstance(command, CommandDefEnum):
             command = CommandReq.build_request(command, address, 0, scope)
+        if command.num_data_bits == 0:
+            raise ValueError("Command does not support variable data")
         knob = PotHandler(command, channel, baudrate, port, server)
         cls._cache_handler(knob)
         return knob

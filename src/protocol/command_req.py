@@ -195,8 +195,20 @@ class CommandReq:
         return self._command_bits
 
     @property
+    def is_data(self) -> bool:
+        return self.command_def.num_data_bits != 0
+
+    @property
     def num_data_bits(self) -> int:
         return self.command_def.num_data_bits
+
+    @property
+    def data_max(self) -> int:
+        return self.command_def.data_max
+
+    @property
+    def data_min(self) -> int:
+        return self.command_def.data_min
 
     @property
     def syntax(self) -> CommandSyntax:

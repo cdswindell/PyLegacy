@@ -95,6 +95,10 @@ class MockCommBuffer:
     _instance = None
 
     def __init__(self, baudrate: int, port: str):
+        if MockCommBuffer._instance.__initialized:
+            return
+        else:
+            MockCommBuffer._instance.__initialized = True
         self.baudrate = baudrate
         self.port = port
 
@@ -105,6 +109,7 @@ class MockCommBuffer:
         """
         if not cls._instance:
             cls._instance = super(MockCommBuffer, cls).__new__(cls)
+            cls._instance.__initialized = False
         return cls._instance
 
     def enqueue_command(self, command: bytes) -> bytes:

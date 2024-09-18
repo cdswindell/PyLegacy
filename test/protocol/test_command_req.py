@@ -117,7 +117,12 @@ class TestCommandReq(TestBase):
                     assert action is not None
                     action()
                     mk_enqueue_command.assert_called_once_with(req.as_bytes,
-                                                               1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
+                                                               repeat=1,
+                                                               delay=0,
+                                                               baudrate=DEFAULT_BAUDRATE,
+                                                               port=DEFAULT_PORT,
+                                                               server=None,
+                                                               buffer=CommBuffer.build())
                     mk_enqueue_command.reset_mock()
 
             # repeat for some train commands
@@ -139,7 +144,12 @@ class TestCommandReq(TestBase):
                     assert action is not None
                     action()
                     mk_enqueue_command.assert_called_once_with(req.as_bytes,
-                                                               1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
+                                                               repeat=1,
+                                                               delay=0,
+                                                               baudrate=DEFAULT_BAUDRATE,
+                                                               port=DEFAULT_PORT,
+                                                               server=None,
+                                                               buffer=CommBuffer.build())
                     mk_enqueue_command.reset_mock()
 
         # test build_request with repeat set
