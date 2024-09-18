@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #
 import argparse
+import os
 import readline
 
 from src.cli.cli_base import cli_parser
@@ -20,6 +21,7 @@ from src.utils.argument_parser import ArgumentParser
 class TrainControl:
     def __init__(self, args: argparse.Namespace) -> None:
         self._args = args
+        self._startup_script = args.startup_script
         self._baudrate = args.baudrate
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._comm_buffer = CommBuffer.build(baudrate=self._baudrate,
@@ -30,7 +32,7 @@ class TrainControl:
             print(f"Listening for client connections on port {self._args.server_port}...")
             self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
         else:
-            print(f"Sending commands to Proxy at {self._server}:{self._port}...")
+            print(f"Sending commands to Train Control Proxy at {self._server}:{self._port}...")
         self.run()
 
     @property
@@ -38,13 +40,14 @@ class TrainControl:
         return self._comm_buffer
 
     def run(self) -> None:
-        # configure command buffer
+        # process startup script
+        self._process_startup_scripts()
         # print opening line
         print(f"PyLegacy train controller, Ver 0.1")
         while True:
             try:
                 ui: str = input(">> ")
-                readline.add_history(ui)
+                readline.add_history(ui)  # provides limited command line recall and editing
                 self._handle_command(ui)
             except SystemExit:
                 pass
@@ -82,6 +85,16 @@ class TrainControl:
                 except argparse.ArgumentError:
                     print(f"'{ui}' is not a valid command")
                     return
+
+    def _process_startup_scripts(self) -> None:
+        if self._startup_script is not None and os.path.isfile(self._startup_script):
+            print(f"Loading startup script: {self._startup_script}...")
+            with open(self._startup_script, mode="r", encoding="utf-8") as script:
+                code = script.read()
+                try:
+                    exec(code)
+                except Exception as e:
+                    print(f"Error while loading startup script: {e}")
 
     @staticmethod
     def _command_parser() -> ArgumentParser:
@@ -132,4 +145,8 @@ if __name__ == '__main__':
                         type=int,
                         default=DEFAULT_SERVER_PORT,
                         help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})")
+    parser.add_argument("-ss", "--startup_script",
+                        type=str,
+                        default='buttons.py',
+                        help="Run the commands in the specified file at start up (default: buttons.py)")
     TrainControl(parser.parse_args())
