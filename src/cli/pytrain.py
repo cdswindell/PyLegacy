@@ -16,7 +16,7 @@ from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
 from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
 from src.gpio.gpio_handler import GpioHandler
 from src.protocol.constants import DEFAULT_SERVER_PORT
-from src.utils.argument_parser import ArgumentParser
+from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 PROGRAM_NAME: str = "PyTrain"
@@ -122,7 +122,11 @@ class PyTrain:
         """
             Parse the first token of the user's input
         """
-        command_parser = ArgumentParser(f"{PROGRAM_NAME}: Valid commands include:",
+        command_parser = ArgumentParser(prog="",
+                                        description="Valid commands:",
+                                        epilog="Commands can be abbreviated, so long as they are unique; e.g., 'en', "
+                                               "or 'eng' are the same as typing 'engine'.",
+                                        formatter_class=StripPrefixesHelpFormatter,
                                         exit_on_error=False)
         group = command_parser.add_mutually_exclusive_group()
         group.add_argument("-accessory",
@@ -133,7 +137,8 @@ class PyTrain:
         group.add_argument("-effects",
                            action="store_const",
                            const=EffectsCli,
-                           dest="command")
+                           dest="command",
+                           help="Issue engine or train effects commands")
         group.add_argument("-engine",
                            action="store_const",
                            const=EngineCli,
@@ -147,7 +152,8 @@ class PyTrain:
         group.add_argument("-lighting",
                            action="store_const",
                            const=LightingCli,
-                           dest="command")
+                           dest="command",
+                           help="Issue engine or train lighting effects commands")
         group.add_argument("-route",
                            action="store_const",
                            const=RouteCli,
@@ -173,7 +179,8 @@ if __name__ == '__main__':
                         default=DEFAULT_SCRIPT_FILE,
                         help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})")
 
-    parser = ArgumentParser(f"{PROGRAM_NAME}: Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
+    parser = ArgumentParser(prog="pytrain.py",
+                            description="Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
                             parents=[parser, cli_parser()])
     parser.add_argument("-no", "--no_clients",
                         action="store_true",
