@@ -80,7 +80,6 @@ class LightingCli(CliBaseTMCC):
 
         dog = sp.add_parser('doghouse', aliases=['dog'], help='Doghouse lighting options')
         dog_group = dog.add_mutually_exclusive_group()
-
         dog_group.add_argument("-on",
                                action="store_const",
                                const=TMCC2LightingControl.DOGHOUSE_ON,
@@ -93,7 +92,26 @@ class LightingCli(CliBaseTMCC):
                                dest='option',
                                help="Dog house light off")
 
-        ground = sp.add_parser('ground', aliases=['gr'], help='Ground lighting options')
+        loco = sp.add_parser('engine_marker', aliases=['em'], help='Engine marker lighting options')
+        loco_group = loco.add_mutually_exclusive_group()
+        loco_group.add_argument("-on",
+                                action="store_const",
+                                const=TMCC2LightingControl.LOCO_MARKER_ON,
+                                dest='option',
+                                default=TMCC2LightingControl.LOCO_MARKER_ON,
+                                help="Engine marker lights on")
+        loco_group.add_argument("-off",
+                                action="store_const",
+                                const=TMCC2LightingControl.LOCO_MARKER_OFF,
+                                dest='option',
+                                help="Engine marker lights off")
+        loco_group.add_argument("-a", "--auto",
+                                action="store_const",
+                                const=TMCC2LightingControl.LOCO_MARKER_AUTO,
+                                dest='option',
+                                help="Engine marker lights auto")
+
+        ground = sp.add_parser('ground', aliases=['g'], help='Ground lighting options')
         ground_group = ground.add_mutually_exclusive_group()
         ground_group.add_argument("-a", "--auto",
                                   action="store_const",
@@ -112,7 +130,7 @@ class LightingCli(CliBaseTMCC):
                                   dest='option',
                                   help="Ground lights off")
 
-        hazard = sp.add_parser('hazard', aliases=['ha'], help='Hazard lighting options')
+        hazard = sp.add_parser('hazard', aliases=['h'], help='Hazard lighting options')
         hazard_group = hazard.add_mutually_exclusive_group()
         hazard_group.add_argument("-a", "--auto",
                                   action="store_const",
@@ -131,29 +149,8 @@ class LightingCli(CliBaseTMCC):
                                   dest='option',
                                   help="Hazard lights off")
 
-        loco = sp.add_parser('engine_marker', aliases=['em'], help='Engine marker lighting options')
-        loco_group = loco.add_mutually_exclusive_group()
-
-        loco_group.add_argument("-on",
-                                action="store_const",
-                                const=TMCC2LightingControl.LOCO_MARKER_ON,
-                                dest='option',
-                                default=TMCC2LightingControl.LOCO_MARKER_ON,
-                                help="Engine marker lights on")
-        loco_group.add_argument("-off",
-                                action="store_const",
-                                const=TMCC2LightingControl.LOCO_MARKER_OFF,
-                                dest='option',
-                                help="Engine marker lights off")
-        loco_group.add_argument("-a", "--auto",
-                                action="store_const",
-                                const=TMCC2LightingControl.LOCO_MARKER_AUTO,
-                                dest='option',
-                                help="Engine marker lights auto")
-
-        mars = sp.add_parser('mars', aliases=['ma'], help='Mars lighting options')
+        mars = sp.add_parser('mars', aliases=['m'], help='Mars lighting options')
         mars_group = mars.add_mutually_exclusive_group()
-
         mars_group.add_argument("-on",
                                 action="store_const",
                                 const=TMCC2LightingControl.MARS_ON,
@@ -185,7 +182,7 @@ class LightingCli(CliBaseTMCC):
                                dest='option',
                                help="Rule 17 off")
 
-        strobe = sp.add_parser('strobe', aliases=['st'], help='Strobe lighting options')
+        strobe = sp.add_parser('strobe', aliases=['s'], help='Strobe lighting options')
         strobe_group = strobe.add_mutually_exclusive_group()
         strobe_group.add_argument("-on",
                                   action="store_const",
@@ -218,21 +215,20 @@ class LightingCli(CliBaseTMCC):
                                   dest='option',
                                   help="Tender marker lights off")
 
-        work = sp.add_parser('work_light', aliases=['wo'], help='Work lighting options')
+        work = sp.add_parser('work_light', aliases=['w'], help='Work lighting options')
         work_group = work.add_mutually_exclusive_group()
-
         work_group.add_argument("-on",
                                 action="store_const",
                                 const=TMCC2LightingControl.WORK_ON,
                                 dest='option',
                                 default=TMCC2LightingControl.WORK_ON,
                                 help="Work lights on")
-        loco_group.add_argument("-off",
+        work_group.add_argument("-off",
                                 action="store_const",
                                 const=TMCC2LightingControl.WORK_OFF,
                                 dest='option',
                                 help="Work lights off")
-        loco_group.add_argument("-a", "--auto",
+        work_group.add_argument("-a", "--auto",
                                 action="store_const",
                                 const=TMCC2LightingControl.WORK_AUTO,
                                 dest='option',
