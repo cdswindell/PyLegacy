@@ -53,6 +53,16 @@ class EffectsCli(CliBaseTMCC):
                                  const=TMCC2EffectsControl.PANTO_FRONT_DOWN,
                                  dest='option',
                                  help="Pantograph control - front down")
+        panto_group.add_argument("-bu", "--both_up",
+                                 action="store_const",
+                                 const=TMCC2EffectsControl.PANTO_BOTH_UP,
+                                 dest='option',
+                                 help="Pantograph control -both up")
+        panto_group.add_argument("-bd", "--both_down",
+                                 action="store_const",
+                                 const=TMCC2EffectsControl.PANTO_BOTH_DOWN,
+                                 dest='option',
+                                 help="Pantograph control - both down")
         panto_group.add_argument("-ru", "--rear_up",
                                  action="store_const",
                                  const=TMCC2EffectsControl.PANTO_REAR_UP,
@@ -77,6 +87,16 @@ class EffectsCli(CliBaseTMCC):
                                   const=TMCC2EffectsControl.SUBWAY_LEFT_DOOR_CLOSE,
                                   dest='option',
                                   help="Subway left door close")
+        subway_group.add_argument("-bo", "--both_open",
+                                  action="store_const",
+                                  const=TMCC2EffectsControl.SUBWAY_BOTH_DOOR_OPEN,
+                                  dest='option',
+                                  help="Subway both door open")
+        subway_group.add_argument("-bc", "--both_close",
+                                  action="store_const",
+                                  const=TMCC2EffectsControl.SUBWAY_BOTH_DOOR_CLOSE,
+                                  dest='option',
+                                  help="Subway both door close")
         subway_group.add_argument("-ro", "--right_open",
                                   action="store_const",
                                   const=TMCC2EffectsControl.SUBWAY_RIGHT_DOOR_OPEN,
@@ -87,8 +107,9 @@ class EffectsCli(CliBaseTMCC):
                                   const=TMCC2EffectsControl.SUBWAY_RIGHT_DOOR_CLOSE,
                                   dest='option',
                                   help="Subway right door close")
+        # TODO: Coal and stock car options
 
-        return ArgumentParser("Subway door sounds control",
+        return ArgumentParser("Engine/train/car effects control",
                               parents=[effects_parser,
                                        train_parser(),
                                        cli_parser()
