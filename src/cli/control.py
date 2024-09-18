@@ -14,6 +14,7 @@ from src.cli.route import RouteCli
 from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
 from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
+from src.gpio.gpio_handler import GpioHandler
 from src.protocol.constants import DEFAULT_SERVER_PORT
 from src.utils.argument_parser import ArgumentParser
 
@@ -54,7 +55,14 @@ class TrainControl:
             except argparse.ArgumentError:
                 pass
             except KeyboardInterrupt:
-                self._comm_buffer.shutdown()
+                try:
+                    self._comm_buffer.shutdown()
+                except Exception as e:
+                    print(f"Error closing command buffer, continuing shutdown: {e}")
+                try:
+                    GpioHandler.reset_all()
+                except Exception as e:
+                    print(f"Error releasing GPIO, continuing shutdown: {e}")
                 break
 
     def _handle_command(self, ui: str) -> None:
