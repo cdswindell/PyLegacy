@@ -27,7 +27,7 @@ class CommBuffer(abc.ABC):
                     server = ipaddress.ip_address(socket.gethostbyname(server))
                 if server_port > 0:
                     port = server_port
-                elif not port.isnumeric():
+                elif isinstance(port, str) and not port.isnumeric():
                     port = str(DEFAULT_SERVER_PORT)
             except Exception as e:
                 print(f"Failed to resolve {server}: {e} ({type(e)})")
