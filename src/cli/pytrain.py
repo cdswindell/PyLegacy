@@ -125,7 +125,9 @@ class PyTrain:
         command_parser = ArgumentParser(prog="",
                                         description="Valid commands:",
                                         epilog="Commands can be abbreviated, so long as they are unique; e.g., 'en', "
-                                               "or 'eng' are the same as typing 'engine'.",
+                                               "or 'eng' are the same as typing 'engine'. Help on a specific command "
+                                               "is also available by typing the command name (or abbreviation), "
+                                               "followed by '-h', e.g., 'sw -h'",
                                         formatter_class=StripPrefixesHelpFormatter,
                                         exit_on_error=False)
         group = command_parser.add_mutually_exclusive_group()
