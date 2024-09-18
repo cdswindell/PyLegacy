@@ -58,29 +58,6 @@ class EngineCli(CliBaseTMCC):
                          nargs='?',
                          type=str,
                          const='opt1')
-        ops.add_argument("-fwd", "--forward_direction",
-                         action="store_const",
-                         const='FORWARD_DIRECTION',
-                         dest='option',
-                         help="Set forward direction")
-
-        ops.add_argument("-rev", "--reverse_direction",
-                         action="store_const",
-                         const='REVERSE_DIRECTION',
-                         dest='option',
-                         help="Set reverse direction")
-
-        ops.add_argument("-t", "--toggle_direction",
-                         action="store_const",
-                         const='TOGGLE_DIRECTION',
-                         dest='option',
-                         help="Toggle direction")
-
-        ops.add_argument("-fc", "--front_coupler",
-                         action="store_const",
-                         const='FRONT_COUPLER',
-                         dest='option',
-                         help="Open front coupler")
         ops.add_argument("-b", "--blow_horn",
                          action="store_const",
                          const='BLOW_HORN_ONE',
@@ -96,26 +73,31 @@ class EngineCli(CliBaseTMCC):
                          default=3,
                          const='BOOST_LEVEL',
                          help="Boost level")
-        ops.add_argument("-boost", "--boost_speed",
-                         action="store_const",
-                         const='BOOST_SPEED',
-                         dest='option',
-                         help="Brake speed")
-        ops.add_argument("-brake", "--brake_speed",
+        ops.add_argument("-br", "--brake_speed",
                          action="store_const",
                          const='BRAKE_SPEED',
                          dest='option',
                          help="Boost speed")
+        ops.add_argument("-bs", "--boost_speed",
+                         action="store_const",
+                         const='BOOST_SPEED',
+                         dest='option',
+                         help="Brake speed")
+        ops.add_argument("-fc", "--front_coupler",
+                         action="store_const",
+                         const='FRONT_COUPLER',
+                         dest='option',
+                         help="Open front coupler")
+        ops.add_argument("-fwd", "--forward_direction",
+                         action="store_const",
+                         const='FORWARD_DIRECTION',
+                         dest='option',
+                         help="Set forward direction")
         ops.add_argument("-hiss", "--cylinder_hiss",
                          action="store_const",
                          const='CYLINDER_HISS',
                          dest='option',
                          help="Cylinder cock hiss sound")
-        ops.add_argument("-pop", "--pop_off",
-                         action="store_const",
-                         const='POP_OFF',
-                         dest='option',
-                         help="Pop off sounds")
         ops.add_argument("-kl", "--brake_level",
                          action=DataAction,
                          dest='option',
@@ -151,6 +133,11 @@ class EngineCli(CliBaseTMCC):
                          nargs='?',
                          type=str,
                          help="Prime mover sound on/off")
+        ops.add_argument("-pop", "--pop_off",
+                         action="store_const",
+                         const='POP_OFF',
+                         dest='option',
+                         help="Pop off sounds")
         ops.add_argument("-r", "--ring_bell",
                          action="store_const",
                          const='RING_BELL',
@@ -161,6 +148,11 @@ class EngineCli(CliBaseTMCC):
                          const='REAR_COUPLER',
                          dest='option',
                          help="Open rear coupler")
+        ops.add_argument("-rev", "--reverse_direction",
+                         action="store_const",
+                         const='REVERSE_DIRECTION',
+                         dest='option',
+                         help="Set reverse direction")
         ops.add_argument("-s", "--stop_immediate",
                          action="store_const",
                          const='STOP_IMMEDIATE',
@@ -181,16 +173,6 @@ class EngineCli(CliBaseTMCC):
                          const='SHUTDOWN_IMMEDIATE',
                          dest='option',
                          help="Shutdown Immediate")
-        ops.add_argument("-sud", "--start_up_delayed",
-                         action="store_const",
-                         const='START_UP_DELAYED',
-                         dest='option',
-                         help="Start up delayed (prime mover)")
-        ops.add_argument("-sui", "--start_up_immediate",
-                         action="store_const",
-                         const='START_UP_IMMEDIATE',
-                         dest='option',
-                         help="Start up immediate")
         ops.add_argument("-sound",
                          choices=['on', 'off'],
                          nargs='?',
@@ -202,6 +184,21 @@ class EngineCli(CliBaseTMCC):
                          nargs='?',
                          type=str,
                          help="Sequence control on/off")
+        ops.add_argument("-sud", "--start_up_delayed",
+                         action="store_const",
+                         const='START_UP_DELAYED',
+                         dest='option',
+                         help="Start up delayed (prime mover)")
+        ops.add_argument("-sui", "--start_up_immediate",
+                         action="store_const",
+                         const='START_UP_IMMEDIATE',
+                         dest='option',
+                         help="Start up immediate")
+        ops.add_argument("-t", "--toggle_direction",
+                         action="store_const",
+                         const='TOGGLE_DIRECTION',
+                         dest='option',
+                         help="Toggle direction")
         ops.add_argument("-tb", "--train_brake",
                          action=DataAction,
                          dest='option',
@@ -225,30 +222,6 @@ class EngineCli(CliBaseTMCC):
 
         # create subparsers to handle train/engine-specific operations
         sp = engine_parser.add_subparsers(dest='sub_command', help='Engine/train sub-commands')
-
-        # Speed operations
-        sp_metavar = (
-            "Engine/Train speed: 0 - 199 (Legacy) or 0 - 31 (TMCC) or roll, restricted, slow, medium, limited, "
-            "normal, or highball")
-        speed = sp.add_parser('speed', aliases=['sp'], help='Speed of engine/train')
-        speed.add_argument('data',
-                           type=EngineCli._validate_speed,
-                           action='store',
-                           metavar=sp_metavar,
-                           help="Absolute/Relative speed")
-
-        speed_group = speed.add_mutually_exclusive_group()
-        speed_group.add_argument("-a", "--absolute",
-                                 action="store_const",
-                                 const='ABSOLUTE_SPEED',
-                                 dest='option',
-                                 help="Set absolute speed")
-        speed_group.add_argument("-r", "--relative",
-                                 action="store_const",
-                                 const='RELATIVE_SPEED',
-                                 dest='option',
-                                 help="Set relative speed speed (-5 to 5)")
-        speed_group.set_defaults(option='ABSOLUTE_SPEED')
 
         # Bell operations
         bell = sp.add_parser('bell', aliases=['be'], help='Bell operations')
@@ -351,7 +324,7 @@ class EngineCli(CliBaseTMCC):
                                const='MOMENTUM',
                                help="Set absolute momentum")
 
-        # Momentum operations
+        # Smoke operations
         smoke = sp.add_parser('smoke', aliases=['sm'], help='Smoke operations')
         smoke_group = smoke.add_mutually_exclusive_group()
         smoke_group.add_argument("-l", "--low",
@@ -423,6 +396,30 @@ class EngineCli(CliBaseTMCC):
                                  const='WATER_INJECTOR',
                                  dest='option',
                                  help="Water injector sound")
+
+        # Speed operations
+        sp_metavar = (
+            "Engine/Train speed: 0 - 199 (Legacy) or 0 - 31 (TMCC) or roll, restricted, slow, medium, limited, "
+            "normal, or highball")
+        speed = sp.add_parser('speed', aliases=['sp'], help='Speed of engine/train')
+        speed.add_argument('data',
+                           type=EngineCli._validate_speed,
+                           action='store',
+                           metavar=sp_metavar,
+                           help="Absolute/Relative speed")
+
+        speed_group = speed.add_mutually_exclusive_group()
+        speed_group.add_argument("-a", "--absolute",
+                                 action="store_const",
+                                 const='ABSOLUTE_SPEED',
+                                 dest='option',
+                                 help="Set absolute speed")
+        speed_group.add_argument("-r", "--relative",
+                                 action="store_const",
+                                 const='RELATIVE_SPEED',
+                                 dest='option',
+                                 help="Set relative speed speed (-5 to 5)")
+        speed_group.set_defaults(option='ABSOLUTE_SPEED')
         # construct final parser with all components in order
         return ArgumentParser("Control specified engine/train (1 - 99)",
                               parents=[engine_parser,
