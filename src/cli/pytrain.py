@@ -21,7 +21,7 @@ from src.utils.argument_parser import ArgumentParser
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 
 
-class PiTrain:
+class PyTrain:
     def __init__(self, args: argparse.Namespace) -> None:
         self._args = args
         self._startup_script = args.startup_script
@@ -46,7 +46,7 @@ class PiTrain:
         # process startup script
         self._process_startup_scripts()
         # print opening line
-        print(f"PyLegacy train controller, Ver 0.1")
+        print(f"PyTrain, Ver 0.1")
         while True:
             try:
                 ui: str = input(">> ")
@@ -164,4 +164,4 @@ if __name__ == '__main__':
                         type=int,
                         default=DEFAULT_SERVER_PORT,
                         help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})")
-    PiTrain(parser.parse_args())
+    PyTrain(parser.parse_args())
