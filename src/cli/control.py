@@ -153,7 +153,7 @@ if __name__ == '__main__':
                         type=int,
                         default=DEFAULT_SERVER_PORT,
                         help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})")
-    parser.add_argument("-ss", "--startup_script",
+    parser.add_argument("-s", "--startup_script",
                         type=str,
                         default='buttons.py',
                         help="Run the commands in the specified file at start up (default: buttons.py)")
