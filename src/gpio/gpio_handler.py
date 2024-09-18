@@ -49,7 +49,7 @@ class PotHandler(Thread):
             self._command.data = value
             self._action(new_data=value)
 
-    def shutdown(self) -> None:
+    def reset(self) -> None:
         self._running = False
 
     @staticmethod
@@ -73,6 +73,7 @@ class PotHandler(Thread):
 
 class GpioHandler:
     GPIO_DEVICE_CACHE = set()
+    GPIO_HANDLER_CACHE = set()
 
     @classmethod
     def when_button_pressed(cls,
@@ -203,9 +204,19 @@ class GpioHandler:
 
     @classmethod
     def reset_all(cls) -> None:
+        for handler in cls.GPIO_HANDLER_CACHE:
+            handler.reset()
+            handler.join()  # wait for thread to shut down
+        cls.GPIO_HANDLER_CACHE = set()
+
         for device in cls.GPIO_DEVICE_CACHE:
             device.close()
         cls.GPIO_DEVICE_CACHE = set()
+
+    @classmethod
+    def cache_handler(cls, handler: PotHandler) -> None:
+        cls._cache_device(handler.pot)
+        cls.GPIO_HANDLER_CACHE.add(handler)
 
     @classmethod
     def release_device(cls, device: Device) -> None:
