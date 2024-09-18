@@ -18,10 +18,13 @@ class CommBuffer(abc.ABC):
     __metaclass__ = abc.ABCMeta
 
     @staticmethod
-    def parse_server(server: str, port: str, server_port: int = 0) -> tuple[IPv4Address | IPv6Address | None, str]:
+    def parse_server(server: str | IPv4Address | IPv6Address,
+                     port: str | int,
+                     server_port: int = 0) -> tuple[IPv4Address | IPv6Address | None, str]:
         if server is not None:
             try:
-                server = ipaddress.ip_address(socket.gethostbyname(server))
+                if isinstance(server, str):
+                    server = ipaddress.ip_address(socket.gethostbyname(server))
                 if server_port > 0:
                     port = server_port
                 elif not port.isnumeric():
