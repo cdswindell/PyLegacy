@@ -11,6 +11,7 @@ from src.cli.engine import EngineCli
 from src.cli.halt import HaltCli
 from src.cli.lighting import LightingCli
 from src.cli.route import RouteCli
+from src.cli.sounds import SoundEffectsCli
 from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
 from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -140,12 +141,12 @@ class PyTrain:
                            action="store_const",
                            const=EffectsCli,
                            dest="command",
-                           help="Issue engine or train effects commands")
+                           help="Issue engine/train effects commands")
         group.add_argument("-engine",
                            action="store_const",
                            const=EngineCli,
                            dest="command",
-                           help="Issue engine or train commands")
+                           help="Issue engine/train commands")
         group.add_argument("-halt",
                            action="store_const",
                            const=HaltCli,
@@ -155,12 +156,17 @@ class PyTrain:
                            action="store_const",
                            const=LightingCli,
                            dest="command",
-                           help="Issue engine or train lighting effects commands")
+                           help="Issue engine/train lighting effects commands")
         group.add_argument("-route",
                            action="store_const",
                            const=RouteCli,
                            dest="command",
                            help="Fire defined routes")
+        group.add_argument("-sounds",
+                           action="store_const",
+                           const=SoundEffectsCli,
+                           dest="command",
+                           help="Issue engine/train RailSound effects commands")
         group.add_argument("-switch",
                            action="store_const",
                            const=SwitchCli,
