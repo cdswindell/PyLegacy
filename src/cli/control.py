@@ -18,8 +18,10 @@ from src.gpio.gpio_handler import GpioHandler
 from src.protocol.constants import DEFAULT_SERVER_PORT
 from src.utils.argument_parser import ArgumentParser
 
+DEFAULT_SCRIPT_FILE: str = "buttons.py"
 
-class TrainControl:
+
+class PiTrain:
     def __init__(self, args: argparse.Namespace) -> None:
         self._args = args
         self._startup_script = args.startup_script
@@ -95,14 +97,17 @@ class TrainControl:
                     return
 
     def _process_startup_scripts(self) -> None:
-        if self._startup_script is not None and os.path.isfile(self._startup_script):
-            print(f"Loading startup script: {self._startup_script}...")
-            with open(self._startup_script, mode="r", encoding="utf-8") as script:
-                code = script.read()
-                try:
-                    exec(code)
-                except Exception as e:
-                    print(f"Error while loading startup script: {e}")
+        if self._startup_script is not None:
+            if os.path.isfile(self._startup_script):
+                print(f"Loading startup script: {self._startup_script}...")
+                with open(self._startup_script, mode="r", encoding="utf-8") as script:
+                    code = script.read()
+                    try:
+                        exec(code)
+                    except Exception as e:
+                        print(f"Error while loading startup script: {e}")
+            elif self._startup_script != DEFAULT_SCRIPT_FILE:
+                print(f"Startup script file {self._startup_script} not found, continuing...")
 
     @staticmethod
     def _command_parser() -> ArgumentParser:
@@ -147,14 +152,16 @@ class TrainControl:
 
 
 if __name__ == '__main__':
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument("-s", "--startup_script",
+                        type=str,
+                        default=DEFAULT_SCRIPT_FILE,
+                        help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})")
+
     parser = ArgumentParser("Send TMCC and Legacy-formatted commands to a LCS SER2",
-                            parents=[cli_parser()])
+                            parents=[parser, cli_parser()])
     parser.add_argument("-sp", "--server_port",
                         type=int,
                         default=DEFAULT_SERVER_PORT,
                         help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})")
-    parser.add_argument("-s", "--startup_script",
-                        type=str,
-                        default='buttons.py',
-                        help="Run the commands in the specified file at start up (default: buttons.py)")
-    TrainControl(parser.parse_args())
+    PiTrain(parser.parse_args())
