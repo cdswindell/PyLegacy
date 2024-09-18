@@ -130,7 +130,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         while not self._queue.empty() or not self._shutdown_signalled:
             try:
                 data = self._queue.get(block=True, timeout=.25)
-                print(f"Fire command 0x{data.hex()}")
+                # print(f"Fire command 0x{data.hex()}")
                 try:
                     with serial.Serial(self.port, self.baudrate) as ser:
                         millis_since_last_output = self._current_milli_time() - self._last_output_at
@@ -139,7 +139,7 @@ class CommBufferSingleton(CommBuffer, Thread):
                         # Write the command byte sequence
                         ser.write(data)
                         self._last_output_at = self._current_milli_time()
-                        print(f"Task Done: 0x{data.hex()}")
+                        # print(f"Task Done: 0x{data.hex()}")
                         self._queue.task_done()
                 except SerialException as se:
                     # TODO: handle serial errors
