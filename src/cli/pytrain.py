@@ -19,6 +19,7 @@ from src.protocol.constants import DEFAULT_SERVER_PORT
 from src.utils.argument_parser import ArgumentParser
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
+PROGRAM_NAME: str = "PyTrain"
 
 
 class PyTrain:
@@ -32,10 +33,12 @@ class PyTrain:
                                              server=self._server)
         if isinstance(self.buffer, CommBufferSingleton):
             print("Sending commands directly to Lionel LCS Ser2...")
-            print(f"Listening for client connections on port {self._args.server_port}...")
-            self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
+            # listen for client connections, unless user used --no_clients flag
+            if not self._args.no_clients:
+                print(f"Listening for client connections on port {self._args.server_port}...")
+                self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
         else:
-            print(f"Sending commands to PyTrain server at {self._server}:{self._port}...")
+            print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
         self.run()
 
     @property
@@ -46,7 +49,7 @@ class PyTrain:
         # process startup script
         self._process_startup_scripts()
         # print opening line
-        print(f"PyTrain, Ver 0.1")
+        print(f"{PROGRAM_NAME}, Ver 0.1")
         while True:
             try:
                 ui: str = input(">> ")
@@ -76,6 +79,9 @@ class PyTrain:
             return
         ui = ui.lower().strip()
         if ui:
+            # show help, if user enters '?'
+            if ui == '?':
+                ui = 'h'
             # the argparse library requires the argument string to be presented as a list
             ui_parts = ui.split()
             if ui_parts[0]:
@@ -86,6 +92,8 @@ class PyTrain:
                     args = self._command_parser().parse_args(['-' + ui_parts[0]])
                     if args.command == 'quit':
                         raise KeyboardInterrupt()
+                    elif args.command == 'help':
+                        self._command_parser().parse_args(["-help"])
                     ui_parser = args.command.command_parser()
                     ui_parser.remove_args(['baudrate', 'port', 'server'])
                     cmd = args.command(ui_parser, ui_parts[1:], False).command
@@ -114,12 +122,14 @@ class PyTrain:
         """
             Parse the first token of the user's input
         """
-        command_parser = ArgumentParser(add_help=False, exit_on_error=False)
+        command_parser = ArgumentParser(f"{PROGRAM_NAME}: Valid commands include:",
+                                        exit_on_error=False)
         group = command_parser.add_mutually_exclusive_group()
         group.add_argument("-accessory",
                            action="store_const",
                            const=AccCli,
-                           dest="command")
+                           dest="command",
+                           help="Issue accessory commands")
         group.add_argument("-effects",
                            action="store_const",
                            const=EffectsCli,
@@ -127,11 +137,13 @@ class PyTrain:
         group.add_argument("-engine",
                            action="store_const",
                            const=EngineCli,
-                           dest="command")
+                           dest="command",
+                           help="Issue engine or train commands")
         group.add_argument("-halt",
                            action="store_const",
                            const=HaltCli,
-                           dest="command")
+                           dest="command",
+                           help="Emergency stop")
         group.add_argument("-lighting",
                            action="store_const",
                            const=LightingCli,
@@ -139,15 +151,18 @@ class PyTrain:
         group.add_argument("-route",
                            action="store_const",
                            const=RouteCli,
-                           dest="command")
+                           dest="command",
+                           help="Fire defined routes")
         group.add_argument("-switch",
                            action="store_const",
                            const=SwitchCli,
-                           dest="command")
+                           dest="command",
+                           help="Throw switches")
         group.add_argument("-quit",
                            action="store_const",
                            const="quit",
-                           dest="command")
+                           dest="command",
+                           help=f"Quit {PROGRAM_NAME}")
         return command_parser
 
 
@@ -158,8 +173,11 @@ if __name__ == '__main__':
                         default=DEFAULT_SCRIPT_FILE,
                         help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})")
 
-    parser = ArgumentParser("PyTrain: Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
+    parser = ArgumentParser(f"{PROGRAM_NAME}: Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
                             parents=[parser, cli_parser()])
+    parser.add_argument("-no", "--no_clients",
+                        action="store_true",
+                        help=f"Do not listen for client connections on port {DEFAULT_SERVER_PORT}")
     parser.add_argument("-sp", "--server_port",
                         type=int,
                         default=DEFAULT_SERVER_PORT,
