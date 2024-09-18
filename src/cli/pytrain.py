@@ -31,11 +31,11 @@ class PyTrain:
                                              port=self._port,
                                              server=self._server)
         if isinstance(self.buffer, CommBufferSingleton):
-            print("Sending commands directly to LCS Ser2...")
+            print("Sending commands directly to Lionel LCS Ser2...")
             print(f"Listening for client connections on port {self._args.server_port}...")
             self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
         else:
-            print(f"Sending commands to Train Control Proxy at {self._server}:{self._port}...")
+            print(f"Sending commands to PyTrain server at {self._server}:{self._port}...")
         self.run()
 
     @property
@@ -158,7 +158,7 @@ if __name__ == '__main__':
                         default=DEFAULT_SCRIPT_FILE,
                         help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})")
 
-    parser = ArgumentParser("Send TMCC and Legacy-formatted commands to a LCS SER2",
+    parser = ArgumentParser("PyTrain: Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
                             parents=[parser, cli_parser()])
     parser.add_argument("-sp", "--server_port",
                         type=int,
