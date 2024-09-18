@@ -4,8 +4,9 @@ from typing import Callable, Dict, Self
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
 from .tmcc2.tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX, TMCC2Enum, TMCC2CommandPrefix
 from .tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, TMCC2CommandDef
-from .tmcc2.tmcc2_param_constants import TMCC2ParameterEnum, TMCC2_PARAMETER_INDEX_PREFIX, TMCC2ParameterIndex
-from .tmcc2.tmcc2_param_constants import TMCC2DialogControl, TMCC2EffectsControl
+from .tmcc2.tmcc2_param_constants import TMCC2ParameterEnum, TMCC2_PARAMETER_INDEX_PREFIX, TMCC2ParameterIndex, \
+    TMCC2RailSoundsEffectsControl
+from .tmcc2.tmcc2_param_constants import TMCC2RailSoundsDialogControl, TMCC2EffectsControl
 from .tmcc2.tmcc2_param_constants import TMCC2LightingControl, TMCC2ParameterCommandDef
 
 from .constants import CommandScope, CommandSyntax
@@ -309,7 +310,8 @@ class CommandReq:
 
 # noinspection PyTypeChecker
 TMCC2_PARAMETER_ENUM_TO_TMCC2_PARAMETER_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {
-    TMCC2DialogControl: TMCC2ParameterIndex.DIALOG_CONTROLS,
+    TMCC2RailSoundsDialogControl: TMCC2ParameterIndex.DIALOG_TRIGGERS,
+    TMCC2RailSoundsEffectsControl: TMCC2ParameterIndex.EFFECTS_TRIGGERS,
     TMCC2EffectsControl: TMCC2ParameterIndex.EFFECTS_CONTROLS,
     TMCC2LightingControl: TMCC2ParameterIndex.LIGHTING_CONTROLS,
 }

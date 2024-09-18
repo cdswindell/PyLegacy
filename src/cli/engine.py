@@ -7,8 +7,9 @@ from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
-from src.protocol.tmcc2.tmcc2_param_constants import TMCC2ParameterEnum, TMCC2DialogControl, TMCC2EffectsControl, \
-    TMCC2LightingControl
+from src.protocol.tmcc2.tmcc2_param_constants import TMCC2ParameterEnum, TMCC2RailSoundsDialogControl, \
+    TMCC2EffectsControl, \
+    TMCC2LightingControl, TMCC2RailSoundsEffectsControl
 from src.utils.argument_parser import ArgumentParser
 
 AUX_COMMAND_MAP = {
@@ -222,16 +223,17 @@ class EngineCli(CliBaseTMCC):
                          const='VOLUME_DOWN',
                          dest='option',
                          help="Master volume down")
-        ops.add_argument("-q", "--sound_off",
-                         action="store_const",
-                         const='SOUND_OFF',
-                         dest='option',
-                         help="Sound system off")
-        ops.add_argument("-so", "--sound_on",
-                         action="store_const",
-                         const='SOUND_ON',
-                         dest='option',
-                         help="Sound system ON")
+        ops.add_argument("-sound",
+                         choices=['on', 'off'],
+                         nargs='?',
+                         type=str,
+                         const='on',
+                         help="Sound on/off")
+        ops.add_argument("-sq", "--sequence_control",
+                         choices=['on', 'off'],
+                         nargs='?',
+                         type=str,
+                         help="Sequence control on/off")
 
         # create subparsers to handle train/engine-specific operations
         sp = engine_parser.add_subparsers(dest='sub_command', help='Engine/train sub-commands')
@@ -496,6 +498,10 @@ class EngineCli(CliBaseTMCC):
                 option = f"AUX1{AUX_COMMAND_MAP[self._args.aux1.lower()]}"
             elif 'aux2' in self._args and self._args.aux2 is not None:
                 option = f"AUX2{AUX_COMMAND_MAP[self._args.aux2.lower()]}"
+            elif 'sound' in self._args and self._args.sound is not None:
+                option = f"sound_{self._args.sound}".upper()
+            elif 'sequence_control' in self._args and self._args.sequence_control is not None:
+                option = f"sequence_control_{self._args.sequence_control}".upper()
             else:
                 raise ValueError("Must specify an option, use -h for help")
         else:
@@ -509,7 +515,8 @@ class EngineCli(CliBaseTMCC):
             enum_classes = [TMCC1EngineCommandDef]
         else:
             enum_classes = [TMCC2EngineCommandDef,
-                            TMCC2DialogControl,
+                            TMCC2RailSoundsDialogControl,
+                            TMCC2RailSoundsEffectsControl,
                             TMCC2EffectsControl,
                             TMCC2LightingControl]
         for enum_class in enum_classes:

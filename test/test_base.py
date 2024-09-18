@@ -46,7 +46,7 @@ class TestBase:
                 TMCC2HaltCommandDef,
                 TMCC2RouteCommandDef,
                 TMCC2EngineCommandDef,
-                TMCC2DialogControl,
+                TMCC2RailSoundsDialogControl,
                 TMCC2EffectsControl,
                 TMCC2LightingControl,
                 ]

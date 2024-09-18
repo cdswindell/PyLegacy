@@ -128,7 +128,7 @@ class TestCommandReq(TestBase):
             # repeat for some train commands
             for cdef in [TMCC1EngineCommandDef,
                          TMCC2EngineCommandDef,
-                         TMCC2DialogControl,
+                         TMCC2RailSoundsDialogControl,
                          TMCC2EffectsControl,
                          TMCC2LightingControl,
                          ]:
