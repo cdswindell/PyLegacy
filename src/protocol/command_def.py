@@ -125,7 +125,6 @@ class CommandDefEnum(CommandDefMixins, Enum):
         Marker Interface to allow TMCC1EngineCommandDef and TMCC2EngineCommandDef enums
         to be handled by engine commands
     """
-
     @property
     def command_def(self) -> CommandDef:
         return self.value
@@ -136,4 +135,16 @@ class CommandDefEnum(CommandDefMixins, Enum):
 
     @property
     def syntax(self) -> CommandSyntax:
-        return self.value.syntax
+        return self.command_def.syntax
+
+    @property
+    def is_tmcc1(self) -> bool:
+        return self.command_def.is_tmcc1
+
+    @property
+    def is_tmcc2(self) -> bool:
+        return self.command_def.is_tmcc2
+
+    @property
+    def is_legacy(self) -> bool:
+        return self.command_def.is_tmcc2

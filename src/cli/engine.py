@@ -3,11 +3,12 @@
 from typing import List
 
 from src.cli.cli_base import CliBaseTMCC, DataAction, cli_parser, command_format_parser, train_parser
-from src.protocol.command_def import CommandDefEnum
 from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
+from src.protocol.tmcc2.tmcc2_param_constants import TMCC2ParameterEnum, TMCC2DialogControl, TMCC2EffectsControl, \
+    TMCC2LightingControl
 from src.utils.argument_parser import ArgumentParser
 
 AUX_COMMAND_MAP = {
@@ -93,6 +94,18 @@ class EngineCli(CliBaseTMCC):
                          dest='option',
                          help="Blow horn")
 
+        ops.add_argument("-hiss", "--cylinder_hiss",
+                         action="store_const",
+                         const='CYLINDER_HISS',
+                         dest='option',
+                         help="Cylinder cock hiss sound")
+
+        ops.add_argument("-pop", "--pop_off",
+                         action="store_const",
+                         const='POP_OFF',
+                         dest='option',
+                         help="Pop off sounds")
+
         ops.add_argument("-boost", "--boost_speed",
                          action="store_const",
                          const='BOOST_SPEED',
@@ -177,7 +190,7 @@ class EngineCli(CliBaseTMCC):
                          const='SHUTDOWN_DELAYED',
                          dest='option',
                          help="Shutdown delayed with announcement")
-        ops.add_argument("-e", "--engine_labor",
+        ops.add_argument("-l", "--engine_labor",
                          action=DataAction,
                          dest='option',
                          choices=range(0, 32),
@@ -199,6 +212,26 @@ class EngineCli(CliBaseTMCC):
                          nargs='?',
                          type=str,
                          const='opt1')
+        ops.add_argument("-vu", "--volume_up",
+                         action="store_const",
+                         const='VOLUME_UP',
+                         dest='option',
+                         help="Master volume up")
+        ops.add_argument("-vd", "--volume_down",
+                         action="store_const",
+                         const='VOLUME_DOWN',
+                         dest='option',
+                         help="Master volume down")
+        ops.add_argument("-q", "--sound_off",
+                         action="store_const",
+                         const='SOUND_OFF',
+                         dest='option',
+                         help="Sound system off")
+        ops.add_argument("-so", "--sound_on",
+                         action="store_const",
+                         const='SOUND_ON',
+                         dest='option',
+                         help="Sound system ON")
 
         # create subparsers to handle train/engine-specific operations
         sp = engine_parser.add_subparsers(dest='sub_command', help='Engine/train sub-commands')
@@ -328,6 +361,31 @@ class EngineCli(CliBaseTMCC):
                                const='MOMENTUM',
                                help="Set absolute momentum")
 
+        # Momentum operations
+        smoke = sp.add_parser('smoke', aliases=['sm'], help='Smoke operations')
+        smoke_group = smoke.add_mutually_exclusive_group()
+        smoke_group.add_argument("-l", "--low",
+                                 action="store_const",
+                                 const='SMOKE_LOW',
+                                 dest='option',
+                                 default='SMOKE_LOW',  # strange, but default actions only applied if placed
+                                 help="Set smoke level to low")  # on first argument of mutual group
+        smoke_group.add_argument("-m", "--medium",
+                                 action="store_const",
+                                 const='SMOKE_MEDIUM',
+                                 dest='option',
+                                 help="Set smoke level to medium")
+        smoke_group.add_argument("-x", "--high",
+                                 action="store_const",
+                                 const='SMOKE_HIGH',
+                                 dest='option',
+                                 help="Set smoke level to high")
+        smoke_group.add_argument("-off",
+                                 action="store_const",
+                                 const='SMOKE_OFF',
+                                 dest='option',
+                                 help="Set smoke off")
+
         sound = sp.add_parser('sound', aliases=['so'], help='Sound operations')
         sound_group = sound.add_mutually_exclusive_group()
         sound_group.add_argument("-a", "--auger",
@@ -390,14 +448,14 @@ class EngineCli(CliBaseTMCC):
         engine: int = self._args.engine
         option_data: int = self._args.data if 'data' in self._args else 0
         try:
-            option: CommandDefEnum = self._decode_engine_option()  # raise ValueError if can't decode
+            option = self._decode_engine_option()  # raise ValueError if can't decode
             if option is None:
                 raise ValueError("Must specify an option, use -h for help")
             # print(self._args)
             scope = self._determine_scope()
-            if self.is_tmcc2 or isinstance(option, TMCC2EngineCommandDef):
+            if self.is_tmcc2 or option.is_tmcc2:
                 cmd = EngineCmdTMCC2(engine,
-                                     TMCC2EngineCommandDef(option),
+                                     option,
                                      option_data,
                                      scope,
                                      baudrate=self._baudrate,
@@ -417,12 +475,12 @@ class EngineCli(CliBaseTMCC):
         except ValueError as ve:
             print(ve)
 
-    def _decode_engine_option(self) -> CommandDefEnum | None:
+    def _decode_engine_option(self) -> TMCC1EngineCommandDef | TMCC2EngineCommandDef | TMCC2ParameterEnum | None:
         """
             Decode the 'option' argument, if present, into a valid
-            TMCC1EngineCommandDef or TMCC2EngineCommandDef enum. Use the specified
-            command format, if present, to help resolve, as the two enum
-            classes share element names
+            TMCC1EngineCommandDef, TMCC2EngineCommandDef, or one of the multiword TMCC2
+            parameter enums. Use the specified command format, if present, to help resolve,
+            as the enum classes share element names
         """
         if 'option' not in self._args:
             return None
@@ -448,13 +506,16 @@ class EngineCli(CliBaseTMCC):
 
         # if scope is TMCC1, resolve via TMCC1EngineCommandDef
         if self.is_tmcc1:
-            enum_class = TMCC1EngineCommandDef
+            enum_classes = [TMCC1EngineCommandDef]
         else:
-            enum_class = TMCC2EngineCommandDef
-        if option in dir(enum_class):
-            return enum_class[option]
-        else:
-            raise ValueError(f'Invalid {self.command_format.name} option: {option}')
+            enum_classes = [TMCC2EngineCommandDef,
+                            TMCC2DialogControl,
+                            TMCC2EffectsControl,
+                            TMCC2LightingControl]
+        for enum_class in enum_classes:
+            if option in dir(enum_class):
+                return enum_class[option]
+        raise ValueError(f'Invalid {self.command_format.name} option: {option}')
 
 
 if __name__ == '__main__':
