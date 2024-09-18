@@ -32,6 +32,7 @@ class PotHandler(Thread):
         else:
             self._interp = self.make_interpolator(199)
             self._threshold = 2
+        self._running = True
         self.start()
 
     @property
@@ -39,7 +40,7 @@ class PotHandler(Thread):
         return self._pot
 
     def run(self) -> None:
-        while True:
+        while self._running:
             value = self._interp(self._pot.value)
             if math.fabs(self._last_value - value) < self._threshold:
                 continue  # pots can take a bit to settle; ignore small changes
@@ -47,6 +48,9 @@ class PotHandler(Thread):
             self._last_value = value
             self._command.data = value
             self._action(new_data=value)
+
+    def shutdown(self) -> None:
+        self._running = False
 
     @staticmethod
     def make_interpolator(to_max: int,
@@ -195,7 +199,6 @@ class GpioHandler:
         if isinstance(command, CommandDefEnum):
             command = CommandReq.build_request(command, address, 0, scope)
         knob = PotHandler(command, channel, baudrate, port, server)
-        cls._cache_device(knob.pot)
         return knob
 
     @classmethod
