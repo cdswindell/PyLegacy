@@ -200,6 +200,7 @@ class GpioHandler:
         if isinstance(command, CommandDefEnum):
             command = CommandReq.build_request(command, address, 0, scope)
         knob = PotHandler(command, channel, baudrate, port, server)
+        cls._cache_handler(knob)
         return knob
 
     @classmethod
@@ -214,7 +215,7 @@ class GpioHandler:
         cls.GPIO_DEVICE_CACHE = set()
 
     @classmethod
-    def cache_handler(cls, handler: PotHandler) -> None:
+    def _cache_handler(cls, handler: PotHandler) -> None:
         cls._cache_device(handler.pot)
         cls.GPIO_HANDLER_CACHE.add(handler)
 
