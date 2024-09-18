@@ -145,6 +145,11 @@ class LightingCli(CliBaseTMCC):
                                 const=TMCC2LightingControl.LOCO_MARKER_OFF,
                                 dest='option',
                                 help="Engine marker lights off")
+        loco_group.add_argument("-a", "--auto",
+                                action="store_const",
+                                const=TMCC2LightingControl.LOCO_MARKER_AUTO,
+                                dest='option',
+                                help="Engine marker lights auto")
 
         mars = sp.add_parser('mars', aliases=['ma'], help='Mars lighting options')
         mars_group = mars.add_mutually_exclusive_group()
@@ -201,7 +206,6 @@ class LightingCli(CliBaseTMCC):
 
         tender = sp.add_parser('tender_marker', aliases=['tm'], help='Tender marker lighting options')
         tender_group = tender.add_mutually_exclusive_group()
-
         tender_group.add_argument("-on",
                                   action="store_const",
                                   const=TMCC2LightingControl.TENDER_MARKER_ON,
@@ -213,6 +217,26 @@ class LightingCli(CliBaseTMCC):
                                   const=TMCC2LightingControl.TENDER_MARKER_OFF,
                                   dest='option',
                                   help="Tender marker lights off")
+
+        work = sp.add_parser('work_light', aliases=['wo'], help='Work lighting options')
+        work_group = work.add_mutually_exclusive_group()
+
+        work_group.add_argument("-on",
+                                action="store_const",
+                                const=TMCC2LightingControl.WORK_ON,
+                                dest='option',
+                                default=TMCC2LightingControl.WORK_ON,
+                                help="Work lights on")
+        loco_group.add_argument("-off",
+                                action="store_const",
+                                const=TMCC2LightingControl.WORK_OFF,
+                                dest='option',
+                                help="Work lights off")
+        loco_group.add_argument("-a", "--auto",
+                                action="store_const",
+                                const=TMCC2LightingControl.WORK_AUTO,
+                                dest='option',
+                                help="Work lights auto")
 
         return ArgumentParser("Lighting control",
                               parents=[lighting_parser,
