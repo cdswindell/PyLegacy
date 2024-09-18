@@ -39,7 +39,6 @@ class EngineCli(CliBaseTMCC):
                                    type=EngineCli._validate_delay,
                                    default=0,
                                    help="Second(s) to delay between repeated commands (default: 0)")
-
         ops = engine_parser.add_mutually_exclusive_group()
         ops.add_argument("-a", "--set_address",
                          action="store_const",
@@ -47,12 +46,18 @@ class EngineCli(CliBaseTMCC):
                          dest='option',
                          help="Set engine address")
 
-        ops.add_argument("-s", "--stop_immediate",
-                         action="store_const",
-                         const='STOP_IMMEDIATE',
-                         dest='option',
-                         help="Stop immediate")
-
+        ops.add_argument("-aux1",
+                         dest='aux1',
+                         choices=['on', 'off', 'opt1', 'opt2'],
+                         nargs='?',
+                         type=str,
+                         const='opt1')
+        ops.add_argument("-aux2",
+                         dest='aux2',
+                         choices=['on', 'off', 'opt1', 'opt2'],
+                         nargs='?',
+                         type=str,
+                         const='opt1')
         ops.add_argument("-fwd", "--forward_direction",
                          action="store_const",
                          const='FORWARD_DIRECTION',
@@ -76,43 +81,11 @@ class EngineCli(CliBaseTMCC):
                          const='FRONT_COUPLER',
                          dest='option',
                          help="Open front coupler")
-
-        ops.add_argument("-rc", "--rear_coupler",
-                         action="store_const",
-                         const='REAR_COUPLER',
-                         dest='option',
-                         help="Open rear coupler")
-
-        ops.add_argument("-r", "--ring_bell",
-                         action="store_const",
-                         const='RING_BELL',
-                         dest='option',
-                         help="Ring bell")
-
         ops.add_argument("-b", "--blow_horn",
                          action="store_const",
                          const='BLOW_HORN_ONE',
                          dest='option',
                          help="Blow horn")
-
-        ops.add_argument("-hiss", "--cylinder_hiss",
-                         action="store_const",
-                         const='CYLINDER_HISS',
-                         dest='option',
-                         help="Cylinder cock hiss sound")
-
-        ops.add_argument("-pop", "--pop_off",
-                         action="store_const",
-                         const='POP_OFF',
-                         dest='option',
-                         help="Pop off sounds")
-
-        ops.add_argument("-boost", "--boost_speed",
-                         action="store_const",
-                         const='BOOST_SPEED',
-                         dest='option',
-                         help="Brake speed")
-
         ops.add_argument("-bl", "--boost_level",
                          action=DataAction,
                          dest='option',
@@ -123,13 +96,26 @@ class EngineCli(CliBaseTMCC):
                          default=3,
                          const='BOOST_LEVEL',
                          help="Boost level")
-
+        ops.add_argument("-boost", "--boost_speed",
+                         action="store_const",
+                         const='BOOST_SPEED',
+                         dest='option',
+                         help="Brake speed")
         ops.add_argument("-brake", "--brake_speed",
                          action="store_const",
                          const='BRAKE_SPEED',
                          dest='option',
                          help="Boost speed")
-
+        ops.add_argument("-hiss", "--cylinder_hiss",
+                         action="store_const",
+                         const='CYLINDER_HISS',
+                         dest='option',
+                         help="Cylinder cock hiss sound")
+        ops.add_argument("-pop", "--pop_off",
+                         action="store_const",
+                         const='POP_OFF',
+                         dest='option',
+                         help="Pop off sounds")
         ops.add_argument("-kl", "--brake_level",
                          action=DataAction,
                          dest='option',
@@ -140,57 +126,6 @@ class EngineCli(CliBaseTMCC):
                          default=3,
                          const='BRAKE_LEVEL',
                          help="Brake level")
-        ops.add_argument("-tb", "--train_brake",
-                         action=DataAction,
-                         dest='option',
-                         choices=range(0, 8),
-                         metavar="0 - 7",
-                         type=int,
-                         nargs='?',
-                         default=1,
-                         const='TRAIN_BRAKE',
-                         help="Train brake")
-
-        ops.add_argument("-n",
-                         action=DataAction,
-                         dest='option',
-                         choices=range(0, 10),
-                         metavar="0 - 9",
-                         type=int,
-                         nargs='?',
-                         default=7,  # random radio chatter
-                         const='NUMERIC',
-                         help="Send numeric value")
-
-        ops.add_argument("-stall",
-                         action="store_const",
-                         const='STALL',
-                         dest='option',
-                         help="Set stall")
-
-        ops.add_argument("-sui", "--start_up_immediate",
-                         action="store_const",
-                         const='START_UP_IMMEDIATE',
-                         dest='option',
-                         help="Start up immediate")
-
-        ops.add_argument("-sud", "--start_up_delayed",
-                         action="store_const",
-                         const='START_UP_DELAYED',
-                         dest='option',
-                         help="Start up delayed (prime mover)")
-
-        ops.add_argument("-sdi", "--shutdown_immediate",
-                         action="store_const",
-                         const='SHUTDOWN_IMMEDIATE',
-                         dest='option',
-                         help="Shutdown Immediate")
-
-        ops.add_argument("-sdd", "--shutdown_delayed",
-                         action="store_const",
-                         const='SHUTDOWN_DELAYED',
-                         dest='option',
-                         help="Shutdown delayed with announcement")
         ops.add_argument("-l", "--engine_labor",
                          action=DataAction,
                          dest='option',
@@ -201,28 +136,61 @@ class EngineCli(CliBaseTMCC):
                          default=0,
                          const='ENGINE_LABOR',
                          help="Engine labor")
-        ops.add_argument("-aux1",
-                         dest='aux1',
-                         choices=['on', 'off', 'opt1', 'opt2'],
+        ops.add_argument("-n",
+                         action=DataAction,
+                         dest='option',
+                         choices=range(0, 10),
+                         metavar="0 - 9",
+                         type=int,
+                         nargs='?',
+                         default=7,  # random radio chatter
+                         const='NUMERIC',
+                         help="Send numeric value")
+        ops.add_argument("-pm", "--prime_mover",
+                         choices=['on', 'off'],
                          nargs='?',
                          type=str,
-                         const='opt1')
-        ops.add_argument("-aux2",
-                         dest='aux2',
-                         choices=['on', 'off', 'opt1', 'opt2'],
-                         nargs='?',
-                         type=str,
-                         const='opt1')
-        ops.add_argument("-vu", "--volume_up",
+                         help="Prime mover sound on/off")
+        ops.add_argument("-r", "--ring_bell",
                          action="store_const",
-                         const='VOLUME_UP',
+                         const='RING_BELL',
                          dest='option',
-                         help="Master volume up")
-        ops.add_argument("-vd", "--volume_down",
+                         help="Ring bell")
+        ops.add_argument("-rc", "--rear_coupler",
                          action="store_const",
-                         const='VOLUME_DOWN',
+                         const='REAR_COUPLER',
                          dest='option',
-                         help="Master volume down")
+                         help="Open rear coupler")
+        ops.add_argument("-s", "--stop_immediate",
+                         action="store_const",
+                         const='STOP_IMMEDIATE',
+                         dest='option',
+                         help="Stop immediate")
+        ops.add_argument("-stall",
+                         action="store_const",
+                         const='STALL',
+                         dest='option',
+                         help="Set stall")
+        ops.add_argument("-sdd", "--shutdown_delayed",
+                         action="store_const",
+                         const='SHUTDOWN_DELAYED',
+                         dest='option',
+                         help="Shutdown delayed with announcement")
+        ops.add_argument("-sdi", "--shutdown_immediate",
+                         action="store_const",
+                         const='SHUTDOWN_IMMEDIATE',
+                         dest='option',
+                         help="Shutdown Immediate")
+        ops.add_argument("-sud", "--start_up_delayed",
+                         action="store_const",
+                         const='START_UP_DELAYED',
+                         dest='option',
+                         help="Start up delayed (prime mover)")
+        ops.add_argument("-sui", "--start_up_immediate",
+                         action="store_const",
+                         const='START_UP_IMMEDIATE',
+                         dest='option',
+                         help="Start up immediate")
         ops.add_argument("-sound",
                          choices=['on', 'off'],
                          nargs='?',
@@ -234,6 +202,26 @@ class EngineCli(CliBaseTMCC):
                          nargs='?',
                          type=str,
                          help="Sequence control on/off")
+        ops.add_argument("-tb", "--train_brake",
+                         action=DataAction,
+                         dest='option',
+                         choices=range(0, 8),
+                         metavar="0 - 7",
+                         type=int,
+                         nargs='?',
+                         default=1,
+                         const='TRAIN_BRAKE',
+                         help="Train brake")
+        ops.add_argument("-vd", "--volume_down",
+                         action="store_const",
+                         const='VOLUME_DOWN',
+                         dest='option',
+                         help="Master volume down")
+        ops.add_argument("-vu", "--volume_up",
+                         action="store_const",
+                         const='VOLUME_UP',
+                         dest='option',
+                         help="Master volume up")
 
         # create subparsers to handle train/engine-specific operations
         sp = engine_parser.add_subparsers(dest='sub_command', help='Engine/train sub-commands')
@@ -502,6 +490,8 @@ class EngineCli(CliBaseTMCC):
                 option = f"sound_{self._args.sound}".upper()
             elif 'sequence_control' in self._args and self._args.sequence_control is not None:
                 option = f"sequence_control_{self._args.sequence_control}".upper()
+            elif 'prime_mover' in self._args and self._args.prime_mover is not None:
+                option = f"prime_mover{self._args.prime_mover}".upper()
             else:
                 raise ValueError("Must specify an option, use -h for help")
         else:
