@@ -366,7 +366,7 @@ class EngineCli(CliBaseTMCC):
                                  default=0,
                                  const='DIESEL_RPM',
                                  help="Diesel run level sound")
-        sound_group.add_argument("-f", "--refueling",
+        sound_group.add_argument("-f", "-fu", "-fue", "-fuel", "--refueling",
                                  action="store_const",
                                  const='REFUELLING',
                                  dest='option',
