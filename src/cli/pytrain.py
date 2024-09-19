@@ -4,8 +4,8 @@ import argparse
 import os
 import readline
 
-from src.cli.cli_base import cli_parser
 from src.cli.acc import AccCli
+from src.cli.cli_base import CliBase
 from src.cli.effects import EffectsCli
 from src.cli.engine import EngineCli
 from src.cli.halt import HaltCli
@@ -97,10 +97,7 @@ class PyTrain:
                         self._command_parser().parse_args(["-help"])
                     ui_parser = args.command.command_parser()
                     ui_parser.remove_args(['baudrate', 'port', 'server'])
-                    cmd = args.command(ui_parser, ui_parts[1:], False).command
-                    if cmd is None:
-                        return
-                    cmd.send(buffer=self.buffer)
+                    args.command(ui_parser, ui_parts[1:], False).send(buffer=self.buffer)
                 except argparse.ArgumentError:
                     print(f"'{ui}' is not a valid command")
                     return
@@ -189,7 +186,7 @@ if __name__ == '__main__':
 
     parser = ArgumentParser(prog="pytrain.py",
                             description="Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
-                            parents=[parser, cli_parser()])
+                            parents=[parser, CliBase.cli_parser()])
     parser.add_argument("-no", "--no_clients",
                         action="store_true",
                         help=f"Do not listen for client connections on port {DEFAULT_SERVER_PORT}")

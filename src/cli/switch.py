@@ -2,7 +2,7 @@
 #
 from typing import List
 
-from src.cli.cli_base import CliBase, cli_parser
+from src.cli.cli_base import CliBase
 from src.protocol.tmcc1.switch_cmd import SwitchCmd
 from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
 from src.utils.argument_parser import ArgumentParser
@@ -30,7 +30,7 @@ class SwitchCli(CliBase):
                            dest="command",
                            help="Set switch address")
         group.set_defaults(command=TMCC1SwitchState.THROUGH)
-        return ArgumentParser("Fire specified switch (1 - 99)", parents=[sw_parser, cli_parser()])
+        return ArgumentParser("Fire specified switch (1 - 99)", parents=[sw_parser, cls.cli_parser()])
 
     """
         Throw the specified switch.

@@ -2,7 +2,7 @@
 #
 from typing import List
 
-from src.cli.cli_base import command_format_parser, CliBaseTMCC, train_parser, cli_parser
+from src.cli.cli_base import CliBaseTMCC
 from src.protocol.constants import CommandSyntax
 from src.protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
 from src.protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
@@ -13,9 +13,9 @@ class HaltCli(CliBaseTMCC):
     @classmethod
     def command_parser(cls):
         return ArgumentParser("Emergency halt; stop all engines and trains",
-                              parents=[train_parser(),
-                                       command_format_parser(CommandSyntax.TMCC1),
-                                       cli_parser()
+                              parents=[cls.train_parser(),
+                                       cls.command_format_parser(CommandSyntax.TMCC1),
+                                       cls.cli_parser()
                                        ])
 
     def __init__(self,

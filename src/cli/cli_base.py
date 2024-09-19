@@ -4,6 +4,7 @@ import sys
 from abc import ABC
 from typing import List, Any
 
+from ..comm.comm_buffer import CommBuffer
 from ..protocol.command_base import CommandBase
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
@@ -17,6 +18,75 @@ class CliBase(ABC):
     @classmethod
     def command_parser(cls) -> ArgumentParser | None:
         return None
+
+    @staticmethod
+    def cli_parser() -> ArgumentParser:
+        """
+            Add options common to all CLI commands here. Command handlers
+            can inherit from this parser to add other command-specific options.
+        """
+        # define arguments common to all Legacy CLI commands
+        parser = ArgumentParser(add_help=False)
+
+        parser.add_argument('-baud', '--baudrate', action='store',
+                            type=int, default=DEFAULT_BAUDRATE, help=f"Baud Rate ({DEFAULT_BAUDRATE})")
+        parser.add_argument('-p', '--port', action='store',
+                            default=DEFAULT_PORT, help=f"Serial Port ({DEFAULT_PORT})")
+        parser.add_argument('-server', action='store',
+                            help=f"IP Address of PyLegacy server, if client. Server communicates with LCS SER2")
+        return parser
+
+    @staticmethod
+    def multi_parser() -> ArgumentParser:
+        """
+            Add options to allow command repetition and delay
+        """
+        # define arguments common to all Legacy CLI commands
+        parser = ArgumentParser(add_help=False)
+        parser.add_argument("-re", "--repeat",
+                            action="store",
+                            type=CliBase._validate_repeat,
+                            default=1,
+                            help="Number of times to repeat command (default: 1)")
+
+        parser.add_argument("-de", "--delay",
+                            action="store",
+                            type=CliBase._validate_delay,
+                            default=0,
+                            help="Second(s) to delay between repeated commands (default: 0)")
+        return parser
+
+    @staticmethod
+    def command_format_parser(default: CommandSyntax = CommandSyntax.TMCC2) -> ArgumentParser:
+        """
+            Add command_def to run command using TMCC1 command syntax
+        """
+        parser = ArgumentParser(add_help=False)
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument("-tmcc", "--tmcc1",
+                           action="store_const",
+                           const=CommandSyntax.TMCC1,
+                           dest='format',
+                           help="Use TMCC1 command syntax.")
+        group.add_argument("-legacy", "--tmcc2",
+                           action="store_const",
+                           const=CommandSyntax.TMCC2,
+                           dest='format',
+                           help="Use TMCC2/Legacy command syntax.")
+        group.set_defaults(format=default)
+        return parser
+
+    @staticmethod
+    def train_parser() -> ArgumentParser:
+        """
+            Add command_def to run command TMCC2 command as train rather than engine
+        """
+        parser = ArgumentParser(add_help=False)
+        parser.add_argument("-tr", "--train",
+                            action="store_const",
+                            const=True,
+                            help="Direct command to addressed train rather than engine (for TMCC2 commands)")
+        return parser
 
     def __init__(self,
                  arg_parser: ArgumentParser,
@@ -44,6 +114,11 @@ class CliBase(ABC):
         else:
             self._server = None
         # print(self._args)
+
+    def send(self, buffer: CommBuffer = None) -> None:
+        repeat = self._args.repeat if 'repeat' in self._args else 1
+        delay = self._args.delay if 'delay' in self._args else 0
+        self.command.send(repeat=repeat, delay=delay, buffer=buffer)
 
     @property
     def command(self) -> CommandBase:
@@ -154,52 +229,3 @@ class DataAction(argparse.Action):
             setattr(namespace, "data", values)
         else:
             setattr(namespace, "data", self._default)
-
-
-def cli_parser() -> ArgumentParser:
-    """
-        Add options common to all CLI commands here. Command handlers
-        can inherit from this parser to add other command-specific options.
-    """
-    # define arguments common to all Legacy CLI commands
-    parser = ArgumentParser(add_help=False)
-
-    parser.add_argument('-baud', '--baudrate', action='store',
-                        type=int, default=DEFAULT_BAUDRATE, help=f"Baud Rate ({DEFAULT_BAUDRATE})")
-    parser.add_argument('-p', '--port', action='store',
-                        default=DEFAULT_PORT, help=f"Serial Port ({DEFAULT_PORT})")
-    parser.add_argument('-server', action='store',
-                        help=f"IP Address of PyLegacy server, if client. Server communicates with LCS SER2")
-    return parser
-
-
-def command_format_parser(default: CommandSyntax = CommandSyntax.TMCC2) -> ArgumentParser:
-    """
-        Add command_def to run command using TMCC1 command syntax
-    """
-    parser = ArgumentParser(add_help=False)
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("-tmcc", "--tmcc1",
-                       action="store_const",
-                       const=CommandSyntax.TMCC1,
-                       dest='format',
-                       help="Use TMCC1 command syntax.")
-    group.add_argument("-legacy", "--tmcc2",
-                       action="store_const",
-                       const=CommandSyntax.TMCC2,
-                       dest='format',
-                       help="Use TMCC2/Legacy command syntax.")
-    group.set_defaults(format=default)
-    return parser
-
-
-def train_parser() -> ArgumentParser:
-    """
-        Add command_def to run command TMCC2 command as train rather than engine
-    """
-    parser = ArgumentParser(add_help=False)
-    parser.add_argument("-tr", "--train",
-                        action="store_const",
-                        const=True,
-                        help="Direct command to addressed train rather than engine (for TMCC2 commands)")
-    return parser

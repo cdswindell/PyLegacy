@@ -2,7 +2,7 @@
 #
 from typing import List
 
-from src.cli.cli_base import CliBaseTMCC, DataAction, cli_parser, command_format_parser, train_parser
+from src.cli.cli_base import CliBaseTMCC, DataAction, CliBase
 from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
@@ -28,17 +28,7 @@ class EngineCli(CliBaseTMCC):
                                    metavar='Engine/Train',
                                    type=int,
                                    help="Engine/Train to operate")
-        engine_parser.add_argument("-re", "--repeat",
-                                   action="store",
-                                   type=EngineCli._validate_repeat,
-                                   default=1,
-                                   help="Number of times to repeat command (default: 1)")
 
-        engine_parser.add_argument("-de", "--delay",
-                                   action="store",
-                                   type=EngineCli._validate_delay,
-                                   default=0,
-                                   help="Second(s) to delay between repeated commands (default: 0)")
         ops = engine_parser.add_mutually_exclusive_group()
         ops.add_argument("-a", "--set_address",
                          action="store_const",
@@ -403,7 +393,7 @@ class EngineCli(CliBaseTMCC):
             "normal, or highball")
         speed = sp.add_parser('speed', aliases=['sp'], help='Speed of engine/train')
         speed.add_argument('data',
-                           type=EngineCli._validate_speed,
+                           type=CliBase._validate_speed,
                            action='store',
                            metavar=sp_metavar,
                            help="Absolute/Relative speed")
@@ -423,9 +413,10 @@ class EngineCli(CliBaseTMCC):
         # construct final parser with all components in order
         return ArgumentParser("Control specified engine/train (1 - 99)",
                               parents=[engine_parser,
-                                       train_parser(),
-                                       command_format_parser(),
-                                       cli_parser()])
+                                       cls.multi_parser(),
+                                       cls.train_parser(),
+                                       cls.command_format_parser(),
+                                       cls.cli_parser()])
 
     def __init__(self,
                  arg_parser: ArgumentParser,

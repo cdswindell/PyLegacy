@@ -2,7 +2,7 @@
 #
 from typing import List
 
-from src.cli.cli_base import CliBase, cli_parser, DataAction
+from src.cli.cli_base import CliBase, DataAction
 from src.protocol.tmcc1.acc_cmd import AccCmd as AccCmdTMCC1
 from src.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
 from src.utils.argument_parser import ArgumentParser
@@ -50,7 +50,7 @@ class AccCli(CliBase):
                                dest='command',
                                help="Set Accessory Address")
         # fire command
-        return ArgumentParser("Operate specified accessory (1 - 99)", parents=[acc_parser, cli_parser()])
+        return ArgumentParser("Operate specified accessory (1 - 99)", parents=[acc_parser, cls.cli_parser()])
 
     """
         Issue Accessory Commands.

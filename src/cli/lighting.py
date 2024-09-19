@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from typing import List
 
-from src.cli.cli_base import CliBaseTMCC, train_parser, cli_parser
+from src.cli.cli_base import CliBaseTMCC
 from src.protocol.tmcc2.lighting_cmd import LightingCmd
 from src.protocol.tmcc2.tmcc2_param_constants import TMCC2LightingControl
 from src.utils.argument_parser import ArgumentParser
@@ -236,8 +236,9 @@ class LightingCli(CliBaseTMCC):
 
         return ArgumentParser("Lighting control",
                               parents=[lighting_parser,
-                                       train_parser(),
-                                       cli_parser()
+                                       cls.multi_parser(),
+                                       cls.train_parser(),
+                                       cls.cli_parser()
                                        ])
 
     def __init__(self,
