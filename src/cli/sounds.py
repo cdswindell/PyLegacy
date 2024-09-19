@@ -40,14 +40,14 @@ class SoundEffectsCli(CliBaseTMCC):
                                    const=TMCC2RailSoundsEffectsControl.WHEEL_SLIP,
                                    dest='option',
                                    help="Wheel slip trigger")
-        sounds_parser.add_argument("-v+", "--volume_up",
+        sounds_parser.add_argument("-m+", "--volume_up",
                                    action="store_const",
-                                   const=TMCC2RailSoundsEffectsControl.VOLUME_UP,
+                                   const=TMCC2RailSoundsEffectsControl.VOLUME_UP_RS,
                                    dest='option',
                                    help="Increase master volume")
-        sounds_parser.add_argument("-v-", "--volume_down",
+        sounds_parser.add_argument("-m-", "--volume_down",
                                    action="store_const",
-                                   const=TMCC2RailSoundsEffectsControl.VOLUME_DOWN,
+                                   const=TMCC2RailSoundsEffectsControl.VOLUME_DOWN_RS,
                                    dest='option',
                                    help="Decrease master volume")
 
