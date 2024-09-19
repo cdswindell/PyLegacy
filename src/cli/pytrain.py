@@ -102,7 +102,7 @@ class PyTrain:
                         raise argparse.ArgumentError(None, f"'{ui}' is not a valid command")
                     cli_cmd.send(buffer=self.buffer)
                 except argparse.ArgumentError as e:
-                    print(f"'{ui}' is not a valid command {e}")
+                    print(f"{e}")
                     return
 
     def _process_startup_scripts(self) -> None:

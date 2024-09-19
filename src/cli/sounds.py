@@ -30,7 +30,7 @@ class SoundEffectsCli(CliBaseTMCC):
                                    const=TMCC2RailSoundsEffectsControl.BLEND_DOWN,
                                    dest='option',
                                    help="Blend level down")
-        sounds_parser.add_argument("-o", "--reset_odometer",
+        sounds_parser.add_argument("-r", "--reset_odometer",
                                    action="store_const",
                                    const=TMCC2RailSoundsEffectsControl.RESET_ODOMETER,
                                    dest='option',
@@ -50,6 +50,16 @@ class SoundEffectsCli(CliBaseTMCC):
                                    const=TMCC2RailSoundsEffectsControl.VOLUME_DOWN_RS,
                                    dest='option',
                                    help="Decrease master volume")
+        # sounds_parser.add_argument("-off",
+        #                            action="store_const",
+        #                            const='SOUND_OFF',
+        #                            dest='option',
+        #                            help="Turn all sounds off")
+        # sounds_parser.add_argument("-on",
+        #                            action="store_const",
+        #                            const='SOUND_ON',
+        #                            dest='option',
+        #                            help="Turn all sounds on")
 
         sp = sounds_parser.add_subparsers(dest='sub_command', help='Engine/train sub-commands')
 

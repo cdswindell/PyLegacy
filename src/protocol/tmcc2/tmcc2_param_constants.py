@@ -3,6 +3,7 @@ from enum import verify, UNIQUE, IntEnum
 
 from src.protocol.command_def import Mixins, CommandDefEnum
 from src.protocol.tmcc2.tmcc2_constants import TMCC2Enum, TMCC2CommandDef, TMCC2CommandPrefix
+from src.protocol.tmcc2.tmcc2_constants import TMCC2_SOUND_OFF_COMMAND, TMCC2_SOUND_ON_COMMAND
 
 """
     Legacy/TMCC2 Multi-byte Command sequences
@@ -96,6 +97,9 @@ TMCC2_RS_EFFECTS_SEQUENCE_CONTROL_ON: int = 0x2D
 
 TMCC2_RS_EFFECTS_RESET_ODOMETER: int = 0x30
 TMCC2_RS_EFFECTS_INCREMENT_FUEL_LOAD: int = 0x31
+
+TMCC2_RS_EFFECTS_SOUND_SYSTEM_OFF = TMCC2_SOUND_OFF_COMMAND
+TMCC2_RS_EFFECTS_SOUND_SYSTEM_ON = TMCC2_SOUND_ON_COMMAND
 
 
 @verify(UNIQUE)

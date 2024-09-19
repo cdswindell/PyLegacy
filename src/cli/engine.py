@@ -386,6 +386,16 @@ class EngineCli(CliBaseTMCC):
                                  const='WATER_INJECTOR',
                                  dest='option',
                                  help="Water injector sound")
+        sound_group.add_argument("-off",
+                                 action="store_const",
+                                 const='SOUND_OFF',
+                                 dest='option',
+                                 help="Turn all sounds off")
+        sound_group.add_argument("-on",
+                                 action="store_const",
+                                 const='SOUND_ON',
+                                 dest='option',
+                                 help="Turn all sounds on")
 
         # Speed operations
         sp_metavar = (
