@@ -199,12 +199,12 @@ class EngineCli(CliBaseTMCC):
                          default=1,
                          const='TRAIN_BRAKE',
                          help="Train brake")
-        ops.add_argument("-vd", "--volume_down",
+        ops.add_argument("-v-", "--volume_down",
                          action="store_const",
                          const='VOLUME_DOWN',
                          dest='option',
                          help="Master volume down")
-        ops.add_argument("-vu", "--volume_up",
+        ops.add_argument("-v+", "--volume_up",
                          action="store_const",
                          const='VOLUME_UP',
                          dest='option',
@@ -356,7 +356,7 @@ class EngineCli(CliBaseTMCC):
                                  const='BRAKE_AIR_RELEASE',
                                  dest='option',
                                  help="Brake air release sound")
-        sound_group.add_argument("-d", "--diesel_run_level",
+        sound_group.add_argument("-rpm", "--diesel_rpm",
                                  action=DataAction,
                                  dest='option',
                                  choices=range(0, 8),
@@ -364,7 +364,7 @@ class EngineCli(CliBaseTMCC):
                                  type=int,
                                  nargs='?',
                                  default=0,
-                                 const='DIESEL_LEVEL',
+                                 const='DIESEL_RPM',
                                  help="Diesel run level sound")
         sound_group.add_argument("-f", "--refueling",
                                  action="store_const",

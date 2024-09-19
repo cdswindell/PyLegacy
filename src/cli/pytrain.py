@@ -97,9 +97,12 @@ class PyTrain:
                         self._command_parser().parse_args(["-help"])
                     ui_parser = args.command.command_parser()
                     ui_parser.remove_args(['baudrate', 'port', 'server'])
-                    args.command(ui_parser, ui_parts[1:], False).send(buffer=self.buffer)
-                except argparse.ArgumentError:
-                    print(f"'{ui}' is not a valid command")
+                    cli_cmd = args.command(ui_parser, ui_parts[1:], False)
+                    if cli_cmd.command is None:
+                        raise argparse.ArgumentError(None, f"'{ui}' is not a valid command")
+                    cli_cmd.send(buffer=self.buffer)
+                except argparse.ArgumentError as e:
+                    print(f"'{ui}' is not a valid command {e}")
                     return
 
     def _process_startup_scripts(self) -> None:
