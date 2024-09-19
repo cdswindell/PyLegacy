@@ -328,7 +328,7 @@ class EngineCli(CliBaseTMCC):
                                  const='SMOKE_MEDIUM',
                                  dest='option',
                                  help="Set smoke level to medium")
-        smoke_group.add_argument("-x", "--high",
+        smoke_group.add_argument("-x", "-hi", "--high",
                                  action="store_const",
                                  const='SMOKE_HIGH',
                                  dest='option',
