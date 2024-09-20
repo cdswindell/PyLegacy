@@ -122,7 +122,7 @@ class CommBufferSingleton(CommBuffer, Thread):
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if command:
-            print(f"Enqueue command 0x{command.hex()} ({delay})")
+            print(f"Enqueue command 0x{command.hex()}")
             if delay > 0:
                 self._scheduler.schedule(delay, command)
             else:
