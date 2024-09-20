@@ -1,7 +1,7 @@
 import random
 from typing import List, TypeVar
 
-from src.protocol.command_req import CommandReq, ParameterCommandReq
+from src.protocol.command_req import CommandReq
 from src.protocol.tmcc2.tmcc2_param_constants import *
 from src.protocol.tmcc1.tmcc1_constants import *
 from src.protocol.tmcc2.tmcc2_constants import *
@@ -30,11 +30,7 @@ class TestBase:
                 data = self.generate_random_data(cmd)
             else:
                 data = 0
-        if isinstance(cmd, TMCC2ParameterEnum):
-            req = ParameterCommandReq(cmd, address, data, scope)
-        else:
-            req = CommandReq(cmd, address, data, scope)
-        return req
+        return CommandReq.build(cmd, address, data, scope)
 
     @property
     def all_command_enums(self) -> List[T]:

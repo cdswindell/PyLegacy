@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 
 from src.comm.comm_buffer import CommBufferSingleton, CommBuffer
-from src.protocol.command_req import CommandReq, ParameterCommandReq
+from src.protocol.command_req import CommandReq
 from src.protocol.constants import *
 from src.protocol.tmcc2.tmcc2_param_constants import *
 from src.protocol.tmcc1.tmcc1_constants import *
@@ -135,10 +135,7 @@ class TestCommandReq(TestBase):
                 for cmd in cdef:
                     data = self.generate_random_data(cmd)
                     # build a request object as a convenience to get byte streem command
-                    if isinstance(cmd, TMCC2ParameterEnum):
-                        req = ParameterCommandReq(cmd, 1, data, scope=CommandScope.TRAIN)
-                    else:
-                        req = CommandReq(cmd, 1, data, scope=CommandScope.TRAIN)
+                    req = CommandReq.build(cmd, 1, data, scope=CommandScope.TRAIN)
                     action = CommandReq.build_action(cmd, 1, data, scope=CommandScope.TRAIN)
                     assert req.scope == CommandScope.TRAIN
                     assert action is not None
