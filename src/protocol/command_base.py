@@ -6,7 +6,7 @@ from ipaddress import IPv4Address, IPv6Address
 from .command_req import CommandReq
 from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from .command_def import CommandDef, CommandDefEnum
-from .validations import Validations
+from src.utils.validations import Validations
 from ..comm.comm_buffer import CommBuffer
 
 
@@ -77,12 +77,12 @@ class CommandBase(ABC):
     def command_prefix(self) -> bytes:
         return self._command_prefix()
 
-    def send(self, repeat: int = 1, delay: int = 0, shutdown: bool = False, buffer: CommBuffer = None):
+    def send(self, repeat: int = 1, delay: float = 0, shutdown: bool = False, buffer: CommBuffer = None):
         """
             Send the command to the LCS SER2 and keep comm buffer alive.
         """
         Validations.validate_int(repeat, min_value=1)
-        Validations.validate_int(delay, min_value=0)
+        Validations.validate_float(delay, min_value=0)
 
         # create a CommBuffer to enqueue commands
         if buffer is None:
@@ -97,7 +97,7 @@ class CommandBase(ABC):
             buffer.shutdown()
             buffer.join()
 
-    def fire(self, repeat: int = 1, delay: int = 0) -> None:
+    def fire(self, repeat: int = 1, delay: float = 0) -> None:
         """
             Fire the command immediately and shut down comm buffers, once empty
         """

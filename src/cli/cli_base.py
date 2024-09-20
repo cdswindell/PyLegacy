@@ -52,7 +52,7 @@ class CliBase(ABC):
         parser.add_argument("-de", "--delay",
                             action="store",
                             type=CliBase._validate_delay,
-                            default=0,
+                            default=0.0,
                             help="Second(s) to delay between repeated commands (default: 0)")
         return parser
 
@@ -163,14 +163,14 @@ class CliBase(ABC):
         raise argparse.ArgumentTypeError("Speed must be between 0 and 199 (0 and 31, for tmcc)")
 
     @staticmethod
-    def _validate_delay(arg: Any) -> int:
+    def _validate_delay(arg: Any) -> float:
         try:
-            arg = int(arg)  # try convert to int
+            arg = float(arg)  # try convert to float
             if arg >= 0:
                 return arg
         except ValueError:
             pass
-        raise argparse.ArgumentTypeError("Delay must be 0 or greater")
+        raise argparse.ArgumentTypeError("Delay must be 0.0 or greater")
 
     @staticmethod
     def _validate_repeat(arg: Any) -> int:

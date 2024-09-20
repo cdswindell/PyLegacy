@@ -1,7 +1,7 @@
 import re
 import pytest
 
-from src.protocol.validations import Validations
+from src.utils.validations import Validations
 from test.test_base import TestBase
 
 

@@ -5,7 +5,7 @@ from src.protocol.command_req import CommandReq, ParameterCommandReq
 from src.protocol.tmcc2.tmcc2_param_constants import *
 from src.protocol.tmcc1.tmcc1_constants import *
 from src.protocol.tmcc2.tmcc2_constants import *
-from src.protocol.validations import Validations
+from src.utils.validations import Validations
 
 T = TypeVar("T", TMCC1Enum, TMCC2Enum)
 
@@ -77,11 +77,11 @@ class MockCommandReq:
     def _enqueue_command(cls,
                          cmd: bytes,
                          repeat: int,
-                         delay: int,
+                         delay: float,
                          baudrate: int,
                          port: str) -> bytes:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
-        delay = Validations.validate_int(delay, min_value=0, label="delay")
+        delay = Validations.validate_float(delay, min_value=0, label="delay")
         print(f"In MockCommandRequest._enqueue_command: {cmd.hex()} {repeat}, {delay}, {baudrate}")
 
         cmd_bytes: bytes = bytes()

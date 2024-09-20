@@ -14,7 +14,7 @@ from .command_def import CommandDef, CommandDefEnum
 from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum
 from .tmcc1.tmcc1_constants import TMCC1CommandIdentifier, TMCC1RouteCommandDef, TMCC1_TRAIN_COMMAND_PURIFIER
 from .tmcc1.tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
-from .validations import Validations
+from src.utils.validations import Validations
 from ..comm.comm_buffer import CommBuffer
 
 
@@ -39,7 +39,7 @@ class CommandReq:
                      data: int = 0,
                      scope: CommandScope = None,
                      repeat: int = 1,
-                     delay: int = 0,
+                     delay: float = 0,
                      baudrate: int = DEFAULT_BAUDRATE,
                      port: str = DEFAULT_PORT,
                      server: str = None
@@ -55,7 +55,7 @@ class CommandReq:
                      data: int = 0,
                      scope: CommandScope = None,
                      repeat: int = 1,
-                     delay: int = 0,
+                     delay: float = 0,
                      baudrate: int = DEFAULT_BAUDRATE,
                      port: str = DEFAULT_PORT,
                      server: str = None
@@ -109,7 +109,7 @@ class CommandReq:
     def _enqueue_command(cls,
                          cmd: bytes,
                          repeat: int,
-                         delay: int,
+                         delay: float,
                          baudrate: int,
                          port: str | int,
                          server: str | None,
@@ -237,7 +237,7 @@ class CommandReq:
 
     def as_action(self,
                   repeat: int = 1,
-                  delay: int = 0,
+                  delay: float = 0,
                   baudrate: int = DEFAULT_BAUDRATE,
                   port: str = DEFAULT_PORT,
                   server: str = None

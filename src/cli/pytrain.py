@@ -6,6 +6,7 @@ import readline
 
 from src.cli.acc import AccCli
 from src.cli.cli_base import CliBase
+from src.cli.dialogs import DialogsCli
 from src.cli.effects import EffectsCli
 from src.cli.engine import EngineCli
 from src.cli.halt import HaltCli
@@ -137,6 +138,11 @@ class PyTrain:
                            const=AccCli,
                            dest="command",
                            help="Issue accessory commands")
+        group.add_argument("-dialogs",
+                           action="store_const",
+                           const=DialogsCli,
+                           dest="command",
+                           help="Trigger RailSounds dialogs")
         group.add_argument("-effects",
                            action="store_const",
                            const=EffectsCli,
