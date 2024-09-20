@@ -1,5 +1,6 @@
 import abc
 import ipaddress
+import sched
 import socket
 import threading
 import time
@@ -11,8 +12,8 @@ from typing import Self
 import serial
 from serial.serialutil import SerialException
 
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY, \
-    DEFAULT_SERVER_PORT
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
+from ..protocol.constants import DEFAULT_THROTTLE_DELAY, DEFAULT_SERVER_PORT
 
 
 class CommBuffer(abc.ABC):
@@ -65,7 +66,7 @@ class CommBuffer(abc.ABC):
             return CommBufferProxy(server, int(port))
 
     @abc.abstractmethod
-    def enqueue_command(self, command: bytes) -> None:
+    def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         """
             Enqueue the command to send to the Lionel LCS SER2
         """
@@ -101,6 +102,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._shutdown_signalled = False
         self._last_output_at = 0  # used to throttle writes to LCS SER2
         # start the consumer threads
+        self._scheduler = DelayHandler(self)
         self.start()
 
     @staticmethod
@@ -118,10 +120,13 @@ class CommBufferSingleton(CommBuffer, Thread):
     def baudrate(self) -> int:
         return self._baudrate
 
-    def enqueue_command(self, command: bytes) -> None:
+    def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if command:
-            print(f"Enqueue command 0x{command.hex()}")
-            self._queue.put(command)
+            print(f"Enqueue command 0x{command.hex()} ({delay})")
+            if delay > 0:
+                self._scheduler.schedule(delay, command)
+            else:
+                self._queue.put(command)
 
     def shutdown(self, immediate: bool = False) -> None:
         if immediate:
@@ -171,23 +176,50 @@ class CommBufferProxy(CommBuffer):
         else:
             self._initialized = True
         super().__init__()
+        self._scheduler = DelayHandler(self)
         self._server = server
         self._port = port
 
-    def enqueue_command(self, command: bytes) -> None:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((str(self._server), self._port))
-        try:
-            # print(f"sending command 0x{command.hex()}")
-            s.sendall(command)
-            # print("Waiting for ACK...")
-            _ = s.recv(16)
-            # print(f"CommBufferProxy.enqueue_command({command}) {_}")
-        finally:
-            s.close()
+    def enqueue_command(self, command: bytes, delay: float = 0) -> None:
+        if delay > 0:
+            self._scheduler.schedule(delay, command)
+        else:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((str(self._server), self._port))
+            try:
+                # print(f"sending command 0x{command.hex()}")
+                s.sendall(command)
+                # print("Waiting for ACK...")
+                _ = s.recv(16)
+                # print(f"CommBufferProxy.enqueue_command({command}) {_}")
+            finally:
+                s.close()
 
     def shutdown(self, immediate: bool = False) -> None:
         pass
 
     def join(self):
         pass
+
+
+class DelayHandler(Thread):
+    def __init__(self, buffer: CommBuffer) -> None:
+        super().__init__(daemon=True, name="PyLegacy Delay Handler")
+        self._buffer = buffer
+        self._scheduler = sched.scheduler(time.time, time.sleep)
+        self._cv = threading.Condition()
+        self.start()
+
+    def run(self) -> None:
+        while True:
+            with self._cv:
+                while self._scheduler.empty():
+                    self._cv.wait()
+            # run the scheduler outside the cv lock, otherwise,
+            #  we couldn't schedule more commands
+            self._scheduler.run()
+
+    def schedule(self, delay: float, command: bytes) -> None:
+        with self._cv:
+            self._scheduler.enter(delay, 1, self._buffer.enqueue_command, (command, ))
+            self._cv.notify()

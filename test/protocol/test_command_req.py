@@ -190,7 +190,7 @@ class TestCommandReq(TestBase):
         with mock.patch.object(CommBufferSingleton, 'enqueue_command') as mk_enqueue_command:
             # test _enqueue_command with byte string
             CommandReq._enqueue_command(b'\x01\x02\x03', 1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
-            mk_enqueue_command.assert_called_once_with(b'\x01\x02\x03')
+            mk_enqueue_command.assert_called_once_with(b'\x01\x02\x03', 0)
             mk_enqueue_command.reset_mock()
 
             # test repeat argument

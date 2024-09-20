@@ -1,11 +1,10 @@
-import time
 from typing import Callable, Dict, Self
 
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
 from .tmcc2.tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX, TMCC2Enum, TMCC2CommandPrefix
 from .tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, TMCC2CommandDef
-from .tmcc2.tmcc2_param_constants import TMCC2ParameterEnum, TMCC2_PARAMETER_INDEX_PREFIX, TMCC2ParameterIndex, \
-    TMCC2RailSoundsEffectsControl
+from .tmcc2.tmcc2_param_constants import TMCC2ParameterEnum, TMCC2_PARAMETER_INDEX_PREFIX
+from .tmcc2.tmcc2_param_constants import TMCC2ParameterIndex, TMCC2RailSoundsEffectsControl
 from .tmcc2.tmcc2_param_constants import TMCC2RailSoundsDialogControl, TMCC2EffectsControl
 from .tmcc2.tmcc2_param_constants import TMCC2LightingControl, TMCC2ParameterCommandDef
 
@@ -115,18 +114,19 @@ class CommandReq:
                          server: str | None,
                          buffer: CommBuffer = None) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
-        delay = Validations.validate_int(delay, min_value=0, label="delay")
+        delay = Validations.validate_float(delay, min_value=0, label="delay")
         # send command to comm buffer
         if buffer is None:
             # vet server args
             server, port = CommBuffer.parse_server(server, port)
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
+        cumulative_delay = 0
         for _ in range(repeat):
             if delay > 0 and repeat == 1:
-                time.sleep(delay)
-            buffer.enqueue_command(cmd)
+                cumulative_delay = delay
+            buffer.enqueue_command(cmd, cumulative_delay)
             if repeat != 1 and delay > 0 and _ != repeat - 1:
-                time.sleep(delay)
+                cumulative_delay += delay
 
     @staticmethod
     def _validate_requested_scope(command_def: CommandDef, request: CommandScope) -> CommandScope:

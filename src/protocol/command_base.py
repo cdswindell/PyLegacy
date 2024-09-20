@@ -1,5 +1,4 @@
 import abc
-import time
 from abc import ABC
 from ipaddress import IPv4Address, IPv6Address
 
@@ -87,12 +86,13 @@ class CommandBase(ABC):
         # create a CommBuffer to enqueue commands
         if buffer is None:
             buffer = CommBuffer.build(baudrate=self.baudrate, port=self.port, server=self.server)
+        cumulative_delay = 0
         for _ in range(repeat):
             if delay > 0 and repeat == 1:
-                time.sleep(delay)
-            buffer.enqueue_command(self.command_bytes)
+                cumulative_delay = delay
+            buffer.enqueue_command(self.command_bytes, cumulative_delay)
             if repeat != 1 and delay > 0 and _ != repeat - 1:
-                time.sleep(delay)
+                cumulative_delay += delay
         if shutdown:
             buffer.shutdown()
             buffer.join()
