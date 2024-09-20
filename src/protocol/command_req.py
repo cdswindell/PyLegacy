@@ -19,11 +19,11 @@ from ..comm.comm_buffer import CommBuffer
 
 class CommandReq:
     @classmethod
-    def build_request(cls,
-                      command: CommandDefEnum | None,
-                      address: int = DEFAULT_ADDRESS,
-                      data: int = 0,
-                      scope: CommandScope = None) -> Self:
+    def build(cls,
+              command: CommandDefEnum | None,
+              address: int = DEFAULT_ADDRESS,
+              data: int = 0,
+              scope: CommandScope = None) -> Self:
         cls._vet_request(command, address, data, scope)
         if isinstance(command, TMCC2ParameterEnum):
             req = ParameterCommandReq(command, address, data, scope)
@@ -32,7 +32,7 @@ class CommandReq:
         return req
 
     @classmethod
-    def send_command(cls,
+    def send_request(cls,
                      command: CommandDefEnum,
                      address: int = DEFAULT_ADDRESS,
                      data: int = 0,
@@ -44,7 +44,7 @@ class CommandReq:
                      server: str = None
                      ) -> None:
         # build & queue
-        req = cls.build_request(command, address, data, scope)
+        req = cls.build(command, address, data, scope)
         cls._enqueue_command(req.as_bytes, repeat, delay, baudrate, port, server)
 
     @classmethod
@@ -60,7 +60,7 @@ class CommandReq:
                      server: str = None
                      ) -> Callable:
         # build & return action function
-        req = cls.build_request(command, address, data, scope)
+        req = cls.build(command, address, data, scope)
         return req.as_action(repeat=repeat, delay=delay, baudrate=baudrate, port=port, server=server)
 
     @classmethod
@@ -226,6 +226,15 @@ class CommandReq:
     @property
     def identifier(self) -> int | None:
         return self.command_def.identifier
+
+    def send(self,
+             repeat: int = 1,
+             delay: float = 0,
+             baudrate: int = DEFAULT_BAUDRATE,
+             port: str = DEFAULT_PORT,
+             server: str = None
+             ) -> None:
+        self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port, server)
 
     @property
     def as_bytes(self) -> bytes:

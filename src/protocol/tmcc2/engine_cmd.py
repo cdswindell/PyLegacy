@@ -18,5 +18,5 @@ class EngineCmd(TMCC2Command):
             raise ValueError(f"Scope must be ENGINE or TRAIN ({scope})")
         if engine < 1 or engine > 99:
             raise ValueError(f"{scope.name.capitalize()} must be between 1 and 99")
-        req = CommandReq.build_request(command, engine, data, scope)
+        req = CommandReq.build(command, engine, data, scope)
         super().__init__(command, req, engine, data, scope, baudrate, port, server)

@@ -196,7 +196,7 @@ class GpioHandler:
                  server: str = None
                  ) -> PotHandler:
         if isinstance(command, CommandDefEnum):
-            command = CommandReq.build_request(command, address, 0, scope)
+            command = CommandReq.build(command, address, 0, scope)
         if command.num_data_bits == 0:
             raise ValueError("Command does not support variable data")
         knob = PotHandler(command, channel, baudrate, port, server)
@@ -245,7 +245,7 @@ class GpioHandler:
                      led_pin: int | str) -> Tuple[CommandReq, Button, LED]:
         # if command is actually a CommandDefEnum, build a CommandReq
         if isinstance(command, CommandDefEnum):
-            command = CommandReq(command, address=address, data=data, scope=scope)
+            command = CommandReq.build(command, address=address, data=data, scope=scope)
 
         # create the button object we will associate an action with
         button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)

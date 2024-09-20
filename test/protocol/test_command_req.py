@@ -21,13 +21,13 @@ class TestCommandReq(TestBase):
     def test_send_command(self):
         with mock.patch.object(CommandReq, '_enqueue_command') as mk_enqueue_command:
             # test TMCC1 commands, beginning with HALT
-            CommandReq.send_command(TMCC1HaltCommandDef.HALT)
+            CommandReq.send_request(TMCC1HaltCommandDef.HALT)
             mk_enqueue_command.assert_called_once_with(0xfeffff.to_bytes(3, byteorder='big'),
                                                        1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
             mk_enqueue_command.reset_mock()
 
             # Route command
-            CommandReq.send_command(TMCC1RouteCommandDef.ROUTE, 10)
+            CommandReq.send_request(TMCC1RouteCommandDef.ROUTE, 10)
             mk_enqueue_command.assert_called_once_with(0xfed51f.to_bytes(3, byteorder='big'),
                                                        1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
             mk_enqueue_command.reset_mock()
@@ -39,7 +39,7 @@ class TestCommandReq(TestBase):
                     if cmd == TMCC1EngineCommandDef.RELATIVE_SPEED:
                         continue  # can't test defs that map data, yet
                     data = self.generate_random_data(cmd)
-                    CommandReq.send_command(cmd, address, data)
+                    CommandReq.send_request(cmd, address, data)
                     bits = cmd.command_def.bits | (int.from_bytes(cmd.command_def.first_byte) << 16)
                     bits |= address << 7
                     if data != 0:
@@ -54,7 +54,7 @@ class TestCommandReq(TestBase):
                 if cmd == TMCC1EngineCommandDef.RELATIVE_SPEED:
                     continue  # can't test defs that map data, yet
                 data = self.generate_random_data(cmd)
-                CommandReq.send_command(cmd, address, data, CommandScope.TRAIN)
+                CommandReq.send_request(cmd, address, data, CommandScope.TRAIN)
                 bits = cmd.command_def.bits
                 bits |= address << 7
                 bits &= TMCC1_TRAIN_COMMAND_PURIFIER
@@ -67,19 +67,19 @@ class TestCommandReq(TestBase):
                 mk_enqueue_command.reset_mock()
 
             # random switch command
-            CommandReq.send_command(TMCC1SwitchState.THROUGH, 15)
+            CommandReq.send_request(TMCC1SwitchState.THROUGH, 15)
             mk_enqueue_command.assert_called_once_with(0xfe4780.to_bytes(3, byteorder='big'),
                                                        1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
             mk_enqueue_command.reset_mock()
 
             # random acc command
-            CommandReq.send_command(TMCC1AuxCommandDef.AUX2_OPTION_ONE, 15)
+            CommandReq.send_request(TMCC1AuxCommandDef.AUX2_OPTION_ONE, 15)
             mk_enqueue_command.assert_called_once_with(0xfe878d.to_bytes(3, byteorder='big'),
                                                        1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
             mk_enqueue_command.reset_mock()
 
             # random engine command
-            CommandReq.send_command(TMCC1EngineCommandDef.RELATIVE_SPEED, 28, -5)
+            CommandReq.send_request(TMCC1EngineCommandDef.RELATIVE_SPEED, 28, -5)
             mk_enqueue_command.assert_called_once_with(0xfe0e40.to_bytes(3, byteorder='big'),
                                                        1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
             mk_enqueue_command.reset_mock()
@@ -93,14 +93,14 @@ class TestCommandReq(TestBase):
                     bits = cmd.command_def.bits
                     bits |= address << 9
                     bits |= (int.from_bytes(cmd.command_def.first_byte) << 16)
-                    CommandReq.send_command(cmd, address, data)
+                    CommandReq.send_request(cmd, address, data)
                     if cmd.command_def.num_data_bits > 0:
                         bits |= data
                     mk_enqueue_command.assert_called_once_with(bits.to_bytes(3, byteorder='big'),
                                                                1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
                     mk_enqueue_command.reset_mock()
 
-            CommandReq.send_command(TMCC2RouteCommandDef.ROUTE, 10)
+            CommandReq.send_request(TMCC2RouteCommandDef.ROUTE, 10)
             mk_enqueue_command.assert_called_once_with(0xfa14fd.to_bytes(3, byteorder='big'),
                                                        1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
             mk_enqueue_command.reset_mock()
@@ -152,7 +152,7 @@ class TestCommandReq(TestBase):
                                                                buffer=CommBuffer.build())
                     mk_enqueue_command.reset_mock()
 
-        # test build_request with repeat set
+        # test build with repeat set
         with mock.patch.object(CommBufferSingleton, 'enqueue_command') as mk_comm_enqueue_command:
             for cmd in TMCC2EffectsControl:
                 action = CommandReq.build_action(cmd, 1, data, repeat=3)
