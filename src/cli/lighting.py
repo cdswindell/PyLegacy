@@ -18,7 +18,7 @@ class LightingCli(CliBaseTMCC):
         sp = lighting_parser.add_subparsers(dest='sub_command', help='Engine/train sub-commands')
         cab = sp.add_parser('cab', help='Cab lighting options')
         cab_group = cab.add_mutually_exclusive_group()
-        cab_group.add_argument("-a", "--auto",
+        cab_group.add_argument("-auto",
                                action="store_const",
                                const=TMCC2LightingControl.CAB_AUTO,
                                dest='option',
@@ -37,7 +37,7 @@ class LightingCli(CliBaseTMCC):
 
         car = sp.add_parser('car', help='Car cabin lighting options')
         car_group = car.add_mutually_exclusive_group()
-        car_group.add_argument("-a", "--auto",
+        car_group.add_argument("-auto",
                                action="store_const",
                                const=TMCC2LightingControl.CAR_AUTO,
                                dest='option',
@@ -105,7 +105,7 @@ class LightingCli(CliBaseTMCC):
                                 const=TMCC2LightingControl.LOCO_MARKER_OFF,
                                 dest='option',
                                 help="Engine marker lights off")
-        loco_group.add_argument("-a", "--auto",
+        loco_group.add_argument("-auto",
                                 action="store_const",
                                 const=TMCC2LightingControl.LOCO_MARKER_AUTO,
                                 dest='option',
@@ -113,7 +113,7 @@ class LightingCli(CliBaseTMCC):
 
         ground = sp.add_parser('ground', aliases=['g'], help='Ground lighting options')
         ground_group = ground.add_mutually_exclusive_group()
-        ground_group.add_argument("-a", "--auto",
+        ground_group.add_argument("-auto",
                                   action="store_const",
                                   const=TMCC2LightingControl.GROUND_AUTO,
                                   dest='option',
@@ -132,7 +132,7 @@ class LightingCli(CliBaseTMCC):
 
         hazard = sp.add_parser('hazard', aliases=['h'], help='Hazard lighting options')
         hazard_group = hazard.add_mutually_exclusive_group()
-        hazard_group.add_argument("-a", "--auto",
+        hazard_group.add_argument("-auto",
                                   action="store_const",
                                   const=TMCC2LightingControl.HAZARD_AUTO,
                                   dest='option',
@@ -165,7 +165,7 @@ class LightingCli(CliBaseTMCC):
 
         r17 = sp.add_parser('rule17', aliases=['17'], help='Rule 17 lighting options')
         r17_group = r17.add_mutually_exclusive_group()
-        r17_group.add_argument("-a", "--auto",
+        r17_group.add_argument("-auto",
                                action="store_const",
                                const=TMCC2LightingControl.RULE_17_AUTO,
                                dest='option',
@@ -228,7 +228,7 @@ class LightingCli(CliBaseTMCC):
                                 const=TMCC2LightingControl.WORK_OFF,
                                 dest='option',
                                 help="Work lights off")
-        work_group.add_argument("-a", "--auto",
+        work_group.add_argument("-auto",
                                 action="store_const",
                                 const=TMCC2LightingControl.WORK_AUTO,
                                 dest='option',
