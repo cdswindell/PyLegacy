@@ -66,17 +66,17 @@ class DialogsCli(CliBaseTMCC):
                                help="Engineer: first all clear")
         eng_group.add_argument("-sh", "-stop_hold",
                                action="store_const",
-                               const=TMCC2RailSoundsDialogControl.ENGINEER_STOP_HOLD,
+                               const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_STOP_HOLD,
                                dest='option',
                                help="Engineer: first stop and hold ack")
         eng_group.add_argument("-rs", "-restricted_speed",
                                action="store_const",
-                               const=TMCC2RailSoundsDialogControl.ENGINEER_RESTRICTED_SPEED,
+                               const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_RESTRICTED,
                                dest='option',
                                help="Engineer: first restricted speed ack")
         eng_group.add_argument("-ss", "-slow_speed",
                                action="store_const",
-                               const=TMCC2RailSoundsDialogControl.ENGINEER_SLOW_SPEED,
+                               const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_SLOW,
                                dest='option',
                                help="Engineer: first slow speed ack")
         eng_group.add_argument("-ms", "-medium_speed",
@@ -86,17 +86,17 @@ class DialogsCli(CliBaseTMCC):
                                help="Engineer: first medium speed ack")
         eng_group.add_argument("-ls", "-limited_speed",
                                action="store_const",
-                               const=TMCC2RailSoundsDialogControl.ENGINEER_LIMITED_SPEED,
+                               const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_LIMITED,
                                dest='option',
                                help="Engineer: first limited speed ack")
         eng_group.add_argument("-ns", "-normal_speed",
                                action="store_const",
-                               const=TMCC2RailSoundsDialogControl.ENGINEER_NORMAL_SPEED,
+                               const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_NORMAL,
                                dest='option',
                                help="Engineer: first normal speed ack")
         eng_group.add_argument("-hs", "-highball_speed",
                                action="store_const",
-                               const=TMCC2RailSoundsDialogControl.ENGINEER_HIGHBALL_SPEED,
+                               const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_HIGHBALL,
                                dest='option',
                                help="Engineer: first highball speed ack")
         eng_group.add_argument("-id",
@@ -119,37 +119,37 @@ class DialogsCli(CliBaseTMCC):
                                  help="Tower: first engine startup dialog")
         tower_group.add_argument("-sh", "-stop_hold",
                                  action="store_const",
-                                 const=TMCC2RailSoundsDialogControl.TOWER_STOP_HOLD,
+                                 const=TMCC2RailSoundsDialogControl.TOWER_SPEED_STOP_HOLD,
                                  dest='option',
                                  help="Tower: first stop and hold dialog (non-emergency)")
         tower_group.add_argument("-rs", "-restricted_speed",
                                  action="store_const",
-                                 const=TMCC2RailSoundsDialogControl.TOWER_RESTRICTED_SPEED,
+                                 const=TMCC2RailSoundsDialogControl.TOWER_SPEED_RESTRICTED,
                                  dest='option',
                                  help="Tower: first restricted speed")
         tower_group.add_argument("-ss", "-slow_speed",
                                  action="store_const",
-                                 const=TMCC2RailSoundsDialogControl.TOWER_SLOW_SPEED,
+                                 const=TMCC2RailSoundsDialogControl.TOWER_SPEED_SLOW,
                                  dest='option',
                                  help="Tower: first slow speed")
         tower_group.add_argument("-ms", "-medium_speed",
                                  action="store_const",
-                                 const=TMCC2RailSoundsDialogControl.TOWER_MEDIUM_SPEED,
+                                 const=TMCC2RailSoundsDialogControl.TOWER_SPEED_MEDIUM,
                                  dest='option',
                                  help="Tower: first medium speed")
         tower_group.add_argument("-ls", "-limited_speed",
                                  action="store_const",
-                                 const=TMCC2RailSoundsDialogControl.TOWER_LIMITED_SPEED,
+                                 const=TMCC2RailSoundsDialogControl.TOWER_SPEED_LIMITED,
                                  dest='option',
                                  help="Tower: first limited speed")
         tower_group.add_argument("-ns", "-normal_speed",
                                  action="store_const",
-                                 const=TMCC2RailSoundsDialogControl.TOWER_NORMAL_SPEED,
+                                 const=TMCC2RailSoundsDialogControl.TOWER_SPEED_NORMAL,
                                  dest='option',
                                  help="Tower: first normal speed")
         tower_group.add_argument("-hs", "-highball_speed",
                                  action="store_const",
-                                 const=TMCC2RailSoundsDialogControl.TOWER_HIGHBALL_SPEED,
+                                 const=TMCC2RailSoundsDialogControl.TOWER_SPEED_HIGHBALL,
                                  dest='option',
                                  help="Tower: first highball speed")
 

@@ -2,10 +2,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import List, Callable
 
-from .command_def import CommandDefEnum, CommandDef
-from .command_req import CommandReq
-from .constants import CommandScope, DEFAULT_ADDRESS, CommandSyntax, DEFAULT_BAUDRATE, DEFAULT_PORT
-from ..comm.comm_buffer import CommBuffer
+from src.protocol.command_def import CommandDefEnum, CommandDef
+from src.protocol.command_req import CommandReq
+from src.protocol.constants import CommandScope, DEFAULT_ADDRESS, CommandSyntax, DEFAULT_BAUDRATE, DEFAULT_PORT
+from src.comm.comm_buffer import CommBuffer
 
 
 class SequenceReq(CommandReq, Sequence):
@@ -18,27 +18,33 @@ class SequenceReq(CommandReq, Sequence):
         super().__init__(_SequenceCommandEnum.SYSTEM, address, 0, scope)
         self._repeat = repeat
         self._delay = delay
-        self._requests: List[SequencedRequest] = []
+        self._requests: List[SequencedReq] = []
         if requests:
             for request in requests:
-                self._requests.append(SequencedRequest(request, repeat, delay))
+                self._requests.append(SequencedReq(request, repeat, delay))
 
-    def __getitem__(self, index) -> SequencedRequest:
+    def __getitem__(self, index) -> SequencedReq:
         return self._requests[index]
 
     def __len__(self) -> int:
         return len(self._requests)
 
-    def add_request(self,
-                    request: CommandReq | CommandDefEnum,
-                    address: int = DEFAULT_ADDRESS,
-                    data: int = 0,
-                    scope: CommandScope = None,
-                    repeat: int = 1,
-                    delay: float = 0) -> None:
+    def _apply_address(self, **kwargs) -> int:
+        return 0
+
+    def _apply_data(self, **kwargs) -> int:
+        return 0
+
+    def add(self,
+            request: CommandReq | CommandDefEnum,
+            address: int = DEFAULT_ADDRESS,
+            data: int = 0,
+            scope: CommandScope = None,
+            repeat: int = 1,
+            delay: float = 0) -> None:
         if isinstance(request, CommandDefEnum):
             request = CommandReq.build(request, address=address, data=data, scope=scope)
-        self._requests.append(SequencedRequest(request, repeat, delay))
+        self._requests.append(SequencedReq(request, repeat=repeat, delay=delay))
 
     def send(self,
              repeat: int = None,
@@ -47,14 +53,21 @@ class SequenceReq(CommandReq, Sequence):
              port: str = DEFAULT_PORT,
              server: str = None
              ) -> None:
-        for sq_request in self._requests:
-            request = sq_request.request
-            repeat = repeat if repeat is not None else sq_request.repeat
-            delay = delay if delay is not None else sq_request.delay
-            request.send(repeat, delay, baudrate, port, server)
+        for sqr in self._requests:
+            request = sqr.request
+            req_repeat = sqr.repeat if repeat is None else repeat
+            req_delay = sqr.delay if delay is None else delay
+            request.send(req_repeat, req_delay, baudrate, port, server)
 
-    def fire(self) -> None:
-        self.send()
+    def fire(self,
+             repeat: int = None,
+             delay: float = None,
+             baudrate: int = DEFAULT_BAUDRATE,
+             port: str = DEFAULT_PORT,
+             server: str = None
+             ) -> None:
+        self.send(repeat, delay, baudrate, port, server)
+        CommBuffer.build().shutdown()
 
     def as_action(self,
                   repeat: int = 1,
@@ -77,6 +90,7 @@ class SequenceReq(CommandReq, Sequence):
                                          port=port,
                                          server=server,
                                          buffer=buffer)
+
         return send_func
 
     @property
@@ -84,7 +98,7 @@ class SequenceReq(CommandReq, Sequence):
         raise NotImplementedError
 
 
-class SequencedRequest:
+class SequencedReq:
     def __init__(self,
                  request: CommandReq,
                  repeat: int = 1,
@@ -92,6 +106,9 @@ class SequencedRequest:
         self.request: CommandReq = request
         self.repeat: int = repeat
         self.delay: float = delay
+
+    def __repr__(self) -> str:
+        return f"< {self.request} repeat: {self.repeat} delay: {self.delay} >"
 
 
 class _SequenceCommandDef(CommandDef):

@@ -61,6 +61,12 @@ class Mixins(Enum):
             raise ValueError(f"{value} is not a valid {cls.__name__}")
 
 
+class OfficialRRSpeeds(Mixins, Enum):
+    """
+        Marker enum
+    """
+
+
 @verify(UNIQUE)
 class CommandSyntax(Mixins, Enum):
     TMCC1 = 1
