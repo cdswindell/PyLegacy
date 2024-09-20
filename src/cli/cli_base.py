@@ -28,9 +28,9 @@ class CliBase(ABC):
         # define arguments common to all Legacy CLI commands
         parser = ArgumentParser(add_help=False)
 
-        parser.add_argument('-baud', '--baudrate', action='store',
+        parser.add_argument('-baudrate', action='store',
                             type=int, default=DEFAULT_BAUDRATE, help=f"Baud Rate ({DEFAULT_BAUDRATE})")
-        parser.add_argument('-p', '--port', action='store',
+        parser.add_argument('-port', action='store',
                             default=DEFAULT_PORT, help=f"Serial Port ({DEFAULT_PORT})")
         parser.add_argument('-server', action='store',
                             help=f"IP Address of PyLegacy server, if client. Server communicates with LCS SER2")
@@ -43,13 +43,13 @@ class CliBase(ABC):
         """
         # define arguments common to all Legacy CLI commands
         parser = ArgumentParser(add_help=False)
-        parser.add_argument("-re", "--repeat",
+        parser.add_argument("-repeat",
                             action="store",
                             type=CliBase._validate_repeat,
                             default=1,
                             help="Number of times to repeat command (default: 1)")
 
-        parser.add_argument("-de", "--delay",
+        parser.add_argument("-delay",
                             action="store",
                             type=CliBase._validate_delay,
                             default=0.0,
@@ -82,7 +82,7 @@ class CliBase(ABC):
             Add command_def to run command TMCC2 command as train rather than engine
         """
         parser = ArgumentParser(add_help=False)
-        parser.add_argument("-tr", "--train",
+        parser.add_argument("-train",
                             action="store_const",
                             const=True,
                             help="Direct command to addressed train rather than engine (for TMCC2 commands)")
@@ -157,7 +157,7 @@ class CliBase(ABC):
         uc_arg = str(arg).upper()
         if uc_arg in TMCC2_SPEED_MAP:
             # feels a little hacky, but need a way to use a different map for TMCC commands
-            if '-tmcc' in sys.argv or '--tmcc1' in sys.argv:
+            if '-tmcc' in sys.argv or '-tmcc1' in sys.argv:
                 return TMCC1_SPEED_MAP[uc_arg]
             return TMCC2_SPEED_MAP[uc_arg]
         raise argparse.ArgumentTypeError("Speed must be between 0 and 199 (0 and 31, for tmcc)")

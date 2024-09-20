@@ -188,7 +188,7 @@ class PyTrain:
 
 if __name__ == '__main__':
     parser = ArgumentParser(add_help=False)
-    parser.add_argument("-s", "--startup_script",
+    parser.add_argument("-startup_script",
                         type=str,
                         default=DEFAULT_SCRIPT_FILE,
                         help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})")

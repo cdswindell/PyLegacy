@@ -18,18 +18,18 @@ class EffectsCli(CliBaseTMCC):
         sp = effects_parser.add_subparsers(dest='sub_command', help='Engine/train sub-commands')
         smoke = sp.add_parser('smoke', aliases=['sm'], help='Smoke system options')
         smoke_group = smoke.add_mutually_exclusive_group()
-        smoke_group.add_argument("-l", "--low",
+        smoke_group.add_argument("-low",
                                  action="store_const",
                                  const=TMCC2EffectsControl.SMOKE_LOW,
                                  dest='option',
                                  default=TMCC2EffectsControl.SMOKE_LOW,
                                  help="Smoke system low")
-        smoke_group.add_argument("-m", "--medium",
+        smoke_group.add_argument("-medium",
                                  action="store_const",
                                  const=TMCC2EffectsControl.SMOKE_MEDIUM,
                                  dest='option',
                                  help="Smoke system medium")
-        smoke_group.add_argument("-x", "--maximum",
+        smoke_group.add_argument("-high", "-maximum",
                                  action="store_const",
                                  const=TMCC2EffectsControl.SMOKE_HIGH,
                                  dest='option',

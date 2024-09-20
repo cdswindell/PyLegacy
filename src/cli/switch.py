@@ -14,17 +14,17 @@ class SwitchCli(CliBase):
         sw_parser = ArgumentParser(add_help=False)
         sw_parser.add_argument("switch", metavar='Switch Number', type=int, help="switch to fire")
         group = sw_parser.add_mutually_exclusive_group()
-        group.add_argument("-t", "--through",
+        group.add_argument("-through",
                            action="store_const",
                            const=TMCC1SwitchState.THROUGH,
                            dest="command",
                            help="Throw Through")
-        group.add_argument("-o", "--out",
+        group.add_argument("-out",
                            action="store_const",
                            const=TMCC1SwitchState.OUT,
                            dest="command",
                            help="Throw Out")
-        group.add_argument("-a", "--set_address",
+        group.add_argument("-address",
                            action="store_const",
                            const=TMCC1SwitchState.SET_ADDRESS,
                            dest="command",

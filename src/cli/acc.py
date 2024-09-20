@@ -44,7 +44,7 @@ class AccCli(CliBase):
                                default=1,
                                const=TMCC1AuxCommandDef.NUMERIC,
                                help="Numeric value")
-        aux_group.add_argument("-a", "--set_address",
+        aux_group.add_argument("-address",
                                action="store_const",
                                const=TMCC1AuxCommandDef.SET_ADDRESS,
                                dest='command',
