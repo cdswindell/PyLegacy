@@ -203,13 +203,19 @@ class CommBufferProxy(CommBuffer):
 
 
 class DelayHandler(Thread):
+    """
+        Handle delayed (scheduled) requests. Implementation uses Python's lightweight
+        sched module to keep a list of requests to issue in the future. We use
+        threading.Event.wait() as the sleep function, as it is interruptable. This
+        allows us to schedule requests in any order and still have them fire at the
+        appropriate time.
+    """
     def __init__(self, buffer: CommBuffer) -> None:
         super().__init__(daemon=True, name="PyLegacy Delay Handler")
         self._buffer = buffer
         self._cv = threading.Condition()
         self._ev = threading.Event()
         self._scheduler = sched.scheduler(time.time, self._ev.wait)
-
         self.start()
 
     def run(self) -> None:
@@ -225,5 +231,8 @@ class DelayHandler(Thread):
     def schedule(self, delay: float, command: bytes) -> None:
         with self._cv:
             self._scheduler.enter(delay, 1, self._buffer.enqueue_command, (command, ))
+            # this interrupts the running scheduler
             self._ev.set()
+            # and this notifies the main thread to restart, as there is a new
+            # request in the sched queue
             self._cv.notify()
