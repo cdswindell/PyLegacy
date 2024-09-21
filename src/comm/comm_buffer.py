@@ -206,8 +206,10 @@ class DelayHandler(Thread):
     def __init__(self, buffer: CommBuffer) -> None:
         super().__init__(daemon=True, name="PyLegacy Delay Handler")
         self._buffer = buffer
-        self._scheduler = sched.scheduler(time.time, time.sleep)
         self._cv = threading.Condition()
+        self._ev = threading.Event()
+        self._scheduler = sched.scheduler(time.time, self._ev.wait)
+
         self.start()
 
     def run(self) -> None:
@@ -218,8 +220,10 @@ class DelayHandler(Thread):
             # run the scheduler outside the cv lock, otherwise,
             #  we couldn't schedule more commands
             self._scheduler.run()
+            self._ev.clear()
 
     def schedule(self, delay: float, command: bytes) -> None:
         with self._cv:
             self._scheduler.enter(delay, 1, self._buffer.enqueue_command, (command, ))
+            self._ev.set()
             self._cv.notify()
