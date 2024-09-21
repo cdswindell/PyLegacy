@@ -81,7 +81,7 @@ class DialogsCli(CliBaseTMCC):
                                help="Engineer: first slow speed ack")
         eng_group.add_argument("-ms", "-medium_speed",
                                action="store_const",
-                               const=TMCC2RailSoundsDialogControl.ENGINEER_MEDIUM_SPEED,
+                               const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_MEDIUM,
                                dest='option',
                                help="Engineer: first medium speed ack")
         eng_group.add_argument("-ls", "-limited_speed",

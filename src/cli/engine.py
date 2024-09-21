@@ -408,6 +408,10 @@ class EngineCli(CliBaseTMCC):
                            metavar=sp_metavar,
                            help="Absolute/Relative speed")
 
+        speed.add_argument("-dialog",
+                           action="store_true",
+                           help="Trigger tower/engineer dialog")
+
         speed_group = speed.add_mutually_exclusive_group()
         speed_group.add_argument("-a", "--absolute",
                                  action="store_const",
@@ -420,6 +424,7 @@ class EngineCli(CliBaseTMCC):
                                  dest='option',
                                  help="Set relative speed speed (-5 to 5)")
         speed_group.set_defaults(option='ABSOLUTE_SPEED')
+
         # construct final parser with all components in order
         return ArgumentParser("Control specified engine/train (1 - 99)",
                               parents=[engine_parser,

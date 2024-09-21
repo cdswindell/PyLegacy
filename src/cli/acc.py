@@ -50,7 +50,8 @@ class AccCli(CliBase):
                                dest='command',
                                help="Set Accessory Address")
         # fire command
-        return ArgumentParser("Operate specified accessory (1 - 99)", parents=[acc_parser, cls.cli_parser()])
+        return ArgumentParser("Operate specified accessory (1 - 99)",
+                              parents=[acc_parser, cls.cli_parser()])
 
     """
         Issue Accessory Commands.
@@ -78,9 +79,9 @@ class AccCli(CliBase):
             cmd = AccCmdTMCC1(self._acc,
                               self._command,
                               self._data,
-                              baudrate=self._args.baudrate,
-                              port=self._args.port,
-                              server=self._args.server)
+                              baudrate=self._baudrate,
+                              port=self._port,
+                              server=self._server)
             if self.do_fire:
                 cmd.fire()
             self._command = cmd

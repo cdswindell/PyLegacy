@@ -28,7 +28,7 @@ class CliBase(ABC):
         # define arguments common to all Legacy CLI commands
         parser = ArgumentParser(add_help=False)
 
-        parser.add_argument('-baudrate', action='store',
+        parser.add_argument('-baudrate', "--baudrate", action='store',
                             type=int, default=DEFAULT_BAUDRATE, help=f"Baud Rate ({DEFAULT_BAUDRATE})")
         parser.add_argument('-port', action='store',
                             default=DEFAULT_PORT, help=f"Serial Port ({DEFAULT_PORT})")
@@ -105,7 +105,7 @@ class CliBase(ABC):
             self._baudrate = self._args.baudrate
         else:
             self._baudrate = DEFAULT_BAUDRATE
-        if 'baudrate' in self._args:
+        if 'port' in self._args:
             self._port = self._args.port
         else:
             self._port = DEFAULT_PORT
