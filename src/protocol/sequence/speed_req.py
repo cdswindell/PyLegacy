@@ -98,7 +98,7 @@ class SpeedReq(SequenceReq):
                            action="store_const",
                            const=cde.SPEED_NORMAL,
                            dest="command")
-        group.add_argument("-highball",
+        group.add_argument("-hi", "-high", "-highball",
                            action="store_const",
                            const=cde.SPEED_HIGHBALL,
                            dest="command")
