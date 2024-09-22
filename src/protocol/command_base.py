@@ -81,8 +81,8 @@ class CommandBase(ABC):
         return self._command_req
 
     def send(self,
-             repeat: int = 1,
-             delay: float = 0,
+             repeat: int = None,
+             delay: float = None,
              shutdown: bool = False,
              baudrate: int = DEFAULT_BAUDRATE,
              port: str = DEFAULT_PORT,

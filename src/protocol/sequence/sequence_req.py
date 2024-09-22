@@ -79,8 +79,8 @@ class SequenceReq(CommandReq, Sequence):
              ) -> None:
         for sqr in self._requests:
             request = sqr.request
-            req_repeat = sqr.repeat if repeat is None else repeat
-            req_delay = sqr.delay if delay is None else delay
+            req_repeat = sqr.repeat if sqr.repeat is not None else repeat
+            req_delay = sqr.delay if sqr.delay is not None else delay
             request.send(req_repeat, req_delay, baudrate, port, server)
 
     def fire(self,
@@ -163,8 +163,8 @@ class SequenceReq(CommandReq, Sequence):
 class SequencedReq:
     def __init__(self,
                  request: CommandReq,
-                 repeat: int = 1,
-                 delay: float = 0) -> None:
+                 repeat: int = None,
+                 delay: float = None) -> None:
         self.request: CommandReq = request
         self.repeat: int = repeat
         self.delay: float = delay
