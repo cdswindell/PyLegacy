@@ -3,6 +3,7 @@
 from typing import List
 
 from src.cli.cli_base import CliBaseTMCC, DataAction, CliBase
+from src.protocol.sequence.sequence_req import SequenceCommandEnum
 from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
@@ -409,7 +410,9 @@ class EngineCli(CliBaseTMCC):
                            help="Absolute/Relative speed")
 
         speed.add_argument("-dialog",
-                           action="store_true",
+                           action="store_const",
+                           const='ABSOLUTE_SPEED_SEQ',
+                           dest='option',
                            help="Trigger tower/engineer dialog")
 
         speed_group = speed.add_mutually_exclusive_group()
@@ -511,7 +514,8 @@ class EngineCli(CliBaseTMCC):
                             TMCC2RailSoundsDialogControl,
                             TMCC2RailSoundsEffectsControl,
                             TMCC2EffectsControl,
-                            TMCC2LightingControl]
+                            TMCC2LightingControl,
+                            SequenceCommandEnum]
         for enum_class in enum_classes:
             if option in dir(enum_class):
                 return enum_class[option]

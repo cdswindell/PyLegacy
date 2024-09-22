@@ -28,11 +28,18 @@ class CliBase(ABC):
         # define arguments common to all Legacy CLI commands
         parser = ArgumentParser(add_help=False)
 
-        parser.add_argument('-baudrate', "--baudrate", action='store',
-                            type=int, default=DEFAULT_BAUDRATE, help=f"Baud Rate ({DEFAULT_BAUDRATE})")
-        parser.add_argument('-port', action='store',
-                            default=DEFAULT_PORT, help=f"Serial Port ({DEFAULT_PORT})")
-        parser.add_argument('-server', action='store',
+        parser.add_argument('-baudrate',
+                            action='store',
+                            type=int,
+                            choices=[9600, 19200, 38400, 57600, 115200],
+                            default=DEFAULT_BAUDRATE,
+                            help=f"Baud Rate ({DEFAULT_BAUDRATE})")
+        parser.add_argument('-port',
+                            action='store',
+                            default=DEFAULT_PORT,
+                            help=f"Serial Port ({DEFAULT_PORT})")
+        parser.add_argument('-server',
+                            action='store',
                             help=f"IP Address of PyLegacy server, if client. Server communicates with LCS SER2")
         return parser
 

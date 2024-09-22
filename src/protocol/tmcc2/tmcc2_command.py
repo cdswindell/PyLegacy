@@ -2,7 +2,8 @@ import abc
 from abc import ABC
 
 from ..command_base import CommandBase
-from ..command_req import CommandReq, ParameterCommandReq
+from ..command_req import CommandReq
+from src.protocol.tmcc2.param_command_req import ParameterCommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from ..command_def import CommandDefEnum
 from .tmcc2_constants import TMCC2CommandPrefix
