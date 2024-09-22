@@ -15,8 +15,11 @@ class EchoCli:
             self._args = arg_parser.parse_args()
         else:
             self._args = arg_parser.parse_args(cmd_line)
-        self._reader = SerialReader(self._args.baudrate, self._args.port)
-        self._reader.read_bytes()
+        try:
+            self._reader = SerialReader(self._args.baudrate, self._args.port)
+            self._reader.read_bytes()
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == '__main__':
