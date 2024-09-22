@@ -101,7 +101,7 @@ class PyTrain:
                     cli_cmd = args.command(ui_parser, ui_parts[1:], False)
                     if cli_cmd.command is None:
                         raise argparse.ArgumentError(None, f"'{ui}' is not a valid command")
-                    cli_cmd.send(buffer=self.buffer)
+                    cli_cmd.send()
                 except argparse.ArgumentError as e:
                     print(f"{e}")
                     return

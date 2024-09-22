@@ -400,8 +400,8 @@ class EngineCli(CliBaseTMCC):
 
         # Speed operations
         sp_metavar = (
-            "Engine/Train speed: 0 - 199 (Legacy) or 0 - 31 (TMCC) or roll, restricted, slow, medium, limited, "
-            "normal, or highball")
+            "Engine/Train speed: 0 - 199 (Legacy) or 0 - 31 (TMCC) or stop, roll, restricted, "
+            "slow, medium, limited, normal, or highball")
         speed = sp.add_parser('speed', aliases=['sp'], help='Speed of engine/train')
         speed.add_argument('data',
                            type=CliBase._validate_speed,

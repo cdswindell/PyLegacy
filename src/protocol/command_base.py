@@ -76,24 +76,26 @@ class CommandBase(ABC):
     def command_prefix(self) -> bytes:
         return self._command_prefix()
 
-    def send(self, repeat: int = 1, delay: float = 0, shutdown: bool = False, buffer: CommBuffer = None):
+    @property
+    def command_req(self) -> CommandReq:
+        return self._command_req
+
+    def send(self,
+             repeat: int = 1,
+             delay: float = 0,
+             shutdown: bool = False,
+             baudrate: int = DEFAULT_BAUDRATE,
+             port: str = DEFAULT_PORT,
+             server: str = None):
         """
             Send the command to the LCS SER2 and keep comm buffer alive.
         """
         Validations.validate_int(repeat, min_value=1)
         Validations.validate_float(delay, min_value=0)
 
-        # create a CommBuffer to enqueue commands
-        if buffer is None:
-            buffer = CommBuffer.build(baudrate=self.baudrate, port=self.port, server=self.server)
-        cumulative_delay = 0
-        for _ in range(repeat):
-            if delay > 0 and repeat == 1:
-                cumulative_delay = delay
-            buffer.enqueue_command(self.command_bytes, cumulative_delay)
-            if repeat != 1 and delay > 0 and _ != repeat - 1:
-                cumulative_delay += delay
+        self.command_req.send(repeat, delay, baudrate, port, server)
         if shutdown:
+            buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
             buffer.shutdown()
             buffer.join()
 

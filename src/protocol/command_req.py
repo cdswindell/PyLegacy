@@ -119,8 +119,6 @@ class CommandReq:
         delay = Validations.validate_float(delay, min_value=0, label="delay")
         # send command to comm buffer
         if buffer is None:
-            # vet server args
-            server, port = CommBuffer.parse_server(server, port)
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
         cumulative_delay = 0
         for _ in range(repeat):

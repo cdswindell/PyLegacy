@@ -4,7 +4,6 @@ import sys
 from abc import ABC
 from typing import List, Any
 
-from ..comm.comm_buffer import CommBuffer
 from ..protocol.command_base import CommandBase
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
@@ -122,10 +121,14 @@ class CliBase(ABC):
             self._server = None
         # print(self._args)
 
-    def send(self, buffer: CommBuffer = None) -> None:
+    def send(self) -> None:
         repeat = self._args.repeat if 'repeat' in self._args else 1
         delay = self._args.delay if 'delay' in self._args else 0
-        self.command.send(repeat=repeat, delay=delay, buffer=buffer)
+        self.command.send(repeat=repeat,
+                          delay=delay,
+                          baudrate=self._baudrate,
+                          port=self._port,
+                          server=self._server)
 
     @property
     def command(self) -> CommandBase:
