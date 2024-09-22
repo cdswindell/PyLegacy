@@ -1,18 +1,16 @@
 from __future__ import annotations
+
 from collections.abc import Sequence
-from typing import List, Callable, Self, Dict, Type, TypeVar
+from typing import List, Callable, Self, TypeVar
 
-import argparse
-
-from src.protocol.command_def import CommandDefEnum, CommandDef
-from src.protocol.command_req import CommandReq
-from src.protocol.constants import CommandScope, DEFAULT_ADDRESS, CommandSyntax, DEFAULT_BAUDRATE, DEFAULT_PORT, \
-    OfficialRRSpeeds
-from src.comm.comm_buffer import CommBuffer
-from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1RRSpeeds
-from src.protocol.tmcc2.tmcc2_constants import TMCC2CommandDef, TMCC2EngineCommandDef, TMCC2RRSpeeds
-from src.protocol.tmcc2.tmcc2_param_constants import TMCC2RailSoundsDialogControl
-from src.utils.argument_parser import ArgumentParser
+from ..command_def import CommandDefEnum
+from ..command_req import CommandReq
+from ..constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
+from ..constants import CommandScope
+from ...comm.comm_buffer import CommBuffer
+from ..tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1RRSpeeds
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RRSpeeds
+from ...utils.argument_parser import ArgumentParser
 
 T = TypeVar("T", TMCC1RRSpeeds, TMCC2RRSpeeds)
 
@@ -33,6 +31,7 @@ class SequenceReq(CommandReq, Sequence):
                  repeat: int = 1,
                  delay: float = 0,
                  requests: List[CommandReq] = None) -> None:
+        from .sequence_constants import SequenceCommandEnum
         super().__init__(SequenceCommandEnum.SYSTEM, address, 0, scope)
         self._repeat = repeat
         self._delay = delay
@@ -43,6 +42,13 @@ class SequenceReq(CommandReq, Sequence):
 
     def __getitem__(self, index) -> SequencedReq:
         return self._requests[index]
+
+    @property
+    def as_bytes(self) -> bytes:
+        cmd_bytes = bytes()
+        for req in self._requests:
+            cmd_bytes += req.as_bytes
+        return cmd_bytes
 
     def __len__(self) -> int:
         return len(self._requests)
@@ -111,10 +117,6 @@ class SequenceReq(CommandReq, Sequence):
 
         return send_func
 
-    @property
-    def as_bytes(self) -> bytes:
-        raise NotImplementedError
-
     @staticmethod
     def _speed_parser(is_tmcc: bool = False) -> ArgumentParser:
         """
@@ -170,99 +172,6 @@ class SequencedReq:
     def __repr__(self) -> str:
         return f"< {self.request} repeat: {self.repeat} delay: {self.delay} >"
 
-
-class _SequenceCommandDef(CommandDef):
     @property
-    def scope(self) -> CommandScope | None:
-        return CommandScope.SYSTEM
-
-    @property
-    def syntax(self) -> CommandSyntax:
-        return CommandSyntax.TMCC2
-
-    @property
-    def is_tmcc1(self) -> bool:
-        return self.syntax == CommandSyntax.TMCC1
-
-    @property
-    def is_tmcc2(self) -> bool:
-        return self.syntax == CommandSyntax.TMCC2
-
-    @property
-    def first_byte(self) -> bytes | None:
-        raise NotImplementedError
-
-    @property
-    def address_mask(self) -> bytes | None:
-        raise NotImplementedError
-
-class SpeedReq(SequenceReq):
-    def __init__(self,
-                 address: int,
-                 speed: int | str | T = None,
-                 scope: CommandScope = CommandScope.ENGINE,
-                 is_tmcc: bool = False) -> None:
-        super().__init__(address, scope)
-        t, s, e = self._decode_speed(speed, is_tmcc)
-        self.add(t, address)
-        self.add(s, address, scope=scope, delay=3)
-        self.add(e, address, scope=scope, delay=6)
-
-    def _decode_speed(self, speed, is_tmcc):
-        base = None
-        speed_enum = None
-        if isinstance(speed, OfficialRRSpeeds):
-            base = f"SPEED_{speed.name}"
-            if isinstance(speed, TMCC1RRSpeeds):
-                speed_enum = TMCC1EngineCommandDef.by_name(base)
-            else:
-                speed_enum = TMCC2EngineCommandDef.by_name(base)
-            if speed_enum is None:
-                raise ValueError(f"Unknown speed type: {speed}")
-        elif isinstance(speed, int):
-            if is_tmcc:
-                for rr_speed in TMCC1RRSpeeds:
-                    if speed in rr_speed.value:
-                        base = f"SPEED_{rr_speed.name}"
-                        speed_enum = TMCC1EngineCommandDef.by_name(base)
-                        break
-            else:
-                for rr_speed in TMCC2RRSpeeds:
-                    if speed in rr_speed.value:
-                        base = f"SPEED_{rr_speed.name}"
-                        speed_enum = TMCC2EngineCommandDef.by_name(base)
-                        break
-        elif isinstance(speed, str):
-            try:
-                args = self._speed_parser().parse_args(['-' + speed.strip()])
-                speed_enum = args.command
-                base = speed_enum.name
-            except argparse.ArgumentError:
-                pass
-        if speed_enum is None:
-            raise ValueError(f"Unknown speed type: {speed}")
-
-        tower = TMCC2RailSoundsDialogControl.by_name(f"TOWER_{base}")
-        engr = TMCC2RailSoundsDialogControl.by_name(f"ENGINEER_{base}")
-        return tower, speed_enum, engr
-
-
-class TMCC2SequenceDef(TMCC2CommandDef):
-    def __init__(self,
-                 command_bits: int,
-                 scope: CommandScope = CommandScope.ENGINE,
-                 is_addressable: bool = True,
-                 d_min: int = 0,
-                 d_max: int = 0,
-                 d_map: Dict[int, int] = None,
-                 cmd_class: Type[SequenceReq] = None) -> None:
-        super().__init__(command_bits, scope, is_addressable, d_min, d_max, d_map)
-        self._cmd_class = cmd_class
-
-    def cmd_class(self) -> Type[SequenceReq]:
-        return self._cmd_class
-
-
-class SequenceCommandEnum(CommandDefEnum):
-    SYSTEM = _SequenceCommandDef(0x00)
-    ABSOLUTE_SPEED_SEQ = TMCC2SequenceDef(0, d_max=199, cmd_class=SpeedReq)
+    def as_bytes(self) -> bytes:
+        return self.request.as_bytes

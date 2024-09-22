@@ -21,10 +21,15 @@ class CommandReq:
               data: int = 0,
               scope: CommandScope = None) -> Self:
         cls._vet_request(command, address, data, scope)
-        # if isinstance(command, TMCC2ParameterEnum):
-        #     req = ParameterCommandReq(command, address, data, scope)
-        # else:
-        #     req = CommandReq(command, address, data, scope)
+        # we have to do these imports here to avoid cyclic dependencies
+        from .sequence.sequence_constants import SequenceCommandEnum
+        from .tmcc2.tmcc2_param_constants import TMCC2ParameterEnum
+        if isinstance(command, SequenceCommandEnum):
+            from .sequence.sequence_req import SequenceReq
+            return SequenceReq.build(command, address, data, scope)
+        elif isinstance(command, TMCC2ParameterEnum):
+            from .tmcc2.param_command_req import ParameterCommandReq
+            return ParameterCommandReq.build(command, address, data, scope)
         return CommandReq(command, address, data, scope)
 
     @classmethod
@@ -82,9 +87,10 @@ class CommandReq:
                      data: int,
                      scope: CommandScope,
                      ) -> None:
+        from .sequence.sequence_constants import SequenceCommandEnum
         if isinstance(command, TMCC1Enum):
             enum_class = TMCC1Enum
-        elif isinstance(command, TMCC2Enum):
+        elif isinstance(command, TMCC2Enum) or isinstance(command, SequenceCommandEnum):
             enum_class = TMCC2Enum
         else:
             raise TypeError(f"Command def not recognized: '{command}'")

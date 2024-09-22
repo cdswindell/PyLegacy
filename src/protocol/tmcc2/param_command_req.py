@@ -4,7 +4,7 @@ from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_ADDRESS, CommandScope
 from src.protocol.tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_PARAMETER_COMMAND_PREFIX
 from src.protocol.tmcc2.tmcc2_param_constants import TMCC2ParameterEnum, TMCC2ParameterIndex
-from src.protocol.tmcc2.tmcc2_param_constants import TMCC2_PARAMETER_INDEX_PREFIX, TMCC2ParameterCommandDef
+from src.protocol.tmcc2.tmcc2_param_constants import TMCC2_PARAMETER_INDEX_PREFIX
 from src.protocol.tmcc2.tmcc2_param_constants import TMCC2RailSoundsDialogControl
 from src.protocol.tmcc2.tmcc2_param_constants import TMCC2RailSoundsEffectsControl, TMCC2EffectsControl
 from src.protocol.tmcc2.tmcc2_param_constants import TMCC2LightingControl
@@ -42,10 +42,6 @@ class ParameterCommandReq(CommandReq):
     @property
     def parameter_index_byte(self) -> bytes:
         return (TMCC2_PARAMETER_INDEX_PREFIX | self.parameter_index).to_bytes(1, byteorder='big')
-
-    @property
-    def parameter_data(self) -> TMCC2ParameterCommandDef:
-        return TMCC2ParameterCommandDef(self._command_def)
 
     @property
     def parameter_data_byte(self) -> bytes:

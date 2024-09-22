@@ -3,7 +3,7 @@
 from typing import List
 
 from src.cli.cli_base import CliBaseTMCC, DataAction, CliBase
-from src.protocol.sequence.sequence_req import SequenceCommandEnum
+from src.protocol.sequence.sequence_constants import SequenceCommandEnum
 from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
