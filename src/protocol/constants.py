@@ -87,7 +87,6 @@ class CommandPrefix(Mixins, IntEnum):
     """
         Marker interface for Command Prefix enums
     """
-
     @property
     def prefix(self) -> Self:
         return self

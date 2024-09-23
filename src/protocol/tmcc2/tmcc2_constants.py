@@ -77,6 +77,10 @@ class TMCC2CommandDef(CommandDef):
     def address_mask(self) -> int:
         return 0xFFFF & ~((2 ** self.num_address_bits - 1) << 9)
 
+    @property
+    def alias(self) -> TMCC2Enum | None:
+        return None
+
 
 TMCC2_HALT_COMMAND: int = 0x01AB
 

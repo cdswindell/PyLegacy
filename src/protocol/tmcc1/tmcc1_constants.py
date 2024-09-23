@@ -1,13 +1,15 @@
 """
     TMCC1 Constants
 """
+from __future__ import annotations
+
 import abc
 from enum import verify, UNIQUE
 from typing import Dict
 
 from src.protocol.command_def import CommandDef, CommandDefEnum
-from src.protocol.constants import CommandPrefix, CommandScope, CommandSyntax, RELATIVE_SPEED_MAP, OfficialRRSpeeds, \
-    DEFAULT_ADDRESS
+from src.protocol.constants import CommandPrefix, CommandScope, CommandSyntax
+from src.protocol.constants import RELATIVE_SPEED_MAP, OfficialRRSpeeds, DEFAULT_ADDRESS
 
 
 class TMCC1Enum(CommandDefEnum):
@@ -25,12 +27,12 @@ TMCC1_COMMAND_PREFIX: int = 0xFE
 
 @verify(UNIQUE)
 class TMCC1CommandIdentifier(CommandPrefix):
-    ENGINE = 0x00  # first 2 bits significant
-    TRAIN = 0xC8   # first 5 bits significant
-    SWITCH = 0x40  # first 2 bits significant
-    ACC = 0x80     # first 2 bits significant
-    ROUTE = 0xD0   # first 4 bits significant
-    HALT = 0xFF    # first 8 bits significant
+    ENGINE = 0b00000000  # first 2 bits significant
+    TRAIN = 0b11001000   # first 5 bits significant
+    SWITCH = 0b01000000  # first 2 bits significant
+    ACC = 0b10000000     # first 2 bits significant
+    ROUTE = 0b11010000   # first 4 bits significant
+    HALT = 0xFFFF        # first 8 bits significant
 
     @classmethod
     def classify(cls, byte_data) -> CommandScope:
@@ -74,7 +76,7 @@ class TMCC1CommandDef(CommandDef):
                  d_max: int = 0,
                  d_map: Dict[int, int] = None,
                  do_reverse_lookup: bool = True,
-                 is_alias: bool = False) -> None:
+                 alias: str = None) -> None:
         super().__init__(command_bits,
                          is_addressable=is_addressable,
                          num_address_bits=num_address_bits,
@@ -82,7 +84,7 @@ class TMCC1CommandDef(CommandDef):
                          d_max=d_max,
                          d_map=d_map,
                          do_reverse_lookup=do_reverse_lookup,
-                         is_alias=is_alias)
+                         alias=alias)
         self._command_ident = command_ident
 
     @property
@@ -123,6 +125,10 @@ class TMCC1CommandDef(CommandDef):
     @staticmethod
     def classify(byte_data: bytes) -> CommandScope:
         return TMCC1CommandIdentifier.classify(byte_data)
+
+    @property
+    def alias(self) -> TMCC1EngineCommandDef:
+        return TMCC1EngineCommandDef.by_name(self._alias) if self._alias else None
 
 
 TMCC1_HALT_COMMAND: int = 0xFFFF
@@ -292,8 +298,6 @@ class TMCC1EngineCommandDef(TMCC1Enum):
     BRAKE_SPEED = TMCC1CommandDef(TMCC1_ENG_BRAKE_SPEED_COMMAND)
     FORWARD_DIRECTION = TMCC1CommandDef(TMCC1_ENG_FORWARD_DIRECTION_COMMAND)
     FRONT_COUPLER = TMCC1CommandDef(TMCC1_ENG_OPEN_FRONT_COUPLER_COMMAND)
-    FUNC_MINUS = TMCC1CommandDef(TMCC1_ENG_FUNC_MINUS_COMMAND, is_alias=True)
-    FUNC_PLUS = TMCC1CommandDef(TMCC1_ENG_FUNC_PLUS_COMMAND, is_alias=True)
     LET_OFF = TMCC1CommandDef(TMCC1_ENG_LET_OFF_SOUND_COMMAND)
     MOMENTUM_HIGH = TMCC1CommandDef(TMCC1_ENG_SET_MOMENTUM_HIGH_COMMAND)
     MOMENTUM_LOW = TMCC1CommandDef(TMCC1_ENG_SET_MOMENTUM_LOW_COMMAND)
@@ -303,23 +307,26 @@ class TMCC1EngineCommandDef(TMCC1Enum):
     RELATIVE_SPEED = TMCC1CommandDef(TMCC1_ENG_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
     REVERSE_DIRECTION = TMCC1CommandDef(TMCC1_ENG_REVERSE_DIRECTION_COMMAND)
     RING_BELL = TMCC1CommandDef(TMCC1_ENG_RING_BELL_COMMAND)
-    RPM_DOWN = TMCC1CommandDef(TMCC1_ENG_RPM_DOWN_COMMAND, is_alias=True)
-    RPM_UP = TMCC1CommandDef(TMCC1_ENG_RPM_UP_COMMAND, is_alias=True)
+    RPM_DOWN = TMCC1CommandDef(TMCC1_ENG_RPM_DOWN_COMMAND, alias="NUMERIC")
+    RPM_UP = TMCC1CommandDef(TMCC1_ENG_RPM_UP_COMMAND, alias="NUMERIC")
     SET_ADDRESS = TMCC1CommandDef(TMCC1_ENG_SET_ADDRESS_COMMAND)
-    SHUTDOWN_DELAYED = TMCC1CommandDef(TMCC1_ENG_SHUTDOWN_COMMAND, is_alias=True)
-    SOUND_ONE = TMCC1CommandDef(TMCC1_ENG_SOUND_ONE_COMMAND, is_alias=True)
-    SOUND_TWO = TMCC1CommandDef(TMCC1_ENG_SOUND_TWO_COMMAND, is_alias=True)
+    SHUTDOWN_DELAYED = TMCC1CommandDef(TMCC1_ENG_SHUTDOWN_COMMAND, alias="NUMERIC")
+    SOUND_ONE = TMCC1CommandDef(TMCC1_ENG_SOUND_ONE_COMMAND, alias="NUMERIC")
+    SOUND_TWO = TMCC1CommandDef(TMCC1_ENG_SOUND_TWO_COMMAND, alias="NUMERIC")
     TOGGLE_DIRECTION = TMCC1CommandDef(TMCC1_ENG_TOGGLE_DIRECTION_COMMAND)
-    VOLUME_DOWN = TMCC1CommandDef(TMCC1_ENG_VOLUME_DOWN_COMMAND, is_alias=True)
-    VOLUME_UP = TMCC1CommandDef(TMCC1_ENG_VOLUME_UP_COMMAND, is_alias=True)
-    SPEED_HIGHBALL = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_HIGHBALL_SPEED, is_alias=True)
-    SPEED_LIMITED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_LIMITED_SPEED, is_alias=True)
-    SPEED_MEDIUM = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_MEDIUM_SPEED, is_alias=True)
-    SPEED_NORMAL = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_NORMAL_SPEED, is_alias=True)
-    SPEED_RESTRICTED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_RESTRICTED_SPEED, is_alias=True)
-    SPEED_ROLL = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_ROLL_SPEED, is_alias=True)
-    SPEED_SLOW = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_SLOW_SPEED, is_alias=True)
-    SPEED_STOP_HOLD = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, do_reverse_lookup=False, is_alias=True)
+    VOLUME_DOWN = TMCC1CommandDef(TMCC1_ENG_VOLUME_DOWN_COMMAND, alias="NUMERIC")
+    VOLUME_UP = TMCC1CommandDef(TMCC1_ENG_VOLUME_UP_COMMAND, alias="NUMERIC")
+    SPEED_HIGHBALL = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_HIGHBALL_SPEED, alias="ABSOLUTE_SPEED")
+    SPEED_LIMITED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_LIMITED_SPEED, alias="ABSOLUTE_SPEED")
+    SPEED_MEDIUM = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_MEDIUM_SPEED, alias="ABSOLUTE_SPEED")
+    SPEED_NORMAL = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_NORMAL_SPEED, alias="ABSOLUTE_SPEED")
+    SPEED_RESTRICTED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_RESTRICTED_SPEED,
+                                       alias="ABSOLUTE_SPEED")
+    SPEED_ROLL = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_ROLL_SPEED, alias="ABSOLUTE_SPEED")
+    SPEED_SLOW = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_SLOW_SPEED, alias="ABSOLUTE_SPEED")
+    SPEED_STOP_HOLD = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, do_reverse_lookup=False, alias="ABSOLUTE_SPEED")
+    FUNC_MINUS = TMCC1CommandDef(TMCC1_ENG_FUNC_MINUS_COMMAND, alias="NUMERIC")
+    FUNC_PLUS = TMCC1CommandDef(TMCC1_ENG_FUNC_PLUS_COMMAND, alias="NUMERIC")
 
 
 # map bytes to enums

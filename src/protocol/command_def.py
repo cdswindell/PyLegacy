@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import abc
 import math
 from abc import ABC
@@ -22,12 +24,12 @@ class CommandDef(ABC):
                  d_max: int = 0,
                  d_map: Dict[int, int] = None,
                  do_reverse_lookup: bool = True,
-                 is_alias: bool = False) -> None:
-        self._command_bits = command_bits
+                 alias: str = None) -> None:
+        self._command_bits: int = command_bits
         self._is_addressable = is_addressable
         self._num_address_bits = num_address_bits
         self._do_reverse_lookup = do_reverse_lookup
-        self._is_alias = is_alias
+        self._alias: str = alias if alias else None
         self._d_min = d_min
         self._d_max = d_max
         self._d_map = d_map
@@ -87,7 +89,7 @@ class CommandDef(ABC):
 
     @property
     def is_alias(self) -> bool:
-        return self._is_alias
+        return self._alias is not None
 
     @property
     def num_data_bits(self) -> int:
@@ -156,6 +158,11 @@ class CommandDef(ABC):
     @property
     @abc.abstractmethod
     def scope(self) -> CommandScope | None:
+        return None
+
+    @property
+    @abc.abstractmethod
+    def alias(self) -> CommandDefEnum | None:
         return None
 
 
