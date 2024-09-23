@@ -25,7 +25,7 @@ class CommandReq:
               data: int = 0,
               scope: CommandScope = None) -> Self:
         if isinstance(command, bytes):
-            return cls.command_req_from_bytes(bytes(command))
+            return cls.from_bytes(bytes(command))
         cls._vet_request(command, address, data, scope)
         # we have to do these imports here to avoid cyclic dependencies
         from .sequence.sequence_constants import SequenceCommandEnum
@@ -39,7 +39,7 @@ class CommandReq:
         return CommandReq(command, address, data, scope)
 
     @classmethod
-    def command_req_from_bytes(cls, param: bytes) -> Self:
+    def from_bytes(cls, param: bytes) -> Self:
         if not param:
             raise ValueError("Command requires at least 3 bytes")
         if len(param) < 3:
@@ -119,8 +119,9 @@ class CommandReq:
             max_val = 31
         if scope is None:
             scope = command.scope
-        Validations.validate_int(address, min_value=1, max_value=max_val, label=scope.name.capitalize())
-        if data is not None:
+        if command.command_def.is_addressable:
+            Validations.validate_int(address, min_value=1, max_value=max_val, label=scope.name.capitalize())
+        if data is not None and command.command_def.is_data:
             Validations.validate_int(data, label=scope.name.capitalize())
 
     @classmethod
@@ -160,8 +161,14 @@ class CommandReq:
                  scope: CommandScope = None) -> None:
         self._command_def_enum = command_def_enum
         self._command_def: TMCC2CommandDef = command_def_enum.value  # read only; do not modify
-        self._address = address
-        self._data = data
+        if self._command_def.is_addressable:
+            self._address = address
+        else:
+            self._address = 0
+        if self._command_def.is_data:
+            self._data = data
+        else:
+            self._data = 0
         self._native_scope = self._command_def.scope
         self._scope = self._validate_requested_scope(self._command_def, scope)
         self._buffer: CommBuffer | None = None
@@ -178,11 +185,14 @@ class CommandReq:
 
     @property
     def address(self) -> int:
-        return self._address
+        if self.command_def.is_addressable:
+            return self._address
+        else:
+            return DEFAULT_ADDRESS
 
     @address.setter
     def address(self, new_address: int) -> None:
-        if new_address != self._address:
+        if self.command_def.is_addressable and new_address != self._address:
             self._address = new_address
             self._apply_address()
 
@@ -192,9 +202,17 @@ class CommandReq:
 
     @data.setter
     def data(self, new_data: int) -> None:
-        if new_data != self._data:
+        if self.is_data and new_data != self._data:
             self._data = new_data
             self._apply_data()
+
+    @property
+    def command_def_enum(self) -> CommandDefEnum:
+        return self._command_def_enum
+
+    @property
+    def command_def(self) -> TMCC2CommandDef:
+        return self._command_def
 
     @property
     def scope(self) -> CommandScope:
@@ -203,10 +221,6 @@ class CommandReq:
     @property
     def native_scope(self) -> CommandScope:
         return self._native_scope
-
-    @property
-    def command_def(self) -> TMCC2CommandDef:
-        return self._command_def
 
     @property
     def bits(self) -> int:
@@ -315,9 +329,8 @@ class CommandReq:
         if self.num_data_bits == 0:
             return self.bits
         elif self.command_def.data_map:
-            d_map = self.command_def.data_map
-            if data in d_map:
-                data = d_map[data]
+            if data in self.command_def.data_map:
+                data = self.command_def.data_map[data]
             else:
                 raise ValueError(f"Invalid data value: {data} (not in map)")
         elif data < self.command_def.data_min or data > self.command_def.data_max:
@@ -334,18 +347,25 @@ class CommandReq:
         return self._command_bits
 
     @classmethod
-    def _build_tmcc1_command_req(cls, param: bytes) -> CommandReq:
+    def _build_tmcc1_command_req(cls, param: bytes) -> Self:
         value = int.from_bytes(param[1:3], byteorder='big')
-        for tmcc_enums in [TMCC1HaltCommandDef,
-                           TMCC1EngineCommandDef,
-                           TMCC1SwitchState,
-                           TMCC1RouteCommandDef,
-                           TMCC1AuxCommandDef]:
-            for tmcc_enum in tmcc_enums:
-                cmd_enum = tmcc_enum.by_value(value)
+        for tmcc_enum in [TMCC1HaltCommandDef,
+                          TMCC1SwitchState,
+                          TMCC1AuxCommandDef,
+                          TMCC1RouteCommandDef,
+                          TMCC1EngineCommandDef]:
+            scope = None
+            cmd_enum = tmcc_enum.by_value(value)
+            if cmd_enum is None and tmcc_enum == TMCC1EngineCommandDef and \
+                    (value & TMCC1_TRAIN_COMMAND_MODIFIER) == TMCC1_TRAIN_COMMAND_MODIFIER:
+                # check if this is a TRAIN command and if so, clear out the
+                # train bits and look again; only do this for engine commands
+                cmd_enum = tmcc_enum.by_value(value & TMCC1_TRAIN_COMMAND_PURIFIER)
                 if cmd_enum:
-                    # build the request and return
-                    data = 0xFFFF & (~tmcc_enum.value.data_mask & value)
-                    address = (0xFFFF & (~tmcc_enum.value.address_mask & value)) >> 7
-                    return CommandReq.build(tmcc_enum, address, data)
+                    scope = CommandScope.TRAIN
+            if cmd_enum:
+                # build the request and return
+                data = cmd_enum.value.data_from_bytes(param[1:3])
+                address = cmd_enum.value.address_from_bytes(param[1:3])
+                return CommandReq.build(cmd_enum, address, data, scope)
         raise ValueError(f"Invalid tmcc1 command: : {param.hex(':')}")

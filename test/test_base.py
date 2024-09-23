@@ -24,9 +24,9 @@ class TestBase:
                       data: int = None,
                       scope: CommandScope = None) -> CommandReq:
         if address is None:
-            address = self.generate_random_address(cmd)
+            address = self.generate_random_address(cmd, scope=scope)
         if data is None:
-            if cmd.value.num_data_bits > 0:
+            if cmd.value.is_data > 0:
                 data = self.generate_random_data(cmd)
             else:
                 data = 0
@@ -47,9 +47,12 @@ class TestBase:
                 TMCC2LightingControl,
                 ]
 
-    def generate_random_address(self,  cmd: CommandDefEnum) -> int:
+    def generate_random_address(self,  cmd: CommandDefEnum, scope: CommandScope = None) -> int:
         if cmd.syntax == CommandSyntax.TMCC1:
-            address = random.randint(1, 31)
+            if scope == CommandScope.TRAIN or cmd.scope == CommandScope.ROUTE:
+                address = random.randint(1, 10)
+            else:
+                address = random.randint(1, 99)
         else:
             address = random.randint(1, 99)
         return address

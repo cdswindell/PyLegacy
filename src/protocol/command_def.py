@@ -21,11 +21,13 @@ class CommandDef(ABC):
                  d_min: int = 0,
                  d_max: int = 0,
                  d_map: Dict[int, int] = None,
-                 do_reverse_lookup: bool = True) -> None:
+                 do_reverse_lookup: bool = True,
+                 is_alias: bool = False) -> None:
         self._command_bits = command_bits
         self._is_addressable = is_addressable
         self._num_address_bits = num_address_bits
         self._do_reverse_lookup = do_reverse_lookup
+        self._is_alias = is_alias
         self._d_min = d_min
         self._d_max = d_max
         self._d_map = d_map
@@ -49,6 +51,43 @@ class CommandDef(ABC):
     @property
     def is_addressable(self) -> bool:
         return self._is_addressable
+
+    @property
+    def is_data(self) -> bool:
+        return self.num_data_bits != 0
+
+    def is_valid_data(self, candidate: int, from_bytes: bool = False) -> bool:
+        """
+            Determine if a candidate value is valid, given the constraints on this
+            CommandDef. If from_bytes is True, the candidate value will be treated
+            as coming from a bytes value, and the values (not keys) in data_map are
+            used to validate.
+        """
+        if self.is_data is True:
+            if self.data_map:
+                if from_bytes is True:
+                    return candidate in [v for k, v in self.data_map.items()]
+                elif from_bytes is False:
+                    return candidate in self.data_map
+            else:
+                return self.data_min <= candidate <= self.data_max
+        return False
+
+    def data_from_bytes(self, byte_data: bytes) -> int:
+        if self.is_data:
+            value = int.from_bytes(byte_data, byteorder='big')
+            data = 0xFFFF & (~self.data_mask & value)
+            if self.data_map:
+                for k, v in self.data_map.items():
+                    if v == data:
+                        return k
+            else:
+                return data
+        return 0
+
+    @property
+    def is_alias(self) -> bool:
+        return self._is_alias
 
     @property
     def num_data_bits(self) -> int:
@@ -131,9 +170,14 @@ class CommandDefMixins(Mixins):
                 return member
             if isinstance(member, CommandDef) and CommandDef(value).bits == value:
                 return member
-            if isinstance(member, CommandDefEnum) and isinstance(value, int):
+            if isinstance(member, CommandDefEnum) and isinstance(value, int) and not member.value.is_alias:
                 cd = member.value  # CommandDef
-                if value & cd.address_mask & cd.data_mask == member.value.bits:
+                if cd.is_data is True:
+                    data = 0xFFFF & (~cd.data_mask & value)
+                    if (value & cd.address_mask & cd.data_mask == member.value.bits and
+                            cd.is_valid_data(data, from_bytes=True)):
+                        return member
+                elif value & cd.address_mask == member.value.bits:
                     return member
         if raise_exception:
             raise ValueError(f"'{value}' is not a valid {cls.__name__}")
