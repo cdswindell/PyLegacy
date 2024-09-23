@@ -133,7 +133,6 @@ class CommandDefMixins(Mixins):
                 return member
             if isinstance(member, CommandDefEnum) and isinstance(value, int):
                 cd = member.value  # CommandDef
-                print(f"{cd}: {hex(value)} {value & cd.address_mask & cd.data_mask}")
                 if value & cd.address_mask & cd.data_mask == member.value.bits:
                     return member
         if raise_exception:

@@ -8,7 +8,8 @@ from .tmcc2.tmcc2_constants import TMCC2CommandDef
 
 from .constants import CommandScope, CommandSyntax
 from .command_def import CommandDef, CommandDefEnum
-from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum, TMCC1_BYTES_TO_ENUM
+from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum
+from .tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1SwitchState, TMCC1AuxCommandDef, TMCC1EngineCommandDef
 from .tmcc1.tmcc1_constants import TMCC1CommandIdentifier, TMCC1_TRAIN_COMMAND_PURIFIER
 from .tmcc1.tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
 from src.utils.validations import Validations
@@ -334,11 +335,17 @@ class CommandReq:
 
     @classmethod
     def _build_tmcc1_command_req(cls, param: bytes) -> CommandReq:
-        if param[1:3] in TMCC1_BYTES_TO_ENUM:
-            tmcc1_enum = TMCC1_BYTES_TO_ENUM[param[1:3]]
-            # build the request and return
-            bits = int.from_bytes(param[1:3], byteorder='big')
-            data = 0xFFFF & (~tmcc1_enum.data_mask & bits)
-            address = (0xFFFF & (~tmcc1_enum.address_mask & bits)) >> 7
-            return CommandReq.build(tmcc1_enum, address, data)
+        value = int.from_bytes(param[1:3], byteorder='big')
+        for tmcc_enums in [TMCC1HaltCommandDef,
+                           TMCC1EngineCommandDef,
+                           TMCC1SwitchState,
+                           TMCC1RouteCommandDef,
+                           TMCC1AuxCommandDef]:
+            for tmcc_enum in tmcc_enums:
+                cmd_enum = tmcc_enum.by_value(value)
+                if cmd_enum:
+                    # build the request and return
+                    data = 0xFFFF & (~tmcc_enum.value.data_mask & value)
+                    address = (0xFFFF & (~tmcc_enum.value.address_mask & value)) >> 7
+                    return CommandReq.build(tmcc_enum, address, data)
         raise ValueError(f"Invalid tmcc1 command: : {param.hex(':')}")
