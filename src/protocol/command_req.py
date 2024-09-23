@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Callable, Self
 
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
@@ -6,20 +8,23 @@ from .tmcc2.tmcc2_constants import TMCC2CommandDef
 
 from .constants import CommandScope, CommandSyntax
 from .command_def import CommandDef, CommandDefEnum
-from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum
-from .tmcc1.tmcc1_constants import TMCC1CommandIdentifier, TMCC1RouteCommandDef, TMCC1_TRAIN_COMMAND_PURIFIER
+from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum, TMCC1_BYTES_TO_ENUM
+from .tmcc1.tmcc1_constants import TMCC1CommandIdentifier, TMCC1_TRAIN_COMMAND_PURIFIER
 from .tmcc1.tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
 from src.utils.validations import Validations
 from ..comm.comm_buffer import CommBuffer
+from .tmcc1.tmcc1_constants import TMCC1RouteCommandDef
 
 
 class CommandReq:
     @classmethod
     def build(cls,
-              command: CommandDefEnum | None,
+              command: CommandDefEnum | bytes,
               address: int = DEFAULT_ADDRESS,
               data: int = 0,
               scope: CommandScope = None) -> Self:
+        if isinstance(command, bytes):
+            return cls.command_req_from_bytes(bytes(command))
         cls._vet_request(command, address, data, scope)
         # we have to do these imports here to avoid cyclic dependencies
         from .sequence.sequence_constants import SequenceCommandEnum
@@ -31,6 +36,17 @@ class CommandReq:
             from .tmcc2.param_command_req import ParameterCommandReq
             return ParameterCommandReq.build(command, address, data, scope)
         return CommandReq(command, address, data, scope)
+
+    @classmethod
+    def command_req_from_bytes(cls, param: bytes) -> Self:
+        if not param:
+            raise ValueError("Command requires at least 3 bytes")
+        if len(param) < 3:
+            raise ValueError(f"Command requires at least 3 bytes {param.hex(':')}")
+        first_byte = int(param[0])
+        if first_byte == TMCC1_COMMAND_PREFIX:
+            return cls._build_tmcc1_command_req(param)
+        raise ValueError(f"Command bytes not understood {param.hex(':')}")
 
     @classmethod
     def send_request(cls,
@@ -150,7 +166,7 @@ class CommandReq:
         self._buffer: CommBuffer | None = None
 
         # save the command bits from the def, as we will be modifying them
-        self._command_bits = self._command_def.bits
+        self._command_bits: int = self._command_def.bits
 
         # apply the given address and data
         self._apply_address()
@@ -315,3 +331,14 @@ class CommandReq:
         # set new data
         self._command_bits |= data
         return self._command_bits
+
+    @classmethod
+    def _build_tmcc1_command_req(cls, param: bytes) -> CommandReq:
+        if param[1:3] in TMCC1_BYTES_TO_ENUM:
+            tmcc1_enum = TMCC1_BYTES_TO_ENUM[param[1:3]]
+            # build the request and return
+            bits = int.from_bytes(param[1:3], byteorder='big')
+            data = 0xFFFF & (~tmcc1_enum.data_mask & bits)
+            address = (0xFFFF & (~tmcc1_enum.address_mask & bits)) >> 7
+            return CommandReq.build(tmcc1_enum, address, data)
+        raise ValueError(f"Invalid tmcc1 command: : {param.hex(':')}")

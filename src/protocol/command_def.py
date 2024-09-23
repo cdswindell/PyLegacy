@@ -20,10 +20,12 @@ class CommandDef(ABC):
                  num_address_bits: int = 7,
                  d_min: int = 0,
                  d_max: int = 0,
-                 d_map: Dict[int, int] = None) -> None:
+                 d_map: Dict[int, int] = None,
+                 do_reverse_lookup: bool = True) -> None:
         self._command_bits = command_bits
         self._is_addressable = is_addressable
         self._num_address_bits = num_address_bits
+        self._do_reverse_lookup = do_reverse_lookup
         self._d_min = d_min
         self._d_max = d_max
         self._d_map = d_map
@@ -41,6 +43,10 @@ class CommandDef(ABC):
         return self._command_bits
 
     @property
+    def as_bytes(self) -> bytes:
+        return self.bits.to_bytes(3, byteorder='big')
+
+    @property
     def is_addressable(self) -> bool:
         return self._is_addressable
 
@@ -50,7 +56,14 @@ class CommandDef(ABC):
 
     @property
     def num_address_bits(self) -> int:
-        return self._num_address_bits
+        if self.is_addressable:
+            return self._num_address_bits
+        else:
+            return 0
+
+    @property
+    def data_mask(self) -> int:
+        return 0xFFFF & ~(2 ** self.num_data_bits - 1)
 
     @property
     def data_min(self) -> int:
@@ -88,8 +101,12 @@ class CommandDef(ABC):
         return None
 
     @property
+    def do_reverse_lookup(self) -> bool:
+        return self._do_reverse_lookup
+
+    @property
     @abc.abstractmethod
-    def address_mask(self) -> bytes | None:
+    def address_mask(self) -> int | None:
         return None
 
     @property
@@ -114,6 +131,11 @@ class CommandDefMixins(Mixins):
                 return member
             if isinstance(member, CommandDef) and CommandDef(value).bits == value:
                 return member
+            if isinstance(member, CommandDefEnum) and isinstance(value, int):
+                cd = member.value  # CommandDef
+                print(f"{cd}: {hex(value)} {value & cd.address_mask & cd.data_mask}")
+                if value & cd.address_mask & cd.data_mask == member.value.bits:
+                    return member
         if raise_exception:
             raise ValueError(f"'{value}' is not a valid {cls.__name__}")
         else:
@@ -148,3 +170,11 @@ class CommandDefEnum(CommandDefMixins, Enum):
     @property
     def is_legacy(self) -> bool:
         return self.command_def.is_tmcc2
+
+    @property
+    def bits(self) -> int:
+        return self.value.bits
+
+    @property
+    def as_bytes(self) -> bytes:
+        return self.value.as_bytes

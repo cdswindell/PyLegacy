@@ -52,13 +52,15 @@ class TMCC1CommandDef(CommandDef):
                  num_address_bits: int = 7,
                  d_min: int = 0,
                  d_max: int = 0,
-                 d_map: Dict[int, int] = None) -> None:
+                 d_map: Dict[int, int] = None,
+                 do_reverse_lookup: bool = True) -> None:
         super().__init__(command_bits,
                          is_addressable=is_addressable,
                          num_address_bits=num_address_bits,
                          d_min=d_min,
                          d_max=d_max,
-                         d_map=d_map)
+                         d_map=d_map,
+                         do_reverse_lookup=do_reverse_lookup)
         self._command_ident = command_ident
 
     @property
@@ -256,8 +258,6 @@ class TMCC1EngineCommandDef(TMCC1Enum):
     MOMENTUM_LOW = TMCC1CommandDef(TMCC1_ENG_SET_MOMENTUM_LOW_COMMAND)
     MOMENTUM_MEDIUM = TMCC1CommandDef(TMCC1_ENG_SET_MOMENTUM_MEDIUM_COMMAND)
     NUMERIC = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND, d_max=9)
-    OPEN_FRONT_COUPLER = TMCC1CommandDef(TMCC1_ENG_OPEN_FRONT_COUPLER_COMMAND)
-    OPEN_REAR_COUPLER = TMCC1CommandDef(TMCC1_ENG_OPEN_REAR_COUPLER_COMMAND)
     REAR_COUPLER = TMCC1CommandDef(TMCC1_ENG_OPEN_REAR_COUPLER_COMMAND)
     RELATIVE_SPEED = TMCC1CommandDef(TMCC1_ENG_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
     REVERSE_DIRECTION = TMCC1CommandDef(TMCC1_ENG_REVERSE_DIRECTION_COMMAND)
@@ -278,4 +278,19 @@ class TMCC1EngineCommandDef(TMCC1Enum):
     SPEED_RESTRICTED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_RESTRICTED_SPEED)
     SPEED_ROLL = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_ROLL_SPEED)
     SPEED_SLOW = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_SLOW_SPEED)
-    SPEED_STOP_HOLD = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND)
+    SPEED_STOP_HOLD = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, do_reverse_lookup=False)
+
+
+# map bytes to enums
+TMCC1_BYTES_TO_ENUM = {}
+for tmcc1_enums in [TMCC1HaltCommandDef,
+                    TMCC1RouteCommandDef,
+                    TMCC1SwitchState,
+                    TMCC1AuxCommandDef,
+                    TMCC1EngineCommandDef]:
+    for tmcc1_enum in tmcc1_enums:
+        if tmcc1_enum.value.do_reverse_lookup:
+            tmcc_bytes = tmcc1_enum.as_bytes
+            if tmcc_bytes in TMCC1_BYTES_TO_ENUM:
+                raise ValueError(f"{tmcc_bytes.hex(':')} defined twice: {tmcc1_enum}/{TMCC1_BYTES_TO_ENUM[tmcc_bytes]}")
+            TMCC1_BYTES_TO_ENUM[tmcc_bytes] = tmcc1_enum
