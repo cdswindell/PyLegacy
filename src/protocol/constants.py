@@ -4,7 +4,7 @@ from typing import Self, Any
 """
     General Constants
 """
-DEFAULT_BAUDRATE: int = 9600
+DEFAULT_BAUDRATE: int = 57600
 DEFAULT_PORT: str = "/dev/ttyUSB0"
 DEFAULT_ADDRESS: int = 99
 

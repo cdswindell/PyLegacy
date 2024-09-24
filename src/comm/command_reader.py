@@ -5,7 +5,7 @@ from collections import deque
 from threading import Thread
 
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX
 
 
@@ -32,10 +32,10 @@ class CommandReader(Thread):
         else:
             self._initialized = True
         super().__init__(name="PyLegacy Command Reader")
-        # prep our consumer
+        # prep our consumer(s)
         self._is_running = True
         self._cv = threading.Condition()
-        self._deque = deque(maxlen=1024)
+        self._deque = deque(maxlen=DEFAULT_QUEUE_SIZE)
         self.start()
         # prep our producer
         from .serial_reader import SerialReader
@@ -77,7 +77,8 @@ class CommandReader(Thread):
             else:
                 # pop this byte and continue; we either received unparsable input
                 # or started receiving data mid-command
-                self._deque.popleft()
+                b=self._deque.popleft()
+                print(f"Ignoring {hex(b)}")
 
     def offer(self, data: bytes) -> None:
         if data:
