@@ -3,12 +3,11 @@ from __future__ import annotations
 import threading
 from threading import Thread
 
-from .serial_reader import SerialReader
+
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
 class CommandReader(Thread):
-
     _instance = None
     _lock = threading.Lock()
 
@@ -31,12 +30,13 @@ class CommandReader(Thread):
         else:
             self._initialized = True
         super().__init__(name="PyLegacy Command Reader")
+        from .serial_reader import SerialReader
         self._serial_reader_thread = SerialReader(self, baudrate=baudrate, port=port)
         self.start()
 
     def run(self) -> None:
         pass
 
-    def offer(self, b: bytes) -> None:
+    def offer(self, b: int) -> None:
         pass
                     
