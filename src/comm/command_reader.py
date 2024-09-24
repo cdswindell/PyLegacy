@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 from collections import deque
+from datetime import datetime
 from threading import Thread
 
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
@@ -69,7 +70,8 @@ class CommandReader(Thread):
                         cmd_bytes += self._deque.popleft().to_bytes(1, byteorder='big')
                 if cmd_bytes:
                     try:
-                        print(CommandReq.from_bytes(cmd_bytes))
+                        cmd = CommandReq.from_bytes(cmd_bytes)
+                        print(f"{datetime.now().strftime("%H:%M:%S.%f")[:-3]} {cmd}")
                     except ValueError as ve:
                         print(ve)
             elif dq_len < 3:
