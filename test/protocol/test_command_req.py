@@ -263,6 +263,7 @@ class TestCommandReq(TestBase):
                 req = self.build_request(cmd)
                 assert req.identifier == cmd.value.identifier
 
+    # noinspection DuplicatedCode
     def test_build_tmcc1_command_req(self):
         """
             Build all the TMCC1 CommandReqs and verify that their command bytes
@@ -308,6 +309,7 @@ class TestCommandReq(TestBase):
                         assert req_from_bytes.is_tmcc2 == req.is_tmcc2
                         assert req_from_bytes.as_bytes == req.as_bytes
 
+    # noinspection DuplicatedCode
     def test_build_tmcc2_command_req(self):
         """
             Build all the TMCC2 CommandReqs and verify that their command bytes
@@ -351,3 +353,31 @@ class TestCommandReq(TestBase):
                         assert req_from_bytes.is_tmcc1 == req.is_tmcc1
                         assert req_from_bytes.is_tmcc2 == req.is_tmcc2
                         assert req_from_bytes.as_bytes == req.as_bytes
+
+    # noinspection DuplicatedCode
+    def test_build_parameter_command_req(self):
+        """
+            Build all the Parameter CommandReqs and verify that their command bytes
+            map back to the sane request
+        """
+        scopes = [None, CommandScope.TRAIN]
+        for tmcc_enums in [TMCC2RailSoundsDialogControl,
+                           TMCC2RailSoundsEffectsControl,
+                           TMCC2EffectsControl,
+                           TMCC2LightingControl]:
+            for tmcc_enum in tmcc_enums:
+                for scope in scopes:
+                    req = self.build_request(tmcc_enum, scope=scope)
+                    # do reverse lookup
+                    req_from_bytes = CommandReq.from_bytes(req.as_bytes)
+                    assert req_from_bytes.command_def_enum == req.command_def_enum
+                    assert req_from_bytes.command_def == req.command_def
+                    assert req_from_bytes.num_data_bits == req.num_data_bits
+                    assert req_from_bytes.data == req.data
+                    assert req_from_bytes.address == req.address
+                    assert req_from_bytes.syntax == req.syntax
+                    assert req_from_bytes.identifier == req.identifier
+                    assert req_from_bytes.scope == req.scope
+                    assert req_from_bytes.is_tmcc1 == req.is_tmcc1
+                    assert req_from_bytes.is_tmcc2 == req.is_tmcc2
+                    assert req_from_bytes.as_bytes == req.as_bytes

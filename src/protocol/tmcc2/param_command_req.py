@@ -2,8 +2,8 @@ from typing import Dict, Self
 
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_ADDRESS, CommandScope
-from src.protocol.tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_PARAMETER_COMMAND_PREFIX, \
-    LEGACY_TRAIN_COMMAND_PREFIX
+from src.protocol.tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_PARAMETER_COMMAND_PREFIX
+from src.protocol.tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
 from src.protocol.tmcc2.param_constants import TMCC2ParameterEnum, TMCC2ParameterIndex
 from src.protocol.tmcc2.param_constants import TMCC2_PARAMETER_INDEX_PREFIX
 from src.protocol.tmcc2.param_constants import TMCC2RailSoundsDialogControl
@@ -11,12 +11,14 @@ from src.protocol.tmcc2.param_constants import TMCC2RailSoundsEffectsControl, TM
 from src.protocol.tmcc2.param_constants import TMCC2LightingControl
 
 # noinspection PyTypeChecker
-TMCC2_PARAMETER_ENUM_TO_TMCC2_PARAMETER_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {
+PARAMETER_ENUM_TO_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {
     TMCC2RailSoundsDialogControl: TMCC2ParameterIndex.DIALOG_TRIGGERS,
     TMCC2RailSoundsEffectsControl: TMCC2ParameterIndex.EFFECTS_TRIGGERS,
     TMCC2EffectsControl: TMCC2ParameterIndex.EFFECTS_CONTROLS,
     TMCC2LightingControl: TMCC2ParameterIndex.LIGHTING_CONTROLS,
 }
+
+PARAMETER_INDEX_TO_ENUM_MAP = {s: p for p, s in PARAMETER_ENUM_TO_INDEX_MAP.items()}
 
 
 class ParameterCommandReq(CommandReq):
@@ -38,16 +40,22 @@ class ParameterCommandReq(CommandReq):
                 and param[3] == LEGACY_PARAMETER_COMMAND_PREFIX
                 and param[6] == LEGACY_PARAMETER_COMMAND_PREFIX):
             index = 0x000F & int.from_bytes(param[1:3], byteorder='big')
-            print(f"Index: {hex(index)}")
-            cmd_enum = None
-            if cmd_enum is not None:
-                scope = cmd_enum.scope
-                if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
-                    scope = CommandScope.TRAIN
-                # build the request and return
-                data = 0
-                address = cmd_enum.value.address_from_bytes(param[1:3])
-                return ParameterCommandReq.build(cmd_enum, address, data, scope)
+            try:
+                pi = TMCC2ParameterIndex(index)
+            except ValueError:
+                raise ValueError(f"Invalid parameter command: : {param.hex(':')}")
+            if pi in PARAMETER_INDEX_TO_ENUM_MAP:
+                param_enum = PARAMETER_INDEX_TO_ENUM_MAP[pi]
+                command = int(param[5])
+                cmd_enum = param_enum.by_value(command)
+                if cmd_enum is not None:
+                    scope = cmd_enum.scope
+                    if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
+                        scope = CommandScope.TRAIN
+                    # build the request and return
+                    data = 0
+                    address = cmd_enum.value.address_from_bytes(param[1:3])
+                    return ParameterCommandReq.build(cmd_enum, address, data, scope)
         raise ValueError(f"Invalid parameter command: : {param.hex(':')}")
 
     def __init__(self,
@@ -60,7 +68,7 @@ class ParameterCommandReq(CommandReq):
     @property
     def parameter_index(self) -> TMCC2ParameterIndex:
         # noinspection PyTypeChecker
-        return TMCC2_PARAMETER_ENUM_TO_TMCC2_PARAMETER_INDEX_MAP[type(self._command_def_enum)]
+        return PARAMETER_ENUM_TO_INDEX_MAP[type(self._command_def_enum)]
 
     @property
     def parameter_index_byte(self) -> bytes:
