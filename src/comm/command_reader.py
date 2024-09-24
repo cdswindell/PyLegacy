@@ -43,8 +43,9 @@ class CommandReader(Thread):
     def run(self) -> None:
         while self._is_running:
             # process bytes, as long as there are any
-            if not self._deque:
-                self._cv.wait()  # wait to be notified
+            with self._cv:
+                if not self._deque:
+                    self._cv.wait()  # wait to be notified
             # check if the first bite is in the list of allowable command prefixes
             if self._deque[0] in TMCC_FIRST_BYTE_TO_INTERPRETER and len(self._deque) >= 3:
                 # at this point, we have some sort of command.
@@ -57,8 +58,9 @@ class CommandReader(Thread):
                 self._deque.popleft()
 
     def offer(self, data: bytes) -> None:
-        self._deque.extend(data)
-        self._cv.notify()
+        with self._cv:
+            self._deque.extend(data)
+            self._cv.notify()
 
     def shutdown(self) -> None:
         self._is_running = False
