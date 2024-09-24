@@ -56,11 +56,11 @@ class CommandReader(Thread):
                 # Try for the 9-biters first
                 cmd_bytes = bytes()
                 if (dq_len >= 9 and
-                        self._deque[4] == LEGACY_PARAMETER_COMMAND_PREFIX and
-                        self._deque[7] == LEGACY_PARAMETER_COMMAND_PREFIX):
+                        self._deque[3] == LEGACY_PARAMETER_COMMAND_PREFIX and
+                        self._deque[6] == LEGACY_PARAMETER_COMMAND_PREFIX):
                     for _ in range(10):
                         cmd_bytes += bytes(self._deque.popleft())
-                elif dq_len >= 5 and self._deque[4] == LEGACY_PARAMETER_COMMAND_PREFIX:
+                elif dq_len >= 5 and self._deque[3] == LEGACY_PARAMETER_COMMAND_PREFIX:
                     # we could be in the middle of receiving a parameter command, wait a bit longer
                     continue
                 else:
@@ -68,7 +68,6 @@ class CommandReader(Thread):
                     for _ in range(3):
                         cmd_bytes += self._deque.popleft().to_bytes(1, byteorder='big')
                 if cmd_bytes:
-                    print(cmd_bytes.hex(':'))
                     try:
                         print(CommandReq.from_bytes(cmd_bytes))
                     except ValueError as ve:
@@ -83,7 +82,6 @@ class CommandReader(Thread):
     def offer(self, data: bytes) -> None:
         if data:
             with self._cv:
-                print(f"Offering: {data.hex(':')}")
                 self._deque.extend(data)
                 self._cv.notify()
 
