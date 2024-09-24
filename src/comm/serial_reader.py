@@ -26,8 +26,7 @@ class SerialReader(Thread):
                     ser2_bytes = ser.read(256)
                     if ser2_bytes:
                         if self._consumer:
-                            for b in ser2_bytes:
-                                self._consumer.offer(b)
+                            self._consumer.offer(ser2_bytes)
                         else:
                             print(ser2_bytes.hex(':'))
                 # give the CPU a break
