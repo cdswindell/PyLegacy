@@ -71,7 +71,7 @@ class CommandReader(Thread):
                 if cmd_bytes:
                     try:
                         cmd = CommandReq.from_bytes(cmd_bytes)
-                        print(f"{datetime.now().strftime("%H:%M:%S.%f")[:-3]} {cmd}")
+                        print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
                     except ValueError as ve:
                         print(ve)
             elif dq_len < 3:
