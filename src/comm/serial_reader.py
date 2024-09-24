@@ -31,7 +31,7 @@ class SerialReader(Thread):
                         else:
                             print(ser2_bytes.hex(':'))
                 # give the CPU a break
-                time.sleep(0.05)
+                time.sleep(0.01)
 
     def shutdown(self) -> None:
         self._is_running = False
