@@ -24,7 +24,7 @@ class SerialReader(Thread):
         with serial.Serial(self._port, self._baudrate, timeout=1.0) as ser:
             while self._is_running:
                 if ser.in_waiting:
-                    ser2_bytes = ser.read(8)
+                    ser2_bytes = ser.read(256)
                     if ser2_bytes:
                         if self._consumer:
                             self._consumer.offer(ser2_bytes)

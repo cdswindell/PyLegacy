@@ -268,6 +268,11 @@ class EngineCli(CliBaseTMCC):
                                 const='BLOW_HORN_TWO',
                                 dest='option',
                                 help="Blow horn two")
+        horn_group.add_argument("-g", "--grade_crossing_seq",
+                                action="store_const",
+                                const='GRADE_CROSSING_SEQ',
+                                dest='option',
+                                help="Brade crossing sequence")
         horn_group.add_argument("-i", "--intensity",
                                 action=DataAction,
                                 dest='option',

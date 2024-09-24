@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, Type
 
+from .grade_crossing_req import GradeCrossingReq
 from .speed_req import SpeedReq
 from ..command_def import CommandDefEnum
 from ..constants import CommandScope, CommandSyntax
@@ -54,3 +55,4 @@ class SequenceDef(TMCC2CommandDef):
 class SequenceCommandEnum(CommandDefEnum):
     SYSTEM = SequenceDef(0x00)
     ABSOLUTE_SPEED_SEQ = SequenceDef(0, d_max=199, cmd_class=SpeedReq)
+    GRADE_CROSSING_SEQ = SequenceDef(1, d_max=199, cmd_class=GradeCrossingReq)
