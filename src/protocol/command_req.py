@@ -183,7 +183,7 @@ class CommandReq:
         self._apply_data()
 
     def __repr__(self) -> str:
-        return f"<{self._command_def_enum.name} 0x{self.bits:04x}: {self.num_data_bits} data bits>"
+        return f"[{self._command_def_enum.name} TMCC ID# {self.address} Data: {self.data}]"
 
     @property
     def address(self) -> int:

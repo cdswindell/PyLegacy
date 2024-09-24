@@ -17,7 +17,6 @@ class EchoCli:
             self._args = arg_parser.parse_args(cmd_line)
         try:
             self._reader = SerialReader(self._args.baudrate, self._args.port)
-            self._reader.read_bytes()
         except KeyboardInterrupt:
             pass
 
