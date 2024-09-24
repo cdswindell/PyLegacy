@@ -10,9 +10,9 @@ class SerialReader(Thread):
     from .command_reader import CommandReader
 
     def __init__(self,
-                 consumer: CommandReader = None,
                  baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
+                 port: str = DEFAULT_PORT,
+                 consumer: CommandReader = None) -> None:
         super().__init__(name="PyLegacy Serial Port Reader")
         self._consumer = consumer
         self._baudrate = baudrate

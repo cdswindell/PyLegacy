@@ -31,7 +31,7 @@ class CommandReader(Thread):
             self._initialized = True
         super().__init__(name="PyLegacy Command Reader")
         from .serial_reader import SerialReader
-        self._serial_reader_thread = SerialReader(self, baudrate=baudrate, port=port)
+        self._serial_reader_thread = SerialReader(baudrate, port, self)
         self.start()
 
     def run(self) -> None:
