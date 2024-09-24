@@ -40,10 +40,10 @@ class CommandReader(Thread):
         self.start()
         # prep our producer
         from .serial_reader import SerialReader
-        self._serial_reader_thread = SerialReader(baudrate, port, self)
+        self._serial_reader = SerialReader(baudrate, port, self)
 
     def run(self) -> None:
-        while self._is_running:
+        while self._is_running and self._serial_reader.isAlive():
             # process bytes, as long as there are any
             with self._cv:
                 if not self._deque:

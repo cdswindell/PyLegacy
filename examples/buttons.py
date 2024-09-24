@@ -10,8 +10,8 @@ GpioHandler.when_button_held(26, TMCC2EngineCommandDef.BLOW_HORN_ONE)
 
 GpioHandler.when_button_pressed(21, TMCC2RouteCommandDef.ROUTE, 10)
 
-rev = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION, 88)
-fwd = CommandReq(TMCC2EngineCommandDef.FORWARD_DIRECTION, 88)
+rev = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION, 65)
+fwd = CommandReq(TMCC2EngineCommandDef.FORWARD_DIRECTION, 65)
 GpioHandler.when_toggle_switch(13, 19, rev, fwd, led_pin=20)
 # GpioHandler.when_toggle_button_pressed(19,  on, led_pin=20)
 
