@@ -17,18 +17,22 @@ class SerialReader(Thread):
         self._consumer = consumer
         self._baudrate = baudrate
         self._port = port
+        self._is_running = True
         self.start()
 
     def run(self) -> None:
         with serial.Serial(self._port, self._baudrate, timeout=1.0) as ser:
-            while True:
+            while self._is_running:
                 if ser.in_waiting:
-                    ser2_bytes = ser.read(256)
+                    ser2_bytes = ser.read(8)
                     if ser2_bytes:
                         if self._consumer:
                             self._consumer.offer(ser2_bytes)
                         else:
                             print(ser2_bytes.hex(':'))
                 # give the CPU a break
-                time.sleep(0.01)
+                time.sleep(0.05)
+
+    def shutdown(self) -> None:
+        self._is_running = False
                     

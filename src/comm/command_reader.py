@@ -77,7 +77,7 @@ class CommandReader(Thread):
             else:
                 # pop this byte and continue; we either received unparsable input
                 # or started receiving data mid-command
-                b=self._deque.popleft()
+                b = self._deque.popleft()
                 print(f"Ignoring {hex(b)}")
 
     def offer(self, data: bytes) -> None:
