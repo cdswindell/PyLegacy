@@ -1,3 +1,5 @@
+import time
+
 import serial
 
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
@@ -13,7 +15,10 @@ class SerialReader:
     def read_bytes(self) -> None:
         with serial.Serial(self._port, self._baudrate, timeout=1.0) as ser:
             while True:
-                ser2_bytes = ser.read(1024)
-                if ser2_bytes:
-                    print(ser2_bytes.hex(':'))
+                if ser.in_waiting:
+                    ser2_bytes = ser.read(256)
+                    if ser2_bytes:
+                        print(ser2_bytes.hex(':'))
+                # give the CPU a break
+                time.sleep(0.01)
                     
