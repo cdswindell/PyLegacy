@@ -16,6 +16,7 @@ class EchoCli:
         else:
             self._args = arg_parser.parse_args(cmd_line)
         try:
+            print(f"Echoing commands received by the LCS Ser2 on {self._args.port} (Ctrl-C to quit)")
             self._reader = CommandReader(self._args.baudrate, self._args.port)
         except KeyboardInterrupt:
             pass
