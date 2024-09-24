@@ -66,14 +66,14 @@ class CommandReader(Thread):
                 else:
                     # assume a 3 byte command
                     for _ in range(3):
-                        cmd_bytes += bytes(self._deque.popleft())
+                        cmd_bytes += self._deque.popleft().to_bytes(1, byteorder='big')
                 if cmd_bytes:
                     print(cmd_bytes.hex(':'))
                     try:
                         print(CommandReq.from_bytes(cmd_bytes))
                     except ValueError as ve:
                         print(ve)
-            elif len(self._deque) < 3:
+            elif dq_len < 3:
                 continue  # wait for more bytes
             else:
                 # pop this byte and continue; we either received unparsable input
