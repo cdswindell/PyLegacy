@@ -122,7 +122,7 @@ class CommBufferSingleton(CommBuffer, Thread):
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if command:
-            print(f"Enqueue command 0x{command.hex()}")
+            # print(f"Enqueue command 0x{command.hex()}")
             if delay > 0:
                 self._scheduler.schedule(delay, command)
             else:
@@ -157,9 +157,8 @@ class CommBufferSingleton(CommBuffer, Thread):
                         self._queue.task_done()
                 except SerialException as se:
                     # TODO: handle serial errors
-                    print(se)
-                    print(f"Task Done (*** SE ***): 0x{data.hex()}")
                     self._queue.task_done()  # processing is complete, albeit unsuccessful
+                    print(f"Task Done (*** SE ***): 0x{data.hex()} {se}")
             except Empty:
                 pass
 
