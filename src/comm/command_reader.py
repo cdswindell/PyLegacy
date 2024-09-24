@@ -68,7 +68,11 @@ class CommandReader(Thread):
                     for _ in range(3):
                         cmd_bytes += bytes(self._deque.popleft())
                 if cmd_bytes:
-                    print(CommandReq.from_bytes(cmd_bytes))
+                    print(cmd_bytes.hex(':'))
+                    try:
+                        print(CommandReq.from_bytes(cmd_bytes))
+                    except ValueError as ve:
+                        print(ve)
             elif len(self._deque) < 3:
                 continue  # wait for more bytes
             else:
@@ -77,9 +81,11 @@ class CommandReader(Thread):
                 self._deque.popleft()
 
     def offer(self, data: bytes) -> None:
-        with self._cv:
-            self._deque.extend(data)
-            self._cv.notify()
+        if data:
+            with self._cv:
+                print(f"Offering: {data.hex(':')}")
+                self._deque.extend(data)
+                self._cv.notify()
 
     def shutdown(self) -> None:
         self._is_running = False
