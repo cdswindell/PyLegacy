@@ -7,7 +7,7 @@ from src.protocol.tmcc2.param_command_req import ParameterCommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from ..command_def import CommandDefEnum
 from .tmcc2_constants import TMCC2CommandPrefix
-from .tmcc2_param_constants import TMCC2ParameterEnum
+from .param_constants import TMCC2ParameterEnum
 from ..constants import CommandScope
 
 

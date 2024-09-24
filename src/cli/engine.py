@@ -8,7 +8,7 @@ from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
-from src.protocol.tmcc2.tmcc2_param_constants import TMCC2ParameterEnum, TMCC2RailSoundsDialogControl, \
+from src.protocol.tmcc2.param_constants import TMCC2ParameterEnum, TMCC2RailSoundsDialogControl, \
     TMCC2EffectsControl, \
     TMCC2LightingControl, TMCC2RailSoundsEffectsControl
 from src.utils.argument_parser import ArgumentParser

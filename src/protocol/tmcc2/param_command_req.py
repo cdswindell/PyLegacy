@@ -2,12 +2,13 @@ from typing import Dict, Self
 
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_ADDRESS, CommandScope
-from src.protocol.tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_PARAMETER_COMMAND_PREFIX
-from src.protocol.tmcc2.tmcc2_param_constants import TMCC2ParameterEnum, TMCC2ParameterIndex
-from src.protocol.tmcc2.tmcc2_param_constants import TMCC2_PARAMETER_INDEX_PREFIX
-from src.protocol.tmcc2.tmcc2_param_constants import TMCC2RailSoundsDialogControl
-from src.protocol.tmcc2.tmcc2_param_constants import TMCC2RailSoundsEffectsControl, TMCC2EffectsControl
-from src.protocol.tmcc2.tmcc2_param_constants import TMCC2LightingControl
+from src.protocol.tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_PARAMETER_COMMAND_PREFIX, \
+    LEGACY_TRAIN_COMMAND_PREFIX
+from src.protocol.tmcc2.param_constants import TMCC2ParameterEnum, TMCC2ParameterIndex
+from src.protocol.tmcc2.param_constants import TMCC2_PARAMETER_INDEX_PREFIX
+from src.protocol.tmcc2.param_constants import TMCC2RailSoundsDialogControl
+from src.protocol.tmcc2.param_constants import TMCC2RailSoundsEffectsControl, TMCC2EffectsControl
+from src.protocol.tmcc2.param_constants import TMCC2LightingControl
 
 # noinspection PyTypeChecker
 TMCC2_PARAMETER_ENUM_TO_TMCC2_PARAMETER_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {
@@ -26,6 +27,28 @@ class ParameterCommandReq(CommandReq):
               data: int = 0,
               scope: CommandScope = None) -> Self:
         return ParameterCommandReq(command, address, data, scope)
+
+    @classmethod
+    def from_bytes(cls, param: bytes) -> Self:
+        if not param:
+            raise ValueError("Command requires at least 9 bytes")
+        if len(param) < 9:
+            raise ValueError(f"Parameter command requires at least 9 bytes {param.hex(':')}")
+        if (len(param) == 9
+                and param[3] == LEGACY_PARAMETER_COMMAND_PREFIX
+                and param[6] == LEGACY_PARAMETER_COMMAND_PREFIX):
+            index = 0x000F & int.from_bytes(param[1:3], byteorder='big')
+            print(f"Index: {hex(index)}")
+            cmd_enum = None
+            if cmd_enum is not None:
+                scope = cmd_enum.scope
+                if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
+                    scope = CommandScope.TRAIN
+                # build the request and return
+                data = 0
+                address = cmd_enum.value.address_from_bytes(param[1:3])
+                return ParameterCommandReq.build(cmd_enum, address, data, scope)
+        raise ValueError(f"Invalid parameter command: : {param.hex(':')}")
 
     def __init__(self,
                  command_def_enum: TMCC2ParameterEnum,

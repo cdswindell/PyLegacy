@@ -6,7 +6,7 @@ from src.protocol.constants import CommandScope, OfficialRRSpeeds
 from src.protocol.sequence.sequence_req import SequenceReq, T
 from src.protocol.tmcc1.tmcc1_constants import TMCC1RRSpeeds, TMCC1EngineCommandDef
 from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RRSpeeds
-from src.protocol.tmcc2.tmcc2_param_constants import TMCC2RailSoundsDialogControl
+from src.protocol.tmcc2.param_constants import TMCC2RailSoundsDialogControl
 
 
 class SpeedReq(SequenceReq):

@@ -31,7 +31,7 @@ class CommandReq:
         cls._vet_request(command, address, data, scope)
         # we have to do these imports here to avoid cyclic dependencies
         from .sequence.sequence_constants import SequenceCommandEnum
-        from .tmcc2.tmcc2_param_constants import TMCC2ParameterEnum
+        from .tmcc2.param_constants import TMCC2ParameterEnum
         if isinstance(command, SequenceCommandEnum):
             from .sequence.sequence_req import SequenceReq
             return SequenceReq.build(command, address, data, scope)
@@ -374,21 +374,25 @@ class CommandReq:
 
     @classmethod
     def build_tmcc2_command_req(cls, param):
-        value = int.from_bytes(param[1:3], byteorder='big')
-        for tmcc_enum in [TMCC2HaltCommandDef,
-                          TMCC2EngineCommandDef,
-                          TMCC2RouteCommandDef]:
+        if len(param) == 3:
+            value = int.from_bytes(param[1:3], byteorder='big')
+            for tmcc_enum in [TMCC2HaltCommandDef,
+                              TMCC2EngineCommandDef,
+                              TMCC2RouteCommandDef]:
 
-            cmd_enum = tmcc_enum.by_value(value)
-            if cmd_enum is not None:
-                scope = cmd_enum.scope
-                if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
-                    scope = CommandScope.TRAIN
-                # build the request and return
-                data = cmd_enum.value.data_from_bytes(param[1:3])
-                address = cmd_enum.value.address_from_bytes(param[1:3])
-                return CommandReq.build(cmd_enum, address, data, scope)
-        raise ValueError(f"Invalid tmcc1 command: : {param.hex(':')}")
+                cmd_enum = tmcc_enum.by_value(value)
+                if cmd_enum is not None:
+                    scope = cmd_enum.scope
+                    if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
+                        scope = CommandScope.TRAIN
+                    # build the request and return
+                    data = cmd_enum.value.data_from_bytes(param[1:3])
+                    address = cmd_enum.value.address_from_bytes(param[1:3])
+                    return CommandReq.build(cmd_enum, address, data, scope)
+            raise ValueError(f"Invalid tmcc2 command: : {param.hex(':')}")
+        else:
+            from src.protocol.tmcc2.param_command_req import ParameterCommandReq
+            return ParameterCommandReq.from_bytes(param)
 
 
 TMCC_FIRST_BYTE_TO_INTERPRETER = {

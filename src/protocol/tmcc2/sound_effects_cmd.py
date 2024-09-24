@@ -1,5 +1,5 @@
 from .tmcc2_command import TMCC2FixedParameterCommand
-from .tmcc2_param_constants import TMCC2RailSoundsEffectsControl
+from .param_constants import TMCC2RailSoundsEffectsControl
 from ..constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
