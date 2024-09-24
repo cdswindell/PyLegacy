@@ -307,3 +307,47 @@ class TestCommandReq(TestBase):
                         assert req_from_bytes.is_tmcc1 == req.is_tmcc1
                         assert req_from_bytes.is_tmcc2 == req.is_tmcc2
                         assert req_from_bytes.as_bytes == req.as_bytes
+
+    def test_build_tmcc2_command_req(self):
+        """
+            Build all the TMCC2 CommandReqs and verify that their command bytes
+            map back to the sane request
+        """
+        for tmcc_enums in [TMCC2HaltCommandDef,
+                           TMCC2EngineCommandDef,
+                           TMCC2RouteCommandDef]:
+            for tmcc_enum in tmcc_enums:
+                if tmcc_enum.command_def.is_data:
+                    n_times = 10
+                else:
+                    n_times = 1
+                if tmcc_enums == TMCC2EngineCommandDef:
+                    scopes = [None, CommandScope.TRAIN]
+                else:
+                    scopes = [None]
+                for scope in scopes:
+                    for _ in range(n_times):
+                        req = self.build_request(tmcc_enum, scope=scope)
+                        # do reverse lookup
+                        req_from_bytes = CommandReq.from_bytes(req.as_bytes)
+                        if tmcc_enum.command_def.is_alias:
+                            # if the enum is an alias for another command,
+                            # check results against that command_def
+                            alias_enum = tmcc_enum.command_def.alias
+                            assert req_from_bytes.command_def_enum == alias_enum
+                            assert req_from_bytes.command_def == alias_enum.command_def
+                            assert req_from_bytes.num_data_bits == alias_enum.command_def.num_data_bits
+                            assert (alias_enum.command_def.is_data is False or
+                                    alias_enum.command_def.is_valid_data(req_from_bytes.data))
+                        else:
+                            assert req_from_bytes.command_def_enum == req.command_def_enum
+                            assert req_from_bytes.command_def == req.command_def
+                            assert req_from_bytes.num_data_bits == req.num_data_bits
+                            assert req_from_bytes.data == req.data
+                        assert req_from_bytes.address == req.address
+                        assert req_from_bytes.syntax == req.syntax
+                        assert req_from_bytes.identifier == req.identifier
+                        assert req_from_bytes.scope == req.scope
+                        assert req_from_bytes.is_tmcc1 == req.is_tmcc1
+                        assert req_from_bytes.is_tmcc2 == req.is_tmcc2
+                        assert req_from_bytes.as_bytes == req.as_bytes

@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import Callable, Self
 
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
-from .tmcc2.tmcc2_constants import TMCC2Enum, TMCC2CommandPrefix
+from .tmcc2.tmcc2_constants import TMCC2Enum, TMCC2CommandPrefix, LEGACY_ENGINE_COMMAND_PREFIX
+from .tmcc2.tmcc2_constants import TMCC2RouteCommandDef, TMCC2HaltCommandDef, TMCC2EngineCommandDef
+from .tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX, LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX
 from .tmcc2.tmcc2_constants import TMCC2CommandDef
 
 from .constants import CommandScope, CommandSyntax
@@ -45,8 +47,8 @@ class CommandReq:
         if len(param) < 3:
             raise ValueError(f"Command requires at least 3 bytes {param.hex(':')}")
         first_byte = int(param[0])
-        if first_byte == TMCC1_COMMAND_PREFIX:
-            return cls._build_tmcc1_command_req(param)
+        if first_byte in TMCC_FIRST_BYTE_TO_INTERPRETER:
+            return TMCC_FIRST_BYTE_TO_INTERPRETER[first_byte](param)
         raise ValueError(f"Command bytes not understood {param.hex(':')}")
 
     @classmethod
@@ -347,7 +349,7 @@ class CommandReq:
         return self._command_bits
 
     @classmethod
-    def _build_tmcc1_command_req(cls, param: bytes) -> Self:
+    def build_tmcc1_command_req(cls, param: bytes) -> Self:
         value = int.from_bytes(param[1:3], byteorder='big')
         for tmcc_enum in [TMCC1HaltCommandDef,
                           TMCC1SwitchState,
@@ -369,3 +371,29 @@ class CommandReq:
                 address = cmd_enum.value.address_from_bytes(param[1:3])
                 return CommandReq.build(cmd_enum, address, data, scope)
         raise ValueError(f"Invalid tmcc1 command: : {param.hex(':')}")
+
+    @classmethod
+    def build_tmcc2_command_req(cls, param):
+        value = int.from_bytes(param[1:3], byteorder='big')
+        for tmcc_enum in [TMCC2HaltCommandDef,
+                          TMCC2EngineCommandDef,
+                          TMCC2RouteCommandDef]:
+
+            cmd_enum = tmcc_enum.by_value(value)
+            if cmd_enum is not None:
+                scope = cmd_enum.scope
+                if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
+                    scope = CommandScope.TRAIN
+                # build the request and return
+                data = cmd_enum.value.data_from_bytes(param[1:3])
+                address = cmd_enum.value.address_from_bytes(param[1:3])
+                return CommandReq.build(cmd_enum, address, data, scope)
+        raise ValueError(f"Invalid tmcc1 command: : {param.hex(':')}")
+
+
+TMCC_FIRST_BYTE_TO_INTERPRETER = {
+    TMCC1_COMMAND_PREFIX: CommandReq.build_tmcc1_command_req,
+    LEGACY_ENGINE_COMMAND_PREFIX: CommandReq.build_tmcc2_command_req,
+    LEGACY_TRAIN_COMMAND_PREFIX: CommandReq.build_tmcc2_command_req,
+    LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: CommandReq.build_tmcc2_command_req,
+}

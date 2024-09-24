@@ -324,21 +324,6 @@ class TMCC1EngineCommandDef(TMCC1Enum):
                                        alias="ABSOLUTE_SPEED")
     SPEED_ROLL = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_ROLL_SPEED, alias="ABSOLUTE_SPEED")
     SPEED_SLOW = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_SLOW_SPEED, alias="ABSOLUTE_SPEED")
-    SPEED_STOP_HOLD = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, do_reverse_lookup=False, alias="ABSOLUTE_SPEED")
+    SPEED_STOP_HOLD = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, alias="ABSOLUTE_SPEED")
     FUNC_MINUS = TMCC1CommandDef(TMCC1_ENG_FUNC_MINUS_COMMAND, alias="NUMERIC")
     FUNC_PLUS = TMCC1CommandDef(TMCC1_ENG_FUNC_PLUS_COMMAND, alias="NUMERIC")
-
-
-# map bytes to enums
-TMCC1_BYTES_TO_ENUM = {}
-for tmcc1_enums in [TMCC1HaltCommandDef,
-                    TMCC1RouteCommandDef,
-                    TMCC1SwitchState,
-                    TMCC1AuxCommandDef,
-                    TMCC1EngineCommandDef]:
-    for tmcc1_enum in tmcc1_enums:
-        if tmcc1_enum.value.do_reverse_lookup:
-            tmcc_bytes = tmcc1_enum.as_bytes
-            if tmcc_bytes in TMCC1_BYTES_TO_ENUM:
-                raise ValueError(f"{tmcc_bytes.hex(':')} defined twice: {tmcc1_enum}/{TMCC1_BYTES_TO_ENUM[tmcc_bytes]}")
-            TMCC1_BYTES_TO_ENUM[tmcc_bytes] = tmcc1_enum
