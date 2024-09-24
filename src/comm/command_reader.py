@@ -58,7 +58,7 @@ class CommandReader(Thread):
                 if (dq_len >= 9 and
                         self._deque[3] == LEGACY_PARAMETER_COMMAND_PREFIX and
                         self._deque[6] == LEGACY_PARAMETER_COMMAND_PREFIX):
-                    for _ in range(10):
+                    for _ in range(9):
                         cmd_bytes += bytes(self._deque.popleft())
                 elif dq_len >= 5 and self._deque[3] == LEGACY_PARAMETER_COMMAND_PREFIX:
                     # we could be in the middle of receiving a parameter command, wait a bit longer
