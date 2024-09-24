@@ -3,7 +3,7 @@
 from typing import List
 
 from src.cli.cli_base import CliBase
-from src.comm.serial_reader import SerialReader
+from src.comm.command_reader import CommandReader
 from src.utils.argument_parser import ArgumentParser
 
 
@@ -16,7 +16,7 @@ class EchoCli:
         else:
             self._args = arg_parser.parse_args(cmd_line)
         try:
-            self._reader = SerialReader(self._args.baudrate, self._args.port)
+            self._reader = CommandReader(self._args.baudrate, self._args.port)
         except KeyboardInterrupt:
             pass
 
