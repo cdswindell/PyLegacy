@@ -32,9 +32,9 @@ PROGRAM_NAME: str = "PyTrain"
 class PyTrain:
     def __init__(self, args: argparse.Namespace) -> None:
         self._args = args
-        print(self._args)
         self._startup_script = args.startup_script
         self._baudrate = args.baudrate
+        self._port = args.port
         self._listener = None
         self._state = None
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
@@ -42,10 +42,10 @@ class PyTrain:
                                              port=self._port,
                                              server=self._server)
         if isinstance(self.buffer, CommBufferSingleton):
-            print("Sending commands directly to Lionel LCS Ser2...")
+            print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
             # listen for client connections, unless user used --no_clients flag
             if not self._args.no_clients:
-                print(f"Listening for client connections on port {self._args.server_port} {self._baudrate} baud...")
+                print(f"Listening for client connections on port {self._args.server_port}...")
                 self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
             # register listeners
             self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
