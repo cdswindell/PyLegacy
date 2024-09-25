@@ -7,12 +7,12 @@ from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
 class SerialReader(Thread):
-    from .command_reader import CommandReader
+    from .command_listener import CommandListener
 
     def __init__(self,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT,
-                 consumer: CommandReader = None) -> None:
+                 consumer: CommandListener = None) -> None:
         super().__init__(name="PyLegacy Serial Port Reader")
         self._consumer = consumer
         self._baudrate = baudrate

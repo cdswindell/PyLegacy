@@ -144,7 +144,7 @@ TMCC1_ROUTE_COMMAND: int = 0xD01F
 
 @verify(UNIQUE)
 class TMCC1RouteCommandDef(TMCC1Enum):
-    ROUTE = TMCC1CommandDef(TMCC1_ROUTE_COMMAND, TMCC1CommandIdentifier.ROUTE, num_address_bits=5)
+    FIRE = TMCC1CommandDef(TMCC1_ROUTE_COMMAND, TMCC1CommandIdentifier.ROUTE, num_address_bits=5)
 
 
 TMCC1_SWITCH_THROUGH_COMMAND: int = 0x4000

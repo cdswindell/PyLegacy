@@ -12,8 +12,8 @@ class RouteCmd(TMCC2Command):
                  server: str = None) -> None:
         if route < 1 or route > 99:
             raise ValueError("Route must be between 1 and 99")
-        req = CommandReq(TMCC2RouteCommandDef.ROUTE, route)
-        super().__init__(TMCC2RouteCommandDef.ROUTE, req, route, 0, None, baudrate, port, server)
+        req = CommandReq(TMCC2RouteCommandDef.FIRE, route)
+        super().__init__(TMCC2RouteCommandDef.FIRE, req, route, 0, None, baudrate, port, server)
         self._command = self._build_command()
 
     def _command_prefix(self) -> bytes:

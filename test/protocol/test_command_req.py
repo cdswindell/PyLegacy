@@ -27,7 +27,7 @@ class TestCommandReq(TestBase):
             mk_enqueue_command.reset_mock()
 
             # Route command
-            CommandReq.send_request(TMCC1RouteCommandDef.ROUTE, 10)
+            CommandReq.send_request(TMCC1RouteCommandDef.FIRE, 10)
             mk_enqueue_command.assert_called_once_with(0xfed51f.to_bytes(3, byteorder='big'),
                                                        1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
             mk_enqueue_command.reset_mock()
@@ -100,7 +100,7 @@ class TestCommandReq(TestBase):
                                                                1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
                     mk_enqueue_command.reset_mock()
 
-            CommandReq.send_request(TMCC2RouteCommandDef.ROUTE, 10)
+            CommandReq.send_request(TMCC2RouteCommandDef.FIRE, 10)
             mk_enqueue_command.assert_called_once_with(0xfa14fd.to_bytes(3, byteorder='big'),
                                                        1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
             mk_enqueue_command.reset_mock()

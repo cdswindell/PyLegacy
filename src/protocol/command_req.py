@@ -116,7 +116,7 @@ class CommandReq:
 
         max_val = 99
         syntax = CommandSyntax.TMCC2 if enum_class == TMCC2Enum else CommandSyntax.TMCC1
-        if syntax == CommandSyntax.TMCC1 and command == TMCC1RouteCommandDef.ROUTE:
+        if syntax == CommandSyntax.TMCC1 and command == TMCC1RouteCommandDef.FIRE:
             scope = TMCC1CommandIdentifier.ROUTE
             max_val = 31
         if scope is None:
@@ -162,6 +162,7 @@ class CommandReq:
                  data: int = 0,
                  scope: CommandScope = None) -> None:
         self._command_def_enum = command_def_enum
+        self._command_name = self._command_def_enum.name
         self._command_def: TMCC2CommandDef = command_def_enum.value  # read only; do not modify
         if self._command_def.is_addressable:
             self._address = address
@@ -174,6 +175,7 @@ class CommandReq:
         self._native_scope = self._command_def.scope
         self._scope = self._validate_requested_scope(self._command_def, scope)
         self._buffer: CommBuffer | None = None
+        self._message_processor = None
 
         # save the command bits from the def, as we will be modifying them
         self._command_bits: int = self._command_def.bits
@@ -182,8 +184,20 @@ class CommandReq:
         self._apply_address()
         self._apply_data()
 
+    def __call__(self, message: CommandReq) -> None:
+        """
+            Allows CommandReqs to receive messages from channels
+            this request is subscribed to
+        """
+        if self._message_processor:
+            self._message_processor(message)
+
     def __repr__(self) -> str:
-        return f"[{self._command_def_enum.name} ID# {self.address} Data: {self.data} (0x{self.as_bytes.hex()})]"
+        if self.is_data:
+            data = f"{self.data} "
+        else:
+            data = ""
+        return f"[{self.scope.name} {self.address} {self.command_name} {data}(0x{self.as_bytes.hex()})]"
 
     @property
     def address(self) -> int:
@@ -211,6 +225,10 @@ class CommandReq:
     @property
     def command_def_enum(self) -> CommandDefEnum:
         return self._command_def_enum
+
+    @property
+    def command_name(self) -> str:
+        return self._command_name
 
     @property
     def command_def(self) -> TMCC2CommandDef:

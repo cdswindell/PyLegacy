@@ -8,7 +8,7 @@ from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 """
 GpioHandler.when_button_held(26, TMCC2EngineCommandDef.BLOW_HORN_ONE)
 
-GpioHandler.when_button_pressed(21, TMCC2RouteCommandDef.ROUTE, 10)
+GpioHandler.when_button_pressed(21, TMCC2RouteCommandDef.FIRE, 10)
 
 rev = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION, 65)
 fwd = CommandReq(TMCC2EngineCommandDef.FORWARD_DIRECTION, 65)

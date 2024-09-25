@@ -107,7 +107,7 @@ LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 @verify(UNIQUE)
 class TMCC2RouteCommandDef(TMCC2Enum):
-    ROUTE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, scope=CommandScope.ROUTE)
+    FIRE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, scope=CommandScope.ROUTE)
 
 
 TMCC2_AUX1_OFF_COMMAND: int = 0x0108

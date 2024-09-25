@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 #
+import time
+from datetime import datetime
 from typing import List
 
 from src.cli.cli_base import CliBase
-from src.comm.command_reader import CommandReader
+from src.comm.command_listener import CommandListener, CommandDispatcher
+from src.protocol.command_req import CommandReq
+from src.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef
 from src.utils.argument_parser import ArgumentParser
 
 
@@ -17,12 +21,18 @@ class EchoCli:
             self._args = arg_parser.parse_args(cmd_line)
         try:
             print(f"Echoing commands received by the LCS Ser2 on {self._args.port} (Ctrl-C to quit)")
-            self._reader = CommandReader(self._args.baudrate, self._args.port)
+            self._reader = CommandListener(self._args.baudrate, self._args.port)
+            CommandDispatcher().subscribe_any(self)
         except KeyboardInterrupt:
             pass
+
+    def __call__(self, cmd: CommandReq) -> None:
+        print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
 
 
 if __name__ == '__main__':
     parser = ArgumentParser("Echo LCS SER2 output to console",
                             parents=[CliBase.cli_parser()])
     EchoCli(parser)
+    time.sleep(5)
+    CommandDispatcher().offer(CommandReq.build(TMCC2RouteCommandDef.FIRE, 65, 10))
