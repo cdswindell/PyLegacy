@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import threading
 from collections import deque, defaultdict
-from datetime import datetime
 from queue import Queue
 from threading import Thread
 from typing import Protocol, TypeVar, runtime_checkable, Tuple
@@ -55,7 +54,7 @@ class CommandListener(Thread):
         self._serial_reader = SerialReader(baudrate, port, self)
 
     def run(self) -> None:
-        while self._is_running and self._serial_reader.isAlive():
+        while self._is_running:
             # process bytes, as long as there are any
             with self._cv:
                 if not self._deque:
@@ -101,6 +100,10 @@ class CommandListener(Thread):
 
     def shutdown(self) -> None:
         self._is_running = False
+        if self._serial_reader:
+            self._serial_reader.shutdown()
+        if self._dispatcher:
+            self._dispatcher.shutdown()
 
 
 Message = TypeVar("Message")
@@ -193,6 +196,9 @@ class CommandDispatcher(Thread):
             with self._cv:
                 self._queue.put(cmd)
                 self._cv.notify()
+
+    def shutdown(self) -> None:
+        self._is_running = False
 
     def publish(self, channel: Topic, message: Message) -> None:
         self.channels[channel].publish(message)
