@@ -118,6 +118,9 @@ class PyTrain:
                         raise KeyboardInterrupt()
                     elif args.command == 'help':
                         self._command_parser().parse_args(["-help"])
+                    if args.cmd == 'db':
+                        self.query_status(ui_parts[1:])
+                        return
                     ui_parser = args.command.command_parser()
                     ui_parser.remove_args(['baudrate', 'port', 'server'])
                     cli_cmd = args.command(ui_parser, ui_parts[1:], False)
@@ -146,6 +149,14 @@ class PyTrain:
             comp = self._state[cmd.scope][cmd.address]
             if comp:
                 comp.update(cmd)
+
+    def query_status(self, param):
+        try:
+            scope = CommandScope(param[0].upper())
+            address = int(param[1])
+            print(self._state[scope][address])
+        except Exception as e:
+            print(e)
 
     @staticmethod
     def _command_parser() -> ArgumentParser:
@@ -206,6 +217,11 @@ class PyTrain:
                            const=SwitchCli,
                            dest="command",
                            help="Throw switches")
+        group.add_argument("-db",
+                           action="store_const",
+                           const="db",
+                           dest="command",
+                           help="Query system state")
         group.add_argument("-quit",
                            action="store_const",
                            const="quit",
