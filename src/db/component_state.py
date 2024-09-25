@@ -4,7 +4,6 @@ import abc
 from abc import ABC
 from collections import defaultdict
 from datetime import datetime
-from typing import Any
 
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
@@ -138,25 +137,45 @@ class EngineState(ComponentState):
             super().update(command)
 
 
+class TrainState(EngineState):
+    def __init__(self, scope: CommandScope = CommandScope.TRAIN) -> None:
+        if scope not in [CommandScope.TRAIN]:
+            raise ValueError(f"Invalid scope: {scope}, expected TRAIN")
+        super().__init__(scope)
+
+
 _SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
     CommandScope.SWITCH: SwitchState,
     CommandScope.ACC: AccessoryState,
     CommandScope.ENGINE: EngineState,
-    CommandScope.TRAIN: EngineState,
+    CommandScope.TRAIN: TrainState,
 }
 
 
-class ComponentStateDict(defaultdict):
-    def __init__(self, arg: Any = None):
-        super().__init__(None)  # base class doesn't get a factory
-        print(f"Arg: {arg}")
-        self._arg = arg
-
-    def __missing__(self, key: CommandScope):
+class SystemStateDict(defaultdict):
+    def __missing__(self, key: CommandScope) -> ComponentStateDict:
         """
             generate a ComponentState object for the dictionary, based on the key
         """
-        if key in _SCOPE_TO_STATE_MAP:
-            value = _SCOPE_TO_STATE_MAP[key](key)
-            self[key] = value  # and install it in the dict
-            return value
+        if not isinstance(key, CommandScope):
+            raise KeyError(key)
+        self[key] = ComponentStateDict(key)  # and install it in the dict
+        return self[key]
+
+
+class ComponentStateDict(defaultdict):
+    def __init__(self, scope: CommandScope):
+        super().__init__(None)  # base class doesn't get a factory
+        if scope not in _SCOPE_TO_STATE_MAP:
+            raise ValueError(f"Invalid scope: {scope}")
+        self._scope = scope
+
+    def __missing__(self, key: int) -> ComponentState:
+        """
+            generate a ComponentState object for the dictionary, based on the key
+        """
+        if not isinstance(key, int) or key < 1 or key > 99:
+            raise KeyError(key)
+        value_class: ComponentState = _SCOPE_TO_STATE_MAP[self._scope](self._scope)
+        self[key] = value_class
+        return self[key]

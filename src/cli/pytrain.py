@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import os
 import readline
-from collections import defaultdict
 
 from src.cli.acc import AccCli
 from src.cli.cli_base import CliBase
@@ -20,7 +19,7 @@ from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
 from src.comm.command_listener import CommandListener
 from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
-from src.db.component_state import ComponentState, ComponentStateDict
+from src.db.component_state import SystemStateDict, ComponentStateDict
 from src.gpio.gpio_handler import GpioHandler
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope
@@ -28,11 +27,6 @@ from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 PROGRAM_NAME: str = "PyTrain"
-
-
-class SystemState:
-    def __init__(self) -> None:
-        self._components: dict[int, ComponentState] = ComponentStateDict()
 
 
 class PyTrain:
@@ -51,7 +45,7 @@ class PyTrain:
                 print(f"Listening for client connections on port {self._args.server_port}...")
                 self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
             # register listeners
-            self._state: dict[CommandScope, SystemState] = defaultdict(SystemState)
+            self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
             print("Registering listeners...")
             self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
             self._listener.listen_for(self, CommandScope.ENGINE)
