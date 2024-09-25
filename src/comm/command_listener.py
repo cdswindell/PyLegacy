@@ -142,7 +142,7 @@ class _Channel(Generic[Message]):
         special "BROADCAST" channel that receives all received commands.
     """
     def __init__(self) -> None:
-        self.subscribers: set[Subscriber] = set[Subscriber]()
+        self.subscribers: set[Subscriber[Message]] = set[Subscriber[Message]]()
 
     def __eq__(self, other):
         if other.__class__ is self.__class__:
