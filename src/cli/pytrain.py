@@ -45,7 +45,7 @@ class PyTrain:
             print("Sending commands directly to Lionel LCS Ser2...")
             # listen for client connections, unless user used --no_clients flag
             if not self._args.no_clients:
-                print(f"Listening for client connections on port {self._args.server_port}...")
+                print(f"Listening for client connections on port {self._args.server_port} {self._baudrate} baud...")
                 self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
             # register listeners
             self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
