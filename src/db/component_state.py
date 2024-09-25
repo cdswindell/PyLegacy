@@ -153,6 +153,9 @@ _SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
 
 
 class SystemStateDict(defaultdict):
+    """
+        Maintains a dictionary of CommandScope to ComponentStateDict
+    """
     def __missing__(self, key: CommandScope) -> ComponentStateDict:
         """
             generate a ComponentState object for the dictionary, based on the key
