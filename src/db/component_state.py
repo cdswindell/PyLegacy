@@ -63,7 +63,6 @@ class SwitchState(ComponentState):
             super().update(command)
             if command != Switch.SET_ADDRESS:
                 self._state = command.command
-        print(self)
 
     @property
     def state(self) -> Switch:
@@ -118,7 +117,6 @@ class AccessoryState(ComponentState):
                     self._aux2_state = command.command
                 if command.command == Aux.NUMERIC:
                     self._number = command.data
-        print(self)
 
     @property
     def is_known(self) -> bool:
