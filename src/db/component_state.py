@@ -52,11 +52,15 @@ class SwitchState(ComponentState):
         super().__init__(scope)
         self._state: Switch | None = None
 
+    def __repr__(self) -> str:
+        return f"Switch {self.address}: {self._state.name if self._state is not None else "Unknown"}"
+
     def update(self, command: CommandReq) -> None:
         if command:
             super().update(command)
             if command != Switch.SET_ADDRESS:
                 self._state = command.command
+        print(self)
 
     @property
     def state(self) -> Switch:
