@@ -32,8 +32,11 @@ PROGRAM_NAME: str = "PyTrain"
 class PyTrain:
     def __init__(self, args: argparse.Namespace) -> None:
         self._args = args
+        print(self._args)
         self._startup_script = args.startup_script
         self._baudrate = args.baudrate
+        self._listener = None
+        self._state = None
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._comm_buffer = CommBuffer.build(baudrate=self._baudrate,
                                              port=self._port,
@@ -46,15 +49,17 @@ class PyTrain:
                 self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
             # register listeners
             self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
-            print("Registering listeners...")
-            self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
-            self._listener.listen_for(self, CommandScope.ENGINE)
-            self._listener.listen_for(self, CommandScope.TRAIN)
-            self._listener.listen_for(self, CommandScope.SWITCH)
-            self._listener.listen_for(self, CommandScope.ACC)
+            if self._args.no_listeners is True:
+                print("Ignoring events...")
+            else:
+                print("Registering listeners...")
+                self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
+                self._listener.listen_for(self, CommandScope.ENGINE)
+                self._listener.listen_for(self, CommandScope.TRAIN)
+                self._listener.listen_for(self, CommandScope.SWITCH)
+                self._listener.listen_for(self, CommandScope.ACC)
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
-            self._state = None
         self.run()
 
     def __call__(self, cmd: CommandReq) -> None:
@@ -240,10 +245,13 @@ if __name__ == '__main__':
     parser = ArgumentParser(prog="pytrain.py",
                             description="Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
                             parents=[parser, CliBase.cli_parser()])
-    parser.add_argument("-no", "--no_clients",
+    parser.add_argument("-no_clients",
                         action="store_true",
                         help=f"Do not listen for client connections on port {DEFAULT_SERVER_PORT}")
-    parser.add_argument("-sp", "--server_port",
+    parser.add_argument("-no_listeners",
+                        action="store_true",
+                        help=f"Do not listen for events")
+    parser.add_argument("-server_port",
                         type=int,
                         default=DEFAULT_SERVER_PORT,
                         help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})")

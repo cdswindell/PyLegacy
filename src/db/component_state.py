@@ -145,6 +145,8 @@ class EngineState(ComponentState):
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
         super().__init__(scope)
         self._number: int | None = None
+        self._started = None
+        self._speed: int | None = None
 
     def scope(self) -> CommandScope:
         return self._scope
