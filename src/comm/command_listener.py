@@ -4,7 +4,7 @@ import threading
 from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
-from typing import Protocol, TypeVar, runtime_checkable, Tuple
+from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic
 
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
@@ -133,7 +133,7 @@ class Subscriber(Protocol):
         ...
 
 
-class _Channel[Message]:
+class _Channel(Generic[Message]):
     """
         Part of the publish/subscribe pattern described here:
         https://arjancodes.com/blog/publish-subscribe-pattern-in-python/
@@ -142,7 +142,7 @@ class _Channel[Message]:
         special "BROADCAST" channel that receives all received commands.
     """
     def __init__(self) -> None:
-        self.subscribers: set[Subscriber[Message]] = set[Subscriber[Message]]()
+        self.subscribers: set[Subscriber] = set[Subscriber]()
 
     def __eq__(self, other):
         if other.__class__ is self.__class__:
