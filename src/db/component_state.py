@@ -92,6 +92,17 @@ class AccessoryState(ComponentState):
         self._aux_state: Aux | None = None
         self._number: int | None = None
 
+    def __repr__(self) -> str:
+        if self.aux_state == Aux.AUX1_OPTION_ONE:
+            aux = "Aux 1"
+        elif self.aux_state == Aux.AUX2_OPTION_ONE:
+            aux = "Aux 2"
+        else:
+            aux = "Unknown"
+        aux1 = self.aux1_state.name if self.aux1_state is not None else 'Unknown'
+        aux2 = self.aux2_state.name if self.aux2_state is not None else 'Unknown'
+        return f"Accessory {self.address}: {aux}; {aux1}; {aux2} {self._number}"
+
     def scope(self) -> CommandScope:
         return CommandScope.ACC
 
@@ -107,6 +118,7 @@ class AccessoryState(ComponentState):
                     self._aux2_state = command.command
                 if command.command == Aux.NUMERIC:
                     self._number = command.data
+        print(self)
 
     @property
     def is_known(self) -> bool:
