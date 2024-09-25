@@ -133,7 +133,7 @@ class Subscriber(Protocol):
         ...
 
 
-class _Channel:
+class _Channel[Message]:
     """
         Part of the publish/subscribe pattern described here:
         https://arjancodes.com/blog/publish-subscribe-pattern-in-python/
@@ -188,7 +188,7 @@ class _CommandDispatcher(Thread):
         else:
             self._initialized = True
         super().__init__(name="PyLegacy Command Dispatcher")
-        self.channels: dict[Topic | Tuple[Topic, int], _Channel] = defaultdict(_Channel)
+        self.channels: dict[Topic | Tuple[Topic, int], _Channel[Message]] = defaultdict(_Channel)
         self._cv = threading.Condition()
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
