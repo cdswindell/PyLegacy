@@ -223,6 +223,14 @@ class CommandReq:
             self._apply_data()
 
     @property
+    def is_halt(self) -> bool:
+        return self.command == TMCC1HaltCommandDef.HALT
+
+    @property
+    def is_system_halt(self) -> bool:
+        return self.command == TMCC2HaltCommandDef.HALT
+
+    @property
     def command(self) -> CommandDefEnum:
         return self._command_def_enum
 

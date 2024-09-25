@@ -4,6 +4,7 @@ import abc
 from abc import ABC
 from collections import defaultdict
 from datetime import datetime
+from typing import Tuple
 
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
@@ -19,6 +20,9 @@ class ComponentState(ABC):
         self._last_command: CommandReq | None = None
         self._last_updated: datetime | None = None
         self._address: int | None = None
+
+    def __repr__(self) -> str:
+        return f"{self.scope.name} {self._address}"
 
     @property
     def scope(self) -> CommandScope:
@@ -39,7 +43,7 @@ class ComponentState(ABC):
     @abc.abstractmethod
     def update(self, command: CommandReq) -> None:
         if command:
-            if self._address is None:
+            if self._address is None and command.address != 99:
                 self._address = command.address
             self._last_updated = datetime.now()
             self._last_command = command
@@ -175,13 +179,24 @@ class SystemStateDict(defaultdict):
     """
         Maintains a dictionary of CommandScope to ComponentStateDict
     """
-    def __missing__(self, key: CommandScope) -> ComponentStateDict:
+    def __missing__(self, key: CommandScope | Tuple[CommandScope, int]) -> ComponentStateDict:
         """
             generate a ComponentState object for the dictionary, based on the key
         """
-        if not isinstance(key, CommandScope):
+        if isinstance(key, tuple):
+            scope = key[0]
+            address = key[1]
+        elif isinstance(key, CommandScope):
+            scope = key
+            address = None
+        else:
             raise KeyError(key)
-        self[key] = ComponentStateDict(key)  # and install it in the dict
+        # create the component state dict for this key
+        cdict = ComponentStateDict(scope)
+        if address is not None:
+            # as we know the address, set it
+            cdict._address = address
+        self[key] = cdict  # and install it in the dict
         return self[key]
 
 

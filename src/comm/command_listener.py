@@ -4,10 +4,10 @@ import threading
 from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
-from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic
+from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, CommandScope
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX
 
 Message = TypeVar("Message")
@@ -212,8 +212,14 @@ class _CommandDispatcher(Thread):
             # publish dispatched commands to listeners on the command scope,
             # to listeners
             if isinstance(cmd, CommandReq):
-                self.publish((cmd.scope, cmd.address), cmd)
-                self.publish(cmd.scope, cmd)
+                # if command is a TMCC1 Halt, send to everyone
+                if cmd.is_halt:
+                    self.publish_all(cmd)
+                elif cmd.is_system_halt:
+                    self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
+                else:
+                    self.publish((cmd.scope, cmd.address), cmd)
+                    self.publish(cmd.scope, cmd)
                 if self._broadcasts:
                     self.publish("BROADCAST", cmd)
 
@@ -231,6 +237,15 @@ class _CommandDispatcher(Thread):
         with self._cv:
             self._is_running = False
             self._cv.notify()
+
+    def publish_all(self, message: Message, channels: List[CommandScope] = None) -> None:
+        if channels is None:
+            channels = self.channels.values()
+        for channel in channels:
+            try:
+                self.channels[channel].publish(message)
+            except Exception as e:
+                print(f"Error publishing to {channel}: {e}")
 
     def publish(self, channel: Topic, message: Message) -> None:
         self.channels[channel].publish(message)
