@@ -158,8 +158,14 @@ class PyTrain:
     def query_status(self, param):
         try:
             scope = CommandScope(param[0].upper())
-            address = int(param[1])
-            print(self._state[scope][address])
+
+            if CommandScope(param[0].upper()) in self._state:
+                scope_entries = self._state[scope]
+                address = int(param[1])
+                if address in scope_entries:
+                    print(self._state[scope][address])
+            else:
+                print("No data")
         except Exception as e:
             print(e)
 

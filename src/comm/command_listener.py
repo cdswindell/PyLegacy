@@ -215,8 +215,10 @@ class _CommandDispatcher(Thread):
                 # if command is a TMCC1 Halt, send to everyone
                 if cmd.is_halt:
                     self.publish_all(cmd)
+                # if command is a legacy-style halt, just send to engines and trains
                 elif cmd.is_system_halt:
                     self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
+                # otherwise, just send to the interested parties
                 else:
                     self.publish((cmd.scope, cmd.address), cmd)
                     self.publish(cmd.scope, cmd)
@@ -231,7 +233,7 @@ class _CommandDispatcher(Thread):
         if cmd:
             with self._cv:
                 self._queue.put(cmd)
-                self._cv.notify()
+                self._cv.notify()  # wake up receiving thread
 
     def shutdown(self) -> None:
         with self._cv:
@@ -241,6 +243,11 @@ class _CommandDispatcher(Thread):
     def publish_all(self, message: Message, channels: List[CommandScope] = None) -> None:
         if channels is None:
             channels = self.channels.values()
+        else:
+            # also look at tuple keys, if we are only sending to a subset
+            for channel in self.channels.values():
+                if isinstance(channel, CommandScope) or isinstance(channel, tuple) and channel[0] in channels:
+                    self.channels[channel].publish(message)
         for channel in channels:
             try:
                 self.channels[channel].publish(message)

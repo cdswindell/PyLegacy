@@ -183,20 +183,12 @@ class SystemStateDict(defaultdict):
         """
             generate a ComponentState object for the dictionary, based on the key
         """
-        if isinstance(key, tuple):
-            scope = key[0]
-            address = key[1]
-        elif isinstance(key, CommandScope):
+        if isinstance(key, CommandScope):
             scope = key
-            address = None
         else:
             raise KeyError(key)
         # create the component state dict for this key
-        cdict = ComponentStateDict(scope)
-        if address is not None:
-            # as we know the address, set it
-            cdict._address = address
-        self[key] = cdict  # and install it in the dict
+        self[key] = ComponentStateDict(scope)
         return self[key]
 
 
@@ -213,6 +205,7 @@ class ComponentStateDict(defaultdict):
         """
         if not isinstance(key, int) or key < 1 or key > 99:
             raise KeyError(key)
-        value_class: ComponentState = _SCOPE_TO_STATE_MAP[self._scope](self._scope)
-        self[key] = value_class
+        value: ComponentState = _SCOPE_TO_STATE_MAP[self._scope](self._scope)
+        value._address = key
+        self[key] = value
         return self[key]
