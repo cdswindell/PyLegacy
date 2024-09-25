@@ -118,7 +118,7 @@ class PyTrain:
                         raise KeyboardInterrupt()
                     elif args.command == 'help':
                         self._command_parser().parse_args(["-help"])
-                    if args.cmd == 'db':
+                    if args.command == 'db':
                         self.query_status(ui_parts[1:])
                         return
                     ui_parser = args.command.command_parser()
