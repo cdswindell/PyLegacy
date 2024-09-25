@@ -10,6 +10,9 @@ from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX
 
+Message = TypeVar("Message")
+Topic = TypeVar("Topic")
+
 
 class CommandListener(Thread):
     _instance = None
@@ -48,7 +51,7 @@ class CommandListener(Thread):
         self._cv = threading.Condition()
         self._deque = deque(maxlen=DEFAULT_QUEUE_SIZE)
         self.start()
-        self._dispatcher = CommandDispatcher()
+        self._dispatcher = _CommandDispatcher()
         # prep our producer
         from .serial_reader import SerialReader
         self._serial_reader = SerialReader(baudrate, port, self)
@@ -91,6 +94,9 @@ class CommandListener(Thread):
                 # pop this byte and continue; we either received unparsable input
                 # or started receiving data mid-command
                 print(f"Ignoring {hex(self._deque.popleft())}")
+        # shut down the dispatcher
+        if self._dispatcher:
+            self._dispatcher.shutdown()
 
     def offer(self, data: bytes) -> None:
         if data:
@@ -105,26 +111,36 @@ class CommandListener(Thread):
         if self._dispatcher:
             self._dispatcher.shutdown()
 
+    def subscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
+        self._dispatcher.subscribe(subscriber, channel, address)
 
-Message = TypeVar("Message")
-Topic = TypeVar("Topic")
+    def unsubscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
+        self._dispatcher.unsubscribe(subscriber, channel, address)
+
+    def subscribe_any(self, subscriber: Subscriber) -> None:
+        self._dispatcher.subscribe_any(subscriber)
+
+    def unsubscribe_any(self, subscriber: Subscriber) -> None:
+        self._dispatcher.unsubscribe_any(subscriber)
 
 
 @runtime_checkable
 class Subscriber[Message](Protocol):
+    """
+        Protocol that all listener callbacks must implement
+    """
     def __call__(self, message: Message) -> None:
         ...
 
 
-class Sub:
-    def __init__(self, d: str):
-        self.d = d
-
-    def __call__(self, message: Message) -> None:
-        print(f"Message: {message}")
-
-
-class Channel[Message]:
+class _Channel[Message]:
+    """
+        Part of the publish/subscribe pattern described here:
+        https://arjancodes.com/blog/publish-subscribe-pattern-in-python/
+        In our case, the "channels" are the valid CommandScopes, a tuple
+        consisting of a CommandScope and an TMCC ID/Address, and a
+        special "BROADCAST" channel that receives all received commands.
+    """
     def __init__(self) -> None:
         self.subscribers: set[Subscriber[Message]] = set[Subscriber[Message]]()
 
@@ -147,7 +163,11 @@ class Channel[Message]:
                 pass
 
 
-class CommandDispatcher(Thread):
+class _CommandDispatcher(Thread):
+    """
+        The CommandDispatcher thread receives parsed CommandReqs from the
+        CommandListener and dispatches them to subscribing listeners
+    """
     _instance = None
     _lock = threading.Lock()
 
@@ -157,10 +177,10 @@ class CommandDispatcher(Thread):
             of this class in a process
         """
         with cls._lock:
-            if CommandDispatcher._instance is None:
-                CommandDispatcher._instance = super(CommandDispatcher, cls).__new__(cls)
-                CommandDispatcher._instance._initialized = False
-            return CommandDispatcher._instance
+            if _CommandDispatcher._instance is None:
+                _CommandDispatcher._instance = super(_CommandDispatcher, cls).__new__(cls)
+                _CommandDispatcher._instance._initialized = False
+            return _CommandDispatcher._instance
 
     def __init__(self, queue_size: int = DEFAULT_QUEUE_SIZE) -> None:
         if self._initialized:
@@ -168,7 +188,7 @@ class CommandDispatcher(Thread):
         else:
             self._initialized = True
         super().__init__(name="PyLegacy Command Dispatcher")
-        self.channels: dict[Topic | Tuple[Topic, int], Channel[Message]] = defaultdict(Channel)
+        self.channels: dict[Topic | Tuple[Topic, int], _Channel[Message]] = defaultdict(_Channel)
         self._cv = threading.Condition()
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
@@ -188,10 +208,12 @@ class CommandDispatcher(Thread):
                 self.publish(cmd.scope, cmd)
                 if self._broadcasts:
                     self.publish("BROADCAST", cmd)
-            # self.publish_all(cmd)
-            # print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
 
     def offer(self, cmd: CommandReq) -> None:
+        """
+            Receive a command from the listener thread and dispatch it to subscribers.
+            We do this in a separate thread so that the listener thread doesn't fall behind
+        """
         if cmd:
             with self._cv:
                 self._queue.put(cmd)
@@ -209,6 +231,12 @@ class CommandDispatcher(Thread):
         else:
             self.channels[(channel, address)].subscribe(subscriber)
 
+    def unsubscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
+        if address is None:
+            self.channels[channel].unsubscribe(subscriber)
+        else:
+            self.channels[(channel, address)].unsubscribe(subscriber)
+
     def subscribe_any(self, subscriber: Subscriber) -> None:
         # receive broadcasts
         self.channels["BROADCAST"].subscribe(subscriber)
@@ -219,9 +247,3 @@ class CommandDispatcher(Thread):
         self.channels["BROADCAST"].unsubscribe(subscriber)
         if not self.channels["BROADCAST"].subscribers:
             self._broadcasts = False
-
-    def unsubscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
-        if address is None:
-            self.channels[channel].unsubscribe(subscriber)
-        else:
-            self.channels[(channel, address)].unsubscribe(subscriber)
