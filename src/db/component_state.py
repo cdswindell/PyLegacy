@@ -46,6 +46,9 @@ class ComponentState(ABC):
 
 
 class SwitchState(ComponentState):
+    """
+        Maintain the perceived state of a Switch
+    """
     def __init__(self, scope: CommandScope = CommandScope.SWITCH) -> None:
         if scope != CommandScope.SWITCH:
             raise ValueError(f"Invalid scope: {scope}")
