@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 #
-import time
 from datetime import datetime
 from typing import List
 
 from src.cli.cli_base import CliBase
-from src.comm.command_listener import CommandListener, _CommandDispatcher
+from src.comm.command_listener import CommandListener
 from src.protocol.command_req import CommandReq
-from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
 from src.utils.argument_parser import ArgumentParser
 
 
@@ -34,7 +32,3 @@ if __name__ == '__main__':
     parser = ArgumentParser("Echo LCS SER2 output to console",
                             parents=[CliBase.cli_parser()])
     EchoCli(parser)
-
-    r = CommandReq.build(TMCC1SwitchState.OUT, 20)
-    time.sleep(5)
-    _CommandDispatcher().offer(r)
