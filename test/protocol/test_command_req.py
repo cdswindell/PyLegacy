@@ -292,12 +292,12 @@ class TestCommandReq(TestBase):
                             # if the enum is an alias for another command,
                             # check results against that command_def
                             alias_enum = tmcc_enum.command_def.alias
-                            assert req_from_bytes.command_def_enum == alias_enum
+                            assert req_from_bytes.command == alias_enum
                             assert req_from_bytes.command_def == alias_enum.command_def
                             assert req_from_bytes.num_data_bits == alias_enum.command_def.num_data_bits
                             assert alias_enum.command_def.is_valid_data(req_from_bytes.data)
                         else:
-                            assert req_from_bytes.command_def_enum == req.command_def_enum
+                            assert req_from_bytes.command == req.command
                             assert req_from_bytes.command_def == req.command_def
                             assert req_from_bytes.num_data_bits == req.num_data_bits
                             assert req_from_bytes.data == req.data
@@ -336,13 +336,13 @@ class TestCommandReq(TestBase):
                             # if the enum is an alias for another command,
                             # check results against that command_def
                             alias_enum = tmcc_enum.command_def.alias
-                            assert req_from_bytes.command_def_enum == alias_enum
+                            assert req_from_bytes.command == alias_enum
                             assert req_from_bytes.command_def == alias_enum.command_def
                             assert req_from_bytes.num_data_bits == alias_enum.command_def.num_data_bits
                             assert (alias_enum.command_def.is_data is False or
                                     alias_enum.command_def.is_valid_data(req_from_bytes.data))
                         else:
-                            assert req_from_bytes.command_def_enum == req.command_def_enum
+                            assert req_from_bytes.command == req.command
                             assert req_from_bytes.command_def == req.command_def
                             assert req_from_bytes.num_data_bits == req.num_data_bits
                             assert req_from_bytes.data == req.data
@@ -370,7 +370,7 @@ class TestCommandReq(TestBase):
                     req = self.build_request(tmcc_enum, scope=scope)
                     # do reverse lookup
                     req_from_bytes = CommandReq.from_bytes(req.as_bytes)
-                    assert req_from_bytes.command_def_enum == req.command_def_enum
+                    assert req_from_bytes.command == req.command
                     assert req_from_bytes.command_def == req.command_def
                     assert req_from_bytes.num_data_bits == req.num_data_bits
                     assert req_from_bytes.data == req.data

@@ -223,7 +223,7 @@ class CommandReq:
             self._apply_data()
 
     @property
-    def command_def_enum(self) -> CommandDefEnum:
+    def command(self) -> CommandDefEnum:
         return self._command_def_enum
 
     @property

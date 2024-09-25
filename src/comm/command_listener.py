@@ -27,6 +27,10 @@ class CommandListener(Thread):
         """
         return CommandListener(baudrate=baudrate, port=port)
 
+    @classmethod
+    def listen_for(cls, listener: Subscriber, channel: Topic, address: int = None):
+        cls.build().subscribe(listener, channel, address)
+
     def __new__(cls, *args, **kwargs):
         """
             Provides singleton functionality. We only want one instance
@@ -64,7 +68,7 @@ class CommandListener(Thread):
                     self._cv.wait()  # wait to be notified
             # check if the first bite is in the list of allowable command prefixes
             dq_len = len(self._deque)
-            if self._deque[0] in TMCC_FIRST_BYTE_TO_INTERPRETER and dq_len >= 3:
+            if dq_len and self._deque[0] in TMCC_FIRST_BYTE_TO_INTERPRETER and dq_len >= 3:
                 # at this point, we have some sort of command. It could be a TMCC1 or TMCC2
                 # 3-byte command, or, if there are more than 3 bytes, and the 4th byte is
                 # 0xf8 or 0xf9 AND the 5th byte is 0xfb, it could be a 9 byte param command
@@ -105,7 +109,9 @@ class CommandListener(Thread):
                 self._cv.notify()
 
     def shutdown(self) -> None:
-        self._is_running = False
+        with self._cv:
+            self._is_running = False
+            self._cv.notify()
         if self._serial_reader:
             self._serial_reader.shutdown()
         if self._dispatcher:
@@ -200,6 +206,8 @@ class _CommandDispatcher(Thread):
             with self._cv:
                 if self._queue.empty():
                     self._cv.wait()
+            if self._queue.empty():  # we need to do a second check in the event we're being shutdown
+                continue
             cmd = self._queue.get()
             # publish dispatched commands to listeners on the command scope,
             # to listeners
@@ -220,7 +228,9 @@ class _CommandDispatcher(Thread):
                 self._cv.notify()
 
     def shutdown(self) -> None:
-        self._is_running = False
+        with self._cv:
+            self._is_running = False
+            self._cv.notify()
 
     def publish(self, channel: Topic, message: Message) -> None:
         self.channels[channel].publish(message)

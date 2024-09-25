@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 #
+from __future__ import annotations
+
 import argparse
 import os
 import readline
+from collections import defaultdict
 
 from src.cli.acc import AccCli
 from src.cli.cli_base import CliBase
@@ -15,13 +18,21 @@ from src.cli.route import RouteCli
 from src.cli.sounds import SoundEffectsCli
 from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
+from src.comm.command_listener import CommandListener
 from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
+from src.db.component_state import ComponentState, ComponentStateDict
 from src.gpio.gpio_handler import GpioHandler
-from src.protocol.constants import DEFAULT_SERVER_PORT
+from src.protocol.command_req import CommandReq
+from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 PROGRAM_NAME: str = "PyTrain"
+
+
+class SystemState:
+    def __init__(self) -> None:
+        self._components: dict[int, ComponentState] = ComponentStateDict()
 
 
 class PyTrain:
@@ -39,9 +50,21 @@ class PyTrain:
             if not self._args.no_clients:
                 print(f"Listening for client connections on port {self._args.server_port}...")
                 self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
+            # register listeners
+            self._state: dict[CommandScope, SystemState] = defaultdict(SystemState)
+            print("Registering listeners...")
+            self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
+            self._listener.listen_for(self, CommandScope.ENGINE)
+            self._listener.listen_for(self, CommandScope.TRAIN)
+            self._listener.listen_for(self, CommandScope.SWITCH)
+            self._listener.listen_for(self, CommandScope.ACC)
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
+            self._state = None
         self.run()
+
+    def __call__(self, cmd: CommandReq) -> None:
+        self.persist_state(cmd)
 
     @property
     def buffer(self) -> CommBuffer:
@@ -66,6 +89,11 @@ class PyTrain:
                     self._comm_buffer.shutdown()
                 except Exception as e:
                     print(f"Error closing command buffer, continuing shutdown: {e}")
+                try:
+                    if self._listener:
+                        self._listener.shutdown()
+                except Exception as e:
+                    print(f"Error closing listener, continuing shutdown: {e}")
                 try:
                     GpioHandler.reset_all()
                 except Exception as e:
@@ -118,6 +146,12 @@ class PyTrain:
                         print(f"Error while loading startup script: {e}")
             elif self._startup_script != DEFAULT_SCRIPT_FILE:
                 print(f"Startup script file {self._startup_script} not found, continuing...")
+
+    def persist_state(self, cmd: CommandReq) -> None:
+        if cmd:
+            comp = self._state[cmd.scope][cmd.address]
+            if comp:
+                comp.update(cmd)
 
     @staticmethod
     def _command_parser() -> ArgumentParser:
