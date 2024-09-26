@@ -6,7 +6,7 @@ from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 """
     Simple examples of how to associate Lionel commands to Raspberry Pi buttons
 """
-GpioHandler.when_button_held(26, TMCC2EngineCommandDef.BLOW_HORN_ONE)
+GpioHandler.when_button_held(20, TMCC2EngineCommandDef.BLOW_HORN_ONE)
 
 GpioHandler.when_button_pressed(21, TMCC2RouteCommandDef.FIRE, 10)
 
