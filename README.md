@@ -55,11 +55,11 @@ actions, allowing the development of physical control panels to operate trains.
 sudo apt update
 sudo apt upgrade
 
-sudo apt install python3`
-sudo apt install gh`
+sudo apt install python3
+sudo apt install gh
 sudo apt install git
 ```
-Note thaty some or all of this software may already be installed on your pi
+Note that some or all of this software may already be installed on your pi
 
 ## Installation and one time setup
 
