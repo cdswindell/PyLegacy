@@ -20,6 +20,8 @@ actions, allowing the development of physical control panels to operate trains.
 ## Contents
 - [PyLegacy]()
   - [Requirements](#requirements)
+    - [Macintosh](#macintosh)
+    - [Raspberry Pi/Linux](#raspberry-pi)
   - [Installation and one-time setup](#installation-and-one-time-setup)
   - [Licensing](#licensing)
   - [CLI Scripts](#cli-scripts)
@@ -27,18 +29,37 @@ actions, allowing the development of physical control panels to operate trains.
 
 ## Requirements
 
+### Macintosh:
+
 - Brew:
 
 `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
 
 - Python 3.11 (your version may be newer):
+
 `brew install python@3.11`
 
 - gh:
+
 `brew install gh`
 
 - git (if you plan to modify the code and issue pull requests):
+
 `brew install git`
+
+### Raspberry Pi
+
+- Python 3.11, gh, and git:
+
+```
+sudo apt update
+sudo apt upgrade
+
+sudo apt install python3`
+sudo apt install gh`
+sudo apt install git
+```
+Note thaty some or all of this software may already be installed on your pi
 
 ## Installation and one time setup
 
