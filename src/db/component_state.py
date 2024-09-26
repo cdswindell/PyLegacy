@@ -8,7 +8,7 @@ from typing import Tuple
 
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 
 
@@ -42,9 +42,14 @@ class ComponentState(ABC):
 
     @abc.abstractmethod
     def update(self, command: CommandReq) -> None:
-        if command:
+        if command and command.command != TMCC1HaltCommandDef.HALT:
             if self._address is None and command.address != 99:
                 self._address = command.address
+            elif self._address != command.address:  # invalid state
+                raise ValueError(f"Switch #{self._address} received update for Switch #{command.address}, ignoring")
+            if self.scope != command.scope:
+                scope = command.scope.name.capitalize()
+                raise ValueError(f"Switch {self.address} received update for {scope}, ignoring")
             self._last_updated = datetime.now()
             self._last_command = command
 
@@ -65,7 +70,9 @@ class SwitchState(ComponentState):
     def update(self, command: CommandReq) -> None:
         if command:
             super().update(command)
-            if command != Switch.SET_ADDRESS:
+            if command.command == TMCC1HaltCommandDef.HALT:
+                return  # do nothing on halt
+            if command.command != Switch.SET_ADDRESS:
                 self._state = command.command
 
     @property
@@ -112,7 +119,7 @@ class AccessoryState(ComponentState):
     def update(self, command: CommandReq) -> None:
         if command:
             super().update(command)
-            if command != Aux.SET_ADDRESS:
+            if command.command != Aux.SET_ADDRESS:
                 if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX2_OPTION_ONE]:
                     self._aux_state = command.command
                 if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:

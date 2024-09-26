@@ -3,3 +3,5 @@ gpiozero>=2.0.1
 pyserial>=3.5
 setuptools>=74.1.2
 lgpio>=0.2.2.0; sys_platform == 'linux'
+
+pytest~=8.3.3
