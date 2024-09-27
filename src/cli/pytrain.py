@@ -150,11 +150,11 @@ class PyTrain:
                         if self.is_server:
                             if len(ui_parts) > 1 and ui_parts[1].lower() == 'on':
                                 if self._echo is False:
-                                    print("Enabling echo of  received TMCC commands...")
+                                    print("TMCC command echoing ENABLED...")
                                 self._echo = True
                             else:
                                 if self._echo is True:
-                                    print("Disabling echo of received TMCC commands...")
+                                    print("TMCC command echoing DISABLED...")
                                 self._echo = False
                         else:
                             print("Command echoing not supported in client mode")
