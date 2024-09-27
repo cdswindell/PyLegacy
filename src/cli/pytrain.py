@@ -78,6 +78,14 @@ class PyTrain:
         self.persist_state(cmd)
 
     @property
+    def is_server(self) -> bool:
+        return isinstance(self.buffer, CommBufferSingleton)
+
+    @property
+    def is_client(self) -> bool:
+        return not self.is_server
+
+    @property
     def buffer(self) -> CommBuffer:
         return self._comm_buffer
 
@@ -137,6 +145,20 @@ class PyTrain:
                         self._command_parser().parse_args(["-help"])
                     if args.command == 'db':
                         self.query_status(ui_parts[1:])
+                        return
+                    if args.command == 'echo':
+                        if self.is_server:
+                            if len(ui_parts) > 1 and ui_parts[1].lower() == 'on':
+                                if self._echo is False:
+                                    print("Enabling echo of  received TMCC commands...")
+                                self._echo = True
+                            else:
+                                if self._echo is True:
+                                    print("Disabling echo of received TMCC commands...")
+                                self._echo = False
+                            self.query_status(ui_parts[1:])
+                        else:
+                            print("Command echoing not supported in client mode")
                         return
                     ui_parser = args.command.command_parser()
                     ui_parser.remove_args(['baudrate', 'port', 'server'])
@@ -210,6 +232,11 @@ class PyTrain:
                            const=DialogsCli,
                            dest="command",
                            help="Trigger RailSounds dialogs")
+        group.add_argument("-echo",
+                           action="store_const",
+                           const="echo",
+                           dest="command",
+                           help="Enable/disable TMCC command echoing")
         group.add_argument("-effects",
                            action="store_const",
                            const=EffectsCli,
@@ -245,11 +272,6 @@ class PyTrain:
                            const=SwitchCli,
                            dest="command",
                            help="Throw switches")
-        group.add_argument("-db",
-                           action="store_const",
-                           const="db",
-                           dest="command",
-                           help="Query system state")
         group.add_argument("-quit",
                            action="store_const",
                            const="quit",
