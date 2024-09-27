@@ -387,7 +387,7 @@ class TestComponentState(TestBase):
         # verify invalid keys not allowed
         for scope in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
             cs_dict = ComponentStateDict(scope)
-            for key in [-4, 0, "abc", 100,CommandScope.TRAIN]:
+            for key in [-4, 0, "abc", 100, CommandScope.TRAIN]:
                 assert key not in cs_dict
                 with pytest.raises(KeyError, match=f"Invalid ID: {key}"):
-                    cs_dict[key]
+                    _ = cs_dict[key]

@@ -7,7 +7,7 @@ from threading import Thread
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, CommandScope
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, CommandScope, BROADCAST_TOPIC
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX
 
 Message = TypeVar("Message")
@@ -223,7 +223,7 @@ class _CommandDispatcher(Thread):
                     self.publish((cmd.scope, cmd.address), cmd)
                     self.publish(cmd.scope, cmd)
                 if self._broadcasts:
-                    self.publish("BROADCAST", cmd)
+                    self.publish(BROADCAST_TOPIC, cmd)
 
     def offer(self, cmd: CommandReq) -> None:
         """
@@ -258,24 +258,30 @@ class _CommandDispatcher(Thread):
         self.channels[channel].publish(message)
 
     def subscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
-        if address is None:
-            self.channels[channel].subscribe(subscriber)
+        if channel == BROADCAST_TOPIC:
+            self.subscribe_any(subscriber)
         else:
-            self.channels[(channel, address)].subscribe(subscriber)
+            if address is None:
+                self.channels[channel].subscribe(subscriber)
+            else:
+                self.channels[(channel, address)].subscribe(subscriber)
 
     def unsubscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
-        if address is None:
-            self.channels[channel].unsubscribe(subscriber)
+        if channel == BROADCAST_TOPIC:
+            self.unsubscribe_any(subscriber)
         else:
-            self.channels[(channel, address)].unsubscribe(subscriber)
+            if address is None:
+                self.channels[channel].unsubscribe(subscriber)
+            else:
+                self.channels[(channel, address)].unsubscribe(subscriber)
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
         # receive broadcasts
-        self.channels["BROADCAST"].subscribe(subscriber)
+        self.channels[BROADCAST_TOPIC].subscribe(subscriber)
         self._broadcasts = True
 
     def unsubscribe_any(self, subscriber: Subscriber) -> None:
         # receive broadcasts
-        self.channels["BROADCAST"].unsubscribe(subscriber)
-        if not self.channels["BROADCAST"].subscribers:
+        self.channels[BROADCAST_TOPIC].unsubscribe(subscriber)
+        if not self.channels[BROADCAST_TOPIC].subscribers:
             self._broadcasts = False

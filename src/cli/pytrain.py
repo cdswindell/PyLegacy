@@ -6,6 +6,8 @@ import argparse
 import os
 import readline
 
+from datetime import datetime
+
 from src.cli.acc import AccCli
 from src.cli.cli_base import CliBase
 from src.cli.dialogs import DialogsCli
@@ -19,10 +21,10 @@ from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
 from src.comm.command_listener import CommandListener
 from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
-from src.db.component_state import SystemStateDict, ComponentStateDict
+from src.db.component_state import SystemStateDict, ComponentStateDict, SCOPE_TO_STATE_MAP
 from src.gpio.gpio_handler import GpioHandler
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope
+from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_ADDRESS, BROADCAST_TOPIC
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
@@ -37,6 +39,7 @@ class PyTrain:
         self._port = args.port
         self._listener = None
         self._state = None
+        self._echo = args.echo
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._comm_buffer = CommBuffer.build(baudrate=self._baudrate,
                                              port=self._port,
@@ -49,7 +52,10 @@ class PyTrain:
                 self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
             # register listeners
             self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
-            if self._args.no_listeners is True:
+            if self._args.echo:
+                self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
+                self._listener.listen_for(self, BROADCAST_TOPIC)
+            elif self._args.no_listeners is True:
                 print("Ignoring events...")
             else:
                 print("Registering listeners...")
@@ -63,6 +69,11 @@ class PyTrain:
         self.run()
 
     def __call__(self, cmd: CommandReq) -> None:
+        """
+            Callback specified in the Subscriber protocol used to send events to listeners
+        """
+        if self._echo:
+            print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
         self.persist_state(cmd)
 
     @property
@@ -151,14 +162,19 @@ class PyTrain:
 
     def persist_state(self, cmd: CommandReq) -> None:
         if cmd:
-            comp = self._state[cmd.scope][cmd.address]
-            if comp:
-                comp.update(cmd)
+            if cmd.is_halt:  # send to all known devices
+                print("*** Received HALT Command ***")
+            elif cmd.is_system_halt:  # send to all known engines and trains
+                print("*** Received SYSTEM HALT Command ***")
+            elif cmd.scope in SCOPE_TO_STATE_MAP:
+                if cmd.address == BROADCAST_ADDRESS:  # broadcast address
+                    print(f"*** {cmd.scope.name} Broadcast Address ***")
+                else:  # update the device state (identified by scope/address)
+                    self._state[cmd.scope][cmd.address].update(cmd)
 
     def query_status(self, param):
         try:
             scope = CommandScope(param[0].upper())
-
             if CommandScope(param[0].upper()) in self._state:
                 scope_entries = self._state[scope]
                 address = int(param[1])
@@ -251,6 +267,9 @@ if __name__ == '__main__':
     parser = ArgumentParser(prog="pytrain.py",
                             description="Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
                             parents=[parser, CliBase.cli_parser()])
+    parser.add_argument("-echo",
+                        action="store_true",
+                        help=f"Echo received TMCC commands to console")
     parser.add_argument("-no_clients",
                         action="store_true",
                         help=f"Do not listen for client connections on port {DEFAULT_SERVER_PORT}")

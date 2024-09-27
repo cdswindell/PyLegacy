@@ -7,6 +7,8 @@ from typing import Self, Any
 DEFAULT_BAUDRATE: int = 9600
 DEFAULT_PORT: str = "/dev/ttyUSB0"
 DEFAULT_ADDRESS: int = 99
+BROADCAST_ADDRESS: int = 99
+BROADCAST_TOPIC = "BROADCAST"
 
 DEFAULT_SERVER_PORT: int = 5110  # unassigned by IANA as of 9/16/2024
 

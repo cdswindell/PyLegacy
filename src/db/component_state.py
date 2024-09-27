@@ -185,7 +185,7 @@ class TrainState(EngineState):
         super().__init__(scope)
 
 
-_SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
+SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
     CommandScope.SWITCH: SwitchState,
     CommandScope.ACC: AccessoryState,
     CommandScope.ENGINE: EngineState,
@@ -201,7 +201,7 @@ class SystemStateDict(defaultdict):
         """
             generate a ComponentState object for the dictionary, based on the key
         """
-        if isinstance(key, CommandScope) and key in _SCOPE_TO_STATE_MAP:
+        if isinstance(key, CommandScope) and key in SCOPE_TO_STATE_MAP:
             scope = key
         else:
             raise KeyError(f"Invalid scope key: {key}")
@@ -213,7 +213,7 @@ class SystemStateDict(defaultdict):
 class ComponentStateDict(defaultdict):
     def __init__(self, scope: CommandScope):
         super().__init__(None)  # base class doesn't get a factory
-        if scope not in _SCOPE_TO_STATE_MAP:
+        if scope not in SCOPE_TO_STATE_MAP:
             raise ValueError(f"Invalid scope: {scope}")
         self._scope = scope
 
@@ -227,7 +227,7 @@ class ComponentStateDict(defaultdict):
         """
         if not isinstance(key, int) or key < 1 or key > 99:
             raise KeyError(f"Invalid ID: {key}")
-        value: ComponentState = _SCOPE_TO_STATE_MAP[self._scope](self._scope)
+        value: ComponentState = SCOPE_TO_STATE_MAP[self._scope](self._scope)
         value._address = key
         self[key] = value
         return self[key]
