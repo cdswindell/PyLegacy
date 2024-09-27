@@ -226,7 +226,7 @@ class ComponentStateDict(defaultdict):
             generate a ComponentState object for the dictionary, based on the key
         """
         if not isinstance(key, int) or key < 1 or key > 99:
-            raise KeyError(key)
+            raise KeyError(f"Invalid ID: {key}")
         value: ComponentState = _SCOPE_TO_STATE_MAP[self._scope](self._scope)
         value._address = key
         self[key] = value

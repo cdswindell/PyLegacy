@@ -2,8 +2,8 @@ from collections import defaultdict
 
 import pytest
 
-from src.db.component_state import ComponentState, SwitchState, AccessoryState, EngineState, TrainState, \
-    SystemStateDict, ComponentStateDict
+from src.db.component_state import SwitchState, AccessoryState, EngineState, TrainState
+from src.db.component_state import ComponentState, SystemStateDict, ComponentStateDict
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import CommandScope
 from src.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef
@@ -312,14 +312,28 @@ class TestComponentState(TestBase):
         assert ss_dict is not None
         assert isinstance(ss_dict, defaultdict)
         assert isinstance(ss_dict, dict)
+        assert len(ss_dict) == 0
+        assert len(ss_dict.keys()) == 0
+        assert len(ss_dict.values()) == 0
 
         # keys are instances of a subset of CommandScope
         for key in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+            assert key not in ss_dict
             value = ss_dict[key]
+            assert key in ss_dict
             assert value.scope == key
             assert value is not None
             assert ss_dict[key] == value  # identical keys should return same values
             assert isinstance(value, ComponentStateDict)
+
+        # we should have an entry for each of the 4 scopes and that the entry is an empty
+        # ComponentStateDict with the correct scope
+        for key in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+            assert key in ss_dict
+            assert isinstance(ss_dict[key], ComponentStateDict)
+            assert len(ss_dict[key]) == 0
+            assert ss_dict[key] is not None
+            assert ss_dict[key].scope == key
 
         # should not be able to add other keys
         with pytest.raises(KeyError, match="Invalid scope key: 123"):
@@ -333,4 +347,47 @@ class TestComponentState(TestBase):
                 _ = ss_dict[key]
 
     def test_component_state_dict(self) -> None:
-        assert False
+        """
+            ComponentStateDict saves system state for engines, trains, switches, and accessories
+            as determined by the TMCC command stream. CommandScope-appropriate dicts are
+            constructed by SystemStateDict as needed, using the defailtdict mechanism.
+
+            ComponentStateDict keys themselves are ints between 1 and 99 inclusive.
+        """
+        # test that all four types of ComponentStateDicts are built
+        for scope in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+            cs_dict = ComponentStateDict(scope)
+            assert isinstance(cs_dict, ComponentStateDict)
+            assert cs_dict.scope == scope
+            value = cs_dict[1]
+            assert value is not None
+            assert isinstance(value, ComponentState)
+            assert value.scope == scope
+
+        # verify we cannot construct a dict from an invalid scope
+        for key in CommandScope:
+            if key in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+                continue
+            with pytest.raises(ValueError, match=f"Invalid scope: {key}"):
+                ComponentStateDict(key)
+
+        # verify dicts allow keys to be inserted
+        for scope in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+            cs_dict = ComponentStateDict(scope)
+            for key in range(1, 99 + 1):
+                assert key not in cs_dict
+                value = cs_dict[key]
+                assert key in cs_dict
+                assert value.scope == scope
+                assert isinstance(value, ComponentState)
+                assert value.address == key
+                assert value.last_command is None
+                assert value.last_updated is None
+
+        # verify invalid keys not allowed
+        for scope in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+            cs_dict = ComponentStateDict(scope)
+            for key in [-4, 0, "abc", 100,CommandScope.TRAIN]:
+                assert key not in cs_dict
+                with pytest.raises(KeyError, match=f"Invalid ID: {key}"):
+                    cs_dict[key]
