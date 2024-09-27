@@ -93,7 +93,7 @@ class SwitchState(ComponentState):
 
 
 class AccessoryState(ComponentState):
-    def __init__(self, scope: CommandScope = CommandScope.SWITCH) -> None:
+    def __init__(self, scope: CommandScope = CommandScope.ACC) -> None:
         if scope != CommandScope.ACC:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
@@ -113,29 +113,43 @@ class AccessoryState(ComponentState):
         aux2 = self.aux2_state.name if self.aux2_state is not None else 'Unknown'
         return f"Accessory {self.address}: {aux}; {aux1}; {aux2} {self._number}"
 
-    def scope(self) -> CommandScope:
-        return CommandScope.ACC
-
     def update(self, command: CommandReq) -> None:
         if command:
             super().update(command)
             if command.command != Aux.SET_ADDRESS:
-                if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX2_OPTION_ONE]:
-                    self._aux_state = command.command
-                if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:
-                    self._aux1_state = command.command
-                elif command.command in [Aux.AUX2_OPTION_ONE, Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPTION_TWO]:
-                    self._aux2_state = command.command
-                if command.command == Aux.NUMERIC:
-                    self._number = command.data
+                if command.command == TMCC1HaltCommandDef.HALT:
+                    self._aux1_state = Aux.AUX1_OFF
+                    self._aux2_state = Aux.AUX2_OFF
+                    self._aux_state = Aux.AUX2_OPTION_ONE
+                    self._number = None
+                else:
+                    if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX2_OPTION_ONE]:
+                        self._aux_state = command.command
+                    if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:
+                        self._aux1_state = command.command
+                    elif command.command in [Aux.AUX2_OPTION_ONE, Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPTION_TWO]:
+                        self._aux2_state = command.command
+                    if command.command == Aux.NUMERIC:
+                        self._number = command.data
 
     @property
     def is_known(self) -> bool:
-        return self._aux1_state is not None or self._aux2_state is not None or self._number is not None
+        return (self._aux_state is not None
+                or self._aux1_state is not None
+                or self._aux2_state is not None
+                or self._number is not None)
 
     @property
     def aux_state(self) -> Aux:
         return self._aux_state
+
+    @property
+    def is_aux_on(self) -> bool:
+        return self._aux_state == Aux.AUX1_OPTION_ONE
+
+    @property
+    def is_aux_off(self) -> bool:
+        return self._aux_state == Aux.AUX2_OPTION_ONE
 
     @property
     def aux1_state(self) -> Aux:
