@@ -42,4 +42,6 @@ class TestCommandListener(TestBase):
         listener = CommandListener.build()
         assert listener
         assert listener.is_built is True
+        assert listener.is_running is True
         assert CommandListener.is_built is True
+        assert CommandListener.is_running is True
