@@ -173,9 +173,6 @@ class EngineState(ComponentState):
         self._started = None
         self._speed: int | None = None
 
-    def scope(self) -> CommandScope:
-        return self._scope
-
     def update(self, command: CommandReq) -> None:
         if command:
             super().update(command)
@@ -204,10 +201,10 @@ class SystemStateDict(defaultdict):
         """
             generate a ComponentState object for the dictionary, based on the key
         """
-        if isinstance(key, CommandScope):
+        if isinstance(key, CommandScope) and key in _SCOPE_TO_STATE_MAP:
             scope = key
         else:
-            raise KeyError(key)
+            raise KeyError(f"Invalid scope key: {key}")
         # create the component state dict for this key
         self[key] = ComponentStateDict(scope)
         return self[key]
@@ -219,6 +216,10 @@ class ComponentStateDict(defaultdict):
         if scope not in _SCOPE_TO_STATE_MAP:
             raise ValueError(f"Invalid scope: {scope}")
         self._scope = scope
+
+    @property
+    def scope(self) -> CommandScope:
+        return self._scope
 
     def __missing__(self, key: int) -> ComponentState:
         """

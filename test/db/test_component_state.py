@@ -1,6 +1,9 @@
+from collections import defaultdict
+
 import pytest
 
-from src.db.component_state import ComponentState, SwitchState, AccessoryState
+from src.db.component_state import ComponentState, SwitchState, AccessoryState, EngineState, TrainState, \
+    SystemStateDict, ComponentStateDict
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import CommandScope
 from src.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef
@@ -241,15 +244,93 @@ class TestComponentState(TestBase):
         assert acc_state.value is None
         assert acc_state.is_known is True
 
-
     def test_engine_state(self) -> None:
-        assert False
+        """
+            Test that EngineState is correctly initialized and that behavior specific
+            to it is handled correctly.
+        """
+        eng_state = EngineState()
+        assert eng_state is not None
+        assert eng_state.scope == CommandScope.ENGINE
+        assert eng_state.address is None
+        assert eng_state.last_command is None
+        assert eng_state.last_updated is None
+
+        # assert construction with scope Acc succeeds
+        eng_state = EngineState(CommandScope.ENGINE)
+        assert eng_state is not None
+        assert eng_state.scope == CommandScope.ENGINE
+
+        # assert construction with any other scope fails
+        for scope in CommandScope:
+            if scope in [CommandScope.ENGINE, CommandScope.TRAIN]:
+                continue
+            with pytest.raises(ValueError):
+                # noinspection PyTypeChecker
+                EngineState(scope)
+
+        # TODO: add tests once Engine State is defined
 
     def test_train_state(self) -> None:
-        assert False
+        """
+            Test that TrainState is correctly initialized and that behavior specific
+            to it is handled correctly.
+        """
+        train_state = TrainState()
+        assert train_state is not None
+        assert train_state.scope == CommandScope.TRAIN
+        assert train_state.address is None
+        assert train_state.last_command is None
+        assert train_state.last_updated is None
+
+        # assert construction with scope Acc succeeds
+        train_state = EngineState(CommandScope.TRAIN)
+        assert train_state is not None
+        assert train_state.scope == CommandScope.TRAIN
+
+        train_state = TrainState(CommandScope.TRAIN)
+        assert train_state is not None
+        assert train_state.scope == CommandScope.TRAIN
+
+        # assert construction with any other scope fails
+        for scope in CommandScope:
+            if scope == CommandScope.TRAIN:
+                continue
+            with pytest.raises(ValueError):
+                # noinspection PyTypeChecker
+                TrainState(scope)
+
+        # TODO: add tests once Engine State is defined
 
     def test_system_state_dict(self) -> None:
-        assert False
+        """
+            SystemStateDict is used by the PyTrain cli to maintain a cache of engine, train,
+            switch, and accessory state, as determined by the TMCC command stream it receives
+            via publish/subscribe in the CommandListener class.
+        """
+        ss_dict = SystemStateDict()
+        assert ss_dict is not None
+        assert isinstance(ss_dict, defaultdict)
+        assert isinstance(ss_dict, dict)
+
+        # keys are instances of a subset of CommandScope
+        for key in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+            value = ss_dict[key]
+            assert value.scope == key
+            assert value is not None
+            assert ss_dict[key] == value  # identical keys should return same values
+            assert isinstance(value, ComponentStateDict)
+
+        # should not be able to add other keys
+        with pytest.raises(KeyError, match="Invalid scope key: 123"):
+            _ = ss_dict[123]
+
+        # including CommandScopes other than the 4 above
+        for key in CommandScope:
+            if key in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+                continue
+            with pytest.raises(KeyError, match=f"Invalid scope key: {key}"):
+                _ = ss_dict[key]
 
     def test_component_state_dict(self) -> None:
         assert False
