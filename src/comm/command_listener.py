@@ -15,7 +15,7 @@ Topic = TypeVar("Topic")
 
 
 class CommandListener(Thread):
-    _instance = None
+    _instance: None = None
     _lock = threading.Lock()
 
     @classmethod
@@ -31,10 +31,19 @@ class CommandListener(Thread):
     def listen_for(cls, listener: Subscriber, channel: Topic, address: int = None):
         cls.build().subscribe(listener, channel, address)
 
+    # noinspection PyPropertyDefinition
     @classmethod
+    @property
     def is_built(cls) -> bool:
         return cls._instance is not None
-
+    
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def is_running(cls) -> bool:
+        # noinspection PyProtectedMember
+        return cls._instance is not None and cls._instance._is_running
+    
     def __new__(cls, *args, **kwargs):
         """
             Provides singleton functionality. We only want one instance
@@ -54,15 +63,27 @@ class CommandListener(Thread):
         else:
             self._initialized = True
         super().__init__(name="PyLegacy Command Listener")
+        self._baudrate = baudrate
+        self._port = port
+        
         # prep our consumer(s)
         self._is_running = True
         self._cv = threading.Condition()
         self._deque = deque(maxlen=DEFAULT_QUEUE_SIZE)
         self.start()
         self._dispatcher = _CommandDispatcher()
+        
         # prep our producer
         from .serial_reader import SerialReader
         self._serial_reader = SerialReader(baudrate, port, self)
+    
+    @property    
+    def baudrate(self) -> int:
+        return self._baudrate
+    
+    @property
+    def port(self) -> str:
+        return self._port
 
     def run(self) -> None:
         while self._is_running:
