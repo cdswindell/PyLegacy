@@ -156,7 +156,6 @@ class PyTrain:
                                 if self._echo is True:
                                     print("Disabling echo of received TMCC commands...")
                                 self._echo = False
-                            self.query_status(ui_parts[1:])
                         else:
                             print("Command echoing not supported in client mode")
                         return
