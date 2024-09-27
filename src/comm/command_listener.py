@@ -31,6 +31,10 @@ class CommandListener(Thread):
     def listen_for(cls, listener: Subscriber, channel: Topic, address: int = None):
         cls.build().subscribe(listener, channel, address)
 
+    @classmethod
+    def is_built(cls) -> bool:
+        return cls._instance is not None
+
     def __new__(cls, *args, **kwargs):
         """
             Provides singleton functionality. We only want one instance
@@ -116,6 +120,7 @@ class CommandListener(Thread):
             self._serial_reader.shutdown()
         if self._dispatcher:
             self._dispatcher.shutdown()
+        CommandListener._instance = None
 
     def subscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
         self._dispatcher.subscribe(subscriber, channel, address)
@@ -176,6 +181,10 @@ class _CommandDispatcher(Thread):
     """
     _instance = None
     _lock = threading.Lock()
+
+    @classmethod
+    def is_built(cls) -> bool:
+        return cls._instance is not None
 
     def __new__(cls, *args, **kwargs):
         """
@@ -239,6 +248,7 @@ class _CommandDispatcher(Thread):
         with self._cv:
             self._is_running = False
             self._cv.notify()
+        _CommandDispatcher._instance = None
 
     def publish_all(self, message: Message, channels: List[CommandScope] = None) -> None:
         if channels is None:
