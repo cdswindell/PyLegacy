@@ -55,6 +55,7 @@ class PyTrain:
             if self._args.echo:
                 self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
                 self._listener.listen_for(self, BROADCAST_TOPIC)
+                print("Echoing received TMCC commands...")
             elif self._args.no_listeners is True:
                 print("Ignoring events...")
             else:
