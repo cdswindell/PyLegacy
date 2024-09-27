@@ -148,7 +148,7 @@ class PyTrain:
                         return
                     if args.command == 'echo':
                         if self.is_server:
-                            if len(ui_parts) == 0 or (len(ui_parts) > 1 and ui_parts[1].lower() == 'on'):
+                            if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == 'on'):
                                 if self._echo is False:
                                     print("TMCC command echoing ENABLED...")
                                 self._echo = True
