@@ -1,10 +1,11 @@
 from enum import Enum, verify, UNIQUE, IntEnum
-from typing import Self, Any
+from typing import Self, Any, List
 
 """
     General Constants
 """
 DEFAULT_BAUDRATE: int = 9600
+DEFAULT_VALID_BAUDRATES: List[int] = [9600, 19200, 38400, 57600, 115200]
 DEFAULT_PORT: str = "/dev/ttyUSB0"
 DEFAULT_ADDRESS: int = 99
 BROADCAST_ADDRESS: int = 99

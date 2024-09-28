@@ -1,11 +1,12 @@
 import threading
+import time
 from collections import defaultdict
 from queue import Queue
 
 import pytest
 
 # noinspection PyProtectedMember
-from src.comm.command_listener import CommandListener, _CommandDispatcher
+from src.comm.command_listener import CommandListener, _CommandDispatcher, Message, _Channel
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_QUEUE_SIZE
 from src.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef
@@ -33,6 +34,13 @@ def run_before_and_after_tests(tmpdir) -> None:
 
 
 class TestCommandDispatcher(TestBase):
+    def __call__(self, message: Message) -> None:
+        raise RuntimeError(f"Message received: {message}")
+
+    def teardown_method(self, test_method):
+        super().teardown_method(test_method)
+        self.clear_thread_exceptions()
+
     def test_command_dispatcher_singleton(self) -> None:
         assert _CommandDispatcher.is_built is False
         dispatcher = _CommandDispatcher()
@@ -101,3 +109,57 @@ class TestCommandDispatcher(TestBase):
             assert req is not None
             assert req == ring_req
             assert dispatcher._queue.empty()
+
+    def test_channel_class(self):
+        channel = _Channel()
+        assert channel is not None
+        assert channel.subscribers is not None
+        assert not channel.subscribers
+        assert isinstance(channel.subscribers, set)
+
+        # add this class as a subscriber
+        channel.subscribe(self)
+        assert channel.subscribers
+        assert len(channel.subscribers) == 1
+
+        # add self again, should not change subscriber count
+        channel.subscribe(self)
+        assert len(channel.subscribers) == 1
+
+        # unsubscribe
+        channel.unsubscribe(self)
+        assert len(channel.subscribers) == 0
+
+        # resubscribe and try publishing
+        channel.subscribe(self)
+        with pytest.raises(RuntimeError, match="Message received: ABC"):
+            channel.publish("ABC")
+
+        # remove subscriber and republish; should be no exception
+        channel.unsubscribe(self)
+        channel.publish("ABC")
+
+    def test_publish_subscriber(self) -> None:
+        threading.excepthook = self.custom_excepthook
+        # create dispatcher and add some channels
+        dispatcher = _CommandDispatcher()
+        assert dispatcher.broadcasts_enabled is False
+        dispatcher.subscribe_any(self)
+        assert dispatcher.broadcasts_enabled is True
+
+        dispatcher.unsubscribe_any(self)
+        assert dispatcher.broadcasts_enabled is False
+
+        # test publish_all
+        dispatcher.subscribe_any(self)
+        assert dispatcher.broadcasts_enabled is True
+        ring_req = CommandReq.build(TMCC2EngineCommandDef.RING_BELL, 2)
+        dispatcher.offer(ring_req)
+        time.sleep(0.1)
+        dispatcher.shutdown()
+        dispatcher.join()
+        assert dispatcher.is_running is False
+        assert "PyLegacy Command Dispatcher" in self.thread_exceptions
+        ex = self.thread_exceptions["PyLegacy Command Dispatcher"]['exception']
+        assert ex is not None
+        assert ex['type'] == RuntimeError

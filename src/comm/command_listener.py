@@ -7,7 +7,8 @@ from threading import Thread
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, CommandScope, BROADCAST_TOPIC
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
+from ..protocol.constants import CommandScope, BROADCAST_TOPIC
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX
 
 Message = TypeVar("Message")
@@ -62,9 +63,11 @@ class CommandListener(Thread):
             return
         else:
             self._initialized = True
-        super().__init__(daemon=True, name="PyLegacy Command Listener")
+        if baudrate not in DEFAULT_VALID_BAUDRATES:
+            raise ValueError(f"Invalid baudrate: {baudrate}")
         self._baudrate = baudrate
         self._port = port
+        super().__init__(daemon=True, name="PyLegacy Command Listener")
         
         # prep our consumer(s)
         self._cv = threading.Condition()
@@ -134,13 +137,17 @@ class CommandListener(Thread):
                 self._cv.notify()
 
     def shutdown(self) -> None:
-        with self._cv:
-            self._is_running = False
-            self._cv.notify()
-        if self._serial_reader:
-            self._serial_reader.shutdown()
-        if self._dispatcher:
-            self._dispatcher.shutdown()
+        # if specified baudrate was invalid, instance won't have most attributes
+        if hasattr(self, "_cv"):
+            with self._cv:
+                self._is_running = False
+                self._cv.notify()
+        if hasattr(self, "_serial_reader"):
+            if self._serial_reader:
+                self._serial_reader.shutdown()
+        if hasattr(self, "_dispatcher"):
+            if self._dispatcher:
+                self._dispatcher.shutdown()
         CommandListener._instance = None
 
     def subscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
@@ -165,7 +172,7 @@ class Subscriber(Protocol):
         ...
 
 
-class _Channel(Generic[Message]):
+class _Channel(Generic[Topic]):
     """
         Part of the publish/subscribe pattern described here:
         https://arjancodes.com/blog/publish-subscribe-pattern-in-python/
@@ -175,11 +182,6 @@ class _Channel(Generic[Message]):
     """
     def __init__(self) -> None:
         self.subscribers: set[Subscriber] = set[Subscriber]()
-
-    def __eq__(self, other):
-        if other.__class__ is self.__class__:
-            return (self.subscribers,) == (other.subscribers,)
-        return NotImplemented
 
     def subscribe(self, subscriber: Subscriber[Message]) -> None:
         self.subscribers.add(subscriber)

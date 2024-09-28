@@ -5,7 +5,7 @@ from abc import ABC
 from typing import List, Any
 
 from ..protocol.command_base import CommandBase
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax, DEFAULT_VALID_BAUDRATES
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
 from ..utils.argument_parser import ArgumentParser
@@ -30,7 +30,7 @@ class CliBase(ABC):
         parser.add_argument('-baudrate',
                             action='store',
                             type=int,
-                            choices=[9600, 19200, 38400, 57600, 115200],
+                            choices=DEFAULT_VALID_BAUDRATES,
                             default=DEFAULT_BAUDRATE,
                             help=f"Baud Rate ({DEFAULT_BAUDRATE})")
         parser.add_argument('-port',

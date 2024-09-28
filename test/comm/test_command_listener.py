@@ -71,6 +71,10 @@ class TestCommandListener(TestBase):
         assert listener == CommandListener()
         assert CommandListener(baudrate=9600).baudrate == 57600  # original instance returned
 
+    def test_command_listener_invalid_baudrate(self) -> None:
+        with pytest.raises(ValueError, match="Invalid baudrate: 12345"):
+            CommandListener.build(baudrate=12345)
+
     def test_command_listener_run(self) -> None:
         listener = CommandListener.build()
         # add elements to the queue and make sure they appear in deque in the correct order
