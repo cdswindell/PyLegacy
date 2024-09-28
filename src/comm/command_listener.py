@@ -206,6 +206,13 @@ class _CommandDispatcher(Thread):
     # noinspection PyPropertyDefinition
     @classmethod
     @property
+    def is_running(cls) -> bool:
+        # noinspection PyProtectedMember
+        return cls._instance is not None and cls._instance._is_running
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
     def is_built(cls) -> bool:
         return cls._instance is not None
 

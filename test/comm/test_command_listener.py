@@ -4,6 +4,7 @@ from collections import deque
 
 import pytest
 
+# noinspection PyProtectedMember
 from src.comm.command_listener import CommandListener, _CommandDispatcher
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
@@ -51,7 +52,9 @@ class TestCommandListener(TestBase):
         assert isinstance(listener._cv, threading.Condition)
 
         # shutdown should clear singleton, forcing a new one to be created
+        assert CommandListener._instance is not None
         listener.shutdown()
+        assert CommandListener._instance is None
         assert listener.is_built is False
         assert listener.is_running is False
         assert CommandListener.is_built is False
@@ -81,13 +84,9 @@ class TestCommandListener(TestBase):
             cmd_bytes = ring_req.as_bytes + halt_req.as_bytes
             for i in range(6):
                 assert cmd_bytes[i] == listener._deque[i]
-        # outside of the lock context, consumer threads will run
+        # outside the lock context, consumer threads will run
         time.sleep(0.1)  # allow threads to clear deque
         assert len(listener._deque) == 0  # both entries processed
         # lock should be open too
         assert listener._cv.acquire(blocking=False) is True
         listener._cv.release()
-
-
-class TestCommandDispatcher(TestBase):
-    pass
