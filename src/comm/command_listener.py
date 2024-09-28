@@ -62,14 +62,14 @@ class CommandListener(Thread):
             return
         else:
             self._initialized = True
-        super().__init__(name="PyLegacy Command Listener")
+        super().__init__(daemon=True, name="PyLegacy Command Listener")
         self._baudrate = baudrate
         self._port = port
         
         # prep our consumer(s)
-        self._is_running = True
         self._cv = threading.Condition()
         self._deque = deque(maxlen=DEFAULT_QUEUE_SIZE)
+        self._is_running = True
         self.start()
         self._dispatcher = _CommandDispatcher()
         
@@ -203,7 +203,9 @@ class _CommandDispatcher(Thread):
     _instance = None
     _lock = threading.Lock()
 
+    # noinspection PyPropertyDefinition
     @classmethod
+    @property
     def is_built(cls) -> bool:
         return cls._instance is not None
 
@@ -223,8 +225,8 @@ class _CommandDispatcher(Thread):
             return
         else:
             self._initialized = True
-        super().__init__(name="PyLegacy Command Dispatcher")
-        self.channels: dict[Topic | Tuple[Topic, int], _Channel[Message]] = defaultdict(_Channel)
+        super().__init__(daemon=True, name="PyLegacy Command Dispatcher")
+        self._channels: dict[Topic | Tuple[Topic, int], _Channel[Message]] = defaultdict(_Channel)
         self._cv = threading.Condition()
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
@@ -250,6 +252,7 @@ class _CommandDispatcher(Thread):
                     self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
                 # otherwise, just send to the interested parties
                 else:
+                    self.publish((cmd.scope, cmd.address, cmd.command), cmd)
                     self.publish((cmd.scope, cmd.address), cmd)
                     self.publish(cmd.scope, cmd)
                 if self._broadcasts:
@@ -273,46 +276,52 @@ class _CommandDispatcher(Thread):
 
     def publish_all(self, message: Message, channels: List[CommandScope] = None) -> None:
         if channels is None:
-            channels = self.channels.values()
+            channels = self._channels.keys()
         else:
             # also look at tuple keys, if we are only sending to a subset
-            for channel in self.channels.values():
+            for channel in self._channels.keys():
                 if isinstance(channel, CommandScope) or isinstance(channel, tuple) and channel[0] in channels:
-                    self.channels[channel].publish(message)
+                    try:
+                        self._channels[channel].publish(message)
+                    except Exception as e:
+                        print(f"Error publishing to {channel}: {e}")
         for channel in channels:
             try:
-                self.channels[channel].publish(message)
+                print(f"Publish all to {channel} {message}")
+                if channel in self._channels:  # don't create a ned dict entry here
+                    self._channels[channel].publish(message)
             except Exception as e:
                 print(f"Error publishing to {channel}: {e}")
 
     def publish(self, channel: Topic, message: Message) -> None:
-        self.channels[channel].publish(message)
+        if channel in self._channels:  # otherwise, we would create a channel simply by referencing it
+            self._channels[channel].publish(message)
 
     def subscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
         if channel == BROADCAST_TOPIC:
             self.subscribe_any(subscriber)
         else:
             if address is None:
-                self.channels[channel].subscribe(subscriber)
+                self._channels[channel].subscribe(subscriber)
             else:
-                self.channels[(channel, address)].subscribe(subscriber)
+                self._channels[(channel, address)].subscribe(subscriber)
 
     def unsubscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
         if channel == BROADCAST_TOPIC:
             self.unsubscribe_any(subscriber)
         else:
             if address is None:
-                self.channels[channel].unsubscribe(subscriber)
+                self._channels[channel].unsubscribe(subscriber)
             else:
-                self.channels[(channel, address)].unsubscribe(subscriber)
+                self._channels[(channel, address)].unsubscribe(subscriber)
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
         # receive broadcasts
-        self.channels[BROADCAST_TOPIC].subscribe(subscriber)
+        self._channels[BROADCAST_TOPIC].subscribe(subscriber)
         self._broadcasts = True
 
     def unsubscribe_any(self, subscriber: Subscriber) -> None:
         # receive broadcasts
-        self.channels[BROADCAST_TOPIC].unsubscribe(subscriber)
-        if not self.channels[BROADCAST_TOPIC].subscribers:
+        self._channels[BROADCAST_TOPIC].unsubscribe(subscriber)
+        if not self._channels[BROADCAST_TOPIC].subscribers:
             self._broadcasts = False

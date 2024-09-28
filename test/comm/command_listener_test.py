@@ -1,7 +1,13 @@
+import threading
+from collections import deque
+
 import pytest
 
-from src.comm.command_listener import CommandListener
-from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+from src.comm.command_listener import CommandListener, _CommandDispatcher
+from src.protocol.command_req import CommandReq
+from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
+from src.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef
+from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from test.test_base import TestBase
 
 
@@ -19,6 +25,10 @@ def run_before_and_after_tests(tmpdir) -> None:
         CommandListener().shutdown()
     assert CommandListener.is_built is False
 
+    if _CommandDispatcher.is_built:
+        _CommandDispatcher().shutdown()
+    assert _CommandDispatcher.is_built is False
+
 
 class TestCommandListener(TestBase):
     def test_singleton(self) -> None:
@@ -30,6 +40,14 @@ class TestCommandListener(TestBase):
         assert listener is CommandListener()
         assert listener.baudrate == DEFAULT_BAUDRATE
         assert listener.port == DEFAULT_PORT
+        assert listener.is_alive()
+        assert listener.daemon is True
+        assert listener._deque is not None  # dequeue should exist
+        assert listener._deque.maxlen == DEFAULT_QUEUE_SIZE
+        assert isinstance(listener._deque, deque)
+        assert not listener._deque  # should be empty
+        assert listener._cv is not None
+        assert isinstance(listener._cv, threading.Condition)
 
         # shutdown should clear singleton, forcing a new one to be created
         listener.shutdown()
@@ -39,9 +57,27 @@ class TestCommandListener(TestBase):
         assert listener != CommandListener()
 
     def test_build(self) -> None:
-        listener = CommandListener.build()
+        listener = CommandListener.build(baudrate=57600)
         assert listener
         assert listener.is_built is True
         assert listener.is_running is True
         assert CommandListener.is_built is True
         assert CommandListener.is_running is True
+        assert listener.baudrate == 57600
+        assert listener == CommandListener()
+        assert CommandListener(baudrate=9600).baudrate == 57600  # original instance returned
+
+    def test_run(self) -> None:
+        listener = CommandListener.build()
+        # add elements to the queue and make sure they appear in deque in the correct order
+        ring_req = CommandReq.build(TMCC2EngineCommandDef.RING_BELL, 10)
+        halt_req = CommandReq.build(TMCC1HaltCommandDef.HALT)
+        with listener._cv:
+            listener.offer(ring_req.as_bytes)
+            listener.offer(halt_req.as_bytes)
+            # deque should contain 6 bytes
+            assert len(listener._deque) == 6
+            cmd_bytes = ring_req.as_bytes + halt_req.as_bytes
+            for i in range(6):
+                assert cmd_bytes[i] == listener._deque[i]
+        print("all done")
