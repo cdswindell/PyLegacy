@@ -1,4 +1,5 @@
 import threading
+import time
 from collections import deque
 
 import pytest
@@ -31,7 +32,7 @@ def run_before_and_after_tests(tmpdir) -> None:
 
 
 class TestCommandListener(TestBase):
-    def test_singleton(self) -> None:
+    def test_command_listener_singleton(self) -> None:
         assert CommandListener.is_built is False
         listener = CommandListener()
         assert listener.is_built is True
@@ -56,7 +57,7 @@ class TestCommandListener(TestBase):
         assert CommandListener.is_built is False
         assert listener != CommandListener()
 
-    def test_build(self) -> None:
+    def test_command_listener_build(self) -> None:
         listener = CommandListener.build(baudrate=57600)
         assert listener
         assert listener.is_built is True
@@ -67,7 +68,7 @@ class TestCommandListener(TestBase):
         assert listener == CommandListener()
         assert CommandListener(baudrate=9600).baudrate == 57600  # original instance returned
 
-    def test_run(self) -> None:
+    def test_command_listener_run(self) -> None:
         listener = CommandListener.build()
         # add elements to the queue and make sure they appear in deque in the correct order
         ring_req = CommandReq.build(TMCC2EngineCommandDef.RING_BELL, 10)
@@ -80,4 +81,13 @@ class TestCommandListener(TestBase):
             cmd_bytes = ring_req.as_bytes + halt_req.as_bytes
             for i in range(6):
                 assert cmd_bytes[i] == listener._deque[i]
-        print("all done")
+        # outside of the lock context, consumer threads will run
+        time.sleep(0.1)  # allow threads to clear deque
+        assert len(listener._deque) == 0  # both entries processed
+        # lock should be open too
+        assert listener._cv.acquire(blocking=False) is True
+        listener._cv.release()
+
+
+class TestCommandDispatcher(TestBase):
+    pass

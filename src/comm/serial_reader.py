@@ -3,12 +3,11 @@ from threading import Thread
 
 import serial
 
+from .command_listener import CommandListener
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
 class SerialReader(Thread):
-    from .command_listener import CommandListener
-
     def __init__(self,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT,
@@ -35,6 +34,22 @@ class SerialReader(Thread):
                     time.sleep(0.01)
         except Exception as e:
             print(e)
+
+    @property
+    def baudrate(self) -> int:
+        return self._baudrate
+
+    @property
+    def port(self) -> str:
+        return self._port
+
+    @property
+    def is_consumer(self) -> bool:
+        return self._consumer is not None
+
+    @property
+    def is_running(self) -> bool:
+        return self._is_running
 
     def shutdown(self) -> None:
         self._is_running = False

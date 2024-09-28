@@ -258,6 +258,10 @@ class _CommandDispatcher(Thread):
                 if self._broadcasts:
                     self.publish(BROADCAST_TOPIC, cmd)
 
+    @property
+    def broadcasts_enabled(self) -> bool:
+        return self._broadcasts
+
     def offer(self, cmd: CommandReq) -> None:
         """
             Receive a command from the listener thread and dispatch it to subscribers.
