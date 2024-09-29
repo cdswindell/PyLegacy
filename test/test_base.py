@@ -1,5 +1,4 @@
 import random
-import threading
 from typing import List, TypeVar
 
 from src.protocol.command_req import CommandReq
@@ -15,20 +14,17 @@ T = TypeVar("T", TMCC1Enum, TMCC2Enum)
 class TestBase:
     thread_exceptions = {}
 
-    @classmethod
-    def clear_thread_exceptions(cls):
-        cls.thread_exceptions.clear()
-
     def teardown_method(self, test_method):
         pass
 
     def setup_method(self, test_method):
         pass
 
+    def clear_thread_exceptions(self):
+        self.thread_exceptions.clear()
+
     def custom_excepthook(self, args):
-        thread_name = args.thread.name
-        print(f"###### {thread_name} ######")
-        self.thread_exceptions[thread_name] = {
+        new_exception = {
             'thread': args.thread,
             'exception': {
                 'type': args.exc_type,
@@ -36,6 +32,11 @@ class TestBase:
                 'traceback': args.exc_traceback
             }
         }
+        thread_name = args.thread.name
+        if thread_name in self.thread_exceptions:
+            self.thread_exceptions[thread_name].append(new_exception)
+        else:
+            self.thread_exceptions[thread_name] = [new_exception]
 
     def build_request(self,
                       cmd,

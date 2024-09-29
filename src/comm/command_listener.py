@@ -6,6 +6,7 @@ from queue import Queue
 from threading import Thread
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
+from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
 from ..protocol.constants import CommandScope, BROADCAST_TOPIC
@@ -193,8 +194,8 @@ class _Channel(Generic[Topic]):
         for subscriber in self.subscribers:
             try:
                 subscriber(message)
-            finally:
-                pass
+            except Exception as e:
+                print(f"Error publishing to {self}: {e}")
 
 
 class _CommandDispatcher(Thread):
@@ -250,22 +251,31 @@ class _CommandDispatcher(Thread):
             if self._queue.empty():  # we need to do a second check in the event we're being shutdown
                 continue
             cmd = self._queue.get()
-            # publish dispatched commands to listeners on the command scope,
-            # to listeners
-            if isinstance(cmd, CommandReq):
-                # if command is a TMCC1 Halt, send to everyone
-                if cmd.is_halt:
-                    self.publish_all(cmd)
-                # if command is a legacy-style halt, just send to engines and trains
-                elif cmd.is_system_halt:
-                    self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
-                # otherwise, just send to the interested parties
-                else:
-                    self.publish((cmd.scope, cmd.address, cmd.command), cmd)
-                    self.publish((cmd.scope, cmd.address), cmd)
-                    self.publish(cmd.scope, cmd)
-                if self._broadcasts:
-                    self.publish(BROADCAST_TOPIC, cmd)
+            try:
+                # publish dispatched commands to listeners on the command scope,
+                # to listeners
+                if isinstance(cmd, CommandReq):
+                    print(f"1 {cmd}")
+                    # if command is a TMCC1 Halt, send to everyone
+                    if cmd.is_halt:
+                        self.publish_all(cmd)
+                    # if command is a legacy-style halt, just send to engines and trains
+                    elif cmd.is_system_halt:
+                        self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
+                    # otherwise, just send to the interested parties
+                    else:
+                        self.publish((cmd.scope, cmd.address, cmd.command), cmd)
+                        self.publish((cmd.scope, cmd.address), cmd)
+                        self.publish(cmd.scope, cmd)
+                    if self._broadcasts:
+                        self.publish(BROADCAST_TOPIC, cmd)
+                    print(f"End of Try: {self.is_running}")
+            except Exception as e:
+                print(e)
+            finally:
+                self._queue.task_done()
+            print(f"End of Finally: {self.is_running}")
+        print(f"End of while running: {self.is_running}")
 
     @property
     def broadcasts_enabled(self) -> bool:
@@ -276,7 +286,7 @@ class _CommandDispatcher(Thread):
             Receive a command from the listener thread and dispatch it to subscribers.
             We do this in a separate thread so that the listener thread doesn't fall behind
         """
-        if cmd:
+        if cmd is not None and isinstance(cmd, CommandReq):
             with self._cv:
                 self._queue.put(cmd)
                 self._cv.notify()  # wake up receiving thread
@@ -286,6 +296,19 @@ class _CommandDispatcher(Thread):
             self._is_running = False
             self._cv.notify()
         _CommandDispatcher._instance = None
+
+    @staticmethod
+    def _make_channel(channel: Topic,
+                      address: int = None,
+                      command: CommandDefEnum = None) -> CommandScope | Tuple:
+        if channel is None:
+            raise ValueError("Channel must not be None")
+        elif address is None:
+            return channel
+        elif command is None:
+            return channel, address
+        else:
+            return channel, address, command
 
     def publish_all(self, message: Message, channels: List[CommandScope] = None) -> None:
         if channels is None:
@@ -308,25 +331,33 @@ class _CommandDispatcher(Thread):
 
     def publish(self, channel: Topic, message: Message) -> None:
         if channel in self._channels:  # otherwise, we would create a channel simply by referencing it
-            self._channels[channel].publish(message)
+            try:
+                self._channels[channel].publish(message)
+            except Exception as e:
+                print(f"Error publishing to {channel}: {e}")
 
-    def subscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
+    def subscribe(self,
+                  subscriber: Subscriber,
+                  channel: Topic,
+                  address: int = None,
+                  command: CommandDefEnum = None) -> None:
         if channel == BROADCAST_TOPIC:
             self.subscribe_any(subscriber)
         else:
-            if address is None:
-                self._channels[channel].subscribe(subscriber)
-            else:
-                self._channels[(channel, address)].subscribe(subscriber)
+            self._channels[self._make_channel(channel, address, command)].subscribe(subscriber)
 
-    def unsubscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
+    def unsubscribe(self,
+                    subscriber: Subscriber,
+                    channel: Topic,
+                    address: int = None,
+                    command: CommandDefEnum = None) -> None:
         if channel == BROADCAST_TOPIC:
             self.unsubscribe_any(subscriber)
         else:
-            if address is None:
-                self._channels[channel].unsubscribe(subscriber)
-            else:
-                self._channels[(channel, address)].unsubscribe(subscriber)
+            channel = self._make_channel(channel, address, command)
+            self._channels[channel].unsubscribe(subscriber)
+            if len(self._channels[channel].subscribers) == 0:
+                del self._channels[channel]
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
         # receive broadcasts
