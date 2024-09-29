@@ -107,8 +107,7 @@ class PyTrain:
                 except Exception as e:
                     print(f"Error closing command buffer, continuing shutdown: {e}")
                 try:
-                    if self._listener:
-                        self._listener.shutdown()
+                    CommandListener.shutdown()
                 except Exception as e:
                     print(f"Error closing listener, continuing shutdown: {e}")
                 try:
