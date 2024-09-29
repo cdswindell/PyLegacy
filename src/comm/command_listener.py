@@ -255,7 +255,6 @@ class _CommandDispatcher(Thread):
                 # publish dispatched commands to listeners on the command scope,
                 # to listeners
                 if isinstance(cmd, CommandReq):
-                    print(f"1 {cmd}")
                     # if command is a TMCC1 Halt, send to everyone
                     if cmd.is_halt:
                         self.publish_all(cmd)
@@ -269,13 +268,10 @@ class _CommandDispatcher(Thread):
                         self.publish(cmd.scope, cmd)
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)
-                    print(f"End of Try: {self.is_running}")
             except Exception as e:
                 print(e)
             finally:
                 self._queue.task_done()
-            print(f"End of Finally: {self.is_running}")
-        print(f"End of while running: {self.is_running}")
 
     @property
     def broadcasts_enabled(self) -> bool:

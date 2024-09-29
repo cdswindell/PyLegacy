@@ -150,12 +150,15 @@ class TestCommandDispatcher(TestBase):
 
         # resubscribe and try publishing
         channel.subscribe(self)
-        with pytest.raises(RuntimeError, match="Message received: ABC"):
-            channel.publish("ABC")
+        channel.publish("ABC")
+        assert len(CALLBACK_DICT) == 1
+        assert CALLBACK_DICT[BROADCAST_TOPIC] == "ABC"
 
         # remove subscriber and republish; should be no exception
         channel.unsubscribe(self)
+        CALLBACK_DICT.clear()
         channel.publish("ABC")
+        assert len(CALLBACK_DICT) == 0
 
     def test_publish_all(self) -> None:
         # create dispatcher and add some channels
@@ -200,7 +203,7 @@ class TestCommandDispatcher(TestBase):
         ring_req = CommandReq.build(TMCC2EngineCommandDef.RING_BELL, 3)
         assert ring_req.address == 3
         dispatcher.offer(ring_req)
-        time.sleep(0.1)
+        time.sleep(0.05)
         assert dispatcher.is_running is True
         assert len(dispatcher._channels) == 4
         # listener should have triggered one exception
@@ -212,7 +215,7 @@ class TestCommandDispatcher(TestBase):
         ring_req = CommandReq.build(TMCC2EngineCommandDef.RING_BELL, 13)
         assert ring_req.address == 13
         dispatcher.offer(ring_req)
-        time.sleep(0.1)
+        time.sleep(0.05)
         assert dispatcher.is_running is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 2
@@ -224,7 +227,7 @@ class TestCommandDispatcher(TestBase):
         ring_req = CommandReq.build(TMCC2EngineCommandDef.RING_BELL, 22)
         assert ring_req.address == 22
         dispatcher.offer(ring_req)
-        time.sleep(0.1)
+        time.sleep(0.05)
         assert dispatcher.is_running is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 2
@@ -235,7 +238,7 @@ class TestCommandDispatcher(TestBase):
         CALLBACK_DICT.clear()
         rte_req = CommandReq.build(TMCC2RouteCommandDef.FIRE, 13)
         dispatcher.offer(rte_req)
-        time.sleep(0.1)
+        time.sleep(0.05)
         assert dispatcher.is_running is True
         assert len(CALLBACK_DICT) == 0
 
@@ -248,7 +251,7 @@ class TestCommandDispatcher(TestBase):
         ring_req = CommandReq.build(TMCC2EngineCommandDef.RING_BELL, 22)
         assert ring_req.address == 22
         dispatcher.offer(ring_req)
-        time.sleep(0.1)
+        time.sleep(0.05)
         assert dispatcher.is_running is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 1
@@ -259,7 +262,7 @@ class TestCommandDispatcher(TestBase):
         sw_req = CommandReq.build(TMCC1SwitchState.OUT, 22)
         assert sw_req.address == 22
         dispatcher.offer(sw_req)
-        time.sleep(0.1)
+        time.sleep(0.05)
         assert dispatcher.is_running is True
         # listener should have triggered one callback
         assert len(CALLBACK_DICT) == 1
