@@ -2,6 +2,7 @@ import threading
 import time
 from collections import defaultdict
 from queue import Queue
+from typing import Any
 
 import pytest
 
@@ -10,7 +11,7 @@ from src.comm.command_listener import CommandListener, _CommandDispatcher, Messa
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_QUEUE_SIZE, BROADCAST_TOPIC, CommandScope
 from src.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1SwitchState
-from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RouteCommandDef
+from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RouteCommandDef, TMCC2HaltCommandDef
 from test.test_base import TestBase
 
 CALLBACK_DICT = {}
@@ -38,23 +39,26 @@ def run_before_and_after_tests(tmpdir) -> None:
 
 class TestCommandDispatcher(TestBase):
     def __call__(self, message: Message) -> None:
-        CALLBACK_DICT[BROADCAST_TOPIC] = message
+        self.register_callback(BROADCAST_TOPIC, message)
+
+    def switch_topic(self, message: Message) -> None:
+        self.register_callback(CommandScope.SWITCH, message)
+
+    def engine_topic(self, message: Message) -> None:
+        self.register_callback(CommandScope.ENGINE, message)
+
+    def engine_13_topic(self, message: Message) -> None:
+        self.register_callback((CommandScope.ENGINE, 13), message)
+
+    def engine_22_ring_bell_topic(self, message: Message) -> None:
+        self.register_callback((CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL), message)
 
     @staticmethod
-    def switch_topic(message: Message) -> None:
-        CALLBACK_DICT[CommandScope.SWITCH] = message
-
-    @staticmethod
-    def engine_topic(message: Message) -> None:
-        CALLBACK_DICT[CommandScope.ENGINE] = message
-
-    @staticmethod
-    def engine_13_topic(message: Message) -> None:
-        CALLBACK_DICT[(CommandScope.ENGINE, 13)] = message
-
-    @staticmethod
-    def engine_22_ring_bell_topic(message: Message) -> None:
-        CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)] = message
+    def register_callback(topic: Any, message: Message) -> None:
+        if topic in CALLBACK_DICT:
+            CALLBACK_DICT[topic].append(message)
+        else:
+            CALLBACK_DICT[topic] = [message]
 
     def teardown_method(self, test_method):
         super().teardown_method(test_method)
@@ -152,7 +156,8 @@ class TestCommandDispatcher(TestBase):
         channel.subscribe(self)
         channel.publish("ABC")
         assert len(CALLBACK_DICT) == 1
-        assert CALLBACK_DICT[BROADCAST_TOPIC] == "ABC"
+        assert len(CALLBACK_DICT[BROADCAST_TOPIC]) == 1
+        assert CALLBACK_DICT[BROADCAST_TOPIC][0] == "ABC"
 
         # remove subscriber and republish; should be no exception
         channel.unsubscribe(self)
@@ -180,8 +185,10 @@ class TestCommandDispatcher(TestBase):
         dispatcher.join()
         assert dispatcher.is_running is False
         assert len(CALLBACK_DICT) == 1
-        assert CALLBACK_DICT[BROADCAST_TOPIC] == ring_req
+        assert len(CALLBACK_DICT[BROADCAST_TOPIC]) == 1
+        assert CALLBACK_DICT[BROADCAST_TOPIC][0] == ring_req
 
+    # noinspection DuplicatedCode
     def test_publish(self) -> None:
         # create dispatcher and add some channels
         dispatcher = _CommandDispatcher()
@@ -208,7 +215,8 @@ class TestCommandDispatcher(TestBase):
         assert len(dispatcher._channels) == 4
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 1
-        assert CALLBACK_DICT[CommandScope.ENGINE] == ring_req
+        assert len(CALLBACK_DICT[CommandScope.ENGINE]) == 1
+        assert CALLBACK_DICT[CommandScope.ENGINE][0] == ring_req
 
         # retest for eng request to engine 13
         CALLBACK_DICT.clear()
@@ -219,8 +227,10 @@ class TestCommandDispatcher(TestBase):
         assert dispatcher.is_running is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 2
-        assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == ring_req
-        assert CALLBACK_DICT[CommandScope.ENGINE] == ring_req
+        assert len(CALLBACK_DICT[(CommandScope.ENGINE, 13)]) == 1
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 13)][0] == ring_req
+        assert len(CALLBACK_DICT[CommandScope.ENGINE]) == 1
+        assert CALLBACK_DICT[CommandScope.ENGINE][0] == ring_req
 
         # retest for eng request to engine 22
         CALLBACK_DICT.clear()
@@ -231,8 +241,10 @@ class TestCommandDispatcher(TestBase):
         assert dispatcher.is_running is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 2
-        assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)] == ring_req
-        assert CALLBACK_DICT[CommandScope.ENGINE] == ring_req
+        assert len(CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)]) == 1
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)][0] == ring_req
+        assert len(CALLBACK_DICT[CommandScope.ENGINE]) == 1
+        assert CALLBACK_DICT[CommandScope.ENGINE][0] == ring_req
 
         # retest for route request, should generate no callbacks
         CALLBACK_DICT.clear()
@@ -255,7 +267,8 @@ class TestCommandDispatcher(TestBase):
         assert dispatcher.is_running is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 1
-        assert CALLBACK_DICT[CommandScope.ENGINE] == ring_req
+        assert len(CALLBACK_DICT[CommandScope.ENGINE]) == 1
+        assert CALLBACK_DICT[CommandScope.ENGINE][0] == ring_req
 
         # retest switch, should only be one callback
         CALLBACK_DICT.clear()
@@ -266,10 +279,11 @@ class TestCommandDispatcher(TestBase):
         assert dispatcher.is_running is True
         # listener should have triggered one callback
         assert len(CALLBACK_DICT) == 1
-        assert CALLBACK_DICT[CommandScope.SWITCH] == sw_req
+        assert len(CALLBACK_DICT[CommandScope.SWITCH]) == 1
+        assert CALLBACK_DICT[CommandScope.SWITCH] == [sw_req]
 
+    # noinspection DuplicatedCode
     def test_publish_halt(self) -> None:
-        # noinspection DuplicatedCode
         # create dispatcher and add some channels
         dispatcher = _CommandDispatcher()
         assert dispatcher.broadcasts_enabled is False
@@ -294,7 +308,37 @@ class TestCommandDispatcher(TestBase):
         assert len(dispatcher._channels) == 4
         # listener should have triggered 4 exception
         assert len(CALLBACK_DICT) == 4
-        assert CALLBACK_DICT[CommandScope.ENGINE] == halt_req
-        assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == halt_req
-        assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)] == halt_req
-        assert CALLBACK_DICT[CommandScope.SWITCH] == halt_req
+        assert CALLBACK_DICT[CommandScope.ENGINE] == [halt_req]
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == [halt_req]
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)] == [halt_req]
+        assert CALLBACK_DICT[CommandScope.SWITCH] == [halt_req]
+
+    # noinspection DuplicatedCode
+    def test_publish_system_halt(self) -> None:
+        #  Test receipt of SYSTEM_HALT
+        dispatcher = _CommandDispatcher()
+        assert dispatcher.broadcasts_enabled is False
+
+        # register callbacks
+        assert len(dispatcher._channels) == 0
+        dispatcher.subscribe(self.switch_topic, CommandScope.SWITCH)
+        dispatcher.subscribe(self.engine_topic, CommandScope.ENGINE)
+        dispatcher.subscribe(self.engine_13_topic, CommandScope.ENGINE, 13)
+        dispatcher.subscribe(self.engine_22_ring_bell_topic,
+                             CommandScope.TRAIN,
+                             22,
+                             TMCC2EngineCommandDef.RING_BELL)
+        assert dispatcher.broadcasts_enabled is False
+        assert len(dispatcher._channels) == 4
+
+        # send a halt command; should be received by all listeners
+        sys_halt_req = CommandReq.build(TMCC2HaltCommandDef.HALT)
+        dispatcher.offer(sys_halt_req)
+        time.sleep(0.05)
+        assert dispatcher.is_running is True
+        assert len(dispatcher._channels) == 4
+        # listener should have triggered engine and train channels
+        assert len(CALLBACK_DICT) == 3
+        assert CALLBACK_DICT[CommandScope.ENGINE] == [sys_halt_req]
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == [sys_halt_req]
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)] == [sys_halt_req]

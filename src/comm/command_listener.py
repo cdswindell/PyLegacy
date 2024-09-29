@@ -307,22 +307,14 @@ class _CommandDispatcher(Thread):
             return channel, address, command
 
     def publish_all(self, message: Message, channels: List[CommandScope] = None) -> None:
-        if channels is None:
-            channels = self._channels.keys()
+        if channels is None:  # send to everyone!
+            for channel in self._channels:
+                self._channels[channel].publish(message)
         else:
-            # also look at tuple keys, if we are only sending to a subset
+            # send only to select channels and tuples with that channel
             for channel in self._channels.keys():
-                if isinstance(channel, CommandScope) or isinstance(channel, tuple) and channel[0] in channels:
-                    try:
-                        self._channels[channel].publish(message)
-                    except Exception as e:
-                        print(f"Error publishing to {channel}: {e}")
-        for channel in channels:
-            try:
-                if channel in self._channels:  # don't create a ned dict entry here
+                if channel in channels or (isinstance(channel, tuple) and channel[0] in channels):
                     self._channels[channel].publish(message)
-            except Exception as e:
-                print(f"Error publishing to {channel}: {e}")
 
     def publish(self, channel: Topic, message: Message) -> None:
         if channel in self._channels:  # otherwise, we would create a channel simply by referencing it
