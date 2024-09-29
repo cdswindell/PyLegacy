@@ -103,11 +103,11 @@ class PyTrain:
                 pass
             except KeyboardInterrupt:
                 try:
-                    self._comm_buffer.shutdown()
+                    CommBuffer.stop()
                 except Exception as e:
                     print(f"Error closing command buffer, continuing shutdown: {e}")
                 try:
-                    CommandListener.shutdown()
+                    CommandListener.stop()
                 except Exception as e:
                     print(f"Error closing listener, continuing shutdown: {e}")
                 try:

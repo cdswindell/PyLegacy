@@ -45,6 +45,12 @@ class CommandListener(Thread):
     def is_running(cls) -> bool:
         # noinspection PyProtectedMember
         return cls._instance is not None and cls._instance._is_running
+
+    @classmethod
+    def stop(cls) -> None:
+        with cls._lock:
+            if cls._instance:
+                cls._instance.shutdown()
     
     def __new__(cls, *args, **kwargs):
         """

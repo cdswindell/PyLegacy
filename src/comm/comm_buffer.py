@@ -65,6 +65,12 @@ class CommBuffer(abc.ABC):
         else:
             return CommBufferProxy(server, int(port))
 
+    @classmethod
+    def stop(cls) -> None:
+        with cls._lock:
+            if cls._instance is not None:
+                cls._instance.shutdown()
+
     @abc.abstractmethod
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         """
