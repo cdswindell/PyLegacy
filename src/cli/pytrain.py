@@ -53,9 +53,7 @@ class PyTrain:
             # register listeners
             self._state_store: ComponentStateStore = ComponentStateStore(baudrate=self._baudrate, port=self._port)
             if self._args.echo:
-                self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
-                self._listener.listen_for(self, BROADCAST_TOPIC)
-                print("Echoing received TMCC commands...")
+                self._handle_echo()
             if self._args.no_listeners is True:
                 print("Ignoring events...")
             else:
@@ -143,20 +141,10 @@ class PyTrain:
                     elif args.command == 'help':
                         self._command_parser().parse_args(["-help"])
                     if args.command == 'db':
-                        self.query_status(ui_parts[1:])
+                        self._query_status(ui_parts[1:])
                         return
                     if args.command == 'echo':
-                        if self.is_server:
-                            if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == 'on'):
-                                if self._echo is False:
-                                    print("TMCC command echoing ENABLED...")
-                                self._echo = True
-                            else:
-                                if self._echo is True:
-                                    print("TMCC command echoing DISABLED...")
-                                self._echo = False
-                        else:
-                            print("Command echoing not supported in client mode")
+                        self._handle_echo(ui_parts)
                         return
                     ui_parser = args.command.command_parser()
                     ui_parser.remove_args(['baudrate', 'port', 'server'])
@@ -181,7 +169,7 @@ class PyTrain:
             elif self._startup_script != DEFAULT_SCRIPT_FILE:
                 print(f"Startup script file {self._startup_script} not found, continuing...")
 
-    def query_status(self, param) -> None:
+    def _query_status(self, param) -> None:
         try:
             if len(param) > 1:
                 scope = CommandScope(param[0].upper())
@@ -193,6 +181,23 @@ class PyTrain:
             print("No data")
         except Exception as e:
             print(e)
+
+    def _handle_echo(self, ui_parts=["echo"]):
+        if self.is_server:
+            if self._listener is None:
+                self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
+            if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == 'on'):
+                if self._echo is False:
+                    self._listener.listen_for(self, BROADCAST_TOPIC)
+                    print("TMCC command echoing ENABLED...")
+                self._echo = True
+            else:
+                if self._echo is True:
+                    self._listener.unsubscribe(self, BROADCAST_TOPIC)
+                    print("TMCC command echoing DISABLED...")
+                self._echo = False
+        else:
+            print("Command echoing not supported in client mode")
 
     @staticmethod
     def _command_parser() -> ArgumentParser:
