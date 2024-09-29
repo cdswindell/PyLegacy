@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Tuple
 
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
+from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 
@@ -43,9 +43,9 @@ class ComponentState(ABC):
     @abc.abstractmethod
     def update(self, command: CommandReq) -> None:
         if command and command.command != TMCC1HaltCommandDef.HALT:
-            if self._address is None and command.address != 99:
+            if self._address is None and command.address != BROADCAST_ADDRESS:
                 self._address = command.address
-            elif self._address != command.address:  # invalid state
+            elif self._address not in [command.address, BROADCAST_ADDRESS]:  # invalid state
                 raise ValueError(f"Switch #{self._address} received update for Switch #{command.address}, ignoring")
             if self.scope != command.scope:
                 scope = command.scope.name.capitalize()
