@@ -2,6 +2,8 @@ from collections import defaultdict
 
 import pytest
 
+# noinspection PyProtectedMember
+from src.comm.command_listener import CommandListener, _CommandDispatcher
 from src.db.component_state import SwitchState, AccessoryState, EngineState, TrainState
 from src.db.component_state import ComponentState, SystemStateDict, ComponentStateDict
 from src.protocol.command_req import CommandReq
@@ -11,6 +13,25 @@ from src.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Acc
 from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
 from src.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef
 from ..test_base import TestBase
+
+
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests(tmpdir) -> None:
+    """
+        Fixture to execute asserts before and after a test is run
+    """
+    # Setup: fill with any logic you want
+
+    yield  # this is where the testing happens
+
+    # Teardown : fill with any logic you want
+    if CommandListener.is_built:
+        CommandListener().shutdown()
+    assert CommandListener.is_built is False
+
+    if _CommandDispatcher.is_built:
+        _CommandDispatcher().shutdown()
+    assert _CommandDispatcher.is_built is False
 
 
 # noinspection PyMethodMayBeStatic
@@ -391,3 +412,6 @@ class TestComponentState(TestBase):
                 assert key not in cs_dict
                 with pytest.raises(KeyError, match=f"Invalid ID: {key}"):
                     _ = cs_dict[key]
+
+    def test_state_via_command_dispatcher(self) -> None:
+        pass

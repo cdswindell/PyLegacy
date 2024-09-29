@@ -226,6 +226,11 @@ class PyTrain:
                            const=AccCli,
                            dest="command",
                            help="Issue accessory commands")
+        group.add_argument("-db",
+                           action="store_const",
+                           const="db",
+                           dest="command",
+                           help="Query engine/train/switch/accessory state")
         group.add_argument("-dialogs",
                            action="store_const",
                            const=DialogsCli,
