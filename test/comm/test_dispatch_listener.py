@@ -333,3 +333,17 @@ class TestCommandDispatcher(TestBase):
         assert CALLBACK_DICT[CommandScope.ENGINE] == [sys_halt_req]
         assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == [sys_halt_req]
         assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)] == [sys_halt_req]
+
+        # enable broadcasts and retest
+        CALLBACK_DICT.clear()
+        dispatcher.subscribe_any(self)
+        assert len(dispatcher._channels) == 5
+        dispatcher.offer(sys_halt_req)
+        time.sleep(0.05)
+        assert dispatcher.is_running is True
+        assert dispatcher.broadcasts_enabled is True
+        assert len(CALLBACK_DICT) == 4
+        assert CALLBACK_DICT[BROADCAST_TOPIC] == [sys_halt_req]
+        assert CALLBACK_DICT[CommandScope.ENGINE] == [sys_halt_req]
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == [sys_halt_req]
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)] == [sys_halt_req]
