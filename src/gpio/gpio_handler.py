@@ -9,6 +9,7 @@ from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from src.protocol.command_def import CommandDefEnum
 from src.protocol.constants import CommandScope
+from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 DEFAULT_BOUNCE_TIME: float = 0.05  # button debounce threshold
 DEFAULT_VARIANCE: float = 0.001  # pot difference variance
@@ -149,10 +150,15 @@ class GpioHandler:
             off_button.when_pressed = off_action
             on_button.when_pressed = on_action
 
-        def func(message: Message) -> None:
+        def func(_: Message) -> None:
             led.off()
 
         CommandListener.listen_for(func, off_command.scope, off_command.address, off_command.command)
+        CommandListener.listen_for(func,
+                                   off_command.scope,
+                                   off_command.address,
+                                   TMCC2EngineCommandDef.NUMERIC,
+                                   0)
 
         cls._cache_device(off_button)
         cls._cache_device(on_button)
