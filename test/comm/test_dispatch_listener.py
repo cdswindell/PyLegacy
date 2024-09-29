@@ -267,3 +267,34 @@ class TestCommandDispatcher(TestBase):
         # listener should have triggered one callback
         assert len(CALLBACK_DICT) == 1
         assert CALLBACK_DICT[CommandScope.SWITCH] == sw_req
+
+    def test_publish_halt(self) -> None:
+        # noinspection DuplicatedCode
+        # create dispatcher and add some channels
+        dispatcher = _CommandDispatcher()
+        assert dispatcher.broadcasts_enabled is False
+
+        # register callbacks
+        assert len(dispatcher._channels) == 0
+        dispatcher.subscribe(self.switch_topic, CommandScope.SWITCH)
+        dispatcher.subscribe(self.engine_topic, CommandScope.ENGINE)
+        dispatcher.subscribe(self.engine_13_topic, CommandScope.ENGINE, 13)
+        dispatcher.subscribe(self.engine_22_ring_bell_topic,
+                             CommandScope.ENGINE,
+                             22,
+                             TMCC2EngineCommandDef.RING_BELL)
+        assert dispatcher.broadcasts_enabled is False
+        assert len(dispatcher._channels) == 4
+
+        # send a halt command; should be received by all listeners
+        halt_req = CommandReq.build(TMCC1HaltCommandDef.HALT)
+        dispatcher.offer(halt_req)
+        time.sleep(0.05)
+        assert dispatcher.is_running is True
+        assert len(dispatcher._channels) == 4
+        # listener should have triggered 4 exception
+        assert len(CALLBACK_DICT) == 4
+        assert CALLBACK_DICT[CommandScope.ENGINE] == halt_req
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == halt_req
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)] == halt_req
+        assert CALLBACK_DICT[CommandScope.SWITCH] == halt_req

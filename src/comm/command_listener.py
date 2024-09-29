@@ -319,7 +319,6 @@ class _CommandDispatcher(Thread):
                         print(f"Error publishing to {channel}: {e}")
         for channel in channels:
             try:
-                print(f"Publish all to {channel} {message}")
                 if channel in self._channels:  # don't create a ned dict entry here
                     self._channels[channel].publish(message)
             except Exception as e:
