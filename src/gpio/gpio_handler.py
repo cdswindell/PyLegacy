@@ -144,25 +144,35 @@ class GpioHandler:
         off_action = off_command.as_action(baudrate=baudrate, port=port, server=server)
         on_action = on_command.as_action(baudrate=baudrate, port=port, server=server)
         if led is not None:
+            led.on()
             off_button.when_pressed = cls._with_off_action(off_action, led)
             on_button.when_pressed = cls._with_on_action(on_action, led)
+
+            def func_off(_: Message) -> None:
+                led.off()
+
+            CommandListener.listen_for(func_off, off_command.scope, off_command.address, off_command.command)
+
+            def func_on(_: Message) -> None:
+                led.on()
+
+            CommandListener.listen_for(func_on,
+                                       off_command.scope,
+                                       off_command.address,
+                                       TMCC2EngineCommandDef.NUMERIC,
+                                       0)
+
+            def func_toggle(_: Message) -> None:
+                print(led.value)
+                led.value = not led.value
+
+            CommandListener.listen_for(func_toggle,
+                                       off_command.scope,
+                                       off_command.address,
+                                       TMCC2EngineCommandDef.TOGGLE_DIRECTION)
         else:
             off_button.when_pressed = off_action
             on_button.when_pressed = on_action
-
-        def func_off(_: Message) -> None:
-            led.off()
-
-        CommandListener.listen_for(func_off, off_command.scope, off_command.address, off_command.command)
-
-        def func_on(_: Message) -> None:
-            led.on()
-
-        CommandListener.listen_for(func_on,
-                                   off_command.scope,
-                                   off_command.address,
-                                   TMCC2EngineCommandDef.NUMERIC,
-                                   0)
 
         cls._cache_device(off_button)
         cls._cache_device(on_button)
