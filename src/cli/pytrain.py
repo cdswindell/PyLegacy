@@ -7,6 +7,7 @@ import os
 import readline
 
 from datetime import datetime
+from typing import List
 
 from src.cli.acc import AccCli
 from src.cli.cli_base import CliBase
@@ -182,8 +183,10 @@ class PyTrain:
         except Exception as e:
             print(e)
 
-    def _handle_echo(self, ui_parts=["echo"]):
+    def _handle_echo(self, ui_parts: List[str] = None):
         if self.is_server:
+            if ui_parts is None:
+                ui_parts = ["echo"]
             if self._listener is None:
                 self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
             if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == 'on'):

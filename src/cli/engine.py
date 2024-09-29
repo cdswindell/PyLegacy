@@ -134,6 +134,11 @@ class EngineCli(CliBaseTMCC):
                          const='RING_BELL',
                          dest='option',
                          help="Ring bell")
+        ops.add_argument("-reset",
+                         action="store_const",
+                         const='RESET',
+                         dest='option',
+                         help="Reset engine/train")
         ops.add_argument("-rc", "--rear_coupler",
                          action="store_const",
                          const='REAR_COUPLER',
