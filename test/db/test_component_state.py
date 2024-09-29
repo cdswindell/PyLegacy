@@ -440,18 +440,18 @@ class TestComponentState(TestBase):
         assert not self.state
 
         # simulate a switch throw
-        sw_req = CommandReq.build(TMCC1SwitchState.OUT, 22)
-        dispatcher.offer(sw_req)
+        sw_out = CommandReq.build(TMCC1SwitchState.OUT, 22)
+        dispatcher.offer(sw_out)
         time.sleep(0.05)
         assert dispatcher.is_running is True
         assert self.state
         assert CommandScope.SWITCH in self.state
         assert 22 in self.state[CommandScope.SWITCH]
-        assert self.state[CommandScope.SWITCH][22].last_command == sw_req
+        assert self.state[CommandScope.SWITCH][22].last_command == sw_out
         assert self.state[CommandScope.SWITCH][22].address == 22
         assert self.state[CommandScope.SWITCH][22].scope == CommandScope.SWITCH
         assert self.state[CommandScope.SWITCH][22].last_updated is not None
+        assert self.state[CommandScope.SWITCH][22].state == TMCC1SwitchState.OUT
         assert self.state[CommandScope.SWITCH][22].is_known is True
         assert self.state[CommandScope.SWITCH][22].is_out is True
         assert self.state[CommandScope.SWITCH][22].is_through is False
-

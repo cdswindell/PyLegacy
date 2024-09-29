@@ -21,10 +21,10 @@ from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
 from src.comm.command_listener import CommandListener
 from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
-from src.db.component_state import SystemStateDict, ComponentStateDict, SCOPE_TO_STATE_MAP
+from src.db.component_state_store import ComponentStateStore
 from src.gpio.gpio_handler import GpioHandler
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_ADDRESS, BROADCAST_TOPIC
+from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
@@ -38,7 +38,7 @@ class PyTrain:
         self._baudrate = args.baudrate
         self._port = args.port
         self._listener = None
-        self._state = None
+        self._state_store = None
         self._echo = args.echo
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._comm_buffer = CommBuffer.build(baudrate=self._baudrate,
@@ -51,20 +51,20 @@ class PyTrain:
                 print(f"Listening for client connections on port {self._args.server_port}...")
                 self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
             # register listeners
-            self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
+            self._state_store: ComponentStateStore = ComponentStateStore(baudrate=self._baudrate, port=self._port)
             if self._args.echo:
                 self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
                 self._listener.listen_for(self, BROADCAST_TOPIC)
                 print("Echoing received TMCC commands...")
-            elif self._args.no_listeners is True:
+            if self._args.no_listeners is True:
                 print("Ignoring events...")
             else:
                 print("Registering listeners...")
-                self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
-                self._listener.listen_for(self, CommandScope.ENGINE)
-                self._listener.listen_for(self, CommandScope.TRAIN)
-                self._listener.listen_for(self, CommandScope.SWITCH)
-                self._listener.listen_for(self, CommandScope.ACC)
+                self._state_store: ComponentStateStore = ComponentStateStore(baudrate=self._baudrate, port=self._port)
+                self._state_store.listen_for(CommandScope.ENGINE)
+                self._state_store.listen_for(CommandScope.TRAIN)
+                self._state_store.listen_for(CommandScope.SWITCH)
+                self._state_store.listen_for(CommandScope.ACC)
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
         self.run()
@@ -75,7 +75,6 @@ class PyTrain:
         """
         if self._echo:
             print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
-        self.persist_state(cmd)
 
     @property
     def is_server(self) -> bool:
@@ -182,28 +181,16 @@ class PyTrain:
             elif self._startup_script != DEFAULT_SCRIPT_FILE:
                 print(f"Startup script file {self._startup_script} not found, continuing...")
 
-    def persist_state(self, cmd: CommandReq) -> None:
-        if cmd:
-            if cmd.is_halt:  # send to all known devices
-                print("*** Received HALT Command ***")
-            elif cmd.is_system_halt:  # send to all known engines and trains
-                print("*** Received SYSTEM HALT Command ***")
-            elif cmd.scope in SCOPE_TO_STATE_MAP:
-                if cmd.address == BROADCAST_ADDRESS:  # broadcast address
-                    print(f"*** {cmd.scope.name} Broadcast Address ***")
-                else:  # update the device state (identified by scope/address)
-                    self._state[cmd.scope][cmd.address].update(cmd)
-
-    def query_status(self, param):
+    def query_status(self, param) -> None:
         try:
-            scope = CommandScope(param[0].upper())
-            if CommandScope(param[0].upper()) in self._state:
-                scope_entries = self._state[scope]
+            if len(param) > 1:
+                scope = CommandScope(param[0].upper())
                 address = int(param[1])
-                if address in scope_entries:
-                    print(self._state[scope][address])
-            else:
-                print("No data")
+                state = self._state_store.query(scope, address)
+                if state is not None:
+                    print(state)
+                    return
+            print("No data")
         except Exception as e:
             print(e)
 
