@@ -156,8 +156,7 @@ class TestCommandDispatcher(TestBase):
         channel.subscribe(self)
         channel.publish("ABC")
         assert len(CALLBACK_DICT) == 1
-        assert len(CALLBACK_DICT[BROADCAST_TOPIC]) == 1
-        assert CALLBACK_DICT[BROADCAST_TOPIC][0] == "ABC"
+        assert CALLBACK_DICT[BROADCAST_TOPIC] == ["ABC"]
 
         # remove subscriber and republish; should be no exception
         channel.unsubscribe(self)
@@ -185,8 +184,7 @@ class TestCommandDispatcher(TestBase):
         dispatcher.join()
         assert dispatcher.is_running is False
         assert len(CALLBACK_DICT) == 1
-        assert len(CALLBACK_DICT[BROADCAST_TOPIC]) == 1
-        assert CALLBACK_DICT[BROADCAST_TOPIC][0] == ring_req
+        assert CALLBACK_DICT[BROADCAST_TOPIC] == [ring_req]
 
     # noinspection DuplicatedCode
     def test_publish(self) -> None:
@@ -215,8 +213,7 @@ class TestCommandDispatcher(TestBase):
         assert len(dispatcher._channels) == 4
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 1
-        assert len(CALLBACK_DICT[CommandScope.ENGINE]) == 1
-        assert CALLBACK_DICT[CommandScope.ENGINE][0] == ring_req
+        assert CALLBACK_DICT[CommandScope.ENGINE] == [ring_req]
 
         # retest for eng request to engine 13
         CALLBACK_DICT.clear()
@@ -227,10 +224,8 @@ class TestCommandDispatcher(TestBase):
         assert dispatcher.is_running is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 2
-        assert len(CALLBACK_DICT[(CommandScope.ENGINE, 13)]) == 1
-        assert CALLBACK_DICT[(CommandScope.ENGINE, 13)][0] == ring_req
-        assert len(CALLBACK_DICT[CommandScope.ENGINE]) == 1
-        assert CALLBACK_DICT[CommandScope.ENGINE][0] == ring_req
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == [ring_req]
+        assert CALLBACK_DICT[CommandScope.ENGINE] == [ring_req]
 
         # retest for eng request to engine 22
         CALLBACK_DICT.clear()
@@ -241,10 +236,8 @@ class TestCommandDispatcher(TestBase):
         assert dispatcher.is_running is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 2
-        assert len(CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)]) == 1
-        assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)][0] == ring_req
-        assert len(CALLBACK_DICT[CommandScope.ENGINE]) == 1
-        assert CALLBACK_DICT[CommandScope.ENGINE][0] == ring_req
+        assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)] == [ring_req]
+        assert CALLBACK_DICT[CommandScope.ENGINE] == [ring_req]
 
         # retest for route request, should generate no callbacks
         CALLBACK_DICT.clear()
@@ -267,8 +260,7 @@ class TestCommandDispatcher(TestBase):
         assert dispatcher.is_running is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 1
-        assert len(CALLBACK_DICT[CommandScope.ENGINE]) == 1
-        assert CALLBACK_DICT[CommandScope.ENGINE][0] == ring_req
+        assert CALLBACK_DICT[CommandScope.ENGINE] == [ring_req]
 
         # retest switch, should only be one callback
         CALLBACK_DICT.clear()
@@ -279,7 +271,6 @@ class TestCommandDispatcher(TestBase):
         assert dispatcher.is_running is True
         # listener should have triggered one callback
         assert len(CALLBACK_DICT) == 1
-        assert len(CALLBACK_DICT[CommandScope.SWITCH]) == 1
         assert CALLBACK_DICT[CommandScope.SWITCH] == [sw_req]
 
     # noinspection DuplicatedCode
