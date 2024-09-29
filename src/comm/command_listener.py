@@ -30,15 +30,19 @@ class CommandListener(Thread):
         return CommandListener(baudrate=baudrate, port=port)
 
     @classmethod
-    def listen_for(cls, listener: Subscriber, channel: Topic, address: int = None):
-        cls.build().subscribe(listener, channel, address)
+    def listen_for(cls,
+                   listener: Subscriber,
+                   channel: Topic,
+                   address: int = None,
+                   command: CommandDefEnum = None):
+        cls.build().subscribe(listener, channel, address, command)
 
     # noinspection PyPropertyDefinition
     @classmethod
     @property
     def is_built(cls) -> bool:
         return cls._instance is not None
-    
+
     # noinspection PyPropertyDefinition
     @classmethod
     @property
@@ -51,7 +55,7 @@ class CommandListener(Thread):
         with cls._lock:
             if cls._instance:
                 cls._instance.shutdown()
-    
+
     def __new__(cls, *args, **kwargs):
         """
             Provides singleton functionality. We only want one instance
@@ -75,22 +79,22 @@ class CommandListener(Thread):
         self._baudrate = baudrate
         self._port = port
         super().__init__(daemon=True, name="PyLegacy Command Listener")
-        
+
         # prep our consumer(s)
         self._cv = threading.Condition()
         self._deque = deque(maxlen=DEFAULT_QUEUE_SIZE)
         self._is_running = True
         self.start()
         self._dispatcher = _CommandDispatcher()
-        
+
         # prep our producer
         from .serial_reader import SerialReader
         self._serial_reader = SerialReader(baudrate, port, self)
-    
-    @property    
+
+    @property
     def baudrate(self) -> int:
         return self._baudrate
-    
+
     @property
     def port(self) -> str:
         return self._port
@@ -157,11 +161,19 @@ class CommandListener(Thread):
                 self._dispatcher.shutdown()
         CommandListener._instance = None
 
-    def subscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
-        self._dispatcher.subscribe(subscriber, channel, address)
+    def subscribe(self,
+                  listener: Subscriber,
+                  channel: Topic,
+                  address: int = None,
+                  command: CommandDefEnum = None) -> None:
+        self._dispatcher.subscribe(listener, channel, address, command)
 
-    def unsubscribe(self, subscriber: Subscriber, channel: Topic, address: int = None) -> None:
-        self._dispatcher.unsubscribe(subscriber, channel, address)
+    def unsubscribe(self,
+                    listener: Subscriber,
+                    channel: Topic,
+                    address: int = None,
+                    command: CommandDefEnum = None) -> None:
+        self._dispatcher.unsubscribe(listener, channel, address, command)
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
         self._dispatcher.subscribe_any(subscriber)
@@ -175,6 +187,7 @@ class Subscriber(Protocol):
     """
         Protocol that all listener callbacks must implement
     """
+
     def __call__(self, message: Message) -> None:
         ...
 
@@ -187,6 +200,7 @@ class _Channel(Generic[Topic]):
         consisting of a CommandScope and an TMCC ID/Address, and a
         special "BROADCAST" channel that receives all received commands.
     """
+
     def __init__(self) -> None:
         self.subscribers: set[Subscriber] = set[Subscriber]()
 

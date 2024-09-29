@@ -97,4 +97,3 @@ class TestComponentStateStore(TestBase):
         assert sw_47_state.state is TMCC1SwitchState.OUT
         assert sw_47_state.is_out is True
         assert sw_47_state.is_through is False
-
