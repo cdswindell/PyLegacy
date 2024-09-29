@@ -34,8 +34,9 @@ class CommandListener(Thread):
                    listener: Subscriber,
                    channel: Topic,
                    address: int = None,
-                   command: CommandDefEnum = None):
-        cls.build().subscribe(listener, channel, address, command)
+                   command: CommandDefEnum = None,
+                   data: int = None):
+        cls.build().subscribe(listener, channel, address, command, data)
 
     # noinspection PyPropertyDefinition
     @classmethod
@@ -165,15 +166,17 @@ class CommandListener(Thread):
                   listener: Subscriber,
                   channel: Topic,
                   address: int = None,
-                  command: CommandDefEnum = None) -> None:
-        self._dispatcher.subscribe(listener, channel, address, command)
+                  command: CommandDefEnum = None,
+                  data: int = None) -> None:
+        self._dispatcher.subscribe(listener, channel, address, command, data)
 
     def unsubscribe(self,
                     listener: Subscriber,
                     channel: Topic,
                     address: int = None,
-                    command: CommandDefEnum = None) -> None:
-        self._dispatcher.unsubscribe(listener, channel, address, command)
+                    command: CommandDefEnum = None,
+                    data: int = None) -> None:
+        self._dispatcher.unsubscribe(listener, channel, address, command, data)
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
         self._dispatcher.subscribe_any(subscriber)
@@ -283,6 +286,8 @@ class _CommandDispatcher(Thread):
                         self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
                     # otherwise, just send to the interested parties
                     else:
+                        if cmd.is_data:
+                            self.publish((cmd.scope, cmd.address, cmd.command, cmd.data), cmd)
                         self.publish((cmd.scope, cmd.address, cmd.command), cmd)
                         self.publish((cmd.scope, cmd.address), cmd)
                         self.publish(cmd.scope, cmd)
@@ -316,15 +321,20 @@ class _CommandDispatcher(Thread):
     @staticmethod
     def _make_channel(channel: Topic,
                       address: int = None,
-                      command: CommandDefEnum = None) -> CommandScope | Tuple:
+                      command: CommandDefEnum = None,
+                      data: int = None) -> CommandScope | Tuple:
         if channel is None:
             raise ValueError("Channel must not be None")
         elif address is None:
             return channel
         elif command is None:
             return channel, address
-        else:
+        elif data is None:
             return channel, address, command
+        elif command.command_def.is_data and data is not None:
+            return channel, address, command, data
+        else:
+            raise TypeError("Command must be Topic or CommandReq")
 
     def publish_all(self, message: Message, channels: List[CommandScope] = None) -> None:
         if channels is None:  # send to everyone!
@@ -347,21 +357,23 @@ class _CommandDispatcher(Thread):
                   subscriber: Subscriber,
                   channel: Topic,
                   address: int = None,
-                  command: CommandDefEnum = None) -> None:
+                  command: CommandDefEnum = None,
+                  data: int = None) -> None:
         if channel == BROADCAST_TOPIC:
             self.subscribe_any(subscriber)
         else:
-            self._channels[self._make_channel(channel, address, command)].subscribe(subscriber)
+            self._channels[self._make_channel(channel, address, command, data)].subscribe(subscriber)
 
     def unsubscribe(self,
                     subscriber: Subscriber,
                     channel: Topic,
                     address: int = None,
-                    command: CommandDefEnum = None) -> None:
+                    command: CommandDefEnum = None,
+                    data: int = None) -> None:
         if channel == BROADCAST_TOPIC:
             self.unsubscribe_any(subscriber)
         else:
-            channel = self._make_channel(channel, address, command)
+            channel = self._make_channel(channel, address, command, data)
             self._channels[channel].unsubscribe(subscriber)
             if len(self._channels[channel].subscribers) == 0:
                 del self._channels[channel]
