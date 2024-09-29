@@ -150,11 +150,15 @@ class GpioHandler:
             off_button.when_pressed = off_action
             on_button.when_pressed = on_action
 
-        def func(_: Message) -> None:
+        def func_off(_: Message) -> None:
             led.off()
 
-        CommandListener.listen_for(func, off_command.scope, off_command.address, off_command.command)
-        CommandListener.listen_for(func,
+        CommandListener.listen_for(func_off, off_command.scope, off_command.address, off_command.command)
+
+        def func_on(_: Message) -> None:
+            led.on()
+
+        CommandListener.listen_for(func_on,
                                    off_command.scope,
                                    off_command.address,
                                    TMCC2EngineCommandDef.NUMERIC,
