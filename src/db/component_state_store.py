@@ -1,9 +1,11 @@
-from typing import List
+from typing import List, TypeVar
 
 from src.comm.command_listener import CommandListener, Message, Topic
 from src.db.component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
 from src.protocol.constants import CommandScope, BROADCAST_ADDRESS
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_VALID_BAUDRATES
+
+T = TypeVar("T", bound=ComponentState)
 
 
 class ComponentStateStore:
@@ -31,12 +33,18 @@ class ComponentStateStore:
         """
         if command:
             if command.is_halt:  # send to all known devices
-                print("*** Received HALT Command ***")
+                for scope in self._state:
+                    for address in self._state[scope]:
+                        self._state[scope][address].update(command)
             elif command.is_system_halt:  # send to all known engines and trains
-                print("*** Received SYSTEM HALT Command ***")
+                for scope in self._state:
+                    if scope in [CommandScope.ENGINE, CommandScope.TRAIN]:
+                        for address in self._state[scope]:
+                            self._state[scope][address].update(command)
             elif command.scope in SCOPE_TO_STATE_MAP:
                 if command.address == BROADCAST_ADDRESS:  # broadcast address
-                    print(f"*** {command.scope.name} Broadcast Address ***")
+                    for address in self._state[command.scope]:
+                        self._state[command.scope][address].update(command)
                 else:  # update the device state (identified by scope/address)
                     self._state[command.scope][command.address].update(command)
 
@@ -47,6 +55,10 @@ class ComponentStateStore:
     @property
     def port(self) -> str:
         return self._port
+
+    @property
+    def is_empty(self) -> bool:
+        return len(self._state) == 0
 
     @staticmethod
     def is_valid_topic(topic: Topic) -> bool:
@@ -62,7 +74,7 @@ class ComponentStateStore:
             if self.is_valid_topic(topics):
                 self._listener.listen_for(self, topics)
 
-    def query(self, scope: CommandScope, address: int) -> ComponentState | None:
+    def query(self, scope: CommandScope, address: int) -> T | None:
         if scope in self._state:
             if address in self._state[scope]:
                 return self._state[scope][address]

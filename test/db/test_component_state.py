@@ -1,6 +1,7 @@
 import time
 from collections import defaultdict
 
+# noinspection PyPackageRequirements
 import pytest
 
 # noinspection PyProtectedMember
