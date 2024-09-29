@@ -1,14 +1,15 @@
+import time
 from collections import defaultdict
 
 import pytest
 
 # noinspection PyProtectedMember
-from src.comm.command_listener import CommandListener, _CommandDispatcher
-from src.db.component_state import SwitchState, AccessoryState, EngineState, TrainState
+from src.comm.command_listener import CommandListener, _CommandDispatcher, Message
+from src.db.component_state import SwitchState, AccessoryState, EngineState, TrainState, SCOPE_TO_STATE_MAP
 from src.db.component_state import ComponentState, SystemStateDict, ComponentStateDict
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import CommandScope
-from src.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef
+from src.protocol.constants import CommandScope, BROADCAST_ADDRESS
+from src.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1SwitchState
 from src.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Acc
 from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
 from src.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef
@@ -36,6 +37,20 @@ def run_before_and_after_tests(tmpdir) -> None:
 
 # noinspection PyMethodMayBeStatic
 class TestComponentState(TestBase):
+    state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
+
+    def __call__(self, message: Message) -> None:
+        if message:
+            if message.is_halt:  # send to all known devices
+                print("*** Received HALT Command ***")
+            elif message.is_system_halt:  # send to all known engines and trains
+                print("*** Received SYSTEM HALT Command ***")
+            elif message.scope in SCOPE_TO_STATE_MAP:
+                if message.address == BROADCAST_ADDRESS:  # broadcast address
+                    print(f"*** {message.scope.name} Broadcast Address ***")
+                else:  # update the device state (identified by scope/address)
+                    self.state[message.scope][message.address].update(message)
+
     def test_component_state(self) -> None:
         with pytest.raises(TypeError):
             # noinspection PyTypeCher
@@ -414,4 +429,29 @@ class TestComponentState(TestBase):
                     _ = cs_dict[key]
 
     def test_state_via_command_dispatcher(self) -> None:
-        pass
+        # set up a dispatcher and register ourselves as the handler
+        dispatcher = _CommandDispatcher()
+        dispatcher.subscribe(self, CommandScope.ENGINE)
+        dispatcher.subscribe(self, CommandScope.TRAIN)
+        dispatcher.subscribe(self, CommandScope.SWITCH)
+        dispatcher.subscribe(self, CommandScope.ACC)
+
+        # verify state instance variable is empty
+        assert not self.state
+
+        # simulate a switch throw
+        sw_req = CommandReq.build(TMCC1SwitchState.OUT, 22)
+        dispatcher.offer(sw_req)
+        time.sleep(0.05)
+        assert dispatcher.is_running is True
+        assert self.state
+        assert CommandScope.SWITCH in self.state
+        assert 22 in self.state[CommandScope.SWITCH]
+        assert self.state[CommandScope.SWITCH][22].last_command == sw_req
+        assert self.state[CommandScope.SWITCH][22].address == 22
+        assert self.state[CommandScope.SWITCH][22].scope == CommandScope.SWITCH
+        assert self.state[CommandScope.SWITCH][22].last_updated is not None
+        assert self.state[CommandScope.SWITCH][22].is_known is True
+        assert self.state[CommandScope.SWITCH][22].is_out is True
+        assert self.state[CommandScope.SWITCH][22].is_through is False
+
