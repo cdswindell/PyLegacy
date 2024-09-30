@@ -4,11 +4,10 @@ import threading
 from collections import defaultdict
 from typing import List, TypeVar, Set
 
-from src.comm.command_listener import CommandListener, Message, Topic
+from src.comm.command_listener import CommandListener, Message, Topic, CommandDispatcher
 from src.db.component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
 from src.protocol.command_def import CommandDefEnum
 from src.protocol.constants import CommandScope, BROADCAST_ADDRESS
-from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_VALID_BAUDRATES
 
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef as Halt1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as Engine1
@@ -59,19 +58,13 @@ class ComponentStateStore:
 
     def __init__(self,
                  topics: List[str | CommandScope] = None,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
+                 listener: CommandListener | CommandDispatcher = None) -> None:
         if self._initialized:
             return
         else:
             self._initialized = True
-        if baudrate not in DEFAULT_VALID_BAUDRATES:
-            raise ValueError(f'Baudrate {baudrate} is not valid')
-        self._baudrate = baudrate
-        self._port = port
+        self._listener = listener
         self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
-        # create command listener and install listeners
-        self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
         if topics:
             for topic in topics:
                 if self.is_valid_topic(topic):
@@ -99,14 +92,6 @@ class ComponentStateStore:
                         self._state[command.scope][address].update(command)
                 else:  # update the device state (identified by scope/address)
                     self._state[command.scope][command.address].update(command)
-
-    @property
-    def baudrate(self) -> int:
-        return self._baudrate
-
-    @property
-    def port(self) -> str:
-        return self._port
 
     @property
     def is_empty(self) -> bool:

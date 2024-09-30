@@ -22,6 +22,7 @@ from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
 from src.comm.command_listener import CommandListener
 from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
+from src.db.component_state_listener import ComponentStateListener
 from src.db.component_state_store import ComponentStateStore
 from src.gpio.gpio_handler import GpioHandler
 from src.protocol.command_req import CommandReq
@@ -38,7 +39,8 @@ class PyTrain:
         self._startup_script = args.startup_script
         self._baudrate = args.baudrate
         self._port = args.port
-        self._listener = None
+        self._listener: CommandListener | ComponentStateListener
+        self._receiver = None
         self._state_store = None
         self._echo = args.echo
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
@@ -48,25 +50,26 @@ class PyTrain:
         if isinstance(self.buffer, CommBufferSingleton):
             print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
             # listen for client connections, unless user used --no_clients flag
+            self._listener = CommandListener.build()
             if not self._args.no_clients:
                 print(f"Listening for client connections on port {self._args.server_port}...")
-                self.receiver_thread = EnqueueProxyRequests(self.buffer, self._args.server_port)
-            # register listeners
-            self._state_store: ComponentStateStore = ComponentStateStore(baudrate=self._baudrate, port=self._port)
-            if self._args.echo:
-                self._handle_echo()
-            if self._args.no_listeners is True:
-                print("Ignoring events...")
-            else:
-                print("Registering listeners...")
-                self._state_store: ComponentStateStore = ComponentStateStore(baudrate=self._baudrate, port=self._port)
-                self._state_store.listen_for(CommandScope.ENGINE)
-                self._state_store.listen_for(CommandScope.TRAIN)
-                self._state_store.listen_for(CommandScope.SWITCH)
-                self._state_store.listen_for(CommandScope.ACC)
+                self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
         else:
+            self._listener = ComponentStateListener.build(self._args.server_port)
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             print(f"Listening for state updates on {self._args.server_port}...")
+        # register listeners
+        self._state_store: ComponentStateStore = ComponentStateStore(listener=self._listener)
+        if self._args.echo:
+            self._handle_echo()
+        if self._args.no_listeners is True:
+            print("Ignoring events...")
+        else:
+            print("Registering listeners...")
+            self._state_store.listen_for(CommandScope.ENGINE)
+            self._state_store.listen_for(CommandScope.TRAIN)
+            self._state_store.listen_for(CommandScope.SWITCH)
+            self._state_store.listen_for(CommandScope.ACC)
         self.run()
 
     def __call__(self, cmd: CommandReq) -> None:
@@ -184,23 +187,18 @@ class PyTrain:
             print(e)
 
     def _handle_echo(self, ui_parts: List[str] = None):
-        if self.is_server:
-            if ui_parts is None:
-                ui_parts = ["echo"]
-            if self._listener is None:
-                self._listener = CommandListener(baudrate=self._baudrate, port=self._port)
-            if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == 'on'):
-                if self._echo is False:
-                    self._listener.listen_for(self, BROADCAST_TOPIC)
-                    print("TMCC command echoing ENABLED...")
-                self._echo = True
-            else:
-                if self._echo is True:
-                    self._listener.unsubscribe(self, BROADCAST_TOPIC)
-                    print("TMCC command echoing DISABLED...")
-                self._echo = False
+        if ui_parts is None:
+            ui_parts = ["echo"]
+        if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == 'on'):
+            if self._echo is False:
+                self._listener.listen_for(self, BROADCAST_TOPIC)
+                print("TMCC command echoing ENABLED...")
+            self._echo = True
         else:
-            print("Command echoing not supported in client mode")
+            if self._echo is True:
+                self._listener.unsubscribe(self, BROADCAST_TOPIC)
+                print("TMCC command echoing DISABLED...")
+            self._echo = False
 
     @staticmethod
     def _command_parser() -> ArgumentParser:

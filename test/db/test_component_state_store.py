@@ -35,15 +35,16 @@ def run_before_and_after_tests(tmpdir) -> None:
 # noinspection PyMethodMayBeStatic
 class TestComponentStateStore(TestBase):
     def test_component_state_store_basic(self) -> None:
+        # create a dispatcher to serve the store
+        dispatcher = CommandDispatcher.build()
+        assert dispatcher is not None
+        assert dispatcher.is_running is True
+
         # create a store
-        store = ComponentStateStore()
+        store = ComponentStateStore(listener=dispatcher)
         store.listen_for([CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC, CommandScope.SWITCH])
         assert store is not None
         assert store.is_empty
-
-        dispatcher = store._listener._dispatcher
-        assert dispatcher is not None
-        assert dispatcher.is_running is True
 
         # add some state
         sw_out = CommandReq.build(TMCC1SwitchState.OUT, 15)

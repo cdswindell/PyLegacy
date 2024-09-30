@@ -26,11 +26,16 @@ class CommandListener(Thread):
     @classmethod
     def build(cls,
               baudrate: int = DEFAULT_BAUDRATE,
-              port: str = DEFAULT_PORT) -> CommandListener:
+              port: str = DEFAULT_PORT,
+              queue_size: int = DEFAULT_QUEUE_SIZE,
+              build_serial_reader: bool = True) -> CommandListener:
         """
             Factory method to create a CommandListener instance
         """
-        return CommandListener(baudrate=baudrate, port=port)
+        return CommandListener(baudrate=baudrate,
+                               port=port,
+                               queue_size=queue_size,
+                               build_serial_reader=build_serial_reader)
 
     @classmethod
     def listen_for(cls,
@@ -74,7 +79,8 @@ class CommandListener(Thread):
     def __init__(self,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT,
-                 queue_size: int = DEFAULT_QUEUE_SIZE) -> None:
+                 queue_size: int = DEFAULT_QUEUE_SIZE,
+                 build_serial_reader: bool = True) -> None:
         if self._initialized:
             return
         else:
@@ -93,8 +99,11 @@ class CommandListener(Thread):
         self._dispatcher = CommandDispatcher.build(queue_size)
 
         # prep our producer
-        from .serial_reader import SerialReader
-        self._serial_reader = SerialReader(baudrate, port, self)
+        if build_serial_reader:
+            from .serial_reader import SerialReader
+            self._serial_reader = SerialReader(baudrate, port, self)
+        else:
+            self._serial_reader = None
 
     @property
     def baudrate(self) -> int:
@@ -240,6 +249,15 @@ class CommandDispatcher(Thread):
         """
         return CommandDispatcher(queue_size)
 
+    @classmethod
+    def listen_for(cls,
+                   listener: Subscriber,
+                   channel: Topic,
+                   address: int = None,
+                   command: CommandDefEnum = None,
+                   data: int = None):
+        cls.build().subscribe(listener, channel, address, command, data)
+
     # noinspection PyPropertyDefinition
     @classmethod
     @property
@@ -275,8 +293,7 @@ class CommandDispatcher(Thread):
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
-        self._is_server = CommBuffer.is_server
-        self._client_port = EnqueueProxyRequests.port if CommBuffer.is_server else None
+        self._client_port = EnqueueProxyRequests.port if CommBuffer.is_built and CommBuffer.is_server else None
         self.start()
 
     def run(self) -> None:
@@ -307,7 +324,7 @@ class CommandDispatcher(Thread):
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)
                     # update state on all clients
-                    if self._is_server is True:
+                    if self._client_port is not None:
                         self.update_client_state(cmd)
             except Exception as e:
                 print(e)
@@ -315,7 +332,7 @@ class CommandDispatcher(Thread):
                 self._queue.task_done()
 
     def update_client_state(self, command: CommandReq):
-        if self._is_server is True:
+        if self._client_port is not None:
             # noinspection PyTypeChecker
             for client in EnqueueProxyRequests.clients:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
