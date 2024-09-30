@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import socket
 import threading
 from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
+from .comm_buffer import CommBuffer
 from .enqueue_proxy_requests import EnqueueProxyRequests
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
@@ -71,7 +73,8 @@ class CommandListener(Thread):
 
     def __init__(self,
                  baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT) -> None:
+                 port: str = DEFAULT_PORT,
+                 queue_size: int = DEFAULT_QUEUE_SIZE) -> None:
         if self._initialized:
             return
         else:
@@ -87,7 +90,7 @@ class CommandListener(Thread):
         self._deque = deque(maxlen=DEFAULT_QUEUE_SIZE)
         self._is_running = True
         self.start()
-        self._dispatcher = _CommandDispatcher()
+        self._dispatcher = CommandDispatcher.build(queue_size)
 
         # prep our producer
         from .serial_reader import SerialReader
@@ -222,13 +225,20 @@ class _Channel(Generic[Topic]):
                 print(f"Error publishing to {self}: {e}")
 
 
-class _CommandDispatcher(Thread):
+class CommandDispatcher(Thread):
     """
         The CommandDispatcher thread receives parsed CommandReqs from the
         CommandListener and dispatches them to subscribing listeners
     """
     _instance = None
     _lock = threading.Lock()
+
+    @classmethod
+    def build(cls, queue_size: int = DEFAULT_QUEUE_SIZE) -> CommandDispatcher:
+        """
+            Factory method to create a CommandDispatcher instance
+        """
+        return CommandDispatcher(queue_size)
 
     # noinspection PyPropertyDefinition
     @classmethod
@@ -249,10 +259,10 @@ class _CommandDispatcher(Thread):
             of this class in a process
         """
         with cls._lock:
-            if _CommandDispatcher._instance is None:
-                _CommandDispatcher._instance = super(_CommandDispatcher, cls).__new__(cls)
-                _CommandDispatcher._instance._initialized = False
-            return _CommandDispatcher._instance
+            if CommandDispatcher._instance is None:
+                CommandDispatcher._instance = super(CommandDispatcher, cls).__new__(cls)
+                CommandDispatcher._instance._initialized = False
+            return CommandDispatcher._instance
 
     def __init__(self, queue_size: int = DEFAULT_QUEUE_SIZE) -> None:
         if self._initialized:
@@ -265,6 +275,8 @@ class _CommandDispatcher(Thread):
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
+        self._is_server = CommBuffer.is_server
+        self._server_port = CommBuffer.client_port if CommBuffer.is_client else None
         self.start()
 
     def run(self) -> None:
@@ -295,17 +307,21 @@ class _CommandDispatcher(Thread):
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)
                     # update state on all clients
-                    self.update_client_state(cmd)
+                    if self._is_server is True:
+                        self.update_client_state(cmd)
             except Exception as e:
                 print(e)
             finally:
                 self._queue.task_done()
 
-    @staticmethod
-    def update_client_state(cmd):
-        # noinspection PyTypeChecker
-        for client in EnqueueProxyRequests.clients:
-            print(f"Updating client {client} {cmd}")
+    def update_client_state(self, command: CommandReq):
+        if self._is_server is True:
+            # noinspection PyTypeChecker
+            for client in EnqueueProxyRequests.clients:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.connect((client, self._server_port))
+                    s.sendall(command.as_bytes)
+                    _ = s.recv(16)
 
     @property
     def broadcasts_enabled(self) -> bool:
@@ -325,7 +341,7 @@ class _CommandDispatcher(Thread):
         with self._cv:
             self._is_running = False
             self._cv.notify()
-        _CommandDispatcher._instance = None
+        CommandDispatcher._instance = None
 
     @staticmethod
     def _make_channel(channel: Topic,

@@ -4,7 +4,7 @@ import time
 import pytest
 
 # noinspection PyProtectedMember
-from src.comm.command_listener import CommandListener, _CommandDispatcher
+from src.comm.command_listener import CommandListener, CommandDispatcher
 from src.db.component_state import SwitchState
 from src.db.component_state_store import ComponentStateStore
 from src.protocol.command_req import CommandReq
@@ -27,9 +27,9 @@ def run_before_and_after_tests(tmpdir) -> None:
         CommandListener().shutdown()
     assert CommandListener.is_built is False
 
-    if _CommandDispatcher.is_built:
-        _CommandDispatcher().shutdown()
-    assert _CommandDispatcher.is_built is False
+    if CommandDispatcher.is_built:
+        CommandDispatcher().shutdown()
+    assert CommandDispatcher.is_built is False
 
 
 # noinspection PyMethodMayBeStatic

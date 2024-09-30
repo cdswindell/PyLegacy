@@ -71,6 +71,34 @@ class CommBuffer(abc.ABC):
             if cls._instance is not None:
                 cls._instance.shutdown()
 
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def is_built(cls) -> bool:
+        return cls._instance is not None
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def is_server(cls) -> bool:
+        if cls.is_built is False:
+            raise ValueError("CommBuffer is not built")
+        return isinstance(cls._instance, CommBufferSingleton)
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def is_client(cls) -> bool:
+        return isinstance(cls._instance, CommBufferProxy)
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def client_port(cls) -> int:
+        if cls.is_client:
+            return cls._instance.server_port
+        raise ValueError("CommBuffer is not a client")
+
     @abc.abstractmethod
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         """
@@ -83,7 +111,12 @@ class CommBuffer(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def join(self):
+    def join(self) -> None:
+        pass
+
+    @abc.abstractmethod
+    @property
+    def server_port(self) -> int | None:
         pass
 
 
@@ -147,6 +180,10 @@ class CommBufferSingleton(CommBuffer, Thread):
     def join(self) -> None:
         super().join()
 
+    @property
+    def server_port(self) -> int | None:
+        return None
+
     def run(self) -> None:
         # if the queue is empty AND _shutdown_signaled is True, then continue looping
         while not self._queue.empty() or not self._shutdown_signalled:
@@ -201,6 +238,10 @@ class CommBufferProxy(CommBuffer):
 
     def join(self):
         pass
+
+    @property
+    def server_port(self) -> int:
+        return self._port
 
 
 class DelayHandler(Thread):

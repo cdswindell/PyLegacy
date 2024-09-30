@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 # noinspection PyProtectedMember
-from src.comm.command_listener import CommandListener, _CommandDispatcher, Message, _Channel
+from src.comm.command_listener import CommandListener, CommandDispatcher, Message, _Channel
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_QUEUE_SIZE, BROADCAST_TOPIC, CommandScope
 from src.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1SwitchState
@@ -33,9 +33,9 @@ def run_before_and_after_tests(tmpdir) -> None:
         CommandListener().shutdown()
     assert CommandListener.is_built is False
 
-    if _CommandDispatcher.is_built:
-        _CommandDispatcher().shutdown()
-    assert _CommandDispatcher.is_built is False
+    if CommandDispatcher.is_built:
+        CommandDispatcher().shutdown()
+    assert CommandDispatcher.is_built is False
 
 
 class TestCommandDispatcher(TestBase):
@@ -65,12 +65,12 @@ class TestCommandDispatcher(TestBase):
         super().teardown_method(test_method)
 
     def test_command_dispatcher_singleton(self) -> None:
-        assert _CommandDispatcher.is_built is False
-        dispatcher = _CommandDispatcher()
+        assert CommandDispatcher.is_built is False
+        dispatcher = CommandDispatcher()
         assert dispatcher.is_built is True
         assert dispatcher.is_running is True
-        assert isinstance(dispatcher, _CommandDispatcher)
-        assert dispatcher is _CommandDispatcher()
+        assert isinstance(dispatcher, CommandDispatcher)
+        assert dispatcher is CommandDispatcher()
         assert dispatcher.is_alive()
         assert dispatcher.broadcasts_enabled is False
         assert isinstance(dispatcher._channels, defaultdict)
@@ -87,17 +87,17 @@ class TestCommandDispatcher(TestBase):
         assert dispatcher._instance is not None
         dispatcher.shutdown()
         assert dispatcher._instance is None
-        assert _CommandDispatcher._instance is None
+        assert CommandDispatcher._instance is None
         assert dispatcher.is_built is False
         assert dispatcher.is_running is False
-        assert _CommandDispatcher.is_built is False
-        assert dispatcher != _CommandDispatcher()
-        _CommandDispatcher().shutdown()
-        assert _CommandDispatcher._instance is None
+        assert CommandDispatcher.is_built is False
+        assert dispatcher != CommandDispatcher()
+        CommandDispatcher().shutdown()
+        assert CommandDispatcher._instance is None
 
         # creation of a CommandListener should create a command dispatcher
         listener = CommandListener()
-        dispatcher = _CommandDispatcher()
+        dispatcher = CommandDispatcher()
         assert listener._dispatcher is dispatcher
         assert dispatcher.is_running is True
 
@@ -106,7 +106,7 @@ class TestCommandDispatcher(TestBase):
         assert listener.is_running is False
 
     def test_command_dispatcher_run(self) -> None:
-        dispatcher = _CommandDispatcher()
+        dispatcher = CommandDispatcher()
         # add elements to the queue and make sure they appear in deque in the correct order
         ring_req = CommandReq.build(TMCC2EngineCommandDef.RING_BELL, 20)
         halt_req = CommandReq.build(TMCC1HaltCommandDef.HALT)
@@ -167,7 +167,7 @@ class TestCommandDispatcher(TestBase):
 
     def test_publish_all(self) -> None:
         # create dispatcher and add some channels
-        dispatcher = _CommandDispatcher()
+        dispatcher = CommandDispatcher()
         assert dispatcher.broadcasts_enabled is False
         dispatcher.subscribe_any(self)
         assert dispatcher.broadcasts_enabled is True
@@ -190,7 +190,7 @@ class TestCommandDispatcher(TestBase):
     # noinspection DuplicatedCode
     def test_publish(self) -> None:
         # create dispatcher and add some channels
-        dispatcher = _CommandDispatcher()
+        dispatcher = CommandDispatcher()
         assert dispatcher.broadcasts_enabled is False
 
         # register callbacks
@@ -277,7 +277,7 @@ class TestCommandDispatcher(TestBase):
     # noinspection DuplicatedCode
     def test_publish_halt(self) -> None:
         # create dispatcher and add some channels
-        dispatcher = _CommandDispatcher()
+        dispatcher = CommandDispatcher()
         assert dispatcher.broadcasts_enabled is False
 
         # register callbacks
@@ -308,7 +308,7 @@ class TestCommandDispatcher(TestBase):
     # noinspection DuplicatedCode
     def test_publish_system_halt(self) -> None:
         #  Test receipt of SYSTEM_HALT
-        dispatcher = _CommandDispatcher()
+        dispatcher = CommandDispatcher()
         assert dispatcher.broadcasts_enabled is False
 
         # register callbacks

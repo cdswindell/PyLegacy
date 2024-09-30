@@ -5,7 +5,7 @@ from collections import defaultdict
 import pytest
 
 # noinspection PyProtectedMember
-from src.comm.command_listener import CommandListener, _CommandDispatcher, Message
+from src.comm.command_listener import CommandListener, CommandDispatcher, Message
 from src.db.component_state import SwitchState, AccessoryState, EngineState, TrainState, SCOPE_TO_STATE_MAP
 from src.db.component_state import ComponentState, SystemStateDict, ComponentStateDict
 from src.protocol.command_req import CommandReq
@@ -31,9 +31,9 @@ def run_before_and_after_tests(tmpdir) -> None:
         CommandListener().shutdown()
     assert CommandListener.is_built is False
 
-    if _CommandDispatcher.is_built:
-        _CommandDispatcher().shutdown()
-    assert _CommandDispatcher.is_built is False
+    if CommandDispatcher.is_built:
+        CommandDispatcher().shutdown()
+    assert CommandDispatcher.is_built is False
 
 
 # noinspection PyMethodMayBeStatic
@@ -431,7 +431,7 @@ class TestComponentState(TestBase):
 
     def test_state_via_command_dispatcher(self) -> None:
         # set up a dispatcher and register ourselves as the handler
-        dispatcher = _CommandDispatcher()
+        dispatcher = CommandDispatcher()
         dispatcher.subscribe(self, CommandScope.ENGINE)
         dispatcher.subscribe(self, CommandScope.TRAIN)
         dispatcher.subscribe(self, CommandScope.SWITCH)
