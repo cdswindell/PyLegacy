@@ -7,7 +7,6 @@ from queue import Queue
 from threading import Thread
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
-from .comm_buffer import CommBuffer
 from .enqueue_proxy_requests import EnqueueProxyRequests
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq

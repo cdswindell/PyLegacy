@@ -17,6 +17,8 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
 from ..protocol.tmcc2.tmcc2_constants import TMCC2HaltCommandDef as Halt2
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as Engine2
 
+from ..protocol.tmcc2.param_constants import TMCC2EffectsControl as Effects
+
 T = TypeVar("T", bound=ComponentState)
 C = TypeVar("C", bound=CommandDefEnum)
 E = TypeVar("E", bound=CommandDefEnum)
@@ -136,6 +138,8 @@ class CausesCache:
     def __init__(self) -> None:
         self._causes: dict[C, set[E]] = defaultdict(set)
         self._caused_bys: dict[E, Set[C]] = defaultdict(set)
+        self._toggles: dict[C, set[E]] = defaultdict(set)
+        self._toggled_by: dict[E, set[C]] = defaultdict(set)
         self.initialize()
 
     def causes(self, cause: C, *causes: E) -> None:
@@ -143,28 +147,38 @@ class CausesCache:
             self._causes[cause].add(result)
             self._caused_bys[result].add(cause)
 
-    def is_caused_by(self, command: C) -> List[E]:
+    def is_caused_by(self, command: E) -> List[C]:
         if command in self._caused_bys:
             return list(self._caused_bys[command])
         else:
             return []
 
-    def results_in(self, command: E) -> List[C]:
+    def results_in(self, command: C) -> List[E]:
+        """
+            Given an effect, what could be the causes. We would want to
+            install listeners on these causes to reflect accurate stare
+        """
         if command in self._causes:
             return list(self._causes[command])
         else:
             return []
 
+    def toggles(self, actor: C, *toggles: E) -> None:
+        for toggled in toggles:
+            self._toggles[actor].add(toggled)
+            self._toggled_by[toggled].add(actor)
+
     def initialize(self) -> None:
         self._causes.clear()
         self._caused_bys.clear()
 
-        # Halt command
+        # define command relationships
         self.causes(Halt1.HALT,
                     Engine1.SPEED_STOP_HOLD,
                     Engine2.SPEED_STOP_HOLD,
                     Aux.AUX2_OFF,
                     Aux.AUX1_OFF)
+        self.causes(Halt2.HALT, Engine2.SPEED_STOP_HOLD)
         # Engine commands, starting with Reset (Number 0)
         self.causes(Engine2.RESET,
                     Engine2.SPEED_STOP_HOLD,
@@ -180,3 +194,15 @@ class CausesCache:
                     Engine2.REVERSE_DIRECTION)
         self.causes(Engine2.TOGGLE_DIRECTION,
                     Engine2.SPEED_STOP_HOLD)
+
+        # define command toggles; commands that are essentially mutually exclusive
+        self.toggles(Switch.OUT, Switch.THROUGH)
+        self.toggles(Switch.THROUGH, Switch.OUT)
+
+        self.toggles(Engine2.FORWARD_DIRECTION, Engine2.REVERSE_DIRECTION)
+        self.toggles(Engine2.REVERSE_DIRECTION, Engine2.FORWARD_DIRECTION)
+
+        self.toggles(Effects.SMOKE_OFF, Effects.SMOKE_LOW, Effects.SMOKE_MEDIUM, Effects.SMOKE_HIGH)
+        self.toggles(Effects.SMOKE_LOW, Effects.SMOKE_OFF, Effects.SMOKE_MEDIUM, Effects.SMOKE_HIGH)
+        self.toggles(Effects.SMOKE_MEDIUM, Effects.SMOKE_LOW, Effects.SMOKE_OFF, Effects.SMOKE_HIGH)
+        self.toggles(Effects.SMOKE_HIGH, Effects.SMOKE_LOW, Effects.SMOKE_MEDIUM, Effects.SMOKE_OFF)

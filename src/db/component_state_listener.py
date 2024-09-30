@@ -3,6 +3,7 @@ from __future__ import annotations
 import socketserver
 import threading
 
+from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Subscriber, Topic
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.constants import DEFAULT_SERVER_PORT
@@ -34,6 +35,7 @@ class ComponentStateListener(threading.Thread):
         self._port = port
         super().__init__(daemon=True, name="PyLegacy ComponentStateListener")
         self.start()
+        CommBuffer.build().register()
 
     def __new__(cls, *args, **kwargs):
         """

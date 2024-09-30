@@ -39,6 +39,12 @@ class EnqueueProxyRequests(Thread):
     # noinspection PyPropertyDefinition
     @classmethod
     @property
+    def register_request(cls) -> bytes:
+        return int(0xff).to_bytes(1)*6
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
     def is_built(cls) -> bool:
         return cls._instance is not None
 
@@ -131,4 +137,5 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             else:
                 break
         EnqueueProxyRequests.note_client_addr(self.client_address[0])
-        EnqueueProxyRequests.get_comm_buffer().enqueue_command(byte_stream)
+        if data != EnqueueProxyRequests.register_request:
+            EnqueueProxyRequests.get_comm_buffer().enqueue_command(byte_stream)

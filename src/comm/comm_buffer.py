@@ -96,15 +96,19 @@ class CommBuffer(abc.ABC):
         """
             Enqueue the command to send to the Lionel LCS SER2
         """
-        pass
+        ...
 
     @abc.abstractmethod
     def shutdown(self, immediate: bool = False) -> None:
-        pass
+        ...
+
+    @abc.abstractmethod
+    def register(self) -> None:
+        ...
 
     @abc.abstractmethod
     def join(self) -> None:
-        pass
+        ...
 
 
 class CommBufferSingleton(CommBuffer, Thread):
@@ -167,6 +171,9 @@ class CommBufferSingleton(CommBuffer, Thread):
     def join(self) -> None:
         super().join()
 
+    def register(self) -> None:
+        pass  # noop; used to register client
+
     def run(self) -> None:
         # if the queue is empty AND _shutdown_signaled is True, then continue looping
         while not self._queue.empty() or not self._shutdown_signalled:
@@ -215,6 +222,11 @@ class CommBufferProxy(CommBuffer):
                 s.connect((str(self._server), self._port))
                 s.sendall(command)
                 _ = s.recv(16)  # we don't care about the response
+
+    def register(self) -> None:
+        from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
+        # noinspection PyTypeChecker
+        self.enqueue_command(EnqueueProxyRequests.register_request)
 
     def shutdown(self, immediate: bool = False) -> None:
         pass
