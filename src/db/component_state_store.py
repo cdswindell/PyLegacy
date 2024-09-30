@@ -143,6 +143,21 @@ class CausesCache:
         self._toggled_by: dict[E, set[C]] = defaultdict(set)
         self.initialize()
 
+    @staticmethod
+    def _harvest_commands(commands: Set[E],
+                          dereference_aliases: bool,
+                          include_aliases: bool) -> List[E]:
+        cmd_set = set()
+        for cmd in commands:
+            if cmd.is_alias:
+                if include_aliases:
+                    cmd_set.add(cmd)
+                if dereference_aliases:
+                    cmd_set.add(cmd.command_def.alias)
+            else:
+                cmd_set.add(cmd)
+        return list(cmd_set)
+
     def causes(self, cause: C, *results: E) -> None:
         """
             Define the results that are triggered when a cause command occurs
@@ -176,26 +191,21 @@ class CausesCache:
         else:
             return {command}
 
-    def enabled_by(self, command: C,
-                   dereference_aliases: bool = True,
+    def enabled_by(self,
+                   command: C,
+                   dereference_aliases: bool = False,
                    include_aliases: bool = True) -> List[E | Tuple[E, int]]:
-        cmd_set = set()
-        for cmd in self.result_in(command):
-            if cmd.is_alias:
-                if include_aliases:
-                    cmd_set.add(cmd)
-                if dereference_aliases:
-                    cmd.command_def.alias
-            else:
-                cmd_set.add(cmd)
-        return list(cmd_set)
+        return self._harvest_commands(self.result_in(command), dereference_aliases, include_aliases)
 
-    def disabled_by(self, command: C) -> List[E | Tuple[E, int]]:
+    def disabled_by(self,
+                    command: C,
+                    dereference_aliases: bool = False,
+                    include_aliases: bool = True) -> List[E | Tuple[E, int]]:
         disabled = set()
         if command in self._toggles:
-            disabled.update(self._toggles[command])
-            for state in list(disabled):
-                disabled.update(self.caused_by(state))
+            disabled.update(self._harvest_commands(self._toggles[command], dereference_aliases, include_aliases))
+            for state in list(disabled):  # as we may add items, we need to loop over as copy
+                disabled.update(self._harvest_commands(self.caused_by(state), dereference_aliases, include_aliases))
         return list(disabled)
 
     def toggles(self, actor: C, *toggles: E) -> None:

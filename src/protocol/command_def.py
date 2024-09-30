@@ -24,12 +24,14 @@ class CommandDef(ABC):
                  d_max: int = 0,
                  d_map: Dict[int, int] = None,
                  do_reverse_lookup: bool = True,
-                 alias: str | Tuple[str, int] = None) -> None:
+                 alias: str = None,
+                 data: int = None) -> None:
         self._command_bits: int = command_bits
         self._is_addressable = is_addressable
         self._num_address_bits = num_address_bits
         self._do_reverse_lookup = do_reverse_lookup
-        self._alias: str | Tuple[str, int] = alias if alias else None
+        self._alias: str = alias.strip().upper() if alias else None
+        self._data: int = data
         self._d_min = d_min
         self._d_max = d_max
         self._d_map = d_map

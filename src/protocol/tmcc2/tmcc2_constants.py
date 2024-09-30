@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 from enum import verify, UNIQUE
-from typing import Dict
+from typing import Dict, Tuple
 
 from src.protocol.command_def import CommandDef, CommandDefEnum
 from src.protocol.constants import CommandPrefix, CommandScope, RELATIVE_SPEED_MAP, CommandSyntax, OfficialRRSpeeds, \
@@ -61,8 +61,9 @@ class TMCC2CommandDef(CommandDef):
                  d_min: int = 0,
                  d_max: int = 0,
                  d_map: Dict[int, int] = None,
-                 alias: str = None) -> None:
-        super().__init__(command_bits, is_addressable, d_min=d_min, d_max=d_max, d_map=d_map, alias=alias)
+                 alias: str = None,
+                 data: int = None) -> None:
+        super().__init__(command_bits, is_addressable, d_min=d_min, d_max=d_max, d_map=d_map, alias=alias, data=data)
         self._scope = scope
 
     @property
@@ -89,8 +90,17 @@ class TMCC2CommandDef(CommandDef):
             return DEFAULT_ADDRESS
 
     @property
-    def alias(self) -> TMCC2EngineCommandDef:
-        return TMCC2EngineCommandDef.by_name(self._alias) if self._alias else None
+    def alias(self) -> TMCC2EngineCommandDef | Tuple[TMCC2EngineCommandDef, int] | None:
+        if self._alias is not None:
+            if isinstance(self._alias, str):
+                alias = TMCC2EngineCommandDef.by_name(self._alias, raise_exception=True)
+                if self._data is None:
+                    return alias
+                else:
+                    return alias, self._data
+            else:
+                raise ValueError(f"Cannot classify {self._alias}")
+        return None
 
 
 TMCC2_HALT_COMMAND: int = 0x01AB
@@ -98,7 +108,7 @@ TMCC2_HALT_COMMAND: int = 0x01AB
 
 @verify(UNIQUE)
 class TMCC2HaltCommandDef(TMCC2Enum):
-    HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND, CommandScope.ENGINE, alias="SYSTEM_HALT")
+    HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND, CommandScope.ENGINE, alias="SYSTEM_HALT", data=99)
 
 
 # The TMCC2 route command is an undocumented "extended block command" (0xFA)
@@ -245,21 +255,27 @@ class TMCC2EngineCommandDef(TMCC2Enum):
     REVERSE_DIRECTION = TMCC2CommandDef(TMCC2_REVERSE_DIRECTION_COMMAND)
     RING_BELL = TMCC2CommandDef(TMCC2_RING_BELL_COMMAND)
     SET_ADDRESS = TMCC2CommandDef(TMCC2_SET_ADDRESS_COMMAND)
-    SHUTDOWN_DELAYED = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 5, alias="NUMERIC")
-    RESET = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 0, alias="NUMERIC")
+    SHUTDOWN_DELAYED = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 5, alias="NUMERIC", data=5)
+    RESET = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 0, alias="NUMERIC", data=0)
     # SHUTDOWN_DELAYED = TMCC2CommandDef(TMCC2_SHUTDOWN_SEQ_ONE_COMMAND)
     SHUTDOWN_IMMEDIATE = TMCC2CommandDef(TMCC2_SHUTDOWN_SEQ_TWO_COMMAND)
     SOUND_OFF = TMCC2CommandDef(TMCC2_SOUND_OFF_COMMAND)
     SOUND_ON = TMCC2CommandDef(TMCC2_SOUND_ON_COMMAND)
-    SPEED_HIGHBALL = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_HIGHBALL_SPEED, alias="ABSOLUTE_SPEED")
-    SPEED_LIMITED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_LIMITED_SPEED, alias="ABSOLUTE_SPEED")
-    SPEED_MEDIUM = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_MEDIUM_SPEED, alias="ABSOLUTE_SPEED")
-    SPEED_NORMAL = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_NORMAL_SPEED, alias="ABSOLUTE_SPEED")
+    SPEED_HIGHBALL = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_HIGHBALL_SPEED,
+                                     alias="ABSOLUTE_SPEED", data=TMCC2_HIGHBALL_SPEED)
+    SPEED_LIMITED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_LIMITED_SPEED,
+                                    alias="ABSOLUTE_SPEED", data=TMCC2_LIMITED_SPEED)
+    SPEED_MEDIUM = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_MEDIUM_SPEED,
+                                   alias="ABSOLUTE_SPEED", data=TMCC2_MEDIUM_SPEED)
+    SPEED_NORMAL = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_NORMAL_SPEED,
+                                   alias="ABSOLUTE_SPEED", data=TMCC2_NORMAL_SPEED)
     SPEED_RESTRICTED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_RESTRICTED_SPEED,
-                                       alias="ABSOLUTE_SPEED")
-    SPEED_ROLL = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_ROLL_SPEED, alias="ABSOLUTE_SPEED")
-    SPEED_SLOW = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_SLOW_SPEED, alias="ABSOLUTE_SPEED")
-    SPEED_STOP_HOLD = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, alias="ABSOLUTE_SPEED")
+                                       alias="ABSOLUTE_SPEED", data=TMCC2_RESTRICTED_SPEED)
+    SPEED_ROLL = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_ROLL_SPEED,
+                                 alias="ABSOLUTE_SPEED", data=TMCC2_ROLL_SPEED)
+    SPEED_SLOW = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_SLOW_SPEED,
+                                 alias="ABSOLUTE_SPEED", data=TMCC2_SLOW_SPEED)
+    SPEED_STOP_HOLD = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, alias="ABSOLUTE_SPEED", data=0)
     STALL = TMCC2CommandDef(TMCC2_STALL_COMMAND)
     START_UP_DELAYED = TMCC2CommandDef(TMCC2_START_UP_SEQ_ONE_COMMAND)
     START_UP_IMMEDIATE = TMCC2CommandDef(TMCC2_START_UP_SEQ_TWO_COMMAND)
@@ -268,5 +284,5 @@ class TMCC2EngineCommandDef(TMCC2Enum):
     TOGGLE_DIRECTION = TMCC2CommandDef(TMCC2_TOGGLE_DIRECTION_COMMAND)
     TRAIN_BRAKE = TMCC2CommandDef(TMCC2_SET_TRAIN_BRAKE_COMMAND, d_max=7)
     WATER_INJECTOR = TMCC2CommandDef(TMCC2_WATER_INJECTOR_SOUND_COMMAND)
-    VOLUME_UP = TMCC2CommandDef(TMCC2_VOLUME_UP_COMMAND_HACK, alias="NUMERIC")
-    VOLUME_DOWN = TMCC2CommandDef(TMCC2_VOLUME_DOWN_COMMAND_HACK, alias="NUMERIC")
+    VOLUME_UP = TMCC2CommandDef(TMCC2_VOLUME_UP_COMMAND_HACK, alias="NUMERIC", data=1)
+    VOLUME_DOWN = TMCC2CommandDef(TMCC2_VOLUME_DOWN_COMMAND_HACK, alias="NUMERIC", data=4)
