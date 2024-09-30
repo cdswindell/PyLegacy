@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 from collections import defaultdict
-from typing import List, TypeVar, Set
+from typing import List, TypeVar, Set, Tuple
 
 from src.comm.command_listener import CommandListener, Message, Topic, CommandDispatcher
 from src.db.component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
@@ -135,6 +135,7 @@ class CausesCache:
         control panel. For example, if an indicator light specifies an engine is set to Rev,
         sending the reset command would turn that light off.
     """
+
     def __init__(self) -> None:
         self._causes: dict[C, set[E]] = defaultdict(set)
         self._caused_bys: dict[E, Set[C]] = defaultdict(set)
@@ -142,26 +143,60 @@ class CausesCache:
         self._toggled_by: dict[E, set[C]] = defaultdict(set)
         self.initialize()
 
-    def causes(self, cause: C, *causes: E) -> None:
-        for result in causes:
+    def causes(self, cause: C, *results: E) -> None:
+        """
+            Define the results that are triggered when a cause command occurs
+        """
+        for result in results:
             self._causes[cause].add(result)
             self._caused_bys[result].add(cause)
 
-    def is_caused_by(self, command: E) -> List[C]:
-        if command in self._caused_bys:
-            return list(self._caused_bys[command])
-        else:
-            return []
-
-    def results_in(self, command: C) -> List[E]:
+    def caused_by(self, command: E) -> Set[C]:
         """
-            Given an effect, what could be the causes. We would want to
-            install listeners on these causes to reflect accurate stare
+            Returns a list of CommandDefEnums that can cause the given command to be issued.
+            These commands should be "listened for" to as indicators for this state change
+        """
+        if command in self._caused_bys:
+            causes = set(self._caused_bys[command])  # make a new set
+            if command not in causes:
+                causes.add(command)
+            return causes
+        else:
+            return {command}
+
+    def result_in(self, command: C) -> Set[E]:
+        """
+            Returns a list of the CommandDefEnums that result from issuing the given command.
         """
         if command in self._causes:
-            return list(self._causes[command])
+            results = set(self._causes[command])
+            if command not in results:
+                results.add(command)
+            return results
         else:
-            return []
+            return {command}
+
+    def enabled_by(self, command: C,
+                   dereference_aliases: bool = True,
+                   include_aliases: bool = True) -> List[E | Tuple[E, int]]:
+        cmd_set = set()
+        for cmd in self.result_in(command):
+            if cmd.is_alias:
+                if include_aliases:
+                    cmd_set.add(cmd)
+                if dereference_aliases:
+                    cmd.command_def.alias
+            else:
+                cmd_set.add(cmd)
+        return list(cmd_set)
+
+    def disabled_by(self, command: C) -> List[E | Tuple[E, int]]:
+        disabled = set()
+        if command in self._toggles:
+            disabled.update(self._toggles[command])
+            for state in list(disabled):
+                disabled.update(self.caused_by(state))
+        return list(disabled)
 
     def toggles(self, actor: C, *toggles: E) -> None:
         for toggled in toggles:
@@ -183,17 +218,12 @@ class CausesCache:
         self.causes(Engine2.RESET,
                     Engine2.SPEED_STOP_HOLD,
                     Engine2.FORWARD_DIRECTION,
-                    Engine2.START_UP_DELAYED,
+                    Engine2.START_UP_IMMEDIATE,
                     Engine2.BELL_OFF,
                     Engine2.DIESEL_RPM)
-        self.causes(Engine2.FORWARD_DIRECTION,
-                    Engine2.SPEED_STOP_HOLD,
-                    Engine2.FORWARD_DIRECTION)
-        self.causes(Engine2.REVERSE_DIRECTION,
-                    Engine2.SPEED_STOP_HOLD,
-                    Engine2.REVERSE_DIRECTION)
-        self.causes(Engine2.TOGGLE_DIRECTION,
-                    Engine2.SPEED_STOP_HOLD)
+        self.causes(Engine2.FORWARD_DIRECTION, Engine2.SPEED_STOP_HOLD)
+        self.causes(Engine2.REVERSE_DIRECTION, Engine2.SPEED_STOP_HOLD)
+        self.causes(Engine2.TOGGLE_DIRECTION, Engine2.SPEED_STOP_HOLD)
 
         # define command toggles; commands that are essentially mutually exclusive
         self.toggles(Switch.OUT, Switch.THROUGH)

@@ -293,10 +293,16 @@ class TestCommandReq(TestBase):
                             # if the enum is an alias for another command,
                             # check results against that command_def
                             alias_enum = tmcc_enum.command_def.alias
+                            if isinstance(alias_enum, tuple):
+                                alias_enum = alias_enum[0]
+                                alias_data = tmcc_enum.command_def.alias[1]
+                            else:
+                                alias_data = None
                             assert req_from_bytes.command == alias_enum
                             assert req_from_bytes.command_def == alias_enum.command_def
                             assert req_from_bytes.num_data_bits == alias_enum.command_def.num_data_bits
                             assert alias_enum.command_def.is_valid_data(req_from_bytes.data)
+                            assert alias_enum.command_def.is_valid_data(alias_data)
                         else:
                             assert req_from_bytes.command == req.command
                             assert req_from_bytes.command_def == req.command_def

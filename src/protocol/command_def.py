@@ -4,7 +4,7 @@ import abc
 import math
 from abc import ABC
 from enum import Enum
-from typing import Dict, Any, Self
+from typing import Dict, Any, Self, Tuple
 
 from .constants import CommandSyntax, CommandScope, Mixins
 
@@ -24,12 +24,12 @@ class CommandDef(ABC):
                  d_max: int = 0,
                  d_map: Dict[int, int] = None,
                  do_reverse_lookup: bool = True,
-                 alias: str = None) -> None:
+                 alias: str | Tuple[str, int] = None) -> None:
         self._command_bits: int = command_bits
         self._is_addressable = is_addressable
         self._num_address_bits = num_address_bits
         self._do_reverse_lookup = do_reverse_lookup
-        self._alias: str = alias if alias else None
+        self._alias: str | Tuple[str, int] = alias if alias else None
         self._d_min = d_min
         self._d_max = d_max
         self._d_map = d_map
@@ -162,7 +162,7 @@ class CommandDef(ABC):
 
     @property
     @abc.abstractmethod
-    def alias(self) -> CommandDefEnum | None:
+    def alias(self) -> CommandDefEnum | Tuple[CommandDefEnum, int] | None:
         return None
 
 
@@ -224,6 +224,10 @@ class CommandDefEnum(CommandDefMixins, Enum):
     @property
     def bits(self) -> int:
         return self.value.bits
+
+    @property
+    def is_alias(self) -> bool:
+        return self.command_def.is_alias
 
     @property
     def as_bytes(self) -> bytes:
