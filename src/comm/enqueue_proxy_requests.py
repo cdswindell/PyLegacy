@@ -60,7 +60,7 @@ class EnqueueProxyRequests(Thread):
         return self._buffer
 
     def run(self) -> None:
-        with socketserver.TCPServer(('localhost', self._port), EnqueueHandler) as server:
+        with socketserver.TCPServer(('', self._port), EnqueueHandler) as server:
             print(server)
             server.serve_forever()
         print("Server done)")
