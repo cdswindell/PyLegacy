@@ -1,4 +1,6 @@
-import socket
+from __future__ import annotations
+
+import socketserver
 import threading
 from threading import Thread
 
@@ -9,6 +11,25 @@ from src.protocol.constants import DEFAULT_SERVER_PORT
 class EnqueueProxyRequests(Thread):
     _instance = None
     _lock = threading.RLock()
+
+    @classmethod
+    def build(cls, buffer: CommBuffer, port: int = DEFAULT_SERVER_PORT) -> EnqueueProxyRequests:
+        """
+            Factory method to create a CommandListener instance
+        """
+        return EnqueueProxyRequests(buffer, port)
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def is_built(cls) -> bool:
+        return cls._instance is not None
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def comm_buffer(cls) -> CommBuffer:
+        return cls._instance.buffer if cls._instance is not None else None
 
     def __init__(self,
                  buffer: CommBuffer,
@@ -34,24 +55,39 @@ class EnqueueProxyRequests(Thread):
                 EnqueueProxyRequests._instance._initialized = False
             return EnqueueProxyRequests._instance
 
+    @property
+    def buffer(self) -> CommBuffer:
+        return self._buffer
+
     def run(self) -> None:
-        with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-            s.bind(('', self._port))
-            s.listen(1)
-            while True:
-                conn, addr = s.accept()
-                try:
-                    byte_stream = bytes()
-                    while True:
-                        data = conn.recv(128)
-                        if data:
-                            # print(f"Received data: {data.hex()}, sending ack")
-                            byte_stream += data
-                            conn.sendall(str.encode("ack"))
-                        else:
-                            # print("no more data from client")
-                            break
-                    # print(f"Received {byte_stream.hex()}")
-                    self._buffer.enqueue_command(byte_stream)
-                finally:
-                    conn.close()
+        with socketserver.TCPServer(('', self._port), EnqueueHandler) as server:
+            server.serve_forever()
+
+
+class EnqueueHandler(socketserver.StreamRequestHandler):
+    def handle(self):
+        data = self.rfile.readline().strip()
+        self.wfile.write(str.encode("ack"))
+        EnqueueProxyRequests.comm_buffer.enqueue_command(data)
+
+    # def run(self) -> None:
+    #     with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
+    #         s.bind(('', self._port))
+    #         s.listen(1)
+    #         while True:
+    #             conn, addr = s.accept()
+    #             try:
+    #                 byte_stream = bytes()
+    #                 while True:
+    #                     data = conn.recv(128)
+    #                     if data:
+    #                         # print(f"Received data: {data.hex()}, sending ack")
+    #                         byte_stream += data
+    #                         conn.sendall(str.encode("ack"))
+    #                     else:
+    #                         # print("no more data from client")
+    #                         break
+    #                 # print(f"Received {byte_stream.hex()}")
+    #                 self._buffer.enqueue_command(byte_stream)
+    #             finally:
+    #                 conn.close()
