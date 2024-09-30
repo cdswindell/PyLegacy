@@ -1,18 +1,70 @@
-from typing import List, TypeVar
+from __future__ import annotations
+
+import threading
+from collections import defaultdict
+from typing import List, TypeVar, Set
 
 from src.comm.command_listener import CommandListener, Message, Topic
 from src.db.component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
+from src.protocol.command_def import CommandDefEnum
 from src.protocol.constants import CommandScope, BROADCAST_ADDRESS
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_VALID_BAUDRATES
 
+from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef as Halt1
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as Engine1
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
+
+from ..protocol.tmcc2.tmcc2_constants import TMCC2HaltCommandDef as Halt2
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as Engine2
+
 T = TypeVar("T", bound=ComponentState)
+C = TypeVar("C", bound=CommandDefEnum)
+E = TypeVar("E", bound=CommandDefEnum)
 
 
 class ComponentStateStore:
+    _instance: ComponentStateStore = None
+    _lock = threading.RLock()
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def is_built(cls) -> bool:
+        return cls._instance is not None
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def is_running(cls) -> bool:
+        # noinspection PyProtectedMember
+        return cls._instance is not None and cls._instance._listener.is_running
+
+    @classmethod
+    def reset(cls) -> None:
+        with cls._lock:
+            if cls._instance:
+                cls._instance._state.clear()
+
+    def __new__(cls, *args, **kwargs):
+        """
+            Provides singleton functionality. We only want one instance
+            of this class in a process
+        """
+        with cls._lock:
+            if ComponentStateStore._instance is None:
+                ComponentStateStore._instance = super(ComponentStateStore, cls).__new__(cls)
+                ComponentStateStore._instance._initialized = False
+            return ComponentStateStore._instance
+
     def __init__(self,
                  topics: List[str | CommandScope] = None,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT) -> None:
+        if self._initialized:
+            return
+        else:
+            self._initialized = True
         if baudrate not in DEFAULT_VALID_BAUDRATES:
             raise ValueError(f'Baudrate {baudrate} is not valid')
         self._baudrate = baudrate
@@ -80,3 +132,66 @@ class ComponentStateStore:
                 return self._state[scope][address]
         else:
             return None
+
+
+class CausesCache:
+    """
+        Manages relationships between TMCC Commands. For example, sending the Reset command
+        (number 0) to an engine causes the following results:
+            - speed is set to zero
+            - direction is set to Fwd
+            - bell is disabled
+            - engine rpm set to 0
+            - engine labor set to 12
+            - engine starts up immediately
+        The reverse mapping, results to causes, is used to maintain a consistent state on a
+        control panel. For example, if an indicator light specifies an engine is set to Rev,
+        sending the reset command would turn that light off.
+    """
+    def __init__(self) -> None:
+        self._causes: dict[C, set[E]] = defaultdict(set)
+        self._caused_bys: dict[E, Set[C]] = defaultdict(set)
+        self.initialize()
+
+    def causes(self, cause: C, *causes: E) -> None:
+        for result in causes:
+            self._causes[cause].add(result)
+            self._caused_bys[result].add(cause)
+
+    def is_caused_by(self, command: C) -> List[E]:
+        if command in self._caused_bys:
+            return list(self._caused_bys[command])
+        else:
+            return []
+
+    def results_in(self, command: E) -> List[C]:
+        if command in self._causes:
+            return list(self._causes[command])
+        else:
+            return []
+
+    def initialize(self) -> None:
+        self._causes.clear()
+        self._caused_bys.clear()
+
+        # Halt command
+        self.causes(Halt1.HALT,
+                    Engine1.SPEED_STOP_HOLD,
+                    Engine2.SPEED_STOP_HOLD,
+                    Aux.AUX2_OFF,
+                    Aux.AUX1_OFF)
+        # Engine commands, starting with Reset (Number 0)
+        self.causes(Engine2.RESET,
+                    Engine2.SPEED_STOP_HOLD,
+                    Engine2.FORWARD_DIRECTION,
+                    Engine2.START_UP_DELAYED,
+                    Engine2.BELL_OFF,
+                    Engine2.DIESEL_RPM)
+        self.causes(Engine2.FORWARD_DIRECTION,
+                    Engine2.SPEED_STOP_HOLD,
+                    Engine2.FORWARD_DIRECTION)
+        self.causes(Engine2.REVERSE_DIRECTION,
+                    Engine2.SPEED_STOP_HOLD,
+                    Engine2.REVERSE_DIRECTION)
+        self.causes(Engine2.TOGGLE_DIRECTION,
+                    Engine2.SPEED_STOP_HOLD)

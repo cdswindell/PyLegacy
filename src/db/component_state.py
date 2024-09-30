@@ -172,6 +172,7 @@ class EngineState(ComponentState):
         self._number: int | None = None
         self._started = None
         self._speed: int | None = None
+        self._fwd: bool | None = None
 
     def update(self, command: CommandReq) -> None:
         if command:

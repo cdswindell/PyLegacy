@@ -1,4 +1,5 @@
 import socket
+import threading
 from threading import Thread
 
 from src.comm.comm_buffer import CommBuffer
@@ -7,11 +8,16 @@ from src.protocol.constants import DEFAULT_SERVER_PORT
 
 class EnqueueProxyRequests(Thread):
     _instance = None
+    _lock = threading.RLock()
 
     def __init__(self,
                  buffer: CommBuffer,
                  port: int = DEFAULT_SERVER_PORT
                  ) -> None:
+        if self._initialized:
+            return
+        else:
+            self._initialized = True
         super().__init__(daemon=True, name="PyLegacy Enqueue Receiver")
         self._buffer = buffer
         self._port = port
@@ -22,9 +28,11 @@ class EnqueueProxyRequests(Thread):
             Provides singleton functionality. We only want one instance
             of this class in the system
         """
-        if not cls._instance:
-            cls._instance = super(EnqueueProxyRequests, cls).__new__(cls)
-        return cls._instance
+        with cls._lock:
+            if EnqueueProxyRequests._instance is None:
+                EnqueueProxyRequests._instance = super(EnqueueProxyRequests, cls).__new__(cls)
+                EnqueueProxyRequests._instance._initialized = False
+            return EnqueueProxyRequests._instance
 
     def run(self) -> None:
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
@@ -33,7 +41,7 @@ class EnqueueProxyRequests(Thread):
             while True:
                 conn, addr = s.accept()
                 try:
-                    # print(f"Connected {conn} {addr}")
+                    print(f"Connected {conn} {addr}")
                     byte_stream = bytes()
                     while True:
                         data = conn.recv(128)
