@@ -23,7 +23,8 @@ class EnqueueProxyRequests(Thread):
     @classmethod
     def note_client_addr(cls, client: str) -> None:
         if cls._instance is not None:
-            cls._instance.clients.add(client)
+            # noinspection PyProtectedMember
+            cls._instance._clients.add(client)
 
     @classmethod
     def get_comm_buffer(cls) -> CommBuffer:
