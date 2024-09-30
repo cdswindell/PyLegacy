@@ -3,6 +3,7 @@ from __future__ import annotations
 import socketserver
 import threading
 from threading import Thread
+from typing import List
 
 from src.comm.comm_buffer import CommBuffer
 from src.protocol.constants import DEFAULT_SERVER_PORT
@@ -22,8 +23,12 @@ class EnqueueProxyRequests(Thread):
     @classmethod
     def note_client_addr(cls, client: str) -> None:
         if cls._instance is not None:
-            print(f"Client: {client}")
             cls._instance.clients.add(client)
+
+    @classmethod
+    def get_comm_buffer(cls) -> CommBuffer:
+        # noinspection PyProtectedMember
+        return cls._instance._buffer if cls._instance is not None else None
 
     @classmethod
     def stop(cls) -> None:
@@ -36,9 +41,12 @@ class EnqueueProxyRequests(Thread):
     def is_built(cls) -> bool:
         return cls._instance is not None
 
+    # noinspection PyPropertyDefinition
     @classmethod
-    def get_comm_buffer(cls) -> CommBuffer:
-        return cls._instance.buffer if cls._instance is not None else None
+    @property
+    def clients(cls) -> List[str]:
+        # noinspection PyProtectedMember
+        return list(cls._instance._clients)
 
     def __init__(self,
                  buffer: CommBuffer,
@@ -51,7 +59,7 @@ class EnqueueProxyRequests(Thread):
         super().__init__(daemon=True, name="PyLegacy Enqueue Receiver")
         self._buffer: CommBuffer = buffer
         self._port = port
-        self.clients: set[str] = set()
+        self._clients: set[str] = set()
         self.start()
 
     def __new__(cls, *args, **kwargs):
@@ -65,15 +73,14 @@ class EnqueueProxyRequests(Thread):
                 EnqueueProxyRequests._instance._initialized = False
             return EnqueueProxyRequests._instance
 
-    @property
-    def buffer(self) -> CommBuffer:
-        return self._buffer
-
     def run(self) -> None:
+        """
+            Simplified TCP/IP Server listens for command requests from client and executes them
+            on the PyTrain server.
+        """
         # noinspection PyTypeChecker
         with socketserver.TCPServer(('', self._port), EnqueueHandler) as server:
             server.serve_forever()
-        print("Server done)")
 
     def shutdown(self) -> None:
         # noinspection PyTypeChecker

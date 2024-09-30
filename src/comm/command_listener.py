@@ -6,6 +6,7 @@ from queue import Queue
 from threading import Thread
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
+from .enqueue_proxy_requests import EnqueueProxyRequests
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
@@ -293,10 +294,18 @@ class _CommandDispatcher(Thread):
                         self.publish(cmd.scope, cmd)
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)
+                    # update state on all clients
+                    self.update_client_state(cmd)
             except Exception as e:
                 print(e)
             finally:
                 self._queue.task_done()
+
+    @staticmethod
+    def update_client_state(cmd):
+        # noinspection PyTypeChecker
+        for client in EnqueueProxyRequests.clients:
+            print(f"Updating client {client} {cmd}")
 
     @property
     def broadcasts_enabled(self) -> bool:
