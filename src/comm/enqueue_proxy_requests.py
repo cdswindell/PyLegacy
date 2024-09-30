@@ -49,6 +49,15 @@ class EnqueueProxyRequests(Thread):
         # noinspection PyProtectedMember
         return list(cls._instance._clients)
 
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def port(cls) -> int:
+        if cls._instance is not None:
+            # noinspection PyProtectedMember
+            return cls._instance._port
+        raise AttributeError("EnqueueProxyRequests is not built yet.")
+
     def __init__(self,
                  buffer: CommBuffer,
                  port: int = DEFAULT_SERVER_PORT

@@ -276,7 +276,7 @@ class CommandDispatcher(Thread):
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
         self._is_server = CommBuffer.is_server
-        self._server_port = CommBuffer.client_port if CommBuffer.is_client else None
+        self._client_port = EnqueueProxyRequests.port if CommBuffer.is_server else None
         self.start()
 
     def run(self) -> None:
@@ -319,7 +319,7 @@ class CommandDispatcher(Thread):
             # noinspection PyTypeChecker
             for client in EnqueueProxyRequests.clients:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.connect((client, self._server_port))
+                    s.connect((client, self._client_port))
                     s.sendall(command.as_bytes)
                     _ = s.recv(16)
 
