@@ -98,7 +98,7 @@ class EnqueueProxyRequests(Thread):
 
 class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
-        print(f"{self.client_address}, {type(self.client_address)[0]}")
+        print(f"{self.client_address}, {type(self.client_address[0])}")
 
         byte_stream = bytes()
         while True:
