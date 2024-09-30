@@ -68,7 +68,9 @@ class EnqueueProxyRequests(Thread):
 
 class EnqueueHandler(socketserver.StreamRequestHandler):
     def handle(self):
+        print(f"in handler {EnqueueProxyRequests.comm_buffer}")
         data = self.rfile.readline().strip()
+        print(f"Handler received: {data.hex()}")
         self.wfile.write(str.encode("ack"))
         EnqueueProxyRequests.comm_buffer.enqueue_command(data)
 
