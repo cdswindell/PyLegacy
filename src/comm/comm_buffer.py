@@ -114,8 +114,8 @@ class CommBuffer(abc.ABC):
     def join(self) -> None:
         pass
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def server_port(self) -> int | None:
         pass
 
