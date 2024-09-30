@@ -8,6 +8,19 @@ from src.comm.comm_buffer import CommBuffer
 from src.protocol.constants import DEFAULT_SERVER_PORT
 
 
+class EnqueueHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        byte_stream = bytes()
+        while True:
+            data = self.request.recv(128)
+            if data:
+                byte_stream += data
+                self.request.sendall(str.encode("ack"))
+            else:
+                break
+        EnqueueProxyRequests.get_comm_buffer().enqueue_command(byte_stream)
+
+
 class EnqueueProxyRequests(Thread):
     _instance = None
     _lock = threading.RLock()
@@ -19,16 +32,19 @@ class EnqueueProxyRequests(Thread):
         """
         return EnqueueProxyRequests(buffer, port)
 
+    @classmethod
+    def stop(cls) -> None:
+        if cls._instance is not None:
+            cls._instance.shutdown()
+
     # noinspection PyPropertyDefinition
     @classmethod
     @property
     def is_built(cls) -> bool:
         return cls._instance is not None
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
-    def comm_buffer(cls) -> CommBuffer:
+    def get_comm_buffer(cls) -> CommBuffer:
         return cls._instance.buffer if cls._instance is not None else None
 
     def __init__(self,
@@ -40,7 +56,7 @@ class EnqueueProxyRequests(Thread):
         else:
             self._initialized = True
         super().__init__(daemon=True, name="PyLegacy Enqueue Receiver")
-        self._buffer = buffer
+        self._buffer: CommBuffer = buffer
         self._port = port
         self.start()
 
@@ -60,19 +76,16 @@ class EnqueueProxyRequests(Thread):
         return self._buffer
 
     def run(self) -> None:
+        # noinspection PyTypeChecker
         with socketserver.TCPServer(('', self._port), EnqueueHandler) as server:
             print(server)
             server.serve_forever()
         print("Server done)")
 
-
-class EnqueueHandler(socketserver.StreamRequestHandler):
-    def handle(self):
-        print(f"in handler {EnqueueProxyRequests.comm_buffer}")
-        data = self.rfile.readline().strip()
-        print(f"Handler received: {data.hex()}")
-        self.wfile.write(str.encode("ack"))
-        EnqueueProxyRequests.comm_buffer.enqueue_command(data)
+    def shutdown(self) -> None:
+        # noinspection PyTypeChecker
+        with socketserver.TCPServer(('', self._port), EnqueueHandler) as server:
+            server.shutdown()
 
     # def run(self) -> None:
     #     with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:

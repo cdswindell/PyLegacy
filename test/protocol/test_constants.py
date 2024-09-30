@@ -1,3 +1,4 @@
+# noinspection PyPackageRequirements
 import pytest
 
 from src.protocol.tmcc2.param_constants import *

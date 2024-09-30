@@ -1,6 +1,7 @@
 import re
 from unittest import mock
 
+# noinspection PyPackageRequirements
 import pytest
 
 from src.comm.comm_buffer import CommBufferSingleton, CommBuffer

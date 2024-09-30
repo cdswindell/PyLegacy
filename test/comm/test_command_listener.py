@@ -2,6 +2,7 @@ import threading
 import time
 from collections import deque
 
+# noinspection PyPackageRequirements
 import pytest
 
 # noinspection PyProtectedMember

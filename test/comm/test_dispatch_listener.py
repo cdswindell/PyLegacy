@@ -4,6 +4,7 @@ from collections import defaultdict
 from queue import Queue
 from typing import Any
 
+# noinspection PyPackageRequirements
 import pytest
 
 # noinspection PyProtectedMember

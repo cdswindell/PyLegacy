@@ -1,3 +1,4 @@
+# noinspection PyPackageRequirements
 import pytest
 
 from src.protocol.command_base import CommandBase
