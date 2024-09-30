@@ -8,19 +8,6 @@ from src.comm.comm_buffer import CommBuffer
 from src.protocol.constants import DEFAULT_SERVER_PORT
 
 
-class EnqueueHandler(socketserver.BaseRequestHandler):
-    def handle(self):
-        byte_stream = bytes()
-        while True:
-            data = self.request.recv(128)
-            if data:
-                byte_stream += data
-                self.request.sendall(str.encode("ack"))
-            else:
-                break
-        EnqueueProxyRequests.get_comm_buffer().enqueue_command(byte_stream)
-
-
 class EnqueueProxyRequests(Thread):
     _instance = None
     _lock = threading.RLock()
@@ -78,7 +65,6 @@ class EnqueueProxyRequests(Thread):
     def run(self) -> None:
         # noinspection PyTypeChecker
         with socketserver.TCPServer(('', self._port), EnqueueHandler) as server:
-            print(server)
             server.serve_forever()
         print("Server done)")
 
@@ -108,3 +94,18 @@ class EnqueueProxyRequests(Thread):
     #                 self._buffer.enqueue_command(byte_stream)
     #             finally:
     #                 conn.close()
+
+
+class EnqueueHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        print(f"{self.client_address}, {type(self.client_address)[1]} {dir(self.client_address[1])}")
+
+        byte_stream = bytes()
+        while True:
+            data = self.request.recv(128)
+            if data:
+                byte_stream += data
+                self.request.sendall(str.encode("ack"))
+            else:
+                break
+        EnqueueProxyRequests.get_comm_buffer().enqueue_command(byte_stream)
