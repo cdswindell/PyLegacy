@@ -41,7 +41,6 @@ class EnqueueProxyRequests(Thread):
             while True:
                 conn, addr = s.accept()
                 try:
-                    print(f"Connected {conn} {addr}")
                     byte_stream = bytes()
                     while True:
                         data = conn.recv(128)

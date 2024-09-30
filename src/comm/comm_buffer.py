@@ -12,7 +12,7 @@ from typing import Self
 import serial
 from serial.serialutil import SerialException
 
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
 from ..protocol.constants import DEFAULT_THROTTLE_DELAY, DEFAULT_SERVER_PORT
 
 
@@ -97,6 +97,8 @@ class CommBufferSingleton(CommBuffer, Thread):
             return
         else:
             self._initialized = True
+        if baudrate not in DEFAULT_VALID_BAUDRATES:
+            raise ValueError(f"Invalid baudrate: {baudrate}")
         super().__init__(daemon=False, name="PyLegacy Comm Buffer")
         self._baudrate = baudrate
         self._port = port
@@ -189,16 +191,10 @@ class CommBufferProxy(CommBuffer):
         if delay > 0:
             self._scheduler.schedule(delay, command)
         else:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect((str(self._server), self._port))
-            try:
-                # print(f"sending command 0x{command.hex()}")
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((str(self._server), self._port))
                 s.sendall(command)
-                # print("Waiting for ACK...")
-                _ = s.recv(16)
-                # print(f"CommBufferProxy.enqueue_command({command}) {_}")
-            finally:
-                s.close()
+                _ = s.recv(16)  # we don't care about the response
 
     def shutdown(self, immediate: bool = False) -> None:
         pass
