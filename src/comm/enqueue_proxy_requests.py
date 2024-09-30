@@ -20,6 +20,12 @@ class EnqueueProxyRequests(Thread):
         return EnqueueProxyRequests(buffer, port)
 
     @classmethod
+    def note_client_addr(cls, client: str) -> None:
+        if cls._instance is not None:
+            print(f"Client: {client}")
+            cls._instance.clients.add(client)
+
+    @classmethod
     def stop(cls) -> None:
         if cls._instance is not None:
             cls._instance.shutdown()
@@ -45,6 +51,7 @@ class EnqueueProxyRequests(Thread):
         super().__init__(daemon=True, name="PyLegacy Enqueue Receiver")
         self._buffer: CommBuffer = buffer
         self._port = port
+        self.clients: set[str] = set()
         self.start()
 
     def __new__(cls, *args, **kwargs):
@@ -98,8 +105,6 @@ class EnqueueProxyRequests(Thread):
 
 class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
-        print(f"{self.client_address}, {type(self.client_address[0])}")
-
         byte_stream = bytes()
         while True:
             data = self.request.recv(128)
@@ -108,4 +113,5 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(str.encode("ack"))
             else:
                 break
+        EnqueueProxyRequests.note_client_addr(self.client_address[0])
         EnqueueProxyRequests.get_comm_buffer().enqueue_command(byte_stream)
