@@ -293,7 +293,7 @@ class CommandDispatcher(Thread):
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
-        self._client_port = EnqueueProxyRequests.port if CommBuffer.is_built and CommBuffer.is_server else None
+        self._client_port = EnqueueProxyRequests.port if EnqueueProxyRequests.is_built else None
         self.start()
 
     def run(self) -> None:

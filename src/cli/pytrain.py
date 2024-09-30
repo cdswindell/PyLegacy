@@ -50,14 +50,14 @@ class PyTrain:
         if isinstance(self.buffer, CommBufferSingleton):
             print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
             # listen for client connections, unless user used --no_clients flag
-            self._listener = CommandListener.build()
             if not self._args.no_clients:
                 print(f"Listening for client connections on port {self._args.server_port}...")
                 self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
+                self._listener = CommandListener.build()
         else:
-            self._listener = ComponentStateListener.build(self._args.server_port)
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             print(f"Listening for state updates on {self._args.server_port}...")
+            self._listener = ComponentStateListener.build(self._args.server_port)
         # register listeners
         self._state_store: ComponentStateStore = ComponentStateStore(listener=self._listener)
         if self._args.echo:
