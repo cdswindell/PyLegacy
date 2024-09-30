@@ -193,7 +193,7 @@ class CommBufferProxy(CommBuffer):
         else:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((str(self._server), self._port))
-                s.sendall(command)
+                s.sendall(command + str.encode("\n"))
                 _ = s.recv(16)  # we don't care about the response
 
     def shutdown(self, immediate: bool = False) -> None:
