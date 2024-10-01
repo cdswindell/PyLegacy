@@ -38,6 +38,7 @@ class ComponentState(ABC):
     def results_in(self, command: CommandReq) -> Set[E]:
         deps = self._dependencies.results_in(command.command)
         if command.is_data:
+            # noinspection PyTypeChecker
             deps.update(self._dependencies.results_in((command.command, command.data)))
         return deps
 
@@ -206,7 +207,6 @@ class EngineState(ComponentState):
         return command.command in DIRECTIONS_SET
 
     def update(self, command: CommandReq) -> None:
-        print(f"Update: {command}")
         if command:
             super().update(command)
         # handle direction
@@ -214,8 +214,6 @@ class EngineState(ComponentState):
             self._direction = command.command
 
         cmd_effects = self.results_in(command)
-        print(cmd_effects)
-        print(cmd_effects & DIRECTIONS_SET)
         if cmd_effects & DIRECTIONS_SET:
             self._direction = list(cmd_effects & DIRECTIONS_SET)[0]
 

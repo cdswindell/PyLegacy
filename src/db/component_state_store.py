@@ -253,7 +253,6 @@ class DependencyCache:
         """
             Returns a list of the CommandDefEnums that result from issuing the given command.
         """
-        print(f"results in command: {command}")
         if command in self._causes:
             results = set(self._causes[command])
             if command not in results:
