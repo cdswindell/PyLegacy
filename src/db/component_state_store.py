@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import List, TypeVar, Set, Tuple
 
 from .component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
-from .component_state_listener import ComponentStateListener
+from .client_state_listener import ClientStateListener
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Topic, CommandDispatcher, Subscriber
 from ..protocol.command_def import CommandDefEnum
@@ -164,7 +164,7 @@ class DependencyCache:
             if CommBuffer.is_server:
                 listener = CommandListener.build()
             elif CommBuffer.is_client:
-                listener = ComponentStateListener.build()
+                listener = ClientStateListener.build()
             else:
                 raise AttributeError("CommBuffer must be server or client")
             for enabler in cls._instance.enabled_by(request.command, dereference_aliases=True, include_aliases=False):
@@ -179,7 +179,7 @@ class DependencyCache:
             if CommBuffer.is_server:
                 listener = CommandListener.build()
             elif CommBuffer.is_client:
-                listener = ComponentStateListener.build()
+                listener = ClientStateListener.build()
             else:
                 raise AttributeError("CommBuffer must be server or client")
             for disabler in cls._instance.disabled_by(request.command, dereference_aliases=True, include_aliases=False):
@@ -232,6 +232,9 @@ class DependencyCache:
         for result in results:
             self._causes[cause].add(result)
             self._caused_bys[result].add(cause)
+        # if the cause is an aliased command, register the base command
+        if cause.is_alias:
+            self.causes(cause.alias, *results)
 
     def caused_by(self, command: E) -> Set[C]:
         """

@@ -4,12 +4,21 @@ import abc
 from abc import ABC
 from collections import defaultdict
 from datetime import datetime
-from typing import Tuple
+from typing import Tuple, TypeVar, Set
 
+from .component_state_store import DependencyCache
+from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef, TMCC1EngineCommandDef
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+
+C = TypeVar("C", bound=CommandDefEnum)
+E = TypeVar("E", bound=CommandDefEnum)
+
+DIRECTIONS_SET = {TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION,
+                  TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION}
 
 
 class ComponentState(ABC):
@@ -20,9 +29,13 @@ class ComponentState(ABC):
         self._last_command: CommandReq | None = None
         self._last_updated: datetime | None = None
         self._address: int | None = None
+        self._dependencies = DependencyCache.build()
 
     def __repr__(self) -> str:
         return f"{self.scope.name} {self._address}"
+
+    def results_in(self, command: CommandReq) -> Set[E]:
+        return self._dependencies.results_in(command.command)
 
     @property
     def scope(self) -> CommandScope:
@@ -58,6 +71,7 @@ class SwitchState(ComponentState):
     """
         Maintain the perceived state of a Switch
     """
+
     def __init__(self, scope: CommandScope = CommandScope.SWITCH) -> None:
         if scope != CommandScope.SWITCH:
             raise ValueError(f"Invalid scope: {scope}")
@@ -172,11 +186,32 @@ class EngineState(ComponentState):
         self._number: int | None = None
         self._started = None
         self._speed: int | None = None
-        self._fwd: bool | None = None
+        self._direction: CommandDefEnum | None = None
+
+    def __repr__(self) -> str:
+        if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
+            direction = "FORWARD"
+        elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
+            direction = "REVERSE"
+        else:
+            direction = "<Unknown>"
+        return f"{self.scope.name} {self._address} {direction}"
+
+    @staticmethod
+    def is_direction_related(command: CommandReq) -> bool:
+        return command.command in DIRECTIONS_SET
 
     def update(self, command: CommandReq) -> None:
+        print(f"Update: {command}")
         if command:
             super().update(command)
+        # handle direction
+        if self.is_direction_related(command):
+            self._direction = command.command
+
+        cmd_effects = self.results_in(command)
+        if cmd_effects & DIRECTIONS_SET:
+            self._direction = list(cmd_effects & DIRECTIONS_SET)[0]
 
 
 class TrainState(EngineState):
@@ -198,6 +233,7 @@ class SystemStateDict(defaultdict):
     """
         Maintains a dictionary of CommandScope to ComponentStateDict
     """
+
     def __missing__(self, key: CommandScope | Tuple[CommandScope, int]) -> ComponentStateDict:
         """
             generate a ComponentState object for the dictionary, based on the key

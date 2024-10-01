@@ -133,6 +133,7 @@ class GpioHandler:
         # ON button, and turned off by pressing the OFF button
         if led_pin is not None and led_pin != 0:
             led = LED(led_pin)
+            led.on()
         else:
             led = None
 
@@ -144,7 +145,6 @@ class GpioHandler:
         off_action = off_command.as_action(baudrate=baudrate, port=port, server=server)
         on_action = on_command.as_action(baudrate=baudrate, port=port, server=server)
         if led is not None:
-            led.on()
             off_button.when_pressed = cls._with_off_action(off_action, led)
             on_button.when_pressed = cls._with_on_action(on_action, led)
 

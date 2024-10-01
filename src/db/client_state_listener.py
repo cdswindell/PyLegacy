@@ -8,13 +8,13 @@ from ..comm.command_listener import CommandListener, Subscriber, Topic
 from ..protocol.command_def import CommandDefEnum
 
 
-class ComponentStateListener(threading.Thread):
+class ClientStateListener(threading.Thread):
     _instance = None
     _lock = threading.RLock()
 
     @classmethod
-    def build(cls) -> ComponentStateListener:
-        return ComponentStateListener()
+    def build(cls) -> ClientStateListener:
+        return ClientStateListener()
 
     @classmethod
     def listen_for(cls,
@@ -42,10 +42,10 @@ class ComponentStateListener(threading.Thread):
             of this class in the system
         """
         with cls._lock:
-            if ComponentStateListener._instance is None:
-                ComponentStateListener._instance = super(ComponentStateListener, cls).__new__(cls)
-                ComponentStateListener._instance._initialized = False
-            return ComponentStateListener._instance
+            if ClientStateListener._instance is None:
+                ClientStateListener._instance = super(ClientStateListener, cls).__new__(cls)
+                ClientStateListener._instance._initialized = False
+            return ClientStateListener._instance
 
     def run(self) -> None:
         # noinspection PyTypeChecker
@@ -82,4 +82,4 @@ class ClientStateHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(str.encode("ack"))
             else:
                 break
-        ComponentStateListener.build().offer(byte_stream)
+        ClientStateListener.build().offer(byte_stream)

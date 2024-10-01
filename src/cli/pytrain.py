@@ -22,7 +22,7 @@ from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
 from src.comm.command_listener import CommandListener
 from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
-from src.db.component_state_listener import ComponentStateListener
+from src.db.client_state_listener import ClientStateListener
 from src.db.component_state_store import ComponentStateStore
 from src.gpio.gpio_handler import GpioHandler
 from src.protocol.command_req import CommandReq
@@ -39,7 +39,7 @@ class PyTrain:
         self._startup_script = args.startup_script
         self._baudrate = args.baudrate
         self._port = args.port
-        self._listener: CommandListener | ComponentStateListener
+        self._listener: CommandListener | ClientStateListener
         self._receiver = None
         self._state_store = None
         self._echo = args.echo
@@ -57,7 +57,7 @@ class PyTrain:
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             print(f"Listening for state updates on {self._args.server_port}...")
-            self._listener = ComponentStateListener.build()
+            self._listener = ClientStateListener.build()
         # register listeners
         self._state_store: ComponentStateStore = ComponentStateStore(listener=self._listener)
         if self._args.echo:
