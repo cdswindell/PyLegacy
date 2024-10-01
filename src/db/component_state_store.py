@@ -225,6 +225,7 @@ class DependencyCache:
                     cmd_set.add(cmd.command_def.alias)
             else:
                 cmd_set.add(cmd)
+        print(f"Harvested commands: {cmd_set}")
         return list(cmd_set)
 
     def causes(self, cause: C, *results: E) -> None:

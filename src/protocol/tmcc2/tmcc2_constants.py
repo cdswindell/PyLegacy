@@ -94,12 +94,13 @@ class TMCC2CommandDef(CommandDef):
         if self._alias is not None:
             if isinstance(self._alias, str):
                 alias = TMCC2EngineCommandDef.by_name(self._alias, raise_exception=True)
-                if self._data is None:
-                    return alias
-                else:
-                    return alias, self._data
             else:
                 raise ValueError(f"Cannot classify {self._alias}")
+            print(f"{self._alias}: {alias} {self._data} ")
+            if self._data is None:
+                return alias
+            else:
+                return alias, self._data
         return None
 
 
