@@ -234,6 +234,7 @@ class DependencyCache:
             self._caused_bys[result].add(cause)
         # if the cause is an aliased command, register the base command
         if cause.is_alias and hasattr(cause, 'alias'):
+            print(f"{cause.alias} Tuple?  {isinstance(cause.alias, tuple)}")
             self.causes(cause.alias, *results)
 
     def caused_by(self, command: E) -> Set[C]:
