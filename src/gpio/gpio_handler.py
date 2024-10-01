@@ -151,7 +151,7 @@ class GpioHandler:
             def func_off(_: Message) -> None:
                 led.off()
 
-            DependencyCache.listen_for_disablers(off_command, func_off)
+            DependencyCache.listen_for_disablers(on_command, func_off)
 
             def func_on(_: Message) -> None:
                 led.on()
