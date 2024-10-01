@@ -216,7 +216,7 @@ class DependencyCache:
                           include_aliases: bool) -> List[E]:
         cmd_set = set()
         for cmd in commands:
-            if cmd.is_alias:
+            if isinstance(cmd, CommandDefEnum) and cmd.is_alias:
                 if include_aliases:
                     cmd_set.add(cmd)
                 if dereference_aliases:
