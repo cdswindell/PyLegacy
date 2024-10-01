@@ -57,7 +57,7 @@ class PyTrain:
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             print(f"Listening for state updates on {self._args.server_port}...")
-            self._listener = ComponentStateListener.build(self._args.server_port)
+            self._listener = ComponentStateListener.build()
         # register listeners
         self._state_store: ComponentStateStore = ComponentStateStore(listener=self._listener)
         if self._args.echo:

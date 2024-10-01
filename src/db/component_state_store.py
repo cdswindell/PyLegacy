@@ -4,10 +4,13 @@ import threading
 from collections import defaultdict
 from typing import List, TypeVar, Set, Tuple
 
-from src.comm.command_listener import CommandListener, Message, Topic, CommandDispatcher
-from src.db.component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
-from src.protocol.command_def import CommandDefEnum
-from src.protocol.constants import CommandScope, BROADCAST_ADDRESS
+from .component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
+from .component_state_listener import ComponentStateListener
+from ..comm.comm_buffer import CommBuffer
+from ..comm.command_listener import CommandListener, Message, Topic, CommandDispatcher, Subscriber
+from ..protocol.command_def import CommandDefEnum
+from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
+from ..protocol.command_req import CommandReq
 
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef as Halt1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as Engine1
@@ -27,6 +30,15 @@ E = TypeVar("E", bound=CommandDefEnum)
 class ComponentStateStore:
     _instance: ComponentStateStore = None
     _lock = threading.RLock()
+
+    @classmethod
+    def build(cls,
+              topics: List[str | CommandScope] = None,
+              listener: CommandListener | CommandDispatcher = None) -> ComponentStateStore:
+        """
+            Factory method to create a ComponentStateStore instance
+        """
+        return ComponentStateStore(topics, listener)
 
     # noinspection PyPropertyDefinition
     @classmethod
@@ -65,6 +77,7 @@ class ComponentStateStore:
             return
         else:
             self._initialized = True
+        self._dependencies = DependencyCache.build()
         self._listener = listener
         self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
         if topics:
@@ -121,7 +134,7 @@ class ComponentStateStore:
             return None
 
 
-class CausesCache:
+class DependencyCache:
     """
         Manages relationships between TMCC Commands. For example, sending the Reset command
         (number 0) to an engine causes the following results:
@@ -135,13 +148,67 @@ class CausesCache:
         control panel. For example, if an indicator light specifies an engine is set to Rev,
         sending the reset command would turn that light off.
     """
+    _instance: DependencyCache = None
+    _lock = threading.RLock()
+
+    @classmethod
+    def build(cls) -> DependencyCache:
+        """
+            Factory method to create a ComponentStateStore instance
+        """
+        return DependencyCache()
+
+    @classmethod
+    def listen_for_enablers(cls, request: CommandReq, callback: Subscriber) -> None:
+        if cls._instance is not None:
+            if CommBuffer.is_server:
+                listener = CommandListener.build()
+            elif CommBuffer.is_client:
+                listener = ComponentStateListener.build()
+            else:
+                raise AttributeError("CommBuffer must be server or client")
+            for enabler in cls._instance.enabled_by(request.command, dereference_aliases=True, include_aliases=False):
+                if isinstance(enabler, tuple):
+                    listener.listen_for(callback, request.scope, request.address, enabler[0], enabler[1])
+                else:
+                    listener.listen_for(callback, request.scope, request.address, enabler)
+
+    @classmethod
+    def listen_for_disablers(cls, request: CommandReq, callback: Subscriber) -> None:
+        if cls._instance is not None:
+            if CommBuffer.is_server:
+                listener = CommandListener.build()
+            elif CommBuffer.is_client:
+                listener = ComponentStateListener.build()
+            else:
+                raise AttributeError("CommBuffer must be server or client")
+            for disabler in cls._instance.disabled_by(request.command, dereference_aliases=True, include_aliases=False):
+                if isinstance(disabler, tuple):
+                    listener.listen_for(callback, request.scope, request.address, disabler[0], disabler[1])
+                else:
+                    listener.listen_for(callback, request.scope, request.address, disabler)
 
     def __init__(self) -> None:
+        if self._initialized:
+            return
+        else:
+            self._initialized = True
         self._causes: dict[C, set[E]] = defaultdict(set)
         self._caused_bys: dict[E, Set[C]] = defaultdict(set)
         self._toggles: dict[C, set[E]] = defaultdict(set)
         self._toggled_by: dict[E, set[C]] = defaultdict(set)
         self.initialize()
+
+    def __new__(cls, *args, **kwargs):
+        """
+            Provides singleton functionality. We only want one instance
+            of this class in a process
+        """
+        with cls._lock:
+            if DependencyCache._instance is None:
+                DependencyCache._instance = super(DependencyCache, cls).__new__(cls)
+                DependencyCache._instance._initialized = False
+            return DependencyCache._instance
 
     @staticmethod
     def _harvest_commands(commands: Set[E],

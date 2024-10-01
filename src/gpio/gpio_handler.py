@@ -5,11 +5,11 @@ from typing import Tuple, Callable
 from gpiozero import Button, LED, MCP3008, Device
 
 from src.comm.command_listener import Message, CommandListener
+from src.db.component_state_store import DependencyCache
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from src.protocol.command_def import CommandDefEnum
 from src.protocol.constants import CommandScope
-from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 DEFAULT_BOUNCE_TIME: float = 0.05  # button debounce threshold
 DEFAULT_VARIANCE: float = 0.001  # pot difference variance
@@ -151,25 +151,13 @@ class GpioHandler:
             def func_off(_: Message) -> None:
                 led.off()
 
-            CommandListener.listen_for(func_off, off_command.scope, off_command.address, off_command.command)
+            DependencyCache.listen_for_disablers(off_command, func_off)
 
             def func_on(_: Message) -> None:
                 led.on()
 
-            CommandListener.listen_for(func_on,
-                                       off_command.scope,
-                                       off_command.address,
-                                       TMCC2EngineCommandDef.NUMERIC,
-                                       0)
+            DependencyCache.listen_for_enablers(on_command, func_on)
 
-            def func_toggle(_: Message) -> None:
-                print(led.value)
-                led.value = not led.value
-
-            CommandListener.listen_for(func_toggle,
-                                       off_command.scope,
-                                       off_command.address,
-                                       TMCC2EngineCommandDef.TOGGLE_DIRECTION)
         else:
             off_button.when_pressed = off_action
             on_button.when_pressed = on_action

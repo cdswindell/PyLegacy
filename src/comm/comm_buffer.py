@@ -91,6 +91,12 @@ class CommBuffer(abc.ABC):
     def is_client(cls) -> bool:
         return isinstance(cls._instance, CommBufferProxy)
 
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def server_port(cls) -> int | None:
+        return None
+
     @abc.abstractmethod
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         """
@@ -202,6 +208,16 @@ class CommBufferProxy(CommBuffer):
     """
         Allows a Raspberry Pi to "slave" to another so only one serial connection is needed
     """
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def server_port(cls) -> int | None:
+        # noinspection PyProtectedMember
+        if cls.is_built is True and cls.is_client is True:
+            # noinspection PyProtectedMember
+            return cls._instance._port
+        raise AttributeError("CommBufferProxy must be built first")
+
     def __init__(self,
                  server: IPv4Address | IPv6Address,
                  port: int = DEFAULT_SERVER_PORT) -> None:

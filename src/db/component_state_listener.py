@@ -6,7 +6,6 @@ import threading
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Subscriber, Topic
 from ..protocol.command_def import CommandDefEnum
-from ..protocol.constants import DEFAULT_SERVER_PORT
 
 
 class ComponentStateListener(threading.Thread):
@@ -14,8 +13,8 @@ class ComponentStateListener(threading.Thread):
     _lock = threading.RLock()
 
     @classmethod
-    def build(cls, port: int = DEFAULT_SERVER_PORT) -> ComponentStateListener:
-        return ComponentStateListener(port)
+    def build(cls) -> ComponentStateListener:
+        return ComponentStateListener()
 
     @classmethod
     def listen_for(cls,
@@ -26,13 +25,13 @@ class ComponentStateListener(threading.Thread):
                    data: int = None):
         cls.build().subscribe(listener, channel, address, command, data)
 
-    def __init__(self, port: int = DEFAULT_SERVER_PORT) -> None:
+    def __init__(self) -> None:
         if self._initialized:
             return
         else:
             self._initialized = True
         self._command_listener = CommandListener.build(build_serial_reader=False)
-        self._port = port
+        self._port = CommBuffer.build().server_port
         super().__init__(daemon=True, name="PyLegacy ComponentStateListener")
         self.start()
         CommBuffer.build().register()
