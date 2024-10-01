@@ -241,8 +241,21 @@ class CommBufferProxy(CommBuffer):
 
     def register(self) -> None:
         from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
-        # noinspection PyTypeChecker
-        self.enqueue_command(EnqueueProxyRequests.register_request)
+        retries = 0
+        while True:
+            try:
+                # noinspection PyTypeChecker
+                self.enqueue_command(EnqueueProxyRequests.register_request)
+                return
+            except ConnectionError as ce:
+                # give server time to boot up:
+                if retries < 30:
+                    retries += 1
+                    if retries % 5 == 0:
+                        print(f"Waiting for PyTrain server at {self._server}...")
+                    time.sleep(1)
+                else:
+                    raise ce
 
     def shutdown(self, immediate: bool = False) -> None:
         pass
