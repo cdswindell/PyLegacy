@@ -6,7 +6,6 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Tuple, TypeVar, Set
 
-from .component_state_store import DependencyCache
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
@@ -29,6 +28,8 @@ class ComponentState(ABC):
         self._last_command: CommandReq | None = None
         self._last_updated: datetime | None = None
         self._address: int | None = None
+
+        from .component_state_store import DependencyCache
         self._dependencies = DependencyCache.build()
 
     def __repr__(self) -> str:
