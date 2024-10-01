@@ -64,10 +64,11 @@ class ComponentState(ABC):
             if self._address is None and command.address != BROADCAST_ADDRESS:
                 self._address = command.address
             elif self._address not in [command.address, BROADCAST_ADDRESS]:  # invalid state
-                raise ValueError(f"Switch #{self._address} received update for Switch #{command.address}, ignoring")
+                raise ValueError(f"{self.scope} #{self._address} received update for {command.scope} "
+                                 f"#{command.address}, ignoring")
             if self.scope != command.scope:
                 scope = command.scope.name.capitalize()
-                raise ValueError(f"Switch {self.address} received update for {scope}, ignoring")
+                raise ValueError(f"{self.scope} {self.address} received update for {scope}, ignoring")
             self._last_updated = datetime.now()
             self._last_command = command
 
