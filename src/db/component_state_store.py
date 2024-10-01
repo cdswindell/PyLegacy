@@ -249,7 +249,7 @@ class DependencyCache:
         else:
             return {command}
 
-    def result_in(self, command: C) -> Set[E]:
+    def results_in(self, command: C) -> Set[E]:
         """
             Returns a list of the CommandDefEnums that result from issuing the given command.
         """
@@ -265,7 +265,7 @@ class DependencyCache:
                    command: C,
                    dereference_aliases: bool = False,
                    include_aliases: bool = True) -> List[E | Tuple[E, int]]:
-        return self._harvest_commands(self.result_in(command), dereference_aliases, include_aliases)
+        return self._harvest_commands(self.caused_by(command), dereference_aliases, include_aliases)
 
     def disabled_by(self,
                     command: C,
