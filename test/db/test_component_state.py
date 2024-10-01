@@ -155,12 +155,12 @@ class TestComponentState(TestBase):
 
         # verify address can not be modified once set
         thru_req = CommandReq(Switch.THROUGH, 2)
-        with pytest.raises(ValueError, match="Switch #1 received update for Switch #2, ignoring"):
+        with pytest.raises(AttributeError, match="Switch #1 received update for Switch #2, ignoring"):
             ss.update(thru_req)
 
         # verify we can't send update for some other object
         route_req = CommandReq(TMCC2RouteCommandDef.FIRE, 1)
-        with pytest.raises(ValueError, match="Switch 1 received update for Route, ignoring"):
+        with pytest.raises(AttributeError, match="Switch 1 received update for Route, ignoring"):
             ss.update(route_req)
 
         # verify we can receive a Halt command

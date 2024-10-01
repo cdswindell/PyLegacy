@@ -74,8 +74,8 @@ class ComponentState(ABC):
                 raise AttributeError(f"Received broadcast address for {self.friendly_scope} but component has not "
                                      f"been initialized {self}")
             elif command.address not in [self._address, BROADCAST_ADDRESS]:
-                raise AttributeError(f"{self.friendly_scope} #{self._address} received update for {command.scope} "
-                                     f"#{command.address}, ignoring")
+                raise AttributeError(f"{self.friendly_scope} #{self._address} received update for "
+                                     f"{command.scope.name.capitalize()} #{command.address}, ignoring")
             if self.scope != command.scope:
                 scope = command.scope.name.capitalize()
                 raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
