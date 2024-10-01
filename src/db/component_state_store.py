@@ -167,6 +167,7 @@ class DependencyCache:
                 listener = ComponentStateListener.build()
             else:
                 raise AttributeError("CommBuffer must be server or client")
+            print(f"Enabling command: {request}")
             for enabler in cls._instance.enabled_by(request.command, dereference_aliases=True, include_aliases=False):
                 if isinstance(enabler, tuple):
                     listener.listen_for(callback, request.scope, request.address, enabler[0], enabler[1])
@@ -182,6 +183,7 @@ class DependencyCache:
                 listener = ComponentStateListener.build()
             else:
                 raise AttributeError("CommBuffer must be server or client")
+            print(f"Disabling command: {request}")
             for disabler in cls._instance.disabled_by(request.command, dereference_aliases=True, include_aliases=False):
                 if isinstance(disabler, tuple):
                     listener.listen_for(callback, request.scope, request.address, disabler[0], disabler[1])
