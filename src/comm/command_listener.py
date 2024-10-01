@@ -388,11 +388,8 @@ class CommandDispatcher(Thread):
                     self._channels[channel].publish(message)
 
     def publish(self, channel: Topic, message: Message) -> None:
-        if channel in self._channels:  # otherwise, we would create a channel simply by referencing it
-            try:
-                self._channels[channel].publish(message)
-            except Exception as e:
-                print(f"Error publishing to {channel}: {e}")
+        if channel in self._channels:  # otherwise, we would create a channel simply by referencing i
+            self._channels[channel].publish(message)
 
     def subscribe(self,
                   subscriber: Subscriber,

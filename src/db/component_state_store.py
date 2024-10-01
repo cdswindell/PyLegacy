@@ -224,7 +224,7 @@ class DependencyCache:
                 if include_aliases:
                     cmd_set.add(cmd)
                 if dereference_aliases:
-                    cmd_set.add(cmd.command_def.alias)
+                    cmd_set.add(cmd.alias)
             else:
                 cmd_set.add(cmd)
         return cmd_set
@@ -251,7 +251,8 @@ class DependencyCache:
         if command in self._caused_bys:
             causes = self._harvest_commands(self._caused_bys[command], dereference_aliases, include_aliases)
             if command not in causes:
-                causes.add(command)
+                # noinspection PyTypeChecker
+                causes.update(self._harvest_commands({command}, dereference_aliases, include_aliases))
             return causes
         else:
             return {command}
@@ -266,7 +267,8 @@ class DependencyCache:
         if command in self._causes:
             results = self._harvest_commands(self._causes[command], dereference_aliases, include_aliases)
             if command not in results:
-                results.add(command)
+                # noinspection PyTypeChecker
+                results.update(self._harvest_commands({command}, dereference_aliases, include_aliases))
             return results
         else:
             return {command}
@@ -304,6 +306,7 @@ class DependencyCache:
                     Aux.AUX2_OFF,
                     Aux.AUX1_OFF)
         self.causes(Halt2.HALT, Engine2.SPEED_STOP_HOLD)
+
         # Engine commands, starting with Reset (Number 0)
         self.causes(Engine2.RESET,
                     Engine2.SPEED_STOP_HOLD,
@@ -311,6 +314,7 @@ class DependencyCache:
                     Engine2.START_UP_IMMEDIATE,
                     Engine2.BELL_OFF,
                     Engine2.DIESEL_RPM)
+        self.causes(Engine2.STOP_IMMEDIATE, Engine2.SPEED_STOP_HOLD)
         self.causes(Engine2.FORWARD_DIRECTION, Engine2.SPEED_STOP_HOLD)
         self.causes(Engine2.REVERSE_DIRECTION, Engine2.SPEED_STOP_HOLD)
         self.causes(Engine2.TOGGLE_DIRECTION, Engine2.SPEED_STOP_HOLD)

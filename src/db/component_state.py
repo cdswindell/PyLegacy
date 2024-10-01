@@ -39,11 +39,26 @@ class ComponentState(ABC):
         return f"{self.scope.name} {self._address}"
 
     def results_in(self, command: CommandReq) -> Set[E]:
-        deps = self._dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
+        effects = self._dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
         if command.is_data:
             # noinspection PyTypeChecker
-            deps.update(self._dependencies.results_in((command.command, command.data)))
-        return deps
+            effects.update(self._dependencies.results_in((command.command, command.data)))
+        return effects
+
+    def _harvest_effect(self, effects: Set[E]) -> E | Tuple[E, int] | None:
+        for effect in effects:
+            if isinstance(effect, tuple):
+                effect_enum = effect[0]
+                effect_data = effect[1]
+            else:
+                effect_enum = effect
+                effect_data = None
+            if effect_enum.syntax == self.syntax:
+                if effect_data is None:
+                    return effect_enum
+                else:
+                    return effect_enum, effect_data
+        return None
 
     @property
     def scope(self) -> CommandScope:
@@ -263,19 +278,23 @@ class EngineState(ComponentState):
                 self._is_legacy = True
             super().update(command)
 
-            print(f"Engine {self.address} RECEIVED UPDATE: {command}")
+            # get the downstream effects of this command, as they also impact state
             cmd_effects = self.results_in(command)
+
             # handle direction
             if command.command in DIRECTIONS_SET:
                 self._direction = command.command
             elif cmd_effects & DIRECTIONS_SET:
-                self._direction = list(cmd_effects & DIRECTIONS_SET)[0]
+                self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
-            print(f"Command causes: {cmd_effects & SPEED_SET}")
             if command.command in SPEED_SET:
                 self._speed = command.data
             elif cmd_effects & SPEED_SET:
-                self._speed = list(cmd_effects & SPEED_SET)[0][1]
+                speed = self._harvest_effect(cmd_effects & SPEED_SET)
+                if isinstance(speed, tuple) and len(speed) == 2:
+                    self._speed = speed[1]
+                else:
+                    print(f"**************** What am I supposed to do with {speed}?")
 
     @property
     def is_tmcc(self) -> bool:

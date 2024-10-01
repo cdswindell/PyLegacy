@@ -192,7 +192,7 @@ class PyTrain:
         if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == 'on'):
             if self._echo is False:
                 self._listener.listen_for(self, BROADCAST_TOPIC)
-                print("TMCC command echoing ENABLED...")
+                print("TMCC command echoing ENABLED..")
             self._echo = True
         else:
             if self._echo is True:
