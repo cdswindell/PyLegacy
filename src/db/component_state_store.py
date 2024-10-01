@@ -233,7 +233,7 @@ class DependencyCache:
             self._causes[cause].add(result)
             self._caused_bys[result].add(cause)
         # if the cause is an aliased command, register the base command
-        if cause.is_alias and hasattr(cause, 'alias'):
+        if cause.is_alias and hasattr(cause, 'alias') and cause.alias is not None:
             print(f"{cause.alias} Tuple?  {isinstance(cause.alias, tuple)}")
             self.causes(cause.alias, *results)
 

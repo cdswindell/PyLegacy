@@ -4,7 +4,7 @@ import abc
 from abc import ABC
 from collections import defaultdict
 from datetime import datetime
-from typing import Tuple, TypeVar, Set, Union
+from typing import Tuple, TypeVar, Set
 
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq

@@ -232,5 +232,9 @@ class CommandDefEnum(CommandDefMixins, Enum):
         return self.command_def.is_alias
 
     @property
+    def alias(self) -> CommandDefEnum | Tuple[CommandDefEnum, int]:
+        return self.command_def.alias
+
+    @property
     def as_bytes(self) -> bytes:
         return self.value.as_bytes
