@@ -19,6 +19,8 @@ E = TypeVar("E", bound=CommandDefEnum)
 DIRECTIONS_SET = {TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION,
                   TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION}
 
+SPEED_SET = {TMCC1EngineCommandDef.ABSOLUTE_SPEED, TMCC2EngineCommandDef.ABSOLUTE_SPEED}
+
 
 class ComponentState(ABC):
     __metaclass__ = abc.ABCMeta
@@ -79,6 +81,11 @@ class ComponentState(ABC):
                 raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
             self._last_updated = datetime.now()
             self._last_command = command
+
+    @property
+    @abc.abstractmethod
+    def is_known(self) -> bool:
+        ...
 
 
 class SwitchState(ComponentState):
@@ -203,28 +210,35 @@ class EngineState(ComponentState):
         self._direction: CommandDefEnum | None = None
 
     def __repr__(self) -> str:
+        speed = direction = ""
         if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
             direction = "FORWARD"
         elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
             direction = "REVERSE"
-        else:
-            direction = "<Unknown>"
-        return f"{self.scope.name} {self._address} {direction}"
 
-    @staticmethod
-    def is_direction_related(command: CommandReq) -> bool:
-        return command.command in DIRECTIONS_SET
+        if self._speed is not None:
+            speed = f"Speed {self._speed} "
+
+        return f"{self.scope.name} {self._address} {speed}{direction}"
+
+    def is_known(self) -> bool:
+        return self._direction is not None or self._started is not None or self._speed is not None
 
     def update(self, command: CommandReq) -> None:
         if command:
             super().update(command)
-        # handle direction
-        if self.is_direction_related(command):
-            self._direction = command.command
 
         cmd_effects = self.results_in(command)
-        if cmd_effects & DIRECTIONS_SET:
+        # handle direction
+        if command.command in DIRECTIONS_SET:
+            self._direction = command.command
+        elif cmd_effects & DIRECTIONS_SET:
             self._direction = list(cmd_effects & DIRECTIONS_SET)[0]
+
+        if command.command in SPEED_SET:
+            self._speed = command.data
+        elif cmd_effects & SPEED_SET:
+            self._speed = list(cmd_effects & SPEED_SET)[0]
 
 
 class TrainState(EngineState):
