@@ -211,6 +211,8 @@ class EngineState(ComponentState):
             self._direction = command.command
 
         cmd_effects = self.results_in(command)
+        print(cmd_effects)
+        print(cmd_effects & DIRECTIONS_SET)
         if cmd_effects & DIRECTIONS_SET:
             self._direction = list(cmd_effects & DIRECTIONS_SET)[0]
 
