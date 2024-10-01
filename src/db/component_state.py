@@ -47,6 +47,10 @@ class ComponentState(ABC):
         return self._scope
 
     @property
+    def friendly_scope(self) -> str:
+        return self.scope.name.capitalize()
+
+    @property
     def address(self) -> int:
         return self._address
 
@@ -63,12 +67,16 @@ class ComponentState(ABC):
         if command and command.command != TMCC1HaltCommandDef.HALT:
             if self._address is None and command.address != BROADCAST_ADDRESS:
                 self._address = command.address
-            elif self._address not in [command.address, BROADCAST_ADDRESS]:  # invalid state
-                raise ValueError(f"{self.scope} #{self._address} received update for {command.scope} "
-                                 f"#{command.address}, ignoring")
+            # invalid states
+            elif self._address is None and command.address == BROADCAST_ADDRESS:
+                raise AttributeError(f"Received broadcast address for {self.friendly_scope} but component has not "
+                                     f"been initialized {self}")
+            elif self._address not in [command.address, BROADCAST_ADDRESS]:
+                raise AttributeError(f"{self.friendly_scope} #{self._address} received update for {command.scope} "
+                                     f"#{command.address}, ignoring")
             if self.scope != command.scope:
                 scope = command.scope.name.capitalize()
-                raise ValueError(f"{self.scope} {self.address} received update for {scope}, ignoring")
+                raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
             self._last_updated = datetime.now()
             self._last_command = command
 
