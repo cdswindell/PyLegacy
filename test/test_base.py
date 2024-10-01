@@ -68,7 +68,7 @@ class TestBase:
                 ]
 
     def generate_random_address(self,  cmd: CommandDefEnum, scope: CommandScope = None) -> int:
-        if cmd.syntax == CommandSyntax.TMCC1:
+        if cmd.syntax == CommandSyntax.TMCC:
             if scope == CommandScope.TRAIN or cmd.scope == CommandScope.ROUTE:
                 address = random.randint(1, 10)
             else:

@@ -217,7 +217,7 @@ class DependencyCache:
     @staticmethod
     def _harvest_commands(commands: Set[E],
                           dereference_aliases: bool,
-                          include_aliases: bool) -> List[E]:
+                          include_aliases: bool) -> Set[E]:
         cmd_set = set()
         for cmd in commands:
             if isinstance(cmd, CommandDefEnum) and cmd.is_alias:
@@ -227,7 +227,7 @@ class DependencyCache:
                     cmd_set.add(cmd.command_def.alias)
             else:
                 cmd_set.add(cmd)
-        return list(cmd_set)
+        return cmd_set
 
     def causes(self, cause: C, *results: E) -> None:
         """
@@ -240,25 +240,31 @@ class DependencyCache:
         if isinstance(cause, CommandDefEnum) and cause.is_alias and hasattr(cause, 'alias') and cause.alias is not None:
             self.causes(cause.alias, *results)
 
-    def caused_by(self, command: E) -> Set[C]:
+    def caused_by(self,
+                  command: E,
+                  dereference_aliases: bool = False,
+                  include_aliases: bool = True) -> Set[C]:
         """
             Returns a list of CommandDefEnums that can cause the given command to be issued.
             These commands should be "listened for" to as indicators for this state change
         """
         if command in self._caused_bys:
-            causes = set(self._caused_bys[command])  # make a new set
+            causes = self._harvest_commands(self._caused_bys[command], dereference_aliases, include_aliases)
             if command not in causes:
                 causes.add(command)
             return causes
         else:
             return {command}
 
-    def results_in(self, command: C) -> Set[E]:
+    def results_in(self,
+                   command: C,
+                   dereference_aliases: bool = False,
+                   include_aliases: bool = True) -> Set[E]:
         """
             Returns a list of the CommandDefEnums that result from issuing the given command.
         """
         if command in self._causes:
-            results = set(self._causes[command])
+            results = self._harvest_commands(self._causes[command], dereference_aliases, include_aliases)
             if command not in results:
                 results.add(command)
             return results
@@ -269,7 +275,7 @@ class DependencyCache:
                    command: C,
                    dereference_aliases: bool = False,
                    include_aliases: bool = True) -> List[E | Tuple[E, int]]:
-        return self._harvest_commands(self.caused_by(command), dereference_aliases, include_aliases)
+        return list(self._harvest_commands(self.caused_by(command), dereference_aliases, include_aliases))
 
     def disabled_by(self,
                     command: C,

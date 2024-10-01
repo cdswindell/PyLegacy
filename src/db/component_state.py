@@ -8,7 +8,7 @@ from typing import Tuple, TypeVar, Set
 
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
+from ..protocol.constants import CommandScope, BROADCAST_ADDRESS, CommandSyntax
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef, TMCC1EngineCommandDef
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
@@ -19,7 +19,8 @@ E = TypeVar("E", bound=CommandDefEnum)
 DIRECTIONS_SET = {TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION,
                   TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION}
 
-SPEED_SET = {TMCC1EngineCommandDef.ABSOLUTE_SPEED, TMCC2EngineCommandDef.ABSOLUTE_SPEED}
+SPEED_SET = {TMCC1EngineCommandDef.ABSOLUTE_SPEED, TMCC2EngineCommandDef.ABSOLUTE_SPEED,
+             (TMCC1EngineCommandDef.ABSOLUTE_SPEED, 0), (TMCC2EngineCommandDef.ABSOLUTE_SPEED, 0)}
 
 
 class ComponentState(ABC):
@@ -38,7 +39,7 @@ class ComponentState(ABC):
         return f"{self.scope.name} {self._address}"
 
     def results_in(self, command: CommandReq) -> Set[E]:
-        deps = self._dependencies.results_in(command.command)
+        deps = self._dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
         if command.is_data:
             # noinspection PyTypeChecker
             deps.update(self._dependencies.results_in((command.command, command.data)))
@@ -83,8 +84,22 @@ class ComponentState(ABC):
             self._last_command = command
 
     @property
+    def syntax(self) -> CommandSyntax:
+        return CommandSyntax.LEGACY if self.is_legacy else CommandSyntax.TMCC
+
+    @property
     @abc.abstractmethod
     def is_known(self) -> bool:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_tmcc(self) -> bool:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_legacy(self) -> bool:
         ...
 
 
@@ -125,6 +140,14 @@ class SwitchState(ComponentState):
     @property
     def is_out(self) -> bool:
         return self._state == Switch.OUT
+
+    @property
+    def is_tmcc(self) -> bool:
+        return True
+
+    @property
+    def is_legacy(self) -> bool:
+        return False
 
 
 class AccessoryState(ComponentState):
@@ -198,9 +221,18 @@ class AccessoryState(ComponentState):
     def value(self) -> int:
         return self._number
 
+    @property
+    def is_tmcc(self) -> bool:
+        return True
+
+    @property
+    def is_legacy(self) -> bool:
+        return False
+
 
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
+
         if scope not in [CommandScope.ENGINE, CommandScope.TRAIN]:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
         super().__init__(scope)
@@ -208,6 +240,7 @@ class EngineState(ComponentState):
         self._started = None
         self._speed: int | None = None
         self._direction: CommandDefEnum | None = None
+        self._is_legacy: bool = False  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
         speed = direction = ""
@@ -226,19 +259,31 @@ class EngineState(ComponentState):
 
     def update(self, command: CommandReq) -> None:
         if command:
+            if command.syntax == CommandSyntax.LEGACY:
+                self._is_legacy = True
             super().update(command)
 
-        cmd_effects = self.results_in(command)
-        # handle direction
-        if command.command in DIRECTIONS_SET:
-            self._direction = command.command
-        elif cmd_effects & DIRECTIONS_SET:
-            self._direction = list(cmd_effects & DIRECTIONS_SET)[0]
+            print(f"Engine {self.address} RECEIVED UPDATE: {command}")
+            cmd_effects = self.results_in(command)
+            # handle direction
+            if command.command in DIRECTIONS_SET:
+                self._direction = command.command
+            elif cmd_effects & DIRECTIONS_SET:
+                self._direction = list(cmd_effects & DIRECTIONS_SET)[0]
 
-        if command.command in SPEED_SET:
-            self._speed = command.data
-        elif cmd_effects & SPEED_SET:
-            self._speed = list(cmd_effects & SPEED_SET)[0]
+            print(f"Command causes: {cmd_effects & SPEED_SET}")
+            if command.command in SPEED_SET:
+                self._speed = command.data
+            elif cmd_effects & SPEED_SET:
+                self._speed = list(cmd_effects & SPEED_SET)[0][1]
+
+    @property
+    def is_tmcc(self) -> bool:
+        return self._is_legacy is False
+
+    @property
+    def is_legacy(self) -> bool:
+        return self._is_legacy is True
 
 
 class TrainState(EngineState):

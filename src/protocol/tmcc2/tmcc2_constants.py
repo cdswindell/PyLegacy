@@ -76,7 +76,7 @@ class TMCC2CommandDef(CommandDef):
 
     @property
     def syntax(self) -> CommandSyntax:
-        return CommandSyntax.TMCC2
+        return CommandSyntax.LEGACY
 
     @property
     def address_mask(self) -> int:

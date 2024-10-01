@@ -72,8 +72,8 @@ class OfficialRRSpeeds(Mixins, Enum):
 
 @verify(UNIQUE)
 class CommandSyntax(Mixins, Enum):
-    TMCC1 = 1
-    TMCC2 = 2
+    TMCC = 1
+    LEGACY = 2
 
 
 @verify(UNIQUE)

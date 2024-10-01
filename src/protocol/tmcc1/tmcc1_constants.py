@@ -91,7 +91,7 @@ class TMCC1CommandDef(CommandDef):
 
     @property
     def syntax(self) -> CommandSyntax:
-        return CommandSyntax.TMCC1
+        return CommandSyntax.TMCC
 
     @property
     def identifier(self) -> TMCC1CommandIdentifier:

@@ -126,11 +126,11 @@ class CommandDef(ABC):
 
     @property
     def is_tmcc1(self) -> bool:
-        return self.syntax == CommandSyntax.TMCC1
+        return self.syntax == CommandSyntax.TMCC
 
     @property
     def is_tmcc2(self) -> bool:
-        return self.syntax == CommandSyntax.TMCC2
+        return self.syntax == CommandSyntax.LEGACY
 
     @property
     def is_legacy(self) -> bool:

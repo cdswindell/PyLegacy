@@ -115,8 +115,8 @@ class CommandReq:
             raise TypeError(f"Command def not recognized: '{command}'")
 
         max_val = 99
-        syntax = CommandSyntax.TMCC2 if enum_class == TMCC2Enum else CommandSyntax.TMCC1
-        if syntax == CommandSyntax.TMCC1 and command == TMCC1RouteCommandDef.FIRE:
+        syntax = CommandSyntax.LEGACY if enum_class == TMCC2Enum else CommandSyntax.TMCC
+        if syntax == CommandSyntax.TMCC and command == TMCC1RouteCommandDef.FIRE:
             scope = TMCC1CommandIdentifier.ROUTE
             max_val = 31
         if scope is None:
@@ -334,12 +334,12 @@ class CommandReq:
         self._command_bits &= self._command_def.address_mask
         # figure out which address we're using
         the_address = new_address if new_address and new_address > 0 else self._address
-        if self.syntax == CommandSyntax.TMCC1:
+        if self.syntax == CommandSyntax.TMCC:
             self._command_bits |= the_address << 7
             if self.scope == CommandScope.TRAIN and self.identifier == TMCC1CommandIdentifier.ENGINE:
                 self._command_bits &= TMCC1_TRAIN_COMMAND_PURIFIER
                 self._command_bits |= TMCC1_TRAIN_COMMAND_MODIFIER
-        elif self.syntax == CommandSyntax.TMCC2:
+        elif self.syntax == CommandSyntax.LEGACY:
             self._command_bits |= the_address << 9
         else:
             raise ValueError(f"Command syntax not recognized {self.syntax}")

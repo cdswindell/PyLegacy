@@ -63,7 +63,7 @@ class CliBase(ABC):
         return parser
 
     @staticmethod
-    def command_format_parser(default: CommandSyntax = CommandSyntax.TMCC2) -> ArgumentParser:
+    def command_format_parser(default: CommandSyntax = CommandSyntax.LEGACY) -> ArgumentParser:
         """
             Add command_def to run command using TMCC1 command syntax
         """
@@ -71,12 +71,12 @@ class CliBase(ABC):
         group = parser.add_mutually_exclusive_group()
         group.add_argument("-tmcc", "--tmcc1",
                            action="store_const",
-                           const=CommandSyntax.TMCC1,
+                           const=CommandSyntax.TMCC,
                            dest='format',
                            help="Use TMCC1 command syntax.")
         group.add_argument("-legacy", "--tmcc2",
                            action="store_const",
-                           const=CommandSyntax.TMCC2,
+                           const=CommandSyntax.LEGACY,
                            dest='format',
                            help="Use TMCC2/Legacy command syntax.")
         group.set_defaults(format=default)
@@ -103,7 +103,7 @@ class CliBase(ABC):
         else:
             self._args = arg_parser.parse_args(cmd_line)
         self._command = None
-        self._command_format = CommandSyntax.TMCC2  # Use TMCC2-style commands by default, if supported
+        self._command_format = CommandSyntax.LEGACY  # Use TMCC2-style commands by default, if supported
         self._command_line: List[str] = cmd_line
         self._do_fire = do_fire
         # as the TrainControl cli strips out some commands, we need to restore them
@@ -148,11 +148,11 @@ class CliBase(ABC):
 
     @property
     def is_tmcc1(self) -> bool:
-        return self._command_format == CommandSyntax.TMCC1
+        return self._command_format == CommandSyntax.TMCC
 
     @property
     def is_tmcc2(self) -> bool:
-        return self._command_format == CommandSyntax.TMCC2
+        return self._command_format == CommandSyntax.LEGACY
 
     @property
     def command_format(self) -> CommandSyntax:
@@ -204,7 +204,7 @@ class CliBaseTMCC(CliBase):
         if 'format' in self._args and self._args.format:
             self._command_format = self._args.format
         else:
-            self._command_format = CommandSyntax.TMCC2
+            self._command_format = CommandSyntax.LEGACY
 
     def _determine_scope(self):
         return CommandScope.TRAIN if self._args.train else CommandScope.ENGINE

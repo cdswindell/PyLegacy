@@ -14,7 +14,7 @@ class HaltCli(CliBaseTMCC):
     def command_parser(cls):
         return ArgumentParser("Emergency halt; stop all engines and trains",
                               parents=[cls.train_parser(),
-                                       cls.command_format_parser(CommandSyntax.TMCC1),
+                                       cls.command_format_parser(CommandSyntax.TMCC),
                                        cls.cli_parser()
                                        ])
 
