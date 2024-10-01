@@ -4,7 +4,7 @@ import abc
 from abc import ABC
 from collections import defaultdict
 from datetime import datetime
-from typing import Tuple, TypeVar, Set
+from typing import Tuple, TypeVar, Set, Union
 
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
@@ -36,7 +36,10 @@ class ComponentState(ABC):
         return f"{self.scope.name} {self._address}"
 
     def results_in(self, command: CommandReq) -> Set[E]:
-        return self._dependencies.results_in(command.command)
+        deps = self._dependencies.results_in(command.command)
+        if command.is_data:
+            deps.update(self._dependencies.results_in((command.command, command.data)))
+        return deps
 
     @property
     def scope(self) -> CommandScope:
