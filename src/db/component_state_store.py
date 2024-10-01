@@ -170,8 +170,10 @@ class DependencyCache:
             for enabler in cls._instance.enabled_by(request.command, dereference_aliases=True, include_aliases=False):
                 if isinstance(enabler, tuple):
                     listener.listen_for(callback, request.scope, request.address, enabler[0], enabler[1])
+                    listener.listen_for(callback, request.scope, BROADCAST_ADDRESS, enabler[0], enabler[1])
                 else:
                     listener.listen_for(callback, request.scope, request.address, enabler)
+                    listener.listen_for(callback, request.scope, BROADCAST_ADDRESS, enabler)
 
     @classmethod
     def listen_for_disablers(cls, request: CommandReq, callback: Subscriber) -> None:
@@ -185,8 +187,10 @@ class DependencyCache:
             for disabler in cls._instance.disabled_by(request.command, dereference_aliases=True, include_aliases=False):
                 if isinstance(disabler, tuple):
                     listener.listen_for(callback, request.scope, request.address, disabler[0], disabler[1])
+                    listener.listen_for(callback, request.scope, BROADCAST_ADDRESS, disabler[0], disabler[1])
                 else:
                     listener.listen_for(callback, request.scope, request.address, disabler)
+                    listener.listen_for(callback, request.scope, BROADCAST_ADDRESS, disabler)
 
     def __init__(self) -> None:
         if self._initialized:
