@@ -4,7 +4,7 @@ from typing import Tuple, Callable
 
 from gpiozero import Button, LED, MCP3008, Device
 
-from src.comm.command_listener import Message, CommandListener
+from src.comm.command_listener import Message
 from src.db.component_state_store import DependencyCache
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS

@@ -23,6 +23,7 @@ class ComponentStateListener(threading.Thread):
                    address: int = None,
                    command: CommandDefEnum = None,
                    data: int = None):
+        print(f"Listening for {channel} on {address} {command} {data}")
         cls.build().subscribe(listener, channel, address, command, data)
 
     def __init__(self) -> None:

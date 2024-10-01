@@ -315,7 +315,7 @@ class CommandDispatcher(Thread):
                         self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
                     # otherwise, just send to the interested parties
                     else:
-                        if cmd.is_data:
+                        if cmd.is_data is not None:
                             self.publish((cmd.scope, cmd.address, cmd.command, cmd.data), cmd)
                         self.publish((cmd.scope, cmd.address, cmd.command), cmd)
                         self.publish((cmd.scope, cmd.address), cmd)
