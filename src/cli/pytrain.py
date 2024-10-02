@@ -115,6 +115,10 @@ class PyTrain:
                 except Exception as e:
                     print(f"Error closing listener, continuing shutdown: {e}")
                 try:
+                    ComponentStateStore.reset()
+                except Exception as e:
+                    print(f"Error resetting state store, continuing shutdown: {e}")
+                try:
                     GpioHandler.reset_all()
                 except Exception as e:
                     print(f"Error releasing GPIO, continuing shutdown: {e}")
