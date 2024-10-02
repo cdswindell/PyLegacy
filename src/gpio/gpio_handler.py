@@ -83,21 +83,29 @@ class GpioHandler:
                out_pin: int,
                thru_led_pin: int | str = None,
                out_led_pin: int | str = None,
+               cathode: bool = True,
+               initial_state: TMCC1SwitchState = None,
                baudrate: int = DEFAULT_BAUDRATE,
                port: str | int = DEFAULT_PORT,
-               server: str = None,
-               common_cathode: bool = True) -> Tuple[Button, Button] | Tuple[Button, Button, LED, LED]:
+               server: str = None) -> Tuple[Button, Button] | Tuple[Button, Button, LED, LED]:
+
+        if initial_state is None:
+            # query system state
+            pass
+
         # make the CommandReqs
         thru_req, thru_btn, thru_led = cls._make_button(thru_pin,
                                                         TMCC1SwitchState.THROUGH,
                                                         address,
                                                         led_pin=thru_led_pin,
-                                                        common_cathode=common_cathode)
+                                                        initially_on=initial_state == TMCC1SwitchState.THROUGH,
+                                                        cathode=cathode)
         out_req, out_btn, out_led = cls._make_button(out_pin,
                                                      TMCC1SwitchState.OUT,
                                                      address,
                                                      led_pin=out_led_pin,
-                                                     common_cathode=common_cathode)
+                                                     initially_on=initial_state == TMCC1SwitchState.OUT,
+                                                     cathode=cathode)
         # bind actions to buttons
         thru_action = thru_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
         out_action = out_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
@@ -294,7 +302,9 @@ class GpioHandler:
                      data: int = None,
                      scope: CommandScope = None,
                      led_pin: int | str = None,
-                     common_cathode: bool = True) -> Tuple[CommandReq, Button, LED]:
+                     initially_on: bool = False,
+                     bind: bool = False,
+                     cathode: bool = True) -> Tuple[CommandReq, Button, LED]:
         # if command is actually a CommandDefEnum, build a CommandReq
         if isinstance(command, CommandDefEnum):
             command = CommandReq.build(command, address=address, data=data, scope=scope)
@@ -305,8 +315,9 @@ class GpioHandler:
 
         # create a LED, if asked, and tie its source to the button
         if led_pin is not None and led_pin != 0:
-            led = LED(led_pin, active_high=common_cathode)
-            led.source = button
+            led = LED(led_pin, active_high=cathode, initial_value=initially_on)
+            if bind:
+                led.source = button
             cls._cache_device(led)
         else:
             led = None
