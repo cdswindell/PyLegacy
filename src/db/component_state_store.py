@@ -57,10 +57,6 @@ class ComponentStateStore:
     def reset(cls) -> None:
         with cls._lock:
             if cls._instance:
-                for scope in cls._instance._state:
-                    for addr in cls._instance._state[scope]:
-                        with cls._instance._state[scope][addr].notifier:
-                            cls._instance._state[scope][addr].notifier.notify_all()
                 cls._instance._state.clear()
 
     def __new__(cls, *args, **kwargs):

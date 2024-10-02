@@ -477,7 +477,10 @@ class SwitchStateSource:
         return self
 
     def __next__(self):
-        with self._component.notifier:
-            self._component.notifier.wait()
-            print(self._component)
+        try:
+            with self._component.notifier:
+                self._component.notifier.wait(1)
+                print(self._component)
+                return self._component.state == self._state
+        except RuntimeError:
             return self._component.state == self._state
