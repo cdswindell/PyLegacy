@@ -159,7 +159,8 @@ class DependencyCache:
         return DependencyCache()
 
     @classmethod
-    def listen_for_enablers(cls, request: CommandReq, callback: Subscriber) -> None:
+    def listen_for_enablers(cls, request: CommandReq, callback: Subscriber) -> List[E | Tuple[E, int]] | None:
+        enablers = None
         if cls._instance is not None:
             if CommBuffer.is_server:
                 listener = CommandListener.build()
@@ -167,16 +168,20 @@ class DependencyCache:
                 listener = ClientStateListener.build()
             else:
                 raise AttributeError("CommBuffer must be server or client")
-            for enabler in cls._instance.enabled_by(request.command, dereference_aliases=True, include_aliases=False):
+            enablers = cls._instance.enabled_by(request.command, dereference_aliases=True, include_aliases=False)
+            for enabler in enablers:
+                print(f"{request} enabled by: {enabler}")
                 if isinstance(enabler, tuple):
                     listener.listen_for(callback, request.scope, request.address, enabler[0], enabler[1])
                     listener.listen_for(callback, request.scope, BROADCAST_ADDRESS, enabler[0], enabler[1])
                 else:
                     listener.listen_for(callback, request.scope, request.address, enabler)
                     listener.listen_for(callback, request.scope, BROADCAST_ADDRESS, enabler)
+        return enablers
 
     @classmethod
-    def listen_for_disablers(cls, request: CommandReq, callback: Subscriber) -> None:
+    def listen_for_disablers(cls, request: CommandReq, callback: Subscriber) -> List[E | Tuple[E, int]] | None:
+        disablers = None
         if cls._instance is not None:
             if CommBuffer.is_server:
                 listener = CommandListener.build()
@@ -184,13 +189,16 @@ class DependencyCache:
                 listener = ClientStateListener.build()
             else:
                 raise AttributeError("CommBuffer must be server or client")
-            for disabler in cls._instance.disabled_by(request.command, dereference_aliases=True, include_aliases=False):
+            disablers = cls._instance.disabled_by(request.command, dereference_aliases=True, include_aliases=False)
+            for disabler in disablers:
+                print(f"{request} disabled by: {disabler}")
                 if isinstance(disabler, tuple):
                     listener.listen_for(callback, request.scope, request.address, disabler[0], disabler[1])
                     listener.listen_for(callback, request.scope, BROADCAST_ADDRESS, disabler[0], disabler[1])
                 else:
                     listener.listen_for(callback, request.scope, request.address, disabler)
                     listener.listen_for(callback, request.scope, BROADCAST_ADDRESS, disabler)
+        return disablers
 
     def __init__(self) -> None:
         if self._initialized:
