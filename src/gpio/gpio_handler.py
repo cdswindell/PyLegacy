@@ -197,8 +197,10 @@ class GpioHandler:
             return on_btn, off_btn
         else:
             # listen for external state changes
-            # cls._create_listeners(on_req, on_led)
-            # cls._create_listeners(off_req, None, on_led)
+            cls._create_listeners(on_req, on_led)
+            cls._create_listeners(off_req, None, on_led)
+            print(on_btn)
+            on_led.source = on_btn
             # return created objects
             return on_btn, off_btn, on_led
 
