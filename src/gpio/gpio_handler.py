@@ -193,12 +193,10 @@ class GpioHandler:
 
         if on_led is None:
             # return created objects
-            on_led.source = AccessoryStateSource(address, aux_state=TMCC1AuxCommandDef.AUX1_OPTION_ONE)
             return on_btn, off_btn
         else:
             # listen for external state changes
-            cls._create_listeners(on_req, on_led)
-            cls._create_listeners(off_req, None, on_led)
+            on_led.source = AccessoryStateSource(address, aux_state=TMCC1AuxCommandDef.AUX1_OPTION_ONE)
             # return created objects
             return on_btn, off_btn, on_led
 
