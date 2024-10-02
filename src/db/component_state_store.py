@@ -264,13 +264,11 @@ class DependencyCache:
         """
             Returns a list of the CommandDefEnums that result from issuing the given command.
         """
-        print(f"Command: {command} in causes: {command in self._causes}")
         if command in self._causes:
             results = self._harvest_commands(self._causes[command], dereference_aliases, include_aliases)
             if command not in results:
                 # noinspection PyTypeChecker
                 results.update(self._harvest_commands({command}, dereference_aliases, include_aliases))
-            print(f"Command: {command}\nResults: {results}")
             return results
         elif isinstance(command, CommandDefEnum) and command.is_alias and command.alias in self._causes:
             results = self._harvest_commands(self._causes[command.alias], dereference_aliases, include_aliases)
@@ -313,6 +311,7 @@ class DependencyCache:
                     Aux.AUX2_OFF,
                     Aux.AUX1_OFF)
         self.causes(Halt2.HALT, Engine2.SPEED_STOP_HOLD)
+        self.causes(Engine2.SYSTEM_HALT, Engine2.SPEED_STOP_HOLD)
 
         # Engine commands, starting with Reset (Number 0)
         self.causes(Engine2.RESET,
