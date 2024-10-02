@@ -446,6 +446,7 @@ class GpioHandler:
 
         def func_on(_: Message) -> None:
             if active_led is not None:
+                print(f"Turning on LED {active_led}")
                 active_led.on()
             for led in inactive_leds:
                 led.off()
