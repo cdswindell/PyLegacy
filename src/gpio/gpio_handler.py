@@ -10,7 +10,7 @@ from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from src.protocol.command_def import CommandDefEnum
 from src.protocol.constants import CommandScope
-from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
+from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState, TMCC1AuxCommandDef
 from src.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef
 
 DEFAULT_BOUNCE_TIME: float = 0.05  # button debounce threshold
@@ -156,6 +156,51 @@ class GpioHandler:
         else:
             # return created objects
             return thru_btn, out_btn
+
+    @classmethod
+    def power_district(cls,
+                       address: int,
+                       on_pin: int,
+                       off_pin: int,
+                       on_led_pin: int | str = None,
+                       initial_state: TMCC1AuxCommandDef = None,
+                       baudrate: int = DEFAULT_BAUDRATE,
+                       port: str | int = DEFAULT_PORT,
+                       server: str = None) -> Tuple[Button, Button] | Tuple[Button, Button, LED]:
+        """
+            Control a power district that responds to TMCC1 accessory commands, such
+            as an LCS BP2 configured in "Acc" mode.
+        """
+        if initial_state is None:
+            # TODO: query initial state
+            initial_state = TMCC1AuxCommandDef.AUX2_OPTION_ONE
+
+        # make the CommandReqs
+        on_req, on_btn, on_led = cls._make_button(on_pin,
+                                                  TMCC1AuxCommandDef.AUX1_OPTION_ONE,
+                                                  address,
+                                                  led_pin=on_led_pin,
+                                                  initially_on=initial_state == TMCC1AuxCommandDef.AUX1_OPTION_ONE)
+        off_req, off_btn, off_led = cls._make_button(off_pin,
+                                                     TMCC1AuxCommandDef.AUX2_OPTION_ONE,
+                                                     address,
+                                                     initially_on=initial_state == TMCC1AuxCommandDef.AUX2_OPTION_ONE)
+        # bind actions to buttons
+        on_action = on_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+        off_action = off_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+
+        on_req.when_pressed = cls._with_on_action(on_action, on_led)
+        off_btn.when_pressed = cls._with_off_action(off_action, on_led)
+
+        if on_led is None:
+            # return created objects
+            return on_btn, off_btn
+        else:
+            # listen for external state changes
+            cls._create_listeners(on_req, on_led)
+            cls._create_listeners(off_req, None, on_led)
+            # return created objects
+            return on_btn, off_btn, on_led
 
     @classmethod
     def when_button_pressed(cls,
@@ -396,15 +441,17 @@ class GpioHandler:
         return on_action
 
     @classmethod
-    def _create_listeners(cls, req, active_led: LED, *inactive_leds: LED) -> None:
+    def _create_listeners(cls, req, active_led: LED = None, *inactive_leds: LED) -> None:
 
         def func_on(_: Message) -> None:
-            active_led.on()
+            if active_led is not None:
+                active_led.on()
             for led in inactive_leds:
                 led.off()
 
         def func_off(_: Message) -> None:
-            active_led.off()
+            if active_led is not None:
+                active_led.off()
             for led in inactive_leds:
                 led.on()
 
