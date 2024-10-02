@@ -163,7 +163,7 @@ class GpioHandler:
                        on_pin: int,
                        off_pin: int,
                        on_led_pin: int | str = None,
-                       initial_state: TMCC1AuxCommandDef = None,
+                       initial_state: TMCC1AuxCommandDef | bool = None,
                        baudrate: int = DEFAULT_BAUDRATE,
                        port: str | int = DEFAULT_PORT,
                        server: str = None) -> Tuple[Button, Button] | Tuple[Button, Button, LED]:
@@ -430,8 +430,12 @@ class GpioHandler:
 
     @classmethod
     def _with_on_action(cls, action: Callable, led: LED, *impacted_leds: LED) -> Callable:
+        print("******* in with_on_action *******")
+
         def on_action() -> None:
+            print("******* firing on action *******")
             action()
+            print("******* fired on action *******")
             if led is not None:
                 led.on()
             if impacted_leds:
