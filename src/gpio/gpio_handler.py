@@ -189,7 +189,7 @@ class GpioHandler:
         on_action = on_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
         off_action = off_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
 
-        on_req.when_pressed = cls._with_on_action(on_action, on_led)
+        on_btn.when_pressed = cls._with_on_action(on_action, on_led)
         off_btn.when_pressed = cls._with_off_action(off_action, on_led)
 
         if on_led is None:
@@ -199,8 +199,6 @@ class GpioHandler:
             # listen for external state changes
             cls._create_listeners(on_req, on_led)
             cls._create_listeners(off_req, None, on_led)
-            print(on_btn)
-            on_led.source = on_btn
             # return created objects
             return on_btn, off_btn, on_led
 
@@ -432,12 +430,9 @@ class GpioHandler:
 
     @classmethod
     def _with_on_action(cls, action: Callable, led: LED, *impacted_leds: LED) -> Callable:
-        print(f"******* in with_on_action {led} *******")
 
         def on_action() -> None:
-            print("******* firing on action *******")
             action()
-            print("******* fired on action *******")
             if led is not None:
                 led.on()
             if impacted_leds:
