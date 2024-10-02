@@ -11,6 +11,7 @@ from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRE
 from src.protocol.command_def import CommandDefEnum
 from src.protocol.constants import CommandScope
 from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
+from src.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef
 
 DEFAULT_BOUNCE_TIME: float = 0.05  # button debounce threshold
 DEFAULT_VARIANCE: float = 0.001  # pot difference variance
@@ -77,6 +78,32 @@ class GpioHandler:
     GPIO_HANDLER_CACHE = set()
 
     @classmethod
+    def route(cls,
+              address: int,
+              btn_pin: int,
+              led_pin: int | str = None,
+              baudrate: int = DEFAULT_BAUDRATE,
+              port: str | int = DEFAULT_PORT,
+              server: str = None) -> Button | Tuple[Button, LED]:
+        """
+            Fire a TMCC2/Legacy Route, throwing all incorporated turnouts to the correct state
+        """
+        # make the CommandReq
+        req, btn, led = cls._make_button(btn_pin,
+                                         TMCC2RouteCommandDef.FIRE,
+                                         address,
+                                         led_pin=led_pin,
+                                         bind=True)
+        # bind actions to buttons
+        btn.when_pressed = req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+
+        # return created objects
+        if led is not None:
+            return btn, led
+        else:
+            return btn
+
+    @classmethod
     def switch(cls,
                address: int,
                thru_pin: int,
@@ -88,7 +115,14 @@ class GpioHandler:
                baudrate: int = DEFAULT_BAUDRATE,
                port: str | int = DEFAULT_PORT,
                server: str = None) -> Tuple[Button, Button] | Tuple[Button, Button, LED, LED]:
+        """
+            Control a switch/turnout that responds to TMCC1 switch commands, such
+            as Lionel Command/Control-equipped turnouts or turnouts connected to
+            an LCS ACS 2 configured in "Switch" mode.
 
+            Optionally, manage LEDs to reflect turnout state; thru or out. Also
+            supports bi-color LEDs with either common cathode or anode.
+        """
         if initial_state is None:
             # TODO: query initial state
             initial_state = TMCC1SwitchState.THROUGH

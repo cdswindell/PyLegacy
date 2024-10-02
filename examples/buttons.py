@@ -18,4 +18,6 @@ from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 GpioHandler.switch(10, 26, 19, 13, 6, cathode=False)
 
+GpioHandler.route(15, 21, 20)
+
 print("Buttons registered...")
