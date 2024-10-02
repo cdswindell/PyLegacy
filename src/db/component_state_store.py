@@ -337,6 +337,9 @@ class DependencyCache:
         self.toggles(Switch.OUT, Switch.THROUGH)
         self.toggles(Switch.THROUGH, Switch.OUT)
 
+        self.toggles(Aux.AUX1_OPTION_ONE, Aux.AUX2_OPTION_ONE)
+        self.toggles(Aux.AUX2_OPTION_ONE, Aux.AUX1_OPTION_ONE)
+
         self.toggles(Engine2.FORWARD_DIRECTION, Engine2.REVERSE_DIRECTION)
         self.toggles(Engine2.REVERSE_DIRECTION, Engine2.FORWARD_DIRECTION)
 
