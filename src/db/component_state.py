@@ -295,7 +295,7 @@ class EngineState(ComponentState):
 
             # get the downstream effects of this command, as they also impact state
             cmd_effects = self.results_in(command)
-            print(f"Update: {command}\nEffects: {cmd_effects}")
+            # print(f"Update: {command}\nEffects: {cmd_effects}")
 
             # handle direction
             if command.command in DIRECTIONS_SET:
