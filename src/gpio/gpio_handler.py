@@ -444,14 +444,15 @@ class GpioHandler:
     @classmethod
     def _create_listeners(cls, req, active_led: LED = None, *inactive_leds: LED) -> None:
 
-        def func_on(_: Message) -> None:
+        def func_on(msg: Message) -> None:
+            print(f"ON {msg}")
             if active_led is not None:
-                print(f"Turning on LED {active_led}")
                 active_led.on()
             for led in inactive_leds:
                 led.off()
 
-        def func_off(_: Message) -> None:
+        def func_off(msg: Message) -> None:
+            print(f"OFF {msg}")
             if active_led is not None:
                 active_led.off()
             for led in inactive_leds:
