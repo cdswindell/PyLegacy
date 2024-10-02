@@ -480,4 +480,5 @@ class SwitchStateSource:
     def __next__(self):
         with self._component.notifier:
             self._component.notifier.wait()
+            print(self._component)
             return self._component.state == self._state
