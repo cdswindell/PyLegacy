@@ -197,8 +197,8 @@ class GpioHandler:
             return on_btn, off_btn
         else:
             # listen for external state changes
-            cls._create_listeners(on_req, on_led)
-            cls._create_listeners(off_req, None, on_led)
+            # cls._create_listeners(on_req, on_led)
+            # cls._create_listeners(off_req, None, on_led)
             # return created objects
             return on_btn, off_btn, on_led
 
@@ -391,7 +391,6 @@ class GpioHandler:
         if isinstance(command, CommandDefEnum):
             command = CommandReq.build(command, address=address, data=data, scope=scope)
 
-        print(f"Connecting {command} to pin: {pin}")
         # create the button object we will associate an action with
         button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
         cls._cache_device(button)
@@ -420,7 +419,6 @@ class GpioHandler:
     @classmethod
     def _with_off_action(cls, action: Callable, led: LED = None, *impacted_leds: LED) -> Callable:
         def off_action() -> None:
-            print("******* firing off action *******")
             action()
             if led is not None:
                 led.off()
