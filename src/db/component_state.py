@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import threading
 from abc import ABC
 from collections import defaultdict
 from datetime import datetime
@@ -38,6 +39,7 @@ class ComponentState(ABC):
         self._last_command: CommandReq | None = None
         self._last_updated: datetime | None = None
         self._address: int | None = None
+        self._cv = threading.Condition()
 
         from .component_state_store import DependencyCache
         self._dependencies = DependencyCache.build()
@@ -90,6 +92,10 @@ class ComponentState(ABC):
     @property
     def last_updated(self) -> datetime:
         return self._last_updated
+
+    @property
+    def notifier(self) -> threading.Condition:
+        return self._cv
 
     @abc.abstractmethod
     def update(self, command: CommandReq) -> None:
@@ -145,11 +151,13 @@ class SwitchState(ComponentState):
 
     def update(self, command: CommandReq) -> None:
         if command:
-            super().update(command)
-            if command.command == TMCC1HaltCommandDef.HALT:
-                return  # do nothing on halt
-            if command.command != Switch.SET_ADDRESS:
-                self._state = command.command
+            with self.notifier:
+                super().update(command)
+                if command.command == TMCC1HaltCommandDef.HALT:
+                    return  # do nothing on halt
+                if command.command != Switch.SET_ADDRESS:
+                    self._state = command.command
+                self.notifier.notify_all()
 
     @property
     def state(self) -> Switch:
@@ -199,22 +207,24 @@ class AccessoryState(ComponentState):
 
     def update(self, command: CommandReq) -> None:
         if command:
-            super().update(command)
-            if command.command != Aux.SET_ADDRESS:
-                if command.command == TMCC1HaltCommandDef.HALT:
-                    self._aux1_state = Aux.AUX1_OFF
-                    self._aux2_state = Aux.AUX2_OFF
-                    self._aux_state = Aux.AUX2_OPTION_ONE
-                    self._number = None
-                else:
-                    if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX2_OPTION_ONE]:
-                        self._aux_state = command.command
-                    if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:
-                        self._aux1_state = command.command
-                    elif command.command in [Aux.AUX2_OPTION_ONE, Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPTION_TWO]:
-                        self._aux2_state = command.command
-                    if command.command == Aux.NUMERIC:
-                        self._number = command.data
+            with self.notifier:
+                super().update(command)
+                if command.command != Aux.SET_ADDRESS:
+                    if command.command == TMCC1HaltCommandDef.HALT:
+                        self._aux1_state = Aux.AUX1_OFF
+                        self._aux2_state = Aux.AUX2_OFF
+                        self._aux_state = Aux.AUX2_OPTION_ONE
+                        self._number = None
+                    else:
+                        if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX2_OPTION_ONE]:
+                            self._aux_state = command.command
+                        if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:
+                            self._aux1_state = command.command
+                        elif command.command in [Aux.AUX2_OPTION_ONE, Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPTION_TWO]:
+                            self._aux2_state = command.command
+                        if command.command == Aux.NUMERIC:
+                            self._number = command.data
+                self.notifier.notify_all()
 
     @property
     def is_known(self) -> bool:
@@ -289,45 +299,47 @@ class EngineState(ComponentState):
 
     def update(self, command: CommandReq) -> None:
         if command:
-            if command.syntax == CommandSyntax.LEGACY:
-                self._is_legacy = True
-            super().update(command)
+            with self.notifier:
+                if command.syntax == CommandSyntax.LEGACY:
+                    self._is_legacy = True
+                super().update(command)
 
-            # get the downstream effects of this command, as they also impact state
-            cmd_effects = self.results_in(command)
-            # print(f"Update: {command}\nEffects: {cmd_effects}")
+                # get the downstream effects of this command, as they also impact state
+                cmd_effects = self.results_in(command)
+                # print(f"Update: {command}\nEffects: {cmd_effects}")
 
-            # handle direction
-            if command.command in DIRECTIONS_SET:
-                self._direction = command.command
-            elif cmd_effects & DIRECTIONS_SET:
-                self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
+                # handle direction
+                if command.command in DIRECTIONS_SET:
+                    self._direction = command.command
+                elif cmd_effects & DIRECTIONS_SET:
+                    self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
-            # handle speed
-            if command.command in SPEED_SET:
-                self._speed = command.data
-            elif cmd_effects & SPEED_SET:
-                speed = self._harvest_effect(cmd_effects & SPEED_SET)
-                if isinstance(speed, tuple) and len(speed) == 2:
-                    self._speed = speed[1]
-                else:
-                    print(f"**************** What am I supposed to do with {speed}?")
+                # handle speed
+                if command.command in SPEED_SET:
+                    self._speed = command.data
+                elif cmd_effects & SPEED_SET:
+                    speed = self._harvest_effect(cmd_effects & SPEED_SET)
+                    if isinstance(speed, tuple) and len(speed) == 2:
+                        self._speed = speed[1]
+                    else:
+                        print(f"**************** What am I supposed to do with {speed}?")
 
-            # handle startup/shutdown
-            if command.command in STARTUP_SET:
-                self._start_stop = command.command
-            elif command.command in SHUTDOWN_SET:
-                self._start_stop = command.command
-            elif cmd_effects & STARTUP_SET:
-                self._start_stop = self._harvest_effect(cmd_effects & STARTUP_SET)
-            elif cmd_effects & SHUTDOWN_SET:
-                shutdown = self._harvest_effect(cmd_effects & SHUTDOWN_SET)
-                if isinstance(shutdown, CommandDefEnum):
-                    self._start_stop = shutdown
-                elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
-                    self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-                elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
-                    self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                # handle startup/shutdown
+                if command.command in STARTUP_SET:
+                    self._start_stop = command.command
+                elif command.command in SHUTDOWN_SET:
+                    self._start_stop = command.command
+                elif cmd_effects & STARTUP_SET:
+                    self._start_stop = self._harvest_effect(cmd_effects & STARTUP_SET)
+                elif cmd_effects & SHUTDOWN_SET:
+                    shutdown = self._harvest_effect(cmd_effects & SHUTDOWN_SET)
+                    if isinstance(shutdown, CommandDefEnum):
+                        self._start_stop = shutdown
+                    elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
+                        self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                    elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
+                        self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                self.notifier.notify_all()
 
     @property
     def is_tmcc(self) -> bool:

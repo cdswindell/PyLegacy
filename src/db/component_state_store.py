@@ -133,6 +133,12 @@ class ComponentStateStore:
         else:
             return None
 
+    def component(self, scope: CommandScope, address: int) -> T:
+        if scope in [CommandScope.ACC, CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH] \
+                and 1 <= address <= 99:
+            return self._state[scope][address]
+        raise ValueError(f'Invalid scope/address: {scope} {address}')
+
 
 class DependencyCache:
     """

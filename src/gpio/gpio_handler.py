@@ -5,7 +5,7 @@ from typing import Tuple, Callable
 from gpiozero import Button, LED, MCP3008, Device
 
 from src.comm.command_listener import Message
-from src.db.component_state_store import DependencyCache
+from src.db.component_state_store import DependencyCache, ComponentStateStore
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from src.protocol.command_def import CommandDefEnum
@@ -149,8 +149,10 @@ class GpioHandler:
 
         if thru_led is not None and out_led is not None:
             # listen for external state changes
-            cls._create_listeners(thru_req, thru_led, out_led)
-            cls._create_listeners(out_req, out_led, thru_led)
+            # cls._create_listeners(thru_req, thru_led, out_led)
+            # cls._create_listeners(out_req, out_led, thru_led)
+            thru_led.source = SwitchStateSource(address, TMCC1SwitchState.THROUGH)
+            out_led.source = SwitchStateSource(address, TMCC1SwitchState.OUT)
             # return created objects
             return thru_btn, out_btn, thru_led, out_led
         else:
@@ -462,3 +464,17 @@ class GpioHandler:
 
         DependencyCache.listen_for_enablers(req, func_on)
         DependencyCache.listen_for_disablers(req, func_off)
+
+
+class SwitchStateSource:
+    def __init__(self,
+                 address: int,
+                 state: TMCC1SwitchState) -> None:
+        self._state = state
+        self._component = ComponentStateStore.build().component(CommandScope.SWITCH, address)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self._component.state == self._state
