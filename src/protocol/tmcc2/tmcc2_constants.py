@@ -286,3 +286,11 @@ class TMCC2EngineCommandDef(TMCC2Enum):
     WATER_INJECTOR = TMCC2CommandDef(TMCC2_WATER_INJECTOR_SOUND_COMMAND)
     VOLUME_UP = TMCC2CommandDef(TMCC2_VOLUME_UP_COMMAND_HACK, alias="NUMERIC", data=1)
     VOLUME_DOWN = TMCC2CommandDef(TMCC2_VOLUME_DOWN_COMMAND_HACK, alias="NUMERIC", data=4)
+
+
+# map dereferenced commands to their aliases
+TMCC2_COMMAND_TO_ALIAS_MAP = {}
+for tmcc2_enum in [TMCC2EngineCommandDef, TMCC2HaltCommandDef, TMCC2RouteCommandDef]:
+    for enum in tmcc2_enum:
+        if enum.is_alias:
+            TMCC2_COMMAND_TO_ALIAS_MAP[enum.alias] = enum

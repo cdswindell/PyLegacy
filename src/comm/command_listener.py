@@ -312,6 +312,7 @@ class CommandDispatcher(Thread):
                         self.publish_all(cmd)
                     # if command is a legacy-style halt, just send to engines and trains
                     elif cmd.is_system_halt:
+                        print(f"*** {cmd}")
                         self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
                     # otherwise, just send to the interested parties
                     else:

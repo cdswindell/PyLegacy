@@ -346,3 +346,10 @@ class TMCC1EngineCommandDef(TMCC1Enum):
                                       alias="ABSOLUTE_SPEED", data=0)
     FUNC_MINUS = TMCC1CommandDef(TMCC1_ENG_FUNC_MINUS_COMMAND, alias="NUMERIC", data=8)
     FUNC_PLUS = TMCC1CommandDef(TMCC1_ENG_FUNC_PLUS_COMMAND, alias="NUMERIC", data=9)
+
+
+TMCC1_COMMAND_TO_ALIAS_MAP = {}
+for tmcc2_enum in [TMCC1EngineCommandDef]:
+    for enum in tmcc2_enum:
+        if enum.is_alias:
+            TMCC1_COMMAND_TO_ALIAS_MAP[enum.alias] = enum

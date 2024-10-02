@@ -221,9 +221,9 @@ class DependencyCache:
         cmd_set = set()
         for cmd in commands:
             if isinstance(cmd, CommandDefEnum) and cmd.is_alias:
-                if include_aliases:
+                if include_aliases is True:
                     cmd_set.add(cmd)
-                if dereference_aliases:
+                if dereference_aliases is True:
                     cmd_set.add(cmd.alias)
             else:
                 cmd_set.add(cmd)
@@ -264,11 +264,18 @@ class DependencyCache:
         """
             Returns a list of the CommandDefEnums that result from issuing the given command.
         """
+        print(f"Command: {command} in causes: {command in self._causes}")
         if command in self._causes:
             results = self._harvest_commands(self._causes[command], dereference_aliases, include_aliases)
             if command not in results:
                 # noinspection PyTypeChecker
                 results.update(self._harvest_commands({command}, dereference_aliases, include_aliases))
+            print(f"Command: {command}\nResults: {results}")
+            return results
+        elif isinstance(command, CommandDefEnum) and command.is_alias and command.alias in self._causes:
+            results = self._harvest_commands(self._causes[command.alias], dereference_aliases, include_aliases)
+            if command.is_alias not in results:
+                results.update(self._harvest_commands({command.alias}, dereference_aliases, include_aliases))
             return results
         else:
             return {command}

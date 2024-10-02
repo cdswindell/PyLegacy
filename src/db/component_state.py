@@ -9,9 +9,10 @@ from typing import Tuple, TypeVar, Set
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS, CommandSyntax
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef, TMCC1EngineCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef, TMCC1EngineCommandDef, \
+    TMCC1_COMMAND_TO_ALIAS_MAP
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2_COMMAND_TO_ALIAS_MAP
 
 C = TypeVar("C", bound=CommandDefEnum)
 E = TypeVar("E", bound=CommandDefEnum)
@@ -21,6 +22,12 @@ DIRECTIONS_SET = {TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef
 
 SPEED_SET = {TMCC1EngineCommandDef.ABSOLUTE_SPEED, TMCC2EngineCommandDef.ABSOLUTE_SPEED,
              (TMCC1EngineCommandDef.ABSOLUTE_SPEED, 0), (TMCC2EngineCommandDef.ABSOLUTE_SPEED, 0)}
+
+STARTUP_SET = {TMCC2EngineCommandDef.START_UP_IMMEDIATE, TMCC2EngineCommandDef.START_UP_DELAYED}
+
+SHUTDOWN_SET = {TMCC1EngineCommandDef.SHUTDOWN_DELAYED, (TMCC1EngineCommandDef.NUMERIC, 5),
+                TMCC2EngineCommandDef.SHUTDOWN_DELAYED, (TMCC2EngineCommandDef.NUMERIC, 5),
+                TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE}
 
 
 class ComponentState(ABC):
@@ -39,10 +46,14 @@ class ComponentState(ABC):
         return f"{self.scope.name} {self._address}"
 
     def results_in(self, command: CommandReq) -> Set[E]:
-        effects = self._dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
+        effects = self._dependencies.results_in(command.command,
+                                                dereference_aliases=True,
+                                                include_aliases=False)
         if command.is_data:
             # noinspection PyTypeChecker
-            effects.update(self._dependencies.results_in((command.command, command.data)))
+            effects.update(self._dependencies.results_in((command.command, command.data),
+                                                         dereference_aliases=True,
+                                                         include_aliases=False))
         return effects
 
     def _harvest_effect(self, effects: Set[E]) -> E | Tuple[E, int] | None:
@@ -251,14 +262,13 @@ class EngineState(ComponentState):
         if scope not in [CommandScope.ENGINE, CommandScope.TRAIN]:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
         super().__init__(scope)
-        self._number: int | None = None
-        self._started = None
+        self._start_stop: CommandDefEnum | None = None
         self._speed: int | None = None
         self._direction: CommandDefEnum | None = None
         self._is_legacy: bool = False  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
-        speed = direction = ""
+        speed = direction = start_stop = ""
         if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
             direction = "FORWARD"
         elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
@@ -267,10 +277,15 @@ class EngineState(ComponentState):
         if self._speed is not None:
             speed = f"Speed {self._speed} "
 
-        return f"{self.scope.name} {self._address} {speed}{direction}"
+        if self._start_stop is not None:
+            if self._start_stop in STARTUP_SET:
+                start_stop = "Started up "
+            elif self._start_stop in SHUTDOWN_SET:
+                start_stop = "Shut down "
+        return f"{self.scope.name} {self._address} {start_stop}{speed}{direction}"
 
     def is_known(self) -> bool:
-        return self._direction is not None or self._started is not None or self._speed is not None
+        return self._direction is not None or self._start_stop is not None or self._speed is not None
 
     def update(self, command: CommandReq) -> None:
         if command:
@@ -280,6 +295,7 @@ class EngineState(ComponentState):
 
             # get the downstream effects of this command, as they also impact state
             cmd_effects = self.results_in(command)
+            print(f"Update: {command}\nEffects: {cmd_effects}")
 
             # handle direction
             if command.command in DIRECTIONS_SET:
@@ -287,6 +303,7 @@ class EngineState(ComponentState):
             elif cmd_effects & DIRECTIONS_SET:
                 self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
+            # handle speed
             if command.command in SPEED_SET:
                 self._speed = command.data
             elif cmd_effects & SPEED_SET:
@@ -295,6 +312,22 @@ class EngineState(ComponentState):
                     self._speed = speed[1]
                 else:
                     print(f"**************** What am I supposed to do with {speed}?")
+
+            # handle startup/shutdown
+            if command.command in STARTUP_SET:
+                self._start_stop = command.command
+            elif command.command in SHUTDOWN_SET:
+                self._start_stop = command.command
+            elif cmd_effects & STARTUP_SET:
+                self._start_stop = self._harvest_effect(cmd_effects & STARTUP_SET)
+            elif cmd_effects & SHUTDOWN_SET:
+                shutdown = self._harvest_effect(cmd_effects & SHUTDOWN_SET)
+                if isinstance(shutdown, CommandDefEnum):
+                    self._start_stop = shutdown
+                elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
+                    self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
+                    self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
 
     @property
     def is_tmcc(self) -> bool:
