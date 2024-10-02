@@ -228,7 +228,7 @@ class CommandReq:
 
     @property
     def is_system_halt(self) -> bool:
-        return self.command == TMCC2HaltCommandDef.HALT
+        return self.command in [TMCC2HaltCommandDef.HALT, TMCC2EngineCommandDef.SYSTEM_HALT]
 
     @property
     def command(self) -> CommandDefEnum:
