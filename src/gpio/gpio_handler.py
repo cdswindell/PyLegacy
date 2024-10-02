@@ -10,6 +10,7 @@ from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from src.protocol.command_def import CommandDefEnum
 from src.protocol.constants import CommandScope
+from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
 
 DEFAULT_BOUNCE_TIME: float = 0.05  # button debounce threshold
 DEFAULT_VARIANCE: float = 0.001  # pot difference variance
@@ -74,6 +75,42 @@ class PotHandler(Thread):
 class GpioHandler:
     GPIO_DEVICE_CACHE = set()
     GPIO_HANDLER_CACHE = set()
+
+    @classmethod
+    def switch(cls,
+               address: int,
+               thru_pin: int,
+               out_pin: int,
+               thru_led_pin: int | str = None,
+               out_led_pin: int | str = None,
+               baudrate: int = DEFAULT_BAUDRATE,
+               port: str | int = DEFAULT_PORT,
+               server: str = None,
+               common_cathode: bool = True) -> Tuple[Button, Button] | Tuple[Button, Button, LED, LED]:
+        # make the CommandReqs
+        thru_req, thru_btn, thru_led = cls._make_button(thru_pin,
+                                                        TMCC1SwitchState.THROUGH,
+                                                        address,
+                                                        led_pin=thru_led_pin,
+                                                        common_cathode=common_cathode)
+        out_req, out_btn, out_led = cls._make_button(out_pin,
+                                                     TMCC1SwitchState.OUT,
+                                                     address,
+                                                     led_pin=out_led_pin,
+                                                     common_cathode=common_cathode)
+        # bind actions to buttons
+        thru_action = thru_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+        out_action = out_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+
+        thru_btn.when_pressed = cls._with_on_action(thru_action, thru_led, out_led)
+        out_btn.when_pressed = cls._with_on_action(out_action, out_led, thru_led)
+
+        # listen for external state changes
+
+        if thru_led is not None and out_led is not None:
+            return thru_btn, out_btn, thru_led, out_led
+        else:
+            return thru_btn, out_btn
 
     @classmethod
     def when_button_pressed(cls,
@@ -253,10 +290,11 @@ class GpioHandler:
     def _make_button(cls,
                      pin: int | str,
                      command: CommandReq | CommandDefEnum,
-                     address: int,
-                     data: int,
-                     scope: CommandScope,
-                     led_pin: int | str) -> Tuple[CommandReq, Button, LED]:
+                     address: int = DEFAULT_ADDRESS,
+                     data: int = None,
+                     scope: CommandScope = None,
+                     led_pin: int | str = None,
+                     common_cathode: bool = True) -> Tuple[CommandReq, Button, LED]:
         # if command is actually a CommandDefEnum, build a CommandReq
         if isinstance(command, CommandDefEnum):
             command = CommandReq.build(command, address=address, data=data, scope=scope)
@@ -267,7 +305,7 @@ class GpioHandler:
 
         # create a LED, if asked, and tie its source to the button
         if led_pin is not None and led_pin != 0:
-            led = LED(led_pin)
+            led = LED(led_pin, active_high=common_cathode)
             led.source = button
             cls._cache_device(led)
         else:
@@ -286,17 +324,25 @@ class GpioHandler:
         return toggle_action
 
     @classmethod
-    def _with_off_action(cls, action: Callable, led: LED) -> Callable:
+    def _with_off_action(cls, action: Callable, led: LED = None, *impacted_leds: LED) -> Callable:
         def off_action() -> None:
             action()
-            led.off()
+            if led is not None:
+                led.off()
+            if impacted_leds:
+                for impacted_led in impacted_leds:
+                    impacted_led.on()
 
         return off_action
 
     @classmethod
-    def _with_on_action(cls, action: Callable, led: LED) -> Callable:
+    def _with_on_action(cls, action: Callable, led: LED, *impacted_leds: LED) -> Callable:
         def on_action() -> None:
             action()
-            led.on()
+            if led is not None:
+                led.on()
+            if impacted_leds:
+                for impacted_led in impacted_leds:
+                    impacted_led.off()
 
         return on_action
