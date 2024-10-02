@@ -20,6 +20,6 @@ GpioHandler.switch(10, 26, 19, 13, 6, cathode=False)
 
 # GpioHandler.route(15, 21, 20)
 
-GpioHandler.power_district(15, 12, 21, 20)
+GpioHandler.power_district(15, 25, 21, 20)
 
 print("Buttons registered...")

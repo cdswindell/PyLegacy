@@ -419,6 +419,7 @@ class GpioHandler:
     @classmethod
     def _with_off_action(cls, action: Callable, led: LED = None, *impacted_leds: LED) -> Callable:
         def off_action() -> None:
+            print("******* firing off action *******")
             action()
             if led is not None:
                 led.off()
