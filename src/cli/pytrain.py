@@ -101,6 +101,7 @@ class PyTrain:
                 ui: str = input(">> ")
                 readline.add_history(ui)  # provides limited command line recall and editing
                 self._handle_command(ui)
+                print(ui)
             except SystemExit:
                 pass
             except argparse.ArgumentError:
