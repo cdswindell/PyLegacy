@@ -446,14 +446,14 @@ class GpioHandler:
 
         def func_on(msg: Message) -> None:
             # ignore messages for other commands
-            if msg.address == req.address and msg.command == req.address:
+            if msg.address == req.address:
                 if active_led is not None:
                     active_led.on()
                 for led in inactive_leds:
                     led.off()
 
         def func_off(msg: Message) -> None:
-            if msg.address == req.address and msg.command == req.address:
+            if msg.address == req.address:
                 if active_led is not None:
                     active_led.off()
                 for led in inactive_leds:
