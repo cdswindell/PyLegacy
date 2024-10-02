@@ -5,6 +5,7 @@ from typing import Tuple, Callable
 from gpiozero import Button, LED, MCP3008, Device
 
 from src.comm.command_listener import Message
+from src.db.component_state import SwitchState, AccessoryState
 from src.db.component_state_store import DependencyCache, ComponentStateStore
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
@@ -148,12 +149,8 @@ class GpioHandler:
         out_btn.when_pressed = cls._with_on_action(out_action, out_led, thru_led)
 
         if thru_led is not None and out_led is not None:
-            # listen for external state changes
-            # cls._create_listeners(thru_req, thru_led, out_led)
-            # cls._create_listeners(out_req, out_led, thru_led)
             thru_led.source = SwitchStateSource(address, TMCC1SwitchState.THROUGH)
             out_led.source = SwitchStateSource(address, TMCC1SwitchState.OUT)
-            # return created objects
             return thru_btn, out_btn, thru_led, out_led
         else:
             # return created objects
@@ -196,6 +193,7 @@ class GpioHandler:
 
         if on_led is None:
             # return created objects
+            on_led.source = AccessoryStateSource(address, aux_state=TMCC1AuxCommandDef.AUX1_OPTION_ONE)
             return on_btn, off_btn
         else:
             # listen for external state changes
@@ -471,7 +469,7 @@ class SwitchStateSource:
                  address: int,
                  state: TMCC1SwitchState) -> None:
         self._state = state
-        self._component = ComponentStateStore.build().component(CommandScope.SWITCH, address)
+        self._component: SwitchState = ComponentStateStore.build().component(CommandScope.SWITCH, address)
 
     def __iter__(self):
         return self
@@ -480,3 +478,25 @@ class SwitchStateSource:
         with self._component.notifier:
             self._component.notifier.wait()
             return self._component.state == self._state
+
+
+class AccessoryStateSource:
+    def __init__(self,
+                 address: int,
+                 aux_state: TMCC1AuxCommandDef = None,
+                 aux1_state: TMCC1AuxCommandDef = None,
+                 aux2_state: TMCC1AuxCommandDef = None) -> None:
+        self._aux_state = aux_state
+        self._aux1_state = aux1_state
+        self._aux2_state = aux2_state
+        self._component: AccessoryState = ComponentStateStore.build().component(CommandScope.ACC, address)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        with self._component.notifier:
+            self._component.notifier.wait()
+            return (self._aux_state is not None and self._component.aux_state == self._aux_state) or \
+                (self._aux1_state is not None and self._component.aux1_state == self._aux1_state) or \
+                (self._aux2_state is not None and self._component.aux2_state == self._aux2_state)
