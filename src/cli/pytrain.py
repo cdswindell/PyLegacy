@@ -71,7 +71,7 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.SWITCH)
             self._state_store.listen_for(CommandScope.ACC)
         # process startup script
-        self._process_startup_scripts()
+        # self._process_startup_scripts()
         self.run()
 
     def __call__(self, cmd: CommandReq) -> None:
