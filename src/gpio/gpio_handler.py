@@ -1,11 +1,13 @@
+import abc
 import math
+from abc import ABC
 from threading import Thread
-from typing import Tuple, Callable
+from typing import Tuple, Callable, TypeVar
 
 from gpiozero import Button, LED, MCP3008, Device
 
 from src.comm.command_listener import Message
-from src.db.component_state import SwitchState, AccessoryState
+from src.db.component_state import ComponentState
 from src.db.component_state_store import DependencyCache, ComponentStateStore
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
@@ -462,32 +464,52 @@ class GpioHandler:
         DependencyCache.listen_for_disablers(req, func_off)
 
 
-class SwitchStateSource:
+T = TypeVar('T', bound=ComponentState)
+
+
+class StateSource(ABC):
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self,
+                 scope: CommandScope,
+                 address: int) -> None:
+        # super().__init__(daemon=True, name=f"{scope.friendly} {address} State")
+        self._scope = scope
+        self._address = address
+        self._component: T = ComponentStateStore.build().component(scope, address)
+
+    def run(self) -> None:
+        while True:
+            with self._component.notifier:
+                self._component.notifier.wait()
+                print("New state available")
+
+
+class SwitchStateSource(StateSource):
     def __init__(self,
                  address: int,
                  state: TMCC1SwitchState) -> None:
+        super().__init__(CommandScope.SWITCH, address)
         self._state = state
-        self._component: SwitchState = ComponentStateStore.build().component(CommandScope.SWITCH, address)
+        # self.start()
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        with self._component.notifier:
-            self._component.notifier.wait()
-            return self._component.state == self._state
+        return self._component.state == self._state
 
 
-class AccessoryStateSource:
+class AccessoryStateSource(StateSource):
     def __init__(self,
                  address: int,
                  aux_state: TMCC1AuxCommandDef = None,
                  aux1_state: TMCC1AuxCommandDef = None,
                  aux2_state: TMCC1AuxCommandDef = None) -> None:
+        super().__init__(CommandScope.ACC, address)
         self._aux_state = aux_state
         self._aux1_state = aux1_state
         self._aux2_state = aux2_state
-        self._component: AccessoryState = ComponentStateStore.build().component(CommandScope.ACC, address)
 
     def __iter__(self):
         return self

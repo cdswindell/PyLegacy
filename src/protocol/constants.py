@@ -85,6 +85,10 @@ class CommandScope(Mixins, Enum):
     ACC = 5
     SYSTEM = 6
 
+    @property
+    def friendly(self) -> str:
+        return self.name.capitalize()
+
 
 class CommandPrefix(Mixins, IntEnum):
     """
