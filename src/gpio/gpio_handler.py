@@ -90,8 +90,8 @@ class GpioHandler:
                server: str = None) -> Tuple[Button, Button] | Tuple[Button, Button, LED, LED]:
 
         if initial_state is None:
-            # query system state
-            pass
+            # TODO: query initial state
+            initial_state = TMCC1SwitchState.THROUGH
 
         # make the CommandReqs
         thru_req, thru_btn, thru_led = cls._make_button(thru_pin,
@@ -113,11 +113,14 @@ class GpioHandler:
         thru_btn.when_pressed = cls._with_on_action(thru_action, thru_led, out_led)
         out_btn.when_pressed = cls._with_on_action(out_action, out_led, thru_led)
 
-        # listen for external state changes
-
         if thru_led is not None and out_led is not None:
+            # listen for external state changes
+            cls._create_listeners(thru_req, thru_led, out_led)
+            cls._create_listeners(out_req, out_led, thru_led)
+            # return created objects
             return thru_btn, out_btn, thru_led, out_led
         else:
+            # return created objects
             return thru_btn, out_btn
 
     @classmethod
@@ -357,3 +360,19 @@ class GpioHandler:
                     impacted_led.off()
 
         return on_action
+
+    @classmethod
+    def _create_listeners(cls, req, active_led: LED, *inactive_leds: LED) -> None:
+
+        def func_on(_: Message) -> None:
+            active_led.on()
+            for led in inactive_leds:
+                led.off()
+
+        def func_off(_: Message) -> None:
+            active_led.off()
+            for led in inactive_leds:
+                led.on()
+
+        DependencyCache.listen_for_enablers(req, func_on)
+        DependencyCache.listen_for_disablers(req, func_off)
