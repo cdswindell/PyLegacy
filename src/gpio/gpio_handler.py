@@ -356,6 +356,8 @@ class GpioHandler:
         for device in cls.GPIO_DEVICE_CACHE:
             device.close()
         cls.GPIO_DEVICE_CACHE = set()
+        from gpiozero.threads import _threads_shutdown
+        _threads_shutdown()
 
     @classmethod
     def _cache_handler(cls, handler: PotHandler) -> None:
