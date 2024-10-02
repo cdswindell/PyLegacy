@@ -472,10 +472,11 @@ class SwitchStateSource:
                  state: TMCC1SwitchState) -> None:
         self._state = state
         self._component = ComponentStateStore.build().component(CommandScope.SWITCH, address)
+        print(self._component)
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        with self._component.notify:
+        with self._component.notifier:
             return self._component.state == self._state
