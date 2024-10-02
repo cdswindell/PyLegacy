@@ -430,7 +430,7 @@ class GpioHandler:
 
     @classmethod
     def _with_on_action(cls, action: Callable, led: LED, *impacted_leds: LED) -> Callable:
-        print("******* in with_on_action *******")
+        print(f"******* in with_on_action {led} *******")
 
         def on_action() -> None:
             print("******* firing on action *******")
