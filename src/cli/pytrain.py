@@ -70,8 +70,6 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.TRAIN)
             self._state_store.listen_for(CommandScope.SWITCH)
             self._state_store.listen_for(CommandScope.ACC)
-        # process startup script
-        # self._process_startup_scripts()
         self.run()
 
     def __call__(self, cmd: CommandReq) -> None:
@@ -94,7 +92,8 @@ class PyTrain:
         return self._comm_buffer
 
     def run(self) -> None:
-
+        # process startup script
+        self._process_startup_scripts()
         # print opening line
         print(f"{PROGRAM_NAME}, Ver 0.1")
         while True:
@@ -102,7 +101,6 @@ class PyTrain:
                 ui: str = input(">> ")
                 readline.add_history(ui)  # provides limited command line recall and editing
                 self._handle_command(ui)
-                print(ui)
             except SystemExit:
                 pass
             except argparse.ArgumentError:
@@ -124,7 +122,7 @@ class PyTrain:
                     GpioHandler.reset_all()
                 except Exception as e:
                     print(f"Error releasing GPIO, continuing shutdown: {e}")
-            break
+                break
 
     def _handle_command(self, ui: str) -> None:
         """
@@ -164,7 +162,6 @@ class PyTrain:
                     cli_cmd.send()
                 except argparse.ArgumentError as e:
                     print(f"{e}")
-                    return
 
     def _process_startup_scripts(self) -> None:
         if self._startup_script is not None:
