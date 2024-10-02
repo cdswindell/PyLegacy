@@ -515,8 +515,6 @@ class AccessoryStateSource(StateSource):
         return self
 
     def __next__(self):
-        with self._component.notifier:
-            self._component.notifier.wait()
-            return (self._aux_state is not None and self._component.aux_state == self._aux_state) or \
-                (self._aux1_state is not None and self._component.aux1_state == self._aux1_state) or \
-                (self._aux2_state is not None and self._component.aux2_state == self._aux2_state)
+        return (self._aux_state is not None and self._component.aux_state == self._aux_state) or \
+            (self._aux1_state is not None and self._component.aux1_state == self._aux1_state) or \
+            (self._aux2_state is not None and self._component.aux2_state == self._aux2_state)
