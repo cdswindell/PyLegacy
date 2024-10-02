@@ -445,18 +445,19 @@ class GpioHandler:
     def _create_listeners(cls, req, active_led: LED = None, *inactive_leds: LED) -> None:
 
         def func_on(msg: Message) -> None:
-            print(f"ON {msg}")
-            if active_led is not None:
-                active_led.on()
-            for led in inactive_leds:
-                led.off()
+            # ignore messages for other commands
+            if msg.address == req.address and msg.command == req.address:
+                if active_led is not None:
+                    active_led.on()
+                for led in inactive_leds:
+                    led.off()
 
         def func_off(msg: Message) -> None:
-            print(f"OFF {msg}")
-            if active_led is not None:
-                active_led.off()
-            for led in inactive_leds:
-                led.on()
+            if msg.address == req.address and msg.command == req.address:
+                if active_led is not None:
+                    active_led.off()
+                for led in inactive_leds:
+                    led.on()
 
         DependencyCache.listen_for_enablers(req, func_on)
         DependencyCache.listen_for_disablers(req, func_off)
