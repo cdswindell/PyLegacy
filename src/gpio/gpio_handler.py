@@ -477,5 +477,5 @@ class SwitchStateSource:
         return self
 
     def __next__(self):
-        with self._component.state.notify:
+        with self._component.notify:
             return self._component.state == self._state
