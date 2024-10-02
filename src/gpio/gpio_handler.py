@@ -391,6 +391,7 @@ class GpioHandler:
         if isinstance(command, CommandDefEnum):
             command = CommandReq.build(command, address=address, data=data, scope=scope)
 
+        print(f"Connecting {command} to pin: {pin}")
         # create the button object we will associate an action with
         button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
         cls._cache_device(button)
