@@ -70,6 +70,8 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.TRAIN)
             self._state_store.listen_for(CommandScope.SWITCH)
             self._state_store.listen_for(CommandScope.ACC)
+        # process startup script
+        self._process_startup_scripts()
         self.run()
 
     def __call__(self, cmd: CommandReq) -> None:
@@ -92,8 +94,7 @@ class PyTrain:
         return self._comm_buffer
 
     def run(self) -> None:
-        # process startup script
-        self._process_startup_scripts()
+
         # print opening line
         print(f"{PROGRAM_NAME}, Ver 0.1")
         while True:
