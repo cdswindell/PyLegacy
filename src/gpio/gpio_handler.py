@@ -445,7 +445,7 @@ class GpioHandler:
     def _create_listeners(cls, req, active_led: LED = None, *inactive_leds: LED) -> None:
 
         def func_on(msg: Message) -> None:
-            # ignore messages for other commands
+            print(f"ON Action: {msg} {req}")
             if msg.address == req.address:
                 if active_led is not None:
                     active_led.on()
@@ -453,6 +453,7 @@ class GpioHandler:
                     led.off()
 
         def func_off(msg: Message) -> None:
+            print(f"OFF Action: {msg} {req}")
             if msg.address == req.address:
                 if active_led is not None:
                     active_led.off()
