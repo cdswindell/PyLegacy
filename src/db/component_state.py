@@ -221,7 +221,7 @@ class AccessoryState(ComponentState):
                 else:
                     if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX2_OPTION_ONE]:
                         self._aux_state = command.command
-                    if command.command == Aux.AUX2_OPTION_ONE:
+                    if command.command == Aux.AUX1_OPTION_ONE:
                         if self._last_aux1_opt1 is None or self.time_delta(self._last_aux1_opt1) > 1:
                             self._aux1_state = Aux.AUX1_ON if (self._aux1_state is None
                                                                or self._aux1_state == Aux.AUX1_OPTION_ONE
