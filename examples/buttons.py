@@ -21,6 +21,7 @@ GpioHandler.switch(10, 26, 19, 13, 6, cathode=False)
 # GpioHandler.route(15, 21, 20)
 
 # GpioHandler.accessory(10, 26, 19, 13, cathode=False)
-GpioHandler.power_district(15, 25, 21, 20)
+# GpioHandler.power_district(15, 25, 21, 20)
+GpioHandler.culvert_loader(11, 25, 20)
 
 print("Buttons registered...")
