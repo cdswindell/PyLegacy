@@ -49,6 +49,12 @@ class EngineCli(CliBaseTMCC):
                          nargs='?',
                          type=str,
                          const='opt1')
+        ops.add_argument("-aux3",
+                         dest='aux3',
+                         choices=['on', 'off', 'opt1', 'opt2'],
+                         nargs='?',
+                         type=str,
+                         const='opt1')
         ops.add_argument("-b", "--blow_horn",
                          action="store_const",
                          const='BLOW_HORN_ONE',
