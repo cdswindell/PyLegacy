@@ -192,6 +192,7 @@ class AccessoryState(ComponentState):
         if scope != CommandScope.ACC:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
+        self._last_aux1_opt1 = None
         self._last_aux2_opt1 = None
         self._aux1_state: Aux | None = None
         self._aux2_state: Aux | None = None
@@ -223,13 +224,13 @@ class AccessoryState(ComponentState):
                         self._aux_state = command.command
                     if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:
                         self._aux1_state = command.command
-                    elif command.command == Aux.AUX2_OPTION_ONE and (self._last_aux2_opt1 is None or
-                                                                     self.time_delta(self._last_aux2_opt1) > 1):
+                    elif command.command == Aux.AUX2_OPTION_ONE:
+                        if self._last_aux2_opt1 is None or self.time_delta(self._last_aux2_opt1) > 1:
+                            self._aux2_state = Aux.AUX2_ON if (self._aux2_state is None
+                                                               or self._aux2_state == Aux.AUX2_OPTION_ONE
+                                                               or self._aux2_state == Aux.AUX2_OFF) else Aux.AUX2_OFF
                         self._last_aux2_opt1 = self.last_updated
-                        self._aux2_state = Aux.AUX2_ON if (self._aux2_state is None
-                                                           or self._aux2_state == Aux.AUX2_OPTION_ONE
-                                                           or self._aux2_state == Aux.AUX2_OFF) else Aux.AUX2_OFF
-                    elif command.command in [Aux.AUX2_OPTION_ONE, Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPTION_TWO]:
+                    elif command.command in [Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPTION_TWO]:
                         print(command)
                         self._aux2_state = command.command
                     if command.command == Aux.NUMERIC:
