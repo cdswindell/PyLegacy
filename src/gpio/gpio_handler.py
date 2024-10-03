@@ -154,8 +154,6 @@ class GpioHandler:
         if thru_led is not None and out_led is not None:
             cls._cache_handler(SwitchStateSource(address, thru_led, TMCC1SwitchState.THROUGH))
             cls._cache_handler(SwitchStateSource(address, out_led, TMCC1SwitchState.OUT))
-            # thru_led.source = SwitchStateSource(address, TMCC1SwitchState.THROUGH, thru_led)
-            # out_led.source = SwitchStateSource(address, TMCC1SwitchState.OUT, out_led)
             return thru_btn, out_btn, thru_led, out_led
         else:
             # return created objects
@@ -204,7 +202,6 @@ class GpioHandler:
         else:
             # listen for external state changes
             cls._cache_handler(AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandDef.AUX1_OPTION_ONE))
-            # on_led.source = AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandDef.AUX1_OPTION_ONE)
             # return created objects
             return on_btn, off_btn, on_led
 
@@ -460,6 +457,7 @@ class GpioHandler:
         # create a LED, if asked, and tie its source to the button
         if led_pin is not None and led_pin != 0:
             led = LED(led_pin, active_high=cathode, initial_value=initially_on)
+            led.source = None
             if bind:
                 led.source = button
             cls._cache_device(led)
@@ -566,6 +564,7 @@ class StateSource(ABC, Thread):
                 with self._component.notifier:
                     self._component.notifier.wait(1)
                     self._led.value = 1 if self.is_active else 0
+                    print(f"State update: {self.is_active}")
             except RuntimeError as rt:
                 print(rt)
 
