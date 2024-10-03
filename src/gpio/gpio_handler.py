@@ -554,7 +554,11 @@ class StateSource(ABC, Thread):
         self._address = address
         self._led = led
         self._component: T = ComponentStateStore.build().component(scope, address)
+        self._is_running = True
         self.start()
+
+    def reset(self) -> None:
+        self._is_running = False
 
     def run(self) -> None:
         while True:
@@ -573,9 +577,8 @@ class SwitchStateSource(StateSource):
                  address: int,
                  led: LED,
                  state: TMCC1SwitchState) -> None:
-        super().__init__(CommandScope.SWITCH, address, led)
         self._state = state
-        self.start()
+        super().__init__(CommandScope.SWITCH, address, led)
 
     def __iter__(self):
         return self
@@ -595,11 +598,10 @@ class AccessoryStateSource(StateSource):
                  aux_state: TMCC1AuxCommandDef = None,
                  aux1_state: TMCC1AuxCommandDef = None,
                  aux2_state: TMCC1AuxCommandDef = None) -> None:
-        super().__init__(CommandScope.ACC, address, led)
         self._aux_state = aux_state
         self._aux1_state = aux1_state
         self._aux2_state = aux2_state
-        self.start()
+        super().__init__(CommandScope.ACC, address, led)
 
     def __iter__(self):
         return self
