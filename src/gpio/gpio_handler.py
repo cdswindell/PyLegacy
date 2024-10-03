@@ -152,8 +152,8 @@ class GpioHandler:
         out_btn.when_pressed = cls._with_on_action(out_action, out_led, thru_led)
 
         if thru_led is not None and out_led is not None:
-            thru_led.source = SwitchStateSource(address, TMCC1SwitchState.THROUGH)
-            out_led.source = SwitchStateSource(address, TMCC1SwitchState.OUT)
+            thru_led.source = SwitchStateSource(address, TMCC1SwitchState.THROUGH, thru_led)
+            out_led.source = SwitchStateSource(address, TMCC1SwitchState.OUT, out_led)
             return thru_btn, out_btn, thru_led, out_led
         else:
             # return created objects
@@ -201,7 +201,7 @@ class GpioHandler:
             return on_btn, off_btn
         else:
             # listen for external state changes
-            on_led.source = AccessoryStateSource(address, aux_state=TMCC1AuxCommandDef.AUX1_OPTION_ONE)
+            on_led.source = AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandDef.AUX1_OPTION_ONE)
             # return created objects
             return on_btn, off_btn, on_led
 
@@ -539,29 +539,38 @@ class GpioHandler:
 T = TypeVar('T', bound=ComponentState)
 
 
-class StateSource(ABC):
+class StateSource(ABC, Thread):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self,
                  scope: CommandScope,
-                 address: int) -> None:
-        # super().__init__(daemon=True, name=f"{scope.friendly} {address} State")
+                 address: int,
+                 led: LED) -> None:
+        super().__init__(daemon=True, name=f"{scope.friendly} {address} State")
         self._scope = scope
         self._address = address
+        self._led = led
         self._component: T = ComponentStateStore.build().component(scope, address)
+        self.start()
 
     def run(self) -> None:
         while True:
             with self._component.notifier:
                 self._component.notifier.wait()
-                print("New state available")
+                self._led.value = 1 if self.is_active else 0
+
+    @property
+    @abc.abstractmethod
+    def is_active(self) -> bool:
+        ...
 
 
 class SwitchStateSource(StateSource):
     def __init__(self,
                  address: int,
-                 state: TMCC1SwitchState) -> None:
-        super().__init__(CommandScope.SWITCH, address)
+                 state: TMCC1SwitchState,
+                 led: LED) -> None:
+        super().__init__(CommandScope.SWITCH, address, led)
         self._state = state
         # self.start()
 
@@ -569,16 +578,21 @@ class SwitchStateSource(StateSource):
         return self
 
     def __next__(self):
+        return self.is_active
+
+    @property
+    def is_active(self) -> bool:
         return self._component.state == self._state
 
 
 class AccessoryStateSource(StateSource):
     def __init__(self,
                  address: int,
+                 led: LED,
                  aux_state: TMCC1AuxCommandDef = None,
                  aux1_state: TMCC1AuxCommandDef = None,
                  aux2_state: TMCC1AuxCommandDef = None) -> None:
-        super().__init__(CommandScope.ACC, address)
+        super().__init__(CommandScope.ACC, address, led)
         self._aux_state = aux_state
         self._aux1_state = aux1_state
         self._aux2_state = aux2_state
@@ -587,6 +601,10 @@ class AccessoryStateSource(StateSource):
         return self
 
     def __next__(self):
+        return self.is_active
+
+    @property
+    def is_active(self) -> bool:
         return (self._aux_state is not None and self._component.aux_state == self._aux_state) or \
             (self._aux1_state is not None and self._component.aux1_state == self._aux1_state) or \
             (self._aux2_state is not None and self._component.aux2_state == self._aux2_state)
