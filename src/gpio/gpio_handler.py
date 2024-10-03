@@ -1,5 +1,6 @@
 import abc
 import math
+import time
 from abc import ABC
 from threading import Thread
 from typing import Tuple, Callable, TypeVar
@@ -220,8 +221,7 @@ class GpioHandler:
         # make the CommandReqs
         aux1_req, aux1_btn, aux1_led = cls._make_button(aux1_pin,
                                                         TMCC1AuxCommandDef.AUX1_OPTION_ONE,
-                                                        address,
-                                                        held=True)
+                                                        address)
         aux2_req, aux2_btn, aux2_led = cls._make_button(aux2_pin,
                                                         TMCC1AuxCommandDef.AUX2_OPTION_ONE,
                                                         address)
@@ -229,7 +229,7 @@ class GpioHandler:
         aux1_action = aux1_req.as_action(baudrate=baudrate, port=port, server=server)
         aux2_action = aux2_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
 
-        aux1_btn.when_held = aux1_action
+        aux1_btn.when_pressed = cls._with_held_action(aux1_action, aux1_btn)
         aux2_btn.when_pressed = aux2_action
         return aux1_btn, aux2_btn
 
@@ -416,7 +416,7 @@ class GpioHandler:
                      scope: CommandScope = None,
                      led_pin: int | str = None,
                      held: bool = False,
-                     frequency: float = 0.05,
+                     frequency: float = 0.06,
                      initially_on: bool = False,
                      bind: bool = False,
                      cathode: bool = True) -> Tuple[CommandReq, Button, LED]:
@@ -440,6 +440,16 @@ class GpioHandler:
         else:
             led = None
         return command, button, led
+
+    @classmethod
+    def _with_held_action(cls, action: Callable, button: Button) -> Callable:
+
+        def held_action() -> None:
+            while button.is_active:
+                action()
+                time.sleep(0.05)
+
+        return held_action
 
     @classmethod
     def _with_toggle_action(cls, action: Callable, led: LED) -> Callable:
@@ -554,3 +564,10 @@ class AccessoryStateSource(StateSource):
         return (self._aux_state is not None and self._component.aux_state == self._aux_state) or \
             (self._aux1_state is not None and self._component.aux1_state == self._aux1_state) or \
             (self._aux2_state is not None and self._component.aux2_state == self._aux2_state)
+
+
+class HeldAction:
+    def __init__(self, req: CommandReq, btn: Button) -> None:
+        # super().__init__(daemon=True, name=f"HeldAction {req.scope.friendly} {req.address}")
+        self._action = req.as_action()
+        self._btn = btn
