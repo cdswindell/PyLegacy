@@ -165,6 +165,7 @@ class GpioHandler:
                        on_pin: int,
                        off_pin: int,
                        on_led_pin: int | str = None,
+                       cathode: bool = True,
                        initial_state: TMCC1AuxCommandDef | bool = None,
                        baudrate: int = DEFAULT_BAUDRATE,
                        port: str | int = DEFAULT_PORT,
@@ -182,6 +183,7 @@ class GpioHandler:
                                                   TMCC1AuxCommandDef.AUX1_OPTION_ONE,
                                                   address,
                                                   led_pin=on_led_pin,
+                                                  cathode=cathode,
                                                   initially_on=initial_state == TMCC1AuxCommandDef.AUX1_OPTION_ONE)
         off_req, off_btn, off_led = cls._make_button(off_pin,
                                                      TMCC1AuxCommandDef.AUX2_OPTION_ONE,
@@ -208,9 +210,11 @@ class GpioHandler:
                   address: int,
                   aux1_pin: int,
                   aux2_pin: int,
+                  aux1_led_pin: int | str = None,
+                  cathode: bool = True,
                   baudrate: int = DEFAULT_BAUDRATE,
                   port: str | int = DEFAULT_PORT,
-                  server: str = None) -> Tuple[Button, Button]:
+                  server: str = None) -> Tuple[Button, Button] | Tuple[Button, Button, LED]:
         """
             Control an accessory that responds to TMCC1 accessory commands, such as one connected
             to an LCS ASC2 configured in accessory, 8 TMCC IDs mode.
@@ -221,7 +225,9 @@ class GpioHandler:
         # make the CommandReqs
         aux1_req, aux1_btn, aux1_led = cls._make_button(aux1_pin,
                                                         TMCC1AuxCommandDef.AUX1_OPTION_ONE,
-                                                        address)
+                                                        address,
+                                                        cathode=cathode,
+                                                        led_pin=aux1_led_pin, )
         aux2_req, aux2_btn, aux2_led = cls._make_button(aux2_pin,
                                                         TMCC1AuxCommandDef.AUX2_OPTION_ONE,
                                                         address)
@@ -231,7 +237,12 @@ class GpioHandler:
 
         aux1_btn.when_pressed = cls._with_held_action(aux1_action, aux1_btn)
         aux2_btn.when_pressed = aux2_action
-        return aux1_btn, aux2_btn
+
+        if aux2_led is None:
+            return aux1_btn, aux2_btn
+        else:
+            aux1_led.source = aux1_btn
+            return aux1_btn, aux2_btn, aux1_led
 
     @classmethod
     def when_button_pressed(cls,

@@ -20,7 +20,7 @@ from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 # GpioHandler.route(15, 21, 20)
 
-GpioHandler.accessory(10, 26, 19)
+GpioHandler.accessory(10, 26, 19, 13, cathode=False)
 GpioHandler.power_district(15, 25, 21, 20)
 
 print("Buttons registered...")
