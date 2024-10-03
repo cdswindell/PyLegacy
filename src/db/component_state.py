@@ -40,6 +40,7 @@ class ComponentState(ABC):
         self._last_updated: datetime | None = None
         self._address: int | None = None
         self._cv = threading.Condition()
+        self._ev = threading.Event()
 
         from .component_state_store import DependencyCache
         self._dependencies = DependencyCache.build()
@@ -96,6 +97,10 @@ class ComponentState(ABC):
     @property
     def notifier(self) -> threading.Condition:
         return self._cv
+
+    @property
+    def changed(self) -> threading.Event:
+        return self._ev
 
     @abc.abstractmethod
     def update(self, command: CommandReq) -> None:
@@ -157,6 +162,7 @@ class SwitchState(ComponentState):
                     return  # do nothing on halt
                 if command.command != Switch.SET_ADDRESS:
                     self._state = command.command
+                self.changed.set()
                 self.notifier.notify_all()
 
     @property
@@ -224,6 +230,7 @@ class AccessoryState(ComponentState):
                             self._aux2_state = command.command
                         if command.command == Aux.NUMERIC:
                             self._number = command.data
+                self.changed.set()
                 self.notifier.notify_all()
 
     @property
@@ -339,6 +346,7 @@ class EngineState(ComponentState):
                         self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                         self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                self.changed.set()
                 self.notifier.notify_all()
 
     @property

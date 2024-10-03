@@ -560,13 +560,10 @@ class StateSource(ABC, Thread):
 
     def run(self) -> None:
         while self._is_running:
-            try:
-                with self._component.notifier:
-                    self._component.notifier.wait(1)
-                    self._led.value = 1 if self.is_active else 0
-                    print(f"State update: {self.is_active}")
-            except RuntimeError as rt:
-                print(rt)
+            if self._component.changed.wait(1) is True:
+                self._led.value = 1 if self.is_active else 0
+                self._component.changed.clear()
+                print(f"State update: {self.is_active}")
 
     @property
     @abc.abstractmethod
