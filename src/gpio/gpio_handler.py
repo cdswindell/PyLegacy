@@ -288,7 +288,6 @@ class GpioHandler:
 
             def rotate() -> None:
                 rotate_boom_req.data = round(boom_dev.steps / 6)
-                print(boom_dev.steps)
                 rotate_boom_req.send(baudrate=baudrate, port=port, server=server)
 
             boom_dev.when_rotated = rotate

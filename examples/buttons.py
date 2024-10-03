@@ -22,7 +22,9 @@ from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 # GpioHandler.accessory(10, 26, 19, 13, cathode=False)
 # GpioHandler.power_district(15, 25, 21, 20)
-GpioHandler.culvert_loader(11, 25, 20)
+GpioHandler.culvert_loader(11,
+                           cycle_pin=25,
+                           cycle_led_pin=20)
 GpioHandler.smoke_fluid_loader(12,
                                boom_pin_1=12,
                                boom_pin_2=16,
