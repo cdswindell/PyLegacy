@@ -152,8 +152,10 @@ class GpioHandler:
         out_btn.when_pressed = cls._with_on_action(out_action, out_led, thru_led)
 
         if thru_led is not None and out_led is not None:
-            thru_led.source = SwitchStateSource(address, TMCC1SwitchState.THROUGH, thru_led)
-            out_led.source = SwitchStateSource(address, TMCC1SwitchState.OUT, out_led)
+            cls._cache_handler(SwitchStateSource(address, thru_led, TMCC1SwitchState.THROUGH))
+            cls._cache_handler(SwitchStateSource(address, out_led, TMCC1SwitchState.OUT))
+            # thru_led.source = SwitchStateSource(address, TMCC1SwitchState.THROUGH, thru_led)
+            # out_led.source = SwitchStateSource(address, TMCC1SwitchState.OUT, out_led)
             return thru_btn, out_btn, thru_led, out_led
         else:
             # return created objects
@@ -201,7 +203,8 @@ class GpioHandler:
             return on_btn, off_btn
         else:
             # listen for external state changes
-            on_led.source = AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandDef.AUX1_OPTION_ONE)
+            cls._cache_handler(AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandDef.AUX1_OPTION_ONE))
+            # on_led.source = AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandDef.AUX1_OPTION_ONE)
             # return created objects
             return on_btn, off_btn, on_led
 
@@ -396,6 +399,7 @@ class GpioHandler:
             raise ValueError("Command does not support variable data")
         knob = PotHandler(command, channel, baudrate, port, server)
         cls._cache_handler(knob)
+        cls._cache_device(knob.pot)
         return knob
 
     @classmethod
@@ -410,8 +414,7 @@ class GpioHandler:
         cls.GPIO_DEVICE_CACHE = set()
 
     @classmethod
-    def _cache_handler(cls, handler: PotHandler) -> None:
-        cls._cache_device(handler.pot)
+    def _cache_handler(cls, handler: Thread) -> None:
         cls.GPIO_HANDLER_CACHE.add(handler)
 
     @classmethod
@@ -568,11 +571,11 @@ class StateSource(ABC, Thread):
 class SwitchStateSource(StateSource):
     def __init__(self,
                  address: int,
-                 state: TMCC1SwitchState,
-                 led: LED) -> None:
+                 led: LED,
+                 state: TMCC1SwitchState) -> None:
         super().__init__(CommandScope.SWITCH, address, led)
         self._state = state
-        # self.start()
+        self.start()
 
     def __iter__(self):
         return self
@@ -596,6 +599,7 @@ class AccessoryStateSource(StateSource):
         self._aux_state = aux_state
         self._aux1_state = aux1_state
         self._aux2_state = aux2_state
+        self.start()
 
     def __iter__(self):
         return self
@@ -608,10 +612,3 @@ class AccessoryStateSource(StateSource):
         return (self._aux_state is not None and self._component.aux_state == self._aux_state) or \
             (self._aux1_state is not None and self._component.aux1_state == self._aux1_state) or \
             (self._aux2_state is not None and self._component.aux2_state == self._aux2_state)
-
-
-class HeldAction:
-    def __init__(self, req: CommandReq, btn: Button) -> None:
-        # super().__init__(daemon=True, name=f"HeldAction {req.scope.friendly} {req.address}")
-        self._action = req.as_action()
-        self._btn = btn
