@@ -416,7 +416,7 @@ class GpioHandler:
                      scope: CommandScope = None,
                      led_pin: int | str = None,
                      held: bool = False,
-                     frequency: float = 0.1,
+                     frequency: float = 0.05,
                      initially_on: bool = False,
                      bind: bool = False,
                      cathode: bool = True) -> Tuple[CommandReq, Button, LED]:
