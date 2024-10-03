@@ -245,6 +245,18 @@ class GpioHandler:
             return aux1_btn, aux2_btn, aux1_led
 
     @classmethod
+    def gantry_crane(cls,
+                     address: int,
+                     cab_pin_1: int | str,
+                     cab_pin_2: int | str,
+                     roll_pin_1: int | str,
+                     roll_pin_2: int | str,
+                     lift_pin: int | str,
+                     lower_pin: int | str,
+                     mag_pin: int | str,):
+        pass
+
+    @classmethod
     def when_button_pressed(cls,
                             pin: int | str,
                             command: CommandReq | CommandDefEnum,
@@ -453,12 +465,15 @@ class GpioHandler:
         return command, button, led
 
     @classmethod
-    def _with_held_action(cls, action: Callable, button: Button) -> Callable:
+    def _with_held_action(cls,
+                          action: Callable,
+                          button: Button,
+                          delay: float = 0.10) -> Callable:
 
         def held_action() -> None:
             while button.is_active:
                 action()
-                time.sleep(0.05)
+                time.sleep(delay)
 
         return held_action
 
