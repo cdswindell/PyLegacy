@@ -116,7 +116,6 @@ class ComponentState(ABC):
             self._last_command = command
 
     def time_delta(self, recv_time: datetime) -> float:
-        print((self._last_updated - recv_time).total_seconds())
         return (self._last_updated - recv_time).total_seconds()
 
     @property
@@ -222,7 +221,13 @@ class AccessoryState(ComponentState):
                 else:
                     if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX2_OPTION_ONE]:
                         self._aux_state = command.command
-                    if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:
+                    if command.command == Aux.AUX2_OPTION_ONE:
+                        if self._last_aux1_opt1 is None or self.time_delta(self._last_aux1_opt1) > 1:
+                            self._aux1_state = Aux.AUX1_ON if (self._aux1_state is None
+                                                               or self._aux1_state == Aux.AUX1_OPTION_ONE
+                                                               or self._aux1_state == Aux.AUX1_OFF) else Aux.AUX1_OFF
+                        self._last_aux2_opt1 = self.last_updated
+                    elif command.command in [Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:
                         self._aux1_state = command.command
                     elif command.command == Aux.AUX2_OPTION_ONE:
                         if self._last_aux2_opt1 is None or self.time_delta(self._last_aux2_opt1) > 1:
@@ -231,7 +236,6 @@ class AccessoryState(ComponentState):
                                                                or self._aux2_state == Aux.AUX2_OFF) else Aux.AUX2_OFF
                         self._last_aux2_opt1 = self.last_updated
                     elif command.command in [Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPTION_TWO]:
-                        print(command)
                         self._aux2_state = command.command
                     if command.command == Aux.NUMERIC:
                         self._number = command.data
