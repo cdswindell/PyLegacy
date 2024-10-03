@@ -16,10 +16,11 @@ from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 # GpioHandler.when_pot(TMCC2EngineCommandDef.ABSOLUTE_SPEED, 18)
 
-GpioHandler.switch(10, 26, 19, 13, 6, cathode=False)
+# GpioHandler.switch(10, 26, 19, 13, 6, cathode=False)
 
 # GpioHandler.route(15, 21, 20)
 
+GpioHandler.accessory(10, 26, 19)
 GpioHandler.power_district(15, 25, 21, 20)
 
 print("Buttons registered...")

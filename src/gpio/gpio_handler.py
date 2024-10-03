@@ -203,6 +203,36 @@ class GpioHandler:
             return on_btn, off_btn, on_led
 
     @classmethod
+    def accessory(cls,
+                  address: int,
+                  aux1_pin: int,
+                  aux2_pin: int,
+                  baudrate: int = DEFAULT_BAUDRATE,
+                  port: str | int = DEFAULT_PORT,
+                  server: str = None) -> Tuple[Button, Button]:
+        """
+            Control an accessory that responds to TMCC1 accessory commands, such as one connected
+            to an LCS ASC2 configured in accessory, 8 TMCC IDs mode.
+
+            Press and hold the Aux1 button to operate the accessory for as long as Aux1 is held.
+            Press the Aux2 button to turn the accessory on or off.
+        """
+        # make the CommandReqs
+        aux1_req, aux1_btn, aux1_led = cls._make_button(aux1_pin,
+                                                        TMCC1AuxCommandDef.AUX1_OPTION_ONE,
+                                                        address)
+        aux2_req, aux2_btn, aux2_led = cls._make_button(aux2_pin,
+                                                        TMCC1AuxCommandDef.AUX2_OPTION_ONE,
+                                                        address)
+        # bind actions to buttons
+        aux1_action = aux1_req.as_action(baudrate=baudrate, port=port, server=server)
+        aux2_action = aux2_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+
+        aux1_btn.when_held = aux1_action
+        aux2_btn.when_pressed = aux2_action
+        return aux1_btn, aux2_btn
+
+    @classmethod
     def when_button_pressed(cls,
                             pin: int | str,
                             command: CommandReq | CommandDefEnum,
@@ -384,6 +414,8 @@ class GpioHandler:
                      data: int = None,
                      scope: CommandScope = None,
                      led_pin: int | str = None,
+                     repeat: bool = False,
+                     frequency: float = 0.1,
                      initially_on: bool = False,
                      bind: bool = False,
                      cathode: bool = True) -> Tuple[CommandReq, Button, LED]:
@@ -393,6 +425,9 @@ class GpioHandler:
 
         # create the button object we will associate an action with
         button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
+        if repeat:
+            button.hold_repeat = repeat
+            button.hold_repeat = frequency
         cls._cache_device(button)
 
         # create a LED, if asked, and tie its source to the button
