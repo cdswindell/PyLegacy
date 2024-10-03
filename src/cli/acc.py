@@ -48,7 +48,7 @@ class AccCli(CliBase):
                                action="store_const",
                                const=TMCC1AuxCommandDef.SET_ADDRESS,
                                dest='command',
-                               help="Set Accessory Address")
+                               help="Set accessory address")
         # fire command
         return ArgumentParser("Operate specified accessory (1 - 99)",
                               parents=[acc_parser, cls.cli_parser()])
@@ -73,9 +73,8 @@ class AccCli(CliBase):
             self._command = TMCC1AuxCommandDef.by_name(f"AUX1_{AUX_OPTIONS_MAP[self._args.aux1]}")
         elif self._args.aux2 and self._args.aux2 in AUX_OPTIONS_MAP:
             self._command = TMCC1AuxCommandDef.by_name(f"AUX2_{AUX_OPTIONS_MAP[self._args.aux2]}")
-        elif self._args.data >= 0:
-            self._command = TMCC1AuxCommandDef.NUMERIC
         try:
+            print(self._command)
             if self._command is None or not isinstance(self._command, TMCC1AuxCommandDef):
                 raise ValueError("Must specify an option, use -h for help")
             cmd = AccCmdTMCC1(self._acc,
