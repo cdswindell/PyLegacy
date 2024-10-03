@@ -561,7 +561,7 @@ class StateSource(ABC, Thread):
         self._is_running = False
 
     def run(self) -> None:
-        while True:
+        while self._is_running:
             with self._component.notifier:
                 self._component.notifier.wait()
                 self._led.value = 1 if self.is_active else 0
