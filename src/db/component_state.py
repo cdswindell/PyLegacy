@@ -115,6 +115,9 @@ class ComponentState(ABC):
             self._last_updated = datetime.now()
             self._last_command = command
 
+    def time_delta(self, recv_time: datetime) -> float:
+        return (recv_time - self._last_updated).total_seconds()
+
     @property
     def syntax(self) -> CommandSyntax:
         return CommandSyntax.LEGACY if self.is_legacy else CommandSyntax.TMCC
@@ -220,7 +223,7 @@ class AccessoryState(ComponentState):
                     if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:
                         self._aux1_state = command.command
                     elif command.command == Aux.AUX2_OPTION_ONE and (self._last_aux2_opt1 is None or
-                                                                     self._last_aux2_opt1 - self.last_updated >1 ):
+                                                                     self.time_delta(self._last_aux2_opt1) > 1):
                         self._last_aux2_opt1 = self.last_updated
                         self._aux2_state = Aux.AUX2_ON if (self._aux2_state is None
                                                            or self._aux2_state == Aux.AUX2_OFF) else Aux.AUX2_OFF
