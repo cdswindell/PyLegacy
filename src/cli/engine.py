@@ -508,6 +508,8 @@ class EngineCli(CliBaseTMCC):
                 option = f"AUX1{AUX_COMMAND_MAP[self._args.aux1.lower()]}"
             elif 'aux2' in self._args and self._args.aux2 is not None:
                 option = f"AUX2{AUX_COMMAND_MAP[self._args.aux2.lower()]}"
+            elif 'aux3' in self._args and self._args.aux3 is not None:
+                option = f"AUX3{AUX_COMMAND_MAP[self._args.aux3.lower()]}"
             elif 'sound' in self._args and self._args.sound is not None:
                 option = f"sound_{self._args.sound}".upper()
             elif 'sequence_control' in self._args and self._args.sequence_control is not None:
