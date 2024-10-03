@@ -287,7 +287,7 @@ class GpioHandler:
             cls._cache_device(boom_dev)
 
             def rotate() -> None:
-                rotate_boom_req.data = boom_dev.steps / 9
+                rotate_boom_req.data = round(boom_dev.steps / 9)
                 rotate_boom_req.send(baudrate=baudrate, port=port, server=server)
 
             boom_dev.when_rotated = rotate
