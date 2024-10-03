@@ -206,8 +206,8 @@ class GpioHandler:
     @classmethod
     def accessory(cls,
                   address: int,
-                  aux1_pin: int,
-                  aux2_pin: int,
+                  aux1_pin: int | str,
+                  aux2_pin: int | str,
                   aux1_led_pin: int | str = None,
                   cathode: bool = True,
                   baudrate: int = DEFAULT_BAUDRATE,
@@ -243,6 +243,32 @@ class GpioHandler:
             return aux1_btn, aux2_btn, aux1_led
 
     @classmethod
+    def culvert_loader(cls,
+                       address: int,
+                       cycle_pin: int | str,
+                       # lights_pin: int | str = None,
+                       cycle_led_pin: int | str = None,
+                       command_control: bool = True,
+                       cathode: bool = True,
+                       baudrate: int = DEFAULT_BAUDRATE,
+                       port: str | int = DEFAULT_PORT,
+                       server: str = None) -> Button | Tuple[Button, LED]:
+        if command_control is True:
+            cycle_req, cycle_btn, cycle_led = cls._make_button(cycle_pin,
+                                                               TMCC1AuxCommandDef.AUX2_OPTION_ONE,
+                                                               address,
+                                                               led_pin=cycle_led_pin,
+                                                               cathode=cathode)
+            cycle_btn.when_pressed = cycle_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+        else:
+            raise NotImplemented
+        if cycle_led is None:
+            return cycle_btn
+        else:
+            cls._cache_handler(AccessoryStateSource(address, cycle_led, aux2_state=TMCC1AuxCommandDef.AUX2_ON))
+            return cycle_btn, cycle_led
+
+    @classmethod
     def gantry_crane(cls,
                      address: int,
                      cab_pin_1: int | str,
@@ -251,7 +277,7 @@ class GpioHandler:
                      roll_pin_2: int | str,
                      lift_pin: int | str,
                      lower_pin: int | str,
-                     mag_pin: int | str,):
+                     mag_pin: int | str, ):
         pass
 
     @classmethod
