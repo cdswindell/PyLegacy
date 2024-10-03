@@ -283,11 +283,12 @@ class GpioHandler:
         if command_control is True:
 
             rotate_boom_req = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
-            boom_dev = RotaryEncoder(boom_pin_1, boom_pin_2, max_steps=27)
+            boom_dev = RotaryEncoder(boom_pin_1, boom_pin_2, max_steps=18)
             cls._cache_device(boom_dev)
 
             def rotate() -> None:
-                rotate_boom_req.data = round(boom_dev.steps / 9)
+                rotate_boom_req.data = round(boom_dev.steps / 6)
+                print(boom_dev.steps)
                 rotate_boom_req.send(baudrate=baudrate, port=port, server=server)
 
             boom_dev.when_rotated = rotate
