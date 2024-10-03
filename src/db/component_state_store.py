@@ -176,7 +176,6 @@ class DependencyCache:
                 raise AttributeError("CommBuffer must be server or client")
             enablers = cls._instance.enabled_by(request.command, dereference_aliases=True, include_aliases=False)
             for enabler in enablers:
-                print(f"{request} enabled by: {enabler}")
                 if isinstance(enabler, tuple):
                     listener.listen_for(callback, request.scope, request.address, enabler[0], enabler[1])
                     listener.listen_for(callback, request.scope, BROADCAST_ADDRESS, enabler[0], enabler[1])
@@ -197,7 +196,6 @@ class DependencyCache:
                 raise AttributeError("CommBuffer must be server or client")
             disablers = cls._instance.disabled_by(request.command, dereference_aliases=True, include_aliases=False)
             for disabler in disablers:
-                print(f"{request} disabled by: {disabler}")
                 if isinstance(disabler, tuple):
                     listener.listen_for(callback, request.scope, request.address, disabler[0], disabler[1])
                     listener.listen_for(callback, request.scope, BROADCAST_ADDRESS, disabler[0], disabler[1])

@@ -74,7 +74,6 @@ class AccCli(CliBase):
         elif self._args.aux2 and self._args.aux2 in AUX_OPTIONS_MAP:
             self._command = TMCC1AuxCommandDef.by_name(f"AUX2_{AUX_OPTIONS_MAP[self._args.aux2]}")
         try:
-            print(self._command)
             if self._command is None or not isinstance(self._command, TMCC1AuxCommandDef):
                 raise ValueError("Must specify an option, use -h for help")
             cmd = AccCmdTMCC1(self._acc,
