@@ -563,7 +563,6 @@ class StateSource(ABC, Thread):
             if self._component.changed.wait(1) is True:
                 self._led.value = 1 if self.is_active else 0
                 self._component.changed.clear()
-                print(f"State update: {self.is_active}")
 
     @property
     @abc.abstractmethod
