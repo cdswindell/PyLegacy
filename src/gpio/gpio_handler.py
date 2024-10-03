@@ -226,8 +226,9 @@ class GpioHandler:
         aux1_req, aux1_btn, aux1_led = cls._make_button(aux1_pin,
                                                         TMCC1AuxCommandDef.AUX1_OPTION_ONE,
                                                         address,
+                                                        led_pin=aux1_led_pin,
                                                         cathode=cathode,
-                                                        led_pin=aux1_led_pin, )
+                                                        bind=True)
         aux2_req, aux2_btn, aux2_led = cls._make_button(aux2_pin,
                                                         TMCC1AuxCommandDef.AUX2_OPTION_ONE,
                                                         address)
@@ -241,7 +242,6 @@ class GpioHandler:
         if aux2_led is None:
             return aux1_btn, aux2_btn
         else:
-            aux1_led.source = aux1_btn
             return aux1_btn, aux2_btn, aux1_led
 
     @classmethod
