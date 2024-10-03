@@ -212,7 +212,8 @@ class TMCC1AuxCommandDef(TMCC1Enum):
     REAR_COUPLER = TMCC1CommandDef(TMCC1_ACC_REAR_COUPLER_COMMAND, TMCC1CommandIdentifier.ACC)
     BOOST = TMCC1CommandDef(TMCC1_ACC_BOOST_COMMAND, TMCC1CommandIdentifier.ACC)
     BRAKE = TMCC1CommandDef(TMCC1_ACC_BRAKE_COMMAND, TMCC1CommandIdentifier.ACC)
-    RELATIVE_SPEED = TMCC1CommandDef(TMCC1_ACC_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
+    RELATIVE_SPEED = TMCC1CommandDef(TMCC1_ACC_RELATIVE_SPEED_COMMAND,
+                                     TMCC1CommandIdentifier.ACC, d_map=RELATIVE_SPEED_MAP,)
 
 
 # Engine/Train commands
