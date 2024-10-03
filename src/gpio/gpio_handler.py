@@ -283,11 +283,11 @@ class GpioHandler:
         if command_control is True:
 
             rotate_boom_req = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
-            boom_dev = RotaryEncoder(boom_pin_1, boom_pin_2, max_steps=3)
+            boom_dev = RotaryEncoder(boom_pin_1, boom_pin_2, max_steps=27)
             cls._cache_device(boom_dev)
 
             def rotate() -> None:
-                rotate_boom_req.data = boom_dev.steps
+                rotate_boom_req.data = boom_dev.steps / 9
                 rotate_boom_req.send(baudrate=baudrate, port=port, server=server)
 
             boom_dev.when_rotated = rotate
@@ -303,13 +303,12 @@ class GpioHandler:
             dispense_req, dispense_btn, dispense_led = cls._make_button(dispense_pin,
                                                                         TMCC1AuxCommandDef.BRAKE,
                                                                         address)
-
+            dispense_btn.when_pressed = dispense_req.as_action(repeat=2, baudrate=baudrate,
+                                                               port=port, server=server)
             lights_on_btn.when_pressed = lights_on_req.as_action(repeat=2, baudrate=baudrate,
                                                                  port=port, server=server)
             lights_off_btn.when_pressed = lights_off_req.as_action(repeat=2, baudrate=baudrate,
                                                                    port=port, server=server)
-            dispense_btn.when_pressed = dispense_req.as_action(repeat=2, baudrate=baudrate,
-                                                               port=port, server=server)
         else:
             raise NotImplemented
         return lights_on_btn, lights_off_btn
