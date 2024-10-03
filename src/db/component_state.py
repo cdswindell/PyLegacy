@@ -350,6 +350,18 @@ class EngineState(ComponentState):
                 self.notifier.notify_all()
 
     @property
+    def speed(self) -> int | None:
+        return self._speed
+
+    @property
+    def direction(self) -> CommandDefEnum | None:
+        return self._direction
+
+    @property
+    def stop_start(self) -> CommandDefEnum | None:
+        return self._start_stop
+
+    @property
     def is_tmcc(self) -> bool:
         return self._is_legacy is False
 

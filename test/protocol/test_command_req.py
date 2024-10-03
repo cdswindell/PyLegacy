@@ -37,7 +37,7 @@ class TestCommandReq(TestBase):
             address = 23
             for cdef in [TMCC1AuxCommandDef, TMCC1SwitchState, TMCC1EngineCommandDef]:
                 for cmd in cdef:
-                    if cmd == TMCC1EngineCommandDef.RELATIVE_SPEED:
+                    if cmd in [TMCC1EngineCommandDef.RELATIVE_SPEED, TMCC1AuxCommandDef.RELATIVE_SPEED]:
                         continue  # can't test defs that map data, yet
                     data = self.generate_random_data(cmd)
                     CommandReq.send_request(cmd, address, data)
