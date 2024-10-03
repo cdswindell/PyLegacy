@@ -220,7 +220,8 @@ class GpioHandler:
         # make the CommandReqs
         aux1_req, aux1_btn, aux1_led = cls._make_button(aux1_pin,
                                                         TMCC1AuxCommandDef.AUX1_OPTION_ONE,
-                                                        address)
+                                                        address,
+                                                        held=True)
         aux2_req, aux2_btn, aux2_led = cls._make_button(aux2_pin,
                                                         TMCC1AuxCommandDef.AUX2_OPTION_ONE,
                                                         address)
@@ -414,7 +415,7 @@ class GpioHandler:
                      data: int = None,
                      scope: CommandScope = None,
                      led_pin: int | str = None,
-                     repeat: bool = False,
+                     held: bool = False,
                      frequency: float = 0.1,
                      initially_on: bool = False,
                      bind: bool = False,
@@ -425,8 +426,8 @@ class GpioHandler:
 
         # create the button object we will associate an action with
         button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
-        if repeat:
-            button.hold_repeat = repeat
+        if held is True:
+            button.hold_repeat = held
             button.hold_repeat = frequency
         cls._cache_device(button)
 
