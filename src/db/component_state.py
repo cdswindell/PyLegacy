@@ -116,6 +116,7 @@ class ComponentState(ABC):
             self._last_command = command
 
     def time_delta(self, recv_time: datetime) -> float:
+        print((recv_time - self._last_updated).total_seconds())
         return (recv_time - self._last_updated).total_seconds()
 
     @property
