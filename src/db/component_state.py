@@ -226,7 +226,7 @@ class AccessoryState(ComponentState):
                             self._aux1_state = Aux.AUX1_ON if (self._aux1_state is None
                                                                or self._aux1_state == Aux.AUX1_OPTION_ONE
                                                                or self._aux1_state == Aux.AUX1_OFF) else Aux.AUX1_OFF
-                        self._last_aux2_opt1 = self.last_updated
+                        self._last_aux1_opt1 = self.last_updated
                     elif command.command in [Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:
                         self._aux1_state = command.command
                     elif command.command == Aux.AUX2_OPTION_ONE:
