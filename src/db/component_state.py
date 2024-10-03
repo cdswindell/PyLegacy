@@ -227,8 +227,10 @@ class AccessoryState(ComponentState):
                                                                      self.time_delta(self._last_aux2_opt1) > 1):
                         self._last_aux2_opt1 = self.last_updated
                         self._aux2_state = Aux.AUX2_ON if (self._aux2_state is None
+                                                           or self._aux2_state == Aux.AUX2_OPTION_ONE
                                                            or self._aux2_state == Aux.AUX2_OFF) else Aux.AUX2_OFF
                     elif command.command in [Aux.AUX2_OPTION_ONE, Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPTION_TWO]:
+                        print(command)
                         self._aux2_state = command.command
                     if command.command == Aux.NUMERIC:
                         self._number = command.data
