@@ -3,7 +3,7 @@ import time
 from threading import Thread
 from typing import Tuple, Callable
 
-from gpiozero import Button, LED, MCP3008, Device
+from gpiozero import Button, LED, MCP3008, RotaryEncoder, Device
 
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
@@ -269,6 +269,52 @@ class GpioHandler:
             return cycle_btn, cycle_led
 
     @classmethod
+    def smoke_fluid_loader(cls,
+                           address: int,
+                           boom_pin_1: int | str,
+                           boom_pin_2: int | str,
+                           dispense_pin: int | str,
+                           lights_on_pin: int | str = None,
+                           lights_off_pin: int | str = None,
+                           command_control: bool = True,
+                           baudrate: int = DEFAULT_BAUDRATE,
+                           port: str | int = DEFAULT_PORT,
+                           server: str = None) -> Tuple[Button, Button]:
+        if command_control is True:
+
+            rotate_boom_req = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
+            boom_dev = RotaryEncoder(boom_pin_1, boom_pin_2, max_steps=3)
+            cls._cache_device(boom_dev)
+
+            def rotate() -> None:
+                rotate_boom_req.data = boom_dev.steps
+                rotate_boom_req.send(baudrate=baudrate, port=port, server=server)
+
+            boom_dev.when_rotated = rotate
+
+            lights_on_req, lights_on_btn, lights_on_led = cls._make_button(lights_on_pin,
+                                                                           TMCC1AuxCommandDef.NUMERIC,
+                                                                           address,
+                                                                           data=9)
+            lights_off_req, lights_off_btn, lights_off_led = cls._make_button(lights_off_pin,
+                                                                              TMCC1AuxCommandDef.NUMERIC,
+                                                                              address,
+                                                                              data=8)
+            dispense_req, dispense_btn, dispense_led = cls._make_button(dispense_pin,
+                                                                        TMCC1AuxCommandDef.BRAKE,
+                                                                        address)
+
+            lights_on_btn.when_pressed = lights_on_req.as_action(repeat=2, baudrate=baudrate,
+                                                                 port=port, server=server)
+            lights_off_btn.when_pressed = lights_off_req.as_action(repeat=2, baudrate=baudrate,
+                                                                   port=port, server=server)
+            dispense_btn.when_pressed = dispense_req.as_action(repeat=2, baudrate=baudrate,
+                                                               port=port, server=server)
+        else:
+            raise NotImplemented
+        return lights_on_btn, lights_off_btn
+
+    @classmethod
     def gantry_crane(cls,
                      address: int,
                      cab_pin_1: int | str,
@@ -457,7 +503,7 @@ class GpioHandler:
     @classmethod
     def _make_button(cls,
                      pin: int | str,
-                     command: CommandReq | CommandDefEnum,
+                     command: CommandReq | CommandDefEnum | CommandDefEnum,
                      address: int = DEFAULT_ADDRESS,
                      data: int = None,
                      scope: CommandScope = None,
