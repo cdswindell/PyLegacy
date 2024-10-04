@@ -23,6 +23,8 @@ class PotHandler(Thread):
     def __init__(self,
                  command: CommandReq,
                  channel: int = 0,
+                 data_min: int = None,
+                 data_max: int = None,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: int | str = DEFAULT_PORT,
                  server: str = None) -> None:
@@ -31,7 +33,11 @@ class PotHandler(Thread):
         self._command = command
         self._last_value = None
         self._action = command.as_action(baudrate=baudrate, port=port, server=server)
-        self._interp = self.make_interpolator(command.data_max, command.data_min)
+        if data_max is None:
+            data_max = command.data_max
+        if data_min is None:
+            data_min = command.data_min
+        self._interp = self.make_interpolator(data_max, data_min)
         self._threshold = 1 if command.num_data_bits < 6 else 2
         self._running = True
         self.start()
@@ -283,14 +289,19 @@ class GpioHandler:
         if command_control is True:
 
             rotate_boom_req = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
-            boom_dev = RotaryEncoder(boom_pin_1, boom_pin_2, max_steps=18)
-            cls._cache_device(boom_dev)
+            # boom_dev = RotaryEncoder(boom_pin_1, boom_pin_2, max_steps=18)
+            # cls._cache_device(boom_dev)
+            #
+            # def rotate() -> None:
+            #     rotate_boom_req.data = round(boom_dev.steps / 6)
+            #     rotate_boom_req.send(baudrate=baudrate, port=port, server=server)
+            #
+            # boom_dev.when_rotated = rotate
 
-            def rotate() -> None:
-                rotate_boom_req.data = round(boom_dev.steps / 6)
-                rotate_boom_req.send(baudrate=baudrate, port=port, server=server)
-
-            boom_dev.when_rotated = rotate
+            knob = PotHandler(rotate_boom_req, 0, data_min=-3, data_max=3,
+                              baudrate=baudrate, port=port, server=server)
+            cls._cache_handler(knob)
+            cls._cache_device(knob.pot)
 
             lights_on_req, lights_on_btn, lights_on_led = cls._make_button(lights_on_pin,
                                                                            TMCC1AuxCommandDef.NUMERIC,
@@ -463,7 +474,7 @@ class GpioHandler:
             command = CommandReq.build(command, address, 0, scope)
         if command.num_data_bits == 0:
             raise ValueError("Command does not support variable data")
-        knob = PotHandler(command, channel, baudrate, port, server)
+        knob = PotHandler(command, channel, baudrate=baudrate, port=port, server=server)
         cls._cache_handler(knob)
         cls._cache_device(knob.pot)
         return knob
