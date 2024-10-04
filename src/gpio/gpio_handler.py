@@ -287,6 +287,7 @@ class GpioHandler:
     @classmethod
     def smoke_fluid_loader(cls,
                            address: int,
+                           channel: int,
                            dispense_pin: int | str,
                            lights_on_pin: int | str = None,
                            lights_off_pin: int | str = None,
@@ -298,7 +299,7 @@ class GpioHandler:
 
             rotate_boom_req = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
 
-            knob = PotHandler(rotate_boom_req, 0, data_min=-3, data_max=3, threshold=0, delay=0.2,
+            knob = PotHandler(rotate_boom_req, channel, data_min=-3, data_max=3, threshold=0, delay=0.2,
                               baudrate=baudrate, port=port, server=server)
             cls._cache_handler(knob)
             cls._cache_device(knob.pot)
