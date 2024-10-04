@@ -25,6 +25,7 @@ class PotHandler(Thread):
                  channel: int = 0,
                  data_min: int = None,
                  data_max: int = None,
+                 threshold: float = None,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: int | str = DEFAULT_PORT,
                  server: str = None) -> None:
@@ -38,7 +39,10 @@ class PotHandler(Thread):
         if data_min is None:
             data_min = command.data_min
         self._interp = self.make_interpolator(data_max, data_min)
-        self._threshold = 1 if command.num_data_bits < 6 else 2
+        if threshold is not None:
+            self._threshold = threshold
+        else:
+            self._threshold = 1 if command.num_data_bits < 6 else 2
         self._running = True
         self.start()
 
@@ -298,7 +302,7 @@ class GpioHandler:
             #
             # boom_dev.when_rotated = rotate
 
-            knob = PotHandler(rotate_boom_req, 0, data_min=-3, data_max=3,
+            knob = PotHandler(rotate_boom_req, 0, data_min=-3, data_max=3, threshold=0.5,
                               baudrate=baudrate, port=port, server=server)
             cls._cache_handler(knob)
             cls._cache_device(knob.pot)
