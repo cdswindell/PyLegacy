@@ -31,8 +31,6 @@ GpioHandler.culvert_loader(11,
                            cycle_pin=5,
                            cycle_led_pin=20)
 GpioHandler.smoke_fluid_loader(12,
-                               boom_pin_1=12,
-                               boom_pin_2=16,
                                dispense_pin=21,
                                lights_on_pin=26,
                                lights_off_pin=19)
