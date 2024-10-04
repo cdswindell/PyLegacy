@@ -62,7 +62,7 @@ class PotHandler(Thread):
                 continue  # pots can take a bit to settle; ignore small changes
             if self._last_value == 0 and value == 0:
                 continue
-            # print(f"New Speed: {self._last_value} -> {value}")
+            print(f"New Speed: {self._last_value} -> {value}")
             self._last_value = value
             self._command.data = value
             self._action(new_data=value)
