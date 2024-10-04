@@ -26,6 +26,7 @@ class PotHandler(Thread):
                  data_min: int = None,
                  data_max: int = None,
                  threshold: float = None,
+                 delay: float = None,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: int | str = DEFAULT_PORT,
                  server: str = None) -> None:
@@ -43,6 +44,7 @@ class PotHandler(Thread):
             self._threshold = threshold
         else:
             self._threshold = 1 if command.num_data_bits < 6 else 2
+        self._delay = delay
         self._running = True
         self.start()
 
@@ -58,10 +60,14 @@ class PotHandler(Thread):
                 continue
             elif math.fabs(self._last_value - value) < self._threshold:
                 continue  # pots can take a bit to settle; ignore small changes
+            if self._last_value == 0 and value == 0:
+                continue
             # print(f"New Speed: {self._last_value} -> {value}")
             self._last_value = value
             self._command.data = value
             self._action(new_data=value)
+            if self._delay:
+                time.sleep(self._delay)
 
     def reset(self) -> None:
         self._running = False
@@ -281,8 +287,6 @@ class GpioHandler:
     @classmethod
     def smoke_fluid_loader(cls,
                            address: int,
-                           boom_pin_1: int | str,
-                           boom_pin_2: int | str,
                            dispense_pin: int | str,
                            lights_on_pin: int | str = None,
                            lights_off_pin: int | str = None,
@@ -293,16 +297,8 @@ class GpioHandler:
         if command_control is True:
 
             rotate_boom_req = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
-            # boom_dev = RotaryEncoder(boom_pin_1, boom_pin_2, max_steps=18)
-            # cls._cache_device(boom_dev)
-            #
-            # def rotate() -> None:
-            #     rotate_boom_req.data = round(boom_dev.steps / 6)
-            #     rotate_boom_req.send(baudrate=baudrate, port=port, server=server)
-            #
-            # boom_dev.when_rotated = rotate
 
-            knob = PotHandler(rotate_boom_req, 0, data_min=-3, data_max=3, threshold=0,
+            knob = PotHandler(rotate_boom_req, 0, data_min=-3, data_max=3, threshold=0, delay=0.2,
                               baudrate=baudrate, port=port, server=server)
             cls._cache_handler(knob)
             cls._cache_device(knob.pot)
