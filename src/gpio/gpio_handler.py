@@ -302,7 +302,7 @@ class GpioHandler:
             #
             # boom_dev.when_rotated = rotate
 
-            knob = PotHandler(rotate_boom_req, 0, data_min=-3, data_max=3, threshold=0.5,
+            knob = PotHandler(rotate_boom_req, 0, data_min=-3, data_max=3, threshold=0,
                               baudrate=baudrate, port=port, server=server)
             cls._cache_handler(knob)
             cls._cache_device(knob.pot)
