@@ -7,7 +7,6 @@ from threading import Thread
 from typing import List
 
 from ..comm.comm_buffer import CommBuffer
-from ..db.component_state_store import ComponentStateStore
 from ..protocol.constants import DEFAULT_SERVER_PORT
 
 REGISTER_REQUEST: bytes = int(0xff).to_bytes(1) * 6
@@ -84,6 +83,7 @@ class EnqueueProxyRequests(Thread):
 
     @classmethod
     def send_current_state(cls, client_ip: str):
+        from ..db.component_state_store import ComponentStateStore
         state = ComponentStateStore.build()
         with socket(AF_INET, SOCK_STREAM) as s:
             for scope in state.scopes():
