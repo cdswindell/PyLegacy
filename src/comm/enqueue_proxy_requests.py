@@ -144,10 +144,10 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             else:
                 break
         EnqueueProxyRequests.note_client_addr(self.client_address[0])
-        if data == EnqueueProxyRequests.register_request:
+        if byte_stream == EnqueueProxyRequests.register_request:
             print(f"************* Client registration: {self.client_address[0]}")
             pass
-        elif data == EnqueueProxyRequests.sync_state_request:
+        elif byte_stream == EnqueueProxyRequests.sync_state_request:
             print(f"************************* Client requests current state: {self.client_address[0]}")
             EnqueueProxyRequests.send_current_state(self.client_address[0])
         else:
