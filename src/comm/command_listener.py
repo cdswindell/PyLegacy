@@ -96,14 +96,15 @@ class CommandListener(Thread):
         self._is_running = True
         self._dispatcher = CommandDispatcher.build(queue_size)
 
+        # start listener thread
+        self.start()
+
         # prep our producer
         if build_serial_reader:
             from .serial_reader import SerialReader
             self._serial_reader = SerialReader(baudrate, port, self)
         else:
             self._serial_reader = None
-        # start listener thread
-        self.run()
 
     def sync_state(self) -> None:
         """

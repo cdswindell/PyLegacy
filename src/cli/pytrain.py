@@ -54,6 +54,7 @@ class PyTrain:
                 print(f"Listening for client connections on port {self._args.server_port}...")
                 self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
                 self._listener = CommandListener.build()
+                print("zzzzzzzz")
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             print(f"Listening for state updates on {self._args.server_port}...")
