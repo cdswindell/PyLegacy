@@ -304,8 +304,6 @@ class CommandDispatcher(Thread):
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
         self._client_port = EnqueueProxyRequests.port if EnqueueProxyRequests.is_built else None
-        from ..db.component_state_store import ComponentStateStore
-        self._state = ComponentStateStore.build()
         self.start()
 
     def run(self) -> None:
@@ -358,13 +356,15 @@ class CommandDispatcher(Thread):
 
     def send_current_state(self, client_ip: str):
         if self._client_port is not None:
-            for scope in self._state.scopes():
-                for address in self._state.addresses(scope):
+            from ..db.component_state_store import ComponentStateStore
+            state = ComponentStateStore.build()
+            for scope in state.scopes():
+                for address in state.addresses(scope):
                     with self._lock:
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                            print(f"Sending: {self._state.query(scope, address)}")
+                            print(f"Sending: {state.query(scope, address)}")
                             s.connect((client_ip, self._client_port))
-                            s.sendall(self._state.query(scope, address).as_bytes)
+                            s.sendall(state.query(scope, address).as_bytes)
                             _ = s.recv(16)
 
     @property
