@@ -365,7 +365,6 @@ class CommandDispatcher(Thread):
                 for address in state.addresses(scope):
                     with self._lock:
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                            print(f"Sending: {state.query(scope, address)}")
                             s.connect((client_ip, self._client_port))
                             s.sendall(state.query(scope, address).as_bytes)
                             _ = s.recv(16)
