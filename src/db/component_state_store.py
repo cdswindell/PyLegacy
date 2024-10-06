@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections
 import threading
 from collections import defaultdict
 from typing import List, TypeVar, Set, Tuple
@@ -138,6 +139,12 @@ class ComponentStateStore:
                 and 1 <= address <= 99:
             return self._state[scope][address]
         raise ValueError(f'Invalid scope/address: {scope} {address}')
+
+    def scopes(self) -> Set[CommandScope]:
+        return set(self._state.keys())
+
+    def addresses(self, scope: CommandScope) -> collections.Iterable[int]:
+        return set(self._state[scope].keys())
 
 
 class DependencyCache:

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import socketserver
 import threading
+from socket import socket, AF_INET, SOCK_STREAM
 from threading import Thread
 from typing import List
 
-from src.comm.comm_buffer import CommBuffer
-from src.protocol.constants import DEFAULT_SERVER_PORT
+from ..comm.comm_buffer import CommBuffer
+from ..db.component_state_store import ComponentStateStore
+from ..protocol.constants import DEFAULT_SERVER_PORT
 
 REGISTER_REQUEST: bytes = int(0xff).to_bytes(1) * 6
 SYNC_STATE_REQUEST: bytes = int(0xfff0).to_bytes(2, byteorder='big') * 3
@@ -80,6 +82,17 @@ class EnqueueProxyRequests(Thread):
             return cls._instance._port
         raise AttributeError("EnqueueProxyRequests is not built yet.")
 
+    @classmethod
+    def send_current_state(cls, client_ip: str):
+        state = ComponentStateStore.build()
+        with socket(AF_INET, SOCK_STREAM) as s:
+            for scope in state.scopes():
+                for address in state.addresses(scope):
+                    print(f"Sending: {state.query(scope, address)}")
+                    s.connect((client_ip, cls.port))
+                    s.sendall(state.query(scope, address).as_bytes)
+                    _ = s.recv(16)
+
     def __init__(self,
                  buffer: CommBuffer,
                  port: int = DEFAULT_SERVER_PORT
@@ -134,6 +147,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         if data == EnqueueProxyRequests.register_request:
             pass
         elif data == EnqueueProxyRequests.sync_state_request:
-            pass
+            print("Client requests current state")
+            EnqueueProxyRequests.send_current_state(self.client_address[0])
         else:
             EnqueueProxyRequests.get_comm_buffer().enqueue_command(byte_stream)
