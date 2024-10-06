@@ -34,9 +34,9 @@ class ClientStateListener(threading.Thread):
         self._command_listener = CommandListener.build(build_serial_reader=False)
         self._buffer = CommBuffer.build()
         self._port = self._buffer.server_port
+        self.start()
         self._buffer.register()  # register this client with server to receive updates
         self._buffer.sync_state()  # request initial state from server
-        self.start()
 
     def __new__(cls, *args, **kwargs):
         """
