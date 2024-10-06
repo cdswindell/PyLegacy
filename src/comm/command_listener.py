@@ -351,8 +351,11 @@ class CommandDispatcher(Thread):
                             s.connect((client, self._client_port))
                             s.sendall(command.as_bytes)
                             _ = s.recv(16)
+                except ConnectionRefusedError:
+                    # ignore disconnects; client will receive state update on reconnect
+                    pass
                 except Exception as e:
-                    print(e)
+                    print(f"Exception while sending state update to {client}: {e}")
 
     def send_current_state(self, client_ip: str):
         if self._client_port is not None:
