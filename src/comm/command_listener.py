@@ -8,7 +8,6 @@ from threading import Thread
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
 from .enqueue_proxy_requests import EnqueueProxyRequests
-from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
@@ -305,6 +304,7 @@ class CommandDispatcher(Thread):
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
         self._client_port = EnqueueProxyRequests.port if EnqueueProxyRequests.is_built else None
+        from ..db.component_state_store import ComponentStateStore
         self._state = ComponentStateStore.build()
         self.start()
 
