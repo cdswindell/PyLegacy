@@ -125,16 +125,37 @@ class ComponentState(ABC):
     @property
     @abc.abstractmethod
     def is_known(self) -> bool:
+        """
+            Returns True if component's state is known, False otherwise.
+        """
         ...
 
     @property
     @abc.abstractmethod
     def is_tmcc(self) -> bool:
+        """
+            Returns True if component responds to TMCC protocol, False otherwise.
+        """
         ...
 
     @property
     @abc.abstractmethod
     def is_legacy(self) -> bool:
+        """
+            Returns True if component responds to Legacy/TMCC2 protocol, False otherwise.
+        """
+        ...
+
+    @property
+    @abc.abstractmethod
+    def as_bytes(self) -> bytes:
+        """
+            Returns the component state as a bytes object representative of the TMCC/Legacy
+            byte sequence used to trigger the corresponding action(s) when received by the
+            component.
+
+            Used to synchronize component state when client attaches to the server.
+        """
         ...
 
 
@@ -185,6 +206,13 @@ class SwitchState(ComponentState):
     def is_legacy(self) -> bool:
         return False
 
+    @property
+    def as_bytes(self) -> bytes:
+        if self.is_known:
+            return CommandReq.build(self.state, self.address).as_bytes
+        else:
+            return bytes()
+
 
 class AccessoryState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ACC) -> None:
@@ -229,6 +257,7 @@ class AccessoryState(ComponentState):
                         self._last_aux1_opt1 = self.last_updated
                     elif command.command in [Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:
                         self._aux1_state = command.command
+                        self._last_aux1_opt1 = self.last_updated
                     elif command.command == Aux.AUX2_OPTION_ONE:
                         if self._last_aux2_opt1 is None or self.time_delta(self._last_aux2_opt1) > 1:
                             self._aux2_state = Aux.AUX2_ON if (self._aux2_state is None
@@ -237,6 +266,7 @@ class AccessoryState(ComponentState):
                         self._last_aux2_opt1 = self.last_updated
                     elif command.command in [Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPTION_TWO]:
                         self._aux2_state = command.command
+                        self._last_aux2_opt1 = self.last_updated
                     if command.command == Aux.NUMERIC:
                         self._number = command.data
             self.changed.set()
@@ -279,6 +309,17 @@ class AccessoryState(ComponentState):
     @property
     def is_legacy(self) -> bool:
         return False
+
+    @property
+    def as_bytes(self) -> bytes:
+        byte_str = bytes()
+        if self._aux_state is not None:
+            byte_str += CommandReq.build(self.aux_state, self.address).as_bytes
+        if self._aux1_state is not None:
+            byte_str += CommandReq.build(self.aux1_state, self.address).as_bytes
+            if self._aux2_state is not None:
+                byte_str += CommandReq.build(self.aux2_state, self.address).as_bytes
+        return byte_str
 
 
 class EngineState(ComponentState):
@@ -335,6 +376,7 @@ class EngineState(ComponentState):
             if isinstance(speed, tuple) and len(speed) == 2:
                 self._speed = speed[1]
             else:
+                self._speed = None
                 print(f"**************** What am I supposed to do with {speed}?")
 
         # handle startup/shutdown
@@ -353,6 +395,23 @@ class EngineState(ComponentState):
             elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                 self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
         self.changed.set()
+
+    @property
+    def as_bytes(self) -> bytes:
+        byte_str = bytes()
+        if self._start_stop is not None:
+            byte_str += CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes
+        if self._direction is not None:
+            # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
+            byte_str += CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes
+        if self._speed is not None:
+            if self.is_tmcc:
+                byte_str += CommandReq.build(TMCC1EngineCommandDef.ABSOLUTE_SPEED, self.address,
+                                             data=self.speed, scope=self.scope).as_bytes
+            elif self.is_legacy:
+                byte_str += CommandReq.build(TMCC2EngineCommandDef.ABSOLUTE_SPEED, self.address,
+                                             data=self.speed, scope=self.scope).as_bytes
+        return byte_str
 
     @property
     def speed(self) -> int | None:

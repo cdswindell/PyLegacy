@@ -3,9 +3,9 @@ from __future__ import annotations
 import socketserver
 import threading
 
-from ..comm.comm_buffer import CommBuffer
-from ..comm.command_listener import CommandListener, Subscriber, Topic
-from ..protocol.command_def import CommandDefEnum
+from src.comm.comm_buffer import CommBuffer
+from src.comm.command_listener import CommandListener, Subscriber, Topic
+from src.protocol.command_def import CommandDefEnum
 
 
 class ClientStateListener(threading.Thread):
@@ -30,11 +30,13 @@ class ClientStateListener(threading.Thread):
             return
         else:
             self._initialized = True
-        self._command_listener = CommandListener.build(build_serial_reader=False)
-        self._port = CommBuffer.build().server_port
         super().__init__(daemon=True, name="PyLegacy ComponentStateListener")
+        self._command_listener = CommandListener.build(build_serial_reader=False)
+        self._buffer = CommBuffer.build()
+        self._port = self._buffer.server_port
+        self._buffer.register()  # register this client with server to receive updates
+        self._buffer.sync_state()  # request initial state from server
         self.start()
-        CommBuffer.build().register()
 
     def __new__(cls, *args, **kwargs):
         """

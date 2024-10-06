@@ -70,6 +70,13 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.TRAIN)
             self._state_store.listen_for(CommandScope.SWITCH)
             self._state_store.listen_for(CommandScope.ACC)
+
+        # Sync component state; for the server, this means querying state from
+        # the Base 3 and from various LCS devices; for the client, this means querying
+        # state from the server
+        self._listener.sync_state()
+
+        # Start the command line processor
         self.run()
 
     def __call__(self, cmd: CommandReq) -> None:

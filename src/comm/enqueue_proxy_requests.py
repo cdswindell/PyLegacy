@@ -8,20 +8,30 @@ from typing import List
 from src.comm.comm_buffer import CommBuffer
 from src.protocol.constants import DEFAULT_SERVER_PORT
 
+REGISTER_REQUEST: bytes = int(0xff).to_bytes(1) * 6
+SYNC_STATE_REQUEST: bytes = int(0xfff0).to_bytes(2, byteorder='big') * 3
+
 
 class EnqueueProxyRequests(Thread):
+    """
+        Receives requests from PyTrain clients over TCP/IP and queues them for
+        dispatch to the LCS SER2.
+    """
     _instance = None
     _lock = threading.RLock()
 
     @classmethod
     def build(cls, buffer: CommBuffer, port: int = DEFAULT_SERVER_PORT) -> EnqueueProxyRequests:
         """
-            Factory method to create a CommandListener instance
+            Factory method to create a EnqueueProxyRequests instance
         """
         return EnqueueProxyRequests(buffer, port)
 
     @classmethod
     def note_client_addr(cls, client: str) -> None:
+        """
+            Take note of client IPs, so we can update them of component state changes
+        """
         if cls._instance is not None:
             # noinspection PyProtectedMember
             cls._instance._clients.add(client)
@@ -40,7 +50,13 @@ class EnqueueProxyRequests(Thread):
     @classmethod
     @property
     def register_request(cls) -> bytes:
-        return int(0xff).to_bytes(1)*6
+        return REGISTER_REQUEST
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def sync_state_request(cls) -> bytes:
+        return SYNC_STATE_REQUEST
 
     # noinspection PyPropertyDefinition
     @classmethod
@@ -103,28 +119,6 @@ class EnqueueProxyRequests(Thread):
         with socketserver.TCPServer(('', self._port), EnqueueHandler) as server:
             server.shutdown()
 
-    # def run(self) -> None:
-    #     with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-    #         s.bind(('', self._port))
-    #         s.listen(1)
-    #         while True:
-    #             conn, addr = s.accept()
-    #             try:
-    #                 byte_stream = bytes()
-    #                 while True:
-    #                     data = conn.recv(128)
-    #                     if data:
-    #                         # print(f"Received data: {data.hex()}, sending ack")
-    #                         byte_stream += data
-    #                         conn.sendall(str.encode("ack"))
-    #                     else:
-    #                         # print("no more data from client")
-    #                         break
-    #                 # print(f"Received {byte_stream.hex()}")
-    #                 self._buffer.enqueue_command(byte_stream)
-    #             finally:
-    #                 conn.close()
-
 
 class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
@@ -137,5 +131,9 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             else:
                 break
         EnqueueProxyRequests.note_client_addr(self.client_address[0])
-        if data != EnqueueProxyRequests.register_request:
+        if data == EnqueueProxyRequests.register_request:
+            pass
+        elif data == EnqueueProxyRequests.sync_state_request:
+            pass
+        else:
             EnqueueProxyRequests.get_comm_buffer().enqueue_command(byte_stream)

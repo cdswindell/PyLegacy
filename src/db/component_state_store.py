@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import List, TypeVar, Set, Tuple
 
 from .component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
-from .client_state_listener import ClientStateListener
+from src.db.client_state_listener import ClientStateListener
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Topic, CommandDispatcher, Subscriber
 from ..protocol.command_def import CommandDefEnum

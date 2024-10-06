@@ -113,6 +113,10 @@ class CommBuffer(abc.ABC):
         ...
 
     @abc.abstractmethod
+    def sync_state(self) -> None:
+        ...
+
+    @abc.abstractmethod
     def join(self) -> None:
         ...
 
@@ -179,6 +183,9 @@ class CommBufferSingleton(CommBuffer, Thread):
 
     def register(self) -> None:
         pass  # noop; used to register client
+
+    def sync_state(self) -> None:
+        pass  # noop; used by client to request server state
 
     def run(self) -> None:
         # if the queue is empty AND _shutdown_signaled is True, then continue looping
@@ -249,13 +256,22 @@ class CommBufferProxy(CommBuffer):
                 return
             except ConnectionError as ce:
                 # give server time to boot up:
-                if retries < 30:
+                if retries < 60:
                     retries += 1
                     if retries % 5 == 0:
                         print(f"Waiting for PyTrain server at {self._server}...")
                     time.sleep(1)
                 else:
                     raise ce
+
+    def sync_state(self) -> None:
+        from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
+        try:
+            # noinspection PyTypeChecker
+            self.enqueue_command(EnqueueProxyRequests.sync_state_request)
+            return
+        except ConnectionError as ce:
+            raise ce
 
     def shutdown(self, immediate: bool = False) -> None:
         pass

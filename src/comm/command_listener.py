@@ -94,7 +94,6 @@ class CommandListener(Thread):
         self._cv = threading.Condition()
         self._deque = deque(maxlen=DEFAULT_QUEUE_SIZE)
         self._is_running = True
-        self.start()
         self._dispatcher = CommandDispatcher.build(queue_size)
 
         # prep our producer
@@ -103,6 +102,14 @@ class CommandListener(Thread):
             self._serial_reader = SerialReader(baudrate, port, self)
         else:
             self._serial_reader = None
+        # start listener thread
+        self.run()
+
+    def sync_state(self) -> None:
+        """
+            Get initial system state from the Base 3/LCS Modules
+        """
+        pass
 
     @property
     def baudrate(self) -> int:
