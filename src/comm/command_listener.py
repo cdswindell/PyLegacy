@@ -96,6 +96,9 @@ class CommandListener(Thread):
         self._is_running = True
         self._dispatcher = CommandDispatcher.build(queue_size)
 
+        # get initial state from Base 3 and LCS modules
+        self.sync_state()
+
         # start listener thread
         self.start()
 

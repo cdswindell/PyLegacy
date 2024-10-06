@@ -54,7 +54,6 @@ class PyTrain:
                 print(f"Listening for client connections on port {self._args.server_port}...")
                 self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
                 self._listener = CommandListener.build()
-                print("zzzzzzzz")
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             print(f"Listening for state updates on {self._args.server_port}...")
@@ -71,11 +70,6 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.TRAIN)
             self._state_store.listen_for(CommandScope.SWITCH)
             self._state_store.listen_for(CommandScope.ACC)
-
-        # Sync component state; for the server, this means querying state from
-        # the Base 3 and from various LCS devices; for the client, this means querying
-        # state from the server
-        self._listener.sync_state()
 
         # Start the command line processor
         self.run()
