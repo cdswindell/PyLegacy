@@ -8,6 +8,7 @@ from threading import Thread
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
 from .enqueue_proxy_requests import EnqueueProxyRequests
+from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
@@ -304,6 +305,7 @@ class CommandDispatcher(Thread):
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
         self._client_port = EnqueueProxyRequests.port if EnqueueProxyRequests.is_built else None
+        self._state = ComponentStateStore.build()
         self.start()
 
     def run(self) -> None:
@@ -355,16 +357,15 @@ class CommandDispatcher(Thread):
                     print(e)
 
     def send_current_state(self, client_ip: str):
-        from ..db.component_state_store import ComponentStateStore
-        state = ComponentStateStore.build()
-        with self._lock:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                for scope in state.scopes():
-                    for address in state.addresses(scope):
-                        print(f"Sending: {state.query(scope, address)}")
-                        s.connect((client_ip, self._client_port))
-                        s.sendall(state.query(scope, address).as_bytes)
-                        _ = s.recv(16)
+        if self._client_port is not None:
+            for scope in self._state.scopes():
+                for address in self._state.addresses(scope):
+                    with self._lock:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            print(f"Sending: {self._state.query(scope, address)}")
+                            s.connect((client_ip, self._client_port))
+                            s.sendall(self._state.query(scope, address).as_bytes)
+                            _ = s.recv(16)
 
     @property
     def broadcasts_enabled(self) -> bool:
