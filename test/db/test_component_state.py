@@ -3,6 +3,7 @@ from collections import defaultdict
 
 # noinspection PyPackageRequirements
 import pytest
+from unittest import mock
 
 # noinspection PyProtectedMember
 from src.comm.command_listener import CommandListener, CommandDispatcher, Message
@@ -229,7 +230,7 @@ class TestComponentState(TestBase):
         assert acc_state.aux_state == Acc.AUX1_OPTION_ONE
         assert acc_state.is_aux_on is True
         assert acc_state.is_aux_off is False
-        assert acc_state.aux1_state == Acc.AUX1_OPTION_ONE
+        assert acc_state.aux1_state == Acc.AUX1_ON
         assert acc_state.aux2_state is None
         assert acc_state.value is None
         assert acc_state.is_known is True
@@ -242,14 +243,14 @@ class TestComponentState(TestBase):
         assert acc_state.aux_state == Acc.AUX1_OPTION_ONE
         assert acc_state.is_aux_on is True
         assert acc_state.is_aux_off is False
-        assert acc_state.aux1_state == Acc.AUX1_OPTION_ONE
+        assert acc_state.aux1_state == Acc.AUX1_ON
         assert acc_state.aux2_state is None
         assert acc_state.value == 6
         assert acc_state.is_known is True
         assert acc_state.last_updated >= last_updated
         last_updated = acc_state.last_updated
 
-        # send a halt command, it should turn Aux off
+        # send a halt command, it should turn Aux 1 & 2 off
         halt_req = CommandReq(TMCC1HaltCommandDef.HALT, 1)
         acc_state.update(halt_req)
         assert acc_state.aux_state == Acc.AUX2_OPTION_ONE
@@ -261,23 +262,28 @@ class TestComponentState(TestBase):
         assert acc_state.is_known is True
         assert acc_state.last_updated >= last_updated
 
+        # noinspection PyUnusedLocal
+        def patched(arg) -> int:
+            return 2
+
         # turn Aux back on, then off
-        acc_state.update(aux1_opt1_req)
-        assert acc_state.aux_state == Acc.AUX1_OPTION_ONE
-        assert acc_state.is_aux_on is True
-        assert acc_state.is_aux_off is False
-        assert acc_state.aux1_state == Acc.AUX1_OPTION_ONE
-        assert acc_state.aux2_state is Acc.AUX2_OFF
-        assert acc_state.value is None
-        assert acc_state.is_known is True
+        with mock.patch.object(ComponentState, "time_delta", side_effect=patched):
+            acc_state.update(aux1_opt1_req)
+            assert acc_state.aux_state == Acc.AUX1_OPTION_ONE
+            assert acc_state.is_aux_on is True
+            assert acc_state.is_aux_off is False
+            assert acc_state.aux1_state == Acc.AUX1_ON
+            assert acc_state.aux2_state is Acc.AUX2_OFF
+            assert acc_state.value is None
+            assert acc_state.is_known is True
 
         aux2_opt1_req = CommandReq(Acc.AUX2_OPTION_ONE, 5)
         acc_state.update(aux2_opt1_req)
         assert acc_state.aux_state == Acc.AUX2_OPTION_ONE
         assert acc_state.is_aux_on is False
         assert acc_state.is_aux_off is True
-        assert acc_state.aux1_state == Acc.AUX1_OPTION_ONE
-        assert acc_state.aux2_state is Acc.AUX2_OPTION_ONE
+        assert acc_state.aux1_state == Acc.AUX1_ON
+        assert acc_state.aux2_state is Acc.AUX2_ON
         assert acc_state.value is None
         assert acc_state.is_known is True
 
