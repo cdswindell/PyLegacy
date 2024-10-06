@@ -250,7 +250,7 @@ class CommandDispatcher(Thread):
         CommandListener and dispatches them to subscribing listeners
     """
     _instance = None
-    _lock = threading.Lock()
+    _lock = threading.RLock()
 
     @classmethod
     def build(cls, queue_size: int = DEFAULT_QUEUE_SIZE) -> CommandDispatcher:
@@ -345,10 +345,26 @@ class CommandDispatcher(Thread):
         if self._client_port is not None:
             # noinspection PyTypeChecker
             for client in EnqueueProxyRequests.clients:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.connect((client, self._client_port))
-                    s.sendall(command.as_bytes)
-                    _ = s.recv(16)
+                try:
+                    with self._lock:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            s.connect((client, self._client_port))
+                            s.sendall(command.as_bytes)
+                            _ = s.recv(16)
+                except Exception as e:
+                    print(e)
+
+    def send_current_state(self, client_ip: str):
+        from ..db.component_state_store import ComponentStateStore
+        state = ComponentStateStore.build()
+        with self._lock:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                for scope in state.scopes():
+                    for address in state.addresses(scope):
+                        print(f"Sending: {state.query(scope, address)}")
+                        s.connect((client_ip, self._client_port))
+                        s.sendall(state.query(scope, address).as_bytes)
+                        _ = s.recv(16)
 
     @property
     def broadcasts_enabled(self) -> bool:
