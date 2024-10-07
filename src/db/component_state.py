@@ -10,8 +10,8 @@ from typing import Tuple, TypeVar, Set
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS, CommandSyntax
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef, TMCC1EngineCommandDef, \
-    TMCC1_COMMAND_TO_ALIAS_MAP
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2_COMMAND_TO_ALIAS_MAP
 

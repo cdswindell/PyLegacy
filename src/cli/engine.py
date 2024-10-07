@@ -2,16 +2,21 @@
 #
 from typing import List
 
-from src.cli.cli_base import CliBaseTMCC, DataAction, CliBase
-from src.protocol.sequence.sequence_constants import SequenceCommandEnum
-from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
-from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
-from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
-from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
-from src.protocol.tmcc2.param_constants import TMCC2ParameterEnum, TMCC2RailSoundsDialogControl, \
-    TMCC2EffectsControl, \
-    TMCC2LightingControl, TMCC2RailSoundsEffectsControl
-from src.utils.argument_parser import ArgumentParser
+from .cli_base import CliBaseTMCC, DataAction, CliBase
+
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
+
+from ..protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
+from ..protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+
+from ..protocol.tmcc2.param_constants import TMCC2ParameterEnum, TMCC2RailSoundsDialogControl
+from ..protocol.tmcc2.param_constants import TMCC2EffectsControl, TMCC2LightingControl
+from ..protocol.tmcc2.param_constants import TMCC2RailSoundsEffectsControl
+
+from ..protocol.sequence.sequence_constants import SequenceCommandEnum
+
+from ..utils.argument_parser import ArgumentParser
 
 AUX_COMMAND_MAP = {
     'on': '_ON',

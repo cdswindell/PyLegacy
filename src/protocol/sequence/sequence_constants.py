@@ -4,9 +4,9 @@ from typing import Dict, Type
 
 from .grade_crossing_req import GradeCrossingReq
 from .speed_req import SpeedReq
+
 from ..command_def import CommandDefEnum
 from ..constants import CommandScope, CommandSyntax
-
 from ..tmcc2.tmcc2_constants import TMCC2CommandDef
 
 

@@ -3,7 +3,7 @@ import time
 from threading import Thread
 from typing import Tuple, Callable
 
-from gpiozero import Button, LED, MCP3008, RotaryEncoder, Device
+from gpiozero import Button, LED, MCP3008, Device
 
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache

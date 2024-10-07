@@ -5,8 +5,8 @@ from enum import verify, UNIQUE
 from typing import Dict, Tuple
 
 from src.protocol.command_def import CommandDef, CommandDefEnum
-from src.protocol.constants import CommandPrefix, CommandScope, RELATIVE_SPEED_MAP, CommandSyntax, OfficialRRSpeeds, \
-    DEFAULT_ADDRESS
+from src.protocol.constants import CommandPrefix, CommandScope, RELATIVE_SPEED_MAP, CommandSyntax
+from src.protocol.constants import OfficialRRSpeeds, DEFAULT_ADDRESS
 
 LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: int = 0xFA
 LEGACY_PARAMETER_COMMAND_PREFIX: int = 0xFB

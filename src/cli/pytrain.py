@@ -9,25 +9,25 @@ import readline
 from datetime import datetime
 from typing import List
 
-from src.cli.acc import AccCli
-from src.cli.cli_base import CliBase
-from src.cli.dialogs import DialogsCli
-from src.cli.effects import EffectsCli
-from src.cli.engine import EngineCli
-from src.cli.halt import HaltCli
-from src.cli.lighting import LightingCli
-from src.cli.route import RouteCli
-from src.cli.sounds import SoundEffectsCli
-from src.cli.switch import SwitchCli
-from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
-from src.comm.command_listener import CommandListener
-from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
-from src.db.client_state_listener import ClientStateListener
-from src.db.component_state_store import ComponentStateStore
-from src.gpio.gpio_handler import GpioHandler
-from src.protocol.command_req import CommandReq
-from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC
-from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
+from .acc import AccCli
+from .cli_base import CliBase
+from .dialogs import DialogsCli
+from .effects import EffectsCli
+from .engine import EngineCli
+from .halt import HaltCli
+from .lighting import LightingCli
+from .route import RouteCli
+from .sounds import SoundEffectsCli
+from .switch import SwitchCli
+from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
+from ..comm.command_listener import CommandListener
+from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
+from ..db.client_state_listener import ClientStateListener
+from ..db.component_state_store import ComponentStateStore
+from ..gpio.gpio_handler import GpioHandler
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC
+from ..utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 PROGRAM_NAME: str = "PyTrain"

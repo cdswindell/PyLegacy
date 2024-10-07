@@ -2,10 +2,10 @@
 #
 from typing import List
 
-from src.cli.cli_base import CliBase, DataAction
-from src.protocol.tmcc1.acc_cmd import AccCmd as AccCmdTMCC1
-from src.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
-from src.utils.argument_parser import ArgumentParser
+from .cli_base import CliBase, DataAction
+from ..protocol.tmcc1.acc_cmd import AccCmd
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
+from ..utils.argument_parser import ArgumentParser
 
 AUX_OPTIONS_MAP = {
     'on': 'ON',
@@ -76,12 +76,12 @@ class AccCli(CliBase):
         try:
             if self._command is None or not isinstance(self._command, TMCC1AuxCommandDef):
                 raise ValueError("Must specify an option, use -h for help")
-            cmd = AccCmdTMCC1(self._acc,
-                              self._command,
-                              self._data,
-                              baudrate=self._baudrate,
-                              port=self._port,
-                              server=self._server)
+            cmd = AccCmd(self._acc,
+                         self._command,
+                         self._data,
+                         baudrate=self._baudrate,
+                         port=self._port,
+                         server=self._server)
             if self.do_fire:
                 cmd.fire()
             self._command = cmd

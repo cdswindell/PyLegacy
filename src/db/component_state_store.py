@@ -20,7 +20,6 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
 
 from ..protocol.tmcc2.tmcc2_constants import TMCC2HaltCommandDef as Halt2
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as Engine2
-
 from ..protocol.tmcc2.param_constants import TMCC2EffectsControl as Effects
 
 T = TypeVar("T", bound=ComponentState)

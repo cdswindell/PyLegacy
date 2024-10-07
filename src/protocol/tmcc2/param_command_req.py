@@ -2,13 +2,13 @@ from typing import Dict, Self
 
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_ADDRESS, CommandScope
-from src.protocol.tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_PARAMETER_COMMAND_PREFIX
-from src.protocol.tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
-from src.protocol.tmcc2.param_constants import TMCC2ParameterEnum, TMCC2ParameterIndex
-from src.protocol.tmcc2.param_constants import TMCC2_PARAMETER_INDEX_PREFIX
-from src.protocol.tmcc2.param_constants import TMCC2RailSoundsDialogControl
-from src.protocol.tmcc2.param_constants import TMCC2RailSoundsEffectsControl, TMCC2EffectsControl
-from src.protocol.tmcc2.param_constants import TMCC2LightingControl
+from ..tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_PARAMETER_COMMAND_PREFIX
+from ..tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
+from ..tmcc2.param_constants import TMCC2ParameterEnum, TMCC2ParameterIndex
+from ..tmcc2.param_constants import TMCC2_PARAMETER_INDEX_PREFIX
+from ..tmcc2.param_constants import TMCC2RailSoundsDialogControl
+from ..tmcc2.param_constants import TMCC2RailSoundsEffectsControl, TMCC2EffectsControl
+from ..tmcc2.param_constants import TMCC2LightingControl
 
 # noinspection PyTypeChecker
 PARAMETER_ENUM_TO_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {

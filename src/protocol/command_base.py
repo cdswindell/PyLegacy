@@ -6,7 +6,7 @@ from .command_req import CommandReq
 from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from .command_def import CommandDef, CommandDefEnum
 from src.utils.validations import Validations
-from ..comm.comm_buffer import CommBuffer
+from src.comm.comm_buffer import CommBuffer
 
 
 class CommandBase(ABC):

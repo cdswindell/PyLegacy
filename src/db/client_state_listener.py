@@ -3,9 +3,9 @@ from __future__ import annotations
 import socketserver
 import threading
 
-from src.comm.comm_buffer import CommBuffer
-from src.comm.command_listener import CommandListener, Subscriber, Topic
-from src.protocol.command_def import CommandDefEnum
+from ..comm.comm_buffer import CommBuffer
+from ..comm.command_listener import CommandListener, Subscriber, Topic
+from ..protocol.command_def import CommandDefEnum
 
 
 class ClientStateListener(threading.Thread):

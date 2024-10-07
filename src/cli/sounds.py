@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 from typing import List
 
-from src.cli.cli_base import CliBaseTMCC
-from src.protocol.tmcc2.sound_effects_cmd import SoundEffectsCmd
-from src.protocol.tmcc2.param_constants import TMCC2RailSoundsEffectsControl
-from src.utils.argument_parser import ArgumentParser
+from .cli_base import CliBaseTMCC
+from ..protocol.tmcc2.sound_effects_cmd import SoundEffectsCmd
+from ..protocol.tmcc2.param_constants import TMCC2RailSoundsEffectsControl
+from ..utils.argument_parser import ArgumentParser
 
 
 class SoundEffectsCli(CliBaseTMCC):

@@ -1,7 +1,7 @@
 from .tmcc2_command import TMCC2Command
 from ..command_req import CommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
-from src.protocol.tmcc2.tmcc2_constants import TMCC2HaltCommandDef
+from .tmcc2_constants import TMCC2HaltCommandDef
 
 
 class HaltCmd(TMCC2Command):

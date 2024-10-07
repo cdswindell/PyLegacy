@@ -2,8 +2,8 @@ import abc
 from enum import verify, UNIQUE, IntEnum
 
 from src.protocol.command_def import Mixins, CommandDefEnum
-from src.protocol.tmcc2.tmcc2_constants import TMCC2Enum, TMCC2CommandDef, TMCC2CommandPrefix
-from src.protocol.tmcc2.tmcc2_constants import TMCC2_SOUND_OFF_COMMAND, TMCC2_SOUND_ON_COMMAND
+from .tmcc2_constants import TMCC2Enum, TMCC2CommandDef, TMCC2CommandPrefix
+from .tmcc2_constants import TMCC2_SOUND_OFF_COMMAND, TMCC2_SOUND_ON_COMMAND
 
 """
     Legacy/TMCC2 Multi-byte Command sequences

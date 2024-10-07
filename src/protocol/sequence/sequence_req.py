@@ -7,9 +7,10 @@ from ..command_def import CommandDefEnum
 from ..command_req import CommandReq
 from ..constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
 from ..constants import CommandScope
-from ...comm.comm_buffer import CommBuffer
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1RRSpeeds
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RRSpeeds
+
+from ...comm.comm_buffer import CommBuffer
 from ...utils.argument_parser import ArgumentParser
 
 T = TypeVar("T", TMCC1RRSpeeds, TMCC2RRSpeeds)

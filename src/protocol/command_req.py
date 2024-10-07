@@ -3,20 +3,19 @@ from __future__ import annotations
 from typing import Callable, Self
 
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
+from .constants import CommandScope, CommandSyntax
 from .tmcc2.tmcc2_constants import TMCC2Enum, TMCC2CommandPrefix, LEGACY_ENGINE_COMMAND_PREFIX
 from .tmcc2.tmcc2_constants import TMCC2RouteCommandDef, TMCC2HaltCommandDef, TMCC2EngineCommandDef
 from .tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX, LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX
 from .tmcc2.tmcc2_constants import TMCC2CommandDef
-
-from .constants import CommandScope, CommandSyntax
 from .command_def import CommandDef, CommandDefEnum
 from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum
 from .tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1SwitchState, TMCC1AuxCommandDef, TMCC1EngineCommandDef
 from .tmcc1.tmcc1_constants import TMCC1CommandIdentifier, TMCC1_TRAIN_COMMAND_PURIFIER
 from .tmcc1.tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
-from src.utils.validations import Validations
-from ..comm.comm_buffer import CommBuffer
 from .tmcc1.tmcc1_constants import TMCC1RouteCommandDef
+from ..utils.validations import Validations
+from ..comm.comm_buffer import CommBuffer
 
 
 class CommandReq:

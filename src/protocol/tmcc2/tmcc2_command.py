@@ -1,14 +1,14 @@
 import abc
 from abc import ABC
 
-from ..command_base import CommandBase
-from ..command_req import CommandReq
-from src.protocol.tmcc2.param_command_req import ParameterCommandReq
-from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
-from ..command_def import CommandDefEnum
+from src.protocol.command_base import CommandBase
+from src.protocol.command_req import CommandReq
+from .param_command_req import ParameterCommandReq
+from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
+from src.protocol.command_def import CommandDefEnum
 from .tmcc2_constants import TMCC2CommandPrefix
 from .param_constants import TMCC2ParameterEnum
-from ..constants import CommandScope
+from src.protocol.constants import CommandScope
 
 
 class TMCC2Command(CommandBase, ABC):

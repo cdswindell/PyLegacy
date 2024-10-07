@@ -10,11 +10,12 @@ from src.comm.command_listener import CommandListener, CommandDispatcher, Messag
 from src.db.component_state import SwitchState, AccessoryState, EngineState, TrainState, SCOPE_TO_STATE_MAP
 from src.db.component_state import ComponentState, SystemStateDict, ComponentStateDict
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import CommandScope, BROADCAST_ADDRESS
-from src.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1SwitchState
+from src.protocol.constants import BROADCAST_ADDRESS, CommandScope
+
+from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
 from src.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Acc
-from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
 from src.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef
+
 from ..test_base import TestBase
 
 
@@ -447,7 +448,7 @@ class TestComponentState(TestBase):
         assert not self.state
 
         # simulate a switch throw
-        sw_out = CommandReq.build(TMCC1SwitchState.OUT, 22)
+        sw_out = CommandReq.build(Switch.OUT, 22)
         dispatcher.offer(sw_out)
         time.sleep(0.05)
         assert dispatcher.is_running is True
@@ -458,7 +459,7 @@ class TestComponentState(TestBase):
         assert self.state[CommandScope.SWITCH][22].address == 22
         assert self.state[CommandScope.SWITCH][22].scope == CommandScope.SWITCH
         assert self.state[CommandScope.SWITCH][22].last_updated is not None
-        assert self.state[CommandScope.SWITCH][22].state == TMCC1SwitchState.OUT
+        assert self.state[CommandScope.SWITCH][22].state == Switch.OUT
         assert self.state[CommandScope.SWITCH][22].is_known is True
         assert self.state[CommandScope.SWITCH][22].is_out is True
         assert self.state[CommandScope.SWITCH][22].is_through is False

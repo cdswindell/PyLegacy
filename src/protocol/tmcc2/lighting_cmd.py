@@ -1,6 +1,6 @@
 from .tmcc2_command import TMCC2FixedParameterCommand
 from .param_constants import TMCC2LightingControl
-from ..constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
+from src.protocol.constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
 class LightingCmd(TMCC2FixedParameterCommand):

@@ -1,8 +1,8 @@
 from .tmcc2_command import TMCC2Command
 from .param_constants import TMCC2ParameterEnum
-from ..command_req import CommandReq
-from ..constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
-from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from src.protocol.command_req import CommandReq
+from src.protocol.constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
+from .tmcc2_constants import TMCC2EngineCommandDef
 
 
 class EngineCmd(TMCC2Command):

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import argparse
 
-from src.protocol.constants import CommandScope, OfficialRRSpeeds
-from src.protocol.sequence.sequence_req import SequenceReq, T
-from src.protocol.tmcc1.tmcc1_constants import TMCC1RRSpeeds, TMCC1EngineCommandDef
-from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RRSpeeds
-from src.protocol.tmcc2.param_constants import TMCC2RailSoundsDialogControl
+from .sequence_req import SequenceReq, T
+from ..constants import CommandScope, OfficialRRSpeeds
+from ..tmcc1.tmcc1_constants import TMCC1RRSpeeds, TMCC1EngineCommandDef
+from ..tmcc2.param_constants import TMCC2RailSoundsDialogControl
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RRSpeeds
 
 
 class SpeedReq(SequenceReq):
