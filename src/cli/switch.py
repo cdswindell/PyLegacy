@@ -2,10 +2,10 @@
 #
 from typing import List
 
-from .cli_base import CliBase
-from ..protocol.tmcc1.switch_cmd import SwitchCmd
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
-from ..utils.argument_parser import ArgumentParser
+from src.cli.cli_base import CliBase
+from src.protocol.tmcc1.switch_cmd import SwitchCmd
+from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
+from src.utils.argument_parser import ArgumentParser
 
 
 class SwitchCli(CliBase):

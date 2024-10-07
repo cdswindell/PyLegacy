@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 from typing import List
 
-from .cli_base import CliBaseTMCC
-from ..protocol.tmcc2.lighting_cmd import LightingCmd
-from ..protocol.tmcc2.param_constants import TMCC2LightingControl
-from ..utils.argument_parser import ArgumentParser
+from src.cli.cli_base import CliBaseTMCC
+from src.protocol.tmcc2.lighting_cmd import LightingCmd
+from src.protocol.tmcc2.param_constants import TMCC2LightingControl
+from src.utils.argument_parser import ArgumentParser
 
 
 class LightingCli(CliBaseTMCC):

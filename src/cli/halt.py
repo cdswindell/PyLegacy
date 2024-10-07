@@ -2,12 +2,12 @@
 #
 from typing import List
 
-from .cli_base import CliBaseTMCC
+from src.cli.cli_base import CliBaseTMCC
 
-from ..protocol.constants import CommandSyntax
-from ..protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
-from ..protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
-from ..utils.argument_parser import ArgumentParser
+from src.protocol.constants import CommandSyntax
+from src.protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
+from src.protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
+from src.utils.argument_parser import ArgumentParser
 
 
 class HaltCli(CliBaseTMCC):

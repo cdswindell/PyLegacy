@@ -2,10 +2,10 @@
 #
 from typing import List
 
-from .cli_base import CliBase, DataAction
-from ..protocol.tmcc1.acc_cmd import AccCmd
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
-from ..utils.argument_parser import ArgumentParser
+from src.cli.cli_base import CliBase, DataAction
+from src.protocol.tmcc1.acc_cmd import AccCmd
+from src.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
+from src.utils.argument_parser import ArgumentParser
 
 AUX_OPTIONS_MAP = {
     'on': 'ON',

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 from typing import List
 
-from .cli_base import CliBaseTMCC
-from ..protocol.tmcc1.route_cmd import RouteCmd as RouteCmdTMCC1
-from ..protocol.tmcc2.route_cmd import RouteCmd as RouteCmdTMCC2
-from ..utils.argument_parser import ArgumentParser
+from src.cli.cli_base import CliBaseTMCC
+from src.protocol.tmcc1.route_cmd import RouteCmd as RouteCmdTMCC1
+from src.protocol.tmcc2.route_cmd import RouteCmd as RouteCmdTMCC2
+from src.utils.argument_parser import ArgumentParser
 
 
 class RouteCli(CliBaseTMCC):

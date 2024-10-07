@@ -4,12 +4,12 @@ import sys
 from abc import ABC
 from typing import List, Any
 
-from ..protocol.command_base import CommandBase
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax
-from ..protocol.constants import DEFAULT_VALID_BAUDRATES
-from ..protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
-from ..protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
-from ..utils.argument_parser import ArgumentParser
+from src.protocol.command_base import CommandBase
+from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax
+from src.protocol.constants import DEFAULT_VALID_BAUDRATES
+from src.protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
+from src.protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
+from src.utils.argument_parser import ArgumentParser
 
 
 class CliBase(ABC):

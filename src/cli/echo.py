@@ -3,11 +3,11 @@
 from datetime import datetime
 from typing import List
 
-from .cli_base import CliBase
+from src.cli.cli_base import CliBase
 
-from ..comm.command_listener import CommandListener
-from ..protocol.command_req import CommandReq
-from ..utils.argument_parser import ArgumentParser
+from src.comm.command_listener import CommandListener
+from src.protocol.command_req import CommandReq
+from src.utils.argument_parser import ArgumentParser
 
 
 class EchoCli:
