@@ -25,8 +25,9 @@ from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
 from src.db.client_state_listener import ClientStateListener
 from src.db.component_state_store import ComponentStateStore
 from src.gpio.gpio_handler import GpioHandler
+from src.pdi.pdi_listener import PdiListener
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC
+from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC, DEFAULT_BASE3_PORT
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
@@ -44,6 +45,13 @@ class PyTrain:
         self._state_store = None
         self._echo = args.echo
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
+        if args.base3 is not None:
+            base3_pieces = args.base3.split(':')
+            self._base3_addr = args.base3 = base3_pieces[0]
+            self._base3_port = base3_pieces[1] if len(base3_pieces) > 1 else DEFAULT_BASE3_PORT
+        else:
+            self._base3_addr = self._base3_port = None
+        self._base3_listener = None
         self._comm_buffer = CommBuffer.build(baudrate=self._baudrate,
                                              port=self._port,
                                              server=self._server)
@@ -51,9 +59,12 @@ class PyTrain:
             print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
             # listen for client connections, unless user used --no_clients flag
             if not self._args.no_clients:
-                print(f"Listening for client connections on port {self._args.server_port}...")
+                print(f"Listening for client broadcasts on port {self._args.server_port}...")
                 self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
                 self._listener = CommandListener.build()
+            if self._base3_addr is not None:
+                print(f"Listening for Base3 broadcasts on  {self._base3_addr}:{self._base3_port}...")
+                self._base3_listener = PdiListener.build(self._base3_addr, self._base3_port)
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             print(f"Listening for state updates on {self._args.server_port}...")
@@ -292,6 +303,9 @@ if __name__ == '__main__':
     parser = ArgumentParser(prog="pytrain.py",
                             description="Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
                             parents=[parser, CliBase.cli_parser()])
+    parser.add_argument("-base3",
+                        type=str,
+                        help="IP Address of Lionel Base 3")
     parser.add_argument("-echo",
                         action="store_true",
                         help=f"Echo received TMCC commands to console")

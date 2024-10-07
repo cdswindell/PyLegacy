@@ -188,7 +188,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         pass  # noop; used by client to request server state
 
     def run(self) -> None:
-        # if the queue is empty AND _shutdown_signaled is True, then continue looping
+        # if the queue is not empty AND _shutdown_signaled is False, then exit
         while not self._queue.empty() or not self._shutdown_signalled:
             try:
                 data = self._queue.get(block=True, timeout=.25)
