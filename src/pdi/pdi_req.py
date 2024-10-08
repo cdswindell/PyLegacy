@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import abc
 from abc import ABC
-from typing import Self, Tuple
+from typing import Self, Tuple, TypeVar
 
-from .constants import PDI_SOP, PDI_EOP, PdiCommand, PDI_STF, PdiAction
-from .constants import WiFiAction, IrdaAction, Asc2Action, Ser2Action, Bpc2Action
+from .constants import PDI_SOP, PDI_EOP, PdiCommand, PDI_STF, CommonAction, PdiAction
+from .constants import WiFiAction, IrdaAction, Ser2Action, Bpc2Action
 from ..protocol.command_req import CommandReq
+from ..protocol.constants import CommandScope
+
+T = TypeVar('T', bound=PdiAction)
 
 
 class PdiReq(ABC):
@@ -73,13 +76,17 @@ class PdiReq(ABC):
         return 0
 
     @property
+    def action(self) -> T | None:
+        return None
+
+    @property
     def as_bytes(self) -> bytes:
         """
             Default implementation, should override in more complex requests
         """
         byte_str = self.pdi_command.as_bytes
         byte_str += self.tmcc_id.to_bytes(1, byteorder='big')
-        byte_str += PdiAction.CONFIG.as_bytes
+        byte_str += CommonAction.CONFIG.as_bytes
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder='big') + byte_str
         byte_str += checksum
@@ -103,6 +110,11 @@ class PdiReq(ABC):
     @property
     def payload(self) -> str | None:
         return None
+
+    @property
+    @abc.abstractmethod
+    def scope(self) -> CommandScope:
+        ...
 
 
 class LcsReq(PdiReq, ABC):
@@ -148,7 +160,7 @@ class LcsReq(PdiReq, ABC):
 
     @property
     @abc.abstractmethod
-    def action(self) -> WiFiAction | IrdaAction | Asc2Action | Ser2Action | Bpc2Action:
+    def action(self) -> T:
         ...
 
 
@@ -171,6 +183,10 @@ class Ser2Req(LcsReq):
     def payload(self) -> str | None:
         return None
 
+    @property
+    def scope(self) -> CommandScope:
+        return CommandScope.SYSTEM
+
 
 class IrdaReq(LcsReq):
     def __init__(self,
@@ -191,6 +207,10 @@ class IrdaReq(LcsReq):
     def payload(self) -> str | None:
         return None
 
+    @property
+    def scope(self) -> CommandScope:
+        return CommandScope.SYSTEM
+
 
 class Bpc2Req(LcsReq):
     def __init__(self,
@@ -210,6 +230,10 @@ class Bpc2Req(LcsReq):
     @property
     def payload(self) -> str | None:
         return None
+
+    @property
+    def scope(self) -> CommandScope:
+        return CommandScope.ACC
 
 
 class WiFiReq(LcsReq):
@@ -266,6 +290,10 @@ class WiFiReq(LcsReq):
                 return f"Broadcasts {'ENABLED' if payload_bytes[0] == 1 else 'DISABLED'}: {payload_bytes[0]}"
             return payload_bytes.hex(':')
 
+    @property
+    def scope(self) -> CommandScope:
+        return CommandScope.SYSTEM
+
 
 class TmccReq(PdiReq):
     def __init__(self,
@@ -297,12 +325,20 @@ class TmccReq(PdiReq):
         byte_str += PDI_EOP.to_bytes(1, byteorder='big')
         return byte_str
 
+    @property
+    def scope(self) -> CommandScope:
+        return CommandScope.SYSTEM
+
 
 class BaseReq(PdiReq):
     def __init__(self, data: bytes):
         if PdiCommand(data[1]).is_base is False:
             raise ValueError(f"Invalid PDI Base Request: {data}")
         super().__init__(data)
+
+    @property
+    def scope(self) -> CommandScope:
+        return CommandScope.SYSTEM
 
 
 class AllReq(PdiReq):
@@ -314,6 +350,10 @@ class AllReq(PdiReq):
     @property
     def payload(self) -> str | None:
         return None
+
+    @property
+    def scope(self) -> CommandScope:
+        return CommandScope.SYSTEM
 
 
 class PingReq(PdiReq):
@@ -331,6 +371,10 @@ class PingReq(PdiReq):
         byte_str += checksum
         byte_str += PDI_EOP.to_bytes(1, byteorder='big')
         return byte_str
+
+    @property
+    def scope(self) -> CommandScope:
+        return CommandScope.SYSTEM
 
     def __repr__(self) -> str:
         return f"{self._pdi_command.friendly}"

@@ -218,7 +218,7 @@ class Subscriber(Protocol):
         ...
 
 
-class _Channel(Generic[Topic]):
+class Channel(Generic[Topic]):
     """
         Part of the publish/subscribe pattern described here:
         https://arjancodes.com/blog/publish-subscribe-pattern-in-python/
@@ -298,7 +298,7 @@ class CommandDispatcher(Thread):
         else:
             self._initialized = True
         super().__init__(daemon=True, name="PyLegacy Command Dispatcher")
-        self._channels: dict[Topic | Tuple[Topic, int], _Channel[Message]] = defaultdict(_Channel)
+        self._channels: dict[Topic | Tuple[Topic, int], Channel[Message]] = defaultdict(Channel)
         self._cv = threading.Condition()
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
@@ -395,7 +395,7 @@ class CommandDispatcher(Thread):
                       command: CommandDefEnum = None,
                       data: int = None) -> CommandScope | Tuple:
         if channel is None:
-            raise ValueError("Channel must not be None")
+            raise ValueError("Channel required")
         elif address is None:
             return channel
         elif command is None:

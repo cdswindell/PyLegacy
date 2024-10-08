@@ -140,15 +140,6 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
         return self.value.to_bytes(1)
 
 
-ACTION_FIRMWARE: int = 0x01
-ACTION_STATUS: int = 0x02
-ACTION_CONFIG: int = 0x03
-ACTION_INFO: int = 0x04
-ACTION_CLEAR_ERRORS: int = 0x05
-ACTION_RESET: int = 0x06
-ACTION_IDENTIFY: int = 0x07
-
-
 class ActionDef:
     def __init__(self,
                  bits: int,
@@ -177,7 +168,11 @@ class ActionDef:
         return self._responds
 
 
-class ActionMixins(FriendlyMixins):
+class PdiAction(Mixins, FriendlyMixins):
+    """
+        Marker interface for all Pdi Action enums
+    """
+
     def __repr__(self) -> str:
         opts = ""
         opts += 'g' if self.value.is_gettable else 'x'
@@ -197,7 +192,16 @@ class ActionMixins(FriendlyMixins):
         return self.bits.to_bytes(1, byteorder='big')
 
 
-class PdiAction(Mixins, ActionMixins):
+ACTION_FIRMWARE: int = 0x01
+ACTION_STATUS: int = 0x02
+ACTION_CONFIG: int = 0x03
+ACTION_INFO: int = 0x04
+ACTION_CLEAR_ERRORS: int = 0x05
+ACTION_RESET: int = 0x06
+ACTION_IDENTIFY: int = 0x07
+
+
+class CommonAction(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
     CONFIG = ActionDef(ACTION_CONFIG, True, True, True)
@@ -214,7 +218,7 @@ ACTION_WIFI_UNLOCK: int = 0x13
 ACTION_WIFI_PASSCODE: int = 0x14
 
 
-class WiFiAction(Mixins, ActionMixins):
+class WiFiAction(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
     CONFIG = ActionDef(ACTION_CONFIG, True, True, True)
@@ -235,7 +239,7 @@ ACTION_RECORD: int = 0x12
 ACTION_DIAG_DATA: int = 0x13
 
 
-class IrdaAction(Mixins, ActionMixins):
+class IrdaAction(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
     CONFIG = ActionDef(ACTION_CONFIG, True, True, True)
@@ -256,7 +260,7 @@ ACTION_CONTROL4: int = 0x14
 ACTION_CONTROL5: int = 0x15
 
 
-class Asc2Action(Mixins, ActionMixins):
+class Asc2Action(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
     CONFIG = ActionDef(ACTION_CONFIG, True, True, True)
@@ -271,7 +275,7 @@ class Asc2Action(Mixins, ActionMixins):
     CONTROL5 = ActionDef(ACTION_CONTROL5, True, True, True)
 
 
-class Ser2Action(Mixins, ActionMixins):
+class Ser2Action(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
     CONFIG = ActionDef(ACTION_CONFIG, True, True, True)
@@ -284,7 +288,7 @@ class Ser2Action(Mixins, ActionMixins):
 ACTION_CONTROL4_BPC2: int = 0x13
 
 
-class Bpc2Action(Mixins, ActionMixins):
+class Bpc2Action(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
     CONFIG = ActionDef(ACTION_CONFIG, True, True, True)

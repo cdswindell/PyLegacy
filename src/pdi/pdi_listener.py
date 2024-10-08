@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import threading
-from collections import deque
+from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
+from typing import Tuple
 
-from .constants import PDI_SOP, PDI_STF, PDI_EOP
+from .constants import PDI_SOP, PDI_STF, PDI_EOP, PdiAction
 from .pdi_req import PdiReq
-from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE3_PORT
+from ..comm.command_listener import Topic, Message, Channel, Subscriber
+from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE3_PORT, BROADCAST_TOPIC
 
 
 class PdiListener(Thread):
@@ -23,6 +25,17 @@ class PdiListener(Thread):
             Factory method to create a CommandListener instance
         """
         return PdiListener(base3, base3_port, queue_size)
+
+    @classmethod
+    def listen_for(cls,
+                   listener: Subscriber,
+                   channel: Topic,
+                   address: int = None,
+                   action: PdiAction = None):
+        if cls._instance is not None:
+            cls._instance.dispatcher.subscribe(listener, channel, address, action)
+        else:
+            raise AttributeError("Pdi Listener not initialized")
 
     # noinspection PyPropertyDefinition
     @classmethod
@@ -89,6 +102,10 @@ class PdiListener(Thread):
         # start listener thread
         self.start()
 
+    @property
+    def dispatcher(self) -> PdiDispatcher:
+        return self._dispatcher
+
     def run(self) -> None:
         while self._is_running:
             # process bytes, as long as there are any
@@ -151,6 +168,26 @@ class PdiListener(Thread):
                 self._base3.shutdown()
         PdiListener._instance = None
 
+    def subscribe(self,
+                  listener: Subscriber,
+                  channel: Topic,
+                  address: int = None,
+                  action: PdiAction = None) -> None:
+        self._dispatcher.subscribe(listener, channel, address, action)
+
+    def unsubscribe(self,
+                    listener: Subscriber,
+                    channel: Topic,
+                    address: int = None,
+                    action: PdiAction = None) -> None:
+        self._dispatcher.unsubscribe(listener, channel, address, action)
+
+    def subscribe_any(self, subscriber: Subscriber) -> None:
+        self._dispatcher.subscribe_any(subscriber)
+
+    def unsubscribe_any(self, subscriber: Subscriber) -> None:
+        self._dispatcher.unsubscribe_any(subscriber)
+
 
 class PdiDispatcher(Thread):
     """
@@ -197,10 +234,16 @@ class PdiDispatcher(Thread):
         else:
             self._initialized = True
         super().__init__(daemon=True, name="PyLegacy Pdi Dispatcher")
+        self._channels: dict[Topic | Tuple[Topic, int], Channel[Message]] = defaultdict(Channel)
         self._cv = threading.Condition()
         self._is_running = True
+        self._broadcasts = False
         self._queue = Queue[PdiReq](queue_size)
         self.start()
+
+    @property
+    def broadcasts_enabled(self) -> bool:
+        return self._broadcasts
 
     def run(self) -> None:
         while self._is_running:
@@ -213,7 +256,11 @@ class PdiDispatcher(Thread):
             try:
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
-                    print(cmd)
+                    self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
+                    self.publish((cmd.scope, cmd.tmcc_id), cmd)
+                    self.publish(cmd.scope, cmd)
+                    if self._broadcasts:
+                        self.publish(BROADCAST_TOPIC, cmd)
             except Exception as e:
                 print(e)
             finally:
@@ -234,3 +281,54 @@ class PdiDispatcher(Thread):
             self._is_running = False
             self._cv.notify()
         PdiDispatcher._instance = None
+
+    @staticmethod
+    def _make_channel(channel: Topic,
+                      address: int = None,
+                      action: PdiAction = None) -> Topic | Tuple:
+        if channel is None:
+            raise ValueError("Channel required")
+        elif address is None:
+            return channel
+        elif action is None:
+            return channel, address
+        else:
+            return channel, address, action
+
+    def publish(self, channel: Topic, message: Message) -> None:
+        if channel in self._channels:  # otherwise, we would create a channel simply by referencing i
+            self._channels[channel].publish(message)
+
+    def subscribe(self,
+                  subscriber: Subscriber,
+                  channel: Topic,
+                  address: int = None,
+                  action: PdiAction = None) -> None:
+        if channel == BROADCAST_TOPIC:
+            self.subscribe_any(subscriber)
+        else:
+            self._channels[self._make_channel(channel, address, action)].subscribe(subscriber)
+
+    def unsubscribe(self,
+                    subscriber: Subscriber,
+                    channel: Topic,
+                    address: int = None,
+                    command: PdiAction = None) -> None:
+        if channel == BROADCAST_TOPIC:
+            self.unsubscribe_any(subscriber)
+        else:
+            channel = self._make_channel(channel, address, command)
+            self._channels[channel].unsubscribe(subscriber)
+            if len(self._channels[channel].subscribers) == 0:
+                del self._channels[channel]
+
+    def subscribe_any(self, subscriber: Subscriber) -> None:
+        # receive broadcasts
+        self._channels[BROADCAST_TOPIC].subscribe(subscriber)
+        self._broadcasts = True
+
+    def unsubscribe_any(self, subscriber: Subscriber) -> None:
+        # receive broadcasts
+        self._channels[BROADCAST_TOPIC].unsubscribe(subscriber)
+        if not self._channels[BROADCAST_TOPIC].subscribers:
+            self._broadcasts = False

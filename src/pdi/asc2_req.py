@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from src.pdi.constants import PdiCommand, Asc2Action, PDI_SOP, PDI_EOP
-from src.pdi.pdi_req import LcsReq
+from .constants import PdiCommand, Asc2Action, PDI_SOP, PDI_EOP
+from .pdi_req import LcsReq
+from ..protocol.constants import CommandScope
 
 
 class Asc2Req(LcsReq):
@@ -50,6 +51,10 @@ class Asc2Req(LcsReq):
             self._valids = valids
             self._time = time
             self._sub_id = sub_id
+
+    @property
+    def scope(self) -> CommandScope:
+        return CommandScope.ACC
 
     @property
     def action(self) -> Asc2Action:

@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 # noinspection PyProtectedMember
-from src.comm.command_listener import CommandListener, CommandDispatcher, Message, _Channel
+from src.comm.command_listener import CommandListener, CommandDispatcher, Message, Channel
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_QUEUE_SIZE, BROADCAST_TOPIC, CommandScope
 from src.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1SwitchState
@@ -134,7 +134,7 @@ class TestCommandDispatcher(TestBase):
             assert dispatcher._queue.empty()
 
     def test_channel_class(self):
-        channel = _Channel()
+        channel = Channel()
         assert channel is not None
         assert channel.subscribers is not None
         assert not channel.subscribers

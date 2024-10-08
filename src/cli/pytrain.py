@@ -26,6 +26,7 @@ from src.db.client_state_listener import ClientStateListener
 from src.db.component_state_store import ComponentStateStore
 from src.gpio.gpio_handler import GpioHandler
 from src.pdi.pdi_listener import PdiListener
+from src.pdi.pdi_req import PdiReq
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC, DEFAULT_BASE3_PORT
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
@@ -85,7 +86,7 @@ class PyTrain:
         # Start the command line processor
         self.run()
 
-    def __call__(self, cmd: CommandReq) -> None:
+    def __call__(self, cmd: CommandReq | PdiReq) -> None:
         """
             Callback specified in the Subscriber protocol used to send events to listeners
         """
@@ -209,11 +210,17 @@ class PyTrain:
             if self._echo is False:
                 self._listener.listen_for(self, BROADCAST_TOPIC)
                 print("TMCC command echoing ENABLED..")
+                if self._base3_listener:
+                    self._base3_listener.listen_for(self, BROADCAST_TOPIC)
+                    print("PDI command echoing ENABLED")
             self._echo = True
         else:
             if self._echo is True:
                 self._listener.unsubscribe(self, BROADCAST_TOPIC)
                 print("TMCC command echoing DISABLED...")
+                if self._base3_listener:
+                    self._base3_listener.unsubscribe(self, BROADCAST_TOPIC)
+                    print("PDI command echoing DISABLED")
             self._echo = False
 
     @staticmethod
