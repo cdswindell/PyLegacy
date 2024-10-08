@@ -5,7 +5,7 @@ from collections import deque
 from queue import Queue
 from threading import Thread
 
-from .constants import PDI_SOP, PDI_STF, PDI_EOP, KEEP_ALIVE
+from .constants import PDI_SOP, PDI_STF, PDI_EOP
 from .pdi_req import PdiReq
 from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE3_PORT
 
@@ -111,7 +111,10 @@ class PdiListener(Thread):
                         for _ in range(eop_pos + 1):
                             req_bytes += self._deque.popleft().to_bytes(1, byteorder='big')
                             dq_len -= 1
-                        self._dispatcher.offer(PdiReq(req_bytes))
+                        try:
+                            self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
+                        except Exception as e:
+                            print(f"Failed to dispatch request {req_bytes.hex(':')}: {e}")
                         continue  # with while dq_len > 0 loop
                 # pop this byte and continue; we either received unparsable input
                 # or started receiving data mid-command
@@ -214,7 +217,7 @@ class PdiDispatcher(Thread):
             Receive a command from the listener thread and dispatch it to subscribers.
             We do this in a separate thread so that the listener thread doesn't fall behind
         """
-        if pdi_req is not None and isinstance(pdi_req, PdiReq) and pdi_req.as_bytes != KEEP_ALIVE:
+        if pdi_req is not None and isinstance(pdi_req, PdiReq) and not pdi_req.is_ping:
             with self._cv:
                 self._queue.put(pdi_req)
                 self._cv.notify()  # wake up receiving thread

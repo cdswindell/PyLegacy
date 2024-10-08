@@ -52,6 +52,8 @@ class Mixins(Enum):
         for _, member in cls.__members__.items():
             if member.value == value:
                 return member
+            if hasattr(member.value, "bits") and member.value.bits == value:
+                return member
         if raise_exception:
             raise ValueError(f"'{value}' is not a valid {cls.__name__}")
         else:
@@ -63,7 +65,9 @@ class Mixins(Enum):
             value = str(value).upper()
             if value in dir(cls):
                 return cls[value]
-            raise ValueError(f"{value} is not a valid {cls.__name__}")
+        elif type(value) is int:
+            return cls.by_value(value, raise_exception=True)
+        raise ValueError(f"{value} is not a valid {cls.__name__}")
 
 
 class OfficialRRSpeeds(Mixins, Enum):

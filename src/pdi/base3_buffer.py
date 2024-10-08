@@ -4,7 +4,7 @@ import time
 
 from threading import Condition, Thread
 
-from .constants import KEEP_ALIVE
+from .constants import KEEP_ALIVE_CMD
 from .pdi_listener import PdiListener
 
 from ..protocol.constants import DEFAULT_BASE3_PORT, DEFAULT_QUEUE_SIZE
@@ -94,5 +94,5 @@ class KeepAlive(Thread):
 
     def run(self) -> None:
         while self._is_running:
-            self._writer.send(KEEP_ALIVE)
+            self._writer.send(KEEP_ALIVE_CMD)
             time.sleep(2)
