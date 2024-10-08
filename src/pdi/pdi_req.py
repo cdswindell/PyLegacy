@@ -5,7 +5,7 @@ from abc import ABC
 from typing import Self, Tuple
 
 from .constants import PDI_SOP, PDI_EOP, PdiCommand, PDI_STF, PdiAction
-from .constants import WiFiAction, IrdaAction, Asc2Action, Ser2Action
+from .constants import WiFiAction, IrdaAction, Asc2Action, Ser2Action, Bpc2Action
 from ..protocol.command_req import CommandReq
 
 
@@ -129,7 +129,7 @@ class LcsReq(PdiReq, ABC):
         else:
             payload = ""
 
-        return f"{self._pdi_command.name} ID#{self._tmcc_id} {self.action.name}{payload}"
+        return f"{self._pdi_command.name} ID: {self._tmcc_id} {self.action.name}{payload}"
 
     @property
     def tmcc_id(self) -> int:
@@ -148,7 +148,7 @@ class LcsReq(PdiReq, ABC):
 
     @property
     @abc.abstractmethod
-    def action(self) -> WiFiAction | IrdaAction | Asc2Action | Ser2Action:
+    def action(self) -> WiFiAction | IrdaAction | Asc2Action | Ser2Action | Bpc2Action:
         ...
 
 
@@ -172,13 +172,19 @@ class Ser2Req(LcsReq):
         return None
 
 
-class Asc2Req(LcsReq):
-    def __init__(self, data: bytes):
-        super().__init__(data)
-        self._action = Asc2Action(self._action_byte)
+class IrdaReq(LcsReq):
+    def __init__(self,
+                 data: bytes | int,
+                 pdi_command: PdiCommand = PdiCommand.IRDA_GET,
+                 action: IrdaAction = IrdaAction.CONFIG) -> None:
+        super().__init__(data, pdi_command, action.bits)
+        if isinstance(data, bytes):
+            self._action = IrdaAction(self._action_byte)
+        else:
+            self._action = action
 
     @property
-    def action(self) -> Asc2Action:
+    def action(self) -> IrdaAction:
         return self._action
 
     @property
@@ -186,13 +192,19 @@ class Asc2Req(LcsReq):
         return None
 
 
-class IrdaReq(LcsReq):
-    def __init__(self, data: bytes):
-        super().__init__(data)
-        self._action = IrdaAction(self._action_byte)
+class Bpc2Req(LcsReq):
+    def __init__(self,
+                 data: bytes | int,
+                 pdi_command: PdiCommand = PdiCommand.BPC2_GET,
+                 action: Bpc2Action = Bpc2Action.CONFIG) -> None:
+        super().__init__(data, pdi_command, action.bits)
+        if isinstance(data, bytes):
+            self._action = Bpc2Action(self._action_byte)
+        else:
+            self._action = action
 
     @property
-    def action(self) -> IrdaAction:
+    def action(self) -> Bpc2Action:
         return self._action
 
     @property
@@ -204,7 +216,7 @@ class WiFiReq(LcsReq):
     def __init__(self,
                  data: bytes | int,
                  pdi_command: PdiCommand = PdiCommand.WIFI_GET,
-                 action: WiFiAction = WiFiAction.CONNECT) -> None:
+                 action: WiFiAction = WiFiAction.CONFIG) -> None:
         super().__init__(data, pdi_command, action.bits)
         if isinstance(data, bytes):
             self._action = WiFiAction(self._action_byte)
@@ -286,6 +298,24 @@ class TmccReq(PdiReq):
         return byte_str
 
 
+class BaseReq(PdiReq):
+    def __init__(self, data: bytes):
+        if PdiCommand(data[1]).is_base is False:
+            raise ValueError(f"Invalid PDI Base Request: {data}")
+        super().__init__(data)
+
+
+class AllReq(PdiReq):
+    def __init__(self,
+                 data: bytes = None,
+                 pdi_command: PdiCommand = PdiCommand.ALL_GET) -> None:
+        super().__init__(data, pdi_command)
+
+    @property
+    def payload(self) -> str | None:
+        return None
+
+
 class PingReq(PdiReq):
     def __init__(self, data: bytes | None = None):
         super().__init__(data, PdiCommand.PING)
@@ -306,26 +336,8 @@ class PingReq(PdiReq):
         return f"{self._pdi_command.friendly}"
 
 
-class BaseReq(PdiReq):
-    def __init__(self, data: bytes):
-        if PdiCommand(data[1]).is_base is False:
-            raise ValueError(f"Invalid PDI Base Request: {data}")
-        super().__init__(data)
-
-    def __repr__(self) -> str:
-        return f"{self._pdi_command.friendly}"
-
-
-class AllReq(PdiReq):
-    def __init__(self,
-                 data: bytes = None,
-                 pdi_command: PdiCommand = PdiCommand.ALL_GET) -> None:
-        super().__init__(data, pdi_command)
-
-    @property
-    def payload(self) -> str | None:
-        return None
-
+# need to do imports here to avoid circular imports
+from .asc2_req import Asc2Req
 
 DEVICE_TO_REQ_MAP = {
     "ALL": AllReq,

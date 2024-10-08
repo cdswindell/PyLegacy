@@ -50,6 +50,10 @@ ASC2_GET: int = 0x3C
 ASC2_SET: int = 0x3D
 ASC2_RX: int = 0x3E
 
+BPC2_GET: int = 0x40
+BPC2_SET: int = 0x41
+BPC2_RX: int = 0x42
+
 
 class FriendlyMixins(Enum):
     @property
@@ -84,6 +88,9 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     SER2_GET = SER2_GET
     SER2_SET = SER2_SET
     SER2_RX = SER2_RX
+    BPC2_GET = BPC2_GET
+    BPC2_SET = BPC2_SET
+    BPC2_RX = BPC2_RX
 
     @property
     def is_ping(self) -> bool:
@@ -121,8 +128,12 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
         return self.value in [SER2_GET, SER2_SET, SER2_RX]
 
     @property
+    def is_bpc2(self) -> bool:
+        return self.value in [BPC2_GET, BPC2_SET, BPC2_RX]
+
+    @property
     def is_lcs(self) -> bool:
-        return self.is_wifi or self.is_asc2 or self.is_irda or self.is_ser2
+        return self.is_wifi or self.is_asc2 or self.is_irda or self.is_ser2 or self.is_bpc2
 
     @property
     def as_bytes(self) -> bytes:
@@ -268,3 +279,20 @@ class Ser2Action(Mixins, ActionMixins):
     CLEAR_ERRORS = ActionDef(ACTION_CLEAR_ERRORS, False, True, False)
     RESET = ActionDef(ACTION_RESET, False, True, False)
     IDENTIFY = ActionDef(ACTION_IDENTIFY, False, True, False)
+
+
+ACTION_CONTROL4_BPC2: int = 0x13
+
+
+class Bpc2Action(Mixins, ActionMixins):
+    FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
+    STATUS = ActionDef(ACTION_STATUS, True, False, True)
+    CONFIG = ActionDef(ACTION_CONFIG, True, True, True)
+    INFO = ActionDef(ACTION_INFO, True, False, True)
+    CLEAR_ERRORS = ActionDef(ACTION_CLEAR_ERRORS, False, True, False)
+    RESET = ActionDef(ACTION_RESET, False, True, False)
+    IDENTIFY = ActionDef(ACTION_IDENTIFY, False, True, False)
+    CONTROL1 = ActionDef(ACTION_CONTROL1, True, True, True)
+    CONTROL2 = ActionDef(ACTION_CONTROL2, True, True, True)
+    CONTROL3 = ActionDef(ACTION_CONTROL3, True, True, True)
+    CONTROL4 = ActionDef(ACTION_CONTROL4_BPC2, True, True, True)
