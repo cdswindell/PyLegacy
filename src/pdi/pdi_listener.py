@@ -38,6 +38,14 @@ class PdiListener(Thread):
         return cls._instance is not None and cls._instance._is_running
 
     @classmethod
+    def enqueue_command(cls, data: bytes | PdiReq) -> None:
+        if cls._instance is not None and data:
+            if isinstance(data, PdiReq):
+                data = data.as_bytes
+            # noinspection PyProtectedMember
+            cls._instance._base3.send(data)
+
+    @classmethod
     def stop(cls) -> None:
         with cls._lock:
             if cls._instance:
@@ -203,8 +211,7 @@ class PdiDispatcher(Thread):
                 continue
             cmd: PdiReq = self._queue.get()
             try:
-                # publish dispatched commands to listeners on the command scope,
-                # to listeners
+                # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
                     print(cmd)
             except Exception as e:

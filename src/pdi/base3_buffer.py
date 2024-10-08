@@ -20,6 +20,11 @@ class Base3Buffer(Thread):
         if cls._instance is not None:
             cls._instance.shutdown()
 
+    @classmethod
+    def enqueue_command(cls, data: bytes) -> None:
+        if cls._instance is not None and data:
+            cls._instance.send(data)
+
     def __init__(self,
                  base3_addr: str,
                  base3_port: int = DEFAULT_BASE3_PORT,

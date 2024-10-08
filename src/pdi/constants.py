@@ -42,6 +42,10 @@ WIFI_SET: int = 0x35
 WIFI_RX: int = 0x36
 WIFI_PING: int = 0x37
 
+SER2_GET: int = 0x38
+SER2_SET: int = 0x39
+SER2_RX: int = 0x3A
+
 ASC2_GET: int = 0x3C
 ASC2_SET: int = 0x3D
 ASC2_RX: int = 0x3E
@@ -77,6 +81,9 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     ASC2_GET = ASC2_GET
     ASC2_SET = ASC2_SET
     ASC2_RX = ASC2_RX
+    SER2_GET = SER2_GET
+    SER2_SET = SER2_SET
+    SER2_RX = SER2_RX
 
     @property
     def is_ping(self) -> bool:
@@ -110,8 +117,12 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
         return self.value in [ASC2_GET, ASC2_SET, ASC2_RX]
 
     @property
+    def is_ser2(self) -> bool:
+        return self.value in [SER2_GET, SER2_SET, SER2_RX]
+
+    @property
     def is_lcs(self) -> bool:
-        return self.is_wifi or self.is_asc2 or self.is_irda
+        return self.is_wifi or self.is_asc2 or self.is_irda or self.is_ser2
 
     @property
     def as_bytes(self) -> bytes:
@@ -247,3 +258,13 @@ class Asc2Action(Mixins, ActionMixins):
     CONTROL3 = ActionDef(ACTION_CONTROL3, True, True, True)
     CONTROL4 = ActionDef(ACTION_CONTROL4, True, True, True)
     CONTROL5 = ActionDef(ACTION_CONTROL5, True, True, True)
+
+
+class Ser2Action(Mixins, ActionMixins):
+    FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
+    STATUS = ActionDef(ACTION_STATUS, True, False, True)
+    CONFIG = ActionDef(ACTION_CONFIG, True, True, True)
+    INFO = ActionDef(ACTION_INFO, True, False, True)
+    CLEAR_ERRORS = ActionDef(ACTION_CLEAR_ERRORS, False, True, False)
+    RESET = ActionDef(ACTION_RESET, False, True, False)
+    IDENTIFY = ActionDef(ACTION_IDENTIFY, False, True, False)

@@ -4,7 +4,8 @@ import abc
 from abc import ABC
 from typing import Self, Tuple
 
-from .constants import PDI_SOP, PDI_EOP, PdiCommand, PDI_STF, WiFiAction, IrdaAction, Asc2Action
+from .constants import PDI_SOP, PDI_EOP, PdiCommand, PDI_STF, PdiAction
+from .constants import WiFiAction, IrdaAction, Asc2Action, Ser2Action
 from ..protocol.command_req import CommandReq
 
 
@@ -23,7 +24,7 @@ class PdiReq(ABC):
             raise NotImplementedError(f"PdiCommand {pdi_cmd.name} not implemented")
 
     def __init__(self,
-                 data: bytes,
+                 data: bytes | None,
                  pdi_command: PdiCommand = None) -> None:
         if isinstance(data, bytes):
             # first byte should be SOP, last should be EOP, if not, raise exception
@@ -32,15 +33,8 @@ class PdiReq(ABC):
             # process the data to remove SOP, EOP, Checksum, and Stuff Bytes, if any
             self._original = data
             recv_checksum = data[-2]
-            self._data = bytes()
-            check_sum = 0
-            for b in data[1:-2]:
-                check_sum += b
-                if b == PDI_STF:
-                    continue  # include in checksum but not data
-                self._data += b.to_bytes(1, byteorder='big')
-            check_sum = 0xFF & (0 - check_sum)
-            if recv_checksum != check_sum:
+            self._data, check_sum = self._calculate_checksum(data[1:-2], False)
+            if recv_checksum != int.from_bytes(check_sum):
                 raise ValueError(f"Invalid PDI Request: {data}  [BAD CHECKSUM]")
             self._pdi_command: PdiCommand = PdiCommand(data[1])
         else:
@@ -50,18 +44,22 @@ class PdiReq(ABC):
             self._data = self._original = None
 
     def __repr__(self) -> str:
-        return f"{self._pdi_command.friendly} {self._data.hex(':')}"
+        data = " " + self._data.hex(':') if self._data else ""
+        return f"[{self._pdi_command.friendly}{data}]"
 
     @staticmethod
-    def _calculate_checksum(data: bytes) -> Tuple[bytes, bytes]:
+    def _calculate_checksum(data: bytes, add_stf=True) -> Tuple[bytes, bytes]:
         byte_stream = bytes()
         check_sum = 0
         for b in data:
-            if b in [PDI_STF, PDI_EOP]:
-                byte_stream += PDI_STF.to_bytes(1, byteorder='big')
-                check_sum += PDI_STF
-            byte_stream += b.to_bytes(1, byteorder='big')
             check_sum += b
+            if b in [PDI_SOP, PDI_STF, PDI_EOP]:
+                check_sum += PDI_STF
+                if add_stf is True:
+                    byte_stream += PDI_STF.to_bytes(1, byteorder='big')
+                else:
+                    continue
+            byte_stream += b.to_bytes(1, byteorder='big')
         # do checksum calculation on buffer
         check_sum = 0xff & (0 - check_sum)
         return byte_stream, check_sum.to_bytes(1, byteorder='big')
@@ -69,6 +67,24 @@ class PdiReq(ABC):
     @property
     def pdi_command(self) -> PdiCommand:
         return self._pdi_command
+
+    @property
+    def tmcc_id(self) -> int:
+        return 0
+
+    @property
+    def as_bytes(self) -> bytes:
+        """
+            Default implementation, should override in more complex requests
+        """
+        byte_str = self.pdi_command.as_bytes
+        byte_str += self.tmcc_id.to_bytes(1, byteorder='big')
+        byte_str += PdiAction.CONFIG.as_bytes
+        byte_str, checksum = self._calculate_checksum(byte_str)
+        byte_str = PDI_SOP.to_bytes(1, byteorder='big') + byte_str
+        byte_str += checksum
+        byte_str += PDI_EOP.to_bytes(1, byteorder='big')
+        return byte_str
 
     @property
     def checksum(self) -> bytes:
@@ -83,6 +99,10 @@ class PdiReq(ABC):
     @property
     def is_ping(self) -> bool:
         return self._pdi_command == PdiCommand.PING
+
+    @property
+    def payload(self) -> str | None:
+        return None
 
 
 class LcsReq(PdiReq, ABC):
@@ -102,7 +122,13 @@ class LcsReq(PdiReq, ABC):
             self._tmcc_id = int(data)
 
     def __repr__(self) -> str:
-        payload = f" {self.payload}" if self.payload is not None else ""
+        if self.payload is not None:
+            payload = " " + self.payload
+        elif self._data is not None:
+            payload = " " + self._data[3:].hex(':')
+        else:
+            payload = ""
+
         return f"{self._pdi_command.name} ID#{self._tmcc_id} {self.action.name}{payload}"
 
     @property
@@ -122,13 +148,28 @@ class LcsReq(PdiReq, ABC):
 
     @property
     @abc.abstractmethod
-    def action(self) -> WiFiAction | IrdaAction | Asc2Action:
+    def action(self) -> WiFiAction | IrdaAction | Asc2Action | Ser2Action:
         ...
 
+
+class Ser2Req(LcsReq):
+    def __init__(self,
+                 data: bytes | int,
+                 pdi_command: PdiCommand = PdiCommand.SER2_GET,
+                 action: Ser2Action = Ser2Action.CONFIG) -> None:
+        super().__init__(data, pdi_command, action.bits)
+        if isinstance(data, bytes):
+            self._action = Ser2Action(self._action_byte)
+        else:
+            self._action = action
+
     @property
-    @abc.abstractmethod
+    def action(self) -> Ser2Action:
+        return self._action
+
+    @property
     def payload(self) -> str | None:
-        ...
+        return None
 
 
 class Asc2Req(LcsReq):
@@ -160,7 +201,8 @@ class IrdaReq(LcsReq):
 
 
 class WiFiReq(LcsReq):
-    def __init__(self, data: bytes | int,
+    def __init__(self,
+                 data: bytes | int,
                  pdi_command: PdiCommand = PdiCommand.WIFI_GET,
                  action: WiFiAction = WiFiAction.CONNECT) -> None:
         super().__init__(data, pdi_command, action.bits)
@@ -187,7 +229,7 @@ class WiFiReq(LcsReq):
             prefix = f"{payload[0]}.{payload[1]}.{payload[2]}."
             the_clients = list()
             for i in range(0, len(payload), 2):
-                the_clients.append(f"{prefix}{payload[i+1]}")
+                the_clients.append(f"{prefix}{payload[i + 1]}")
             return the_clients
 
     @property
@@ -206,7 +248,7 @@ class WiFiReq(LcsReq):
                 for i in range(0, len(payload_bytes), 2):
                     if i > 0:
                         clients += ", "
-                    clients += f"{payload_bytes[i+1]} ({payload_bytes[i]})"
+                    clients += f"{payload_bytes[i + 1]} ({payload_bytes[i]})"
                 return f"Base IP: {ip_addr} {clients}"
             elif self.action == WiFiAction.RESPBCASTS:
                 return f"Broadcasts {'ENABLED' if payload_bytes[0] == 1 else 'DISABLED'}: {payload_bytes[0]}"
@@ -245,10 +287,20 @@ class TmccReq(PdiReq):
 
 
 class PingReq(PdiReq):
-    def __init__(self, data: bytes):
-        if PdiCommand(data[1]).is_ping is False:
-            raise ValueError(f"Invalid PDI Ping Request: {data}")
-        super().__init__(data)
+    def __init__(self, data: bytes | None = None):
+        super().__init__(data, PdiCommand.PING)
+        if data is not None:
+            if PdiCommand(data[1]).is_ping is False:
+                raise ValueError(f"Invalid PDI Ping Request: {data}")
+
+    @property
+    def as_bytes(self) -> bytes:
+        byte_str = self.pdi_command.as_bytes
+        byte_str, checksum = self._calculate_checksum(byte_str)
+        byte_str = PDI_SOP.to_bytes(1, byteorder='big') + byte_str
+        byte_str += checksum
+        byte_str += PDI_EOP.to_bytes(1, byteorder='big')
+        return byte_str
 
     def __repr__(self) -> str:
         return f"{self._pdi_command.friendly}"
@@ -264,13 +316,26 @@ class BaseReq(PdiReq):
         return f"{self._pdi_command.friendly}"
 
 
+class AllReq(PdiReq):
+    def __init__(self,
+                 data: bytes = None,
+                 pdi_command: PdiCommand = PdiCommand.ALL_GET) -> None:
+        super().__init__(data, pdi_command)
+
+    @property
+    def payload(self) -> str | None:
+        return None
+
+
 DEVICE_TO_REQ_MAP = {
+    "ALL": AllReq,
     "BASE": BaseReq,
     "TMCC": TmccReq,
     "PING": PingReq,
     "UPDATE": BaseReq,
     "WIFI": WiFiReq,
     "ASC2": Asc2Req,
+    "SER2": Ser2Req,
     "IRDA": IrdaReq,
 }
 
