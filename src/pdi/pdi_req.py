@@ -48,7 +48,7 @@ class PdiReq(ABC):
 
     def __repr__(self) -> str:
         data = " " + self._data.hex(':') if self._data else ""
-        return f"[{self._pdi_command.friendly}{data}]"
+        return f"[PDI {self._pdi_command.friendly}{data}]"
 
     @staticmethod
     def _calculate_checksum(data: bytes, add_stf=True) -> Tuple[bytes, bytes]:
@@ -141,7 +141,7 @@ class LcsReq(PdiReq, ABC):
         else:
             payload = ""
 
-        return f"{self._pdi_command.name} ID: {self._tmcc_id} {self.action.name}{payload}"
+        return f"[PDI {self._pdi_command.name} ID: {self._tmcc_id} {self.action.name}{payload}]"
 
     @property
     def tmcc_id(self) -> int:
@@ -310,7 +310,7 @@ class TmccReq(PdiReq):
             self._tmcc_command: CommandReq = CommandReq.from_bytes(self._data[1:])
 
     def __repr__(self) -> str:
-        return f"{self._pdi_command.friendly} {self.tmcc_command} {self._original.hex(':')}"
+        return f"[PDI {self._pdi_command.friendly} {self.tmcc_command} {self._original.hex(':')}]"
 
     @property
     def tmcc_command(self) -> CommandReq:
@@ -377,7 +377,7 @@ class PingReq(PdiReq):
         return CommandScope.SYSTEM
 
     def __repr__(self) -> str:
-        return f"{self._pdi_command.friendly}"
+        return f"[PDI {self._pdi_command.friendly}]"
 
 
 # need to do imports here to avoid circular imports
