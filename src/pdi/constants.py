@@ -163,6 +163,17 @@ class ActionMixins(FriendlyMixins):
         opts += 'r' if self.value.is_responses else 'x'
         return f"{self.name.capitalize()} [{opts}]"
 
+    @property
+    def bits(self) -> int | None:
+        if hasattr(self.value, 'bits'):
+            return self.value.bits
+        else:
+            return None
+
+    @property
+    def as_bytes(self) -> bytes:
+        return self.bits.to_bytes(1, byteorder='big')
+
 
 class PdiAction(Mixins, ActionMixins):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)

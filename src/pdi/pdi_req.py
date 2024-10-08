@@ -88,30 +88,47 @@ class PdiReq(ABC):
 class LcsReq(PdiReq, ABC):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, data: bytes):
-        if PdiCommand(data[1]).is_lcs is False:
-            raise ValueError(f"Invalid PDI LCS Request: {data}")
-        super().__init__(data)
-        self._tmcc_id = self._data[1]
-        self._action_byte = self._data[2]
+    def __init__(self, data: bytes | int,
+                 pdi_command: PdiCommand = None,
+                 action: int = None) -> None:
+        super().__init__(data, pdi_command)
+        if isinstance(data, bytes):
+            if PdiCommand(data[1]).is_lcs is False:
+                raise ValueError(f"Invalid PDI LCS Request: {data}")
+            self._tmcc_id = self._data[1]
+            self._action_byte = self._data[2]
+        else:
+            self._action_byte = action
+            self._tmcc_id = int(data)
 
     def __repr__(self) -> str:
-        return f"{self._pdi_command.name} ID#{self._tmcc_id} {self.action.name} {self._data[3:].hex(':')}"
+        payload = f" {self.payload}" if self.payload is not None else ""
+        return f"{self._pdi_command.name} ID#{self._tmcc_id} {self.action.name}{payload}"
+
+    @property
+    def tmcc_id(self) -> int:
+        return self._tmcc_id
+
+    @property
+    def as_bytes(self) -> bytes:
+        byte_str = self.pdi_command.as_bytes
+        byte_str += self.tmcc_id.to_bytes(1, byteorder='big')
+        byte_str += self.action.as_bytes
+        byte_str, checksum = self._calculate_checksum(byte_str)
+        byte_str = PDI_SOP.to_bytes(1, byteorder='big') + byte_str
+        byte_str += checksum
+        byte_str += PDI_EOP.to_bytes(1, byteorder='big')
+        return byte_str
 
     @property
     @abc.abstractmethod
     def action(self) -> WiFiAction | IrdaAction | Asc2Action:
         ...
 
-
-class WiFiReq(LcsReq):
-    def __init__(self, data: bytes):
-        super().__init__(data)
-        self._action = WiFiAction(self._action_byte)
-
     @property
-    def action(self) -> WiFiAction:
-        return self._action
+    @abc.abstractmethod
+    def payload(self) -> str | None:
+        ...
 
 
 class Asc2Req(LcsReq):
@@ -123,6 +140,10 @@ class Asc2Req(LcsReq):
     def action(self) -> Asc2Action:
         return self._action
 
+    @property
+    def payload(self) -> str | None:
+        return None
+
 
 class IrdaReq(LcsReq):
     def __init__(self, data: bytes):
@@ -132,6 +153,64 @@ class IrdaReq(LcsReq):
     @property
     def action(self) -> IrdaAction:
         return self._action
+
+    @property
+    def payload(self) -> str | None:
+        return None
+
+
+class WiFiReq(LcsReq):
+    def __init__(self, data: bytes | int,
+                 pdi_command: PdiCommand = PdiCommand.WIFI_GET,
+                 action: WiFiAction = WiFiAction.CONNECT) -> None:
+        super().__init__(data, pdi_command, action.bits)
+        if isinstance(data, bytes):
+            self._action = WiFiAction(self._action_byte)
+        else:
+            self._action = action
+
+    @property
+    def action(self) -> WiFiAction:
+        return self._action
+
+    @property
+    def base_address(self) -> str | None:
+        if self._data is not None and self.action == WiFiAction.IP:
+            payload = self._data[3:]
+            return f"{payload[0]}.{payload[1]}.{payload[2]}.{payload[3]}"
+        return None
+
+    @property
+    def clients(self) -> list[str]:
+        if self._data is not None and self.action == WiFiAction.IP:
+            payload = self._data[3:]
+            prefix = f"{payload[0]}.{payload[1]}.{payload[2]}."
+            the_clients = list()
+            for i in range(0, len(payload), 2):
+                the_clients.append(f"{prefix}{payload[i+1]}")
+            return the_clients
+
+    @property
+    def payload(self) -> str | None:
+        if self._data is None:
+            return None
+        else:
+            payload_bytes = self._data[3:]
+            if self.action == WiFiAction.CONNECT:
+                return (f"Max Connections: {payload_bytes[0]} Connected: {payload_bytes[1]}" +
+                        f" {WIFI_MODE_MAP[payload_bytes[2]]}")
+            elif self.action == WiFiAction.IP:
+                ip_addr = f"{payload_bytes[0]}.{payload_bytes[1]}.{payload_bytes[2]}.{payload_bytes[3]}"
+                payload_bytes = payload_bytes[4:]
+                clients = " Clients: "
+                for i in range(0, len(payload_bytes), 2):
+                    if i > 0:
+                        clients += ", "
+                    clients += f"{payload_bytes[i+1]} ({payload_bytes[i]})"
+                return f"Base IP: {ip_addr} {clients}"
+            elif self.action == WiFiAction.RESPBCASTS:
+                return f"Broadcasts {'ENABLED' if payload_bytes[0] == 1 else 'DISABLED'}: {payload_bytes[0]}"
+            return payload_bytes.hex(':')
 
 
 class TmccReq(PdiReq):
@@ -193,4 +272,10 @@ DEVICE_TO_REQ_MAP = {
     "WIFI": WiFiReq,
     "ASC2": Asc2Req,
     "IRDA": IrdaReq,
+}
+
+WIFI_MODE_MAP = {
+    0: "AP",
+    1: "INF",
+    2: "WPS"
 }
