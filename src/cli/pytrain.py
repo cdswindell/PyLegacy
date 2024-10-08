@@ -56,22 +56,26 @@ class PyTrain:
         self._comm_buffer = CommBuffer.build(baudrate=self._baudrate,
                                              port=self._port,
                                              server=self._server)
+        listeners = []
         if isinstance(self.buffer, CommBufferSingleton):
             print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
             # listen for client connections, unless user used --no_clients flag
             if not self._args.no_clients:
                 print(f"Listening for client broadcasts on port {self._args.server_port}...")
                 self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
-                self._listener = CommandListener.build()
+                self._tmcc_listener = CommandListener.build()
+                listeners.append(self._tmcc_listener)
             if self._base3_addr is not None:
                 print(f"Listening for Base3 broadcasts on  {self._base3_addr}:{self._base3_port}...")
                 self._base3_listener = PdiListener.build(self._base3_addr, self._base3_port)
+                listeners.append(self._base3_listener)
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             print(f"Listening for state updates on {self._args.server_port}...")
-            self._listener = ClientStateListener.build()
+            self._tmcc_listener = ClientStateListener.build()
+            listeners.append(self._tmcc_listener)
         # register listeners
-        self._state_store: ComponentStateStore = ComponentStateStore(listener=self._listener)
+        self._state_store: ComponentStateStore = ComponentStateStore(listeners=tuple(listeners))
         if self._args.echo:
             self._handle_echo()
         if self._args.no_listeners is True:
@@ -127,7 +131,11 @@ class PyTrain:
                 try:
                     CommandListener.stop()
                 except Exception as e:
-                    print(f"Error closing listener, continuing shutdown: {e}")
+                    print(f"Error closing TMCC listener, continuing shutdown: {e}")
+                try:
+                    PdiListener.stop()
+                except Exception as e:
+                    print(f"Error closing PDI listener, continuing shutdown: {e}")
                 try:
                     ComponentStateStore.reset()
                 except Exception as e:
@@ -208,7 +216,7 @@ class PyTrain:
             ui_parts = ["echo"]
         if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == 'on'):
             if self._echo is False:
-                self._listener.listen_for(self, BROADCAST_TOPIC)
+                self._tmcc_listener.listen_for(self, BROADCAST_TOPIC)
                 print("TMCC command echoing ENABLED..")
                 if self._base3_listener:
                     self._base3_listener.listen_for(self, BROADCAST_TOPIC)
@@ -216,7 +224,7 @@ class PyTrain:
             self._echo = True
         else:
             if self._echo is True:
-                self._listener.unsubscribe(self, BROADCAST_TOPIC)
+                self._tmcc_listener.unsubscribe(self, BROADCAST_TOPIC)
                 print("TMCC command echoing DISABLED...")
                 if self._base3_listener:
                     self._base3_listener.unsubscribe(self, BROADCAST_TOPIC)

@@ -76,7 +76,7 @@ class TestCommandReq(TestBase):
             mk_enqueue_command.reset_mock()
 
             # random acc command
-            CommandReq.send_request(TMCC1AuxCommandDef.AUX2_OPTION_ONE, 15)
+            CommandReq.send_request(TMCC1AuxCommandDef.AUX2_OPT_ONE, 15)
             mk_enqueue_command.assert_called_once_with(0xfe878d.to_bytes(3, byteorder='big'),
                                                        1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
             mk_enqueue_command.reset_mock()

@@ -41,7 +41,7 @@ class TestComponentStateStore(TestBase):
         assert dispatcher.is_running is True
 
         # create a store
-        store = ComponentStateStore(listener=dispatcher)
+        store = ComponentStateStore(listeners=(dispatcher,))
         store.listen_for([CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC, CommandScope.SWITCH])
         assert store is not None
         assert store.is_empty

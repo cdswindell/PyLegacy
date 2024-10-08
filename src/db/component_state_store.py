@@ -8,7 +8,7 @@ from typing import List, TypeVar, Set, Tuple
 from .component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
 from src.db.client_state_listener import ClientStateListener
 from ..comm.comm_buffer import CommBuffer
-from ..comm.command_listener import CommandListener, Message, Topic, CommandDispatcher, Subscriber
+from ..comm.command_listener import CommandListener, Message, Topic, Subscriber
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
 from ..protocol.command_req import CommandReq
@@ -34,11 +34,11 @@ class ComponentStateStore:
     @classmethod
     def build(cls,
               topics: List[str | CommandScope] = None,
-              listener: CommandListener | CommandDispatcher = None) -> ComponentStateStore:
+              listeners: Tuple = None) -> ComponentStateStore:
         """
             Factory method to create a ComponentStateStore instance
         """
-        return ComponentStateStore(topics, listener)
+        return ComponentStateStore(topics, listeners)
 
     # noinspection PyPropertyDefinition
     @classmethod
@@ -51,7 +51,7 @@ class ComponentStateStore:
     @property
     def is_running(cls) -> bool:
         # noinspection PyProtectedMember
-        return cls._instance is not None and cls._instance._listener.is_running
+        return cls._instance is not None
 
     @classmethod
     def reset(cls) -> None:
@@ -72,18 +72,19 @@ class ComponentStateStore:
 
     def __init__(self,
                  topics: List[str | CommandScope] = None,
-                 listener: CommandListener | CommandDispatcher = None) -> None:
+                 listeners: Tuple = None) -> None:
         if self._initialized:
             return
         else:
             self._initialized = True
         self._dependencies = DependencyCache.build()
-        self._listener = listener
+        self._listeners = listeners
         self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
         if topics:
             for topic in topics:
                 if self.is_valid_topic(topic):
-                    self._listener.listen_for(self, topic)
+                    for listener in self._listeners:
+                        listener.listen_for(self, topic)
                 else:
                     raise TypeError(f'Topic {topic} is not valid')
 
@@ -92,21 +93,26 @@ class ComponentStateStore:
             Callback, per the Subscriber protocol in CommandListener
         """
         if command:
-            if command.is_halt:  # send to all known devices
-                for scope in self._state:
-                    for address in self._state[scope]:
-                        self._state[scope][address].update(command)
-            elif command.is_system_halt:  # send to all known engines and trains
-                for scope in self._state:
-                    if scope in [CommandScope.ENGINE, CommandScope.TRAIN]:
+            if isinstance(command, CommandReq):
+                if command.is_halt:  # send to all known devices
+                    for scope in self._state:
                         for address in self._state[scope]:
                             self._state[scope][address].update(command)
-            elif command.scope in SCOPE_TO_STATE_MAP:
+                    return
+                elif command.is_system_halt:  # send to all known engines and trains
+                    for scope in self._state:
+                        if scope in [CommandScope.ENGINE, CommandScope.TRAIN]:
+                            for address in self._state[scope]:
+                                self._state[scope][address].update(command)
+                    return
+            if command.scope in SCOPE_TO_STATE_MAP:
                 if command.address == BROADCAST_ADDRESS:  # broadcast address
                     for address in self._state[command.scope]:
                         self._state[command.scope][address].update(command)
                 else:  # update the device state (identified by scope/address)
                     self._state[command.scope][command.address].update(command)
+            else:
+                print(f"Received Unknown State Update: {command}")
 
     @property
     def is_empty(self) -> bool:
@@ -121,10 +127,12 @@ class ComponentStateStore:
         if isinstance(topics, list):
             for topic in topics:
                 if self.is_valid_topic(topic):
-                    self._listener.listen_for(self, topic)
+                    for listener in self._listeners:
+                        listener.listen_for(self, topic)
         else:
             if self.is_valid_topic(topics):
-                self._listener.listen_for(self, topics)
+                for listener in self._listeners:
+                    listener.listen_for(self, topics)
 
     def query(self, scope: CommandScope, address: int) -> T | None:
         if scope in self._state:
@@ -347,8 +355,8 @@ class DependencyCache:
         self.toggles(Switch.OUT, Switch.THROUGH)
         self.toggles(Switch.THROUGH, Switch.OUT)
 
-        self.toggles(Aux.AUX1_OPTION_ONE, Aux.AUX2_OPTION_ONE)
-        self.toggles(Aux.AUX2_OPTION_ONE, Aux.AUX1_OPTION_ONE)
+        self.toggles(Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE)
+        self.toggles(Aux.AUX2_OPT_ONE, Aux.AUX1_OPT_ONE)
 
         self.toggles(Engine2.FORWARD_DIRECTION, Engine2.REVERSE_DIRECTION)
         self.toggles(Engine2.REVERSE_DIRECTION, Engine2.FORWARD_DIRECTION)

@@ -190,19 +190,19 @@ class GpioHandler:
         """
         if initial_state is None:
             # TODO: query initial state
-            initial_state = TMCC1AuxCommandDef.AUX2_OPTION_ONE
+            initial_state = TMCC1AuxCommandDef.AUX2_OPT_ONE
 
         # make the CommandReqs
         on_req, on_btn, on_led = cls._make_button(on_pin,
-                                                  TMCC1AuxCommandDef.AUX1_OPTION_ONE,
+                                                  TMCC1AuxCommandDef.AUX1_OPT_ONE,
                                                   address,
                                                   led_pin=on_led_pin,
                                                   cathode=cathode,
-                                                  initially_on=initial_state == TMCC1AuxCommandDef.AUX1_OPTION_ONE)
+                                                  initially_on=initial_state == TMCC1AuxCommandDef.AUX1_OPT_ONE)
         off_req, off_btn, off_led = cls._make_button(off_pin,
-                                                     TMCC1AuxCommandDef.AUX2_OPTION_ONE,
+                                                     TMCC1AuxCommandDef.AUX2_OPT_ONE,
                                                      address,
-                                                     initially_on=initial_state == TMCC1AuxCommandDef.AUX2_OPTION_ONE)
+                                                     initially_on=initial_state == TMCC1AuxCommandDef.AUX2_OPT_ONE)
         # bind actions to buttons
         on_action = on_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
         off_action = off_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
@@ -215,7 +215,7 @@ class GpioHandler:
             return on_btn, off_btn
         else:
             # listen for external state changes
-            cls._cache_handler(AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandDef.AUX1_OPTION_ONE))
+            cls._cache_handler(AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandDef.AUX1_OPT_ONE))
             # return created objects
             return on_btn, off_btn, on_led
 
@@ -238,13 +238,13 @@ class GpioHandler:
         """
         # make the CommandReqs
         aux1_req, aux1_btn, aux1_led = cls._make_button(aux1_pin,
-                                                        TMCC1AuxCommandDef.AUX1_OPTION_ONE,
+                                                        TMCC1AuxCommandDef.AUX1_OPT_ONE,
                                                         address,
                                                         led_pin=aux1_led_pin,
                                                         cathode=cathode,
                                                         bind=True)
         aux2_req, aux2_btn, aux2_led = cls._make_button(aux2_pin,
-                                                        TMCC1AuxCommandDef.AUX2_OPTION_ONE,
+                                                        TMCC1AuxCommandDef.AUX2_OPT_ONE,
                                                         address)
         # bind actions to buttons
         aux1_action = aux1_req.as_action(baudrate=baudrate, port=port, server=server)
@@ -271,7 +271,7 @@ class GpioHandler:
                        server: str = None) -> Button | Tuple[Button, LED]:
         if command_control is True:
             cycle_req, cycle_btn, cycle_led = cls._make_button(cycle_pin,
-                                                               TMCC1AuxCommandDef.AUX2_OPTION_ONE,
+                                                               TMCC1AuxCommandDef.AUX2_OPT_ONE,
                                                                address,
                                                                led_pin=cycle_led_pin,
                                                                cathode=cathode)

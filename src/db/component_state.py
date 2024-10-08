@@ -7,6 +7,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Tuple, TypeVar, Set
 
+from ..pdi.constants import Asc2Action, PdiAction
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS, CommandSyntax
@@ -17,6 +18,9 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2_COMMAN
 
 C = TypeVar("C", bound=CommandDefEnum)
 E = TypeVar("E", bound=CommandDefEnum)
+P = TypeVar("P", bound=PdiAction)
+L = TypeVar("L", bound=CommandReq)
+
 
 DIRECTIONS_SET = {TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION,
                   TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION}
@@ -98,7 +102,7 @@ class ComponentState(ABC):
         return self._ev
 
     @abc.abstractmethod
-    def update(self, command: CommandReq) -> None:
+    def update(self, command: L | P) -> None:
         if command and command.command != TMCC1HaltCommandDef.HALT:
             if self._address is None and command.address != BROADCAST_ADDRESS:
                 self._address = command.address
@@ -173,13 +177,20 @@ class SwitchState(ComponentState):
     def __repr__(self) -> str:
         return f"Switch {self.address}: {self._state.name if self._state is not None else 'Unknown'}"
 
-    def update(self, command: CommandReq) -> None:
+    def update(self, command: L | P) -> None:
         if command:
             super().update(command)
             if command.command == TMCC1HaltCommandDef.HALT:
                 return  # do nothing on halt
-            if command.command != Switch.SET_ADDRESS:
-                self._state = command.command
+            from src.pdi.asc2_req import Asc2Req
+            if isinstance(command, CommandReq):
+                if command.command != Switch.SET_ADDRESS:
+                    self._state = command.command
+            elif isinstance(command, Asc2Req):
+                print(f"Switch State Update received via ASC2: {command}")
+                self._state = Switch.THROUGH if command.is_thru else Switch.OUT
+            else:
+                print(f"Switch State Update received: {command}")
             self.changed.set()
 
     @property
@@ -227,9 +238,9 @@ class AccessoryState(ComponentState):
         self._number: int | None = None
 
     def __repr__(self) -> str:
-        if self.aux_state == Aux.AUX1_OPTION_ONE:
+        if self.aux_state == Aux.AUX1_OPT_ONE:
             aux = "Aux 1"
-        elif self.aux_state == Aux.AUX2_OPTION_ONE:
+        elif self.aux_state == Aux.AUX2_OPT_ONE:
             aux = "Aux 2"
         else:
             aux = "Unknown"
@@ -237,38 +248,50 @@ class AccessoryState(ComponentState):
         aux2 = self.aux2_state.name if self.aux2_state is not None else 'Unknown'
         return f"Accessory {self.address}: {aux}; {aux1}; {aux2} {self._number}"
 
-    def update(self, command: CommandReq) -> None:
+    def update(self, command: L | P) -> None:
+        from ..pdi.asc2_req import Asc2Req
         if command:
             super().update(command)
-            if command.command != Aux.SET_ADDRESS:
-                if command.command == TMCC1HaltCommandDef.HALT:
-                    self._aux1_state = Aux.AUX1_OFF
-                    self._aux2_state = Aux.AUX2_OFF
-                    self._aux_state = Aux.AUX2_OPTION_ONE
-                    self._number = None
-                else:
-                    if command.command in [Aux.AUX1_OPTION_ONE, Aux.AUX2_OPTION_ONE]:
-                        self._aux_state = command.command
-                    if command.command == Aux.AUX1_OPTION_ONE:
-                        if self._last_aux1_opt1 is None or self.time_delta(self._last_aux1_opt1) > 1:
-                            self._aux1_state = Aux.AUX1_ON if (self._aux1_state is None
-                                                               or self._aux1_state == Aux.AUX1_OPTION_ONE
-                                                               or self._aux1_state == Aux.AUX1_OFF) else Aux.AUX1_OFF
-                        self._last_aux1_opt1 = self.last_updated
-                    elif command.command in [Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPTION_TWO]:
-                        self._aux1_state = command.command
-                        self._last_aux1_opt1 = self.last_updated
-                    elif command.command == Aux.AUX2_OPTION_ONE:
-                        if self._last_aux2_opt1 is None or self.time_delta(self._last_aux2_opt1) > 1:
-                            self._aux2_state = Aux.AUX2_ON if (self._aux2_state is None
-                                                               or self._aux2_state == Aux.AUX2_OPTION_ONE
-                                                               or self._aux2_state == Aux.AUX2_OFF) else Aux.AUX2_OFF
-                        self._last_aux2_opt1 = self.last_updated
-                    elif command.command in [Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPTION_TWO]:
-                        self._aux2_state = command.command
-                        self._last_aux2_opt1 = self.last_updated
-                    if command.command == Aux.NUMERIC:
-                        self._number = command.data
+            if isinstance(command, CommandReq):
+                if command.command != Aux.SET_ADDRESS:
+                    if command.command == TMCC1HaltCommandDef.HALT:
+                        self._aux1_state = Aux.AUX1_OFF
+                        self._aux2_state = Aux.AUX2_OFF
+                        self._aux_state = Aux.AUX2_OPT_ONE
+                        self._number = None
+                    else:
+                        if command.command in [Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE]:
+                            self._aux_state = command.command
+                        if command.command == Aux.AUX1_OPT_ONE:
+                            if self._last_aux1_opt1 is None or self.time_delta(self._last_aux1_opt1) > 1:
+                                self._aux1_state = Aux.AUX1_ON if (self._aux1_state is None
+                                                                   or self._aux1_state == Aux.AUX1_OPT_ONE
+                                                                   or self._aux1_state == Aux.AUX1_OFF) \
+                                                                    else Aux.AUX1_OFF
+                            self._last_aux1_opt1 = self.last_updated
+                        elif command.command in [Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO]:
+                            self._aux1_state = command.command
+                            self._last_aux1_opt1 = self.last_updated
+                        elif command.command == Aux.AUX2_OPT_ONE:
+                            if self._last_aux2_opt1 is None or self.time_delta(self._last_aux2_opt1) > 1:
+                                self._aux2_state = Aux.AUX2_ON if (self._aux2_state is None
+                                                                   or self._aux2_state == Aux.AUX2_OPT_ONE
+                                                                   or self._aux2_state == Aux.AUX2_OFF) \
+                                                                    else Aux.AUX2_OFF
+                            self._last_aux2_opt1 = self.last_updated
+                        elif command.command in [Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO]:
+                            self._aux2_state = command.command
+                            self._last_aux2_opt1 = self.last_updated
+                        if command.command == Aux.NUMERIC:
+                            self._number = command.data
+            elif isinstance(command, Asc2Req):
+                if command.action == Asc2Action.CONTROL1:
+                    if command.values == 1:
+                        self._aux1_state = Aux.AUX1_ON
+                        self._aux2_state = Aux.AUX2_ON
+                    else:
+                        self._aux1_state = Aux.AUX1_OFF
+                        self._aux2_state = Aux.AUX2_OFF
             self.changed.set()
 
     @property
@@ -284,11 +307,11 @@ class AccessoryState(ComponentState):
 
     @property
     def is_aux_on(self) -> bool:
-        return self._aux_state == Aux.AUX1_OPTION_ONE
+        return self._aux_state == Aux.AUX1_OPT_ONE
 
     @property
     def is_aux_off(self) -> bool:
-        return self._aux_state == Aux.AUX2_OPTION_ONE
+        return self._aux_state == Aux.AUX2_OPT_ONE
 
     @property
     def aux1_state(self) -> Aux:
@@ -353,47 +376,50 @@ class EngineState(ComponentState):
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
 
-    def update(self, command: CommandReq) -> None:
-        if command.syntax == CommandSyntax.LEGACY:
-            self._is_legacy = True
-        super().update(command)
+    def update(self, command: L | P) -> None:
+        if isinstance(command, CommandReq):
+            if command.syntax == CommandSyntax.LEGACY:
+                self._is_legacy = True
+            super().update(command)
 
-        # get the downstream effects of this command, as they also impact state
-        cmd_effects = self.results_in(command)
-        # print(f"Update: {command}\nEffects: {cmd_effects}")
+            # get the downstream effects of this command, as they also impact state
+            cmd_effects = self.results_in(command)
+            # print(f"Update: {command}\nEffects: {cmd_effects}")
 
-        # handle direction
-        if command.command in DIRECTIONS_SET:
-            self._direction = command.command
-        elif cmd_effects & DIRECTIONS_SET:
-            self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
+            # handle direction
+            if command.command in DIRECTIONS_SET:
+                self._direction = command.command
+            elif cmd_effects & DIRECTIONS_SET:
+                self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
-        # handle speed
-        if command.command in SPEED_SET:
-            self._speed = command.data
-        elif cmd_effects & SPEED_SET:
-            speed = self._harvest_effect(cmd_effects & SPEED_SET)
-            if isinstance(speed, tuple) and len(speed) == 2:
-                self._speed = speed[1]
-            else:
-                self._speed = None
-                print(f"**************** What am I supposed to do with {speed}?")
+            # handle speed
+            if command.command in SPEED_SET:
+                self._speed = command.data
+            elif cmd_effects & SPEED_SET:
+                speed = self._harvest_effect(cmd_effects & SPEED_SET)
+                if isinstance(speed, tuple) and len(speed) == 2:
+                    self._speed = speed[1]
+                else:
+                    self._speed = None
+                    print(f"**************** What am I supposed to do with {speed}?")
 
-        # handle startup/shutdown
-        if command.command in STARTUP_SET:
-            self._start_stop = command.command
-        elif command.command in SHUTDOWN_SET:
-            self._start_stop = command.command
-        elif cmd_effects & STARTUP_SET:
-            self._start_stop = self._harvest_effect(cmd_effects & STARTUP_SET)
-        elif cmd_effects & SHUTDOWN_SET:
-            shutdown = self._harvest_effect(cmd_effects & SHUTDOWN_SET)
-            if isinstance(shutdown, CommandDefEnum):
-                self._start_stop = shutdown
-            elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
-                self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-            elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
-                self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+            # handle startup/shutdown
+            if command.command in STARTUP_SET:
+                self._start_stop = command.command
+            elif command.command in SHUTDOWN_SET:
+                self._start_stop = command.command
+            elif cmd_effects & STARTUP_SET:
+                self._start_stop = self._harvest_effect(cmd_effects & STARTUP_SET)
+            elif cmd_effects & SHUTDOWN_SET:
+                shutdown = self._harvest_effect(cmd_effects & SHUTDOWN_SET)
+                if isinstance(shutdown, CommandDefEnum):
+                    self._start_stop = shutdown
+                elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
+                    self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
+                    self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+        else:
+            print(f"{self.scope} Unhandled State Update received: {command}")
         self.changed.set()
 
     @property

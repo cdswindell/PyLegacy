@@ -226,9 +226,9 @@ class TestComponentState(TestBase):
         assert acc_state.is_known is False
 
         # Send Aux1 Opt1 (Aux 1 btn) this should set state
-        aux1_opt1_req = CommandReq(Acc.AUX1_OPTION_ONE, 5)
+        aux1_opt1_req = CommandReq(Acc.AUX1_OPT_ONE, 5)
         acc_state.update(aux1_opt1_req)
-        assert acc_state.aux_state == Acc.AUX1_OPTION_ONE
+        assert acc_state.aux_state == Acc.AUX1_OPT_ONE
         assert acc_state.is_aux_on is True
         assert acc_state.is_aux_off is False
         assert acc_state.aux1_state == Acc.AUX1_ON
@@ -241,7 +241,7 @@ class TestComponentState(TestBase):
         # send a numeric command
         aux1_num_req = CommandReq(Acc.NUMERIC, 5, 6)
         acc_state.update(aux1_num_req)
-        assert acc_state.aux_state == Acc.AUX1_OPTION_ONE
+        assert acc_state.aux_state == Acc.AUX1_OPT_ONE
         assert acc_state.is_aux_on is True
         assert acc_state.is_aux_off is False
         assert acc_state.aux1_state == Acc.AUX1_ON
@@ -254,7 +254,7 @@ class TestComponentState(TestBase):
         # send a halt command, it should turn Aux 1 & 2 off
         halt_req = CommandReq(TMCC1HaltCommandDef.HALT, 1)
         acc_state.update(halt_req)
-        assert acc_state.aux_state == Acc.AUX2_OPTION_ONE
+        assert acc_state.aux_state == Acc.AUX2_OPT_ONE
         assert acc_state.is_aux_on is False
         assert acc_state.is_aux_off is True
         assert acc_state.aux1_state == Acc.AUX1_OFF
@@ -270,7 +270,7 @@ class TestComponentState(TestBase):
         # turn Aux back on, then off
         with mock.patch.object(ComponentState, "time_delta", side_effect=patched):
             acc_state.update(aux1_opt1_req)
-            assert acc_state.aux_state == Acc.AUX1_OPTION_ONE
+            assert acc_state.aux_state == Acc.AUX1_OPT_ONE
             assert acc_state.is_aux_on is True
             assert acc_state.is_aux_off is False
             assert acc_state.aux1_state == Acc.AUX1_ON
@@ -278,9 +278,9 @@ class TestComponentState(TestBase):
             assert acc_state.value is None
             assert acc_state.is_known is True
 
-        aux2_opt1_req = CommandReq(Acc.AUX2_OPTION_ONE, 5)
+        aux2_opt1_req = CommandReq(Acc.AUX2_OPT_ONE, 5)
         acc_state.update(aux2_opt1_req)
-        assert acc_state.aux_state == Acc.AUX2_OPTION_ONE
+        assert acc_state.aux_state == Acc.AUX2_OPT_ONE
         assert acc_state.is_aux_on is False
         assert acc_state.is_aux_off is True
         assert acc_state.aux1_state == Acc.AUX1_ON

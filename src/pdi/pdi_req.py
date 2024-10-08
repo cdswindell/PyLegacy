@@ -21,8 +21,23 @@ class PdiReq(ABC):
         pdi_cmd = PdiCommand(data[1])
 
         dev_type = pdi_cmd.name.split('_')[0].upper()
-        if dev_type in DEVICE_TO_REQ_MAP:
-            return DEVICE_TO_REQ_MAP[dev_type](data)
+        if dev_type == "ALL":
+            return AllReq(data)
+        if dev_type == "BASE":
+            return BaseReq(data)
+        if dev_type == "TMCC":
+            return TmccReq(data)
+        if dev_type == "PING":
+            return PingReq(data)
+        if dev_type == "WIFI":
+            return WiFiReq(data)
+        if dev_type == "ASC2":
+            from src.pdi.asc2_req import Asc2Req
+            return Asc2Req(data)
+        if dev_type == "SER2":
+            return Ser2Req(data)
+        if dev_type == "IRDA":
+            return IrdaReq(data)
         else:
             raise NotImplementedError(f"PdiCommand {pdi_cmd.name} not implemented")
 
@@ -74,6 +89,16 @@ class PdiReq(ABC):
     @property
     def tmcc_id(self) -> int:
         return 0
+
+    @property
+    def address(self) -> int:
+        # for compatibility with state management system
+        return self.tmcc_id
+
+    @property
+    def command(self) -> PdiCommand:
+        # for compatibility with state management system
+        return self.pdi_command
 
     @property
     def action(self) -> T | None:
@@ -236,6 +261,13 @@ class Bpc2Req(LcsReq):
         return CommandScope.ACC
 
 
+WIFI_MODE_MAP = {
+    0: "AP",
+    1: "INF",
+    2: "WPS"
+}
+
+
 class WiFiReq(LcsReq):
     def __init__(self,
                  data: bytes | int,
@@ -379,25 +411,3 @@ class PingReq(PdiReq):
 
     def __repr__(self) -> str:
         return f"[PDI {self._pdi_command.friendly}]"
-
-
-# need to do imports here to avoid circular imports
-from .asc2_req import Asc2Req
-
-DEVICE_TO_REQ_MAP = {
-    "ALL": AllReq,
-    "BASE": BaseReq,
-    "TMCC": TmccReq,
-    "PING": PingReq,
-    "UPDATE": BaseReq,
-    "WIFI": WiFiReq,
-    "ASC2": Asc2Req,
-    "SER2": Ser2Req,
-    "IRDA": IrdaReq,
-}
-
-WIFI_MODE_MAP = {
-    0: "AP",
-    1: "INF",
-    2: "WPS"
-}

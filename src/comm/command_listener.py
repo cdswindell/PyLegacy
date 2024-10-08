@@ -342,6 +342,10 @@ class CommandDispatcher(Thread):
                 self._queue.task_done()
 
     def update_client_state(self, command: CommandReq):
+        """
+            Update all PyTrain clients with the dispatched command. Used to keep
+            client states in sync with server
+        """
         if self._client_port is not None:
             # noinspection PyTypeChecker
             for client in EnqueueProxyRequests.clients:
@@ -358,6 +362,10 @@ class CommandDispatcher(Thread):
                     print(f"Exception while sending state update to {client}: {e}")
 
     def send_current_state(self, client_ip: str):
+        """
+            When a new client attaches to the server, immediately send it all know
+            component states. They will be updated as needed (see update_client_state).
+        """
         if self._client_port is not None:
             from ..db.component_state_store import ComponentStateStore
             state = ComponentStateStore.build()
