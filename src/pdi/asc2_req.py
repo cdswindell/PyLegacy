@@ -14,7 +14,8 @@ class Asc2Req(LcsReq):
                  delay: float = None,
                  values: int = None,
                  valids: int = None,
-                 time: float = None) -> None:
+                 time: float = None,
+                 sub_id: int = None) -> None:
         super().__init__(data, pdi_command, action.bits)
         if isinstance(data, bytes):
             self._action = Asc2Action(self._action_byte)
@@ -29,9 +30,17 @@ class Asc2Req(LcsReq):
             if self._action == Asc2Action.CONTROL1:
                 self._values = self._data[3] if data_len > 3 else None
                 self._time = self._data[4] / 100.0 if data_len > 4 else None
-                self._valids = None
+                self._valids = self._sub_id = None
+            elif self._action in [Asc2Action.CONTROL2, Asc2Action.CONTROL3]:
+                self._values = self._data[3] if data_len > 3 else None
+                self._valids = self._data[4] if data_len > 4 else None
+                self._time = self._sub_id = None
+            elif self._action == Asc2Action.CONTROL4:
+                self._values = self._data[3] if data_len > 3 else None
+                self._time = self._data[4] / 100.0 if data_len > 4 else None
+                self._valids = self._sub_id = None
             else:
-                self._values = self._valids = self._time = None
+                self._values = self._valids = self._time = self._sub_id = None
         else:
             self._mode = mode
             self._debug = debug
@@ -40,6 +49,7 @@ class Asc2Req(LcsReq):
             self._values = values
             self._valids = valids
             self._time = time
+            self._sub_id = sub_id
 
     @property
     def action(self) -> Asc2Action:
@@ -66,6 +76,10 @@ class Asc2Req(LcsReq):
         return self._valids
 
     @property
+    def sub_id(self) -> int | None:
+        return self._sub_id
+
+    @property
     def time(self) -> float | None:
         return self._time
 
@@ -76,14 +90,25 @@ class Asc2Req(LcsReq):
         else:
             payload_bytes = bytes()
         if self.action == Asc2Action.CONFIG:
-            return f"Mode: {self.mode} Debug: {self.debug} Delay: {self.delay} {payload_bytes.hex(':')}"
+            return f"Mode: {self.mode} Debug: {self.debug} Delay: {self.delay} [{payload_bytes.hex(':')}]"
         elif self.action == Asc2Action.CONTROL1:
             if self.time:
                 time = f" for {self.time:.2f} s"
             else:
                 time = ""
-            return f"Relay: {'ON' if self.values == 1 else 'OFF'}{time} {payload_bytes.hex(':')}"
-        return payload_bytes.hex(':')
+            return f"Relay: {'ON' if self.values == 1 else 'OFF'}{time} [{payload_bytes.hex(':')}]"
+        elif self.action == Asc2Action.CONTROL2:
+            if self.pdi_command != PdiCommand.ASC2_GET:
+                return f"Relays: {self.values} Valids: {self.valids} [{payload_bytes.hex(':')}]"
+        elif self.action == Asc2Action.CONTROL3:
+            if self.pdi_command != PdiCommand.ASC2_RX:
+                return f"Relays: {self.values} Valids: {self.valids} [{payload_bytes.hex(':')}]"
+            elif self.pdi_command != PdiCommand.ASC2_SET:
+                return f"Sub ID: {self.sub_id} Time: {self.time} [{payload_bytes.hex(':')}]"
+        elif self.action == Asc2Action.CONTROL4:
+            if self.pdi_command != PdiCommand.ASC2_GET:
+                return f"{'THROUGH' if self.values == 0 else 'OUT'} Time: {self.time} [{payload_bytes.hex(':')}]"
+        return f" [payload_bytes.hex(':')]"
 
     @property
     def as_bytes(self) -> bytes:
@@ -92,15 +117,37 @@ class Asc2Req(LcsReq):
         byte_str += self.action.as_bytes
         if self.pdi_command == PdiCommand.ASC2_SET:
             if self._action == Asc2Action.CONFIG:
+                debug = (self.debug if self.debug is not None else 0)
+                delay = (int(round((self.delay * 100))) if self.delay is not None else 0)
                 byte_str += self.tmcc_id.to_bytes(1, byteorder='big')  # allows board to be renumbered
-                byte_str += (self.debug if self.debug is not None else 0).to_bytes(1, byteorder='big')
+                byte_str += debug.to_bytes(1, byteorder='big')
                 byte_str += (0x0000).to_bytes(2, byteorder='big')
                 byte_str += self.mode.to_bytes(1, byteorder='big')
-                byte_str += (int(round((self.delay * 100))) if self.delay is not None else 0).to_bytes(1,
-                                                                                                       byteorder='big')
-            elif self._action in [Asc2Action.CONTROL1, Asc2Action.CONTROL2, Asc2Action.CONTROL3, Asc2Action.CONTROL4]:
-                byte_str += (self.values if self.values is not None else 0).to_bytes(1, byteorder='big')
-                byte_str += (int(round((self.time * 100))) if self.time is not None else 0).to_bytes(1, byteorder='big')
+                byte_str += delay.to_bytes(1, byteorder='big')
+            elif self._action == Asc2Action.CONTROL1:
+                values = (self.values if self.values is not None else 0)
+                time = (int(round((self.time * 100))) if self.time is not None else 0)
+                byte_str += values.to_bytes(1, byteorder='big')
+                byte_str += time.to_bytes(1, byteorder='big')
+            elif self._action == Asc2Action.CONTROL2:
+                values = (self.values if self.values is not None else 0)
+                valids = (self.values if self.valids is not None else 0)
+                byte_str += values.to_bytes(1, byteorder='big')
+                byte_str += valids.to_bytes(1, byteorder='big')
+            elif self._action == Asc2Action.CONTROL3:
+                sub_id = (self.sub_id if self.values is not None else 1)
+                time = (int(round((self.time * 100))) if self.time is not None else 0)
+                if time == 1:
+                    time = 0
+                byte_str += sub_id.to_bytes(1, byteorder='big')
+                byte_str += time.to_bytes(1, byteorder='big')
+            elif self._action == Asc2Action.CONTROL4:
+                values = (self.values if self.values is not None else 0)
+                time = (int(round((self.time * 100))) if self.time is not None else 0)
+                if time == 1:
+                    time = 0
+                byte_str += values.to_bytes(1, byteorder='big')
+                byte_str += time.to_bytes(1, byteorder='big')
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder='big') + byte_str
         byte_str += checksum
