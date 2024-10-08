@@ -47,7 +47,7 @@ class PdiReq(ABC):
             self._data = self._original = None
 
     def __repr__(self) -> str:
-        data = " " + self._data.hex(':') if self._data else ""
+        data = f" (0x{self._data.hex()})" if self._data else ""
         return f"[PDI {self._pdi_command.friendly}{data}]"
 
     @staticmethod
@@ -137,7 +137,7 @@ class LcsReq(PdiReq, ABC):
         if self.payload is not None:
             payload = " " + self.payload
         elif self._data is not None:
-            payload = " " + self._data[3:].hex(':')
+            payload = f" (0x{self._data.hex()})" if self._data else ""
         else:
             payload = ""
 
@@ -310,7 +310,8 @@ class TmccReq(PdiReq):
             self._tmcc_command: CommandReq = CommandReq.from_bytes(self._data[1:])
 
     def __repr__(self) -> str:
-        return f"[PDI {self._pdi_command.friendly} {self.tmcc_command} {self._original.hex(':')}]"
+        data = f" (0x{self._data.hex()})" if self._data else ""
+        return f"[PDI {self._pdi_command.friendly} {self.tmcc_command}{data}]"
 
     @property
     def tmcc_command(self) -> CommandReq:
