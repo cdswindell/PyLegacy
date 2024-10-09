@@ -38,6 +38,8 @@ class PdiReq(ABC):
             return Ser2Req(data)
         if dev_type == "IRDA":
             return IrdaReq(data)
+        if dev_type == "BPC2":
+            return Bpc2Req(data)
         else:
             raise NotImplementedError(f"PdiCommand {pdi_cmd.name} not implemented")
 
@@ -147,16 +149,19 @@ class LcsReq(PdiReq, ABC):
 
     def __init__(self, data: bytes | int,
                  pdi_command: PdiCommand = None,
-                 action: int = None) -> None:
+                 action: int = None,
+                 ident: int | None = None) -> None:
         super().__init__(data, pdi_command)
         if isinstance(data, bytes):
             if PdiCommand(data[1]).is_lcs is False:
                 raise ValueError(f"Invalid PDI LCS Request: {data}")
             self._tmcc_id = self._data[1]
             self._action_byte = self._data[2]
+            self._ident = None
         else:
             self._action_byte = action
             self._tmcc_id = int(data)
+            self._ident = ident
 
     def __repr__(self) -> str:
         if self.payload is not None:
@@ -171,6 +176,10 @@ class LcsReq(PdiReq, ABC):
     @property
     def tmcc_id(self) -> int:
         return self._tmcc_id
+
+    @property
+    def ident(self) -> int:
+        return self._ident
 
     @property
     def as_bytes(self) -> bytes:
@@ -193,8 +202,9 @@ class Ser2Req(LcsReq):
     def __init__(self,
                  data: bytes | int,
                  pdi_command: PdiCommand = PdiCommand.SER2_GET,
-                 action: Ser2Action = Ser2Action.CONFIG) -> None:
-        super().__init__(data, pdi_command, action.bits)
+                 action: Ser2Action = Ser2Action.CONFIG,
+                 ident: int | None = None) -> None:
+        super().__init__(data, pdi_command, action.bits, ident)
         if isinstance(data, bytes):
             self._action = Ser2Action(self._action_byte)
         else:
@@ -217,8 +227,9 @@ class IrdaReq(LcsReq):
     def __init__(self,
                  data: bytes | int,
                  pdi_command: PdiCommand = PdiCommand.IRDA_GET,
-                 action: IrdaAction = IrdaAction.CONFIG) -> None:
-        super().__init__(data, pdi_command, action.bits)
+                 action: IrdaAction = IrdaAction.CONFIG,
+                 ident: int | None = None) -> None:
+        super().__init__(data, pdi_command, action.bits, ident)
         if isinstance(data, bytes):
             self._action = IrdaAction(self._action_byte)
         else:
@@ -241,24 +252,84 @@ class Bpc2Req(LcsReq):
     def __init__(self,
                  data: bytes | int,
                  pdi_command: PdiCommand = PdiCommand.BPC2_GET,
-                 action: Bpc2Action = Bpc2Action.CONFIG) -> None:
-        super().__init__(data, pdi_command, action.bits)
+                 action: Bpc2Action = Bpc2Action.CONFIG,
+                 ident: int | None = None,
+                 mode: int = None,
+                 debug: int = None,
+                 restore: bool = None) -> None:
+        super().__init__(data, pdi_command, action.bits, ident)
+        self._scope = CommandScope.ACC
         if isinstance(data, bytes):
             self._action = Bpc2Action(self._action_byte)
+            data_len = len(self._data)
+            if self._action == Bpc2Action.CONFIG:
+                self._mode = self._data[7] if data_len > 7 else None
+                self._restore = (self._mode & 0x80) == 0x80
+                if self._restore:
+                    self._mode &= 0x7F
+                self._debug = self._data[4] if data_len > 4 else None
+            else:
+                self._mode = self._debug = self._restore = None
         else:
             self._action = action
+            self._mode = mode
+            self._debug = debug
+            self._restore = restore
+
+    @property
+    def scope(self) -> CommandScope:
+        return self._scope
 
     @property
     def action(self) -> Bpc2Action:
         return self._action
 
     @property
-    def payload(self) -> str | None:
-        return None
+    def mode(self) -> int | None:
+        return self._mode
 
     @property
-    def scope(self) -> CommandScope:
-        return CommandScope.ACC
+    def restore(self) -> bool:
+        return self._restore
+
+    @property
+    def debug(self) -> int | None:
+        return self._debug
+
+    @property
+    def payload(self) -> str | None:
+        if self._data:
+            payload_bytes = self._data[3:]
+        else:
+            payload_bytes = bytes()
+        if self.action == Bpc2Action.CONFIG:
+            return f"Mode: {self.mode} Debug: Restore: {self.restore} {self.debug} (0x{payload_bytes.hex()})"
+
+        return f" (0x{payload_bytes.hex()})"
+
+    @property
+    def as_bytes(self) -> bytes:
+        byte_str = self.pdi_command.as_bytes
+        byte_str += self.tmcc_id.to_bytes(1, byteorder='big')
+        byte_str += self.action.as_bytes
+
+        if self._action == Bpc2Action.CONFIG:
+            if self.pdi_command != PdiCommand.BPC2_GET:
+                debug = (self.debug if self.debug is not None else 0)
+                mode = self.mode | 0x80 if self.restore else self.mode
+                byte_str += self.tmcc_id.to_bytes(1, byteorder='big')  # allows board to be renumbered
+                byte_str += debug.to_bytes(1, byteorder='big')
+                byte_str += (0x0000).to_bytes(2, byteorder='big')
+                byte_str += mode.to_bytes(1, byteorder='big')
+        elif self._action == Bpc2Action.IDENTIFY:
+            if self.pdi_command == PdiCommand.BPC2_SET:
+                byte_str += (self.ident if self.ident is not None else 0).to_bytes(1, byteorder='big')
+
+        byte_str, checksum = self._calculate_checksum(byte_str)
+        byte_str = PDI_SOP.to_bytes(1, byteorder='big') + byte_str
+        byte_str += checksum
+        byte_str += PDI_EOP.to_bytes(1, byteorder='big')
+        return byte_str
 
 
 WIFI_MODE_MAP = {
@@ -272,8 +343,9 @@ class WiFiReq(LcsReq):
     def __init__(self,
                  data: bytes | int,
                  pdi_command: PdiCommand = PdiCommand.WIFI_GET,
-                 action: WiFiAction = WiFiAction.CONFIG) -> None:
-        super().__init__(data, pdi_command, action.bits)
+                 action: WiFiAction = WiFiAction.CONFIG,
+                 ident: int | None = None) -> None:
+        super().__init__(data, pdi_command, action.bits, ident)
         if isinstance(data, bytes):
             self._action = WiFiAction(self._action_byte)
         else:
