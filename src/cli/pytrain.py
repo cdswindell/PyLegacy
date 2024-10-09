@@ -238,8 +238,7 @@ class PyTrain:
         agr = AllGetReq()
         self._pdi_buffer.enqueue_command(agr)
 
-    @staticmethod
-    def _command_parser() -> ArgumentParser:
+    def _command_parser(self) -> ArgumentParser:
         """
             Parse the first token of the user's input
         """
@@ -292,11 +291,12 @@ class PyTrain:
                            const=LightingCli,
                            dest="command",
                            help="Issue engine/train lighting effects commands")
-        group.add_argument("-pdi",
-                           action="store_const",
-                           const="pdi",
-                           dest="command",
-                           help="Sent PDI commands")
+        if self.is_server:
+            group.add_argument("-pdi",
+                               action="store_const",
+                               const="pdi",
+                               dest="command",
+                               help="Sent PDI commands")
         group.add_argument("-route",
                            action="store_const",
                            const=RouteCli,
