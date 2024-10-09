@@ -235,10 +235,9 @@ class PyTrain:
             self._echo = False
 
     def _do_pdi(self, param):
-        if param is None:
-            agr = AllGetReq()
-            print(agr)
-            self._base3_listener.enqueue_command(agr)
+        agr = AllGetReq()
+        print(agr)
+        self._base3_listener.enqueue_command(agr)
 
     @staticmethod
     def _command_parser() -> ArgumentParser:
