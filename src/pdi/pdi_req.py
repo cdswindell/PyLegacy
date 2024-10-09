@@ -22,7 +22,7 @@ class PdiReq(ABC):
 
         dev_type = pdi_cmd.name.split('_')[0].upper()
         if dev_type == "ALL":
-            return AllReq(data)
+            return AllGetReq(data)
         if dev_type == "BASE":
             return BaseReq(data)
         if dev_type == "TMCC":
@@ -136,7 +136,7 @@ class PdiReq(ABC):
 
     @property
     def payload(self) -> str | None:
-        return None
+        return f"({self.packet})"
 
     @property
     def packet(self) -> str:
@@ -263,7 +263,10 @@ class Bpc2Req(LcsReq):
                  ident: int | None = None,
                  mode: int = None,
                  debug: int = None,
-                 restore: bool = None) -> None:
+                 restore: bool = None,
+                 state: int = None,
+                 values: int = None,
+                 valids: int = None) -> None:
         super().__init__(data, pdi_command, action.bits, ident)
         self._scope = CommandScope.ACC
         if isinstance(data, bytes):
@@ -277,11 +280,26 @@ class Bpc2Req(LcsReq):
                 self._debug = self._data[4] if data_len > 4 else None
             else:
                 self._mode = self._debug = self._restore = None
+
+            if self._action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+                self._state = self._data[3] if data_len > 3 else None
+                self._values = self._valids = None
+                self._scope = CommandScope.TRAIN
+            elif self._action in [Bpc2Action.CONTROL2, Bpc2Action.CONTROL4]:
+                self._values = self._data[3] if data_len > 3 else None
+                self._valids = self._data[4] if data_len > 4 else None
+                self._state = None
+                self._scope = CommandScope.TRAIN
+            else:
+                self._state = self._values = self._valids = None
         else:
             self._action = action
             self._mode = mode
             self._debug = debug
             self._restore = restore
+            self._state = state
+            self._values = values
+            self._valids = valids
 
     @property
     def scope(self) -> CommandScope:
@@ -304,10 +322,22 @@ class Bpc2Req(LcsReq):
         return self._debug
 
     @property
-    def payload(self) -> str | None:
-        if self.action == Bpc2Action.CONFIG:
-            return f"Mode: {self.mode} Debug: Restore: {self.restore} {self.debug} ({self.packet})"
+    def state(self) -> int | None:
+        return self._state
 
+    @property
+    def values(self) -> int | None:
+        return self._values
+
+    @property
+    def valids(self) -> int | None:
+        return self._valids
+
+    @property
+    def payload(self) -> str | None:
+        if self.pdi_command != PdiCommand.ASC2_GET:
+            if self.action == Bpc2Action.CONFIG:
+                return f"Mode: {self.mode} Debug: Restore: {self.restore} {self.debug} ({self.packet})"
         return f" ({self.packet})"
 
     @property
@@ -327,7 +357,22 @@ class Bpc2Req(LcsReq):
         elif self._action == Bpc2Action.IDENTIFY:
             if self.pdi_command == PdiCommand.BPC2_SET:
                 byte_str += (self.ident if self.ident is not None else 0).to_bytes(1, byteorder='big')
-
+        elif self._action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+            if self.pdi_command != PdiCommand.BPC2_GET:
+                byte_str += (self.state if self.state is not None else 0).to_bytes(1, byteorder='big')
+        elif self._action in [Bpc2Action.CONTROL2, Bpc2Action.CONTROL4]:
+            if self.pdi_command != PdiCommand.BPC2_GET:
+                byte_str += (self.state if self.state is not None else 0).to_bytes(1, byteorder='big')
+                values = (self.values if self.values is not None else 0)
+                valids = (self.values if self.valids is not None else 0)
+                byte_str += values.to_bytes(1, byteorder='big')
+                byte_str += valids.to_bytes(1, byteorder='big')
+        elif self._action == Bpc2Action.CONTROL2:
+            if self.pdi_command != PdiCommand.BPC2_GET:
+                values = (self.values if self.values is not None else 0)
+                valids = (self.values if self.valids is not None else 0)
+                byte_str += values.to_bytes(1, byteorder='big')
+                byte_str += valids.to_bytes(1, byteorder='big')
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder='big') + byte_str
         byte_str += checksum
@@ -395,7 +440,7 @@ class WiFiReq(LcsReq):
                 return f"Base IP: {ip_addr} {clients}"
             elif self.action == WiFiAction.RESPBCASTS:
                 return f"Broadcasts {'ENABLED' if payload_bytes[0] == 1 else 'DISABLED'}: {payload_bytes[0]}"
-            return payload_bytes.hex(':')
+            return f"({self.packet})"
 
     @property
     def scope(self) -> CommandScope:
@@ -449,7 +494,7 @@ class BaseReq(PdiReq):
         return CommandScope.SYSTEM
 
 
-class AllReq(PdiReq):
+class AllGetReq(PdiReq):
     def __init__(self,
                  data: bytes = None,
                  pdi_command: PdiCommand = PdiCommand.ALL_GET) -> None:

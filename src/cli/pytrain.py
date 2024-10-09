@@ -25,8 +25,10 @@ from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
 from src.db.client_state_listener import ClientStateListener
 from src.db.component_state_store import ComponentStateStore
 from src.gpio.gpio_handler import GpioHandler
+from src.pdi.asc2_req import Asc2Req
+from src.pdi.constants import PdiCommand, Asc2Action
 from src.pdi.pdi_listener import PdiListener
-from src.pdi.pdi_req import PdiReq
+from src.pdi.pdi_req import PdiReq, AllGetReq
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC, DEFAULT_BASE3_PORT
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
@@ -173,6 +175,9 @@ class PyTrain:
                     if args.command == 'db':
                         self._query_status(ui_parts[1:])
                         return
+                    if args.command == 'pdi':
+                        self._do_pdi(ui_parts[1:])
+                        return
                     if args.command == 'echo':
                         self._handle_echo(ui_parts)
                         return
@@ -231,6 +236,10 @@ class PyTrain:
                     print("PDI command echoing DISABLED")
             self._echo = False
 
+    def _do_pdi(self, param):
+        if param is None:
+            self._base3_listener.enqueue_command(AllGetReq())
+
     @staticmethod
     def _command_parser() -> ArgumentParser:
         """
@@ -285,6 +294,11 @@ class PyTrain:
                            const=LightingCli,
                            dest="command",
                            help="Issue engine/train lighting effects commands")
+        group.add_argument("-pdi",
+                           action="store_const",
+                           const="pdi",
+                           dest="command",
+                           help="Sent PDI commands")
         group.add_argument("-route",
                            action="store_const",
                            const=RouteCli,
