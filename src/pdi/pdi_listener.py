@@ -22,11 +22,13 @@ class PdiListener(Thread):
     def build(cls,
               base3: str,
               base3_port: int = DEFAULT_BASE3_PORT,
-              queue_size: int = DEFAULT_QUEUE_SIZE) -> PdiListener:
+              queue_size: int = DEFAULT_QUEUE_SIZE,
+              build_base3_reader: bool = True
+              ) -> PdiListener:
         """
             Factory method to create a CommandListener instance
         """
-        return PdiListener(base3, base3_port, queue_size)
+        return PdiListener(base3, base3_port, queue_size, build_base3_reader)
 
     @classmethod
     def listen_for(cls,
@@ -56,9 +58,11 @@ class PdiListener(Thread):
     def enqueue_command(cls, data: bytes | PdiReq) -> None:
         if cls._instance is not None and data:
             if isinstance(data, PdiReq):
-                data = data.as_bytes
-            # noinspection PyProtectedMember
-            cls._instance._base3.send(data)
+                # noinspection PyProtectedMember
+                cls._instance._dispatcher.offer(data)
+            else:
+                # noinspection PyProtectedMember
+                cls._instance._base3.send(data)
 
     @classmethod
     def stop(cls) -> None:
@@ -80,7 +84,8 @@ class PdiListener(Thread):
     def __init__(self,
                  base3_addr: str,
                  base3_port: int = DEFAULT_BASE3_PORT,
-                 queue_size: int = DEFAULT_QUEUE_SIZE) -> None:
+                 queue_size: int = DEFAULT_QUEUE_SIZE,
+                 build_base3_reader: bool = True) -> None:
         if self._initialized:
             return
         else:
@@ -90,8 +95,11 @@ class PdiListener(Thread):
         super().__init__(daemon=True, name="PyLegacy PDI Listener")
 
         # open a connection to our Base 3
-        from .base3_buffer import Base3Buffer
-        self._base3 = Base3Buffer(base3_addr, base3_port, queue_size, self)
+        if build_base3_reader is True:
+            from .base3_buffer import Base3Buffer
+            self._base3 = Base3Buffer(base3_addr, base3_port, queue_size, self)
+        else:
+            self._base3 = None
 
         # create the thread
 

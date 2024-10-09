@@ -52,8 +52,8 @@ class PyTrain:
             self._base3_port = base3_pieces[1] if len(base3_pieces) > 1 else DEFAULT_BASE3_PORT
         else:
             self._base3_addr = self._base3_port = None
-        self._base3_listener = None
-        self._comm_buffer = CommBuffer.build(baudrate=self._baudrate,
+        self._pdi_buffer = None
+        self._tmcc_buffer = CommBuffer.build(baudrate=self._baudrate,
                                              port=self._port,
                                              server=self._server)
         listeners = []
@@ -67,8 +67,8 @@ class PyTrain:
                 listeners.append(self._tmcc_listener)
             if self._base3_addr is not None:
                 print(f"Listening for Base3 broadcasts on  {self._base3_addr}:{self._base3_port}...")
-                self._base3_listener = PdiListener.build(self._base3_addr, self._base3_port)
-                listeners.append(self._base3_listener)
+                self._pdi_buffer = PdiListener.build(self._base3_addr, self._base3_port)
+                listeners.append(self._pdi_buffer)
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             print(f"Listening for state updates on {self._args.server_port}...")
@@ -107,7 +107,7 @@ class PyTrain:
 
     @property
     def buffer(self) -> CommBuffer:
-        return self._comm_buffer
+        return self._tmcc_buffer
 
     def run(self) -> None:
         # process startup script
@@ -221,22 +221,22 @@ class PyTrain:
             if self._echo is False:
                 self._tmcc_listener.listen_for(self, BROADCAST_TOPIC)
                 print("TMCC command echoing ENABLED..")
-                if self._base3_listener:
-                    self._base3_listener.listen_for(self, BROADCAST_TOPIC)
+                if self._pdi_buffer:
+                    self._pdi_buffer.listen_for(self, BROADCAST_TOPIC)
                     print("PDI command echoing ENABLED")
             self._echo = True
         else:
             if self._echo is True:
                 self._tmcc_listener.unsubscribe(self, BROADCAST_TOPIC)
                 print("TMCC command echoing DISABLED...")
-                if self._base3_listener:
-                    self._base3_listener.unsubscribe(self, BROADCAST_TOPIC)
+                if self._pdi_buffer:
+                    self._pdi_buffer.unsubscribe(self, BROADCAST_TOPIC)
                     print("PDI command echoing DISABLED")
             self._echo = False
 
     def _do_pdi(self, param):
         agr = AllGetReq()
-        self._base3_listener.enqueue_command(agr)
+        self._pdi_buffer.enqueue_command(agr)
 
     @staticmethod
     def _command_parser() -> ArgumentParser:

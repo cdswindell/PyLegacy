@@ -6,6 +6,7 @@ from threading import Thread
 from typing import List
 
 from ..comm.comm_buffer import CommBuffer
+from ..pdi.constants import PDI_SOP
 from ..protocol.constants import DEFAULT_SERVER_PORT
 
 REGISTER_REQUEST: bytes = int(0xff).to_bytes(1) * 6
@@ -28,6 +29,14 @@ class EnqueueProxyRequests(Thread):
         return EnqueueProxyRequests(buffer, port)
 
     @classmethod
+    def enqueue_tmcc_packet(cls, data: bytes) -> None:
+        EnqueueProxyRequests.get_comm_buffer().enqueue_command(data)
+
+    @classmethod
+    def enqueue_pdi_packet(cls, data: bytes) -> None:
+        EnqueueProxyRequests.get_pdi_buffer().enqueue_command(data)
+
+    @classmethod
     def note_client_addr(cls, client: str) -> None:
         """
             Take note of client IPs, so we can update them of component state changes
@@ -39,7 +48,12 @@ class EnqueueProxyRequests(Thread):
     @classmethod
     def get_comm_buffer(cls) -> CommBuffer:
         # noinspection PyProtectedMember
-        return cls._instance._buffer if cls._instance is not None else None
+        return cls._instance._tmcc_buffer if cls._instance is not None else None
+
+    @classmethod
+    def get_pdi_buffer(cls) -> CommBuffer:
+        # noinspection PyProtectedMember
+        return cls._instance._tmcc_buffer if cls._instance is not None else None
 
     @classmethod
     def stop(cls) -> None:
@@ -81,7 +95,7 @@ class EnqueueProxyRequests(Thread):
         raise AttributeError("EnqueueProxyRequests is not built yet.")
 
     def __init__(self,
-                 buffer: CommBuffer,
+                 tmcc_buffer: CommBuffer,
                  port: int = DEFAULT_SERVER_PORT
                  ) -> None:
         if self._initialized:
@@ -89,7 +103,7 @@ class EnqueueProxyRequests(Thread):
         else:
             self._initialized = True
         super().__init__(daemon=True, name="PyLegacy Enqueue Receiver")
-        self._buffer: CommBuffer = buffer
+        self._tmcc_buffer: CommBuffer = tmcc_buffer
         self._port = port
         self._clients: set[str] = set()
         self.start()
@@ -137,4 +151,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             from ..comm.command_listener import CommandDispatcher
             CommandDispatcher.build().send_current_state(self.client_address[0])
         else:
-            EnqueueProxyRequests.get_comm_buffer().enqueue_command(byte_stream)
+            # dispatch PDI packets to the PDI handler
+            if byte_stream and byte_stream[0] == PDI_SOP:
+                EnqueueProxyRequests.enqueue_pdi_packet(byte_stream)
+            else:
+                EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
