@@ -25,8 +25,6 @@ from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
 from src.db.client_state_listener import ClientStateListener
 from src.db.component_state_store import ComponentStateStore
 from src.gpio.gpio_handler import GpioHandler
-from src.pdi.asc2_req import Asc2Req
-from src.pdi.constants import PdiCommand, Asc2Action
 from src.pdi.pdi_listener import PdiListener
 from src.pdi.pdi_req import PdiReq, AllGetReq
 from src.protocol.command_req import CommandReq
