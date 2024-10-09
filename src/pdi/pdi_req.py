@@ -2,35 +2,29 @@ from __future__ import annotations
 
 import abc
 from abc import ABC
+from enum import Enum
 from typing import Self, Tuple, TypeVar
 
-from .constants import PDI_SOP, PDI_EOP, PdiCommand, PDI_STF, CommonAction, PdiAction
+from .constants import PDI_SOP, PDI_EOP, PDI_STF, CommonAction, PdiAction, PdiCommand
 from .constants import IrdaAction, Ser2Action
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 
 T = TypeVar('T', bound=PdiAction)
 
-DEVICE_TO_REQ_MAP = {}
-
 
 class PdiReq(ABC):
     __metaclass__ = abc.ABCMeta
 
-    # noinspection PyUnresolvedReferences
     @classmethod
     def from_bytes(cls, data: bytes) -> Self:
-        from src.pdi.asc2_req import Asc2Req
-        from src.pdi.bpc2_req import Bpc2Req
-        from src.pdi.wifi_req import WiFiReq
-
         # throws an exception if we can't dereference
         pdi_cmd = PdiCommand(data[1])
-
-        dev_type = pdi_cmd.name.split('_')[0].upper()
-        if dev_type in DEVICE_TO_REQ_MAP:
-            return DEVICE_TO_REQ_MAP[dev_type](data)
-        else:
+        try:
+            from .constants import PdiDevice
+            dev = PdiDevice(pdi_cmd.name.split('_')[0].upper())
+            return dev.build(data)
+        except ValueError:
             raise NotImplementedError(f"PdiCommand {pdi_cmd.name} not implemented")
 
     def __init__(self,
@@ -225,9 +219,6 @@ class Ser2Req(LcsReq):
         return CommandScope.SYSTEM
 
 
-DEVICE_TO_REQ_MAP['SER2'] = Ser2Req
-
-
 class IrdaReq(LcsReq):
     def __init__(self,
                  data: bytes | int,
@@ -251,9 +242,6 @@ class IrdaReq(LcsReq):
     @property
     def scope(self) -> CommandScope:
         return CommandScope.SYSTEM
-
-
-DEVICE_TO_REQ_MAP['IRDA'] = IrdaReq
 
 
 class TmccReq(PdiReq):
@@ -292,7 +280,15 @@ class TmccReq(PdiReq):
         return CommandScope.SYSTEM
 
 
-DEVICE_TO_REQ_MAP['TMCC'] = TmccReq
+class Stm2Req(PdiReq):
+    def __init__(self, data: bytes):
+        if PdiCommand(data[1]).is_base is False:
+            raise ValueError(f"Invalid PDI Base Request: {data}")
+        super().__init__(data)
+
+    @property
+    def scope(self) -> CommandScope:
+        return CommandScope.SWITCH
 
 
 class BaseReq(PdiReq):
@@ -306,11 +302,7 @@ class BaseReq(PdiReq):
         return CommandScope.SYSTEM
 
 
-DEVICE_TO_REQ_MAP['BASE'] = BaseReq
-DEVICE_TO_REQ_MAP['UPDATE'] = BaseReq
-
-
-class AllGetReq(PdiReq):
+class AllReq(PdiReq):
     def __init__(self,
                  data: bytes = None,
                  pdi_command: PdiCommand = PdiCommand.ALL_GET) -> None:
@@ -323,9 +315,6 @@ class AllGetReq(PdiReq):
     @property
     def scope(self) -> CommandScope:
         return CommandScope.SYSTEM
-
-
-DEVICE_TO_REQ_MAP['ALL'] = AllGetReq
 
 
 class PingReq(PdiReq):
@@ -352,4 +341,33 @@ class PingReq(PdiReq):
         return f"[PDI {self._pdi_command.friendly}]"
 
 
-DEVICE_TO_REQ_MAP['PING'] = PingReq
+class DeviceWrapper:
+    C = TypeVar('C', bound=PdiReq.__class__)
+    E = TypeVar('E', bound=Enum)
+    T = TypeVar('T', bound=PdiReq)
+
+    def __init__(self,
+                 req_class: C,
+                 enums: E = None,
+                 *commands: PdiCommand) -> None:
+        self.req_class = req_class
+        self.enums = enums
+        self.commands = commands
+        self.get: PdiCommand = self._harvest_command('GET')
+        self.set: PdiCommand = self._harvest_command('SET')
+        self.rx: PdiCommand = self._harvest_command('RX')
+
+    def build(self, data: bytes) -> T:
+        return self.req_class(data)
+
+    def identify(self, tmcc_id: int, ident: int = 1) -> T:
+        if self.set is not None:
+            enum = self.enums.by_name("IDENTIFY")
+            return self.req_class(tmcc_id, self.set, enum, ident)
+
+    def _harvest_command(self, suffix: str) -> PdiCommand | None:
+        suffix = suffix.strip().upper()
+        for e in self.commands:
+            if e.name.endswith(suffix):
+                return e
+        return None

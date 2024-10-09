@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.pdi.constants import PdiCommand, Bpc2Action, PDI_SOP, PDI_EOP
-from src.pdi.pdi_req import LcsReq, DEVICE_TO_REQ_MAP
+from src.pdi.pdi_req import LcsReq
 from src.protocol.constants import CommandScope
 
 
@@ -128,6 +128,3 @@ class Bpc2Req(LcsReq):
         byte_str += checksum
         byte_str += PDI_EOP.to_bytes(1, byteorder='big')
         return byte_str
-
-
-DEVICE_TO_REQ_MAP['BPC2'] = Bpc2Req

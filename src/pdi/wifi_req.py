@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.pdi.constants import PdiCommand, WiFiAction
-from src.pdi.pdi_req import LcsReq, DEVICE_TO_REQ_MAP
+from src.pdi.pdi_req import LcsReq
 from src.protocol.constants import CommandScope
 
 WIFI_MODE_MAP = {
@@ -69,6 +69,3 @@ class WiFiReq(LcsReq):
     @property
     def scope(self) -> CommandScope:
         return CommandScope.SYSTEM
-
-
-DEVICE_TO_REQ_MAP['WIFI'] = WiFiReq

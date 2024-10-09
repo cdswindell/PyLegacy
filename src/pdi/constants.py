@@ -1,7 +1,8 @@
 """
     Lionel PDI Command Protocol Constants
 """
-from enum import IntEnum, Enum
+from enum import IntEnum, Enum, unique, UNIQUE, verify
+from typing import TypeVar
 
 from ..protocol.constants import Mixins
 
@@ -54,6 +55,10 @@ BPC2_GET: int = 0x40
 BPC2_SET: int = 0x41
 BPC2_RX: int = 0x42
 
+STM2_GET: int = 0x4C
+STM2_SET: int = 0x4D
+STM2_RX: int = 0x4E
+
 
 class FriendlyMixins(Enum):
     @property
@@ -73,8 +78,8 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     TMCC_TX = TMCC_TX
     TMCC_RX = TMCC_RX
     PING = PING
-    UPDATE_ENGINE_SPEED = PDI_SOP
-    UPDATE_TRAIN_SPEED = PDI_STF
+    UPDATE_ENGINE_SPEED = UPDATE_ENGINE_SPEED
+    UPDATE_TRAIN_SPEED = UPDATE_TRAIN_SPEED
     IRDA_GET = IRDA_GET
     IRDA_SET = IRDA_SET
     IRDA_RX = IRDA_RX
@@ -91,6 +96,9 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     BPC2_GET = BPC2_GET
     BPC2_SET = BPC2_SET
     BPC2_RX = BPC2_RX
+    STM2_GET = STM2_GET
+    STM2_SET = STM2_SET
+    STM2_RX = STM2_RX
 
     @property
     def is_ping(self) -> bool:
@@ -168,6 +176,7 @@ class ActionDef:
         return self._responds
 
 
+@unique
 class PdiAction(Mixins, FriendlyMixins):
     """
         Marker interface for all Pdi Action enums
@@ -201,6 +210,7 @@ ACTION_RESET: int = 0x06
 ACTION_IDENTIFY: int = 0x07
 
 
+@unique
 class CommonAction(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
@@ -218,6 +228,7 @@ ACTION_WIFI_UNLOCK: int = 0x13
 ACTION_WIFI_PASSCODE: int = 0x14
 
 
+@unique
 class WiFiAction(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
@@ -239,6 +250,7 @@ ACTION_RECORD: int = 0x12
 ACTION_DIAG_DATA: int = 0x13
 
 
+@unique
 class IrdaAction(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
@@ -260,6 +272,7 @@ ACTION_CONTROL4: int = 0x14
 ACTION_CONTROL5: int = 0x15
 
 
+@unique
 class Asc2Action(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
@@ -275,6 +288,7 @@ class Asc2Action(PdiAction):
     CONTROL5 = ActionDef(ACTION_CONTROL5, True, True, True)
 
 
+@unique
 class Ser2Action(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
@@ -288,6 +302,7 @@ class Ser2Action(PdiAction):
 ACTION_CONTROL4_BPC2: int = 0x13
 
 
+@unique
 class Bpc2Action(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
@@ -302,6 +317,7 @@ class Bpc2Action(PdiAction):
     CONTROL4 = ActionDef(ACTION_CONTROL4_BPC2, True, True, True)
 
 
+@unique
 class Stm2Action(PdiAction):
     FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
     STATUS = ActionDef(ACTION_STATUS, True, False, True)
@@ -311,3 +327,40 @@ class Stm2Action(PdiAction):
     RESET = ActionDef(ACTION_RESET, False, True, False)
     IDENTIFY = ActionDef(ACTION_IDENTIFY, False, True, False)
     CONTROL1 = ActionDef(ACTION_CONTROL1, True, False, True)
+
+
+@verify(UNIQUE)
+class PdiDevice(Mixins, FriendlyMixins):
+    """
+        All supported LCS/PDI devices should be listed here, along with their
+        constructor class wrapped in a DeviceWrapper
+    """
+    from src.pdi.asc2_req import Asc2Req
+    from src.pdi.bpc2_req import Bpc2Req
+    from src.pdi.wifi_req import WiFiReq
+    from .pdi_req import AllReq, BaseReq, IrdaReq, PingReq, Ser2Req, Stm2Req, TmccReq
+    from .pdi_req import DeviceWrapper
+
+    ALL = DeviceWrapper(AllReq, PdiCommand.ALL_GET, PdiCommand.ALL_SET)
+    ASC2 = DeviceWrapper(Asc2Req, Asc2Action, PdiCommand.ASC2_GET, PdiCommand.ASC2_SET, PdiCommand.ASC2_RX)
+    BASE = DeviceWrapper(BaseReq)
+    BPC2 = DeviceWrapper(Bpc2Req, Bpc2Action, PdiCommand.BPC2_GET, PdiCommand.BPC2_SET, PdiCommand.BPC2_RX)
+    IRDA = DeviceWrapper(IrdaReq, IrdaAction, PdiCommand.IRDA_GET, PdiCommand.IRDA_SET, PdiCommand.IRDA_RX)
+    PING = DeviceWrapper(PingReq)
+    SER2 = DeviceWrapper(Ser2Req, Ser2Action, PdiCommand.SER2_GET, PdiCommand.SER2_SET, PdiCommand.SER2_RX)
+    STM2 = DeviceWrapper(Stm2Req, Stm2Action, PdiCommand.STM2_GET, PdiCommand.STM2_SET, PdiCommand.STM2_RX)
+    TMCC = DeviceWrapper(TmccReq, PdiCommand.TMCC_TX, PdiCommand.TMCC_RX)
+    WIFI = DeviceWrapper(WiFiReq, WiFiAction, PdiCommand.WIFI_GET, PdiCommand.WIFI_SET, PdiCommand.WIFI_RX)
+    UPDATE = DeviceWrapper(BaseReq)
+
+    from .pdi_req import PdiReq
+    T = TypeVar('T', bound=PdiReq)
+
+    def build(self, data: bytes) -> T:
+        return self.value.req_class(data)
+
+    def identify(self, tmcc_id: int, ident: int = 2) -> T:
+        """
+            Build an Identify request
+        """
+        return self.value.identify(tmcc_id, ident)

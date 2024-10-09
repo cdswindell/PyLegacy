@@ -26,7 +26,7 @@ from src.db.client_state_listener import ClientStateListener
 from src.db.component_state_store import ComponentStateStore
 from src.gpio.gpio_handler import GpioHandler
 from src.pdi.pdi_listener import PdiListener
-from src.pdi.pdi_req import PdiReq, AllGetReq
+from src.pdi.pdi_req import PdiReq, AllReq
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC, DEFAULT_BASE3_PORT
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
@@ -235,7 +235,7 @@ class PyTrain:
             self._echo = False
 
     def _do_pdi(self, param):
-        agr = AllGetReq()
+        agr = AllReq()
         self._pdi_buffer.enqueue_command(agr)
 
     def _command_parser(self) -> ArgumentParser:
