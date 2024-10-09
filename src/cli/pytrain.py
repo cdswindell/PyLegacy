@@ -236,7 +236,6 @@ class PyTrain:
 
     def _do_pdi(self, param):
         agr = AllGetReq()
-        print(agr)
         self._base3_listener.enqueue_command(agr)
 
     @staticmethod
