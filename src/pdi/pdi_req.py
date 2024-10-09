@@ -139,6 +139,13 @@ class PdiReq(ABC):
         return None
 
     @property
+    def packet(self) -> str:
+        if self._data is None:
+            return "0x" + self.as_bytes.hex()
+        else:
+            return "0x" + self._data.hex()
+
+    @property
     @abc.abstractmethod
     def scope(self) -> CommandScope:
         ...
@@ -298,14 +305,10 @@ class Bpc2Req(LcsReq):
 
     @property
     def payload(self) -> str | None:
-        if self._data:
-            payload_bytes = self._data[3:]
-        else:
-            payload_bytes = bytes()
         if self.action == Bpc2Action.CONFIG:
-            return f"Mode: {self.mode} Debug: Restore: {self.restore} {self.debug} (0x{payload_bytes.hex()})"
+            return f"Mode: {self.mode} Debug: Restore: {self.restore} {self.debug} ({self.packet})"
 
-        return f" (0x{payload_bytes.hex()})"
+        return f" ({self.packet})"
 
     @property
     def as_bytes(self) -> bytes:

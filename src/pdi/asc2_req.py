@@ -107,36 +107,32 @@ class Asc2Req(LcsReq):
 
     @property
     def payload(self) -> str | None:
-        if self._data:
-            payload_bytes = self._data[3:]
-        else:
-            payload_bytes = bytes()
         if self.action == Asc2Action.CONFIG:
-            return f"Mode: {self.mode} Debug: {self.debug} Delay: {self.delay} [{payload_bytes.hex(':')}]"
+            return f"Mode: {self.mode} Debug: {self.debug} Delay: {self.delay} ({self.packet})"
         elif self._action == Asc2Action.IDENTIFY:
             if self.pdi_command == PdiCommand.ASC2_SET:
-                return f"Ident: {self.ident} (0x{payload_bytes.hex()})"
+                return f"Ident: {self.ident} ({self.packet})"
         elif self.action == Asc2Action.CONTROL1:
             if self.pdi_command != PdiCommand.ASC2_GET:
                 time = f" for {self.time:.2f} s" if self.time is not None else ""
-                return f"Relay: {'ON' if self.values == 1 else 'OFF'}{time} (0x{payload_bytes.hex()})"
+                return f"Relay: {'ON' if self.values == 1 else 'OFF'}{time} ({self.packet})"
         elif self.action == Asc2Action.CONTROL2:
             if self.pdi_command != PdiCommand.ASC2_GET:
-                return f"Relays: {self.values} Valids: {self.valids} (0x{payload_bytes.hex()})"
+                return f"Relays: {self.values} Valids: {self.valids} ({self.packet})"
         elif self.action == Asc2Action.CONTROL3:
             if self.pdi_command == PdiCommand.ASC2_RX:
-                return f"Relays: {self.values} Valids: {self.valids} (0x{payload_bytes.hex()})"
+                return f"Relays: {self.values} Valids: {self.valids} ({self.packet})"
             elif self.pdi_command == PdiCommand.ASC2_SET:
-                return f"Sub ID: {self.sub_id} Time: {self.time} (0x{payload_bytes.hex()})"
+                return f"Sub ID: {self.sub_id} Time: {self.time} ({self.packet})"
         elif self.action == Asc2Action.CONTROL4:
             if self.pdi_command == PdiCommand.ASC2_SET:
-                return f"{'THROUGH' if self.values == 0 else 'OUT'} Time: {self.time} (0x{payload_bytes.hex()})"
+                return f"{'THROUGH' if self.values == 0 else 'OUT'} Time: {self.time} ({self.packet})"
             elif self.pdi_command == PdiCommand.ASC2_RX:
-                return f"{'THROUGH' if self.values == 0 else 'OUT'} (0x{payload_bytes.hex()})"
+                return f"{'THROUGH' if self.values == 0 else 'OUT'} ({self.packet})"
         elif self.action == Asc2Action.CONTROL5:
             if self.pdi_command != PdiCommand.ASC2_GET:
-                return f"{'THROUGH' if self.values == 0 else 'OUT'} (0x{payload_bytes.hex()})"
-        return f" (0x{payload_bytes.hex()})"
+                return f"{'THROUGH' if self.values == 0 else 'OUT'} ({self.packet})"
+        return f" ({self.packet})"
 
     @property
     def as_bytes(self) -> bytes:
