@@ -20,7 +20,7 @@ class PdiListener(Thread):
 
     @classmethod
     def build(cls,
-              base3: str,
+              base3: str = None,
               base3_port: int = DEFAULT_BASE3_PORT,
               queue_size: int = DEFAULT_QUEUE_SIZE,
               build_base3_reader: bool = True
@@ -28,6 +28,8 @@ class PdiListener(Thread):
         """
             Factory method to create a CommandListener instance
         """
+        if base3 is None:
+            build_base3_reader = False
         return PdiListener(base3, base3_port, queue_size, build_base3_reader)
 
     @classmethod

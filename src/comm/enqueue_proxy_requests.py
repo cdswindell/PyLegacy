@@ -6,7 +6,6 @@ from threading import Thread
 from typing import List
 
 from ..comm.comm_buffer import CommBuffer
-from ..pdi.constants import PDI_SOP
 from ..protocol.constants import DEFAULT_SERVER_PORT
 
 REGISTER_REQUEST: bytes = int(0xff).to_bytes(1) * 6
@@ -33,10 +32,6 @@ class EnqueueProxyRequests(Thread):
         EnqueueProxyRequests.get_comm_buffer().enqueue_command(data)
 
     @classmethod
-    def enqueue_pdi_packet(cls, data: bytes) -> None:
-        EnqueueProxyRequests.get_pdi_buffer().enqueue_command(data)
-
-    @classmethod
     def note_client_addr(cls, client: str) -> None:
         """
             Take note of client IPs, so we can update them of component state changes
@@ -47,11 +42,6 @@ class EnqueueProxyRequests(Thread):
 
     @classmethod
     def get_comm_buffer(cls) -> CommBuffer:
-        # noinspection PyProtectedMember
-        return cls._instance._tmcc_buffer if cls._instance is not None else None
-
-    @classmethod
-    def get_pdi_buffer(cls) -> CommBuffer:
         # noinspection PyProtectedMember
         return cls._instance._tmcc_buffer if cls._instance is not None else None
 
@@ -151,8 +141,4 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             from ..comm.command_listener import CommandDispatcher
             CommandDispatcher.build().send_current_state(self.client_address[0])
         else:
-            # dispatch PDI packets to the PDI handler
-            if byte_stream and byte_stream[0] == PDI_SOP:
-                EnqueueProxyRequests.enqueue_pdi_packet(byte_stream)
-            else:
-                EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
+            EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
