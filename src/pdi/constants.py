@@ -300,3 +300,14 @@ class Bpc2Action(PdiAction):
     CONTROL2 = ActionDef(ACTION_CONTROL2, True, True, True)
     CONTROL3 = ActionDef(ACTION_CONTROL3, True, True, True)
     CONTROL4 = ActionDef(ACTION_CONTROL4_BPC2, True, True, True)
+
+
+class Stm2Action(PdiAction):
+    FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
+    STATUS = ActionDef(ACTION_STATUS, True, False, True)
+    CONFIG = ActionDef(ACTION_CONFIG, True, True, True)
+    INFO = ActionDef(ACTION_INFO, True, False, True)
+    CLEAR_ERRORS = ActionDef(ACTION_CLEAR_ERRORS, False, True, False)
+    RESET = ActionDef(ACTION_RESET, False, True, False)
+    IDENTIFY = ActionDef(ACTION_IDENTIFY, False, True, False)
+    CONTROL1 = ActionDef(ACTION_CONTROL1, True, False, True)

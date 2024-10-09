@@ -60,11 +60,9 @@ class PdiListener(Thread):
     def enqueue_command(cls, data: bytes | PdiReq) -> None:
         if cls._instance is not None and data:
             if isinstance(data, PdiReq):
-                # noinspection PyProtectedMember
-                cls._instance._dispatcher.offer(data)
-            else:
-                # noinspection PyProtectedMember
-                cls._instance._base3.send(data)
+                data = data.as_bytes
+            # noinspection PyProtectedMember
+            cls._instance._base3.send(data)
 
     @classmethod
     def stop(cls) -> None:
@@ -251,7 +249,7 @@ class PdiDispatcher(Thread):
         self._is_running = True
         self._broadcasts = False
         self._queue = Queue[PdiReq](queue_size)
-        self._tmcc_dispatcher = CommandDispatcher.get()
+        self._tmcc_dispatcher = CommandDispatcher.build(queue_size)
         self._client_port = EnqueueProxyRequests.port if EnqueueProxyRequests.is_built else None
         self.start()
 

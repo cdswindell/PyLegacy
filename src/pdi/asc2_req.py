@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .constants import PdiCommand, Asc2Action, PDI_SOP, PDI_EOP
-from .pdi_req import LcsReq
+from .pdi_req import LcsReq, DEVICE_TO_REQ_MAP
 from ..protocol.constants import CommandScope
 
 
@@ -191,3 +191,6 @@ class Asc2Req(LcsReq):
         byte_str += checksum
         byte_str += PDI_EOP.to_bytes(1, byteorder='big')
         return byte_str
+
+
+DEVICE_TO_REQ_MAP['ASC2'] = Asc2Req
