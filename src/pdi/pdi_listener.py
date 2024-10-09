@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 import threading
 from collections import deque, defaultdict
 from queue import Queue
@@ -7,8 +8,9 @@ from threading import Thread
 from typing import Tuple
 
 from .constants import PDI_SOP, PDI_STF, PDI_EOP, PdiAction
-from .pdi_req import PdiReq
-from ..comm.command_listener import Topic, Message, Channel, Subscriber
+from .pdi_req import PdiReq, TmccReq
+from ..comm.command_listener import Topic, Message, Channel, Subscriber, CommandDispatcher
+from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE3_PORT, BROADCAST_TOPIC
 
 
@@ -239,6 +241,8 @@ class PdiDispatcher(Thread):
         self._is_running = True
         self._broadcasts = False
         self._queue = Queue[PdiReq](queue_size)
+        self._tmcc_dispatcher = CommandDispatcher.get()
+        self._client_port = EnqueueProxyRequests.port if EnqueueProxyRequests.is_built else None
         self.start()
 
     @property
@@ -256,15 +260,41 @@ class PdiDispatcher(Thread):
             try:
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
-                    self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
-                    self.publish((cmd.scope, cmd.tmcc_id), cmd)
-                    self.publish(cmd.scope, cmd)
+                    # for TMCC requests, forward to CommandListener
+                    if isinstance(cmd, TmccReq):
+                        self._tmcc_dispatcher.offer(cmd.tmcc_command)
+                    else:
+                        self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
+                        self.publish((cmd.scope, cmd.tmcc_id), cmd)
+                        self.publish(cmd.scope, cmd)
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)
+                    if self._client_port is not None:
+                        self.update_client_state(cmd)
             except Exception as e:
                 print(e)
             finally:
                 self._queue.task_done()
+
+    def update_client_state(self, command: PdiReq):
+        """
+            Update all PyTrain clients with the dispatched command. Used to keep
+            client states in sync with server
+        """
+        if self._client_port is not None:
+            # noinspection PyTypeChecker
+            for client in EnqueueProxyRequests.clients:
+                try:
+                    with self._lock:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            s.connect((client, self._client_port))
+                            s.sendall(command.as_bytes)
+                            _ = s.recv(16)
+                except ConnectionRefusedError:
+                    # ignore disconnects; client will receive state update on reconnect
+                    pass
+                except Exception as e:
+                    print(f"Exception while sending PDI state update to {client}: {e}")
 
     def offer(self, pdi_req: PdiReq) -> None:
         """

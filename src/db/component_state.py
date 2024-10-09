@@ -187,7 +187,6 @@ class SwitchState(ComponentState):
                 if command.command != Switch.SET_ADDRESS:
                     self._state = command.command
             elif isinstance(command, Asc2Req):
-                print(f"Switch State Update received via ASC2: {command}")
                 self._state = Switch.THROUGH if command.is_thru else Switch.OUT
             else:
                 print(f"Switch State Update received: {command}")

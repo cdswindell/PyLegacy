@@ -135,6 +135,10 @@ class PdiReq(ABC):
         return self._pdi_command == PdiCommand.PING
 
     @property
+    def is_tmcc(self) -> bool:
+        return self._pdi_command.is_tmcc
+
+    @property
     def payload(self) -> str | None:
         return f"({self.packet})"
 

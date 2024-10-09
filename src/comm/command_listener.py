@@ -37,6 +37,12 @@ class CommandListener(Thread):
                                build_serial_reader=build_serial_reader)
 
     @classmethod
+    def get(cls) -> CommandListener:
+        if cls._instance is None:
+            cls.build()
+        return cls._instance
+
+    @classmethod
     def listen_for(cls,
                    listener: Subscriber,
                    channel: Topic,
@@ -260,6 +266,12 @@ class CommandDispatcher(Thread):
         return CommandDispatcher(queue_size)
 
     @classmethod
+    def get(cls) -> CommandDispatcher:
+        if cls._instance is None:
+            raise RuntimeError("Command Dispatcher not yet created")
+        return cls._instance
+
+    @classmethod
     def listen_for(cls,
                    listener: Subscriber,
                    channel: Topic,
@@ -359,7 +371,7 @@ class CommandDispatcher(Thread):
                     # ignore disconnects; client will receive state update on reconnect
                     pass
                 except Exception as e:
-                    print(f"Exception while sending state update to {client}: {e}")
+                    print(f"Exception while sending TMCC state update to {client}: {e}")
 
     def send_current_state(self, client_ip: str):
         """
