@@ -3,9 +3,9 @@ from __future__ import annotations
 import abc
 from abc import ABC
 from enum import Enum
-from typing import Self, Tuple, TypeVar
+from typing import Self, Tuple, TypeVar, List
 
-from .constants import PDI_SOP, PDI_EOP, PDI_STF, CommonAction, PdiAction, PdiCommand
+from .constants import PDI_SOP, PDI_EOP, PDI_STF, CommonAction, PdiAction, PdiCommand, ALL_STATUS
 from .constants import IrdaAction, Ser2Action
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
@@ -148,16 +148,64 @@ class LcsReq(PdiReq, ABC):
                  action: int = None,
                  ident: int | None = None) -> None:
         super().__init__(data, pdi_command)
+        self._board_id = self._num_ids = self._model = self._uart0 = self._uart1 = self._base_type = None
+        self._dc_volts = None
         if isinstance(data, bytes):
             if PdiCommand(data[1]).is_lcs is False:
                 raise ValueError(f"Invalid PDI LCS Request: {data}")
             self._tmcc_id = self._data[1]
             self._action_byte = self._data[2]
             self._ident = None
+            payload = self._data[3:]
+            payload_len = len(payload)
+            if self._is_action(ALL_STATUS):
+                self._board_id = payload[0] if payload_len > 0 else None
+                self._num_ids = payload[1] if payload_len > 1 else None
+                self._model = payload[2] if payload_len > 2 else None
+                self._uart0 = payload[3] if payload_len > 3 else None
+                self._uart1 = payload[4] if payload_len > 4 else None
+                self._base_type = payload[5] if payload_len > 5 else None
+                self._dc_volts = payload[6]/10.0 if payload_len > 6 else None
         else:
             self._action_byte = action
             self._tmcc_id = int(data)
             self._ident = ident
+
+    def _is_action(self, enums: List[T]) -> bool:
+        for enum in enums:
+            if enum.bits == self._action_byte:
+                return True
+        return False
+
+    def _is_command(self, enums: List[T]) -> bool:
+        for enum in enums:
+            if enum == self.pdi_command:
+                return True
+        return False
+
+    @property
+    def board_id(self) -> int | None:
+        return self._board_id
+
+    @property
+    def num_ids(self) -> int | None:
+        return self._num_ids
+
+    @property
+    def model(self) -> int | None:
+        return self._model
+
+    @property
+    def uart0(self) -> int | None:
+        return self._uart0
+
+    @property
+    def uart1(self) -> int | None:
+        return self._uart1
+
+    @property
+    def dc_volts(self) -> float | None:
+        return self._dc_volts
 
     def __repr__(self) -> str:
         if self.payload is not None:
@@ -187,6 +235,13 @@ class LcsReq(PdiReq, ABC):
         byte_str += checksum
         byte_str += PDI_EOP.to_bytes(1, byteorder='big')
         return byte_str
+
+    @property
+    def payload(self) -> str | None:
+        if self._is_action(ALL_STATUS) and self.pdi_command.name.endswith("_RX"):
+            l1 = f"Board ID: {self.board_id} Num IDs: {self.num_ids} Model: {self.model}"
+            return l1
+        return f" ({self.packet})"
 
     @property
     @abc.abstractmethod
@@ -359,6 +414,31 @@ class DeviceWrapper:
 
     def build(self, data: bytes) -> T:
         return self.req_class(data)
+
+    def firmware(self, tmcc_id: int) -> T:
+        if self.get is not None:
+            enum = self.enums.by_name("FIRMWARE")
+            return self.req_class(tmcc_id, self.get, enum)
+
+    def status(self, tmcc_id: int) -> T:
+        if self.get is not None:
+            enum = self.enums.by_name("STATUS")
+            return self.req_class(tmcc_id, self.get, enum)
+
+    def info(self, tmcc_id: int) -> T:
+        if self.get is not None:
+            enum = self.enums.by_name("INFO")
+            return self.req_class(tmcc_id, self.get, enum)
+
+    def clear_errors(self, tmcc_id: int) -> T:
+        if self.set is not None:
+            enum = self.enums.by_name("CLEAR_ERRORS")
+            return self.req_class(tmcc_id, self.set, enum)
+
+    def reset(self, tmcc_id: int) -> T:
+        if self.set is not None:
+            enum = self.enums.by_name("RESET")
+            return self.req_class(tmcc_id, self.set, enum)
 
     def identify(self, tmcc_id: int, ident: int = 1) -> T:
         if self.set is not None:

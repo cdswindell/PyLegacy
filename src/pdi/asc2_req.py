@@ -133,7 +133,7 @@ class Asc2Req(LcsReq):
                     return f"{'THROUGH' if self.values == 0 else 'OUT'} ({self.packet})"
             elif self.action == Asc2Action.CONTROL5:
                 return f"{'THROUGH' if self.values == 0 else 'OUT'} ({self.packet})"
-        return f" ({self.packet})"
+        return super().payload
 
     @property
     def as_bytes(self) -> bytes:

@@ -329,6 +329,21 @@ class Stm2Action(PdiAction):
     CONTROL1 = ActionDef(ACTION_CONTROL1, True, False, True)
 
 
+ALL_STATUS = [
+    Asc2Action.STATUS,
+    Bpc2Action.STATUS,
+    IrdaAction.STATUS,
+    Ser2Action.STATUS,
+    Stm2Action.STATUS,
+    Stm2Action.STATUS,
+    WiFiAction.STATUS,
+]
+
+ALL_RXs = [e for e in PdiCommand if e.name.endswith('_RX')]
+ALL_SETs = [e for e in PdiCommand if e.name.endswith('_SET')]
+ALL_GETs = [e for e in PdiCommand if e.name.endswith('_GET')]
+
+
 @verify(UNIQUE)
 class PdiDevice(Mixins, FriendlyMixins):
     """
@@ -359,7 +374,28 @@ class PdiDevice(Mixins, FriendlyMixins):
     def build(self, data: bytes) -> T:
         return self.value.req_class(data)
 
-    def identify(self, tmcc_id: int, ident: int = 2) -> T:
+    def firmware(self, tmcc_id: int) -> T:
+        return self.value.firmware(tmcc_id)
+
+    def status(self, tmcc_id: int) -> T:
+        return self.value.status(tmcc_id)
+
+    def info(self, tmcc_id: int) -> T:
+        return self.value.info(tmcc_id)
+
+    def clear_errors(self, tmcc_id: int) -> T:
+        """
+            Build a Clear Errors request
+        """
+        return self.value.clear_errors(tmcc_id)
+
+    def reset(self, tmcc_id: int) -> T:
+        """
+            Build a Reset request
+        """
+        return self.value.identify(tmcc_id)
+
+    def identify(self, tmcc_id: int, ident: int = 1) -> T:
         """
             Build an Identify request
         """
