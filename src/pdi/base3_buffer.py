@@ -12,6 +12,9 @@ from ..utils.pollable_queue import PollableQueue
 
 
 class Base3Buffer(Thread):
+    """
+        Send and receive PDI command packets to/from a Lionel Base 3 or LCS WiFi module.
+    """
     _instance: None = None
     _lock = threading.RLock()
 
@@ -19,6 +22,7 @@ class Base3Buffer(Thread):
     def stop(cls) -> None:
         if cls._instance is not None:
             cls._instance.shutdown()
+            cls._instance = None
 
     @classmethod
     def enqueue_command(cls, data: bytes) -> None:
