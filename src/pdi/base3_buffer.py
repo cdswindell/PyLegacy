@@ -39,13 +39,18 @@ class Base3Buffer(Thread):
         else:
             self._initialized = True
         super().__init__(daemon=True, name="PyLegacy Base3 Interface")
-        # create connection to Base 3 box
+        # ip address and port to connec
         self._base3_addr = base3_addr
         self._base3_port = base3_port
+        # data read from the Base 3 is sent to a PdiListener to decode and act on
         self._listener = listener
         self._is_running = True
+        # data to send to the Base 3 is written into a queue, which is drained by the thread
+        # creted when this instance is started
         self._send_queue: PollableQueue[bytes] = PollableQueue(buffer_size)
         self._send_cv = Condition()
+        # we must send a keepalive packet to the base 3 every few seconds to keep it
+        # from closing the connection
         self._keep_alive = KeepAlive(self)
         self.start()
 
