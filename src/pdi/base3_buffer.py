@@ -46,7 +46,7 @@ class Base3Buffer(Thread):
         self._listener = listener
         self._is_running = True
         # data to send to the Base 3 is written into a queue, which is drained by the thread
-        # creted when this instance is started
+        # created when this instance is started
         self._send_queue: PollableQueue[bytes] = PollableQueue(buffer_size)
         self._send_cv = Condition()
         # we must send a keepalive packet to the base 3 every few seconds to keep it
