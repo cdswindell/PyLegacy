@@ -117,6 +117,7 @@ class PdiListener(Thread):
         return self._dispatcher
 
     def run(self) -> None:
+        eop_pos = -1
         while self._is_running:
             # process bytes, as long as there are any
             with self._cv:
@@ -130,6 +131,8 @@ class PdiListener(Thread):
                 if self._deque[0] == PDI_SOP:
                     # we've found the possible start of a PDI command sequence. Check if we've found
                     # a PDI_EOP byte, or a "stuff" byte; we handle each situation separately
+                    # if eop_pos != -1, we have to look past eop_pos for the next possible eop 
+                    # TODO: modify index expression
                     try:
                         eop_pos = self._deque.index(PDI_EOP)
                     except ValueError:
@@ -147,6 +150,7 @@ class PdiListener(Thread):
                             req_bytes += self._deque.popleft().to_bytes(1, byteorder='big')
                             dq_len -= 1
                         try:
+                            eop_pos = -1
                             self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
                         except Exception as e:
                             print(f"Failed to dispatch request {req_bytes.hex(':')}: {e}")
@@ -155,6 +159,7 @@ class PdiListener(Thread):
                 # or started receiving data mid-command
                 print(f"Ignoring {hex(self._deque.popleft())}")
                 dq_len -= 1
+                eop_pos = -1
         # shut down the dispatcher
         if self._dispatcher:
             self._dispatcher.shutdown()
