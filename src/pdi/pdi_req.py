@@ -168,8 +168,8 @@ class LcsReq(PdiReq, ABC):
                 self._base_type = payload[5] if payload_len > 5 else None
                 self._dc_volts = payload[6]/10.0 if payload_len > 6 else None
         else:
-            self._action_byte = action.bits
-            self._tmcc_id = int(data)
+            self._action_byte = action.bits if action else 0
+            self._tmcc_id = int(data) if data else 0
             self._ident = ident
 
     def _is_action(self, enums: List[T]) -> bool:
