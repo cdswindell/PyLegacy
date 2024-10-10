@@ -178,7 +178,7 @@ class LcsReq(PdiReq, ABC):
                 return True
         return False
 
-    def _is_command(self, enums: List[T]) -> bool:
+    def _is_command(self, enums: List[PdiCommand]) -> bool:
         for enum in enums:
             if enum == self.pdi_command:
                 return True
