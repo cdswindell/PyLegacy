@@ -145,11 +145,12 @@ class LcsReq(PdiReq, ABC):
 
     def __init__(self, data: bytes | int,
                  pdi_command: PdiCommand = None,
-                 action: int = None,
+                 action: T = None,
                  ident: int | None = None) -> None:
         super().__init__(data, pdi_command)
         self._board_id = self._num_ids = self._model = self._uart0 = self._uart1 = self._base_type = None
-        self._dc_volts = None
+        self._dc_volts: float = None
+        self._action: T = action
         if isinstance(data, bytes):
             if PdiCommand(data[1]).is_lcs is False:
                 raise ValueError(f"Invalid PDI LCS Request: {data}")
@@ -167,7 +168,7 @@ class LcsReq(PdiReq, ABC):
                 self._base_type = payload[5] if payload_len > 5 else None
                 self._dc_volts = payload[6]/10.0 if payload_len > 6 else None
         else:
-            self._action_byte = action
+            self._action_byte = action.bits
             self._tmcc_id = int(data)
             self._ident = ident
 
@@ -255,11 +256,9 @@ class Ser2Req(LcsReq):
                  pdi_command: PdiCommand = PdiCommand.SER2_GET,
                  action: Ser2Action = Ser2Action.CONFIG,
                  ident: int | None = None) -> None:
-        super().__init__(data, pdi_command, action.bits, ident)
+        super().__init__(data, pdi_command, action, ident)
         if isinstance(data, bytes):
             self._action = Ser2Action(self._action_byte)
-        else:
-            self._action = action
 
     @property
     def action(self) -> Ser2Action:
@@ -280,11 +279,9 @@ class IrdaReq(LcsReq):
                  pdi_command: PdiCommand = PdiCommand.IRDA_GET,
                  action: IrdaAction = IrdaAction.CONFIG,
                  ident: int | None = None) -> None:
-        super().__init__(data, pdi_command, action.bits, ident)
+        super().__init__(data, pdi_command, action, ident)
         if isinstance(data, bytes):
             self._action = IrdaAction(self._action_byte)
-        else:
-            self._action = action
 
     @property
     def action(self) -> IrdaAction:
