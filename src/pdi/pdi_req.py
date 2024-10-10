@@ -102,7 +102,7 @@ class PdiReq(ABC):
         """
         byte_str = self.pdi_command.as_bytes
         byte_str += self.tmcc_id.to_bytes(1, byteorder='big')
-        byte_str += CommonAction.CONFIG.as_bytes
+        byte_str += self.action.as_bytes if self.action is not None else CommonAction.CONFIG.as_bytes
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder='big') + byte_str
         byte_str += checksum
