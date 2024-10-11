@@ -414,7 +414,9 @@ class DeviceWrapper:
         self.rx: PdiCommand = self._harvest_command('RX')
 
     def build(self, data: bytes) -> T:
-        return self.req_class(data)
+        action_byte = self._data[2]
+        action = self.enums.by_value(action_byte)
+        return self.req_class(data, action=action)
 
     def firmware(self, tmcc_id: int) -> T:
         if self.get is not None:
