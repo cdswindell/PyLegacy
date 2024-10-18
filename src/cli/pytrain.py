@@ -45,12 +45,15 @@ class PyTrain:
         self._receiver = None
         self._state_store = None
         self._echo = args.echo
+        self._no_ser2 = args.no_ser2
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         if args.base3 is not None:
             base3_pieces = args.base3.split(':')
             self._base3_addr = args.base3 = base3_pieces[0]
             self._base3_port = base3_pieces[1] if len(base3_pieces) > 1 else DEFAULT_BASE3_PORT
         else:
+            if self._no_ser2:
+                raise AttributeError("PyTrain reqires either an LCS SER2 and/or Base 3 connection")
             self._base3_addr = self._base3_port = None
         self._pdi_buffer = None
         self._tmcc_buffer = CommBuffer.build(baudrate=self._baudrate,
@@ -342,6 +345,9 @@ if __name__ == '__main__':
     parser.add_argument("-no_listeners",
                         action="store_true",
                         help=f"Do not listen for events")
+    parser.add_argument("-no_ser2",
+                        action="store_true",
+                        help=f"Do not send or receive TMCC commands from an LCS SER2")
     parser.add_argument("-server_port",
                         type=int,
                         default=DEFAULT_SERVER_PORT,
