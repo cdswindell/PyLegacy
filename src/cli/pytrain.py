@@ -338,16 +338,16 @@ if __name__ == '__main__':
                         help="IP Address of Lionel Base 3")
     parser.add_argument("-echo",
                         action="store_true",
-                        help=f"Echo received TMCC commands to console")
+                        help=n"Echo received TMCC commands to console")
     parser.add_argument("-no_clients",
                         action="store_true",
                         help=f"Do not listen for client connections on port {DEFAULT_SERVER_PORT}")
     parser.add_argument("-no_listeners",
                         action="store_true",
-                        help=f"Do not listen for events")
+                        help="Do not listen for events")
     parser.add_argument("-no_ser2",
                         action="store_true",
-                        help=f"Do not send or receive TMCC commands from an LCS SER2")
+                        help="Do not send or receive TMCC commands from an LCS SER2")
     parser.add_argument("-server_port",
                         type=int,
                         default=DEFAULT_SERVER_PORT,
