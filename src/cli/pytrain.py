@@ -338,7 +338,7 @@ if __name__ == '__main__':
                         help="IP Address of Lionel Base 3")
     parser.add_argument("-echo",
                         action="store_true",
-                        help=n"Echo received TMCC commands to console")
+                        help="Echo received TMCC commands to console")
     parser.add_argument("-no_clients",
                         action="store_true",
                         help=f"Do not listen for client connections on port {DEFAULT_SERVER_PORT}")
