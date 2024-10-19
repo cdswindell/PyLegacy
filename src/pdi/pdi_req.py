@@ -156,7 +156,7 @@ class LcsReq(PdiReq, ABC):
         self._dc_volts: float = None
         self._action: T = action
         if isinstance(data, bytes):
-            self._pdi_command.is_lcs is False:
+            if self._pdi_command.is_lcs is False:
                 raise ValueError(f"Invalid PDI LCS Request: {data}")
             self._tmcc_id = self._data[1]
             self._action_byte = self._data[2]
