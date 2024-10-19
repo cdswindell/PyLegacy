@@ -1,3 +1,3 @@
-select = ["E", "F", "W"]
-ignore = ["F405"]
+lint.select = ["E", "F", "W"]
+lint.ignore = ["F405"]
 line-length = 120
