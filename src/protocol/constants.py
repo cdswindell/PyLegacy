@@ -1,4 +1,4 @@
-from enum import Enum, verify, UNIQUE, IntEnum
+from enum import Enum, unique, IntEnum
 from typing import Self, Any, List
 
 """
@@ -76,13 +76,13 @@ class OfficialRRSpeeds(Mixins, Enum):
     """
 
 
-@verify(UNIQUE)
+@unique
 class CommandSyntax(Mixins, Enum):
     TMCC = 1
     LEGACY = 2
 
 
-@verify(UNIQUE)
+@unique
 class CommandScope(Mixins, Enum):
     ENGINE = 1
     TRAIN = 2
