@@ -96,7 +96,7 @@ class Base3Buffer(Thread):
                         self._listener.offer(data)
 
     def shutdown(self) -> None:
-        with cls._lock:
+        with self._lock:
             self._is_running = False
 
 
