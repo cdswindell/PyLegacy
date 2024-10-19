@@ -40,7 +40,7 @@ class CliBase(ABC):
                             help=f"Serial Port ({DEFAULT_PORT})")
         parser.add_argument('-server',
                             action='store',
-                            help=f"IP Address of PyLegacy server, if client. Server communicates with LCS SER2")
+                            help="IP Address of PyLegacy server, if client. Server communicates with LCS SER2")
         return parser
 
     @staticmethod
