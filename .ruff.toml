@@ -1,2 +1,3 @@
 select = ["E", "F", "W"]
 ignore = ["F405"]
+line-length = 120
