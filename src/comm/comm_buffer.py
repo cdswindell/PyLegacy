@@ -54,14 +54,15 @@ class CommBuffer(abc.ABC):
     def build(cls, queue_size: int = DEFAULT_QUEUE_SIZE,
               baudrate: int = DEFAULT_BAUDRATE,
               port: str = DEFAULT_PORT,
-              server: str = None
+              server: str = None,
+              no_ser2 = False
               ) -> Self:
         """
             We only want one or the other of these buffers per process
         """
         server, port = cls.parse_server(server, port)
         if server is None:
-            return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port)
+            return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port, no_ser2=no_ser2)
         else:
             return CommBufferProxy(server, int(port))
 
@@ -126,6 +127,7 @@ class CommBufferSingleton(CommBuffer, Thread):
                  queue_size: int = DEFAULT_QUEUE_SIZE,
                  baudrate: int = DEFAULT_BAUDRATE,
                  port: str = DEFAULT_PORT,
+                no_ser2: bool = False
                  ) -> None:
         if self._initialized:
             return
@@ -137,6 +139,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._baudrate = baudrate
         self._port = port
         self._queue_size = queue_size
+        self._no_ser2=no_ser2
         if queue_size:
             self._queue = Queue(queue_size)
         else:
