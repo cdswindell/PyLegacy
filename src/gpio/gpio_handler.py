@@ -277,7 +277,7 @@ class GpioHandler:
                                                                cathode=cathode)
             cycle_btn.when_pressed = cycle_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
         else:
-            raise NotImplemented
+            raise NotImplementedError
         if cycle_led is None:
             return cycle_btn
         else:
@@ -322,7 +322,7 @@ class GpioHandler:
             lights_off_btn.when_pressed = lights_off_req.as_action(repeat=2, baudrate=baudrate,
                                                                    port=port, server=server)
         else:
-            raise NotImplemented
+            raise NotImplementedError
         return lights_on_btn, lights_off_btn
 
     @classmethod
