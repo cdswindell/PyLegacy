@@ -22,7 +22,6 @@ from .tmcc1.tmcc1_constants import TMCC1CommandIdentifier, TMCC1_TRAIN_COMMAND_P
 from .tmcc1.tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
 from .tmcc1.tmcc1_constants import TMCC1RouteCommandDef
 from ..utils.validations import Validations
-from ..comm.comm_buffer import CommBuffer
 
 
 class CommandReq:
@@ -146,12 +145,14 @@ class CommandReq:
         baudrate: int,
         port: str | int,
         server: str | None,
-        buffer: CommBuffer = None,
+        buffer=None,
     ) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
         # send command to comm buffer
         if buffer is None:
+            from ..comm.comm_buffer import CommBuffer
+
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
         cumulative_delay = 0
         for _ in range(repeat):
@@ -189,6 +190,8 @@ class CommandReq:
             self._data = 0
         self._native_scope = self._command_def.scope
         self._scope = self._validate_requested_scope(self._command_def, scope)
+        from ..comm.comm_buffer import CommBuffer
+
         self._buffer: CommBuffer | None = None
         self._message_processor = None
 
@@ -327,6 +330,8 @@ class CommandReq:
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> Callable:
+        from ..comm.comm_buffer import CommBuffer
+
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
 
         def send_func(new_address: int = None, new_data: int = None) -> None:

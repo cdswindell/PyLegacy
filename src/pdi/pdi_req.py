@@ -14,7 +14,6 @@ elif sys.version_info >= (3, 9):
 
 from .constants import PDI_SOP, PDI_EOP, PDI_STF, CommonAction, PdiAction, PdiCommand, ALL_STATUS
 from .constants import IrdaAction, Ser2Action
-from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 
 T = TypeVar("T", bound=PdiAction)
@@ -319,8 +318,12 @@ class IrdaReq(LcsReq):
 
 
 class TmccReq(PdiReq):
+    from ..protocol.command_req import CommandReq
+
     def __init__(self, data: bytes | CommandReq, pdi_command: PdiCommand = None):
         super().__init__(data, pdi_command=pdi_command)
+        from ..protocol.command_req import CommandReq
+
         if isinstance(data, CommandReq):
             if self.pdi_command.is_tmcc is False:
                 raise ValueError(f"Invalid PDI TMCC Request: {self.pdi_command}")

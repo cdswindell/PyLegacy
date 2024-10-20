@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import abc
 import ipaddress
 import sched
@@ -150,6 +152,10 @@ class CommBufferSingleton(CommBuffer, Thread):
             self._queue = None
         self._shutdown_signalled = False
         self._last_output_at = 0  # used to throttle writes to LCS SER2
+        # if there is no Ser2, send commands via Base 3
+        from ..pdi.base3_buffer import Base3Buffer
+
+        self._base3: Base3Buffer | None = None
         # start the consumer threads
         self._scheduler = DelayHandler(self)
         self.start()
@@ -168,6 +174,10 @@ class CommBufferSingleton(CommBuffer, Thread):
     @property
     def baudrate(self) -> int:
         return self._baudrate
+
+    @property
+    def no_ser2(self) -> bool:
+        return self._no_ser2
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if command:
@@ -200,22 +210,31 @@ class CommBufferSingleton(CommBuffer, Thread):
             try:
                 data = self._queue.get(block=True, timeout=0.25)
                 # print(f"Fire command 0x{data.hex()}")
-                try:
-                    with serial.Serial(self.port, self.baudrate) as ser:
-                        millis_since_last_output = self._current_milli_time() - self._last_output_at
-                        if millis_since_last_output < DEFAULT_THROTTLE_DELAY:
-                            time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
-                        # Write the command byte sequence
-                        ser.write(data)
-                        self._last_output_at = self._current_milli_time()
-                        # print(f"Task Done: 0x{data.hex()}")
-                        self._queue.task_done()
-                except SerialException as se:
-                    # TODO: handle serial errors
-                    self._queue.task_done()  # processing is complete, albeit unsuccessful
-                    print(f"Task Done (*** SE ***): 0x{data.hex()} {se}")
+                if self.no_ser2:
+                    self.base3_send(data)
+                else:
+                    self.ser2_send(data)
             except Empty:
                 pass
+
+    def ser2_send(self, data):
+        try:
+            with serial.Serial(self.port, self.baudrate) as ser:
+                millis_since_last_output = self._current_milli_time() - self._last_output_at
+                if millis_since_last_output < DEFAULT_THROTTLE_DELAY:
+                    time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
+                # Write the command byte sequence
+                ser.write(data)
+                self._last_output_at = self._current_milli_time()
+                # print(f"Task Done: 0x{data.hex()}")
+                self._queue.task_done()
+        except SerialException as se:
+            # TODO: handle serial errors
+            self._queue.task_done()  # processing is complete, albeit unsuccessful
+            print(f"0x{data.hex()} {se}")
+
+    def base3_send(self, data):
+        pass
 
 
 class CommBufferProxy(CommBuffer):
