@@ -20,12 +20,12 @@ class TestValidations(TestBase):
 
         # test non-numeric strings  throw ValueError
         v = "text"
-        with pytest.raises(ValueError, match=f"'text' is not an integer"):
+        with pytest.raises(ValueError, match="'text' is not an integer"):
             assert Validations.validate_int(v) == 10  # type: ignore
 
         # test None throw TypeError
         v = None
-        with pytest.raises(TypeError, match=f"'None' is not an integer"):
+        with pytest.raises(TypeError, match="'None' is not an integer"):
             assert Validations.validate_int(v) == 10  # type: ignore
 
         # test minimum value
