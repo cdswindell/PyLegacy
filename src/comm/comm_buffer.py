@@ -7,7 +7,10 @@ import time
 from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
 from threading import Thread
-from typing import Self
+if sys.version_info >= (3, 11):
+    from typing import Self
+elif sys.version_info >= (3, 9):
+    from typing_extension import Self
 
 import serial
 from serial.serialutil import SerialException
