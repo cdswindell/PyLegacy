@@ -387,12 +387,17 @@ class CommandDispatcher(Thread):
 
             state = ComponentStateStore.build()
             for scope in state.scopes():
+                print(f"*** Sending state for {scope}")
                 for address in state.addresses(scope):
+                    print(f"*** Sending state for {address}")
                     with self._lock:
-                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                            s.connect((client_ip, self._client_port))
-                            s.sendall(state.query(scope, address).as_bytes)
-                            _ = s.recv(16)
+                        state_as_bytes = state.query(scope, address).as_bytes
+                        if state_as_bytes:
+                            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                                s.connect((client_ip, self._client_port))
+                                print(f"*** Sending state for '{state_as_bytes.hex()}'")
+                                s.sendall(state_as_bytes)
+                                _ = s.recv(16)
 
     @property
     def broadcasts_enabled(self) -> bool:

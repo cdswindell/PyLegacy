@@ -307,7 +307,6 @@ class CommBufferProxy(CommBuffer):
         from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
 
         try:
-            print("*** Request State ***")
             # noinspection PyTypeChecker
             self.enqueue_command(EnqueueProxyRequests.sync_state_request)
         except ConnectionError as ce:
