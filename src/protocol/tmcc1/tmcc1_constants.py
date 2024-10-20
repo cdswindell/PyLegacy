@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import abc
-from enum import verify, UNIQUE
+from enum import unique
 from typing import Dict, Tuple
 
 from ..command_def import CommandDef, CommandDefEnum
@@ -25,7 +25,7 @@ class TMCC1Enum(CommandDefEnum):
 TMCC1_COMMAND_PREFIX: int = 0xFE
 
 
-@verify(UNIQUE)
+@unique
 class TMCC1CommandIdentifier(CommandPrefix):
     ENGINE = 0b00000000  # first 2 bits significant
     TRAIN = 0b11001000   # first 5 bits significant
@@ -145,7 +145,7 @@ class TMCC1CommandDef(CommandDef):
 TMCC1_HALT_COMMAND: int = 0xFFFF
 
 
-@verify(UNIQUE)
+@unique
 class TMCC1HaltCommandDef(TMCC1Enum):
     HALT = TMCC1CommandDef(TMCC1_HALT_COMMAND, TMCC1CommandIdentifier.HALT, is_addressable=False)
 
@@ -153,7 +153,7 @@ class TMCC1HaltCommandDef(TMCC1Enum):
 TMCC1_ROUTE_COMMAND: int = 0xD01F
 
 
-@verify(UNIQUE)
+@unique
 class TMCC1RouteCommandDef(TMCC1Enum):
     FIRE = TMCC1CommandDef(TMCC1_ROUTE_COMMAND, TMCC1CommandIdentifier.ROUTE, num_address_bits=5)
 
@@ -163,7 +163,7 @@ TMCC1_SWITCH_OUT_COMMAND: int = 0x401F
 TMCC1_SWITCH_SET_ADDRESS_COMMAND: int = 0x402B
 
 
-@verify(UNIQUE)
+@unique
 class TMCC1SwitchState(TMCC1Enum):
     """
         Switch State
@@ -196,7 +196,7 @@ TMCC1_ACC_BRAKE_COMMAND: int = 0x8007
 TMCC1_ACC_RELATIVE_SPEED_COMMAND: int = 0x8040
 
 
-@verify(UNIQUE)
+@unique
 class TMCC1AuxCommandDef(TMCC1Enum):
     SET_ADDRESS = TMCC1CommandDef(TMCC1_ACC_SET_ADDRESS_COMMAND, TMCC1CommandIdentifier.ACC)
     NUMERIC = TMCC1CommandDef(TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandIdentifier.ACC, d_max=9)
@@ -293,7 +293,7 @@ TMCC1_SPEED_MAP: dict[str, int] = {
 TMCC1_NUMERIC_SPEED_TO_DIRECTIVE_MAP = {s: p for p, s in TMCC1_SPEED_MAP.items() if len(p) > 2 and p != 'HIGH'}
 
 
-@verify(UNIQUE)
+@unique
 class TMCC1RRSpeeds(OfficialRRSpeeds):
     STOP_HOLD = range(0, TMCC1_ROLL_SPEED)
     ROLL = range(TMCC1_ROLL_SPEED, TMCC1_ROLL_SPEED + 1)
@@ -305,7 +305,7 @@ class TMCC1RRSpeeds(OfficialRRSpeeds):
     HIGHBALL = range(TMCC1_HIGHBALL_SPEED, 32)
 
 
-@verify(UNIQUE)
+@unique
 class TMCC1EngineCommandDef(TMCC1Enum):
     ABSOLUTE_SPEED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, d_max=31)
     AUX1_OFF = TMCC1CommandDef(TMCC1_ENG_AUX1_OFF_COMMAND)
