@@ -326,4 +326,7 @@ if __name__ == "__main__":
         default=DEFAULT_SERVER_PORT,
         help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})",
     )
-    PyTrain(parser.parse_args())
+    try:
+        PyTrain(parser.parse_args())
+    except Exception as ex:
+        print(ex)
