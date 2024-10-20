@@ -44,7 +44,7 @@ class PdiReq(ABC):
             self._original = data
             recv_checksum = data[-2]
             self._data, check_sum = self._calculate_checksum(data[1:-2], False)
-            if recv_checksum != int.from_bytes(check_sum):
+            if recv_checksum != int.from_bytes(check_sum, byteorder='big'):
                 raise ValueError(f"Invalid PDI Request: {data}  [BAD CHECKSUM]")
             self._pdi_command: PdiCommand = PdiCommand(data[1])
         else:
