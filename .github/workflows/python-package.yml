@@ -33,7 +33,6 @@ jobs:
       run: ruff check --output-format=github --target-version=py310
     - name: check code formatting
       run: ruff format --diff --target-version=py310
-      continue-on-error: true
     - name: Test with pytest
       run: pytest 
     
