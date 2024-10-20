@@ -377,7 +377,7 @@ class CommandDispatcher(Thread):
                 except Exception as e:
                     print(f"Exception while sending TMCC state update to {client}: {e}")
 
-    def send_current_ state(self, client_ip: str):
+    def send_current_state(self, client_ip: str):
         """
         When a new client attaches to the server, immediately send it all know
         component states. They will be updated as needed (see update_client_state).
