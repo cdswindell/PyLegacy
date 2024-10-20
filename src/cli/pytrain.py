@@ -56,16 +56,20 @@ class PyTrain:
                 raise AttributeError("PyTrain requires either an LCS SER2 and/or Base 3 connection")
             self._base3_addr = self._base3_port = None
         self._pdi_buffer = None
-        self._tmcc_buffer = CommBuffer.build(baudrate=self._baudrate, port=self._port, server=self._server)
+        self._tmcc_buffer = CommBuffer.build(
+            baudrate=self._baudrate, port=self._port, server=self._server, no_ser2=self._no_ser2
+        )
         listeners = []
         if isinstance(self.buffer, CommBufferSingleton):
-            print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
-            # listen for client connections, unless user used --no_clients flag
-            if not self._args.no_clients:
-                print(f"Listening for client broadcasts on port {self._args.server_port}...")
-                self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
-                self._tmcc_listener = CommandListener.build()
-                listeners.append(self._tmcc_listener)
+            if self._no_ser2:
+                print(f"Sending commands directly to Lionel Base 3 at {self._base3_addr}:{self._base3_port}...")
+            else:
+                print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
+            # listen for client connections
+            print(f"Listening for client broadcasts on port {self._args.server_port}...")
+            self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
+            self._tmcc_listener = CommandListener.build(build_serial_reader=not self._no_ser2)
+            listeners.append(self._tmcc_listener)
             if self._base3_addr is not None:
                 print(f"Listening for Base3 broadcasts on  {self._base3_addr}:{self._base3_port}...")
                 self._pdi_buffer = PdiListener.build(self._base3_addr, self._base3_port)
@@ -315,9 +319,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("-base3", type=str, help="IP Address of Lionel Base 3")
     parser.add_argument("-echo", action="store_true", help="Echo received TMCC commands to console")
-    parser.add_argument(
-        "-no_clients", action="store_true", help=f"Do not listen for client connections on port {DEFAULT_SERVER_PORT}"
-    )
     parser.add_argument("-no_listeners", action="store_true", help="Do not listen for events")
     parser.add_argument("-no_ser2", action="store_true", help="Do not send or receive TMCC commands from an LCS SER2")
     parser.add_argument(

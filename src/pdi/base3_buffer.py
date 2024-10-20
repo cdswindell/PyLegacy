@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import socket
 import threading
 import time
@@ -25,6 +27,14 @@ class Base3Buffer(Thread):
         if cls._instance is not None:
             cls._instance.shutdown()
             cls._instance = None
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def get(cls) -> Base3Buffer:
+        if cls._instance is None:
+            raise AttributeError("Base3Buffer has not been initialized")
+        return cls._instance
 
     @classmethod
     def enqueue_command(cls, data: bytes) -> None:

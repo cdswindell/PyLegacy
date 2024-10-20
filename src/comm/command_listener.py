@@ -275,7 +275,7 @@ class CommandDispatcher(Thread):
     @classmethod
     def get(cls) -> CommandDispatcher:
         if cls._instance is None:
-            raise RuntimeError("Command Dispatcher not yet created")
+            raise AttributeError("Command Dispatcher not yet created")
         return cls._instance
 
     @classmethod

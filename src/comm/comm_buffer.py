@@ -233,8 +233,21 @@ class CommBufferSingleton(CommBuffer, Thread):
             self._queue.task_done()  # processing is complete, albeit unsuccessful
             print(f"0x{data.hex()} {se}")
 
-    def base3_send(self, data):
-        pass
+    def base3_send(self, data: bytes):
+        from ..protocol.command_req import CommandReq
+        from ..pdi.constants import PdiCommand
+        from ..pdi.pdi_req import TmccReq
+        from ..pdi.base3_buffer import Base3Buffer
+        from .command_listener import CommandDispatcher
+
+        with self._lock:
+            if self._base3 is None:
+                self._base3 = Base3Buffer.get
+        tmcc_cmd = CommandReq.from_bytes(data)
+        pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
+        self._base3.send(pdi_cmd.as_bytes)
+        # also alert CommandListener
+        CommandDispatcher.get().offer(tmcc_cmd)
 
 
 class CommBufferProxy(CommBuffer):
