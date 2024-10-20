@@ -78,7 +78,7 @@ class PdiReq(ABC):
                     # we are parsing a received packet; strip stuff byte
                     pass  # we want this byte added to the output stream
                 else:
-                    # this must be a stuff byte and we are receiving; strip it
+                    # this must be a stuff byte, and we are receiving; strip it
                     continue
             byte_stream += b.to_bytes(1, byteorder="big")
         # do checksum calculation on buffer
