@@ -11,7 +11,7 @@ from threading import Thread
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
-    from typing_extension import Self
+    from typing_extensions import Self
 
 import serial
 from serial.serialutil import SerialException
