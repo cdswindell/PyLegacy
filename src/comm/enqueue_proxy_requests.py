@@ -8,7 +8,7 @@ from typing import List
 from ..comm.comm_buffer import CommBuffer
 from ..protocol.constants import DEFAULT_SERVER_PORT
 
-REGISTER_REQUEST: bytes = int(0xff).to_bytes(1) * 6
+REGISTER_REQUEST: bytes = int(0xff).to_bytes(1, byteorder='big') * 6
 SYNC_STATE_REQUEST: bytes = int(0xfff0).to_bytes(2, byteorder='big') * 3
 
 
