@@ -114,7 +114,7 @@ class CommandPrefix(Mixins, IntEnum):
 
 
 """
-    Relative speed is specified with values ranging from -5 to 5 that are 
+    Relative speed is specified with values ranging from -5 to 5 that are
     mapped to values 0 - 10
 """
 RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
