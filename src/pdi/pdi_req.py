@@ -10,7 +10,7 @@ if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
     from typing_extensions import Self
-    
+
 from .constants import PDI_SOP, PDI_EOP, PDI_STF, CommonAction, PdiAction, PdiCommand, ALL_STATUS
 from .constants import IrdaAction, Ser2Action
 from ..protocol.command_req import CommandReq
