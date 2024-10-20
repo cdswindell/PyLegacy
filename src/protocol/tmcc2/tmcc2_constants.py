@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from enum import verify, UNIQUE
+from enum import unique
 from typing import Dict, Tuple
 
 from src.protocol.command_def import CommandDef, CommandDefEnum
@@ -34,7 +34,7 @@ class TMCC2Enum(CommandDefEnum):
 # Engine/Train/Parameter 2 digit address are first 7 bits of first byte
 
 
-@verify(UNIQUE)
+@unique
 class TMCC2CommandPrefix(CommandPrefix):
     ENGINE = LEGACY_ENGINE_COMMAND_PREFIX
     TRAIN = LEGACY_TRAIN_COMMAND_PREFIX
@@ -106,7 +106,7 @@ class TMCC2CommandDef(CommandDef):
 TMCC2_HALT_COMMAND: int = 0x01AB
 
 
-@verify(UNIQUE)
+@unique
 class TMCC2HaltCommandDef(TMCC2Enum):
     HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND, CommandScope.ENGINE, alias="SYSTEM_HALT", data=99)
 
@@ -115,7 +115,7 @@ class TMCC2HaltCommandDef(TMCC2Enum):
 LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 
-@verify(UNIQUE)
+@unique
 class TMCC2RouteCommandDef(TMCC2Enum):
     FIRE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, scope=CommandScope.ROUTE)
 
@@ -198,7 +198,7 @@ TMCC2_SPEED_MAP = dict(STOP_HOLD=0, SH=0, STOP=0,
 TMCC2_NUMERIC_SPEED_TO_DIRECTIVE_MAP = {s: p for p, s in TMCC2_SPEED_MAP.items() if len(p) > 2 and p != 'HIGH'}
 
 
-@verify(UNIQUE)
+@unique
 class TMCC2RRSpeeds(OfficialRRSpeeds):
     STOP_HOLD = range(0, TMCC2_ROLL_SPEED)
     ROLL = range(TMCC2_ROLL_SPEED, TMCC2_ROLL_SPEED + 1)
@@ -210,7 +210,7 @@ class TMCC2RRSpeeds(OfficialRRSpeeds):
     HIGHBALL = range(TMCC2_HIGHBALL_SPEED, TMCC2_HIGHBALL_SPEED + 1)
 
 
-@verify(UNIQUE)
+@unique
 class TMCC2EngineCommandDef(TMCC2Enum):
     ABSOLUTE_SPEED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199)
     AUGER = TMCC2CommandDef(TMCC2_ENG_AUGER_SOUND_COMMAND)
