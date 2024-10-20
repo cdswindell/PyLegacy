@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from typing import Callable, Self
+from typing import Callable
+
+import sys
+if sys.version_info >= (3, 11):
+    from typing import Self
+elif sys.version_info >= (3, 9):
+    from typing_extensions import Self
 
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
 from .constants import CommandScope, CommandSyntax
