@@ -131,7 +131,7 @@ class PdiListener(Thread):
                 if self._deque[0] == PDI_SOP:
                     # we've found the possible start of a PDI command sequence. Check if we've found
                     # a PDI_EOP byte, or a "stuff" byte; we handle each situation separately
-                    # if eop_pos != -1, we have to look past eop_pos for the next possible eop 
+                    # if eop_pos != -1, we have to look past eop_pos for the next possible eop
                     # TODO: modify index expression
                     try:
                         eop_pos = self._deque.index(PDI_EOP)
