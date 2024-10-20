@@ -1,10 +1,10 @@
 from enum import Enum, unique, IntEnum
 from typing import Any, List
 
+import sys
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
-    import sys
     from typing_extensions import Self
     
 """
