@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import List, Callable, Self, TypeVar
+from typing import List, Callable, TypeVar
+
+import sys
+if sys.version_info >= (3, 11):
+    from typing import Self
+elif sys.version_info >= (3, 9):
+    from typing_extensions import Self
 
 from ..command_def import CommandDefEnum
 from ..command_req import CommandReq
