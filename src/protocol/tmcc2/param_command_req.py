@@ -1,4 +1,10 @@
-from typing import Dict, Self
+from typing import Dict
+
+import sys
+if sys.version_info >= (3, 11):
+    from typing import Self
+elif sys.version_info >= (3, 9):
+    from typing_extensions import Self
 
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_ADDRESS, CommandScope
