@@ -1,6 +1,12 @@
 from enum import Enum, unique, IntEnum
-from typing import Self, Any, List
+from typing import Any, List
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+elif sys.version_info >= (3, 9):
+    import sys
+    from typing_extensions import Self
+    
 """
     General Constants
 """
