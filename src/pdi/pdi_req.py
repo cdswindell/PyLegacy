@@ -70,7 +70,7 @@ class PdiReq(ABC):
             if add_stf is True:
                 byte_stream += PDI_STF.to_bytes(1, byteorder='big')
             check_sum += PDI_STF
-            check_sum = 0xff & (0 - check_sum) 
+            check_sum = 0xff & (0 - check_sum)
         return byte_stream, check_sum.to_bytes(1, byteorder='big')
 
     @property
