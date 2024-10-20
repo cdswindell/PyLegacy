@@ -54,7 +54,7 @@ class TMCC2FixedParameterCommand(TMCC2Command, ABC):
         if scope is None or scope not in [CommandScope.ENGINE, CommandScope.TRAIN]:
             raise ValueError(f"Scope must be ENGINE or TRAIN ({scope})")
         if address < 1 or address > 99:
-            raise ValueError(f"{scope.name.capitalize()} must be between 1 and 99")
+            raise ValueError(f"{scope.name.title()} must be between 1 and 99")
         req = ParameterCommandReq(parameter_enum, address, data, scope)
         super().__init__(parameter_enum, req, address, data, scope, baudrate, port, server)
         if self.bits < 0 or self.bits > 0xFF:

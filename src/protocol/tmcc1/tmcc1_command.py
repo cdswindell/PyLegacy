@@ -29,7 +29,7 @@ class TMCC1Command(CommandBase, ABC):
     def __repr__(self):
         name = self._command_def_enum.name
         data = f" [{self._command_req.data}] " if self._command_req.num_data_bits else ""
-        entity = {self._command_req.scope.name.capitalize(): self._command_req.scope.name}
+        entity = {self._command_req.scope.name.title(): self._command_req.scope.name}
         return f"<{name}: {entity} {self.address} {data}: 0x{self.command_bytes.hex()}>"
 
     def _encode_address(self, command_op: int) -> bytes:

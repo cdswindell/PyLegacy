@@ -96,7 +96,7 @@ class ComponentState(ABC):
 
     @property
     def friendly_scope(self) -> str:
-        return self.scope.name.capitalize()
+        return self.scope.name.title()
 
     @property
     def address(self) -> int:
@@ -128,10 +128,10 @@ class ComponentState(ABC):
             elif command.address not in [self._address, BROADCAST_ADDRESS]:
                 raise AttributeError(
                     f"{self.friendly_scope} #{self._address} received update for "
-                    f"{command.scope.name.capitalize()} #{command.address}, ignoring"
+                    f"{command.scope.name.title()} #{command.address}, ignoring"
                 )
             if self.scope != command.scope:
-                scope = command.scope.name.capitalize()
+                scope = command.scope.name.title()
                 raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
             self._last_updated = datetime.now()
             self._last_command = command

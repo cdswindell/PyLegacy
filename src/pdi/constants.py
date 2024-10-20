@@ -186,7 +186,7 @@ class PdiAction(Mixins, FriendlyMixins):
         opts += "g" if self.value.is_gettable else "x"
         opts += "s" if self.value.is_settable else "x"
         opts += "r" if self.value.is_responses else "x"
-        return f"{self.name.capitalize()} [{opts}]"
+        return f"{self.name.title()} [{opts}]"
 
     @property
     def bits(self) -> int | None:

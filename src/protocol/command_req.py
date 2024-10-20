@@ -133,9 +133,9 @@ class CommandReq:
         if scope is None:
             scope = command.scope
         if command.command_def.is_addressable:
-            Validations.validate_int(address, min_value=1, max_value=max_val, label=scope.name.capitalize())
+            Validations.validate_int(address, min_value=1, max_value=max_val, label=scope.name.title())
         if data is not None and command.command_def.is_data:
-            Validations.validate_int(data, label=scope.name.capitalize())
+            Validations.validate_int(data, label=scope.name.title())
 
     @classmethod
     def _enqueue_command(
