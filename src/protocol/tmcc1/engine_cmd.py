@@ -5,14 +5,16 @@ from ..tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 
 
 class EngineCmd(TMCC1Command):
-    def __init__(self,
-                 engine: int,
-                 command: TMCC1EngineCommandDef,
-                 data: int = 0,
-                 scope: CommandScope = CommandScope.ENGINE,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT,
-                 server: str = None) -> None:
+    def __init__(
+        self,
+        engine: int,
+        command: TMCC1EngineCommandDef,
+        data: int = 0,
+        scope: CommandScope = CommandScope.ENGINE,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ) -> None:
         if scope == CommandScope.ENGINE:
             if engine < 1 or engine > 99:
                 raise ValueError("Engine must be between 1 and 99")

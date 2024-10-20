@@ -8,6 +8,7 @@ import time
 from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
 from threading import Thread
+
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
@@ -28,8 +29,8 @@ class CommBuffer(abc.ABC):
 
     def __new__(cls, *args, **kwargs):
         """
-            Provides singleton functionality. We only want one instance
-            of this class in a process
+        Provides singleton functionality. We only want one instance
+        of this class in a process
         """
         with cls._lock:
             if CommBuffer._instance is None:
@@ -38,9 +39,9 @@ class CommBuffer(abc.ABC):
             return CommBuffer._instance
 
     @staticmethod
-    def parse_server(server: str | IPv4Address | IPv6Address,
-                     port: str | int,
-                     server_port: int = 0) -> tuple[IPv4Address | IPv6Address | None, str]:
+    def parse_server(
+        server: str | IPv4Address | IPv6Address, port: str | int, server_port: int = 0
+    ) -> tuple[IPv4Address | IPv6Address | None, str]:
         if server is not None:
             try:
                 if isinstance(server, str):
@@ -55,14 +56,16 @@ class CommBuffer(abc.ABC):
         return server, port
 
     @classmethod
-    def build(cls, queue_size: int = DEFAULT_QUEUE_SIZE,
-              baudrate: int = DEFAULT_BAUDRATE,
-              port: str = DEFAULT_PORT,
-              server: str = None,
-              no_ser2 = False
-              ) -> Self:
+    def build(
+        cls,
+        queue_size: int = DEFAULT_QUEUE_SIZE,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+        no_ser2=False,
+    ) -> Self:
         """
-            We only want one or the other of these buffers per process
+        We only want one or the other of these buffers per process
         """
         server, port = cls.parse_server(server, port)
         if server is None:
@@ -105,34 +108,31 @@ class CommBuffer(abc.ABC):
     @abc.abstractmethod
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         """
-            Enqueue the command to send to the Lionel LCS SER2
+        Enqueue the command to send to the Lionel LCS SER2
         """
         ...
 
     @abc.abstractmethod
-    def shutdown(self, immediate: bool = False) -> None:
-        ...
+    def shutdown(self, immediate: bool = False) -> None: ...
 
     @abc.abstractmethod
-    def register(self) -> None:
-        ...
+    def register(self) -> None: ...
 
     @abc.abstractmethod
-    def sync_state(self) -> None:
-        ...
+    def sync_state(self) -> None: ...
 
     @abc.abstractmethod
-    def join(self) -> None:
-        ...
+    def join(self) -> None: ...
 
 
 class CommBufferSingleton(CommBuffer, Thread):
-    def __init__(self,
-                 queue_size: int = DEFAULT_QUEUE_SIZE,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT,
-                no_ser2: bool = False
-                 ) -> None:
+    def __init__(
+        self,
+        queue_size: int = DEFAULT_QUEUE_SIZE,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        no_ser2: bool = False,
+    ) -> None:
         if self._initialized:
             return
         else:
@@ -143,7 +143,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._baudrate = baudrate
         self._port = port
         self._queue_size = queue_size
-        self._no_ser2=no_ser2
+        self._no_ser2 = no_ser2
         if queue_size:
             self._queue = Queue(queue_size)
         else:
@@ -157,7 +157,7 @@ class CommBufferSingleton(CommBuffer, Thread):
     @staticmethod
     def _current_milli_time() -> int:
         """
-            Return the current time, in milliseconds past the "epoch"
+        Return the current time, in milliseconds past the "epoch"
         """
         return round(time.time() * 1000)
 
@@ -198,13 +198,13 @@ class CommBufferSingleton(CommBuffer, Thread):
         # if the queue is not empty AND _shutdown_signaled is False, then exit
         while not self._queue.empty() or not self._shutdown_signalled:
             try:
-                data = self._queue.get(block=True, timeout=.25)
+                data = self._queue.get(block=True, timeout=0.25)
                 # print(f"Fire command 0x{data.hex()}")
                 try:
                     with serial.Serial(self.port, self.baudrate) as ser:
                         millis_since_last_output = self._current_milli_time() - self._last_output_at
                         if millis_since_last_output < DEFAULT_THROTTLE_DELAY:
-                            time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.)
+                            time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
                         # Write the command byte sequence
                         ser.write(data)
                         self._last_output_at = self._current_milli_time()
@@ -220,8 +220,9 @@ class CommBufferSingleton(CommBuffer, Thread):
 
 class CommBufferProxy(CommBuffer):
     """
-        Allows a Raspberry Pi to "slave" to another so only one serial connection is needed
+    Allows a Raspberry Pi to "slave" to another so only one serial connection is needed
     """
+
     # noinspection PyPropertyDefinition
     @classmethod
     @property
@@ -232,9 +233,7 @@ class CommBufferProxy(CommBuffer):
             return cls._instance._port
         raise AttributeError("CommBufferProxy must be built first")
 
-    def __init__(self,
-                 server: IPv4Address | IPv6Address,
-                 port: int = DEFAULT_SERVER_PORT) -> None:
+    def __init__(self, server: IPv4Address | IPv6Address, port: int = DEFAULT_SERVER_PORT) -> None:
         if self._initialized:
             return
         else:
@@ -255,6 +254,7 @@ class CommBufferProxy(CommBuffer):
 
     def register(self) -> None:
         from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
+
         retries = 0
         while True:
             try:
@@ -273,6 +273,7 @@ class CommBufferProxy(CommBuffer):
 
     def sync_state(self) -> None:
         from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
+
         try:
             # noinspection PyTypeChecker
             self.enqueue_command(EnqueueProxyRequests.sync_state_request)
@@ -289,12 +290,13 @@ class CommBufferProxy(CommBuffer):
 
 class DelayHandler(Thread):
     """
-        Handle delayed (scheduled) requests. Implementation uses Python's lightweight
-        sched module to keep a list of requests to issue in the future. We use
-        threading.Event.wait() as the sleep function, as it is interruptable. This
-        allows us to schedule requests in any order and still have them fire at the
-        appropriate time.
+    Handle delayed (scheduled) requests. Implementation uses Python's lightweight
+    sched module to keep a list of requests to issue in the future. We use
+    threading.Event.wait() as the sleep function, as it is interruptable. This
+    allows us to schedule requests in any order and still have them fire at the
+    appropriate time.
     """
+
     def __init__(self, buffer: CommBuffer) -> None:
         super().__init__(daemon=True, name="PyLegacy Delay Handler")
         self._buffer = buffer
@@ -315,7 +317,7 @@ class DelayHandler(Thread):
 
     def schedule(self, delay: float, command: bytes) -> None:
         with self._cv:
-            self._scheduler.enter(delay, 1, self._buffer.enqueue_command, (command, ))
+            self._scheduler.enter(delay, 1, self._buffer.enqueue_command, (command,))
             # this interrupts the running scheduler
             self._ev.set()
             # and this notifies the main thread to restart, as there is a new

@@ -12,8 +12,9 @@ from .tmcc2_constants import TMCC2_SOUND_OFF_COMMAND, TMCC2_SOUND_ON_COMMAND
 
 class TMCC2ParameterEnum(TMCC2Enum):
     """
-        Marker Interface for all TMCC2 enums
+    Marker Interface for all TMCC2 enums
     """
+
     pass
 
 
@@ -51,8 +52,9 @@ class TMCC2ParameterCommandDef(TMCC2CommandDef):
 
 class TMCC2ParameterData(CommandDefEnum):
     """
-        Marker interface for all Parameter Data enums
+    Marker interface for all Parameter Data enums
     """
+
     pass
 
 

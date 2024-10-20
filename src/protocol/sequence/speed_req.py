@@ -10,11 +10,13 @@ from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RRSpeeds
 
 
 class SpeedReq(SequenceReq):
-    def __init__(self,
-                 address: int,
-                 speed: int | str | T = None,
-                 scope: CommandScope = CommandScope.ENGINE,
-                 is_tmcc: bool = False) -> None:
+    def __init__(
+        self,
+        address: int,
+        speed: int | str | T = None,
+        scope: CommandScope = CommandScope.ENGINE,
+        is_tmcc: bool = False,
+    ) -> None:
         super().__init__(address, scope)
         t, s, e = self._decode_speed(speed, is_tmcc)
         self.add(t, address)
@@ -47,7 +49,7 @@ class SpeedReq(SequenceReq):
                         break
         elif isinstance(speed, str):
             try:
-                args = self._speed_parser().parse_args(['-' + speed.strip()])
+                args = self._speed_parser().parse_args(["-" + speed.strip()])
                 speed_enum = args.command
                 base = speed_enum.name
             except argparse.ArgumentError:

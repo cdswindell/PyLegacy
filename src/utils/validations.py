@@ -3,7 +3,7 @@ class Validations:
     def validate_int(cls, value: int, min_value: int = None, max_value: int = None, label: str = None) -> int:
         if label is None:
             label = f"'{str(value)}'"
-            suffix = ''
+            suffix = ""
         else:
             label = f"{label}"
             suffix = f" ({value})"
@@ -23,7 +23,7 @@ class Validations:
     def validate_float(cls, value: float, min_value: float = None, max_value: float = None, label: str = None) -> float:
         if label is None:
             label = f"'{str(value)}'"
-            suffix = ''
+            suffix = ""
         else:
             label = f"{label}"
             suffix = f" ({value})"

@@ -7,22 +7,25 @@ from ..protocol.constants import CommandScope
 class Asc2Req(LcsReq):
     from .constants import PdiCommand, Asc2Action
 
-    def __init__(self,
-                 data: bytes | int,
-                 pdi_command: PdiCommand = PdiCommand.ASC2_GET,
-                 action: Asc2Action = Asc2Action.CONFIG,
-                 ident: int | None = None,
-                 mode: int = None,
-                 debug: int = None,
-                 delay: float = None,
-                 values: int = None,
-                 valids: int = None,
-                 time: float = None,
-                 sub_id: int = None) -> None:
+    def __init__(
+        self,
+        data: bytes | int,
+        pdi_command: PdiCommand = PdiCommand.ASC2_GET,
+        action: Asc2Action = Asc2Action.CONFIG,
+        ident: int | None = None,
+        mode: int = None,
+        debug: int = None,
+        delay: float = None,
+        values: int = None,
+        valids: int = None,
+        time: float = None,
+        sub_id: int = None,
+    ) -> None:
         super().__init__(data, pdi_command, action.bits, ident)
         self._scope = CommandScope.ACC
         if isinstance(data, bytes):
             from .constants import Asc2Action
+
             self._action = Asc2Action(self._action_byte)
             data_len = len(self._data)
             if self._action == Asc2Action.CONFIG:
@@ -110,6 +113,7 @@ class Asc2Req(LcsReq):
     @property
     def payload(self) -> str | None:
         from .constants import PdiCommand, Asc2Action
+
         if self.pdi_command != PdiCommand.ASC2_GET:
             if self.action == Asc2Action.CONFIG:
                 return f"Mode: {self.mode} Debug: {self.debug} Delay: {self.delay} ({self.packet})"
@@ -138,60 +142,61 @@ class Asc2Req(LcsReq):
     @property
     def as_bytes(self) -> bytes:
         from .constants import PdiCommand, Asc2Action, PDI_EOP, PDI_SOP
+
         byte_str = self.pdi_command.as_bytes
-        byte_str += self.tmcc_id.to_bytes(1, byteorder='big')
+        byte_str += self.tmcc_id.to_bytes(1, byteorder="big")
         byte_str += self.action.as_bytes
         if self._action == Asc2Action.CONFIG:
             if self.pdi_command != PdiCommand.ASC2_GET:
-                debug = (self.debug if self.debug is not None else 0)
-                delay = (int(round((self.delay * 100))) if self.delay is not None else 0)
-                byte_str += self.tmcc_id.to_bytes(1, byteorder='big')  # allows board to be renumbered
-                byte_str += debug.to_bytes(1, byteorder='big')
-                byte_str += (0x0000).to_bytes(2, byteorder='big')
-                byte_str += self.mode.to_bytes(1, byteorder='big')
-                byte_str += delay.to_bytes(1, byteorder='big')
+                debug = self.debug if self.debug is not None else 0
+                delay = int(round((self.delay * 100))) if self.delay is not None else 0
+                byte_str += self.tmcc_id.to_bytes(1, byteorder="big")  # allows board to be renumbered
+                byte_str += debug.to_bytes(1, byteorder="big")
+                byte_str += (0x0000).to_bytes(2, byteorder="big")
+                byte_str += self.mode.to_bytes(1, byteorder="big")
+                byte_str += delay.to_bytes(1, byteorder="big")
         elif self._action == Asc2Action.CONTROL1:
             if self.pdi_command != PdiCommand.ASC2_GET:
-                values = (self.values if self.values is not None else 0)
-                time = (int(round((self.time * 100))) if self.time is not None else 0)
-                byte_str += values.to_bytes(1, byteorder='big')
-                byte_str += time.to_bytes(1, byteorder='big')
+                values = self.values if self.values is not None else 0
+                time = int(round((self.time * 100))) if self.time is not None else 0
+                byte_str += values.to_bytes(1, byteorder="big")
+                byte_str += time.to_bytes(1, byteorder="big")
         elif self._action == Asc2Action.CONTROL2:
             if self.pdi_command != PdiCommand.ASC2_GET:
-                values = (self.values if self.values is not None else 0)
-                valids = (self.values if self.valids is not None else 0)
-                byte_str += values.to_bytes(1, byteorder='big')
-                byte_str += valids.to_bytes(1, byteorder='big')
+                values = self.values if self.values is not None else 0
+                valids = self.values if self.valids is not None else 0
+                byte_str += values.to_bytes(1, byteorder="big")
+                byte_str += valids.to_bytes(1, byteorder="big")
         elif self._action == Asc2Action.CONTROL3:
             if self.pdi_command != PdiCommand.ASC2_GET:
                 if self.pdi_command == PdiCommand.ASC2_SET:
-                    values = (self.sub_id if self.values is not None else 1)
-                    time = (int(round((self.time * 100))) if self.time is not None else 0)
+                    values = self.sub_id if self.values is not None else 1
+                    time = int(round((self.time * 100))) if self.time is not None else 0
                     if time == 1:
                         time = 0
                     valids = time
                 else:
-                    values = (self.values if self.valids is not None else 0)
-                    valids = (self.valids if self.valids is not None else 0)
-                byte_str += values.to_bytes(1, byteorder='big')
-                byte_str += valids.to_bytes(1, byteorder='big')
+                    values = self.values if self.valids is not None else 0
+                    valids = self.valids if self.valids is not None else 0
+                byte_str += values.to_bytes(1, byteorder="big")
+                byte_str += valids.to_bytes(1, byteorder="big")
         elif self._action == Asc2Action.CONTROL4:
             if self.pdi_command != PdiCommand.ASC2_GET:
-                values = (self.values if self.values is not None else 0)
-                time = (int(round((self.time * 100))) if self.time is not None else 0)
+                values = self.values if self.values is not None else 0
+                time = int(round((self.time * 100))) if self.time is not None else 0
                 if time == 1:
                     time = 0
-                byte_str += values.to_bytes(1, byteorder='big')
-                byte_str += time.to_bytes(1, byteorder='big')
+                byte_str += values.to_bytes(1, byteorder="big")
+                byte_str += time.to_bytes(1, byteorder="big")
         elif self._action == Asc2Action.CONTROL5:
             if self.pdi_command != PdiCommand.ASC2_GET:
-                values = (self.values if self.values is not None else 0)
-                byte_str += values.to_bytes(1, byteorder='big')
+                values = self.values if self.values is not None else 0
+                byte_str += values.to_bytes(1, byteorder="big")
         elif self._action == Asc2Action.IDENTIFY:
             if self.pdi_command == PdiCommand.ASC2_SET:
-                byte_str += (self.ident if self.ident is not None else 0).to_bytes(1, byteorder='big')
+                byte_str += (self.ident if self.ident is not None else 0).to_bytes(1, byteorder="big")
         byte_str, checksum = self._calculate_checksum(byte_str)
-        byte_str = PDI_SOP.to_bytes(1, byteorder='big') + byte_str
+        byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
         byte_str += checksum
-        byte_str += PDI_EOP.to_bytes(1, byteorder='big')
+        byte_str += PDI_EOP.to_bytes(1, byteorder="big")
         return byte_str

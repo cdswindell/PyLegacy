@@ -4,19 +4,17 @@ from src.pdi.constants import PdiCommand, WiFiAction
 from src.pdi.pdi_req import LcsReq
 from src.protocol.constants import CommandScope
 
-WIFI_MODE_MAP = {
-    0: "AP",
-    1: "INF",
-    2: "WPS"
-}
+WIFI_MODE_MAP = {0: "AP", 1: "INF", 2: "WPS"}
 
 
 class WiFiReq(LcsReq):
-    def __init__(self,
-                 data: bytes | int,
-                 pdi_command: PdiCommand = PdiCommand.WIFI_GET,
-                 action: WiFiAction = WiFiAction.CONFIG,
-                 ident: int | None = None) -> None:
+    def __init__(
+        self,
+        data: bytes | int,
+        pdi_command: PdiCommand = PdiCommand.WIFI_GET,
+        action: WiFiAction = WiFiAction.CONFIG,
+        ident: int | None = None,
+    ) -> None:
         super().__init__(data, pdi_command, action.bits, ident)
         if isinstance(data, bytes):
             self._action = WiFiAction(self._action_byte)
@@ -51,8 +49,10 @@ class WiFiReq(LcsReq):
         else:
             payload_bytes = self._data[3:]
             if self.action == WiFiAction.CONNECT:
-                return (f"Max Connections: {payload_bytes[0]} Connected: {payload_bytes[1]}" +
-                        f" {WIFI_MODE_MAP[payload_bytes[2]]}")
+                return (
+                    f"Max Connections: {payload_bytes[0]} Connected: {payload_bytes[1]}"
+                    + f" {WIFI_MODE_MAP[payload_bytes[2]]}"
+                )
             elif self.action == WiFiAction.IP:
                 ip_addr = f"{payload_bytes[0]}.{payload_bytes[1]}.{payload_bytes[2]}.{payload_bytes[3]}"
                 payload_bytes = payload_bytes[4:]

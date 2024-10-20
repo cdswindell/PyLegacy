@@ -6,14 +6,16 @@ from .tmcc2_constants import TMCC2EngineCommandDef
 
 
 class EngineCmd(TMCC2Command):
-    def __init__(self,
-                 engine: int,
-                 command: TMCC2EngineCommandDef | TMCC2ParameterEnum,
-                 data: int = 0,
-                 scope: CommandScope = CommandScope.ENGINE,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT,
-                 server: str = None) -> None:
+    def __init__(
+        self,
+        engine: int,
+        command: TMCC2EngineCommandDef | TMCC2ParameterEnum,
+        data: int = 0,
+        scope: CommandScope = CommandScope.ENGINE,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ) -> None:
         if scope is None or scope not in [CommandScope.ENGINE, CommandScope.TRAIN]:
             raise ValueError(f"Scope must be ENGINE or TRAIN ({scope})")
         if engine < 1 or engine > 99:

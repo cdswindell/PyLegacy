@@ -19,25 +19,22 @@ class PdiListener(Thread):
     _lock = threading.RLock()
 
     @classmethod
-    def build(cls,
-              base3: str = None,
-              base3_port: int = DEFAULT_BASE3_PORT,
-              queue_size: int = DEFAULT_QUEUE_SIZE,
-              build_base3_reader: bool = True
-              ) -> PdiListener:
+    def build(
+        cls,
+        base3: str = None,
+        base3_port: int = DEFAULT_BASE3_PORT,
+        queue_size: int = DEFAULT_QUEUE_SIZE,
+        build_base3_reader: bool = True,
+    ) -> PdiListener:
         """
-            Factory method to create a CommandListener instance
+        Factory method to create a CommandListener instance
         """
         if base3 is None:
             build_base3_reader = False
         return PdiListener(base3, base3_port, queue_size, build_base3_reader)
 
     @classmethod
-    def listen_for(cls,
-                   listener: Subscriber,
-                   channel: Topic,
-                   address: int = None,
-                   action: PdiAction = None):
+    def listen_for(cls, listener: Subscriber, channel: Topic, address: int = None, action: PdiAction = None):
         if cls._instance is not None:
             cls._instance.dispatcher.subscribe(listener, channel, address, action)
         else:
@@ -72,8 +69,8 @@ class PdiListener(Thread):
 
     def __new__(cls, *args, **kwargs):
         """
-            Provides singleton functionality. We only want one instance
-            of this class in a process
+        Provides singleton functionality. We only want one instance
+        of this class in a process
         """
         with cls._lock:
             if PdiListener._instance is None:
@@ -81,11 +78,13 @@ class PdiListener(Thread):
                 PdiListener._instance._initialized = False
             return PdiListener._instance
 
-    def __init__(self,
-                 base3_addr: str,
-                 base3_port: int = DEFAULT_BASE3_PORT,
-                 queue_size: int = DEFAULT_QUEUE_SIZE,
-                 build_base3_reader: bool = True) -> None:
+    def __init__(
+        self,
+        base3_addr: str,
+        base3_port: int = DEFAULT_BASE3_PORT,
+        queue_size: int = DEFAULT_QUEUE_SIZE,
+        build_base3_reader: bool = True,
+    ) -> None:
         if self._initialized:
             return
         else:
@@ -97,6 +96,7 @@ class PdiListener(Thread):
         # open a connection to our Base 3
         if build_base3_reader is True:
             from .base3_buffer import Base3Buffer
+
             self._base3 = Base3Buffer(base3_addr, base3_port, queue_size, self)
         else:
             self._base3 = None
@@ -147,7 +147,7 @@ class PdiListener(Thread):
                         # we found a complete PDI packet! Queue it for processing
                         req_bytes = bytes()
                         for _ in range(eop_pos + 1):
-                            req_bytes += self._deque.popleft().to_bytes(1, byteorder='big')
+                            req_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                             dq_len -= 1
                         try:
                             eop_pos = -1
@@ -183,18 +183,10 @@ class PdiListener(Thread):
                 self._base3.shutdown()
         PdiListener._instance = None
 
-    def subscribe(self,
-                  listener: Subscriber,
-                  channel: Topic,
-                  address: int = None,
-                  action: PdiAction = None) -> None:
+    def subscribe(self, listener: Subscriber, channel: Topic, address: int = None, action: PdiAction = None) -> None:
         self._dispatcher.subscribe(listener, channel, address, action)
 
-    def unsubscribe(self,
-                    listener: Subscriber,
-                    channel: Topic,
-                    address: int = None,
-                    action: PdiAction = None) -> None:
+    def unsubscribe(self, listener: Subscriber, channel: Topic, address: int = None, action: PdiAction = None) -> None:
         self._dispatcher.unsubscribe(listener, channel, address, action)
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
@@ -206,16 +198,17 @@ class PdiListener(Thread):
 
 class PdiDispatcher(Thread):
     """
-        The PdiDispatcher thread receives parsed PdiReqs from the
-        PdiListener and dispatches them to subscribing listeners
+    The PdiDispatcher thread receives parsed PdiReqs from the
+    PdiListener and dispatches them to subscribing listeners
     """
+
     _instance = None
     _lock = threading.RLock()
 
     @classmethod
     def build(cls, queue_size: int = DEFAULT_QUEUE_SIZE) -> PdiDispatcher:
         """
-            Factory method to create a CommandDispatcher instance
+        Factory method to create a CommandDispatcher instance
         """
         return PdiDispatcher(queue_size)
 
@@ -234,8 +227,8 @@ class PdiDispatcher(Thread):
 
     def __new__(cls, *args, **kwargs):
         """
-            Provides singleton functionality. We only want one instance
-            of this class in a process
+        Provides singleton functionality. We only want one instance
+        of this class in a process
         """
         with cls._lock:
             if PdiDispatcher._instance is None:
@@ -291,8 +284,8 @@ class PdiDispatcher(Thread):
 
     def update_client_state(self, command: PdiReq):
         """
-            Update all PyTrain clients with the dispatched command. Used to keep
-            client states in sync with server
+        Update all PyTrain clients with the dispatched command. Used to keep
+        client states in sync with server
         """
         if self._client_port is not None:
             # noinspection PyTypeChecker
@@ -311,8 +304,8 @@ class PdiDispatcher(Thread):
 
     def offer(self, pdi_req: PdiReq) -> None:
         """
-            Receive a command from the listener thread and dispatch it to subscribers.
-            We do this in a separate thread so that the listener thread doesn't fall behind
+        Receive a command from the listener thread and dispatch it to subscribers.
+        We do this in a separate thread so that the listener thread doesn't fall behind
         """
         if pdi_req is not None and isinstance(pdi_req, PdiReq) and not pdi_req.is_ping:
             with self._cv:
@@ -326,9 +319,7 @@ class PdiDispatcher(Thread):
         PdiDispatcher._instance = None
 
     @staticmethod
-    def _make_channel(channel: Topic,
-                      address: int = None,
-                      action: PdiAction = None) -> Topic | Tuple:
+    def _make_channel(channel: Topic, address: int = None, action: PdiAction = None) -> Topic | Tuple:
         if channel is None:
             raise ValueError("Channel required")
         elif address is None:
@@ -342,21 +333,15 @@ class PdiDispatcher(Thread):
         if channel in self._channels:  # otherwise, we would create a channel simply by referencing i
             self._channels[channel].publish(message)
 
-    def subscribe(self,
-                  subscriber: Subscriber,
-                  channel: Topic,
-                  address: int = None,
-                  action: PdiAction = None) -> None:
+    def subscribe(self, subscriber: Subscriber, channel: Topic, address: int = None, action: PdiAction = None) -> None:
         if channel == BROADCAST_TOPIC:
             self.subscribe_any(subscriber)
         else:
             self._channels[self._make_channel(channel, address, action)].subscribe(subscriber)
 
-    def unsubscribe(self,
-                    subscriber: Subscriber,
-                    channel: Topic,
-                    address: int = None,
-                    command: PdiAction = None) -> None:
+    def unsubscribe(
+        self, subscriber: Subscriber, channel: Topic, address: int = None, command: PdiAction = None
+    ) -> None:
         if channel == BROADCAST_TOPIC:
             self.unsubscribe_any(subscriber)
         else:

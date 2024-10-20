@@ -5,12 +5,15 @@ from .tmcc1_constants import TMCC1AuxCommandDef
 
 
 class AccCmd(TMCC1Command):
-    def __init__(self, acc: int,
-                 command: TMCC1AuxCommandDef,  # enum
-                 data: int = None,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT,
-                 server: str = None) -> None:
+    def __init__(
+        self,
+        acc: int,
+        command: TMCC1AuxCommandDef,  # enum
+        data: int = None,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ) -> None:
         if acc < 1 or acc > 99:
             raise ValueError("Accessory must be between 1 and 99")
         req = CommandReq(command, acc, data=data)

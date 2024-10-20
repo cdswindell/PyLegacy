@@ -1,15 +1,16 @@
 """
-    Lionel PDI Command Protocol Constants
+Lionel PDI Command Protocol Constants
 """
+
 from enum import IntEnum, Enum, unique
 from typing import TypeVar
 
 from ..protocol.constants import Mixins
 
 # General constants
-PDI_SOP: int = 0xd1
-PDI_STF: int = 0xde
-PDI_EOP: int = 0xdf
+PDI_SOP: int = 0xD1
+PDI_STF: int = 0xDE
+PDI_EOP: int = 0xDF
 
 # Keep-alive message
 KEEP_ALIVE_CMD: bytes = bytes([0xD1, 0x29, 0xD7, 0xDF])
@@ -110,14 +111,16 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
     @property
     def is_base(self) -> bool:
-        return self.value in [BASE_ENGINE,
-                              BASE_TRAIN,
-                              BASE_ACC,
-                              BASE_ROUTE,
-                              BASE_SWITCH,
-                              BASE_MEMORY,
-                              UPDATE_ENGINE_SPEED,
-                              UPDATE_TRAIN_SPEED]
+        return self.value in [
+            BASE_ENGINE,
+            BASE_TRAIN,
+            BASE_ACC,
+            BASE_ROUTE,
+            BASE_SWITCH,
+            BASE_MEMORY,
+            UPDATE_ENGINE_SPEED,
+            UPDATE_TRAIN_SPEED,
+        ]
 
     @property
     def is_irda(self) -> bool:
@@ -149,11 +152,7 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
 
 class ActionDef:
-    def __init__(self,
-                 bits: int,
-                 gettable: bool,
-                 settable: bool,
-                 responds: bool) -> None:
+    def __init__(self, bits: int, gettable: bool, settable: bool, responds: bool) -> None:
         self._bits = bits
         self._gettable = gettable
         self._settable = settable
@@ -179,26 +178,26 @@ class ActionDef:
 @unique
 class PdiAction(Mixins, FriendlyMixins):
     """
-        Marker interface for all Pdi Action enums
+    Marker interface for all Pdi Action enums
     """
 
     def __repr__(self) -> str:
         opts = ""
-        opts += 'g' if self.value.is_gettable else 'x'
-        opts += 's' if self.value.is_settable else 'x'
-        opts += 'r' if self.value.is_responses else 'x'
+        opts += "g" if self.value.is_gettable else "x"
+        opts += "s" if self.value.is_settable else "x"
+        opts += "r" if self.value.is_responses else "x"
         return f"{self.name.capitalize()} [{opts}]"
 
     @property
     def bits(self) -> int | None:
-        if hasattr(self.value, 'bits'):
+        if hasattr(self.value, "bits"):
             return self.value.bits
         else:
             return None
 
     @property
     def as_bytes(self) -> bytes:
-        return self.bits.to_bytes(1, byteorder='big')
+        return self.bits.to_bytes(1, byteorder="big")
 
 
 ACTION_FIRMWARE: int = 0x01
@@ -339,17 +338,18 @@ ALL_STATUS = [
     WiFiAction.STATUS,
 ]
 
-ALL_RXs = [e for e in PdiCommand if e.name.endswith('_RX')]
-ALL_SETs = [e for e in PdiCommand if e.name.endswith('_SET')]
-ALL_GETs = [e for e in PdiCommand if e.name.endswith('_GET')]
+ALL_RXs = [e for e in PdiCommand if e.name.endswith("_RX")]
+ALL_SETs = [e for e in PdiCommand if e.name.endswith("_SET")]
+ALL_GETs = [e for e in PdiCommand if e.name.endswith("_GET")]
 
 
 @unique
 class PdiDevice(Mixins, FriendlyMixins):
     """
-        All supported LCS/PDI devices should be listed here, along with their
-        constructor class wrapped in a DeviceWrapper
+    All supported LCS/PDI devices should be listed here, along with their
+    constructor class wrapped in a DeviceWrapper
     """
+
     from src.pdi.asc2_req import Asc2Req
     from src.pdi.bpc2_req import Bpc2Req
     from src.pdi.wifi_req import WiFiReq
@@ -369,7 +369,8 @@ class PdiDevice(Mixins, FriendlyMixins):
     UPDATE = DeviceWrapper(BaseReq)
 
     from .pdi_req import PdiReq
-    T = TypeVar('T', bound=PdiReq)
+
+    T = TypeVar("T", bound=PdiReq)
 
     def build(self, data: bytes) -> T:
         return self.value.req_class(data)
@@ -385,18 +386,18 @@ class PdiDevice(Mixins, FriendlyMixins):
 
     def clear_errors(self, tmcc_id: int) -> T:
         """
-            Build a Clear Errors request
+        Build a Clear Errors request
         """
         return self.value.clear_errors(tmcc_id)
 
     def reset(self, tmcc_id: int) -> T:
         """
-            Build a Reset request
+        Build a Reset request
         """
         return self.value.identify(tmcc_id)
 
     def identify(self, tmcc_id: int, ident: int = 1) -> T:
         """
-            Build an Identify request
+        Build an Identify request
         """
         return self.value.identify(tmcc_id, ident)

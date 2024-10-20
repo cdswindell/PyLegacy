@@ -1,6 +1,7 @@
 """
-    TMCC1 Constants
+TMCC1 Constants
 """
+
 from __future__ import annotations
 
 import abc
@@ -14,8 +15,9 @@ from ..constants import RELATIVE_SPEED_MAP, OfficialRRSpeeds, DEFAULT_ADDRESS
 
 class TMCC1Enum(CommandDefEnum):
     """
-        Marker Interface for all TMCC1 enums
+    Marker Interface for all TMCC1 enums
     """
+
     pass
 
 
@@ -28,11 +30,11 @@ TMCC1_COMMAND_PREFIX: int = 0xFE
 @unique
 class TMCC1CommandIdentifier(CommandPrefix):
     ENGINE = 0b00000000  # first 2 bits significant
-    TRAIN = 0b11001000   # first 5 bits significant
+    TRAIN = 0b11001000  # first 5 bits significant
     SWITCH = 0b01000000  # first 2 bits significant
-    ACC = 0b10000000     # first 2 bits significant
-    ROUTE = 0b11010000   # first 4 bits significant
-    HALT = 0xFFFF        # first 8 bits significant
+    ACC = 0b10000000  # first 2 bits significant
+    ROUTE = 0b11010000  # first 4 bits significant
+    HALT = 0xFFFF  # first 8 bits significant
 
     @classmethod
     def classify(cls, byte_data) -> CommandScope:
@@ -67,26 +69,30 @@ TMCC1_IDENT_TO_SCOPE_MAP: Dict[TMCC1CommandIdentifier, CommandScope] = {
 class TMCC1CommandDef(CommandDef):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self,
-                 command_bits: int,
-                 command_ident: TMCC1CommandIdentifier = TMCC1CommandIdentifier.ENGINE,
-                 is_addressable: bool = True,
-                 num_address_bits: int = 7,
-                 d_min: int = 0,
-                 d_max: int = 0,
-                 d_map: Dict[int, int] = None,
-                 do_reverse_lookup: bool = True,
-                 alias: str = None,
-                 data: int = None) -> None:
-        super().__init__(command_bits,
-                         is_addressable=is_addressable,
-                         num_address_bits=num_address_bits,
-                         d_min=d_min,
-                         d_max=d_max,
-                         d_map=d_map,
-                         do_reverse_lookup=do_reverse_lookup,
-                         alias=alias,
-                         data=data)
+    def __init__(
+        self,
+        command_bits: int,
+        command_ident: TMCC1CommandIdentifier = TMCC1CommandIdentifier.ENGINE,
+        is_addressable: bool = True,
+        num_address_bits: int = 7,
+        d_min: int = 0,
+        d_max: int = 0,
+        d_map: Dict[int, int] = None,
+        do_reverse_lookup: bool = True,
+        alias: str = None,
+        data: int = None,
+    ) -> None:
+        super().__init__(
+            command_bits,
+            is_addressable=is_addressable,
+            num_address_bits=num_address_bits,
+            d_min=d_min,
+            d_max=d_max,
+            d_map=d_map,
+            do_reverse_lookup=do_reverse_lookup,
+            alias=alias,
+            data=data,
+        )
         self._command_ident = command_ident
 
     @property
@@ -99,7 +105,7 @@ class TMCC1CommandDef(CommandDef):
 
     @property
     def first_byte(self) -> bytes:
-        return TMCC1_COMMAND_PREFIX.to_bytes(1, byteorder='big')
+        return TMCC1_COMMAND_PREFIX.to_bytes(1, byteorder="big")
 
     @property
     def scope(self) -> CommandScope:
@@ -107,15 +113,15 @@ class TMCC1CommandDef(CommandDef):
 
     @property
     def address_mask(self) -> int:
-        return 0xFFFF & ~((2 ** self.num_address_bits - 1) << 7)
+        return 0xFFFF & ~((2**self.num_address_bits - 1) << 7)
 
     @property
     def train_address_mask(self) -> int:
-        return 0xFFFF & ~(((2 ** 4) - 1) << 7)
+        return 0xFFFF & ~(((2**4) - 1) << 7)
 
     def address_from_bytes(self, byte_data: bytes) -> int:
         if self.is_addressable:
-            value = int.from_bytes(byte_data, byteorder='big')
+            value = int.from_bytes(byte_data, byteorder="big")
             # if first byte indicates train, we have to change the address mask
             if self.classify(byte_data) == CommandScope.TRAIN:
                 return (0xFFFF & (~self.train_address_mask & value)) >> 7
@@ -166,8 +172,9 @@ TMCC1_SWITCH_SET_ADDRESS_COMMAND: int = 0x402B
 @unique
 class TMCC1SwitchState(TMCC1Enum):
     """
-        Switch State
+    Switch State
     """
+
     THROUGH = TMCC1CommandDef(TMCC1_SWITCH_THROUGH_COMMAND, TMCC1CommandIdentifier.SWITCH)
     OUT = TMCC1CommandDef(TMCC1_SWITCH_OUT_COMMAND, TMCC1CommandIdentifier.SWITCH)
     SET_ADDRESS = TMCC1CommandDef(TMCC1_SWITCH_SET_ADDRESS_COMMAND, TMCC1CommandIdentifier.SWITCH)
@@ -212,8 +219,11 @@ class TMCC1AuxCommandDef(TMCC1Enum):
     REAR_COUPLER = TMCC1CommandDef(TMCC1_ACC_REAR_COUPLER_COMMAND, TMCC1CommandIdentifier.ACC)
     BOOST = TMCC1CommandDef(TMCC1_ACC_BOOST_COMMAND, TMCC1CommandIdentifier.ACC)
     BRAKE = TMCC1CommandDef(TMCC1_ACC_BRAKE_COMMAND, TMCC1CommandIdentifier.ACC)
-    RELATIVE_SPEED = TMCC1CommandDef(TMCC1_ACC_RELATIVE_SPEED_COMMAND,
-                                     TMCC1CommandIdentifier.ACC, d_map=RELATIVE_SPEED_MAP,)
+    RELATIVE_SPEED = TMCC1CommandDef(
+        TMCC1_ACC_RELATIVE_SPEED_COMMAND,
+        TMCC1CommandIdentifier.ACC,
+        d_map=RELATIVE_SPEED_MAP,
+    )
 
 
 # Engine/Train commands
@@ -270,27 +280,27 @@ TMCC1_NORMAL_SPEED: int = 25
 TMCC1_HIGHBALL_SPEED: int = 27
 
 TMCC1_SPEED_MAP: dict[str, int] = {
-    'STOP_HOLD': 0,
-    'SH': 0,
-    'STOP': 0,
-    'ROLL': TMCC1_ROLL_SPEED,
-    'RO': TMCC1_ROLL_SPEED,
-    'RESTRICTED': TMCC1_RESTRICTED_SPEED,
-    'RE': TMCC1_RESTRICTED_SPEED,
-    'SLOW': TMCC1_SLOW_SPEED,
-    'SL': TMCC1_SLOW_SPEED,
-    'MEDIUM': TMCC1_MEDIUM_SPEED,
-    'ME': TMCC1_MEDIUM_SPEED,
-    'LIMITED': TMCC1_LIMITED_SPEED,
-    'LI': TMCC1_LIMITED_SPEED,
-    'NORMAL': TMCC1_NORMAL_SPEED,
-    'NO': TMCC1_NORMAL_SPEED,
-    'HIGH': TMCC1_HIGHBALL_SPEED,
-    'HIGHBALL': TMCC1_HIGHBALL_SPEED,
-    'HI': TMCC1_HIGHBALL_SPEED,
+    "STOP_HOLD": 0,
+    "SH": 0,
+    "STOP": 0,
+    "ROLL": TMCC1_ROLL_SPEED,
+    "RO": TMCC1_ROLL_SPEED,
+    "RESTRICTED": TMCC1_RESTRICTED_SPEED,
+    "RE": TMCC1_RESTRICTED_SPEED,
+    "SLOW": TMCC1_SLOW_SPEED,
+    "SL": TMCC1_SLOW_SPEED,
+    "MEDIUM": TMCC1_MEDIUM_SPEED,
+    "ME": TMCC1_MEDIUM_SPEED,
+    "LIMITED": TMCC1_LIMITED_SPEED,
+    "LI": TMCC1_LIMITED_SPEED,
+    "NORMAL": TMCC1_NORMAL_SPEED,
+    "NO": TMCC1_NORMAL_SPEED,
+    "HIGH": TMCC1_HIGHBALL_SPEED,
+    "HIGHBALL": TMCC1_HIGHBALL_SPEED,
+    "HI": TMCC1_HIGHBALL_SPEED,
 }
 
-TMCC1_NUMERIC_SPEED_TO_DIRECTIVE_MAP = {s: p for p, s in TMCC1_SPEED_MAP.items() if len(p) > 2 and p != 'HIGH'}
+TMCC1_NUMERIC_SPEED_TO_DIRECTIVE_MAP = {s: p for p, s in TMCC1_SPEED_MAP.items() if len(p) > 2 and p != "HIGH"}
 
 
 @unique
@@ -341,22 +351,28 @@ class TMCC1EngineCommandDef(TMCC1Enum):
     TOGGLE_DIRECTION = TMCC1CommandDef(TMCC1_ENG_TOGGLE_DIRECTION_COMMAND)
     VOLUME_DOWN = TMCC1CommandDef(TMCC1_ENG_VOLUME_DOWN_COMMAND, alias="NUMERIC", data=4)
     VOLUME_UP = TMCC1CommandDef(TMCC1_ENG_VOLUME_UP_COMMAND, alias="NUMERIC", data=1)
-    SPEED_HIGHBALL = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_HIGHBALL_SPEED,
-                                     alias="ABSOLUTE_SPEED", data=TMCC1_HIGHBALL_SPEED)
-    SPEED_LIMITED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_LIMITED_SPEED,
-                                    alias="ABSOLUTE_SPEED", data=TMCC1_LIMITED_SPEED)
-    SPEED_MEDIUM = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_MEDIUM_SPEED,
-                                   alias="ABSOLUTE_SPEED", data=TMCC1_MEDIUM_SPEED)
-    SPEED_NORMAL = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_NORMAL_SPEED,
-                                   alias="ABSOLUTE_SPEED", data=TMCC1_NORMAL_SPEED)
-    SPEED_RESTRICTED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_RESTRICTED_SPEED,
-                                       alias="ABSOLUTE_SPEED", data=TMCC1_RESTRICTED_SPEED)
-    SPEED_ROLL = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_ROLL_SPEED,
-                                 alias="ABSOLUTE_SPEED", data=TMCC1_ROLL_SPEED)
-    SPEED_SLOW = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_SLOW_SPEED,
-                                 alias="ABSOLUTE_SPEED", data=TMCC1_SLOW_SPEED)
-    SPEED_STOP_HOLD = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND,
-                                      alias="ABSOLUTE_SPEED", data=0)
+    SPEED_HIGHBALL = TMCC1CommandDef(
+        TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_HIGHBALL_SPEED, alias="ABSOLUTE_SPEED", data=TMCC1_HIGHBALL_SPEED
+    )
+    SPEED_LIMITED = TMCC1CommandDef(
+        TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_LIMITED_SPEED, alias="ABSOLUTE_SPEED", data=TMCC1_LIMITED_SPEED
+    )
+    SPEED_MEDIUM = TMCC1CommandDef(
+        TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_MEDIUM_SPEED, alias="ABSOLUTE_SPEED", data=TMCC1_MEDIUM_SPEED
+    )
+    SPEED_NORMAL = TMCC1CommandDef(
+        TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_NORMAL_SPEED, alias="ABSOLUTE_SPEED", data=TMCC1_NORMAL_SPEED
+    )
+    SPEED_RESTRICTED = TMCC1CommandDef(
+        TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_RESTRICTED_SPEED, alias="ABSOLUTE_SPEED", data=TMCC1_RESTRICTED_SPEED
+    )
+    SPEED_ROLL = TMCC1CommandDef(
+        TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_ROLL_SPEED, alias="ABSOLUTE_SPEED", data=TMCC1_ROLL_SPEED
+    )
+    SPEED_SLOW = TMCC1CommandDef(
+        TMCC1_ENG_ABSOLUTE_SPEED_COMMAND | TMCC1_SLOW_SPEED, alias="ABSOLUTE_SPEED", data=TMCC1_SLOW_SPEED
+    )
+    SPEED_STOP_HOLD = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, alias="ABSOLUTE_SPEED", data=0)
     FUNC_MINUS = TMCC1CommandDef(TMCC1_ENG_FUNC_MINUS_COMMAND, alias="NUMERIC", data=8)
     FUNC_PLUS = TMCC1CommandDef(TMCC1_ENG_FUNC_PLUS_COMMAND, alias="NUMERIC", data=9)
 

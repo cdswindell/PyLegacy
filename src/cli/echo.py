@@ -11,9 +11,7 @@ from src.utils.argument_parser import ArgumentParser
 
 
 class EchoCli:
-    def __init__(self,
-                 arg_parser: ArgumentParser,
-                 cmd_line: List[str] = None) -> None:
+    def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None) -> None:
         if cmd_line is None:
             self._args = arg_parser.parse_args()
         else:
@@ -29,7 +27,6 @@ class EchoCli:
         print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
 
 
-if __name__ == '__main__':
-    parser = ArgumentParser("Echo LCS SER2 output to console",
-                            parents=[CliBase.cli_parser()])
+if __name__ == "__main__":
+    parser = ArgumentParser("Echo LCS SER2 output to console", parents=[CliBase.cli_parser()])
     EchoCli(parser)

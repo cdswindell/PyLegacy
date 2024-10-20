@@ -21,7 +21,7 @@ CALLBACK_DICT = {}
 @pytest.fixture(autouse=True)
 def run_before_and_after_tests(tmpdir) -> None:
     """
-        Fixture to execute asserts before and after a test is run
+    Fixture to execute asserts before and after a test is run
     """
     # Setup: fill with any logic you want
 
@@ -198,10 +198,7 @@ class TestCommandDispatcher(TestBase):
         dispatcher.subscribe(self.switch_topic, CommandScope.SWITCH)
         dispatcher.subscribe(self.engine_topic, CommandScope.ENGINE)
         dispatcher.subscribe(self.engine_13_topic, CommandScope.ENGINE, 13)
-        dispatcher.subscribe(self.engine_22_ring_bell_topic,
-                             CommandScope.ENGINE,
-                             22,
-                             TMCC2EngineCommandDef.RING_BELL)
+        dispatcher.subscribe(self.engine_22_ring_bell_topic, CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)
         assert dispatcher.broadcasts_enabled is False
         assert len(dispatcher._channels) == 4
 
@@ -249,10 +246,7 @@ class TestCommandDispatcher(TestBase):
         assert len(CALLBACK_DICT) == 0
 
         # unsubscribe engine 22 and fire request, callback should not be invoked
-        dispatcher.unsubscribe(self.engine_22_ring_bell_topic,
-                               CommandScope.ENGINE,
-                               22,
-                               TMCC2EngineCommandDef.RING_BELL)
+        dispatcher.unsubscribe(self.engine_22_ring_bell_topic, CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)
         assert len(dispatcher._channels) == 3
         ring_req = CommandReq.build(TMCC2EngineCommandDef.RING_BELL, 22)
         assert ring_req.address == 22
@@ -285,10 +279,7 @@ class TestCommandDispatcher(TestBase):
         dispatcher.subscribe(self.switch_topic, CommandScope.SWITCH)
         dispatcher.subscribe(self.engine_topic, CommandScope.ENGINE)
         dispatcher.subscribe(self.engine_13_topic, CommandScope.ENGINE, 13)
-        dispatcher.subscribe(self.engine_22_ring_bell_topic,
-                             CommandScope.ENGINE,
-                             22,
-                             TMCC2EngineCommandDef.RING_BELL)
+        dispatcher.subscribe(self.engine_22_ring_bell_topic, CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)
         assert dispatcher.broadcasts_enabled is False
         assert len(dispatcher._channels) == 4
 
@@ -316,10 +307,7 @@ class TestCommandDispatcher(TestBase):
         dispatcher.subscribe(self.switch_topic, CommandScope.SWITCH)
         dispatcher.subscribe(self.engine_topic, CommandScope.ENGINE)
         dispatcher.subscribe(self.engine_13_topic, CommandScope.ENGINE, 13)
-        dispatcher.subscribe(self.engine_22_ring_bell_topic,
-                             CommandScope.TRAIN,
-                             22,
-                             TMCC2EngineCommandDef.RING_BELL)
+        dispatcher.subscribe(self.engine_22_ring_bell_topic, CommandScope.TRAIN, 22, TMCC2EngineCommandDef.RING_BELL)
         assert dispatcher.broadcasts_enabled is False
         assert len(dispatcher._channels) == 4
 

@@ -19,12 +19,9 @@ class ClientStateListener(threading.Thread):
         return ClientStateListener()
 
     @classmethod
-    def listen_for(cls,
-                   listener: Subscriber,
-                   channel: Topic,
-                   address: int = None,
-                   command: CommandDefEnum = None,
-                   data: int = None):
+    def listen_for(
+        cls, listener: Subscriber, channel: Topic, address: int = None, command: CommandDefEnum = None, data: int = None
+    ):
         cls.build().subscribe(listener, channel, address, command, data)
 
     def __init__(self) -> None:
@@ -43,8 +40,8 @@ class ClientStateListener(threading.Thread):
 
     def __new__(cls, *args, **kwargs):
         """
-            Provides singleton functionality. We only want one instance
-            of this class in the system
+        Provides singleton functionality. We only want one instance
+        of this class in the system
         """
         with cls._lock:
             if ClientStateListener._instance is None:
@@ -54,7 +51,7 @@ class ClientStateListener(threading.Thread):
 
     def run(self) -> None:
         # noinspection PyTypeChecker
-        with socketserver.TCPServer(('', self._port), ClientStateHandler) as server:
+        with socketserver.TCPServer(("", self._port), ClientStateHandler) as server:
             server.serve_forever()
 
     def offer(self, data: bytes) -> None:
@@ -64,21 +61,25 @@ class ClientStateListener(threading.Thread):
         else:
             self._tmcc_listener.offer(data)
 
-    def subscribe(self,
-                  listener: Subscriber,
-                  channel: Topic,
-                  address: int = None,
-                  command: CommandDefEnum = None,
-                  data: int = None) -> None:
+    def subscribe(
+        self,
+        listener: Subscriber,
+        channel: Topic,
+        address: int = None,
+        command: CommandDefEnum = None,
+        data: int = None,
+    ) -> None:
         self._tmcc_listener.subscribe(listener, channel, address, command, data)
         self._pdi_listener.subscribe(listener, channel, address)
 
-    def unsubscribe(self,
-                    listener: Subscriber,
-                    channel: Topic,
-                    address: int = None,
-                    command: CommandDefEnum = None,
-                    data: int = None):
+    def unsubscribe(
+        self,
+        listener: Subscriber,
+        channel: Topic,
+        address: int = None,
+        command: CommandDefEnum = None,
+        data: int = None,
+    ):
         self._tmcc_listener.unsubscribe(listener, channel, address, command, data)
         self._pdi_listener.unsubscribe(listener, channel, address)
 

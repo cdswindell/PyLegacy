@@ -13,14 +13,16 @@ from ..tmcc2.tmcc2_constants import TMCC2CommandDef
 class SequenceDef(TMCC2CommandDef):
     from .sequence_req import SequenceReq
 
-    def __init__(self,
-                 command_bits: int,
-                 scope: CommandScope = CommandScope.ENGINE,
-                 is_addressable: bool = True,
-                 d_min: int = 0,
-                 d_max: int = 0,
-                 d_map: Dict[int, int] = None,
-                 cmd_class: Type[SequenceReq] = None) -> None:
+    def __init__(
+        self,
+        command_bits: int,
+        scope: CommandScope = CommandScope.ENGINE,
+        is_addressable: bool = True,
+        d_min: int = 0,
+        d_max: int = 0,
+        d_map: Dict[int, int] = None,
+        cmd_class: Type[SequenceReq] = None,
+    ) -> None:
         super().__init__(command_bits, scope, is_addressable, d_min, d_max, d_map)
         self._cmd_class = cmd_class
 

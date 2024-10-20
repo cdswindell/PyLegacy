@@ -7,6 +7,7 @@ from enum import Enum
 from typing import Dict, Any, Tuple
 
 import sys
+
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
@@ -22,16 +23,18 @@ class CommandDef(ABC):
         to work with them in a command format agnostic manner.
     """
 
-    def __init__(self,
-                 command_bits: int,
-                 is_addressable: bool = True,
-                 num_address_bits: int = 7,
-                 d_min: int = 0,
-                 d_max: int = 0,
-                 d_map: Dict[int, int] = None,
-                 do_reverse_lookup: bool = True,
-                 alias: str = None,
-                 data: int = None) -> None:
+    def __init__(
+        self,
+        command_bits: int,
+        is_addressable: bool = True,
+        num_address_bits: int = 7,
+        d_min: int = 0,
+        d_max: int = 0,
+        d_map: Dict[int, int] = None,
+        do_reverse_lookup: bool = True,
+        alias: str = None,
+        data: int = None,
+    ) -> None:
         self._command_bits: int = command_bits
         self._is_addressable = is_addressable
         self._num_address_bits = num_address_bits
@@ -56,7 +59,7 @@ class CommandDef(ABC):
 
     @property
     def as_bytes(self) -> bytes:
-        return self.bits.to_bytes(3, byteorder='big')
+        return self.bits.to_bytes(3, byteorder="big")
 
     @property
     def is_addressable(self) -> bool:
@@ -68,10 +71,10 @@ class CommandDef(ABC):
 
     def is_valid_data(self, candidate: int, from_bytes: bool = False) -> bool:
         """
-            Determine if a candidate value is valid, given the constraints on this
-            CommandDef. If from_bytes is True, the candidate value will be treated
-            as coming from a bytes value, and the values (not keys) in data_map are
-            used to validate.
+        Determine if a candidate value is valid, given the constraints on this
+        CommandDef. If from_bytes is True, the candidate value will be treated
+        as coming from a bytes value, and the values (not keys) in data_map are
+        used to validate.
         """
         if self.is_data is True:
             if self.data_map:
@@ -85,7 +88,7 @@ class CommandDef(ABC):
 
     def data_from_bytes(self, byte_data: bytes) -> int:
         if self.is_data:
-            value = int.from_bytes(byte_data, byteorder='big')
+            value = int.from_bytes(byte_data, byteorder="big")
             data = 0xFFFF & (~self.data_mask & value)
             if self.data_map:
                 for k, v in self.data_map.items():
@@ -112,7 +115,7 @@ class CommandDef(ABC):
 
     @property
     def data_mask(self) -> int:
-        return 0xFFFF & ~(2 ** self.num_data_bits - 1)
+        return 0xFFFF & ~(2**self.num_data_bits - 1)
 
     @property
     def data_min(self) -> int:
@@ -145,7 +148,7 @@ class CommandDef(ABC):
     @property
     def identifier(self) -> int | None:
         """
-            Only relevant for TMCC1-style commands
+        Only relevant for TMCC1-style commands
         """
         return None
 
@@ -178,7 +181,7 @@ class CommandDefMixins(Mixins):
     @classmethod
     def by_value(cls, value: Any, raise_exception: bool = False) -> Self | None:
         """
-            We redefine by_value to allow handling of command defs
+        We redefine by_value to allow handling of command defs
         """
         for _, member in cls.__members__.items():
             if member.value == value:
@@ -189,8 +192,9 @@ class CommandDefMixins(Mixins):
                 cd = member.value  # CommandDef
                 if cd.is_data is True:
                     data = 0xFFFF & (~cd.data_mask & value)
-                    if (value & cd.address_mask & cd.data_mask == member.value.bits and
-                            cd.is_valid_data(data, from_bytes=True)):
+                    if value & cd.address_mask & cd.data_mask == member.value.bits and cd.is_valid_data(
+                        data, from_bytes=True
+                    ):
                         return member
                 elif value & cd.address_mask == member.value.bits:
                     return member
@@ -202,9 +206,10 @@ class CommandDefMixins(Mixins):
 
 class CommandDefEnum(CommandDefMixins, Enum):
     """
-        Marker Interface to allow TMCC1EngineCommandDef and TMCC2EngineCommandDef enums
-        to be handled by engine commands
+    Marker Interface to allow TMCC1EngineCommandDef and TMCC2EngineCommandDef enums
+    to be handled by engine commands
     """
+
     @property
     def command_def(self) -> CommandDef:
         return self.value

@@ -23,18 +23,19 @@ class CommandListener(Thread):
     _lock = threading.Lock()
 
     @classmethod
-    def build(cls,
-              baudrate: int = DEFAULT_BAUDRATE,
-              port: str = DEFAULT_PORT,
-              queue_size: int = DEFAULT_QUEUE_SIZE,
-              build_serial_reader: bool = True) -> CommandListener:
+    def build(
+        cls,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        queue_size: int = DEFAULT_QUEUE_SIZE,
+        build_serial_reader: bool = True,
+    ) -> CommandListener:
         """
-            Factory method to create a CommandListener instance
+        Factory method to create a CommandListener instance
         """
-        return CommandListener(baudrate=baudrate,
-                               port=port,
-                               queue_size=queue_size,
-                               build_serial_reader=build_serial_reader)
+        return CommandListener(
+            baudrate=baudrate, port=port, queue_size=queue_size, build_serial_reader=build_serial_reader
+        )
 
     @classmethod
     def get(cls) -> CommandListener:
@@ -43,12 +44,9 @@ class CommandListener(Thread):
         return cls._instance
 
     @classmethod
-    def listen_for(cls,
-                   listener: Subscriber,
-                   channel: Topic,
-                   address: int = None,
-                   command: CommandDefEnum = None,
-                   data: int = None):
+    def listen_for(
+        cls, listener: Subscriber, channel: Topic, address: int = None, command: CommandDefEnum = None, data: int = None
+    ):
         cls.build().subscribe(listener, channel, address, command, data)
 
     # noinspection PyPropertyDefinition
@@ -72,8 +70,8 @@ class CommandListener(Thread):
 
     def __new__(cls, *args, **kwargs):
         """
-            Provides singleton functionality. We only want one instance
-            of this class in a process
+        Provides singleton functionality. We only want one instance
+        of this class in a process
         """
         with cls._lock:
             if CommandListener._instance is None:
@@ -81,11 +79,13 @@ class CommandListener(Thread):
                 CommandListener._instance._initialized = False
             return CommandListener._instance
 
-    def __init__(self,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT,
-                 queue_size: int = DEFAULT_QUEUE_SIZE,
-                 build_serial_reader: bool = True) -> None:
+    def __init__(
+        self,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        queue_size: int = DEFAULT_QUEUE_SIZE,
+        build_serial_reader: bool = True,
+    ) -> None:
         if self._initialized:
             return
         else:
@@ -111,13 +111,14 @@ class CommandListener(Thread):
         # prep our producer
         if build_serial_reader:
             from .serial_reader import SerialReader
+
             self._serial_reader = SerialReader(baudrate, port, self)
         else:
             self._serial_reader = None
 
     def sync_state(self) -> None:
         """
-            Get initial system state from the Base 3/LCS Modules
+        Get initial system state from the Base 3/LCS Modules
         """
         pass
 
@@ -143,18 +144,20 @@ class CommandListener(Thread):
                 # 0xf8 or 0xf9 AND the 5th byte is 0xfb, it could be a 9 byte param command
                 # Try for the 9-biters first
                 cmd_bytes = bytes()
-                if (dq_len >= 9 and
-                        self._deque[3] == LEGACY_PARAMETER_COMMAND_PREFIX and
-                        self._deque[6] == LEGACY_PARAMETER_COMMAND_PREFIX):
+                if (
+                    dq_len >= 9
+                    and self._deque[3] == LEGACY_PARAMETER_COMMAND_PREFIX
+                    and self._deque[6] == LEGACY_PARAMETER_COMMAND_PREFIX
+                ):
                     for _ in range(9):
-                        cmd_bytes += self._deque.popleft().to_bytes(1, byteorder='big')
+                        cmd_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                 elif dq_len >= 4 and self._deque[3] == LEGACY_PARAMETER_COMMAND_PREFIX:
                     # we could be in the middle of receiving a parameter command, wait a bit longer
                     continue
                 else:
                     # assume a 3 byte command
                     for _ in range(3):
-                        cmd_bytes += self._deque.popleft().to_bytes(1, byteorder='big')
+                        cmd_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                 if cmd_bytes:
                     try:
                         # build a CommandReq from the received bytes and send it to the dispatcher
@@ -191,20 +194,24 @@ class CommandListener(Thread):
                 self._dispatcher.shutdown()
         CommandListener._instance = None
 
-    def subscribe(self,
-                  listener: Subscriber,
-                  channel: Topic,
-                  address: int = None,
-                  command: CommandDefEnum = None,
-                  data: int = None) -> None:
+    def subscribe(
+        self,
+        listener: Subscriber,
+        channel: Topic,
+        address: int = None,
+        command: CommandDefEnum = None,
+        data: int = None,
+    ) -> None:
         self._dispatcher.subscribe(listener, channel, address, command, data)
 
-    def unsubscribe(self,
-                    listener: Subscriber,
-                    channel: Topic,
-                    address: int = None,
-                    command: CommandDefEnum = None,
-                    data: int = None) -> None:
+    def unsubscribe(
+        self,
+        listener: Subscriber,
+        channel: Topic,
+        address: int = None,
+        command: CommandDefEnum = None,
+        data: int = None,
+    ) -> None:
         self._dispatcher.unsubscribe(listener, channel, address, command, data)
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
@@ -217,20 +224,19 @@ class CommandListener(Thread):
 @runtime_checkable
 class Subscriber(Protocol):
     """
-        Protocol that all listener callbacks must implement
+    Protocol that all listener callbacks must implement
     """
 
-    def __call__(self, message: Message) -> None:
-        ...
+    def __call__(self, message: Message) -> None: ...
 
 
 class Channel(Generic[Topic]):
     """
-        Part of the publish/subscribe pattern described here:
-        https://arjancodes.com/blog/publish-subscribe-pattern-in-python/
-        In our case, the "channels" are the valid CommandScopes, a tuple
-        consisting of a CommandScope and an TMCC ID/Address, and a
-        special "BROADCAST" channel that receives all received commands.
+    Part of the publish/subscribe pattern described here:
+    https://arjancodes.com/blog/publish-subscribe-pattern-in-python/
+    In our case, the "channels" are the valid CommandScopes, a tuple
+    consisting of a CommandScope and an TMCC ID/Address, and a
+    special "BROADCAST" channel that receives all received commands.
     """
 
     def __init__(self) -> None:
@@ -252,16 +258,17 @@ class Channel(Generic[Topic]):
 
 class CommandDispatcher(Thread):
     """
-        The CommandDispatcher thread receives parsed CommandReqs from the
-        CommandListener and dispatches them to subscribing listeners
+    The CommandDispatcher thread receives parsed CommandReqs from the
+    CommandListener and dispatches them to subscribing listeners
     """
+
     _instance = None
     _lock = threading.RLock()
 
     @classmethod
     def build(cls, queue_size: int = DEFAULT_QUEUE_SIZE) -> CommandDispatcher:
         """
-            Factory method to create a CommandDispatcher instance
+        Factory method to create a CommandDispatcher instance
         """
         return CommandDispatcher(queue_size)
 
@@ -272,12 +279,9 @@ class CommandDispatcher(Thread):
         return cls._instance
 
     @classmethod
-    def listen_for(cls,
-                   listener: Subscriber,
-                   channel: Topic,
-                   address: int = None,
-                   command: CommandDefEnum = None,
-                   data: int = None):
+    def listen_for(
+        cls, listener: Subscriber, channel: Topic, address: int = None, command: CommandDefEnum = None, data: int = None
+    ):
         cls.build().subscribe(listener, channel, address, command, data)
 
     # noinspection PyPropertyDefinition
@@ -295,8 +299,8 @@ class CommandDispatcher(Thread):
 
     def __new__(cls, *args, **kwargs):
         """
-            Provides singleton functionality. We only want one instance
-            of this class in a process
+        Provides singleton functionality. We only want one instance
+        of this class in a process
         """
         with cls._lock:
             if CommandDispatcher._instance is None:
@@ -355,8 +359,8 @@ class CommandDispatcher(Thread):
 
     def update_client_state(self, command: CommandReq):
         """
-            Update all PyTrain clients with the dispatched command. Used to keep
-            client states in sync with server
+        Update all PyTrain clients with the dispatched command. Used to keep
+        client states in sync with server
         """
         if self._client_port is not None:
             # noinspection PyTypeChecker
@@ -375,11 +379,12 @@ class CommandDispatcher(Thread):
 
     def send_current_state(self, client_ip: str):
         """
-            When a new client attaches to the server, immediately send it all know
-            component states. They will be updated as needed (see update_client_state).
+        When a new client attaches to the server, immediately send it all know
+        component states. They will be updated as needed (see update_client_state).
         """
         if self._client_port is not None:
             from ..db.component_state_store import ComponentStateStore
+
             state = ComponentStateStore.build()
             for scope in state.scopes():
                 for address in state.addresses(scope):
@@ -395,8 +400,8 @@ class CommandDispatcher(Thread):
 
     def offer(self, cmd: CommandReq) -> None:
         """
-            Receive a command from the listener thread and dispatch it to subscribers.
-            We do this in a separate thread so that the listener thread doesn't fall behind
+        Receive a command from the listener thread and dispatch it to subscribers.
+        We do this in a separate thread so that the listener thread doesn't fall behind
         """
         if cmd is not None and isinstance(cmd, CommandReq):
             with self._cv:
@@ -410,10 +415,9 @@ class CommandDispatcher(Thread):
         CommandDispatcher._instance = None
 
     @staticmethod
-    def _make_channel(channel: Topic,
-                      address: int = None,
-                      command: CommandDefEnum = None,
-                      data: int = None) -> CommandScope | Tuple:
+    def _make_channel(
+        channel: Topic, address: int = None, command: CommandDefEnum = None, data: int = None
+    ) -> CommandScope | Tuple:
         if channel is None:
             raise ValueError("Channel required")
         elif address is None:
@@ -441,23 +445,27 @@ class CommandDispatcher(Thread):
         if channel in self._channels:  # otherwise, we would create a channel simply by referencing i
             self._channels[channel].publish(message)
 
-    def subscribe(self,
-                  subscriber: Subscriber,
-                  channel: Topic,
-                  address: int = None,
-                  command: CommandDefEnum = None,
-                  data: int = None) -> None:
+    def subscribe(
+        self,
+        subscriber: Subscriber,
+        channel: Topic,
+        address: int = None,
+        command: CommandDefEnum = None,
+        data: int = None,
+    ) -> None:
         if channel == BROADCAST_TOPIC:
             self.subscribe_any(subscriber)
         else:
             self._channels[self._make_channel(channel, address, command, data)].subscribe(subscriber)
 
-    def unsubscribe(self,
-                    subscriber: Subscriber,
-                    channel: Topic,
-                    address: int = None,
-                    command: CommandDefEnum = None,
-                    data: int = None) -> None:
+    def unsubscribe(
+        self,
+        subscriber: Subscriber,
+        channel: Topic,
+        address: int = None,
+        command: CommandDefEnum = None,
+        data: int = None,
+    ) -> None:
         if channel == BROADCAST_TOPIC:
             self.unsubscribe_any(subscriber)
         else:

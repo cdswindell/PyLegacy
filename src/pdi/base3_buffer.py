@@ -12,9 +12,11 @@ from ..utils.pollable_queue import PollableQueue
 
 
 class Base3Buffer(Thread):
+    # noinspection GrazieInspection
     """
         Send and receive PDI command packets to/from a Lionel Base 3 or LCS WiFi module.
     """
+
     _instance: None = None
     _lock = threading.RLock()
 
@@ -29,17 +31,19 @@ class Base3Buffer(Thread):
         if cls._instance is not None and data:
             cls._instance.send(data)
 
-    def __init__(self,
-                 base3_addr: str,
-                 base3_port: int = DEFAULT_BASE3_PORT,
-                 buffer_size: int = DEFAULT_QUEUE_SIZE,
-                 listener: PdiListener = None) -> None:
+    def __init__(
+        self,
+        base3_addr: str,
+        base3_port: int = DEFAULT_BASE3_PORT,
+        buffer_size: int = DEFAULT_QUEUE_SIZE,
+        listener: PdiListener = None,
+    ) -> None:
         if self._initialized:
             return
         else:
             self._initialized = True
         super().__init__(daemon=True, name="PyLegacy Base3 Interface")
-        # ip address and port to connec
+        # ip address and port to connect
         self._base3_addr = base3_addr
         self._base3_port = base3_port
         # data read from the Base 3 is sent to a PdiListener to decode and act on
@@ -56,8 +60,8 @@ class Base3Buffer(Thread):
 
     def __new__(cls, *args, **kwargs):
         """
-            Provides singleton functionality. We only want one instance
-            of this class in a process
+        Provides singleton functionality. We only want one instance
+        of this class in a process
         """
         with cls._lock:
             if Base3Buffer._instance is None:

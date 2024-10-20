@@ -12,15 +12,17 @@ from src.comm.comm_buffer import CommBuffer
 class CommandBase(ABC):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self,
-                 command: CommandDefEnum,
-                 command_req: CommandReq,
-                 address: int = 99,
-                 data: int = 0,
-                 scope: CommandScope = None,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT,
-                 server: str = None) -> None:
+    def __init__(
+        self,
+        command: CommandDefEnum,
+        command_req: CommandReq,
+        address: int = 99,
+        data: int = 0,
+        scope: CommandScope = None,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ) -> None:
         self._address = address
         self._command = None  # provided by _build_command method in subclasses
         # validate baudrate
@@ -80,15 +82,17 @@ class CommandBase(ABC):
     def command_req(self) -> CommandReq:
         return self._command_req
 
-    def send(self,
-             repeat: int = None,
-             delay: float = None,
-             shutdown: bool = False,
-             baudrate: int = DEFAULT_BAUDRATE,
-             port: str = DEFAULT_PORT,
-             server: str = None):
+    def send(
+        self,
+        repeat: int = None,
+        delay: float = None,
+        shutdown: bool = False,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ):
         """
-            Send the command to the LCS SER2 and keep comm buffer alive.
+        Send the command to the LCS SER2 and keep comm buffer alive.
         """
         Validations.validate_int(repeat, min_value=1)
         Validations.validate_float(delay, min_value=0)
@@ -101,13 +105,13 @@ class CommandBase(ABC):
 
     def fire(self, repeat: int = 1, delay: float = 0) -> None:
         """
-            Fire the command immediately and shut down comm buffers, once empty
+        Fire the command immediately and shut down comm buffers, once empty
         """
         self.send(repeat=repeat, delay=delay, shutdown=True)
 
     @staticmethod
     def _encode_command(command: int, num_bytes: int = 2) -> bytes:
-        return command.to_bytes(num_bytes, byteorder='big')
+        return command.to_bytes(num_bytes, byteorder="big")
 
     @abc.abstractmethod
     def _build_command(self) -> bytes | None:

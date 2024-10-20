@@ -7,10 +7,7 @@ from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 
 class GradeCrossingReq(SequenceReq):
-    def __init__(self,
-                 address: int,
-                 data: int,
-                 scope: CommandScope = CommandScope.ENGINE) -> None:
+    def __init__(self, address: int, data: int, scope: CommandScope = CommandScope.ENGINE) -> None:
         super().__init__(address, scope)
         self._data = data
         req15 = CommandReq(TMCC2EngineCommandDef.QUILLING_HORN_INTENSITY, address, 15, scope)

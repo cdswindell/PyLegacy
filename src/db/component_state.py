@@ -22,17 +22,29 @@ P = TypeVar("P", bound=PdiAction)
 L = TypeVar("L", bound=CommandReq)
 
 
-DIRECTIONS_SET = {TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION,
-                  TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION}
+DIRECTIONS_SET = {
+    TMCC1EngineCommandDef.FORWARD_DIRECTION,
+    TMCC2EngineCommandDef.FORWARD_DIRECTION,
+    TMCC1EngineCommandDef.REVERSE_DIRECTION,
+    TMCC2EngineCommandDef.REVERSE_DIRECTION,
+}
 
-SPEED_SET = {TMCC1EngineCommandDef.ABSOLUTE_SPEED, TMCC2EngineCommandDef.ABSOLUTE_SPEED,
-             (TMCC1EngineCommandDef.ABSOLUTE_SPEED, 0), (TMCC2EngineCommandDef.ABSOLUTE_SPEED, 0)}
+SPEED_SET = {
+    TMCC1EngineCommandDef.ABSOLUTE_SPEED,
+    TMCC2EngineCommandDef.ABSOLUTE_SPEED,
+    (TMCC1EngineCommandDef.ABSOLUTE_SPEED, 0),
+    (TMCC2EngineCommandDef.ABSOLUTE_SPEED, 0),
+}
 
 STARTUP_SET = {TMCC2EngineCommandDef.START_UP_IMMEDIATE, TMCC2EngineCommandDef.START_UP_DELAYED}
 
-SHUTDOWN_SET = {TMCC1EngineCommandDef.SHUTDOWN_DELAYED, (TMCC1EngineCommandDef.NUMERIC, 5),
-                TMCC2EngineCommandDef.SHUTDOWN_DELAYED, (TMCC2EngineCommandDef.NUMERIC, 5),
-                TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE}
+SHUTDOWN_SET = {
+    TMCC1EngineCommandDef.SHUTDOWN_DELAYED,
+    (TMCC1EngineCommandDef.NUMERIC, 5),
+    TMCC2EngineCommandDef.SHUTDOWN_DELAYED,
+    (TMCC2EngineCommandDef.NUMERIC, 5),
+    TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE,
+}
 
 
 class ComponentState(ABC):
@@ -46,20 +58,21 @@ class ComponentState(ABC):
         self._ev = threading.Event()
 
         from .component_state_store import DependencyCache
+
         self._dependencies = DependencyCache.build()
 
     def __repr__(self) -> str:
         return f"{self.scope.name} {self._address}"
 
     def results_in(self, command: CommandReq) -> Set[E]:
-        effects = self._dependencies.results_in(command.command,
-                                                dereference_aliases=True,
-                                                include_aliases=False)
+        effects = self._dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
         if command.is_data:
             # noinspection PyTypeChecker
-            effects.update(self._dependencies.results_in((command.command, command.data),
-                                                         dereference_aliases=True,
-                                                         include_aliases=False))
+            effects.update(
+                self._dependencies.results_in(
+                    (command.command, command.data), dereference_aliases=True, include_aliases=False
+                )
+            )
         return effects
 
     def _harvest_effect(self, effects: Set[E]) -> E | Tuple[E, int] | None:
@@ -108,11 +121,15 @@ class ComponentState(ABC):
                 self._address = command.address
             # invalid states
             elif self._address is None and command.address == BROADCAST_ADDRESS:
-                raise AttributeError(f"Received broadcast address for {self.friendly_scope} but component has not "
-                                     f"been initialized {self}")
+                raise AttributeError(
+                    f"Received broadcast address for {self.friendly_scope} but component has not "
+                    f"been initialized {self}"
+                )
             elif command.address not in [self._address, BROADCAST_ADDRESS]:
-                raise AttributeError(f"{self.friendly_scope} #{self._address} received update for "
-                                     f"{command.scope.name.capitalize()} #{command.address}, ignoring")
+                raise AttributeError(
+                    f"{self.friendly_scope} #{self._address} received update for "
+                    f"{command.scope.name.capitalize()} #{command.address}, ignoring"
+                )
             if self.scope != command.scope:
                 scope = command.scope.name.capitalize()
                 raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
@@ -130,7 +147,7 @@ class ComponentState(ABC):
     @abc.abstractmethod
     def is_known(self) -> bool:
         """
-            Returns True if component's state is known, False otherwise.
+        Returns True if component's state is known, False otherwise.
         """
         ...
 
@@ -138,7 +155,7 @@ class ComponentState(ABC):
     @abc.abstractmethod
     def is_tmcc(self) -> bool:
         """
-            Returns True if component responds to TMCC protocol, False otherwise.
+        Returns True if component responds to TMCC protocol, False otherwise.
         """
         ...
 
@@ -146,7 +163,7 @@ class ComponentState(ABC):
     @abc.abstractmethod
     def is_legacy(self) -> bool:
         """
-            Returns True if component responds to Legacy/TMCC2 protocol, False otherwise.
+        Returns True if component responds to Legacy/TMCC2 protocol, False otherwise.
         """
         ...
 
@@ -154,18 +171,18 @@ class ComponentState(ABC):
     @abc.abstractmethod
     def as_bytes(self) -> bytes:
         """
-            Returns the component state as a bytes object representative of the TMCC/Legacy
-            byte sequence used to trigger the corresponding action(s) when received by the
-            component.
+        Returns the component state as a bytes object representative of the TMCC/Legacy
+        byte sequence used to trigger the corresponding action(s) when received by the
+        component.
 
-            Used to synchronize component state when client attaches to the server.
+        Used to synchronize component state when client attaches to the server.
         """
         ...
 
 
 class SwitchState(ComponentState):
     """
-        Maintain the perceived state of a Switch
+    Maintain the perceived state of a Switch
     """
 
     def __init__(self, scope: CommandScope = CommandScope.SWITCH) -> None:
@@ -183,6 +200,7 @@ class SwitchState(ComponentState):
             if command.command == TMCC1HaltCommandDef.HALT:
                 return  # do nothing on halt
             from src.pdi.asc2_req import Asc2Req
+
             if isinstance(command, CommandReq):
                 if command.command != Switch.SET_ADDRESS:
                     self._state = command.command
@@ -243,12 +261,13 @@ class AccessoryState(ComponentState):
             aux = "Aux 2"
         else:
             aux = "Unknown"
-        aux1 = self.aux1_state.name if self.aux1_state is not None else 'Unknown'
-        aux2 = self.aux2_state.name if self.aux2_state is not None else 'Unknown'
+        aux1 = self.aux1_state.name if self.aux1_state is not None else "Unknown"
+        aux2 = self.aux2_state.name if self.aux2_state is not None else "Unknown"
         return f"Accessory {self.address}: {aux}; {aux1}; {aux2} {self._number}"
 
     def update(self, command: L | P) -> None:
         from ..pdi.asc2_req import Asc2Req
+
         if command:
             super().update(command)
             if isinstance(command, CommandReq):
@@ -263,20 +282,30 @@ class AccessoryState(ComponentState):
                             self._aux_state = command.command
                         if command.command == Aux.AUX1_OPT_ONE:
                             if self._last_aux1_opt1 is None or self.time_delta(self._last_aux1_opt1) > 1:
-                                self._aux1_state = Aux.AUX1_ON if (self._aux1_state is None
-                                                                   or self._aux1_state == Aux.AUX1_OPT_ONE
-                                                                   or self._aux1_state == Aux.AUX1_OFF) \
-                                                                    else Aux.AUX1_OFF
+                                self._aux1_state = (
+                                    Aux.AUX1_ON
+                                    if (
+                                        self._aux1_state is None
+                                        or self._aux1_state == Aux.AUX1_OPT_ONE
+                                        or self._aux1_state == Aux.AUX1_OFF
+                                    )
+                                    else Aux.AUX1_OFF
+                                )
                             self._last_aux1_opt1 = self.last_updated
                         elif command.command in [Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO]:
                             self._aux1_state = command.command
                             self._last_aux1_opt1 = self.last_updated
                         elif command.command == Aux.AUX2_OPT_ONE:
                             if self._last_aux2_opt1 is None or self.time_delta(self._last_aux2_opt1) > 1:
-                                self._aux2_state = Aux.AUX2_ON if (self._aux2_state is None
-                                                                   or self._aux2_state == Aux.AUX2_OPT_ONE
-                                                                   or self._aux2_state == Aux.AUX2_OFF) \
-                                                                    else Aux.AUX2_OFF
+                                self._aux2_state = (
+                                    Aux.AUX2_ON
+                                    if (
+                                        self._aux2_state is None
+                                        or self._aux2_state == Aux.AUX2_OPT_ONE
+                                        or self._aux2_state == Aux.AUX2_OFF
+                                    )
+                                    else Aux.AUX2_OFF
+                                )
                             self._last_aux2_opt1 = self.last_updated
                         elif command.command in [Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO]:
                             self._aux2_state = command.command
@@ -295,10 +324,12 @@ class AccessoryState(ComponentState):
 
     @property
     def is_known(self) -> bool:
-        return (self._aux_state is not None
-                or self._aux1_state is not None
-                or self._aux2_state is not None
-                or self._number is not None)
+        return (
+            self._aux_state is not None
+            or self._aux1_state is not None
+            or self._aux2_state is not None
+            or self._number is not None
+        )
 
     @property
     def aux_state(self) -> Aux:
@@ -346,7 +377,6 @@ class AccessoryState(ComponentState):
 
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
-
         if scope not in [CommandScope.ENGINE, CommandScope.TRAIN]:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
         super().__init__(scope)
@@ -431,11 +461,13 @@ class EngineState(ComponentState):
             byte_str += CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes
         if self._speed is not None:
             if self.is_tmcc:
-                byte_str += CommandReq.build(TMCC1EngineCommandDef.ABSOLUTE_SPEED, self.address,
-                                             data=self.speed, scope=self.scope).as_bytes
+                byte_str += CommandReq.build(
+                    TMCC1EngineCommandDef.ABSOLUTE_SPEED, self.address, data=self.speed, scope=self.scope
+                ).as_bytes
             elif self.is_legacy:
-                byte_str += CommandReq.build(TMCC2EngineCommandDef.ABSOLUTE_SPEED, self.address,
-                                             data=self.speed, scope=self.scope).as_bytes
+                byte_str += CommandReq.build(
+                    TMCC2EngineCommandDef.ABSOLUTE_SPEED, self.address, data=self.speed, scope=self.scope
+                ).as_bytes
         return byte_str
 
     @property
@@ -476,12 +508,12 @@ SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
 
 class SystemStateDict(defaultdict):
     """
-        Maintains a dictionary of CommandScope to ComponentStateDict
+    Maintains a dictionary of CommandScope to ComponentStateDict
     """
 
     def __missing__(self, key: CommandScope | Tuple[CommandScope, int]) -> ComponentStateDict:
         """
-            generate a ComponentState object for the dictionary, based on the key
+        generate a ComponentState object for the dictionary, based on the key
         """
         if isinstance(key, CommandScope) and key in SCOPE_TO_STATE_MAP:
             scope = key
@@ -505,7 +537,7 @@ class ComponentStateDict(defaultdict):
 
     def __missing__(self, key: int) -> ComponentState:
         """
-            generate a ComponentState object for the dictionary, based on the key
+        generate a ComponentState object for the dictionary, based on the key
         """
         if not isinstance(key, int) or key < 1 or key > 99:
             raise KeyError(f"Invalid ID: {key}")

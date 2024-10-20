@@ -6,12 +6,10 @@ from .tmcc2_constants import TMCC2HaltCommandDef
 
 class HaltCmd(TMCC2Command):
     """
-        Issue TMCC2 Halt command; stops all engines in motion
+    Issue TMCC2 Halt command; stops all engines in motion
     """
-    def __init__(self,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT,
-                 server: str = None) -> None:
+
+    def __init__(self, baudrate: int = DEFAULT_BAUDRATE, port: str = DEFAULT_PORT, server: str = None) -> None:
         req = CommandReq(TMCC2HaltCommandDef.HALT, DEFAULT_ADDRESS)
         super().__init__(TMCC2HaltCommandDef.HALT, req, DEFAULT_ADDRESS, 0, None, baudrate, port, server)
         self._command = self._build_command()

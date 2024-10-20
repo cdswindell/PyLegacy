@@ -27,12 +27,8 @@ class TestBase:
 
     def custom_excepthook(self, args):
         new_exception = {
-            'thread': args.thread,
-            'exception': {
-                'type': args.exc_type,
-                'value': args.exc_value,
-                'traceback': args.exc_traceback
-            }
+            "thread": args.thread,
+            "exception": {"type": args.exc_type, "value": args.exc_value, "traceback": args.exc_traceback},
         }
         thread_name = args.thread.name
         if thread_name in self.thread_exceptions:
@@ -40,11 +36,7 @@ class TestBase:
         else:
             self.thread_exceptions[thread_name] = [new_exception]
 
-    def build_request(self,
-                      cmd,
-                      address: int = None,
-                      data: int = None,
-                      scope: CommandScope = None) -> CommandReq:
+    def build_request(self, cmd, address: int = None, data: int = None, scope: CommandScope = None) -> CommandReq:
         if address is None:
             address = self.generate_random_address(cmd, scope=scope)
         if data is None:
@@ -56,18 +48,19 @@ class TestBase:
 
     @property
     def all_command_enums(self) -> List[T]:
-        return [TMCC1HaltCommandDef,
-                TMCC1RouteCommandDef,
-                TMCC1AuxCommandDef,
-                TMCC1SwitchState,
-                TMCC1EngineCommandDef,
-                TMCC2HaltCommandDef,
-                TMCC2RouteCommandDef,
-                TMCC2EngineCommandDef,
-                TMCC2RailSoundsDialogControl,
-                TMCC2EffectsControl,
-                TMCC2LightingControl,
-                ]
+        return [
+            TMCC1HaltCommandDef,
+            TMCC1RouteCommandDef,
+            TMCC1AuxCommandDef,
+            TMCC1SwitchState,
+            TMCC1EngineCommandDef,
+            TMCC2HaltCommandDef,
+            TMCC2RouteCommandDef,
+            TMCC2EngineCommandDef,
+            TMCC2RailSoundsDialogControl,
+            TMCC2EffectsControl,
+            TMCC2LightingControl,
+        ]
 
     def generate_random_address(self, cmd: CommandDefEnum, scope: CommandScope = None) -> int:
         if cmd.syntax == CommandSyntax.TMCC:
@@ -95,12 +88,7 @@ class TestBase:
 # noinspection PyUnusedLocal
 class MockCommandReq:
     @classmethod
-    def _enqueue_command(cls,
-                         cmd: bytes,
-                         repeat: int,
-                         delay: float,
-                         baudrate: int,
-                         port: str) -> bytes:
+    def _enqueue_command(cls, cmd: bytes, repeat: int, delay: float, baudrate: int, port: str) -> bytes:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
         print(f"In MockCommandRequest._enqueue_command: {cmd.hex()} {repeat}, {delay}, {baudrate}")
@@ -125,8 +113,8 @@ class MockCommBuffer:
 
     def __new__(cls, *args, **kwargs):
         """
-            Provides singleton functionality. We only want one instance
-            of this class in the system
+        Provides singleton functionality. We only want one instance
+        of this class in the system
         """
         if not cls._instance:
             cls._instance = super(MockCommBuffer, cls).__new__(cls)

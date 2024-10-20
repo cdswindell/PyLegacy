@@ -15,18 +15,18 @@ class TestConstants(TestBase):
             assert TMCC1SwitchState.by_name(ss.name) == ss
 
         # assert by_name is case-insensitive
-        assert TMCC1SwitchState.by_name('through') == TMCC1SwitchState.THROUGH
-        assert TMCC1SwitchState.by_name('THROUGH') == TMCC1SwitchState.THROUGH
+        assert TMCC1SwitchState.by_name("through") == TMCC1SwitchState.THROUGH
+        assert TMCC1SwitchState.by_name("THROUGH") == TMCC1SwitchState.THROUGH
 
         # assert non-members return None
-        assert TMCC1SwitchState.by_name('NOT_PRESENT') is None
+        assert TMCC1SwitchState.by_name("NOT_PRESENT") is None
 
         # assert None return None
         assert TMCC1SwitchState.by_name(str(None)) is None
 
         # check ValueError is thrown
         with pytest.raises(ValueError, match="'NOT_PRESENT' is not a valid TMCC1SwitchState"):
-            TMCC1SwitchState.by_name('NOT_PRESENT', raise_exception=True)
+            TMCC1SwitchState.by_name("NOT_PRESENT", raise_exception=True)
 
         # check ValueError is thrown
         with pytest.raises(ValueError, match="None is not a valid TMCC1SwitchState"):
@@ -38,28 +38,29 @@ class TestConstants(TestBase):
 
     def test_by_name_mixin_in_enums(self) -> None:
         """
-            Test that all defined enums have Mixins
+        Test that all defined enums have Mixins
         """
-        enums = [CommandSyntax,
-                 CommandScope,
-                 TMCC1SwitchState,
-                 TMCC1HaltCommandDef,
-                 TMCC1RouteCommandDef,
-                 TMCC1AuxCommandDef,
-                 TMCC1EngineCommandDef,
-                 TMCC2ParameterIndex,
-                 TMCC2EngineCommandDef,
-                 TMCC2EffectsControl,
-                 TMCC2LightingControl
-                 ]
+        enums = [
+            CommandSyntax,
+            CommandScope,
+            TMCC1SwitchState,
+            TMCC1HaltCommandDef,
+            TMCC1RouteCommandDef,
+            TMCC1AuxCommandDef,
+            TMCC1EngineCommandDef,
+            TMCC2ParameterIndex,
+            TMCC2EngineCommandDef,
+            TMCC2EffectsControl,
+            TMCC2LightingControl,
+        ]
         for env in enums:
             for en in env:
                 assert env.by_name(en.name) == en
 
     def test_tmcc1_constants(self) -> None:
         """
-            All bit patterns are from the Lionel LCS Partner Documentation,
-            Legacy Command Protocol, rev 1.21
+        All bit patterns are from the Lionel LCS Partner Documentation,
+        Legacy Command Protocol, rev 1.21
         """
         assert TMCC1_COMMAND_PREFIX == 0b11111110
 
@@ -124,8 +125,8 @@ class TestConstants(TestBase):
 
     def test_tmcc2_constants(self) -> None:
         """
-            All bit patterns are from the Lionel LCS Partner Documentation,
-            Legacy Command Protocol, rev 1.21
+        All bit patterns are from the Lionel LCS Partner Documentation,
+        Legacy Command Protocol, rev 1.21
         """
         assert TMCC2_AUX1_OFF_COMMAND == 0b100001000
         assert TMCC2_AUX1_ON_COMMAND == 0b100001011
@@ -202,7 +203,7 @@ class TestConstants(TestBase):
 
         # validate _missing_ method is present and throws exception
         with pytest.raises(ValueError, match="FOO is not a valid CommandDefEnum"):
-            CommandDefEnum._missing_('foo')
+            CommandDefEnum._missing_("foo")
 
     def test_engine_option(self) -> None:
         pass

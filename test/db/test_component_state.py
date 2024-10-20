@@ -22,7 +22,7 @@ from ..test_base import TestBase
 @pytest.fixture(autouse=True)
 def run_before_and_after_tests(tmpdir) -> None:
     """
-        Fixture to execute asserts before and after a test is run
+    Fixture to execute asserts before and after a test is run
     """
     # Setup: fill with any logic you want
 
@@ -61,8 +61,8 @@ class TestComponentState(TestBase):
 
     def test_switch_state(self) -> None:
         """
-            Test that switch state is correctly initialized and that behavior
-            implemented in the parent ComponentState class is as expected
+        Test that switch state is correctly initialized and that behavior
+        implemented in the parent ComponentState class is as expected
         """
         ss = SwitchState()
         assert ss is not None
@@ -178,8 +178,8 @@ class TestComponentState(TestBase):
 
     def test_accessory_state(self) -> None:
         """
-            Test that AccessoryState is correctly initialized and that behavior specific
-            to it is handled correctly.
+        Test that AccessoryState is correctly initialized and that behavior specific
+        to it is handled correctly.
         """
         acc_state = AccessoryState()
         assert acc_state is not None
@@ -290,8 +290,8 @@ class TestComponentState(TestBase):
 
     def test_engine_state(self) -> None:
         """
-            Test that EngineState is correctly initialized and that behavior specific
-            to it is handled correctly.
+        Test that EngineState is correctly initialized and that behavior specific
+        to it is handled correctly.
         """
         eng_state = EngineState()
         assert eng_state is not None
@@ -317,8 +317,8 @@ class TestComponentState(TestBase):
 
     def test_train_state(self) -> None:
         """
-            Test that TrainState is correctly initialized and that behavior specific
-            to it is handled correctly.
+        Test that TrainState is correctly initialized and that behavior specific
+        to it is handled correctly.
         """
         train_state = TrainState()
         assert train_state is not None
@@ -348,9 +348,9 @@ class TestComponentState(TestBase):
 
     def test_system_state_dict(self) -> None:
         """
-            SystemStateDict is used by the PyTrain cli to maintain a cache of engine, train,
-            switch, and accessory state, as determined by the TMCC command stream it receives
-            via publish/subscribe in the CommandListener class.
+        SystemStateDict is used by the PyTrain cli to maintain a cache of engine, train,
+        switch, and accessory state, as determined by the TMCC command stream it receives
+        via publish/subscribe in the CommandListener class.
         """
         ss_dict = SystemStateDict()
         assert ss_dict is not None
@@ -392,11 +392,11 @@ class TestComponentState(TestBase):
 
     def test_component_state_dict(self) -> None:
         """
-            ComponentStateDict saves system state for engines, trains, switches, and accessories
-            as determined by the TMCC command stream. CommandScope-appropriate dicts are
-            constructed by SystemStateDict as needed, using the defailtdict mechanism.
+        ComponentStateDict saves system state for engines, trains, switches, and accessories
+        as determined by the TMCC command stream. CommandScope-appropriate dicts are
+        constructed by SystemStateDict as needed, using the defailtdict mechanism.
 
-            ComponentStateDict keys themselves are ints between 1 and 99 inclusive.
+        ComponentStateDict keys themselves are ints between 1 and 99 inclusive.
         """
         # test that all four types of ComponentStateDicts are built
         for scope in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:

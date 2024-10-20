@@ -20,8 +20,9 @@ LEGACY_TRAIN_COMMAND_PREFIX: int = 0xF9
 
 class TMCC2Enum(CommandDefEnum):
     """
-        Marker Interface for all TMCC2 enums
+    Marker Interface for all TMCC2 enums
     """
+
     pass
 
 
@@ -54,21 +55,23 @@ TMCC2_SCOPE_TO_FIRST_BYTE_MAP = {s: p for p, s in TMCC2_FIRST_BYTE_TO_SCOPE_MAP.
 class TMCC2CommandDef(CommandDef):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self,
-                 command_bits: int,
-                 scope: CommandScope = CommandScope.ENGINE,
-                 is_addressable: bool = True,
-                 d_min: int = 0,
-                 d_max: int = 0,
-                 d_map: Dict[int, int] = None,
-                 alias: str = None,
-                 data: int = None) -> None:
+    def __init__(
+        self,
+        command_bits: int,
+        scope: CommandScope = CommandScope.ENGINE,
+        is_addressable: bool = True,
+        d_min: int = 0,
+        d_max: int = 0,
+        d_map: Dict[int, int] = None,
+        alias: str = None,
+        data: int = None,
+    ) -> None:
         super().__init__(command_bits, is_addressable, d_min=d_min, d_max=d_max, d_map=d_map, alias=alias, data=data)
         self._scope = scope
 
     @property
     def first_byte(self) -> bytes:
-        return TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder='big')
+        return TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big")
 
     @property
     def scope(self) -> CommandScope:
@@ -80,11 +83,11 @@ class TMCC2CommandDef(CommandDef):
 
     @property
     def address_mask(self) -> int:
-        return 0xFFFF & ~((2 ** self.num_address_bits - 1) << 9)
+        return 0xFFFF & ~((2**self.num_address_bits - 1) << 9)
 
     def address_from_bytes(self, byte_data: bytes) -> int:
         if self.is_addressable:
-            value = int.from_bytes(byte_data, byteorder='big')
+            value = int.from_bytes(byte_data, byteorder="big")
             return (0xFFFF & (~self.address_mask & value)) >> 9
         else:
             return DEFAULT_ADDRESS
@@ -186,16 +189,28 @@ TMCC2_VOLUME_DOWN_COMMAND_HACK = 0x0114
 TMCC2_VOLUME_UP_COMMAND_HACK = 0x0111
 TMCC2_WATER_INJECTOR_SOUND_COMMAND: int = 0x01A8
 
-TMCC2_SPEED_MAP = dict(STOP_HOLD=0, SH=0, STOP=0,
-                       ROLL=TMCC2_ROLL_SPEED, RO=TMCC2_ROLL_SPEED,
-                       RESTRICTED=TMCC2_RESTRICTED_SPEED, RE=TMCC2_RESTRICTED_SPEED,
-                       SLOW=TMCC2_SLOW_SPEED, SL=TMCC2_SLOW_SPEED,
-                       MEDIUM=TMCC2_MEDIUM_SPEED, ME=TMCC2_MEDIUM_SPEED,
-                       LIMITED=TMCC2_LIMITED_SPEED, LI=TMCC2_LIMITED_SPEED,
-                       NORMAL=TMCC2_NORMAL_SPEED, NO=TMCC2_NORMAL_SPEED,
-                       HIGH=TMCC2_HIGHBALL_SPEED, HIGHBALL=TMCC2_HIGHBALL_SPEED, HI=TMCC2_HIGHBALL_SPEED)
+TMCC2_SPEED_MAP = dict(
+    STOP_HOLD=0,
+    SH=0,
+    STOP=0,
+    ROLL=TMCC2_ROLL_SPEED,
+    RO=TMCC2_ROLL_SPEED,
+    RESTRICTED=TMCC2_RESTRICTED_SPEED,
+    RE=TMCC2_RESTRICTED_SPEED,
+    SLOW=TMCC2_SLOW_SPEED,
+    SL=TMCC2_SLOW_SPEED,
+    MEDIUM=TMCC2_MEDIUM_SPEED,
+    ME=TMCC2_MEDIUM_SPEED,
+    LIMITED=TMCC2_LIMITED_SPEED,
+    LI=TMCC2_LIMITED_SPEED,
+    NORMAL=TMCC2_NORMAL_SPEED,
+    NO=TMCC2_NORMAL_SPEED,
+    HIGH=TMCC2_HIGHBALL_SPEED,
+    HIGHBALL=TMCC2_HIGHBALL_SPEED,
+    HI=TMCC2_HIGHBALL_SPEED,
+)
 
-TMCC2_NUMERIC_SPEED_TO_DIRECTIVE_MAP = {s: p for p, s in TMCC2_SPEED_MAP.items() if len(p) > 2 and p != 'HIGH'}
+TMCC2_NUMERIC_SPEED_TO_DIRECTIVE_MAP = {s: p for p, s in TMCC2_SPEED_MAP.items() if len(p) > 2 and p != "HIGH"}
 
 
 @unique
@@ -263,20 +278,27 @@ class TMCC2EngineCommandDef(TMCC2Enum):
     SHUTDOWN_IMMEDIATE = TMCC2CommandDef(TMCC2_SHUTDOWN_SEQ_TWO_COMMAND)
     SOUND_OFF = TMCC2CommandDef(TMCC2_SOUND_OFF_COMMAND)
     SOUND_ON = TMCC2CommandDef(TMCC2_SOUND_ON_COMMAND)
-    SPEED_HIGHBALL = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_HIGHBALL_SPEED,
-                                     alias="ABSOLUTE_SPEED", data=TMCC2_HIGHBALL_SPEED)
-    SPEED_LIMITED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_LIMITED_SPEED,
-                                    alias="ABSOLUTE_SPEED", data=TMCC2_LIMITED_SPEED)
-    SPEED_MEDIUM = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_MEDIUM_SPEED,
-                                   alias="ABSOLUTE_SPEED", data=TMCC2_MEDIUM_SPEED)
-    SPEED_NORMAL = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_NORMAL_SPEED,
-                                   alias="ABSOLUTE_SPEED", data=TMCC2_NORMAL_SPEED)
-    SPEED_RESTRICTED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_RESTRICTED_SPEED,
-                                       alias="ABSOLUTE_SPEED", data=TMCC2_RESTRICTED_SPEED)
-    SPEED_ROLL = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_ROLL_SPEED,
-                                 alias="ABSOLUTE_SPEED", data=TMCC2_ROLL_SPEED)
-    SPEED_SLOW = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_SLOW_SPEED,
-                                 alias="ABSOLUTE_SPEED", data=TMCC2_SLOW_SPEED)
+    SPEED_HIGHBALL = TMCC2CommandDef(
+        TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_HIGHBALL_SPEED, alias="ABSOLUTE_SPEED", data=TMCC2_HIGHBALL_SPEED
+    )
+    SPEED_LIMITED = TMCC2CommandDef(
+        TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_LIMITED_SPEED, alias="ABSOLUTE_SPEED", data=TMCC2_LIMITED_SPEED
+    )
+    SPEED_MEDIUM = TMCC2CommandDef(
+        TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_MEDIUM_SPEED, alias="ABSOLUTE_SPEED", data=TMCC2_MEDIUM_SPEED
+    )
+    SPEED_NORMAL = TMCC2CommandDef(
+        TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_NORMAL_SPEED, alias="ABSOLUTE_SPEED", data=TMCC2_NORMAL_SPEED
+    )
+    SPEED_RESTRICTED = TMCC2CommandDef(
+        TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_RESTRICTED_SPEED, alias="ABSOLUTE_SPEED", data=TMCC2_RESTRICTED_SPEED
+    )
+    SPEED_ROLL = TMCC2CommandDef(
+        TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_ROLL_SPEED, alias="ABSOLUTE_SPEED", data=TMCC2_ROLL_SPEED
+    )
+    SPEED_SLOW = TMCC2CommandDef(
+        TMCC2_SET_ABSOLUTE_SPEED_COMMAND | TMCC2_SLOW_SPEED, alias="ABSOLUTE_SPEED", data=TMCC2_SLOW_SPEED
+    )
     SPEED_STOP_HOLD = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, alias="ABSOLUTE_SPEED", data=0)
     STALL = TMCC2CommandDef(TMCC2_STALL_COMMAND)
     START_UP_DELAYED = TMCC2CommandDef(TMCC2_START_UP_SEQ_ONE_COMMAND)

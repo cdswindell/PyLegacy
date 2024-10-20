@@ -9,12 +9,12 @@ class PollableQueue(Queue):
         super().__init__(maxsize)
 
         # Create a pair of connected sockets
-        if os.name == 'posix':
+        if os.name == "posix":
             self._put_socket, self._get_socket = socket.socketpair()
         else:
             # compatibility on non-POSIX systems
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            server.bind(('127.0.0.1', 0))
+            server.bind(("127.0.0.1", 0))
             server.listen(1)
             self._put_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._put_socket.connect(server.getsockname())
@@ -26,7 +26,7 @@ class PollableQueue(Queue):
 
     def put(self, item: Any, block: bool = True, timeout: float = None) -> None:
         super().put(item, block=block, timeout=timeout)
-        self._put_socket.send(b'x')
+        self._put_socket.send(b"x")
 
     def get(self, block: bool = True, timeout: float = None) -> Any:
         self._get_socket.recv(1)

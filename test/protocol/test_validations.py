@@ -1,4 +1,5 @@
 import re
+
 # noinspection PyPackageRequirements
 import pytest
 
@@ -16,7 +17,7 @@ class TestValidations(TestBase):
         assert Validations.validate_int(5.99) == 5  # type: ignore
 
         # test numeric strings are converted
-        assert Validations.validate_int('5') == 5  # type: ignore
+        assert Validations.validate_int("5") == 5  # type: ignore
 
         # test non-numeric strings  throw ValueError
         v = "text"
@@ -40,4 +41,4 @@ class TestValidations(TestBase):
 
         # test label
         with pytest.raises(ValueError, match=re.escape("Value must be less than or equal to 10 (15)")):
-            assert Validations.validate_int(15, max_value=10, label='Value') == 10
+            assert Validations.validate_int(15, max_value=10, label="Value") == 10

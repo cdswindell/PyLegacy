@@ -8,10 +8,9 @@ from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
 class SerialReader(Thread):
-    def __init__(self,
-                 baudrate: int = DEFAULT_BAUDRATE,
-                 port: str = DEFAULT_PORT,
-                 consumer: CommandListener = None) -> None:
+    def __init__(
+        self, baudrate: int = DEFAULT_BAUDRATE, port: str = DEFAULT_PORT, consumer: CommandListener = None
+    ) -> None:
         super().__init__(name="PyLegacy Serial Port Reader")
         self._consumer = consumer
         self._baudrate = baudrate
@@ -29,7 +28,7 @@ class SerialReader(Thread):
                             if self._consumer:
                                 self._consumer.offer(ser2_bytes)
                             else:
-                                print(ser2_bytes.hex(':'))
+                                print(ser2_bytes.hex(":"))
                     # give the CPU a break
                     time.sleep(0.01)
         except Exception as e:

@@ -2,6 +2,7 @@ from enum import Enum, unique, IntEnum
 from typing import Any, List
 
 import sys
+
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
@@ -28,8 +29,9 @@ DEFAULT_THROTTLE_DELAY: int = 50  # milliseconds
 
 class Mixins(Enum):
     """
-        Common mixins we want all PyLegacy enums to support
+    Common mixins we want all PyLegacy enums to support
     """
+
     @classmethod
     def by_name(cls, name: str, raise_exception: bool = False) -> Self | None:
         if name is None:
@@ -78,7 +80,7 @@ class Mixins(Enum):
 
 class OfficialRRSpeeds(Mixins, Enum):
     """
-        Marker enum
+    Marker enum
     """
 
 
@@ -104,8 +106,9 @@ class CommandScope(Mixins, Enum):
 
 class CommandPrefix(Mixins, IntEnum):
     """
-        Marker interface for Command Prefix enums
+    Marker interface for Command Prefix enums
     """
+
     @property
     def prefix(self) -> Self:
         return self
@@ -116,7 +119,7 @@ class CommandPrefix(Mixins, IntEnum):
 
     @property
     def as_bytes(self) -> bytes:
-        return self.as_int.to_bytes(1, byteorder='big')
+        return self.as_int.to_bytes(1, byteorder="big")
 
 
 """

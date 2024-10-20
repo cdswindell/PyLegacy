@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Callable
 
 import sys
+
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
@@ -26,22 +27,23 @@ from ..comm.comm_buffer import CommBuffer
 
 class CommandReq:
     @classmethod
-    def build(cls,
-              command: CommandDefEnum | bytes,
-              address: int = DEFAULT_ADDRESS,
-              data: int = 0,
-              scope: CommandScope = None) -> Self:
+    def build(
+        cls, command: CommandDefEnum | bytes, address: int = DEFAULT_ADDRESS, data: int = 0, scope: CommandScope = None
+    ) -> Self:
         if isinstance(command, bytes):
             return cls.from_bytes(bytes(command))
         cls._vet_request(command, address, data, scope)
         # we have to do these imports here to avoid cyclic dependencies
         from .sequence.sequence_constants import SequenceCommandEnum
         from .tmcc2.param_constants import TMCC2ParameterEnum
+
         if isinstance(command, SequenceCommandEnum):
             from .sequence.sequence_req import SequenceReq
+
             return SequenceReq.build(command, address, data, scope)
         elif isinstance(command, TMCC2ParameterEnum):
             from .tmcc2.param_command_req import ParameterCommandReq
+
             return ParameterCommandReq.build(command, address, data, scope)
         return CommandReq(command, address, data, scope)
 
@@ -57,33 +59,35 @@ class CommandReq:
         raise ValueError(f"Command bytes not understood {param.hex(':')}")
 
     @classmethod
-    def send_request(cls,
-                     command: CommandDefEnum,
-                     address: int = DEFAULT_ADDRESS,
-                     data: int = 0,
-                     scope: CommandScope = None,
-                     repeat: int = 1,
-                     delay: float = 0,
-                     baudrate: int = DEFAULT_BAUDRATE,
-                     port: str = DEFAULT_PORT,
-                     server: str = None
-                     ) -> None:
+    def send_request(
+        cls,
+        command: CommandDefEnum,
+        address: int = DEFAULT_ADDRESS,
+        data: int = 0,
+        scope: CommandScope = None,
+        repeat: int = 1,
+        delay: float = 0,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ) -> None:
         # build & queue
         req = cls.build(command, address, data, scope)
         cls._enqueue_command(req.as_bytes, repeat, delay, baudrate, port, server)
 
     @classmethod
-    def build_action(cls,
-                     command: CommandDefEnum | None,
-                     address: int = DEFAULT_ADDRESS,
-                     data: int = 0,
-                     scope: CommandScope = None,
-                     repeat: int = 1,
-                     delay: float = 0,
-                     baudrate: int = DEFAULT_BAUDRATE,
-                     port: str = DEFAULT_PORT,
-                     server: str = None
-                     ) -> Callable:
+    def build_action(
+        cls,
+        command: CommandDefEnum | None,
+        address: int = DEFAULT_ADDRESS,
+        data: int = 0,
+        scope: CommandScope = None,
+        repeat: int = 1,
+        delay: float = 0,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ) -> Callable:
         # build & return action function
         req = cls.build(command, address, data, scope)
         return req.as_action(repeat=repeat, delay=delay, baudrate=baudrate, port=port, server=server)
@@ -91,27 +95,29 @@ class CommandReq:
     @classmethod
     def _determine_first_byte(cls, command: CommandDef, scope: CommandScope) -> bytes:
         """
-            Generalized command scopes, such as ENGINE, SWITCH, etc.,
-            map to syntax-specific command identifiers defined
-            for the TMCC1 and TMCC2 commands
+        Generalized command scopes, such as ENGINE, SWITCH, etc.,
+        map to syntax-specific command identifiers defined
+        for the TMCC1 and TMCC2 commands
         """
         # otherwise, we need to figure out if we're returning a
         # TMCC1-style or TMCC2-style command prefix
         if isinstance(command, TMCC1CommandDef):
-            return TMCC1_COMMAND_PREFIX.to_bytes(1, byteorder='big')
+            return TMCC1_COMMAND_PREFIX.to_bytes(1, byteorder="big")
         elif isinstance(command, TMCC2CommandDef):
             validated_scope = cls._validate_requested_scope(command, scope)
             return TMCC2CommandPrefix(validated_scope.name).as_bytes
         raise TypeError(f"Command type not recognized {command}")
 
     @classmethod
-    def _vet_request(cls,
-                     command: CommandDefEnum,
-                     address: int,
-                     data: int,
-                     scope: CommandScope,
-                     ) -> None:
+    def _vet_request(
+        cls,
+        command: CommandDefEnum,
+        address: int,
+        data: int,
+        scope: CommandScope,
+    ) -> None:
         from .sequence.sequence_constants import SequenceCommandEnum
+
         if isinstance(command, TMCC1Enum):
             enum_class = TMCC1Enum
         elif isinstance(command, TMCC2Enum) or isinstance(command, SequenceCommandEnum):
@@ -132,14 +138,16 @@ class CommandReq:
             Validations.validate_int(data, label=scope.name.capitalize())
 
     @classmethod
-    def _enqueue_command(cls,
-                         cmd: bytes,
-                         repeat: int,
-                         delay: float,
-                         baudrate: int,
-                         port: str | int,
-                         server: str | None,
-                         buffer: CommBuffer = None) -> None:
+    def _enqueue_command(
+        cls,
+        cmd: bytes,
+        repeat: int,
+        delay: float,
+        baudrate: int,
+        port: str | int,
+        server: str | None,
+        buffer: CommBuffer = None,
+    ) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
         # send command to comm buffer
@@ -161,11 +169,13 @@ class CommandReq:
         # otherwise, return the scope associated with the native command def
         return command_def.scope
 
-    def __init__(self,
-                 command_def_enum: CommandDefEnum,
-                 address: int = DEFAULT_ADDRESS,
-                 data: int = 0,
-                 scope: CommandScope = None) -> None:
+    def __init__(
+        self,
+        command_def_enum: CommandDefEnum,
+        address: int = DEFAULT_ADDRESS,
+        data: int = 0,
+        scope: CommandScope = None,
+    ) -> None:
         self._command_def_enum = command_def_enum
         self._command_name = self._command_def_enum.name
         self._command_def: TMCC2CommandDef = command_def_enum.value  # read only; do not modify
@@ -191,8 +201,8 @@ class CommandReq:
 
     def __call__(self, message: CommandReq) -> None:
         """
-            Allows CommandReqs to receive messages from channels
-            this request is subscribed to
+        Allows CommandReqs to receive messages from channels
+        this request is subscribed to
         """
         if self._message_processor:
             self._message_processor(message)
@@ -291,13 +301,14 @@ class CommandReq:
     def identifier(self) -> int | None:
         return self.command_def.identifier
 
-    def send(self,
-             repeat: int = 1,
-             delay: float = 0,
-             baudrate: int = DEFAULT_BAUDRATE,
-             port: str = DEFAULT_PORT,
-             server: str = None
-             ) -> None:
+    def send(
+        self,
+        repeat: int = 1,
+        delay: float = 0,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ) -> None:
         self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port, server)
 
     @property
@@ -306,15 +317,16 @@ class CommandReq:
             first_byte = self.command_def.first_byte
         else:
             first_byte = self._determine_first_byte(self.command_def, self.scope)
-        return first_byte + self._command_bits.to_bytes(2, byteorder='big')
+        return first_byte + self._command_bits.to_bytes(2, byteorder="big")
 
-    def as_action(self,
-                  repeat: int = 1,
-                  delay: float = 0,
-                  baudrate: int = DEFAULT_BAUDRATE,
-                  port: str = DEFAULT_PORT,
-                  server: str = None
-                  ) -> Callable:
+    def as_action(
+        self,
+        repeat: int = 1,
+        delay: float = 0,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ) -> Callable:
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
 
         def send_func(new_address: int = None, new_data: int = None) -> None:
@@ -322,13 +334,9 @@ class CommandReq:
                 self.address = new_address
             if self.num_data_bits and new_data and new_data != self.data:
                 self.data = new_data
-            self._enqueue_command(self.as_bytes,
-                                  repeat=repeat,
-                                  delay=delay,
-                                  baudrate=baudrate,
-                                  port=port,
-                                  server=server,
-                                  buffer=buffer)
+            self._enqueue_command(
+                self.as_bytes, repeat=repeat, delay=delay, baudrate=baudrate, port=port, server=server, buffer=buffer
+            )
 
         return send_func
 
@@ -352,9 +360,9 @@ class CommandReq:
 
     def _apply_data(self, new_data: int = None) -> int:
         """
-            For commands that take parameters, such as engine speed and brake level,
-            apply the data bits to the command op bytes to form the complete byte
-            set to send to the Lionel LCS SER2.
+        For commands that take parameters, such as engine speed and brake level,
+        apply the data bits to the command op bytes to form the complete byte
+        set to send to the Lionel LCS SER2.
         """
         data = new_data if new_data is not None else self.data
         if self.num_data_bits and data is None:
@@ -369,7 +377,7 @@ class CommandReq:
         elif data < self.command_def.data_min or data > self.command_def.data_max:
             raise ValueError(f"Invalid data value: {data} (not in range)")
         # sanitize data so we don't set bits we shouldn't
-        data_bits = (2 ** self.num_data_bits - 1)
+        data_bits = 2**self.num_data_bits - 1
         filtered_data = data & data_bits
         if data != filtered_data:
             raise ValueError(f"Invalid data value: {data} (not in range)")
@@ -381,16 +389,21 @@ class CommandReq:
 
     @classmethod
     def build_tmcc1_command_req(cls, param: bytes) -> Self:
-        value = int.from_bytes(param[1:3], byteorder='big')
-        for tmcc_enum in [TMCC1HaltCommandDef,
-                          TMCC1SwitchState,
-                          TMCC1AuxCommandDef,
-                          TMCC1RouteCommandDef,
-                          TMCC1EngineCommandDef]:
+        value = int.from_bytes(param[1:3], byteorder="big")
+        for tmcc_enum in [
+            TMCC1HaltCommandDef,
+            TMCC1SwitchState,
+            TMCC1AuxCommandDef,
+            TMCC1RouteCommandDef,
+            TMCC1EngineCommandDef,
+        ]:
             scope = None
             cmd_enum = tmcc_enum.by_value(value)
-            if cmd_enum is None and tmcc_enum == TMCC1EngineCommandDef and \
-                    (value & TMCC1_TRAIN_COMMAND_MODIFIER) == TMCC1_TRAIN_COMMAND_MODIFIER:
+            if (
+                cmd_enum is None
+                and tmcc_enum == TMCC1EngineCommandDef
+                and (value & TMCC1_TRAIN_COMMAND_MODIFIER) == TMCC1_TRAIN_COMMAND_MODIFIER
+            ):
                 # check if this is a TRAIN command and if so, clear out the
                 # train bits and look again; only do this for engine commands
                 cmd_enum = tmcc_enum.by_value(value & TMCC1_TRAIN_COMMAND_PURIFIER)
@@ -406,11 +419,8 @@ class CommandReq:
     @classmethod
     def build_tmcc2_command_req(cls, param):
         if len(param) == 3:
-            value = int.from_bytes(param[1:3], byteorder='big')
-            for tmcc_enum in [TMCC2HaltCommandDef,
-                              TMCC2EngineCommandDef,
-                              TMCC2RouteCommandDef]:
-
+            value = int.from_bytes(param[1:3], byteorder="big")
+            for tmcc_enum in [TMCC2HaltCommandDef, TMCC2EngineCommandDef, TMCC2RouteCommandDef]:
                 cmd_enum = tmcc_enum.by_value(value)
                 if cmd_enum is not None:
                     scope = cmd_enum.scope
@@ -423,6 +433,7 @@ class CommandReq:
             raise ValueError(f"Invalid tmcc2 command: : {param.hex(':')}")
         else:
             from src.protocol.tmcc2.param_command_req import ParameterCommandReq
+
             return ParameterCommandReq.from_bytes(param)
 
 

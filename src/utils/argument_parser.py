@@ -7,7 +7,7 @@ class ArgumentParser(argparse.ArgumentParser):
         super().__init__(*args, **kwargs)
 
     # noinspection PyProtectedMember
-    def remove_args(self,  args: List[str]) -> None:
+    def remove_args(self, args: List[str]) -> None:
         for arg in args:
             for action in self._actions:
                 opts = action.option_strings
@@ -25,16 +25,16 @@ class ArgumentParser(argparse.ArgumentParser):
 
 class StripPrefixesHelpFormatter(argparse.HelpFormatter):
     """
-        For help within PyTrain, we need to strip the "-" characters
-        off of the names of the arguments, as the user doesn't need to
-        enter them. ArgParse requires arguments to be hyphenated. We
-        just want to hide this implementation detail from the user.
+    For help within PyTrain, we need to strip the "-" characters
+    off of the names of the arguments, as the user doesn't need to
+    enter them. ArgParse requires arguments to be hyphenated. We
+    just want to hide this implementation detail from the user.
     """
+
     def add_usage(self, usage, actions, groups, prefix=None):
         for action in actions:
             opt_strs = []
             for option in action.option_strings:
                 opt_strs.append(str(option).replace("-", ""))
             action.option_strings = opt_strs
-        return super(StripPrefixesHelpFormatter, self).add_usage(
-            usage, actions, groups, prefix)
+        return super(StripPrefixesHelpFormatter, self).add_usage(usage, actions, groups, prefix)

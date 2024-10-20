@@ -48,17 +48,15 @@ class PyTrain:
         self._no_ser2 = args.no_ser2
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         if args.base3 is not None:
-            base3_pieces = args.base3.split(':')
+            base3_pieces = args.base3.split(":")
             self._base3_addr = args.base3 = base3_pieces[0]
             self._base3_port = base3_pieces[1] if len(base3_pieces) > 1 else DEFAULT_BASE3_PORT
         else:
             if self._no_ser2:
-                raise AttributeError("PyTrain reqires either an LCS SER2 and/or Base 3 connection")
+                raise AttributeError("PyTrain requires either an LCS SER2 and/or Base 3 connection")
             self._base3_addr = self._base3_port = None
         self._pdi_buffer = None
-        self._tmcc_buffer = CommBuffer.build(baudrate=self._baudrate,
-                                             port=self._port,
-                                             server=self._server)
+        self._tmcc_buffer = CommBuffer.build(baudrate=self._baudrate, port=self._port, server=self._server)
         listeners = []
         if isinstance(self.buffer, CommBufferSingleton):
             print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
@@ -95,7 +93,7 @@ class PyTrain:
 
     def __call__(self, cmd: CommandReq | PdiReq) -> None:
         """
-            Callback specified in the Subscriber protocol used to send events to listeners
+        Callback specified in the Subscriber protocol used to send events to listeners
         """
         if self._echo:
             print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
@@ -151,16 +149,16 @@ class PyTrain:
 
     def _handle_command(self, ui: str) -> None:
         """
-            Parse the user's input, reusing the individual CLI command parsers.
-            If a valid command is specified, send it to the Lionel LCS SER2.
+        Parse the user's input, reusing the individual CLI command parsers.
+        If a valid command is specified, send it to the Lionel LCS SER2.
         """
         if ui is None:
             return
         ui = ui.lower().strip()
         if ui:
             # show help, if user enters '?'
-            if ui == '?':
-                ui = 'h'
+            if ui == "?":
+                ui = "h"
             # the argparse library requires the argument string to be presented as a list
             ui_parts = ui.split()
             if ui_parts[0]:
@@ -168,22 +166,22 @@ class PyTrain:
                 try:
                     # if the keyboard input starts with a valid command, args.command
                     # is set to the corresponding CLI command class, or the verb 'quit'
-                    args = self._command_parser().parse_args(['-' + ui_parts[0]])
-                    if args.command == 'quit':
+                    args = self._command_parser().parse_args(["-" + ui_parts[0]])
+                    if args.command == "quit":
                         raise KeyboardInterrupt()
-                    elif args.command == 'help':
+                    elif args.command == "help":
                         self._command_parser().parse_args(["-help"])
-                    if args.command == 'db':
+                    if args.command == "db":
                         self._query_status(ui_parts[1:])
                         return
-                    if args.command == 'pdi':
+                    if args.command == "pdi":
                         self._do_pdi(ui_parts[1:])
                         return
-                    if args.command == 'echo':
+                    if args.command == "echo":
                         self._handle_echo(ui_parts)
                         return
                     ui_parser = args.command.command_parser()
-                    ui_parser.remove_args(['baudrate', 'port', 'server'])
+                    ui_parser.remove_args(["baudrate", "port", "server"])
                     cli_cmd = args.command(ui_parser, ui_parts[1:], False)
                     if cli_cmd.command is None:
                         raise argparse.ArgumentError(None, f"'{ui}' is not a valid command")
@@ -220,7 +218,7 @@ class PyTrain:
     def _handle_echo(self, ui_parts: List[str] = None):
         if ui_parts is None:
             ui_parts = ["echo"]
-        if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == 'on'):
+        if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == "on"):
             if self._echo is False:
                 self._tmcc_listener.listen_for(self, BROADCAST_TOPIC)
                 print("TMCC command echoing ENABLED..")
@@ -243,113 +241,89 @@ class PyTrain:
 
     def _command_parser(self) -> ArgumentParser:
         """
-            Parse the first token of the user's input
+        Parse the first token of the user's input
         """
-        command_parser = ArgumentParser(prog="",
-                                        description="Valid commands:",
-                                        epilog="Commands can be abbreviated, so long as they are unique; e.g., 'en', "
-                                               "or 'eng' are the same as typing 'engine'. Help on a specific command "
-                                               "is also available by typing the command name (or abbreviation), "
-                                               "followed by '-h', e.g., 'sw -h'",
-                                        formatter_class=StripPrefixesHelpFormatter,
-                                        exit_on_error=False)
+        command_parser = ArgumentParser(
+            prog="",
+            description="Valid commands:",
+            epilog="Commands can be abbreviated, so long as they are unique; e.g., 'en', "
+            "or 'eng' are the same as typing 'engine'. Help on a specific command "
+            "is also available by typing the command name (or abbreviation), "
+            "followed by '-h', e.g., 'sw -h'",
+            formatter_class=StripPrefixesHelpFormatter,
+            exit_on_error=False,
+        )
         group = command_parser.add_mutually_exclusive_group()
-        group.add_argument("-accessory",
-                           action="store_const",
-                           const=AccCli,
-                           dest="command",
-                           help="Issue accessory commands")
-        group.add_argument("-db",
-                           action="store_const",
-                           const="db",
-                           dest="command",
-                           help="Query engine/train/switch/accessory state")
-        group.add_argument("-dialogs",
-                           action="store_const",
-                           const=DialogsCli,
-                           dest="command",
-                           help="Trigger RailSounds dialogs")
-        group.add_argument("-echo",
-                           action="store_const",
-                           const="echo",
-                           dest="command",
-                           help="Enable/disable TMCC command echoing")
-        group.add_argument("-effects",
-                           action="store_const",
-                           const=EffectsCli,
-                           dest="command",
-                           help="Issue engine/train effects commands")
-        group.add_argument("-engine",
-                           action="store_const",
-                           const=EngineCli,
-                           dest="command",
-                           help="Issue engine/train commands")
-        group.add_argument("-halt",
-                           action="store_const",
-                           const=HaltCli,
-                           dest="command",
-                           help="Emergency stop")
-        group.add_argument("-lighting",
-                           action="store_const",
-                           const=LightingCli,
-                           dest="command",
-                           help="Issue engine/train lighting effects commands")
+        group.add_argument(
+            "-accessory", action="store_const", const=AccCli, dest="command", help="Issue accessory commands"
+        )
+        group.add_argument(
+            "-db", action="store_const", const="db", dest="command", help="Query engine/train/switch/accessory state"
+        )
+        group.add_argument(
+            "-dialogs", action="store_const", const=DialogsCli, dest="command", help="Trigger RailSounds dialogs"
+        )
+        group.add_argument(
+            "-echo", action="store_const", const="echo", dest="command", help="Enable/disable TMCC command echoing"
+        )
+        group.add_argument(
+            "-effects",
+            action="store_const",
+            const=EffectsCli,
+            dest="command",
+            help="Issue engine/train effects commands",
+        )
+        group.add_argument(
+            "-engine", action="store_const", const=EngineCli, dest="command", help="Issue engine/train commands"
+        )
+        group.add_argument("-halt", action="store_const", const=HaltCli, dest="command", help="Emergency stop")
+        group.add_argument(
+            "-lighting",
+            action="store_const",
+            const=LightingCli,
+            dest="command",
+            help="Issue engine/train lighting effects commands",
+        )
         if self.is_server:
-            group.add_argument("-pdi",
-                               action="store_const",
-                               const="pdi",
-                               dest="command",
-                               help="Sent PDI commands")
-        group.add_argument("-route",
-                           action="store_const",
-                           const=RouteCli,
-                           dest="command",
-                           help="Fire defined routes")
-        group.add_argument("-sounds",
-                           action="store_const",
-                           const=SoundEffectsCli,
-                           dest="command",
-                           help="Issue engine/train RailSound effects commands")
-        group.add_argument("-switch",
-                           action="store_const",
-                           const=SwitchCli,
-                           dest="command",
-                           help="Throw switches")
-        group.add_argument("-quit",
-                           action="store_const",
-                           const="quit",
-                           dest="command",
-                           help=f"Quit {PROGRAM_NAME}")
+            group.add_argument("-pdi", action="store_const", const="pdi", dest="command", help="Sent PDI commands")
+        group.add_argument("-route", action="store_const", const=RouteCli, dest="command", help="Fire defined routes")
+        group.add_argument(
+            "-sounds",
+            action="store_const",
+            const=SoundEffectsCli,
+            dest="command",
+            help="Issue engine/train RailSound effects commands",
+        )
+        group.add_argument("-switch", action="store_const", const=SwitchCli, dest="command", help="Throw switches")
+        group.add_argument("-quit", action="store_const", const="quit", dest="command", help=f"Quit {PROGRAM_NAME}")
         return command_parser
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = ArgumentParser(add_help=False)
-    parser.add_argument("-startup_script",
-                        type=str,
-                        default=DEFAULT_SCRIPT_FILE,
-                        help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})")
+    parser.add_argument(
+        "-startup_script",
+        type=str,
+        default=DEFAULT_SCRIPT_FILE,
+        help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})",
+    )
 
-    parser = ArgumentParser(prog="pytrain.py",
-                            description="Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
-                            parents=[parser, CliBase.cli_parser()])
-    parser.add_argument("-base3",
-                        type=str,
-                        help="IP Address of Lionel Base 3")
-    parser.add_argument("-echo",
-                        action="store_true",
-                        help="Echo received TMCC commands to console")
-    parser.add_argument("-no_clients",
-                        action="store_true",
-                        help=f"Do not listen for client connections on port {DEFAULT_SERVER_PORT}")
-    parser.add_argument("-no_listeners",
-                        action="store_true",
-                        help="Do not listen for events")
-    parser.add_argument("-no_ser2",
-                        action="store_true",
-                        help="Do not send or receive TMCC commands from an LCS SER2")
-    parser.add_argument("-server_port",
-                        type=int,
-                        default=DEFAULT_SERVER_PORT,
-                        help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})")
+    parser = ArgumentParser(
+        prog="pytrain.py",
+        description="Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
+        parents=[parser, CliBase.cli_parser()],
+    )
+    parser.add_argument("-base3", type=str, help="IP Address of Lionel Base 3")
+    parser.add_argument("-echo", action="store_true", help="Echo received TMCC commands to console")
+    parser.add_argument(
+        "-no_clients", action="store_true", help=f"Do not listen for client connections on port {DEFAULT_SERVER_PORT}"
+    )
+    parser.add_argument("-no_listeners", action="store_true", help="Do not listen for events")
+    parser.add_argument("-no_ser2", action="store_true", help="Do not send or receive TMCC commands from an LCS SER2")
+    parser.add_argument(
+        "-server_port",
+        type=int,
+        default=DEFAULT_SERVER_PORT,
+        help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})",
+    )
     PyTrain(parser.parse_args())

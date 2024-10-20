@@ -32,11 +32,9 @@ class ComponentStateStore:
     _lock = threading.RLock()
 
     @classmethod
-    def build(cls,
-              topics: List[str | CommandScope] = None,
-              listeners: Tuple = None) -> ComponentStateStore:
+    def build(cls, topics: List[str | CommandScope] = None, listeners: Tuple = None) -> ComponentStateStore:
         """
-            Factory method to create a ComponentStateStore instance
+        Factory method to create a ComponentStateStore instance
         """
         return ComponentStateStore(topics, listeners)
 
@@ -61,8 +59,8 @@ class ComponentStateStore:
 
     def __new__(cls, *args, **kwargs):
         """
-            Provides singleton functionality. We only want one instance
-            of this class in a process
+        Provides singleton functionality. We only want one instance
+        of this class in a process
         """
         with cls._lock:
             if ComponentStateStore._instance is None:
@@ -70,9 +68,7 @@ class ComponentStateStore:
                 ComponentStateStore._instance._initialized = False
             return ComponentStateStore._instance
 
-    def __init__(self,
-                 topics: List[str | CommandScope] = None,
-                 listeners: Tuple = None) -> None:
+    def __init__(self, topics: List[str | CommandScope] = None, listeners: Tuple = None) -> None:
         if self._initialized:
             return
         else:
@@ -86,11 +82,11 @@ class ComponentStateStore:
                     for listener in self._listeners:
                         listener.listen_for(self, topic)
                 else:
-                    raise TypeError(f'Topic {topic} is not valid')
+                    raise TypeError(f"Topic {topic} is not valid")
 
     def __call__(self, command: Message) -> None:
         """
-            Callback, per the Subscriber protocol in CommandListener
+        Callback, per the Subscriber protocol in CommandListener
         """
         if command:
             if isinstance(command, CommandReq):
@@ -120,8 +116,9 @@ class ComponentStateStore:
 
     @staticmethod
     def is_valid_topic(topic: Topic) -> bool:
-        return isinstance(topic, CommandScope) or \
-            (isinstance(topic, tuple) and len(topic) > 1 and isinstance(topic[0], CommandScope))
+        return isinstance(topic, CommandScope) or (
+            isinstance(topic, tuple) and len(topic) > 1 and isinstance(topic[0], CommandScope)
+        )
 
     def listen_for(self, topics: Topic | List[Topic]) -> None:
         if isinstance(topics, list):
@@ -142,10 +139,12 @@ class ComponentStateStore:
             return None
 
     def component(self, scope: CommandScope, address: int) -> T:
-        if scope in [CommandScope.ACC, CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH] \
-                and 1 <= address <= 99:
+        if (
+            scope in [CommandScope.ACC, CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH]
+            and 1 <= address <= 99
+        ):
             return self._state[scope][address]
-        raise ValueError(f'Invalid scope/address: {scope} {address}')
+        raise ValueError(f"Invalid scope/address: {scope} {address}")
 
     def scopes(self) -> Set[CommandScope]:
         return set(self._state.keys())
@@ -156,25 +155,26 @@ class ComponentStateStore:
 
 class DependencyCache:
     """
-        Manages relationships between TMCC Commands. For example, sending the Reset command
-        (number 0) to an engine causes the following results:
-            - speed is set to zero
-            - direction is set to Fwd
-            - bell is disabled
-            - engine rpm set to 0
-            - engine labor set to 12
-            - engine starts up immediately
-        The reverse mapping, results to causes, is used to maintain a consistent state on a
-        control panel. For example, if an indicator light specifies an engine is set to Rev,
-        sending the reset command would turn that light off.
+    Manages relationships between TMCC Commands. For example, sending the Reset command
+    (number 0) to an engine causes the following results:
+        - speed is set to zero
+        - direction is set to Fwd
+        - bell is disabled
+        - engine rpm set to 0
+        - engine labor set to 12
+        - engine starts up immediately
+    The reverse mapping, results to causes, is used to maintain a consistent state on a
+    control panel. For example, if an indicator light specifies an engine is set to Rev,
+    sending the reset command would turn that light off.
     """
+
     _instance: DependencyCache = None
     _lock = threading.RLock()
 
     @classmethod
     def build(cls) -> DependencyCache:
         """
-            Factory method to create a ComponentStateStore instance
+        Factory method to create a ComponentStateStore instance
         """
         return DependencyCache()
 
@@ -231,8 +231,8 @@ class DependencyCache:
 
     def __new__(cls, *args, **kwargs):
         """
-            Provides singleton functionality. We only want one instance
-            of this class in a process
+        Provides singleton functionality. We only want one instance
+        of this class in a process
         """
         with cls._lock:
             if DependencyCache._instance is None:
@@ -241,9 +241,7 @@ class DependencyCache:
             return DependencyCache._instance
 
     @staticmethod
-    def _harvest_commands(commands: Set[E],
-                          dereference_aliases: bool,
-                          include_aliases: bool) -> Set[E]:
+    def _harvest_commands(commands: Set[E], dereference_aliases: bool, include_aliases: bool) -> Set[E]:
         cmd_set = set()
         for cmd in commands:
             if isinstance(cmd, CommandDefEnum) and cmd.is_alias:
@@ -257,22 +255,19 @@ class DependencyCache:
 
     def causes(self, cause: C, *results: E) -> None:
         """
-            Define the results that are triggered when a cause command occurs
+        Define the results that are triggered when a cause command occurs
         """
         for result in results:
             self._causes[cause].add(result)
             self._caused_bys[result].add(cause)
         # if the cause is an aliased command, register the base command
-        if isinstance(cause, CommandDefEnum) and cause.is_alias and hasattr(cause, 'alias') and cause.alias is not None:
+        if isinstance(cause, CommandDefEnum) and cause.is_alias and hasattr(cause, "alias") and cause.alias is not None:
             self.causes(cause.alias, *results)
 
-    def caused_by(self,
-                  command: E,
-                  dereference_aliases: bool = False,
-                  include_aliases: bool = True) -> Set[C]:
+    def caused_by(self, command: E, dereference_aliases: bool = False, include_aliases: bool = True) -> Set[C]:
         """
-            Returns a list of CommandDefEnums that can cause the given command to be issued.
-            These commands should be "listened for" to as indicators for this state change
+        Returns a list of CommandDefEnums that can cause the given command to be issued.
+        These commands should be "listened for" to as indicators for this state change
         """
         if command in self._caused_bys:
             causes = self._harvest_commands(self._caused_bys[command], dereference_aliases, include_aliases)
@@ -283,12 +278,9 @@ class DependencyCache:
         else:
             return {command}
 
-    def results_in(self,
-                   command: C,
-                   dereference_aliases: bool = False,
-                   include_aliases: bool = True) -> Set[E]:
+    def results_in(self, command: C, dereference_aliases: bool = False, include_aliases: bool = True) -> Set[E]:
         """
-            Returns a list of the CommandDefEnums that result from issuing the given command.
+        Returns a list of the CommandDefEnums that result from issuing the given command.
         """
         if command in self._causes:
             results = self._harvest_commands(self._causes[command], dereference_aliases, include_aliases)
@@ -304,16 +296,14 @@ class DependencyCache:
         else:
             return {command}
 
-    def enabled_by(self,
-                   command: C,
-                   dereference_aliases: bool = False,
-                   include_aliases: bool = True) -> List[E | Tuple[E, int]]:
+    def enabled_by(
+        self, command: C, dereference_aliases: bool = False, include_aliases: bool = True
+    ) -> List[E | Tuple[E, int]]:
         return list(self._harvest_commands(self.caused_by(command), dereference_aliases, include_aliases))
 
-    def disabled_by(self,
-                    command: C,
-                    dereference_aliases: bool = False,
-                    include_aliases: bool = True) -> List[E | Tuple[E, int]]:
+    def disabled_by(
+        self, command: C, dereference_aliases: bool = False, include_aliases: bool = True
+    ) -> List[E | Tuple[E, int]]:
         disabled = set()
         if command in self._toggles:
             disabled.update(self._harvest_commands(self._toggles[command], dereference_aliases, include_aliases))
@@ -331,21 +321,19 @@ class DependencyCache:
         self._caused_bys.clear()
 
         # define command relationships
-        self.causes(Halt1.HALT,
-                    Engine1.SPEED_STOP_HOLD,
-                    Engine2.SPEED_STOP_HOLD,
-                    Aux.AUX2_OFF,
-                    Aux.AUX1_OFF)
+        self.causes(Halt1.HALT, Engine1.SPEED_STOP_HOLD, Engine2.SPEED_STOP_HOLD, Aux.AUX2_OFF, Aux.AUX1_OFF)
         self.causes(Halt2.HALT, Engine2.SPEED_STOP_HOLD)
         self.causes(Engine2.SYSTEM_HALT, Engine2.SPEED_STOP_HOLD)
 
         # Engine commands, starting with Reset (Number 0)
-        self.causes(Engine2.RESET,
-                    Engine2.SPEED_STOP_HOLD,
-                    Engine2.FORWARD_DIRECTION,
-                    Engine2.START_UP_IMMEDIATE,
-                    Engine2.BELL_OFF,
-                    Engine2.DIESEL_RPM)
+        self.causes(
+            Engine2.RESET,
+            Engine2.SPEED_STOP_HOLD,
+            Engine2.FORWARD_DIRECTION,
+            Engine2.START_UP_IMMEDIATE,
+            Engine2.BELL_OFF,
+            Engine2.DIESEL_RPM,
+        )
         self.causes(Engine2.STOP_IMMEDIATE, Engine2.SPEED_STOP_HOLD)
         self.causes(Engine2.FORWARD_DIRECTION, Engine2.SPEED_STOP_HOLD)
         self.causes(Engine2.REVERSE_DIRECTION, Engine2.SPEED_STOP_HOLD)
