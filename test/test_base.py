@@ -69,7 +69,7 @@ class TestBase:
                 TMCC2LightingControl,
                 ]
 
-    def generate_random_address(self,  cmd: CommandDefEnum, scope: CommandScope = None) -> int:
+    def generate_random_address(self, cmd: CommandDefEnum, scope: CommandScope = None) -> int:
         if cmd.syntax == CommandSyntax.TMCC:
             if scope == CommandScope.TRAIN or cmd.scope == CommandScope.ROUTE:
                 address = random.randint(1, 10)
