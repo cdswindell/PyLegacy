@@ -1,7 +1,6 @@
 # PyLegacy
 
-[![Python package](https://github.com/cdswindell/PyLegacy/actions/workflows/python-package.yml/badge.svg)]
-(https://github.com/cdswindell/PyLegacy/actions/workflows/python-package.yml)
+[![Python package](https://github.com/cdswindell/PyLegacy/actions/workflows/python-package.yml/badge.svg)](https://github.com/cdswindell/PyLegacy/actions/workflows/python-package.yml)
 
 This project contains software to operate and control trains and other equipment that utilize 
 Lionel's [TMCC and Legacy serial command protocol](https://ogrforum.com/fileSendAction/fcType/0/fcOid/156701992259624343/filePointer/156701992265497355/fodoid/156701992265497351/LCS-LEGACY-Protocol-Spec-v1.21.pdf).
