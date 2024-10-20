@@ -53,4 +53,3 @@ class SerialReader(Thread):
 
     def shutdown(self) -> None:
         self._is_running = False
-        
