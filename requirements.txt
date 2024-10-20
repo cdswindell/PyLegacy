@@ -4,3 +4,4 @@ pyserial>=3.5
 setuptools>=74.1.2
 telnetlib3>=2.0.4
 lgpio>=0.2.2.0; sys_platform == 'linux'
+typing_extensions; python_version < '3.11'
