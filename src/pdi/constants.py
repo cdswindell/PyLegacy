@@ -1,7 +1,7 @@
 """
     Lionel PDI Command Protocol Constants
 """
-from enum import IntEnum, Enum, unique, UNIQUE, verify
+from enum import IntEnum, Enum, unique
 from typing import TypeVar
 
 from ..protocol.constants import Mixins
@@ -344,7 +344,7 @@ ALL_SETs = [e for e in PdiCommand if e.name.endswith('_SET')]
 ALL_GETs = [e for e in PdiCommand if e.name.endswith('_GET')]
 
 
-@verify(UNIQUE)
+@unique
 class PdiDevice(Mixins, FriendlyMixins):
     """
         All supported LCS/PDI devices should be listed here, along with their
