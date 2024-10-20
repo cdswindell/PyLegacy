@@ -132,9 +132,8 @@ class PdiListener(Thread):
                     # we've found the possible start of a PDI command sequence. Check if we've found
                     # a PDI_EOP byte, or a "stuff" byte; we handle each situation separately
                     # if eop_pos != -1, we have to look past eop_pos for the next possible eop
-                    # TODO: modify index expression
                     try:
-                        eop_pos = self._deque.index(PDI_EOP)
+                        eop_pos = self._deque.index(PDI_EOP, eop_pos + 1)
                     except ValueError:
                         # no luck, wait for more bytes; should we impose a maximum byte count?
                         dq_len = -1  # to bypass inner while loop; we need more data
@@ -150,10 +149,12 @@ class PdiListener(Thread):
                             req_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                             dq_len -= 1
                         try:
-                            eop_pos = -1
                             self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
                         except Exception as e:
                             print(f"Failed to dispatch request {req_bytes.hex(':')}: {e}")
+                            raise e
+                        finally:
+                            eop_pos = -1
                         continue  # with while dq_len > 0 loop
                 # pop this byte and continue; we either received unparsable input
                 # or started receiving data mid-command

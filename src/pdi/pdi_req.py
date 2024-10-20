@@ -45,7 +45,9 @@ class PdiReq(ABC):
             recv_checksum = data[-2]
             self._data, check_sum = self._calculate_checksum(data[1:-2], False)
             if recv_checksum != int.from_bytes(check_sum, byteorder="big"):
-                raise ValueError(f"Invalid PDI Request: {data}  [BAD CHECKSUM]")
+                raise ValueError(
+                    f"Invalid PDI Request: 0x{data.hex()} {hex(recv_checksum)} != {check_sum.hex()} [BAD CHECKSUM]"
+                )
             self._pdi_command: PdiCommand = PdiCommand(data[1])
         else:
             if pdi_command is None or not isinstance(pdi_command, PdiCommand):
@@ -59,15 +61,24 @@ class PdiReq(ABC):
 
     @staticmethod
     def _calculate_checksum(data: bytes, add_stf=True) -> Tuple[bytes, bytes]:
+        """
+        Used to calculate checksums on packets we send as well as to strip Stuff bytes
+        from packets we receive
+        """
         byte_stream = bytes()
         check_sum = 0
         for b in data:
             check_sum += b
             if b in [PDI_SOP, PDI_STF, PDI_EOP]:
-                check_sum += PDI_STF
                 if add_stf is True:
+                    # add the stuff byte to the output and account for it in the check sum
+                    check_sum += PDI_STF
                     byte_stream += PDI_STF.to_bytes(1, byteorder="big")
+                elif b in [PDI_SOP, PDI_EOP]:
+                    # we are parsing a received packet; strip stuff byte
+                    pass  # we want this byte added to the output stream
                 else:
+                    # this must be a stuff byte and we are receiving; strip it
                     continue
             byte_stream += b.to_bytes(1, byteorder="big")
         # do checksum calculation on buffer

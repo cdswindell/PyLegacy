@@ -64,7 +64,7 @@ STM2_RX: int = 0x4E
 class FriendlyMixins(Enum):
     @property
     def friendly(self) -> str:
-        return self.name.capitalize()
+        return self.name.title()
 
 
 class PdiCommand(IntEnum, Mixins, FriendlyMixins):
