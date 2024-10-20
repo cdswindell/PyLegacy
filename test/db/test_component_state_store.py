@@ -38,7 +38,7 @@ class TestComponentStateStore(TestBase):
         # create a dispatcher to serve the store
         dispatcher = CommandDispatcher.build()
         assert dispatcher is not None
-        assert dispatcher.is_running is True
+        assert dispatcher.is_running
 
         # create a store
         store = ComponentStateStore(listeners=(dispatcher,))

@@ -20,7 +20,7 @@ Topic = TypeVar("Topic")
 
 class CommandListener(Thread):
     _instance: None = None
-    _lock = threading.Lock()
+    _lock = threading.RLock()
 
     @classmethod
     def build(

@@ -451,7 +451,7 @@ class TestComponentState(TestBase):
         sw_out = CommandReq.build(Switch.OUT, 22)
         dispatcher.offer(sw_out)
         time.sleep(0.05)
-        assert dispatcher.is_running is True
+        assert dispatcher.is_running
         assert self.state
         assert CommandScope.SWITCH in self.state
         assert 22 in self.state[CommandScope.SWITCH]

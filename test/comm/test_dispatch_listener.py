@@ -67,8 +67,8 @@ class TestCommandDispatcher(TestBase):
     def test_command_dispatcher_singleton(self) -> None:
         assert CommandDispatcher.is_built is False
         dispatcher = CommandDispatcher()
-        assert dispatcher.is_built is True
-        assert dispatcher.is_running is True
+        assert dispatcher.is_built
+        assert dispatcher.is_running
         assert isinstance(dispatcher, CommandDispatcher)
         assert dispatcher is CommandDispatcher()
         assert dispatcher.is_alive()
@@ -99,7 +99,7 @@ class TestCommandDispatcher(TestBase):
         listener = CommandListener()
         dispatcher = CommandDispatcher()
         assert listener._dispatcher is dispatcher
-        assert dispatcher.is_running is True
+        assert dispatcher.is_running
 
         # shutting down the listener should shut down the dispatcher
         listener.shutdown()
@@ -207,7 +207,7 @@ class TestCommandDispatcher(TestBase):
         assert ring_req.address == 3
         dispatcher.offer(ring_req)
         time.sleep(0.05)
-        assert dispatcher.is_running is True
+        assert dispatcher.is_running
         assert len(dispatcher._channels) == 4
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 1
@@ -219,7 +219,7 @@ class TestCommandDispatcher(TestBase):
         assert ring_req.address == 13
         dispatcher.offer(ring_req)
         time.sleep(0.05)
-        assert dispatcher.is_running is True
+        assert dispatcher.is_running
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 2
         assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == [ring_req]
@@ -231,7 +231,7 @@ class TestCommandDispatcher(TestBase):
         assert ring_req.address == 22
         dispatcher.offer(ring_req)
         time.sleep(0.05)
-        assert dispatcher.is_running is True
+        assert dispatcher.is_running
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 2
         assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandDef.RING_BELL)] == [ring_req]
@@ -242,7 +242,7 @@ class TestCommandDispatcher(TestBase):
         rte_req = CommandReq.build(TMCC2RouteCommandDef.FIRE, 13)
         dispatcher.offer(rte_req)
         time.sleep(0.05)
-        assert dispatcher.is_running is True
+        assert dispatcher.is_running
         assert len(CALLBACK_DICT) == 0
 
         # unsubscribe engine 22 and fire request, callback should not be invoked
@@ -252,7 +252,7 @@ class TestCommandDispatcher(TestBase):
         assert ring_req.address == 22
         dispatcher.offer(ring_req)
         time.sleep(0.05)
-        assert dispatcher.is_running is True
+        assert dispatcher.is_running
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 1
         assert CALLBACK_DICT[CommandScope.ENGINE] == [ring_req]
@@ -263,7 +263,7 @@ class TestCommandDispatcher(TestBase):
         assert sw_req.address == 22
         dispatcher.offer(sw_req)
         time.sleep(0.05)
-        assert dispatcher.is_running is True
+        assert dispatcher.is_running
         # listener should have triggered one callback
         assert len(CALLBACK_DICT) == 1
         assert CALLBACK_DICT[CommandScope.SWITCH] == [sw_req]
@@ -287,7 +287,7 @@ class TestCommandDispatcher(TestBase):
         halt_req = CommandReq.build(TMCC1HaltCommandDef.HALT)
         dispatcher.offer(halt_req)
         time.sleep(0.05)
-        assert dispatcher.is_running is True
+        assert dispatcher.is_running
         assert len(dispatcher._channels) == 4
         # listener should have triggered 4 exception
         assert len(CALLBACK_DICT) == 4
@@ -315,7 +315,7 @@ class TestCommandDispatcher(TestBase):
         sys_halt_req = CommandReq.build(TMCC2HaltCommandDef.HALT)
         dispatcher.offer(sys_halt_req)
         time.sleep(0.05)
-        assert dispatcher.is_running is True
+        assert dispatcher.is_running
         assert len(dispatcher._channels) == 4
         # listener should have triggered engine and train channels
         assert len(CALLBACK_DICT) == 3
@@ -329,8 +329,8 @@ class TestCommandDispatcher(TestBase):
         assert len(dispatcher._channels) == 5
         dispatcher.offer(sys_halt_req)
         time.sleep(0.05)
-        assert dispatcher.is_running is True
-        assert dispatcher.broadcasts_enabled is True
+        assert dispatcher.is_running
+        assert dispatcher.broadcasts_enabled
         assert len(CALLBACK_DICT) == 4
         assert CALLBACK_DICT[BROADCAST_TOPIC] == [sys_halt_req]
         assert CALLBACK_DICT[CommandScope.ENGINE] == [sys_halt_req]
