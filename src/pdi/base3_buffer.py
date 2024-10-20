@@ -14,7 +14,7 @@ from ..utils.pollable_queue import PollableQueue
 class Base3Buffer(Thread):
     # noinspection GrazieInspection
     """
-        Send and receive PDI command packets to/from a Lionel Base 3 or LCS WiFi module.
+    Send and receive PDI command packets to/from a Lionel Base 3 or LCS WiFi module.
     """
 
     _instance: None = None
