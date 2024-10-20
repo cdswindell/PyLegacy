@@ -9,6 +9,7 @@ from .component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE
 from src.db.client_state_listener import ClientStateListener
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Topic, Subscriber
+from ..pdi.pdi_req import LcsReq
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
 from ..protocol.command_req import CommandReq
@@ -42,13 +43,6 @@ class ComponentStateStore:
     @classmethod
     @property
     def is_built(cls) -> bool:
-        return cls._instance is not None
-
-    # noinspection PyPropertyDefinition
-    @classmethod
-    @property
-    def is_running(cls) -> bool:
-        # noinspection PyProtectedMember
         return cls._instance is not None
 
     @classmethod
@@ -151,6 +145,9 @@ class ComponentStateStore:
 
     def addresses(self, scope: CommandScope) -> collections.Iterable[int]:
         return set(self._state[scope].keys())
+
+    def register_lcs_device(self, cmd: LcsReq):
+        pass
 
 
 class DependencyCache:

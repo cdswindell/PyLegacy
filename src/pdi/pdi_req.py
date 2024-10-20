@@ -144,6 +144,10 @@ class PdiReq(ABC):
         return self._pdi_command.is_tmcc
 
     @property
+    def is_lcs(self) -> bool:
+        return False
+
+    @property
     def payload(self) -> str | None:
         return f"({self.packet})"
 
@@ -201,6 +205,10 @@ class LcsReq(PdiReq, ABC):
             if enum == self.pdi_command:
                 return True
         return False
+
+    @property
+    def is_lcs(self) -> bool:
+        return True
 
     @property
     def board_id(self) -> int | None:

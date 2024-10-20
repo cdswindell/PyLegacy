@@ -24,6 +24,7 @@ from src.comm.command_listener import CommandListener
 from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
 from src.db.client_state_listener import ClientStateListener
 from src.db.component_state_store import ComponentStateStore
+from src.db.startup_state import StartupState
 from src.gpio.gpio_handler import GpioHandler
 from src.pdi.pdi_listener import PdiListener
 from src.pdi.pdi_req import PdiReq, AllReq
@@ -91,6 +92,10 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.TRAIN)
             self._state_store.listen_for(CommandScope.SWITCH)
             self._state_store.listen_for(CommandScope.ACC)
+
+        if self._pdi_buffer is not None:
+            print(f"Determining initial system state from Lionel Base 3 at {self._base3_addr}:{self._base3_port}...")
+            self._get_system_state()
 
         # Start the command line processor
         self.run()
@@ -192,6 +197,9 @@ class PyTrain:
                     cli_cmd.send()
                 except argparse.ArgumentError as e:
                     print(f"{e}")
+
+    def _get_system_state(self):
+        self._startup_state = StartupState(self._pdi_buffer, self._state_store)
 
     def _process_startup_scripts(self) -> None:
         if self._startup_script is not None:
