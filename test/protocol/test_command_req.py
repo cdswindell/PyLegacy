@@ -43,7 +43,7 @@ class TestCommandReq(TestBase):
                         continue  # can't test defs that map data, yet
                     data = self.generate_random_data(cmd)
                     CommandReq.send_request(cmd, address, data)
-                    bits = cmd.command_def.bits | (int.from_bytes(cmd.command_def.first_byte) << 16)
+                    bits = cmd.command_def.bits | (int.from_bytes(cmd.command_def.first_byte, byteorder='big') << 16)
                     bits |= address << 7
                     if data != 0:
                         bits |= data
@@ -62,7 +62,7 @@ class TestCommandReq(TestBase):
                 bits |= address << 7
                 bits &= TMCC1_TRAIN_COMMAND_PURIFIER
                 bits |= TMCC1_TRAIN_COMMAND_MODIFIER
-                bits |= (int.from_bytes(cmd.command_def.first_byte) << 16)
+                bits |= (int.from_bytes(cmd.command_def.first_byte, byteorder='big') << 16)
                 if cmd.command_def.num_data_bits > 0:
                     bits |= data
                 mk_enqueue_command.assert_called_once_with(bits.to_bytes(3, byteorder='big'),
@@ -95,7 +95,7 @@ class TestCommandReq(TestBase):
                     data = self.generate_random_data(cmd)
                     bits = cmd.command_def.bits
                     bits |= address << 9
-                    bits |= (int.from_bytes(cmd.command_def.first_byte) << 16)
+                    bits |= (int.from_bytes(cmd.command_def.first_byte, byteorder='big') << 16)
                     CommandReq.send_request(cmd, address, data)
                     if cmd.command_def.num_data_bits > 0:
                         bits |= data
