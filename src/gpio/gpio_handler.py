@@ -85,7 +85,8 @@ class PotHandler(Thread):
 
         # create interpolation function using pre-calculated scaleFactor
         def interp_fn(value) -> int:
-            return int(round(to_min + (value - from_min) * scale_factor))
+            scaled_value = int(round(to_min + (value - from_min) * scale_factor))
+            return scaled_value
 
         return interp_fn
 
@@ -112,7 +113,8 @@ class JoyStickHandler(PotHandler):
             baudrate=baudrate,
             port=port,
             server=server,
-            start=False)
+            start=False,
+        )
         self._threshold = None
         self.start()
 
