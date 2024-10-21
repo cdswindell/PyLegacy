@@ -28,7 +28,7 @@ from src.db.startup_state import StartupState
 from src.gpio.gpio_handler import GpioHandler
 from src.pdi.pdi_listener import PdiListener
 from src.pdi.pdi_req import PdiReq, AllReq
-from src.pdi.pdi_state_store import PDIStateStore
+from src.pdi.pdi_state_store import PdiStateStore
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC, DEFAULT_BASE3_PORT
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
@@ -97,7 +97,7 @@ class PyTrain:
 
         if self._pdi_buffer is not None:
             print(f"Determining initial system state from Lionel Base 3 at {self._base3_addr}:{self._base3_port}...")
-            self._pdi_state_store = PDIStateStore()
+            self._pdi_state_store = PdiStateStore()
             self._get_system_state()
 
         # Start the command line processor

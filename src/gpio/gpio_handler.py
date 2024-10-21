@@ -541,7 +541,7 @@ class GpioHandler:
         bind: bool = False,
         cathode: bool = True,
     ) -> Tuple[CommandReq, Button, LED]:
-        # if command is actually a CommandDefEnum, build a CommandReq
+        # if command is actually a CommandDefEnum, build_req a CommandReq
         if isinstance(command, CommandDefEnum):
             command = CommandReq.build(command, address=address, data=data, scope=scope)
 

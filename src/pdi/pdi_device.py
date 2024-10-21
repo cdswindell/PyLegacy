@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import unique, Enum
 from typing import TypeVar
 
-from src.pdi.constants import (
+from .constants import (
     FriendlyMixins,
     PdiCommand,
     Asc2Action,
@@ -19,8 +19,8 @@ from src.pdi.constants import (
     WiFiAction,
     CommonAction,
 )
-from src.pdi.pdi_req import PdiReq
-from src.protocol.constants import Mixins
+from .pdi_req import PdiReq
+from ..protocol.constants import Mixins
 
 
 class PdiDeviceState(ABC):
@@ -115,7 +115,7 @@ class PdiDevice(Mixins, FriendlyMixins):
     from .pdi_req import AllReq, BaseReq, PingReq, TmccReq
     from .lcs_req import Stm2Req
     from .lcs_req import IrdaReq
-    from lcs_req import Ser2Req
+    from .lcs_req import Ser2Req
 
     ALL = DeviceWrapper(AllReq, PdiCommand.ALL_GET, PdiCommand.ALL_SET)
     ASC2 = DeviceWrapper(
@@ -131,11 +131,17 @@ class PdiDevice(Mixins, FriendlyMixins):
     WIFI = DeviceWrapper(WiFiReq, WiFiAction, PdiCommand.WIFI_GET, PdiCommand.WIFI_SET, PdiCommand.WIFI_RX)
     UPDATE = DeviceWrapper(BaseReq)
 
-    from .pdi_req import PdiReq
-
     T = TypeVar("T", bound=PdiReq)
 
-    def build(self, data: bytes) -> T:
+    @classmethod
+    def from_pdi_command(cls, cmd: PdiCommand) -> PdiDevice:
+        return cls(cmd.name.split("_")[0].upper())
+
+    @classmethod
+    def from_data(cls, data: bytes) -> PdiDevice:
+        return cls(PdiCommand(data[1]).name.split("_")[0].upper())
+
+    def build_req(self, data: bytes) -> T:
         return self.value.req_class(data)
 
     def build_device(self) -> T:
@@ -186,10 +192,8 @@ class SystemDeviceDict(defaultdict):
         self[key] = PdiDeviceDict(device)
         return self[key]
 
-    from .pdi_req import PdiReq
-
     def register_device(self, cmd: PdiReq) -> None:
-        if cmd.action.bits == CommonAction.CONFIG:
+        if cmd.action.bits == CommonAction.CONFIG.bits:
             tmcc_id = cmd.tmcc_id
             print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd} {tmcc_id}")
 

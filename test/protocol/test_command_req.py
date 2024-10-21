@@ -123,7 +123,7 @@ class TestCommandReq(TestBase):
             for cdef in self.all_command_enums:
                 for cmd in cdef:
                     data = self.generate_random_data(cmd)
-                    # build a request object as a convenience to get byte streem command
+                    # build_req a request object as a convenience to get byte streem command
                     req = self.build_request(cmd, 1, data)
                     action = CommandReq.build_action(cmd, 1, data)
                     assert action is not None
@@ -149,7 +149,7 @@ class TestCommandReq(TestBase):
             ]:
                 for cmd in cdef:
                     data = self.generate_random_data(cmd)
-                    # build a request object as a convenience to get byte streem command
+                    # build_req a request object as a convenience to get byte streem command
                     req = CommandReq.build(cmd, 1, data, scope=CommandScope.TRAIN)
                     action = CommandReq.build_action(cmd, 1, data, scope=CommandScope.TRAIN)
                     assert req.scope == CommandScope.TRAIN
@@ -166,7 +166,7 @@ class TestCommandReq(TestBase):
                     )
                     mk_enqueue_command.reset_mock()
 
-        # test build with repeat set
+        # test build_req with repeat set
         with mock.patch.object(CommBufferSingleton, "enqueue_command") as mk_comm_enqueue_command:
             for cmd in TMCC2EffectsControl:
                 action = CommandReq.build_action(cmd, 1, data, repeat=3)

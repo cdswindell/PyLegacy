@@ -43,7 +43,7 @@ class CommandBase(ABC):
         self._data: int = data
         self._scope: CommandScope = scope
 
-        # build the command
+        # build_req the command
         self._command = self._build_command()
 
     @property

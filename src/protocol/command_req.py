@@ -70,7 +70,7 @@ class CommandReq:
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> None:
-        # build & queue
+        # build_req & queue
         req = cls.build(command, address, data, scope)
         cls._enqueue_command(req.as_bytes, repeat, delay, baudrate, port, server)
 
@@ -87,7 +87,7 @@ class CommandReq:
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> Callable:
-        # build & return action function
+        # build_req & return action function
         req = cls.build(command, address, data, scope)
         return req.as_action(repeat=repeat, delay=delay, baudrate=baudrate, port=port, server=server)
 
@@ -415,7 +415,7 @@ class CommandReq:
                 if cmd_enum:
                     scope = CommandScope.TRAIN
             if cmd_enum:
-                # build the request and return
+                # build_req the request and return
                 data = cmd_enum.value.data_from_bytes(param[1:3])
                 address = cmd_enum.value.address_from_bytes(param[1:3])
                 return CommandReq.build(cmd_enum, address, data, scope)
@@ -431,7 +431,7 @@ class CommandReq:
                     scope = cmd_enum.scope
                     if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
                         scope = CommandScope.TRAIN
-                    # build the request and return
+                    # build_req the request and return
                     data = cmd_enum.value.data_from_bytes(param[1:3])
                     address = cmd_enum.value.address_from_bytes(param[1:3])
                     return CommandReq.build(cmd_enum, address, data, scope)

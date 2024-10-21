@@ -160,7 +160,7 @@ class CommandListener(Thread):
                         cmd_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                 if cmd_bytes:
                     try:
-                        # build a CommandReq from the received bytes and send it to the dispatcher
+                        # build_req a CommandReq from the received bytes and send it to the dispatcher
                         self._dispatcher.offer(CommandReq.from_bytes(cmd_bytes))
                     except ValueError as ve:
                         print(ve)

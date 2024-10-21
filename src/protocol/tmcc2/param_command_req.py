@@ -59,7 +59,7 @@ class ParameterCommandReq(CommandReq):
                     scope = cmd_enum.scope
                     if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
                         scope = CommandScope.TRAIN
-                    # build the request and return
+                    # build_req the request and return
                     data = 0
                     address = cmd_enum.value.address_from_bytes(param[1:3])
                     return ParameterCommandReq.build(cmd_enum, address, data, scope)
