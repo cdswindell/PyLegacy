@@ -5,8 +5,6 @@ import threading
 
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Subscriber, Topic
-from ..pdi.constants import PDI_SOP
-from ..pdi.pdi_listener import PdiListener
 from ..protocol.command_def import CommandDefEnum
 
 
@@ -31,6 +29,8 @@ class ClientStateListener(threading.Thread):
             self._initialized = True
         super().__init__(daemon=True, name="PyLegacy ComponentStateListener")
         self._tmcc_listener = CommandListener.build(build_serial_reader=False)
+        from src.pdi.pdi_listener import PdiListener
+
         self._pdi_listener = PdiListener.build(build_base3_reader=False)
         self._tmcc_buffer = CommBuffer.build()
         self._port = self._tmcc_buffer.server_port
@@ -56,6 +56,8 @@ class ClientStateListener(threading.Thread):
 
     def offer(self, data: bytes) -> None:
         # look at first byte to determine handler
+        from ..pdi.constants import PDI_SOP
+
         if data and data[0] == PDI_SOP:
             self._pdi_listener.offer(data)
         else:

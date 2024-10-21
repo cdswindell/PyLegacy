@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from .pdi_req import LcsReq
+from .lcs_req import LcsReq
+from .constants import PdiCommand, Asc2Action, PDI_SOP, PDI_EOP
 from ..protocol.constants import CommandScope
 
 
 class Asc2Req(LcsReq):
-    from .constants import PdiCommand, Asc2Action
-
     def __init__(
         self,
         data: bytes | int,
@@ -24,8 +23,6 @@ class Asc2Req(LcsReq):
         super().__init__(data, pdi_command, action.bits, ident)
         self._scope = CommandScope.ACC
         if isinstance(data, bytes):
-            from .constants import Asc2Action
-
             self._action = Asc2Action(self._action_byte)
             data_len = len(self._data)
             if self._action == Asc2Action.CONFIG:
@@ -112,8 +109,6 @@ class Asc2Req(LcsReq):
 
     @property
     def payload(self) -> str | None:
-        from .constants import PdiCommand, Asc2Action
-
         if self.pdi_command != PdiCommand.ASC2_GET:
             if self.action == Asc2Action.CONFIG:
                 return f"Mode: {self.mode} Debug: {self.debug} Delay: {self.delay} ({self.packet})"
@@ -141,8 +136,6 @@ class Asc2Req(LcsReq):
 
     @property
     def as_bytes(self) -> bytes:
-        from .constants import PdiCommand, Asc2Action, PDI_EOP, PDI_SOP
-
         byte_str = self.pdi_command.as_bytes
         byte_str += self.tmcc_id.to_bytes(1, byteorder="big")
         byte_str += self.action.as_bytes

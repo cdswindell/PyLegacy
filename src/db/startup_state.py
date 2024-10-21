@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime
 from threading import Thread
 
-from .component_state_store import ComponentStateStore
 from ..pdi.constants import CommonAction
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import PdiReq, AllReq
+from ..pdi.pdi_state_store import PdiStateStore
 
 
 class StartupState(Thread):
-    def __init__(self, listener: PdiListener, state_store: ComponentStateStore) -> None:
+    def __init__(self, listener: PdiListener, state_store: PdiStateStore) -> None:
         super().__init__(daemon=True, name="PyTrain Startup State Sniffer")
         self.listener = listener
         self.state_store = state_store
@@ -21,9 +20,8 @@ class StartupState(Thread):
         """
         Callback specified in the Subscriber protocol used to send events to listeners
         """
-        if cmd.is_lcs and cmd.action.bits == CommonAction.CONFIG.bits:
-            self.state_store.register_lcs_device(cmd)
-            print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
+        if isinstance(cmd, PdiReq) and cmd.action.bits == CommonAction.CONFIG.bits:
+            self.state_store.register_pdi_device(cmd)
 
     def run(self) -> None:
         self.listener.subscribe_any(self)

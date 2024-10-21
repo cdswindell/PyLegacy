@@ -28,6 +28,7 @@ from src.db.startup_state import StartupState
 from src.gpio.gpio_handler import GpioHandler
 from src.pdi.pdi_listener import PdiListener
 from src.pdi.pdi_req import PdiReq, AllReq
+from src.pdi.pdi_state_store import PDIStateStore
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC, DEFAULT_BASE3_PORT
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
@@ -45,6 +46,7 @@ class PyTrain:
         self._listener: CommandListener | ClientStateListener
         self._receiver = None
         self._state_store = None
+        self._pdi_store = None
         self._echo = args.echo
         self._no_ser2 = args.no_ser2
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
@@ -95,6 +97,7 @@ class PyTrain:
 
         if self._pdi_buffer is not None:
             print(f"Determining initial system state from Lionel Base 3 at {self._base3_addr}:{self._base3_port}...")
+            self._pdi_state_store = PDIStateStore()
             self._get_system_state()
 
         # Start the command line processor
@@ -199,7 +202,7 @@ class PyTrain:
                     print(f"{e}")
 
     def _get_system_state(self):
-        self._startup_state = StartupState(self._pdi_buffer, self._state_store)
+        self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
 
     def _process_startup_scripts(self) -> None:
         if self._startup_script is not None:

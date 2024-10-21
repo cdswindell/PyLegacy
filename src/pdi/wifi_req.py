@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.pdi.constants import PdiCommand, WiFiAction
-from src.pdi.pdi_req import LcsReq
+from src.pdi.lcs_req import LcsReq
 from src.protocol.constants import CommandScope
 
 WIFI_MODE_MAP = {0: "AP", 1: "INF", 2: "WPS"}

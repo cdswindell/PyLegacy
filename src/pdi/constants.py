@@ -2,8 +2,9 @@
 Lionel PDI Command Protocol Constants
 """
 
+from __future__ import annotations
+
 from enum import IntEnum, Enum, unique
-from typing import TypeVar
 
 from ..protocol.constants import Mixins
 
@@ -341,63 +342,3 @@ ALL_STATUS = [
 ALL_RXs = [e for e in PdiCommand if e.name.endswith("_RX")]
 ALL_SETs = [e for e in PdiCommand if e.name.endswith("_SET")]
 ALL_GETs = [e for e in PdiCommand if e.name.endswith("_GET")]
-
-
-@unique
-class PdiDevice(Mixins, FriendlyMixins):
-    """
-    All supported LCS/PDI devices should be listed here, along with their
-    constructor class wrapped in a DeviceWrapper
-    """
-
-    from src.pdi.asc2_req import Asc2Req
-    from src.pdi.bpc2_req import Bpc2Req
-    from src.pdi.wifi_req import WiFiReq
-    from .pdi_req import AllReq, BaseReq, IrdaReq, PingReq, Ser2Req, Stm2Req, TmccReq
-    from .pdi_req import DeviceWrapper
-
-    ALL = DeviceWrapper(AllReq, PdiCommand.ALL_GET, PdiCommand.ALL_SET)
-    ASC2 = DeviceWrapper(Asc2Req, Asc2Action, PdiCommand.ASC2_GET, PdiCommand.ASC2_SET, PdiCommand.ASC2_RX)
-    BASE = DeviceWrapper(BaseReq)
-    BPC2 = DeviceWrapper(Bpc2Req, Bpc2Action, PdiCommand.BPC2_GET, PdiCommand.BPC2_SET, PdiCommand.BPC2_RX)
-    IRDA = DeviceWrapper(IrdaReq, IrdaAction, PdiCommand.IRDA_GET, PdiCommand.IRDA_SET, PdiCommand.IRDA_RX)
-    PING = DeviceWrapper(PingReq)
-    SER2 = DeviceWrapper(Ser2Req, Ser2Action, PdiCommand.SER2_GET, PdiCommand.SER2_SET, PdiCommand.SER2_RX)
-    STM2 = DeviceWrapper(Stm2Req, Stm2Action, PdiCommand.STM2_GET, PdiCommand.STM2_SET, PdiCommand.STM2_RX)
-    TMCC = DeviceWrapper(TmccReq, PdiCommand.TMCC_TX, PdiCommand.TMCC_RX)
-    WIFI = DeviceWrapper(WiFiReq, WiFiAction, PdiCommand.WIFI_GET, PdiCommand.WIFI_SET, PdiCommand.WIFI_RX)
-    UPDATE = DeviceWrapper(BaseReq)
-
-    from .pdi_req import PdiReq
-
-    T = TypeVar("T", bound=PdiReq)
-
-    def build(self, data: bytes) -> T:
-        return self.value.req_class(data)
-
-    def firmware(self, tmcc_id: int) -> T:
-        return self.value.firmware(tmcc_id)
-
-    def status(self, tmcc_id: int) -> T:
-        return self.value.status(tmcc_id)
-
-    def info(self, tmcc_id: int) -> T:
-        return self.value.info(tmcc_id)
-
-    def clear_errors(self, tmcc_id: int) -> T:
-        """
-        Build a Clear Errors request
-        """
-        return self.value.clear_errors(tmcc_id)
-
-    def reset(self, tmcc_id: int) -> T:
-        """
-        Build a Reset request
-        """
-        return self.value.identify(tmcc_id)
-
-    def identify(self, tmcc_id: int, ident: int = 1) -> T:
-        """
-        Build an Identify request
-        """
-        return self.value.identify(tmcc_id, ident)

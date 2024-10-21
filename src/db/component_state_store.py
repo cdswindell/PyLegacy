@@ -5,23 +5,20 @@ import threading
 from collections import defaultdict
 from typing import List, TypeVar, Set, Tuple
 
-from .component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
 from src.db.client_state_listener import ClientStateListener
+from .component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Topic, Subscriber
-from ..pdi.pdi_req import LcsReq
 from ..protocol.command_def import CommandDefEnum
-from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
 from ..protocol.command_req import CommandReq
-
-from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef as Halt1
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as Engine1
+from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as Engine1
+from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef as Halt1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
-
-from ..protocol.tmcc2.tmcc2_constants import TMCC2HaltCommandDef as Halt2
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as Engine2
 from ..protocol.tmcc2.param_constants import TMCC2EffectsControl as Effects
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as Engine2
+from ..protocol.tmcc2.tmcc2_constants import TMCC2HaltCommandDef as Halt2
 
 T = TypeVar("T", bound=ComponentState)
 C = TypeVar("C", bound=CommandDefEnum)
@@ -145,9 +142,6 @@ class ComponentStateStore:
 
     def addresses(self, scope: CommandScope) -> collections.Iterable[int]:
         return set(self._state[scope].keys())
-
-    def register_lcs_device(self, cmd: LcsReq):
-        pass
 
 
 class DependencyCache:

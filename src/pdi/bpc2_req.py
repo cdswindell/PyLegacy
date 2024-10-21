@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.pdi.constants import PdiCommand, Bpc2Action, PDI_SOP, PDI_EOP
-from src.pdi.pdi_req import LcsReq
+from src.pdi.lcs_req import LcsReq
 from src.protocol.constants import CommandScope
 
 
