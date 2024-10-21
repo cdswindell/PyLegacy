@@ -5,6 +5,7 @@ from abc import ABC
 from typing import List, TypeVar
 
 from src.pdi.constants import PdiCommand, ALL_STATUS, PDI_SOP, PDI_EOP, Ser2Action, IrdaAction, PdiAction
+from src.pdi.constants import ALL_SETs, ALL_IDENTIFY
 from src.pdi.pdi_req import PdiReq
 from src.protocol.constants import CommandScope
 
@@ -43,10 +44,7 @@ class LcsReq(PdiReq, ABC):
             self._ident = ident
 
     def _is_action(self, enums: List[T]) -> bool:
-        for enum in enums:
-            if enum.bits == self._action_byte:
-                return True
-        return False
+        return self.action in enums
 
     def _is_command(self, enums: List[PdiCommand]) -> bool:
         for enum in enums:
@@ -114,9 +112,11 @@ class LcsReq(PdiReq, ABC):
     @property
     def payload(self) -> str | None:
         if self._is_action(ALL_STATUS) and self.pdi_command.name.endswith("_RX"):
-            l1 = f"Board ID: {self.board_id} Num IDs: {self.num_ids} Model: {self.model}"
-            return l1
-        return f" ({self.packet})"
+            return f"Board ID: {self.board_id} Num IDs: {self.num_ids} Model: {self.model}  ({self.packet})"
+        elif self._is_action(ALL_IDENTIFY):
+            if self._is_command(ALL_SETs):
+                return f"Ident: {self.ident} ({self.packet})"
+        return super().payload
 
     @property
     @abc.abstractmethod
@@ -171,14 +171,3 @@ class IrdaReq(LcsReq):
     @property
     def scope(self) -> CommandScope:
         return CommandScope.SYSTEM
-
-
-class Stm2Req(PdiReq):
-    def __init__(self, data: bytes):
-        if PdiCommand(data[1]).is_base is False:
-            raise ValueError(f"Invalid PDI Base Request: {data}")
-        super().__init__(data)
-
-    @property
-    def scope(self) -> CommandScope:
-        return CommandScope.SWITCH

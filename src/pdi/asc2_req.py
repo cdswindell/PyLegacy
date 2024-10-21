@@ -112,9 +112,6 @@ class Asc2Req(LcsReq):
         if self.pdi_command != PdiCommand.ASC2_GET:
             if self.action == Asc2Action.CONFIG:
                 return f"Mode: {self.mode} Debug: {self.debug} Delay: {self.delay} ({self.packet})"
-            elif self._action == Asc2Action.IDENTIFY:
-                if self.pdi_command == PdiCommand.ASC2_SET:
-                    return f"Ident: {self.ident} ({self.packet})"
             elif self.action == Asc2Action.CONTROL1:
                 time = f" for {self.time:.2f} s" if self.time is not None else ""
                 return f"Relay: {'ON' if self.values == 1 else 'OFF'}{time} ({self.packet})"

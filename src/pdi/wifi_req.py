@@ -64,7 +64,7 @@ class WiFiReq(LcsReq):
                 return f"Base IP: {ip_addr} {clients}"
             elif self.action == WiFiAction.RESPBCASTS:
                 return f"Broadcasts {'ENABLED' if payload_bytes[0] == 1 else 'DISABLED'}: {payload_bytes[0]}"
-            return f"({self.packet})"
+            return super().payload
 
     @property
     def scope(self) -> CommandScope:

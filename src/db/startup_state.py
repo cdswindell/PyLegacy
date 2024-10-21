@@ -34,3 +34,4 @@ class StartupState(Thread):
         while total_time < 60:  # only listen for a minute
             time.sleep(0.1)
             total_time += 0.1
+        self.listener.unsubscribe_any(self)

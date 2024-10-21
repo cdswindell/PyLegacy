@@ -333,7 +333,7 @@ class Stm2Action(PdiAction):
     CONTROL1 = ActionDef(ACTION_CONTROL1, True, False, True)
 
 
-ALL_STATUS = [
+ALL_STATUS = {
     Asc2Action.STATUS,
     Bpc2Action.STATUS,
     IrdaAction.STATUS,
@@ -341,8 +341,48 @@ ALL_STATUS = [
     Stm2Action.STATUS,
     Stm2Action.STATUS,
     WiFiAction.STATUS,
-]
+}
 
-ALL_RXs = [e for e in PdiCommand if e.name.endswith("_RX")]
-ALL_SETs = [e for e in PdiCommand if e.name.endswith("_SET")]
-ALL_GETs = [e for e in PdiCommand if e.name.endswith("_GET")]
+ALL_CONFIG = {
+    Asc2Action.CONFIG,
+    Bpc2Action.CONFIG,
+    IrdaAction.CONFIG,
+    Ser2Action.CONFIG,
+    Stm2Action.CONFIG,
+    Stm2Action.CONFIG,
+    WiFiAction.CONFIG,
+}
+
+ALL_INFO = {
+    Asc2Action.INFO,
+    Bpc2Action.INFO,
+    IrdaAction.INFO,
+    Ser2Action.INFO,
+    Stm2Action.INFO,
+    Stm2Action.INFO,
+    WiFiAction.INFO,
+}
+
+ALL_RESET = {
+    Asc2Action.RESET,
+    Bpc2Action.RESET,
+    IrdaAction.RESET,
+    Ser2Action.RESET,
+    Stm2Action.RESET,
+    Stm2Action.RESET,
+    WiFiAction.RESET,
+}
+
+ALL_IDENTIFY = {
+    Asc2Action.IDENTIFY,
+    Bpc2Action.IDENTIFY,
+    IrdaAction.IDENTIFY,
+    Ser2Action.IDENTIFY,
+    Stm2Action.IDENTIFY,
+    Stm2Action.IDENTIFY,
+    WiFiAction.IDENTIFY,
+}
+
+ALL_RXs = {e for e in PdiCommand if e.name.endswith("_RX")}
+ALL_SETs = {e for e in PdiCommand if e.name.endswith("_SET")}
+ALL_GETs = {e for e in PdiCommand if e.name.endswith("_GET")}

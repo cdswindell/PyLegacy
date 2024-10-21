@@ -93,7 +93,7 @@ class Bpc2Req(LcsReq):
         if self.pdi_command != PdiCommand.ASC2_GET:
             if self.action == Bpc2Action.CONFIG:
                 return f"Mode: {self.mode} Debug: Restore: {self.restore} {self.debug} ({self.packet})"
-        return f" ({self.packet})"
+        return super().payload
 
     @property
     def as_bytes(self) -> bytes:
