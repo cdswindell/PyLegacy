@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import select
 import socket
 import threading
 import time
@@ -100,7 +101,8 @@ class Base3Buffer(Thread):
             # data available from the Base 3 to process
             socket_list = [s, self._send_queue]
             while self._is_running:
-                for sock in socket_list:
+                readable, _, _ = select.select(socket_list, [], [])
+                for sock in readable:
                     if sock == self._send_queue:
                         data = sock.get()
                         millis_since_last_output = self._current_milli_time() - self._last_output_at
@@ -108,16 +110,17 @@ class Base3Buffer(Thread):
                             time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
                         s.sendall(data.hex().upper().encode())
                         self._last_output_at = self._current_milli_time()
-                    # we will always call s.recv, as in either case, there will
-                    # be a response, either because we received an 'ack' from
-                    # our send or because the select was triggered on the socket
-                    # being able to be read.
-                    data = bytes.fromhex(s.recv(512).decode())
-                    # but there is more trickiness; The Base3 sends ascii characters
-                    # so when we receive: 'D12729DF', this actually is sent as eight
-                    # characters; D, 1, 2, 7, 2, 9, D, F, so we must decode the 8
-                    # received bytes into 8 ASCII characters, then interpret that
-                    # ASCII string as Hex representation to arrive at 0xd12729df...
+                    else:
+                        # we will always call s.recv, as in either case, there will
+                        # be a response, either because we received an 'ack' from
+                        # our send or because the select was triggered on the socket
+                        # being able to be read.
+                        data = bytes.fromhex(s.recv(512).decode())
+                        # but there is more trickiness; The Base3 sends ascii characters
+                        # so when we receive: 'D12729DF', this actually is sent as eight
+                        # characters; D, 1, 2, 7, 2, 9, D, F, so we must decode the 8
+                        # received bytes into 8 ASCII characters, then interpret that
+                        # ASCII string as Hex representation to arrive at 0xd12729df...
                     if self._listener is not None:
                         self._listener.offer(data)
 
