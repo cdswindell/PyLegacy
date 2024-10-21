@@ -246,6 +246,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         tmcc_cmd = CommandReq.from_bytes(data)
         pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
+        self._base3.send(pdi_cmd.as_bytes)
         # also alert CommandListener
         CommandDispatcher.get().offer(tmcc_cmd)
 

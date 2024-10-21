@@ -9,7 +9,7 @@ from threading import Condition, Thread
 from .constants import KEEP_ALIVE_CMD
 from .pdi_listener import PdiListener
 
-from ..protocol.constants import DEFAULT_BASE3_PORT, DEFAULT_QUEUE_SIZE
+from ..protocol.constants import DEFAULT_BASE3_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY
 from ..utils.pollable_queue import PollableQueue
 
 
@@ -59,6 +59,7 @@ class Base3Buffer(Thread):
         # data read from the Base 3 is sent to a PdiListener to decode and act on
         self._listener = listener
         self._is_running = True
+        self._last_output_at = 0  # used to throttle writes to LCS Base3
         # data to send to the Base 3 is written into a queue, which is drained by the thread
         # created when this instance is started
         self._send_queue: PollableQueue[bytes] = PollableQueue(buffer_size)
@@ -85,6 +86,13 @@ class Base3Buffer(Thread):
                 self._send_queue.put(data)
                 self._send_cv.notify_all()
 
+    @staticmethod
+    def _current_milli_time() -> int:
+        """
+        Return the current time, in milliseconds past the "epoch"
+        """
+        return round(time.time() * 1000)
+
     def run(self) -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((str(self._base3_addr), self._base3_port))
@@ -95,7 +103,11 @@ class Base3Buffer(Thread):
                 for sock in socket_list:
                     if sock == self._send_queue:
                         data = sock.get()
+                        millis_since_last_output = self._current_milli_time() - self._last_output_at
+                        if millis_since_last_output < DEFAULT_THROTTLE_DELAY:
+                            time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
                         s.sendall(data.hex().upper().encode())
+                        self._last_output_at = self._current_milli_time()
                     # we will always call s.recv, as in either case, there will
                     # be a response, either because we received an 'ack' from
                     # our send or because the select was triggered on the socket
