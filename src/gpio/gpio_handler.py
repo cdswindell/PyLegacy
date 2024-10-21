@@ -60,7 +60,7 @@ class PotHandler(Thread):
             if self._last_value is None:
                 self._last_value = value
                 continue
-            elif math.fabs(self._last_value - value) <= self._threshold:
+            elif math.fabs(self._last_value - value) <= self._threshold and value > 0:
                 continue  # pots can take a bit to settle; ignore small changes
             if self._last_value == 0 and value == 0:
                 continue
