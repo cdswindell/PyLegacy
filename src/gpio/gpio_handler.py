@@ -31,6 +31,7 @@ class PotHandler(Thread):
         baudrate: int = DEFAULT_BAUDRATE,
         port: int | str = DEFAULT_PORT,
         server: str = None,
+        start: bool = True,
     ) -> None:
         super().__init__(daemon=True)
         self._pot = MCP3008(channel=channel)
@@ -48,7 +49,8 @@ class PotHandler(Thread):
             self._threshold = 1 if command.num_data_bits < 6 else 2
         self._delay = delay
         self._running = True
-        self.start()
+        if start is True:
+            self.start()
 
     @property
     def pot(self) -> MCP3008:
@@ -56,11 +58,11 @@ class PotHandler(Thread):
 
     def run(self) -> None:
         while self._running:
-            value = self._interp(self._pot.value)
+            value = self._interp(self.pot.value)
             if self._last_value is None:
                 self._last_value = value
                 continue
-            elif math.fabs(self._last_value - value) <= self._threshold and value > 0:
+            elif self._threshold is not None and math.fabs(self._last_value - value) <= self._threshold and value > 0:
                 continue  # pots can take a bit to settle; ignore small changes
             if self._last_value == 0 and value == 0:
                 continue
@@ -86,6 +88,33 @@ class PotHandler(Thread):
             return int(round(to_min + (value - from_min) * scale_factor))
 
         return interp_fn
+
+
+class JoyStickHandler(PotHandler):
+    def __init__(
+        self,
+        command: CommandReq,
+        channel: int = 0,
+        data_min: int = None,
+        data_max: int = None,
+        delay: float = 0.05,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str | int = DEFAULT_PORT,
+        server: str = None,
+    ) -> None:
+        super().__init__(
+            command,
+            channel=channel,
+            data_min=data_min,
+            data_max=data_max,
+            threshold=None,
+            delay=delay,
+            baudrate=baudrate,
+            port=port,
+            server=server,
+            start=False)
+        self._threshold = None
+        self.start()
 
 
 class GpioHandler:
@@ -303,13 +332,11 @@ class GpioHandler:
     ) -> Tuple[Button, Button]:
         if command_control is True:
             rotate_boom_req = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
-
-            knob = PotHandler(
+            knob = JoyStickHandler(
                 rotate_boom_req,
                 channel,
                 data_min=-3,
                 data_max=3,
-                threshold=0,
                 delay=0.2,
                 baudrate=baudrate,
                 port=port,
