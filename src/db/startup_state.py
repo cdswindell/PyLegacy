@@ -3,7 +3,6 @@ from __future__ import annotations
 import time
 from threading import Thread
 
-from ..pdi.constants import CommonAction
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import PdiReq, AllReq
 from ..pdi.pdi_state_store import PdiStateStore
@@ -20,7 +19,7 @@ class StartupState(Thread):
         """
         Callback specified in the Subscriber protocol used to send events to listeners
         """
-        if isinstance(cmd, PdiReq) and cmd.action.bits == CommonAction.CONFIG.bits:
+        if isinstance(cmd, PdiReq) and cmd.action is not None and cmd.action.is_config:
             # register the device; registration returns a list of pdi commands
             # to send to get device state
             state_requests = self.state_store.register_pdi_device(cmd)

@@ -68,6 +68,7 @@ class PdiReq(ABC):
         """
         byte_stream = bytes()
         check_sum = 0
+        last_byte = None
         for b in data:
             check_sum += b
             if b in [PDI_SOP, PDI_STF, PDI_EOP]:
@@ -80,8 +81,12 @@ class PdiReq(ABC):
                     pass  # we want this byte added to the output stream
                 else:
                     # this must be a stuff byte, and we are receiving; strip it
-                    continue
+                    # unless the previous byte was also a stuff byte
+                    if last_byte != PDI_STF:
+                        last_byte = b
+                        continue
             byte_stream += b.to_bytes(1, byteorder="big")
+            last_byte = b
         # do checksum calculation on buffer
         check_sum = 0xFF & (0 - check_sum)
         if check_sum in [PDI_SOP, PDI_STF, PDI_EOP]:

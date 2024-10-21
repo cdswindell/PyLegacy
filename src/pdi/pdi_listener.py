@@ -141,7 +141,6 @@ class PdiListener(Thread):
                     # make sure preceding byte isn't a stuff byte
                     if eop_pos - 1 > 0:
                         if self._deque[eop_pos - 1] == PDI_STF:
-                            print("*** we found an unhandled stuff-it")
                             continue  # this isn't really an EOF
                         # we found a complete PDI packet! Queue it for processing
                         req_bytes = bytes()

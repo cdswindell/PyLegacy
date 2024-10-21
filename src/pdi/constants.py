@@ -197,6 +197,10 @@ class PdiAction(Mixins, FriendlyMixins):
             return None
 
     @property
+    def is_config(self) -> bool:
+        return self.bits == CommonAction.CONFIG.bits
+
+    @property
     def as_bytes(self) -> bytes:
         return self.bits.to_bytes(1, byteorder="big")
 
