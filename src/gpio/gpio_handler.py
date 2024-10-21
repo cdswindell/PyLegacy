@@ -27,7 +27,7 @@ class PotHandler(Thread):
         data_min: int = None,
         data_max: int = None,
         threshold: float = None,
-        delay: float = None,
+        delay: float = 0.05,
         baudrate: int = DEFAULT_BAUDRATE,
         port: int | str = DEFAULT_PORT,
         server: str = None,
@@ -60,7 +60,7 @@ class PotHandler(Thread):
             if self._last_value is None:
                 self._last_value = value
                 continue
-            elif math.fabs(self._last_value - value) < self._threshold:
+            elif math.fabs(self._last_value - value) <= self._threshold:
                 continue  # pots can take a bit to settle; ignore small changes
             if self._last_value == 0 and value == 0:
                 continue
@@ -68,8 +68,7 @@ class PotHandler(Thread):
             self._last_value = value
             self._command.data = value
             self._action(new_data=value)
-            if self._delay:
-                time.sleep(self._delay)
+            time.sleep(self._delay)
 
     def reset(self) -> None:
         self._running = False
