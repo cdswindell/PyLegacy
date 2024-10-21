@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import threading
+from typing import TypeVar, List
+
 from ..pdi.pdi_device import SystemDeviceDict
 from ..pdi.pdi_req import PdiReq
+
+T = TypeVar("T", bound=PdiReq)
 
 
 class PdiStateStore:
@@ -27,5 +31,5 @@ class PdiStateStore:
             self._initialized = True
         self._pdi_devices = SystemDeviceDict()
 
-    def register_pdi_device(self, cmd: PdiReq):
-        self._pdi_devices.register_device(cmd)
+    def register_pdi_device(self, cmd: PdiReq) -> List[T] | None:
+        return self._pdi_devices.register_pdi_device(cmd)

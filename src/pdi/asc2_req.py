@@ -20,7 +20,7 @@ class Asc2Req(LcsReq):
         time: float = None,
         sub_id: int = None,
     ) -> None:
-        super().__init__(data, pdi_command, action.bits, ident)
+        super().__init__(data, pdi_command, action, ident)
         self._scope = CommandScope.ACC
         if isinstance(data, bytes):
             self._action = Asc2Action(self._action_byte)

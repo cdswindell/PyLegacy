@@ -21,7 +21,12 @@ class StartupState(Thread):
         Callback specified in the Subscriber protocol used to send events to listeners
         """
         if isinstance(cmd, PdiReq) and cmd.action.bits == CommonAction.CONFIG.bits:
-            self.state_store.register_pdi_device(cmd)
+            # register the device; registration returns a list of pdi commands
+            # to send to get device state
+            state_requests = self.state_store.register_pdi_device(cmd)
+            if state_requests:
+                for state_request in state_requests:
+                    self.listener.enqueue_command(state_request)
 
     def run(self) -> None:
         self.listener.subscribe_any(self)

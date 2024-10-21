@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from enum import unique, Enum
-from typing import TypeVar
+from typing import TypeVar, List
 
 from .constants import (
     FriendlyMixins,
@@ -19,16 +19,19 @@ from .constants import (
     WiFiAction,
     CommonAction,
 )
+from .asc2_req import Asc2Req
 from .pdi_req import PdiReq
 from ..protocol.constants import Mixins
 
+T = TypeVar("T", bound=PdiReq)
 
-class PdiDeviceState(ABC):
+
+class PdiDeviceConfig(ABC):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, device: PdiDevice, tmcc_id: int) -> None:
+    def __init__(self, device: PdiDevice, cmd: T) -> None:
         self._device = device
-        self._tmcc_id: int = tmcc_id
+        self._tmcc_id: int = cmd.tmcc_id
 
     @property
     def device(self) -> PdiDevice:
@@ -38,20 +41,47 @@ class PdiDeviceState(ABC):
     def tmcc_id(self) -> int:
         return self._tmcc_id
 
+    @property
+    @abc.abstractmethod
+    def state_requests(self) -> List[T]: ...
 
-class ACS2DeviceState(PdiDeviceState):
-    T = TypeVar("T", bound=PdiReq)
 
-    def __init__(self, cmd: T) -> None:
-        super().__init__(PdiDevice.ASC2, cmd.tmcc_id)
+class ACS2DeviceConfig(PdiDeviceConfig):
+    def __init__(self, cmd: Asc2Req) -> None:
+        super().__init__(PdiDevice.ASC2, cmd)
+        self._mode = cmd.mode
         print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd} {self.tmcc_id}")
+
+    @property
+    def mode(self) -> int:
+        return self._mode
+
+    @property
+    def state_requests(self) -> List[T]:
+        cmds = []
+        if self._mode == 0:
+            # Acc mode, 8 TMCC IDs
+            for i in range(8):
+                cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL1))
+        elif self._mode == 1:
+            # Acc mode, 1 TMCC ID, latching
+            cmds.append(Asc2Req(self.tmcc_id, action=Asc2Action.CONTROL2))
+        elif self._mode == 2:
+            # Switch mode, pulsed, 4 TMCC IDs
+            for i in range(4):
+                cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL4))
+        elif self._mode == 3:
+            # Switch mode, latched, 4 TMCC IDs
+            for i in range(4):
+                cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL5))
+        return cmds
 
 
 class DeviceWrapper:
     C = TypeVar("C", bound=PdiReq.__class__)
     E = TypeVar("E", bound=Enum)
     T = TypeVar("T", bound=PdiReq)
-    DC = TypeVar("DC", bound=PdiDeviceState.__class__)
+    DC = TypeVar("DC", bound=PdiDeviceConfig.__class__)
 
     def __init__(self, req_class: C, *commands: PdiCommand, enums: E = None, dev_class: DC = None) -> None:
         self.req_class = req_class
@@ -135,11 +165,11 @@ class PdiDevice(Mixins, FriendlyMixins):
         PdiCommand.ASC2_SET,
         PdiCommand.ASC2_RX,
         enums=Asc2Action,
-        dev_class=ACS2DeviceState,
+        dev_class=ACS2DeviceConfig,
     )
     UPDATE = DeviceWrapper(BaseReq)
 
-    D = TypeVar("D", bound=PdiDeviceState)
+    D = TypeVar("D", bound=PdiDeviceConfig)
     T = TypeVar("T", bound=PdiReq)
 
     @classmethod
@@ -205,12 +235,15 @@ class SystemDeviceDict(defaultdict):
         self[key] = PdiDeviceDict(device)
         return self[key]
 
-    def register_device(self, cmd: PdiReq) -> None:
+    def register_pdi_device(self, cmd: PdiReq) -> List[T] | None:
         if cmd.action.bits == CommonAction.CONFIG.bits:
             tmcc_id = cmd.tmcc_id
             device = cmd.pdi_device
             if device.can_build_device is True:
-                self[device][tmcc_id] = device.build_device(cmd)
+                dev_config = device.build_device(cmd)
+                self[device][tmcc_id] = dev_config
+                return dev_config.state_requests
+            return None
 
 
 class PdiDeviceDict(dict):

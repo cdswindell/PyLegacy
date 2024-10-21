@@ -19,7 +19,7 @@ class Bpc2Req(LcsReq):
         values: int = None,
         valids: int = None,
     ) -> None:
-        super().__init__(data, pdi_command, action.bits, ident)
+        super().__init__(data, pdi_command, action, ident)
         self._scope = CommandScope.ACC
         if isinstance(data, bytes):
             self._action = Bpc2Action(self._action_byte)

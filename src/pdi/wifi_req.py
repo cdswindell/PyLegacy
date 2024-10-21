@@ -15,7 +15,7 @@ class WiFiReq(LcsReq):
         action: WiFiAction = WiFiAction.CONFIG,
         ident: int | None = None,
     ) -> None:
-        super().__init__(data, pdi_command, action.bits, ident)
+        super().__init__(data, pdi_command, action, ident)
         if isinstance(data, bytes):
             self._action = WiFiAction(self._action_byte)
         else:
