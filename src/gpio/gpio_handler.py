@@ -12,8 +12,8 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState, TMCC1AuxCommandDef
-from ..protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState, TMCC1AuxCommandDef, TMCC1EngineCommandDef
+from ..protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef, TMCC2EngineCommandDef
 
 DEFAULT_BOUNCE_TIME: float = 0.05  # button debounce threshold
 DEFAULT_VARIANCE: float = 0.001  # pot difference variance
@@ -349,6 +349,43 @@ class GpioHandler:
         mag_pin: int | str,
     ):
         pass
+
+    @classmethod
+    def engine(
+        cls,
+        address: int,
+        channel: int = 0,
+        fwd_pin: int | str = None,
+        rev_pin: int | str = None,
+        is_legacy: bool = True,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str | int = DEFAULT_PORT,
+        server: str = None,
+    ) -> Tuple[PotHandler, Button, Button]:
+        fwd_btn = rev_btn = None
+        fwd_cmd = rev_cmd = None
+        if is_legacy is True:
+            speed_cmd = CommandReq.build(TMCC2EngineCommandDef.ABSOLUTE_SPEED, address)
+            if fwd_pin is not None:
+                fwd_cmd, fwd_btn, _ = cls._make_button(fwd_pin, TMCC2EngineCommandDef.FORWARD_DIRECTION, address)
+            if rev_pin is not None:
+                rev_cmd, rev_btn, _ = cls._make_button(rev_pin, TMCC2EngineCommandDef.REVERSE_DIRECTION, address)
+        else:
+            speed_cmd = CommandReq.build(TMCC1EngineCommandDef.ABSOLUTE_SPEED, address)
+            if fwd_pin is not None:
+                fwd_cmd, fwd_btn, _ = cls._make_button(fwd_pin, TMCC1EngineCommandDef.FORWARD_DIRECTION, address)
+            if rev_pin is not None:
+                rev_cmd, rev_btn, _ = cls._make_button(rev_pin, TMCC1EngineCommandDef.REVERSE_DIRECTION, address)
+        # make a pot to handle speed
+        pot = cls.when_pot(speed_cmd, channel=channel)
+
+        # assign button actions
+        if fwd_btn is not None:
+            fwd_btn.when_pressed = fwd_cmd.as_action(baudrate=baudrate, port=port, server=server)
+        if rev_btn is not None:
+            rev_btn.when_pressed = rev_cmd.as_action(baudrate=baudrate, port=port, server=server)
+        # return objects
+        return pot, fwd_btn, rev_btn
 
     @classmethod
     def when_button_pressed(
