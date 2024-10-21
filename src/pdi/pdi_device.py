@@ -3,7 +3,6 @@ from __future__ import annotations
 import abc
 from abc import ABC
 from collections import defaultdict
-from datetime import datetime
 
 from enum import unique, Enum
 from typing import TypeVar, List
@@ -20,6 +19,7 @@ from .constants import (
     CommonAction,
 )
 from .asc2_req import Asc2Req
+from .bpc2_req import Bpc2Req
 from .pdi_req import PdiReq
 from ..protocol.constants import Mixins
 
@@ -46,11 +46,10 @@ class PdiDeviceConfig(ABC):
     def state_requests(self) -> List[T]: ...
 
 
-class ACS2DeviceConfig(PdiDeviceConfig):
+class Acs2DeviceConfig(PdiDeviceConfig):
     def __init__(self, cmd: Asc2Req) -> None:
         super().__init__(PdiDevice.ASC2, cmd)
         self._mode = cmd.mode
-        print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd} {self.tmcc_id}")
 
     @property
     def mode(self) -> int:
@@ -74,6 +73,35 @@ class ACS2DeviceConfig(PdiDeviceConfig):
             # Switch mode, latched, 4 TMCC IDs
             for i in range(4):
                 cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL5))
+        return cmds
+
+
+class Bpc2DeviceConfig(PdiDeviceConfig):
+    def __init__(self, cmd: Bpc2Req) -> None:
+        super().__init__(PdiDevice.BPC2, cmd)
+        self._mode = cmd.mode
+
+    @property
+    def mode(self) -> int:
+        return self._mode
+
+    @property
+    def state_requests(self) -> List[T]:
+        cmds = []
+        if self._mode == 0:
+            # TR mode, 8 TMCC IDs
+            for i in range(8):
+                cmds.append(Bpc2Req(self.tmcc_id + i, action=Bpc2Action.CONTROL1))
+        elif self._mode == 1:
+            # TR mode, 1 TMCC ID
+            cmds.append(Bpc2Req(self.tmcc_id, action=Bpc2Action.CONTROL2))
+        elif self._mode == 2:
+            # Acc mode, 8 TMCC IDs
+            for i in range(8):
+                cmds.append(Bpc2Req(self.tmcc_id + i, action=Bpc2Action.CONTROL3))
+        elif self._mode == 3:
+            # Acc mode, 1 TMCC ID
+            cmds.append(Bpc2Req(self.tmcc_id, action=Bpc2Action.CONTROL4))
         return cmds
 
 
@@ -157,7 +185,6 @@ class PdiDevice(Mixins, FriendlyMixins):
     WIFI = DeviceWrapper(WiFiReq, PdiCommand.WIFI_GET, PdiCommand.WIFI_SET, PdiCommand.WIFI_RX, enums=WiFiAction)
     SER2 = DeviceWrapper(Ser2Req, PdiCommand.SER2_GET, PdiCommand.SER2_SET, PdiCommand.SER2_RX, enums=Ser2Action)
     STM2 = DeviceWrapper(Stm2Req, PdiCommand.STM2_GET, PdiCommand.STM2_SET, PdiCommand.STM2_RX, enums=Stm2Action)
-    BPC2 = DeviceWrapper(Bpc2Req, PdiCommand.BPC2_GET, PdiCommand.BPC2_SET, PdiCommand.BPC2_RX, enums=Bpc2Action)
     IRDA = DeviceWrapper(IrdaReq, PdiCommand.IRDA_GET, PdiCommand.IRDA_SET, PdiCommand.IRDA_RX, enums=IrdaAction)
     ASC2 = DeviceWrapper(
         Asc2Req,
@@ -165,7 +192,15 @@ class PdiDevice(Mixins, FriendlyMixins):
         PdiCommand.ASC2_SET,
         PdiCommand.ASC2_RX,
         enums=Asc2Action,
-        dev_class=ACS2DeviceConfig,
+        dev_class=Acs2DeviceConfig,
+    )
+    BPC2 = DeviceWrapper(
+        Bpc2Req,
+        PdiCommand.BPC2_GET,
+        PdiCommand.BPC2_SET,
+        PdiCommand.BPC2_RX,
+        enums=Bpc2Action,
+        dev_class=Bpc2DeviceConfig,
     )
     UPDATE = DeviceWrapper(BaseReq)
 
