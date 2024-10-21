@@ -26,31 +26,34 @@ from ..protocol.constants import Mixins
 class PdiDeviceState(ABC):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, device: PdiDeviceState) -> None:
+    def __init__(self, device: PdiDevice, tmcc_id: int) -> None:
         self._device = device
-        self._address: int | None = None
+        self._tmcc_id: int = tmcc_id
 
     @property
-    def device(self) -> PdiDeviceState:
+    def device(self) -> PdiDevice:
         return self._device
 
     @property
-    def address(self) -> int:
-        return self._address
+    def tmcc_id(self) -> int:
+        return self._tmcc_id
 
 
 class ACS2DeviceState(PdiDeviceState):
-    def __init__(self, device: ACS2DeviceState) -> None:
-        super().__init__(device)
+    T = TypeVar("T", bound=PdiReq)
+
+    def __init__(self, cmd: T) -> None:
+        super().__init__(PdiDevice.ASC2, cmd.tmcc_id)
+        print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd} {self.tmcc_id}")
 
 
 class DeviceWrapper:
     C = TypeVar("C", bound=PdiReq.__class__)
     E = TypeVar("E", bound=Enum)
     T = TypeVar("T", bound=PdiReq)
-    D = TypeVar("D", bound=PdiDeviceState.__class__)
+    DC = TypeVar("DC", bound=PdiDeviceState.__class__)
 
-    def __init__(self, req_class: C, enums: E = None, dev_class: D = None, *commands: PdiCommand) -> None:
+    def __init__(self, req_class: C, *commands: PdiCommand, enums: E = None, dev_class: DC = None) -> None:
         self.req_class = req_class
         self.enums = enums
         self.dev_class = dev_class
@@ -117,20 +120,26 @@ class PdiDevice(Mixins, FriendlyMixins):
     from .lcs_req import IrdaReq
     from .lcs_req import Ser2Req
 
-    ALL = DeviceWrapper(AllReq, PdiCommand.ALL_GET, PdiCommand.ALL_SET)
-    ASC2 = DeviceWrapper(
-        Asc2Req, Asc2Action, ACS2DeviceState, PdiCommand.ASC2_GET, PdiCommand.ASC2_SET, PdiCommand.ASC2_RX
-    )
     BASE = DeviceWrapper(BaseReq)
-    BPC2 = DeviceWrapper(Bpc2Req, Bpc2Action, PdiCommand.BPC2_GET, PdiCommand.BPC2_SET, PdiCommand.BPC2_RX)
-    IRDA = DeviceWrapper(IrdaReq, IrdaAction, PdiCommand.IRDA_GET, PdiCommand.IRDA_SET, PdiCommand.IRDA_RX)
     PING = DeviceWrapper(PingReq)
-    SER2 = DeviceWrapper(Ser2Req, Ser2Action, PdiCommand.SER2_GET, PdiCommand.SER2_SET, PdiCommand.SER2_RX)
-    STM2 = DeviceWrapper(Stm2Req, Stm2Action, PdiCommand.STM2_GET, PdiCommand.STM2_SET, PdiCommand.STM2_RX)
+    ALL = DeviceWrapper(AllReq, PdiCommand.ALL_GET, PdiCommand.ALL_SET)
     TMCC = DeviceWrapper(TmccReq, PdiCommand.TMCC_TX, PdiCommand.TMCC_RX)
-    WIFI = DeviceWrapper(WiFiReq, WiFiAction, PdiCommand.WIFI_GET, PdiCommand.WIFI_SET, PdiCommand.WIFI_RX)
+    WIFI = DeviceWrapper(WiFiReq, PdiCommand.WIFI_GET, PdiCommand.WIFI_SET, PdiCommand.WIFI_RX, enums=WiFiAction)
+    SER2 = DeviceWrapper(Ser2Req, PdiCommand.SER2_GET, PdiCommand.SER2_SET, PdiCommand.SER2_RX, enums=Ser2Action)
+    STM2 = DeviceWrapper(Stm2Req, PdiCommand.STM2_GET, PdiCommand.STM2_SET, PdiCommand.STM2_RX, enums=Stm2Action)
+    BPC2 = DeviceWrapper(Bpc2Req, PdiCommand.BPC2_GET, PdiCommand.BPC2_SET, PdiCommand.BPC2_RX, enums=Bpc2Action)
+    IRDA = DeviceWrapper(IrdaReq, PdiCommand.IRDA_GET, PdiCommand.IRDA_SET, PdiCommand.IRDA_RX, enums=IrdaAction)
+    ASC2 = DeviceWrapper(
+        Asc2Req,
+        PdiCommand.ASC2_GET,
+        PdiCommand.ASC2_SET,
+        PdiCommand.ASC2_RX,
+        enums=Asc2Action,
+        dev_class=ACS2DeviceState,
+    )
     UPDATE = DeviceWrapper(BaseReq)
 
+    D = TypeVar("D", bound=PdiDeviceState)
     T = TypeVar("T", bound=PdiReq)
 
     @classmethod
@@ -141,11 +150,15 @@ class PdiDevice(Mixins, FriendlyMixins):
     def from_data(cls, data: bytes) -> PdiDevice:
         return cls(PdiCommand(data[1]).name.split("_")[0].upper())
 
+    @property
+    def can_build_device(self) -> bool:
+        return self.value.dev_class is not None
+
     def build_req(self, data: bytes) -> T:
         return self.value.req_class(data)
 
-    def build_device(self) -> T:
-        return self.value.dev_class(self)
+    def build_device(self, cmd: T) -> D:
+        return self.value.dev_class(cmd)
 
     def firmware(self, tmcc_id: int) -> T:
         return self.value.firmware(tmcc_id)
@@ -187,7 +200,7 @@ class SystemDeviceDict(defaultdict):
         if isinstance(key, PdiDevice):
             device = key
         else:
-            raise KeyError(f"Invalid scope key: {key}")
+            raise KeyError(f"Invalid device: {key}")
         # create the component state dict for this key
         self[key] = PdiDeviceDict(device)
         return self[key]
@@ -195,25 +208,16 @@ class SystemDeviceDict(defaultdict):
     def register_device(self, cmd: PdiReq) -> None:
         if cmd.action.bits == CommonAction.CONFIG.bits:
             tmcc_id = cmd.tmcc_id
-            print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd} {tmcc_id}")
+            device = cmd.pdi_device
+            if device.can_build_device is True:
+                self[device][tmcc_id] = device.build_device(cmd)
 
 
-class PdiDeviceDict(defaultdict):
+class PdiDeviceDict(dict):
     def __init__(self, device: PdiDevice):
-        super().__init__(None)  # base class doesn't get a factory
+        super().__init__()  # base class doesn't get a factory
         self._device = device
 
     @property
     def device(self) -> PdiDevice:
         return self._device
-
-    def __missing__(self, key: int) -> PdiDeviceState:
-        """
-        generate a ComponentState object for the dictionary, based on the key
-        """
-        if not isinstance(key, int) or key < 1 or key > 99:
-            raise KeyError(f"Invalid ID: {key}")
-        value: PdiDeviceState = self.device.build_device()
-        value._address = key
-        self[key] = value
-        return self[key]

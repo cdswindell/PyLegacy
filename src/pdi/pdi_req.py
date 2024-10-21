@@ -51,9 +51,10 @@ class PdiReq(ABC):
                 raise ValueError(f"Invalid PDI Request: {pdi_command}")
             self._pdi_command = pdi_command
             self._data = self._original = None
+        # TODO: block setter
         from .pdi_device import PdiDevice
 
-        self._pdi_device: PdiDevice = PdiDevice.from_pdi_command(self.pdi_command)
+        self.pdi_device: PdiDevice = PdiDevice.from_pdi_command(self.pdi_command)
 
     def __repr__(self) -> str:
         data = f" (0x{self._data.hex()})" if self._data is not None else " 0x" + self.as_bytes.hex()
