@@ -74,6 +74,7 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     BASE_ENGINE = BASE_ENGINE
     BASE_TRAIN = BASE_TRAIN
     BASE_ACC = BASE_ACC
+    BASE = BASE_BASE
     BASE_ROUTE = BASE_ROUTE
     BASE_SWITCH = BASE_SWITCH
     BASE_MEMORY = BASE_MEMORY
@@ -112,16 +113,17 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
     @property
     def is_base(self) -> bool:
-        return self.value in [
+        return self.value in {
             BASE_ENGINE,
             BASE_TRAIN,
             BASE_ACC,
+            BASE_BASE,
             BASE_ROUTE,
             BASE_SWITCH,
             BASE_MEMORY,
             UPDATE_ENGINE_SPEED,
             UPDATE_TRAIN_SPEED,
-        ]
+        }
 
     @property
     def is_irda(self) -> bool:

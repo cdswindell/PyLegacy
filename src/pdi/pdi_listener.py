@@ -264,6 +264,7 @@ class PdiDispatcher(Thread):
                 continue
             cmd: PdiReq = self._queue.get()
             try:
+                print(cmd)
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
                     # for TMCC requests, forward to CommandListener

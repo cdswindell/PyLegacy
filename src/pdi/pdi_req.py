@@ -57,8 +57,7 @@ class PdiReq(ABC):
         self.pdi_device: PdiDevice = PdiDevice.from_pdi_command(self.pdi_command)
 
     def __repr__(self) -> str:
-        data = f" (0x{self._data.hex()})" if self._data is not None else " 0x" + self.as_bytes.hex()
-        return f"[PDI {self._pdi_command.friendly}{data}]"
+        return f"[PDI {self._pdi_command.friendly} {self.payload}]"
 
     @staticmethod
     def _calculate_checksum(data: bytes, add_stf=True) -> Tuple[bytes, bytes]:
@@ -155,7 +154,7 @@ class PdiReq(ABC):
         return False
 
     @property
-    def payload(self) -> str | None:
+    def payload(self) -> str:
         return f"({self.packet})"
 
     @property
@@ -202,17 +201,6 @@ class TmccReq(PdiReq):
         byte_str += checksum
         byte_str += PDI_EOP.to_bytes(1, byteorder="big")
         return byte_str
-
-    @property
-    def scope(self) -> CommandScope:
-        return CommandScope.SYSTEM
-
-
-class BaseReq(PdiReq):
-    def __init__(self, data: bytes):
-        if PdiCommand(data[1]).is_base is False:
-            raise ValueError(f"Invalid PDI Base Request: {data}")
-        super().__init__(data)
 
     @property
     def scope(self) -> CommandScope:

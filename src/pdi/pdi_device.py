@@ -197,7 +197,8 @@ class PdiDevice(Mixins, FriendlyMixins):
     from .asc2_req import Asc2Req
     from .bpc2_req import Bpc2Req
     from .wifi_req import WiFiReq
-    from .pdi_req import AllReq, BaseReq, PingReq, TmccReq
+    from .pdi_req import AllReq, PingReq, TmccReq
+    from .base_req import BaseReq
     from .stm2_req import Stm2Req
     from .lcs_req import IrdaReq
     from .lcs_req import Ser2Req
