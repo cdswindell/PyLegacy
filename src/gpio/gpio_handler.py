@@ -90,7 +90,6 @@ class PotHandler(Thread):
         # create interpolation function using pre-calculated scaleFactor
         def interp_fn(value) -> int:
             scaled_value = int(round(to_min + (value - from_min) * scale_factor))
-            print(f"Raw: {value}  Scaled: {scaled_value}")
             return scaled_value
 
         return interp_fn
