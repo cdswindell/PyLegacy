@@ -1,7 +1,7 @@
 import math
 import time
 from threading import Thread
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Dict
 
 from gpiozero import Button, LED, MCP3008, Device
 
@@ -31,6 +31,7 @@ class PotHandler(Thread):
         baudrate: int = DEFAULT_BAUDRATE,
         port: int | str = DEFAULT_PORT,
         server: str = None,
+        scale: Dict[int, int] = None,
         start: bool = True,
     ) -> None:
         super().__init__(daemon=True)
@@ -49,6 +50,7 @@ class PotHandler(Thread):
             self._threshold = 1 if command.num_data_bits < 6 else 2
         self._delay = delay
         self._running = True
+        self._scale = scale
         if start is True:
             self.start()
 
@@ -59,6 +61,8 @@ class PotHandler(Thread):
     def run(self) -> None:
         while self._running:
             value = self._interp(self.pot.value)
+            if self._scale:
+                value = self._scale[value]
             if self._last_value is None:
                 self._last_value = value
                 continue
@@ -102,6 +106,7 @@ class JoyStickHandler(PotHandler):
         baudrate: int = DEFAULT_BAUDRATE,
         port: str | int = DEFAULT_PORT,
         server: str = None,
+        scale: Dict[int, int] = None,
     ) -> None:
         super().__init__(
             command,
@@ -114,6 +119,7 @@ class JoyStickHandler(PotHandler):
             port=port,
             server=server,
             start=False,
+            scale=scale,
         )
         self._threshold = None
         self.start()
@@ -333,16 +339,19 @@ class GpioHandler:
         server: str = None,
     ) -> Tuple[Button, Button]:
         if command_control is True:
+            scale = {0: 0} | {x: 1 for x in range(1, 6)} | {x: 2 for x in range(6, 9)} | {x: 3 for x in range(9, 11)}
+            scale |= {-x: -1 for x in range(1, 6)} | {-x: -2 for x in range(6, 9)} | {-x: -3 for x in range(9, 11)}
             rotate_boom_req = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
             knob = JoyStickHandler(
                 rotate_boom_req,
                 channel,
-                data_min=-3,
-                data_max=3,
+                data_min=-10,
+                data_max=10,
                 delay=0.2,
                 baudrate=baudrate,
                 port=port,
                 server=server,
+                scale=scale,
             )
             cls._cache_handler(knob)
             cls._cache_device(knob.pot)
