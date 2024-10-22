@@ -87,12 +87,13 @@ class PdiReq(ABC):
             byte_stream += b.to_bytes(1, byteorder="big")
             last_byte = b
         # do checksum calculation on buffer
+        byte_sum = check_sum
         check_sum = 0xFF & (0 - check_sum)
         if check_sum in [PDI_SOP, PDI_STF, PDI_EOP]:
             if add_stf is True:
                 byte_stream += PDI_STF.to_bytes(1, byteorder="big")
-            check_sum += PDI_STF
-            check_sum = 0xFF & (0 - check_sum)
+            byte_sum += PDI_STF
+            check_sum = 0xFF & (0 - byte_sum)
         return byte_stream, check_sum.to_bytes(1, byteorder="big")
 
     @property

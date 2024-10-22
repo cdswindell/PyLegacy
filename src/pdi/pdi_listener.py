@@ -141,13 +141,14 @@ class PdiListener(Thread):
                     # make sure preceding byte isn't a stuff byte
                     if eop_pos - 1 > 0:
                         if self._deque[eop_pos - 1] == PDI_STF:
-                            continue  # this isn't really an EOF
+                            continue  # this EOP is part of the data stream; preceded by STF
                         # we found a complete PDI packet! Queue it for processing
                         req_bytes = bytes()
                         for _ in range(eop_pos + 1):
                             req_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                             dq_len -= 1
                         try:
+                            # print(f"Offering->0x{req_bytes.hex(':')}")
                             self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
                         except Exception as e:
                             print(f"Failed to dispatch request {req_bytes.hex(':')}: {e}")
@@ -264,7 +265,7 @@ class PdiDispatcher(Thread):
                 continue
             cmd: PdiReq = self._queue.get()
             try:
-                print(cmd)
+                # print(cmd)
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
                     # for TMCC requests, forward to CommandListener
