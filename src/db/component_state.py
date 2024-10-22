@@ -409,7 +409,7 @@ class EngineState(ComponentState):
             elif self._start_stop in SHUTDOWN_SET:
                 start_stop = "Shut down "
         if self._name is not None:
-            name = f" {self._name} "
+            name = f" {self._name}"
         if self._number is not None:
             num = f" #{self._number} "
         return f"{self.scope.name} {self._address} {start_stop}{speed}{direction}{name}{num}"

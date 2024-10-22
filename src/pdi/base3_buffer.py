@@ -108,7 +108,6 @@ class Base3Buffer(Thread):
                             if sock == self._send_queue:
                                 received = None
                                 sending = sock.get()
-                                data = sending
                                 millis_since_last_output = self._current_milli_time() - self._last_output_at
                                 if millis_since_last_output < DEFAULT_THROTTLE_DELAY:
                                     time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
@@ -121,14 +120,13 @@ class Base3Buffer(Thread):
                                 # our send or because the select was triggered on the socket
                                 # being able to be read.
                                 received = bytes.fromhex(s.recv(512).decode())
-                                data = received
                                 # but there is more trickiness; The Base3 sends ascii characters
                                 # so when we receive: 'D12729DF', this actually is sent as eight
                                 # characters; D, 1, 2, 7, 2, 9, D, F, so we must decode the 8
                                 # received bytes into 8 ASCII characters, then interpret that
                                 # ASCII string as Hex representation to arrive at 0xd12729df...
-                            if self._listener is not None and data:
-                                self._listener.offer(data)
+                            if self._listener is not None and received:
+                                self._listener.offer(received)
                     except BrokenPipeError as bpe:
                         # keep trying; unix can sometimes just hang up
                         if sending is not None:
