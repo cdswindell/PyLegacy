@@ -339,8 +339,8 @@ class GpioHandler:
         server: str = None,
     ) -> Tuple[Button, Button]:
         if command_control is True:
-            scale = {0: 0} | {x: 1 for x in range(1, 6)} | {x: 2 for x in range(6, 9)} | {x: 3 for x in range(9, 11)}
-            scale |= {-x: -1 for x in range(1, 6)} | {-x: -2 for x in range(6, 9)} | {-x: -3 for x in range(9, 11)}
+            scale = {0: 0} | {x: 1 for x in range(1, 9)} | {x: 2 for x in range(9, 11)}
+            scale |= {-x: -1 for x in range(1, 9)} | {-x: -2 for x in range(9, 11)}
             rotate_boom_req = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
             knob = JoyStickHandler(
                 rotate_boom_req,
@@ -393,6 +393,7 @@ class GpioHandler:
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
         is_legacy: bool = True,
+        scope: CommandScope = CommandScope.ENGINE,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str | int = DEFAULT_PORT,
         server: str = None,
@@ -400,17 +401,25 @@ class GpioHandler:
         fwd_btn = rev_btn = None
         fwd_cmd = rev_cmd = None
         if is_legacy is True:
-            speed_cmd = CommandReq.build(TMCC2EngineCommandDef.ABSOLUTE_SPEED, address)
+            speed_cmd = CommandReq.build(TMCC2EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
             if fwd_pin is not None:
-                fwd_cmd, fwd_btn, _ = cls._make_button(fwd_pin, TMCC2EngineCommandDef.FORWARD_DIRECTION, address)
+                fwd_cmd, fwd_btn, _ = cls._make_button(
+                    fwd_pin, TMCC2EngineCommandDef.FORWARD_DIRECTION, address, 0, scope
+                )
             if rev_pin is not None:
-                rev_cmd, rev_btn, _ = cls._make_button(rev_pin, TMCC2EngineCommandDef.REVERSE_DIRECTION, address)
+                rev_cmd, rev_btn, _ = cls._make_button(
+                    rev_pin, TMCC2EngineCommandDef.REVERSE_DIRECTION, address, 0, scope
+                )
         else:
-            speed_cmd = CommandReq.build(TMCC1EngineCommandDef.ABSOLUTE_SPEED, address)
+            speed_cmd = CommandReq.build(TMCC1EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
             if fwd_pin is not None:
-                fwd_cmd, fwd_btn, _ = cls._make_button(fwd_pin, TMCC1EngineCommandDef.FORWARD_DIRECTION, address)
+                fwd_cmd, fwd_btn, _ = cls._make_button(
+                    fwd_pin, TMCC1EngineCommandDef.FORWARD_DIRECTION, address, 0, scope
+                )
             if rev_pin is not None:
-                rev_cmd, rev_btn, _ = cls._make_button(rev_pin, TMCC1EngineCommandDef.REVERSE_DIRECTION, address)
+                rev_cmd, rev_btn, _ = cls._make_button(
+                    rev_pin, TMCC1EngineCommandDef.REVERSE_DIRECTION, address, 0, scope
+                )
         # make a pot to handle speed
         pot = cls.when_pot(speed_cmd, channel=channel)
 
