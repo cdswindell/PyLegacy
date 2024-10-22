@@ -378,11 +378,10 @@ class GpioHandler:
         address: int,
         cab_pin_1: int | str,
         cab_pin_2: int | str,
-        roll_pin_1: int | str,
-        roll_pin_2: int | str,
-        lift_pin: int | str,
-        lower_pin: int | str,
+        roll_chn: int,
+        lift_chn: int,
         mag_pin: int | str,
+        mag_led_pin: int | str = None,
     ):
         pass
 
