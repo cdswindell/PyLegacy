@@ -61,6 +61,10 @@ STM2_GET: int = 0x4C
 STM2_SET: int = 0x4D
 STM2_RX: int = 0x4E
 
+RF_RX = 0x72
+
+BLE_RX = 0x76
+
 
 class FriendlyMixins(Enum):
     @property
@@ -102,6 +106,8 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     STM2_GET = STM2_GET
     STM2_SET = STM2_SET
     STM2_RX = STM2_RX
+    RF_RX = RF_RX
+    BLE_RX = BLE_RX
 
     @property
     def is_ping(self) -> bool:

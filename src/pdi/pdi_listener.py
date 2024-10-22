@@ -152,7 +152,6 @@ class PdiListener(Thread):
                             self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
                         except Exception as e:
                             print(f"Failed to dispatch request {req_bytes.hex(':')}: {e}")
-                            raise e
                         finally:
                             eop_pos = -1
                         continue  # with while dq_len > 0 loop
@@ -271,8 +270,9 @@ class PdiDispatcher(Thread):
                     # for TMCC requests, forward to CommandListener
                     if isinstance(cmd, TmccReq):
                         self._tmcc_dispatcher.offer(cmd.tmcc_command)
-                    else:
-                        self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
+                    elif 1 <= cmd.tmcc_id <= 99:
+                        if hasattr(cmd, "action"):
+                            self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
                         self.publish((cmd.scope, cmd.tmcc_id), cmd)
                         self.publish(cmd.scope, cmd)
                     if self._broadcasts:

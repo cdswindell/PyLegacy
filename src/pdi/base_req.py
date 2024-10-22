@@ -20,11 +20,19 @@ ROUTE_THROW_RATE_MAP: Dict[int, float] = {
 
 
 class BaseReq(PdiReq):
+    @classmethod
+    def update_speed(cls, address: int, speed: int, scope: CommandScope = CommandScope.ENGINE) -> BaseReq:
+        if scope == CommandScope.TRAIN:
+            return cls(address, PdiCommand.UPDATE_TRAIN_SPEED, speed=speed)
+        else:
+            return cls(address, PdiCommand.UPDATE_ENGINE_SPEED, speed=speed)
+
     def __init__(
         self,
         data: bytes | int = 0,
         pdi_command: PdiCommand = PdiCommand.BASE,
         flags: int = 2,
+        speed: int = None,
     ) -> None:
         super().__init__(data, pdi_command)
         if self.pdi_command.is_base is False:
@@ -32,6 +40,8 @@ class BaseReq(PdiReq):
         self._status = self._valid1 = self._valid2 = self._firmware_high = self._firmware_low = None
         self._route_throw_rate = self._name = self._number = None
         self._rev_link = self._fwd_link = None
+        self._loco_type = self._control_type = self._sound_type = self._engine_class = self._absolute_speed = None
+        self._scope = CommandScope.SYSTEM
         if isinstance(data, bytes):
             data_len = len(self._data)
             self._record_no = self._data[1] if data_len > 1 else None
@@ -40,11 +50,17 @@ class BaseReq(PdiReq):
             self._valid1 = int.from_bytes(self._data[4:6], byteorder="big") if data_len > 5 else None
 
             if self.pdi_command == PdiCommand.BASE_ENGINE:
+                self._scope = CommandScope.ENGINE
                 self._valid2 = int.from_bytes(self._data[6:8], byteorder="big") if data_len > 7 else None
                 self._rev_link = self._data[8] if data_len > 8 else None
                 self._fwd_link = self._data[9] if data_len > 9 else None
                 self._name = self.decode_name(self._data[11:]) if data_len > 11 else None
                 self._number = self.decode_name(self._data[44:]) if data_len > 44 else None
+                self._loco_type = self._data[49] if data_len > 45 else None
+                self._control_type = self._data[50] if data_len > 46 else None
+                self._sound_type = self._data[51] if data_len > 47 else None
+                self._engine_class = self._data[52] if data_len > 48 else None
+                self._absolute_speed = self._data[56] if data_len > 52 else None
             elif self.pdi_command == PdiCommand.BASE:
                 self._firmware_high = self._data[7] if data_len > 7 else None
                 self._firmware_low = self._data[8] if data_len > 8 else None
@@ -53,14 +69,19 @@ class BaseReq(PdiReq):
         else:
             self._record_no = int(data)
             self._flags = flags
+            self._absolute_speed = speed
 
     @property
     def scope(self) -> CommandScope:
-        return CommandScope.SYSTEM
+        return self._scope
 
     @property
     def record_no(self) -> int:
         return self._record_no
+
+    @property
+    def tmcc_id(self) -> int:
+        return self.record_no
 
     @property
     def flags(self) -> int:
@@ -71,8 +92,24 @@ class BaseReq(PdiReq):
         return self._status
 
     @property
+    def forward_link(self) -> int:
+        return self._fwd_link
+
+    @property
     def valid1(self) -> int:
         return self._valid1
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def number(self) -> str:
+        return self._number
+
+    @property
+    def speed(self) -> int:
+        return self._absolute_speed
 
     @property
     def payload(self) -> str:
@@ -85,20 +122,27 @@ class BaseReq(PdiReq):
             rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
             na = f" {self._name}" if self._name is not None else ""
             no = f" {self._number}" if self._number is not None else ""
-            v2 = hex(self._valid2) if self._valid2 is not None else ""
-            return f"# {tmcc}{na}{no} flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl}\n{self.packet}"
+            v2 = f" {hex(self._valid2)}" if self._valid2 is not None else ""
+            sp = f" SS: {self._absolute_speed}" if self._absolute_speed is not None else ""
+            return f"# {tmcc}{na}{no}{sp} flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl}\n{self.packet}"
         elif self.pdi_command == PdiCommand.BASE:
             fw = f" V{self._firmware_high}.{self._firmware_low}" if self._firmware_high is not None else ""
             tr = f" Route Throw Rate: {self._route_throw_rate} sec" if self._route_throw_rate is not None else ""
             n = f"{self._name} " if self._name is not None else ""
             return f"{n}Rec # {self.record_no} flags: {f} status: {s} valid: {v}{fw}{tr}\n{self.packet}"
+        elif self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
+            scope = "Engine" if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else "Train"
+            return f"{scope} #{self.tmcc_id} New Speed: {self.speed}"
         return f"Rec # {self.record_no} flags: {f} status: {s} valid: {v}\n{self.packet}"
 
     @property
     def as_bytes(self) -> bytes:
         byte_str = self.pdi_command.as_bytes
         byte_str += self.record_no.to_bytes(1, byteorder="big")
-        byte_str += self.flags.to_bytes(1, byteorder="big")
+        if self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
+            byte_str += self.speed.to_bytes(1, byteorder="big")
+        else:
+            byte_str += self.flags.to_bytes(1, byteorder="big")
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
         byte_str += checksum

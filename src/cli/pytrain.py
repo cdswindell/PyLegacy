@@ -26,6 +26,8 @@ from src.db.client_state_listener import ClientStateListener
 from src.db.component_state_store import ComponentStateStore
 from src.db.startup_state import StartupState
 from src.gpio.gpio_handler import GpioHandler
+from src.pdi.base_req import BaseReq
+from src.pdi.constants import PdiCommand
 from src.pdi.pdi_listener import PdiListener
 from src.pdi.pdi_req import PdiReq, AllReq
 from src.pdi.pdi_state_store import PdiStateStore
@@ -251,7 +253,14 @@ class PyTrain:
             self._echo = False
 
     def _do_pdi(self, param):
-        agr = AllReq()
+        param_len = len(param)
+        if param_len == 2:
+            if param[0].lower().startswith("eng"):
+                agr = BaseReq(int(param[1]), PdiCommand.BASE_ENGINE)
+            else:
+                return
+        else:
+            agr = AllReq()
         self._pdi_buffer.enqueue_command(agr)
 
     def _command_parser(self) -> ArgumentParser:

@@ -7,7 +7,10 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Tuple, TypeVar, Set
 
-from ..pdi.constants import Asc2Action, PdiAction
+from ..pdi.base_req import BaseReq
+from ..pdi.constants import Asc2Action, PdiCommand
+from ..pdi.pdi_req import PdiReq
+from ..pdi.asc2_req import Asc2Req
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS, CommandSyntax
@@ -18,7 +21,7 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2_COMMAN
 
 C = TypeVar("C", bound=CommandDefEnum)
 E = TypeVar("E", bound=CommandDefEnum)
-P = TypeVar("P", bound=PdiAction)
+P = TypeVar("P", bound=PdiReq)
 L = TypeVar("L", bound=CommandReq)
 
 
@@ -54,6 +57,8 @@ class ComponentState(ABC):
         self._scope = scope
         self._last_command: CommandReq | None = None
         self._last_updated: datetime | None = None
+        self._name = None
+        self._number = None
         self._address: int | None = None
         self._ev = threading.Event()
 
@@ -133,6 +138,11 @@ class ComponentState(ABC):
             if self.scope != command.scope:
                 scope = command.scope.name.title()
                 raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
+            if isinstance(command, BaseReq) and command.status == 0:
+                if hasattr(command, "name") and command.name:
+                    self._name = command.name
+                if hasattr(command, "number") and command.number:
+                    self._number = command.number
             self._last_updated = datetime.now()
             self._last_command = command
 
@@ -266,8 +276,6 @@ class AccessoryState(ComponentState):
         return f"Accessory {self.address}: {aux}; {aux1}; {aux2} {self._number}"
 
     def update(self, command: L | P) -> None:
-        from ..pdi.asc2_req import Asc2Req
-
         if command:
             super().update(command)
             if isinstance(command, CommandReq):
@@ -386,7 +394,7 @@ class EngineState(ComponentState):
         self._is_legacy: bool = False  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
-        speed = direction = start_stop = ""
+        speed = direction = start_stop = name = num = ""
         if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
             direction = "FORWARD"
         elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
@@ -400,16 +408,20 @@ class EngineState(ComponentState):
                 start_stop = "Started up "
             elif self._start_stop in SHUTDOWN_SET:
                 start_stop = "Shut down "
-        return f"{self.scope.name} {self._address} {start_stop}{speed}{direction}"
+        if self._name is not None:
+            name = f" {self._name} "
+        if self._number is not None:
+            num = f" #{self._number} "
+        return f"{self.scope.name} {self._address} {start_stop}{speed}{direction}{name}{num}"
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
 
     def update(self, command: L | P) -> None:
+        super().update(command)
         if isinstance(command, CommandReq):
             if command.syntax == CommandSyntax.LEGACY:
                 self._is_legacy = True
-            super().update(command)
 
             # get the downstream effects of this command, as they also impact state
             cmd_effects = self.results_in(command)
@@ -447,8 +459,18 @@ class EngineState(ComponentState):
                     self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
                 elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                     self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-        else:
-            print(f"{self.scope} Unhandled State Update received: {command}")
+        elif (
+            isinstance(command, BaseReq)
+            and command.status == 0
+            and command.pdi_command
+            in [
+                PdiCommand.BASE_ENGINE,
+                PdiCommand.BASE_TRAIN,
+                PdiCommand.UPDATE_ENGINE_SPEED,
+                PdiCommand.UPDATE_TRAIN_SPEED,
+            ]
+        ):
+            pass
         self.changed.set()
 
     @property
