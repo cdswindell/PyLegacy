@@ -21,7 +21,7 @@ actions, allowing the development of physical control panels to operate trains.
 - [PyLegacy]()
   - [Requirements](#requirements)
     - [Macintosh](#macintosh)
-    - [Raspberry Pi/Linux](#raspberry-pi)
+    - [Raspberry Pi/Linux](#raspberry-pi-and-pi-zero-w-2)
   - [Installation and one-time setup](#installation-and-one-time-setup)
   - [Licensing](#licensing)
   - [CLI Scripts](#cli-scripts)
@@ -47,7 +47,7 @@ actions, allowing the development of physical control panels to operate trains.
 
 `brew install git`
 
-### Raspberry Pi
+### Raspberry Pi and Pi Zero W 2
 
 - Python 3.11, gh, and git:
 
@@ -60,7 +60,7 @@ sudo apt install gh
 sudo apt install git
 ```
 
-For the Raspberry Pi Zero W:
+For the Raspberry Pi Zero W (NOT the 2 W):
 
 ```
 sudo apt-get install swig
@@ -70,7 +70,7 @@ Note that some or all of this software may already be installed on your pi
 
 ## Installation and one time setup
 
-```zsh
+```
 cd /where/you/like/your/source
 
 #Make sure this says 3.11.x or greater; don't keep going in these directions until it does
@@ -80,7 +80,7 @@ python3 --version
 gh auth login
 
 # establish a virtual Python environment
-#see: https://docs.python.org/3/library/venv.html
+# see: https://docs.python.org/3/library/venv.html
 python3 -m venv PyLegacyEnv
 cd PyLegacyEnv
 gh repo clone cdswindell/PyLegacy
