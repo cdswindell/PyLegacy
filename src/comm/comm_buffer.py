@@ -11,6 +11,8 @@ from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
 from threading import Thread
 
+from ..protocol.tmcc2.param_command_req import ParameterCommandReq
+
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
@@ -207,15 +209,20 @@ class CommBufferSingleton(CommBuffer, Thread):
     def run(self) -> None:
         # if the queue is not empty AND _shutdown_signaled is False, then exit
         while not self._queue.empty() or not self._shutdown_signalled:
+            data = None
             try:
                 data = self._queue.get(block=True, timeout=0.25)
-                # print(f"Fire command 0x{data.hex()}")
                 if self.no_ser2:
                     self.base3_send(data)
                 else:
                     self.ser2_send(data)
             except Empty:
                 pass
+            except Exception as e:
+                print(f"Exception sending command: {e}")
+            finally:
+                if data is not None:
+                    self._queue.task_done()
 
     def ser2_send(self, data):
         try:
@@ -226,15 +233,12 @@ class CommBufferSingleton(CommBuffer, Thread):
                 # Write the command byte sequence
                 ser.write(data)
                 self._last_output_at = self._current_milli_time()
-                # print(f"Task Done: 0x{data.hex()}")
-                self._queue.task_done()
                 # inform Base 3 of state change, if available
                 from ..pdi.base3_buffer import Base3Buffer
 
                 Base3Buffer.sync_state(data)
         except SerialException as se:
             # TODO: handle serial errors
-            self._queue.task_done()  # processing is complete, albeit unsuccessful
             print(f"0x{data.hex()} {se}")
 
     def base3_send(self, data: bytes):
@@ -248,6 +252,10 @@ class CommBufferSingleton(CommBuffer, Thread):
             if self._base3 is None:
                 self._base3 = Base3Buffer.get
         tmcc_cmd = CommandReq.from_bytes(data)
+        if self._base3 is None:
+            raise AttributeError(f"Base3Buffer is not built, failed to send {tmcc_cmd}")
+        if isinstance(tmcc_cmd, ParameterCommandReq):
+            raise NotImplementedError(f"Cannot forward multibyte TMCC commands to Base3: {tmcc_cmd}")
         pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
         # also inform CommandDispatcher to update system state
