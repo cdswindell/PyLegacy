@@ -149,7 +149,7 @@ class KeepAlive(Thread):
     """
     The Base 3 needs to receive a keep-alive signal in order for the
     connection to be maintained. This class/thread sends the keep-alive
-    packet every second
+    packet every 2 seconds
     """
 
     def __init__(self, writer: Base3Buffer) -> None:
@@ -161,4 +161,4 @@ class KeepAlive(Thread):
     def run(self) -> None:
         while self._is_running:
             self._writer.send(KEEP_ALIVE_CMD)
-            time.sleep(1.0)
+            time.sleep(2.0)

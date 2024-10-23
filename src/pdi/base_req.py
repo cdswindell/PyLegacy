@@ -135,7 +135,15 @@ class BaseReq(PdiReq):
             no = f" {self._number}" if self._number is not None else ""
             v2 = f" {hex(self._valid2)}" if self._valid2 is not None else ""
             sp = f" SS: {self._speed_step}" if self._speed_step is not None else ""
-            return f"# {tmcc}{na}{no}{sp} flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl}\n{self.packet}"
+            sl = f"/{self._speed_limit}" if self._speed_limit is not None else ""
+            ms = f"/{self._max_speed}" if self._max_speed is not None else ""
+            rl = f" RL: {self._run_level}" if self._run_level is not None else ""
+            el = f" EB: {self._labor_bias}" if self._labor_bias is not None else ""
+            return (
+                f"# {tmcc}{na}{no}{sp}{sl}{ms}{rl}{el}\n"
+                f"flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl}\n"
+                f"{self.packet}"
+            )
         elif self.pdi_command == PdiCommand.BASE:
             fw = f" V{self._firmware_high}.{self._firmware_low}" if self._firmware_high is not None else ""
             tr = f" Route Throw Rate: {self._route_throw_rate} sec" if self._route_throw_rate is not None else ""
