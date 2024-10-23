@@ -100,6 +100,8 @@ class LcsReq(PdiReq, ABC):
 
     @property
     def as_bytes(self) -> bytes:
+        if self._original:
+            return self._original
         byte_str = self.pdi_command.as_bytes
         byte_str += self.tmcc_id.to_bytes(1, byteorder="big")
         byte_str += self.action.as_bytes

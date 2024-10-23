@@ -3,9 +3,10 @@ from __future__ import annotations
 from math import floor
 from typing import Dict
 
-from src.pdi.constants import PdiCommand, PDI_SOP, PDI_EOP
-from src.pdi.pdi_req import PdiReq
-from src.protocol.constants import CommandScope
+from .constants import PdiCommand, PDI_SOP, PDI_EOP
+from .pdi_req import PdiReq
+from ..protocol.command_def import CommandDefEnum
+from ..protocol.constants import CommandScope
 
 ROUTE_THROW_RATE_MAP: Dict[int, float] = {
     1: 0.00,
@@ -19,6 +20,12 @@ ROUTE_THROW_RATE_MAP: Dict[int, float] = {
     9: 2.00,
 }
 
+ENGINE_WRITE_MAP = {
+    "ABSOLUTE_SPEED": (11, 56),
+    "DIESEL_RPM": (12, 57),
+    "ENGINE_LABOR": (13, 58),
+}
+
 
 class BaseReq(PdiReq):
     @classmethod
@@ -27,6 +34,32 @@ class BaseReq(PdiReq):
             return cls(address, PdiCommand.UPDATE_TRAIN_SPEED, speed=speed)
         else:
             return cls(address, PdiCommand.UPDATE_ENGINE_SPEED, speed=speed)
+
+    @classmethod
+    def update_eng(cls, address: int, state: CommandDefEnum, value: int) -> BaseReq | None:
+        if state.name in ENGINE_WRITE_MAP:
+            bit_pos, offset = ENGINE_WRITE_MAP[state.name]
+            value1 = 1 << bit_pos
+            value2 = 0
+            # build data packet
+            data = bytes()
+            data += PdiCommand.BASE_ENGINE.to_bytes(1, byteorder="big")
+            data += address.to_bytes(1, byteorder="big")
+            data += (0xC2).to_bytes(1, byteorder="big")
+            data += (0x00).to_bytes(2, byteorder="big")  # result byte + spare
+            data += value1.to_bytes(2, byteorder="big")
+            data += value2.to_bytes(2, byteorder="big")
+            # fill the buffer with zeros up to offset point
+            data += (0x00).to_bytes(1, byteorder="big") * (offset - len(data))
+            # now add data
+            data += value.to_bytes(1, byteorder="big")
+            # now add SOP, EOP, and Checksum
+            data, checksum = cls._calculate_checksum(data)
+            data = PDI_SOP.to_bytes(1, byteorder="big") + data
+            data += checksum
+            data += PDI_EOP.to_bytes(1, byteorder="big")
+            return cls(data)
+        return None
 
     def __init__(
         self,
@@ -184,6 +217,8 @@ class BaseReq(PdiReq):
 
     @property
     def as_bytes(self) -> bytes:
+        if self._original:
+            return self._original
         byte_str = self.pdi_command.as_bytes
         byte_str += self.record_no.to_bytes(1, byteorder="big")
         if self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:

@@ -120,6 +120,10 @@ class PdiReq(ABC):
 
     @property
     def as_bytes(self) -> bytes:
+        # if this request was constructed from a byte stream, return
+        # the original stream if we call as_bytes
+        if self._original:
+            return self._original
         """
         Default implementation, should override in more complex requests
         """
@@ -161,9 +165,9 @@ class PdiReq(ABC):
     @property
     def packet(self) -> str:
         if self._data is None:
-            return "0x" + self.as_bytes.hex(" ")
+            return "0x" + self.as_bytes.hex(" ").upper()
         else:
-            return "0x" + self._data.hex(" ")
+            return "0x" + self._data.hex(" ").upper()
 
     @property
     @abc.abstractmethod
@@ -196,6 +200,8 @@ class TmccReq(PdiReq):
 
     @property
     def as_bytes(self) -> bytes:
+        if self._original:
+            return self._original
         byte_str = self.pdi_command.as_bytes + self.tmcc_command.as_bytes
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
