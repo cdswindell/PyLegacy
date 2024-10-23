@@ -228,6 +228,8 @@ class SwitchState(ComponentState):
                     self._state = command.command
             elif isinstance(command, Asc2Req):
                 self._state = Switch.THROUGH if command.is_thru else Switch.OUT
+            elif isinstance(command, BaseReq):
+                pass
             else:
                 print(f"Unhandled Switch State Update received: {command}")
             self.changed.set()
@@ -413,23 +415,23 @@ class EngineState(ComponentState):
     def __repr__(self) -> str:
         speed = direction = start_stop = name = num = ""
         if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
-            direction = "FORWARD"
+            direction = " FWD"
         elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
-            direction = "REVERSE"
+            direction = " REV"
 
         if self._speed is not None:
-            speed = f"Speed {self._speed} "
+            speed = f" Speed {self._speed}"
 
         if self._start_stop is not None:
             if self._start_stop in STARTUP_SET:
-                start_stop = "Started up "
+                start_stop = " Started up"
             elif self._start_stop in SHUTDOWN_SET:
-                start_stop = "Shut down "
+                start_stop = " Shut down"
         if self.road_name is not None:
             name = f" {self.road_name}"
         if self.road_number is not None:
-            num = f" #{self.road_number} "
-        return f"{self.scope.name} {self._address} {start_stop}{speed}{direction}{name}{num}"
+            num = f" #{self.road_number}"
+        return f"{self.scope.name} {self._address}{start_stop}{speed}{direction}{name}{num}"
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
