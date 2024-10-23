@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from math import floor
 from typing import Dict
 
 from src.pdi.constants import PdiCommand, PDI_SOP, PDI_EOP
@@ -47,13 +48,14 @@ class BaseReq(PdiReq):
             self._record_no = self._data[1] if data_len > 1 else None
             self._flags = self._data[2] if data_len > 2 else None
             self._status = self._data[3] if data_len > 3 else None
-            self._valid1 = int.from_bytes(self._data[4:6], byteorder="big") if data_len > 5 else None
+            _ = self._data[4] if data_len > 4 else None
+            self._valid1 = int.from_bytes(self._data[5:7], byteorder="little") if data_len > 5 else None
 
             if self.pdi_command == PdiCommand.BASE_ENGINE:
                 self._scope = CommandScope.ENGINE
-                self._valid2 = int.from_bytes(self._data[6:8], byteorder="big") if data_len > 7 else None
-                self._rev_link = self._data[8] if data_len > 8 else None
-                self._fwd_link = self._data[9] if data_len > 9 else None
+                self._valid2 = int.from_bytes(self._data[7:9], byteorder="little") if data_len > 7 else None
+                self._rev_link = self._data[9] if data_len > 9 else None
+                self._fwd_link = self._data[10] if data_len > 10 else None
                 self._name = self.decode_name(self._data[11:]) if data_len > 11 else None
                 self._number = self.decode_name(self._data[44:]) if data_len > 44 else None
                 self._loco_type = self._data[49] if data_len > 49 else None
@@ -70,8 +72,15 @@ class BaseReq(PdiReq):
                 self._tmcc_id = self._data[63] if data_len > 63 else None
                 self._train_pos = self._data[64] if data_len > 64 else None
                 self._smoke_level = self._data[65] if data_len > 65 else None
-                self._train_brake = self._data[66] if data_len > 66 else None
-                self._momentum = self._data[67] if data_len > 67 else None
+                self._ditch_lights = self._data[66] if data_len > 66 else None
+                self._train_brake = self._data[67] if data_len > 67 else None
+                self._momentum = floor(self._data[68] / 16) if data_len > 68 else None
+            elif self.pdi_command == PdiCommand.BASE_ACC:
+                self._scope = CommandScope.ACC
+                self._rev_link = self._data[7] if data_len > 7 else None
+                self._fwd_link = self._data[8] if data_len > 8 else None
+                self._name = self.decode_name(self._data[9:]) if data_len > 9 else None
+                self._number = self.decode_name(self._data[42:]) if data_len > 42 else None
             elif self.pdi_command == PdiCommand.BASE:
                 self._firmware_high = self._data[7] if data_len > 7 else None
                 self._firmware_low = self._data[8] if data_len > 8 else None
@@ -103,6 +112,10 @@ class BaseReq(PdiReq):
         return self._status
 
     @property
+    def reverse_link(self) -> int:
+        return self._rev_link
+
+    @property
     def forward_link(self) -> int:
         return self._fwd_link
 
@@ -128,7 +141,9 @@ class BaseReq(PdiReq):
         s = self.status if self.status is not None else "NA"
         v = hex(self.valid1) if self.valid1 is not None else "NA"
         if self.pdi_command == PdiCommand.BASE_ENGINE:
-            tmcc = self.record_no
+            tmcc = f"{self.record_no}"
+            if self._tmcc_id is not None:
+                tmcc += f" ({self._tmcc_id})"
             fwl = f" Fwd: {self._fwd_link}" if self._fwd_link is not None else ""
             rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
             na = f" {self._name}" if self._name is not None else ""
@@ -139,11 +154,19 @@ class BaseReq(PdiReq):
             ms = f"/{self._max_speed}" if self._max_speed is not None else ""
             rl = f" RL: {self._run_level}" if self._run_level is not None else ""
             el = f" EB: {self._labor_bias}" if self._labor_bias is not None else ""
+            sm = f" Smoke: {self._smoke_level}" if self._smoke_level is not None else ""
+            m = f" Momentum: {self._momentum}" if self._momentum is not None else ""
             return (
-                f"# {tmcc}{na}{no}{sp}{sl}{ms}{rl}{el}\n"
+                f"# {tmcc}{na}{no}{sp}{sl}{ms}{rl}{el}{sm}{m}\n"
                 f"flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl}\n"
                 f"{self.packet}"
             )
+        if self.pdi_command == PdiCommand.BASE_ACC:
+            fwl = f" Fwd: {self._fwd_link}" if self._fwd_link is not None else ""
+            rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
+            na = f" {self._name}" if self._name is not None else ""
+            no = f" {self._number}" if self._number is not None else ""
+            return f"# {self.record_no}{na}{no} flags: {f} status: {s} valid: {v}{fwl}{rvl}\n{self.packet}"
         elif self.pdi_command == PdiCommand.BASE:
             fw = f" V{self._firmware_high}.{self._firmware_low}" if self._firmware_high is not None else ""
             tr = f" Route Throw Rate: {self._route_throw_rate} sec" if self._route_throw_rate is not None else ""

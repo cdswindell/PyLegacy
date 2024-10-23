@@ -257,6 +257,8 @@ class PyTrain:
         if param_len == 2:
             if param[0].lower().startswith("eng"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ENGINE)
+            elif param[0].lower().startswith("acc"):
+                agr = BaseReq(int(param[1]), PdiCommand.BASE_ACC)
             else:
                 return
         else:

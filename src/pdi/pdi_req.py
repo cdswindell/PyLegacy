@@ -161,9 +161,9 @@ class PdiReq(ABC):
     @property
     def packet(self) -> str:
         if self._data is None:
-            return "0x" + self.as_bytes.hex()
+            return "0x" + self.as_bytes.hex(" ")
         else:
-            return "0x" + self._data.hex()
+            return "0x" + self._data.hex(" ")
 
     @property
     @abc.abstractmethod

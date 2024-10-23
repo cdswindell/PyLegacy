@@ -57,7 +57,8 @@ class ComponentState(ABC):
         self._scope = scope
         self._last_command: CommandReq | None = None
         self._last_updated: datetime | None = None
-        self._name = None
+        self._road_name = None
+        self._road_number = None
         self._number = None
         self._address: int | None = None
         self._ev = threading.Event()
@@ -119,6 +120,14 @@ class ComponentState(ABC):
     def changed(self) -> threading.Event:
         return self._ev
 
+    @property
+    def road_name(self) -> str | None:
+        return self._road_name
+
+    @property
+    def road_number(self) -> str | None:
+        return self._road_number
+
     @abc.abstractmethod
     def update(self, command: L | P) -> None:
         if command and command.command != TMCC1HaltCommandDef.HALT:
@@ -140,9 +149,9 @@ class ComponentState(ABC):
                 raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
             if isinstance(command, BaseReq) and command.status == 0:
                 if hasattr(command, "name") and command.name:
-                    self._name = command.name
+                    self._road_name = command.name
                 if hasattr(command, "number") and command.number:
-                    self._number = command.number
+                    self._road_number = command.number
             self._last_updated = datetime.now()
             self._last_command = command
 
@@ -265,6 +274,7 @@ class AccessoryState(ComponentState):
         self._number: int | None = None
 
     def __repr__(self) -> str:
+        name = num = ""
         if self.aux_state == Aux.AUX1_OPT_ONE:
             aux = "Aux 1"
         elif self.aux_state == Aux.AUX2_OPT_ONE:
@@ -273,7 +283,11 @@ class AccessoryState(ComponentState):
             aux = "Unknown"
         aux1 = self.aux1_state.name if self.aux1_state is not None else "Unknown"
         aux2 = self.aux2_state.name if self.aux2_state is not None else "Unknown"
-        return f"Accessory {self.address}: {aux}; {aux1}; {aux2} {self._number}"
+        if self.road_name is not None:
+            name = f" {self.road_name}"
+        if self.road_number is not None:
+            num = f" #{self.road_number} "
+        return f"Accessory {self.address}: {aux}; {aux1}; {aux2} {self._number}{name}{num}"
 
     def update(self, command: L | P) -> None:
         if command:
@@ -408,10 +422,10 @@ class EngineState(ComponentState):
                 start_stop = "Started up "
             elif self._start_stop in SHUTDOWN_SET:
                 start_stop = "Shut down "
-        if self._name is not None:
-            name = f" {self._name}"
-        if self._number is not None:
-            num = f" #{self._number} "
+        if self.road_name is not None:
+            name = f" {self.road_name}"
+        if self.road_number is not None:
+            num = f" #{self.road_number} "
         return f"{self.scope.name} {self._address} {start_stop}{speed}{direction}{name}{num}"
 
     def is_known(self) -> bool:

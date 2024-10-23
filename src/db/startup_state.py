@@ -23,12 +23,12 @@ class StartupState(Thread):
         """
         if isinstance(cmd, PdiReq):
             if isinstance(cmd, BaseReq):
-                # we request engine roster at startup; do this by asking for Eng #100,
-                # then examining the fwd links returned until we find one out of range;
-                # make a request for each discovered engine
-                fwd_link = cmd.forward_link if cmd.forward_link is not None else 0
-                if 0 < fwd_link < 100:
-                    self.listener.enqueue_command(BaseReq(fwd_link, PdiCommand.BASE_ENGINE))
+                # we request engine/sw/acc roster at startup; do this by asking for
+                # Eng/Acc/Sw #100 then examining the rev links returned until we find
+                # one out of range; make a request for each discovered entity
+                rev_link = cmd.reverse_link if cmd.forward_link is not None else 0
+                if 0 < rev_link < 100:
+                    self.listener.enqueue_command(BaseReq(rev_link, cmd.pdi_command))
             elif cmd.action is not None and cmd.action.is_config:
                 # register the device; registration returns a list of pdi commands
                 # to send to get device state
@@ -41,6 +41,7 @@ class StartupState(Thread):
         self.listener.subscribe_any(self)
         self.listener.enqueue_command(AllReq())
         self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_ENGINE))
+        self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_ACC))
         total_time = 0
         while total_time < 60:  # only listen for a minute
             time.sleep(0.1)
