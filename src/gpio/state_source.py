@@ -14,6 +14,7 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 T = TypeVar("T", bound=ComponentState)
 
 
+# noinspection PyUnresolvedReferences
 class StateSource(ABC, Thread):
     __metaclass__ = abc.ABCMeta
 

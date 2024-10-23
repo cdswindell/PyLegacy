@@ -50,6 +50,7 @@ SHUTDOWN_SET = {
 }
 
 
+# noinspection PyUnresolvedReferences
 class ComponentState(ABC):
     __metaclass__ = abc.ABCMeta
 
@@ -186,7 +187,6 @@ class ComponentState(ABC):
         """
         ...
 
-    @property
     @abc.abstractmethod
     def as_bytes(self) -> bytes:
         """
