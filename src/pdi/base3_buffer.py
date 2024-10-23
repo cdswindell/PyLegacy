@@ -5,6 +5,7 @@ import socket
 import threading
 import time
 
+# from signal import signal, SIGPIPE, SIG_DFL
 from threading import Condition, Thread
 
 from .constants import KEEP_ALIVE_CMD
@@ -95,6 +96,7 @@ class Base3Buffer(Thread):
         return round(time.time() * 1000)
 
     def run(self) -> None:
+        # signal(SIGPIPE, SIG_DFL)
         while self._is_running:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((str(self._base3_addr), self._base3_port))
@@ -144,6 +146,12 @@ class Base3Buffer(Thread):
 
 
 class KeepAlive(Thread):
+    """
+    The Base 3 needs to receive a keep-alive signal in order for the
+    connection to be maintained. This class/thread sends the keep-alive
+    packet every second
+    """
+
     def __init__(self, writer: Base3Buffer) -> None:
         super().__init__(daemon=True, name="PyLegacy Base3 Keep Alive")
         self._writer = writer
@@ -153,4 +161,4 @@ class KeepAlive(Thread):
     def run(self) -> None:
         while self._is_running:
             self._writer.send(KEEP_ALIVE_CMD)
-            time.sleep(1.5)
+            time.sleep(1.0)
