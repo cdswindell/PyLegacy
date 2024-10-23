@@ -144,6 +144,18 @@ class EngineCli(CliBaseTMCC):
             help="Set reverse direction",
         )
         ops.add_argument(
+            "-rpm",
+            action=DataAction,
+            dest="option",
+            choices=range(0, 7),
+            metavar="0 - 7",
+            type=int,
+            nargs="?",
+            default=0,
+            const="DIESEL_RPM",
+            help="Diesel RPM Level",
+        )
+        ops.add_argument(
             "-s", "--stop_immediate", action="store_const", const="STOP_IMMEDIATE", dest="option", help="Stop immediate"
         )
         ops.add_argument("-stall", action="store_const", const="STALL", dest="option", help="Set stall")
