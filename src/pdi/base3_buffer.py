@@ -8,8 +8,11 @@ import time
 # from signal import signal, SIGPIPE, SIG_DFL
 from threading import Condition, Thread
 
-from .constants import KEEP_ALIVE_CMD
+from .base_req import BaseReq
+from .constants import KEEP_ALIVE_CMD, PDI_SOP, PdiCommand
 from .pdi_listener import PdiListener
+from .pdi_req import PdiReq, TmccReq
+from ..protocol.command_req import CommandReq
 
 from ..protocol.constants import DEFAULT_BASE3_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY
 from ..utils.pollable_queue import PollableQueue
@@ -115,6 +118,8 @@ class Base3Buffer(Thread):
                                     time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
                                 s.sendall(sending.hex().upper().encode())
                                 self._last_output_at = self._current_milli_time()
+                                # update base3 of new state; required if command is a tmcc_tx
+                                self.sync_state(sending)
                             else:
                                 sending = None
                                 # we will always call s.recv, as in either case, there will
@@ -143,6 +148,32 @@ class Base3Buffer(Thread):
     def shutdown(self) -> None:
         with self._lock:
             self._is_running = False
+
+    @classmethod
+    def sync_state(cls, data: bytes) -> None:
+        """
+        Send State Update to Base 3, if it is available and if this
+        command packet is relevant
+        """
+        if cls._instance is None:  # if no base 3, nothing to do
+            return
+        if data:
+            tmcc_cmd = None
+            if data[0] == PDI_SOP:  # it's a Base 3 cmd, we only care about TMCC TX
+                if len(data) > 2 and data[1] == PdiCommand.TMCC_TX:
+                    pdi_req = PdiReq.from_bytes(data)
+                    if isinstance(pdi_req, TmccReq) and pdi_req.pdi_command == PdiCommand.TMCC_TX:
+                        tmcc_cmd = pdi_req.tmcc_command
+            else:
+                # convert the byte stream into a command
+                tmcc_cmd = CommandReq.from_bytes(data)
+            if tmcc_cmd is None:
+                return
+
+            # is it a command that requires a state sync?
+            sync_req = BaseReq.update_eng(tmcc_cmd)
+            if sync_req:
+                cls._instance.send(sync_req.as_bytes)
 
 
 class KeepAlive(Thread):

@@ -6,6 +6,7 @@ from typing import Dict
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
 from ..protocol.command_def import CommandDefEnum
+from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 
 ROUTE_THROW_RATE_MAP: Dict[int, float] = {
@@ -21,9 +22,18 @@ ROUTE_THROW_RATE_MAP: Dict[int, float] = {
 }
 
 ENGINE_WRITE_MAP = {
-    "ABSOLUTE_SPEED": (11, 56),
-    "DIESEL_RPM": (12, 57),
-    "ENGINE_LABOR": (13, 58),
+    "ABSOLUTE_SPEED": (11, 56, None),
+    "DIESEL_RPM": (12, 57, None),
+    "ENGINE_LABOR": (13, 58, lambda t: t + 12),
+    "TRAIN_BRAKE": (21, 67, lambda t: round(t * 2.143)),
+    "SMOKE_HIGH": (19, 65, lambda t: 3),
+    "SMOKE_MEDIUM": (19, 65, lambda t: 2),
+    "SMOKE_LOW": (19, 65, lambda t: 1),
+    "SMOKE_OFF": (19, 65, lambda t: 0),
+    "MOMENTUM_HIGH": (22, 68, lambda t: 127),
+    "MOMENTUM_MEDIUM": (22, 68, lambda t: 63),
+    "MOMENTUM_LOW": (22, 68, lambda t: 0),
+    "MOMENTUM": (22, 68, lambda t: floor(t * 18.285)),
 }
 
 
@@ -36,29 +46,52 @@ class BaseReq(PdiReq):
             return cls(address, PdiCommand.UPDATE_ENGINE_SPEED, speed=speed)
 
     @classmethod
-    def update_eng(cls, address: int, state: CommandDefEnum, value: int) -> BaseReq | None:
+    def update_eng(
+        cls,
+        cmd: CommandDefEnum | CommandReq,
+        address: int = None,
+        data: int | None = None,
+        scope: CommandScope = CommandScope.ENGINE,
+    ) -> BaseReq | None:
+        if isinstance(cmd, CommandReq):
+            state = cmd.command
+            address = cmd.address
+            data = cmd.data
+            scope = cmd.scope
+        elif isinstance(cmd, CommandDefEnum):
+            state = cmd
+        else:
+            raise ValueError(f"Invalid option: {cmd}")
+
         if state.name in ENGINE_WRITE_MAP:
-            bit_pos, offset = ENGINE_WRITE_MAP[state.name]
-            value1 = 1 << bit_pos
-            value2 = 0
+            bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
+            if bit_pos <= 15:
+                value1 = 1 << bit_pos
+                value2 = 0
+            else:
+                value1 = 0
+                value2 = 1 << (bit_pos - 15)
             # build data packet
-            data = bytes()
-            data += PdiCommand.BASE_ENGINE.to_bytes(1, byteorder="big")
-            data += address.to_bytes(1, byteorder="big")
-            data += (0xC2).to_bytes(1, byteorder="big")
-            data += (0x00).to_bytes(2, byteorder="big")  # result byte + spare
-            data += value1.to_bytes(2, byteorder="big")
-            data += value2.to_bytes(2, byteorder="big")
+            if scaler:
+                data = scaler(data)
+            byte_str = bytes()
+            pdi_cmd = PdiCommand.BASE_ENGINE if scope == CommandScope.ENGINE else PdiCommand.BASE_TRAIN
+            byte_str += pdi_cmd.to_bytes(1, byteorder="big")
+            byte_str += address.to_bytes(1, byteorder="big")
+            byte_str += (0xC2).to_bytes(1, byteorder="big")
+            byte_str += (0x00).to_bytes(2, byteorder="big")  # result byte + spare
+            byte_str += value1.to_bytes(2, byteorder="little")
+            byte_str += value2.to_bytes(2, byteorder="little")
             # fill the buffer with zeros up to offset point
-            data += (0x00).to_bytes(1, byteorder="big") * (offset - len(data))
+            byte_str += (0x00).to_bytes(1, byteorder="big") * (offset - len(byte_str))
             # now add data
-            data += value.to_bytes(1, byteorder="big")
+            byte_str += data.to_bytes(1, byteorder="big")
             # now add SOP, EOP, and Checksum
-            data, checksum = cls._calculate_checksum(data)
-            data = PDI_SOP.to_bytes(1, byteorder="big") + data
-            data += checksum
-            data += PDI_EOP.to_bytes(1, byteorder="big")
-            return cls(data)
+            byte_str, checksum = cls._calculate_checksum(byte_str)
+            byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
+            byte_str += checksum
+            byte_str += PDI_EOP.to_bytes(1, byteorder="big")
+            return cls(byte_str)
         return None
 
     def __init__(
@@ -107,7 +140,8 @@ class BaseReq(PdiReq):
                 self._smoke_level = self._data[65] if data_len > 65 else None
                 self._ditch_lights = self._data[66] if data_len > 66 else None
                 self._train_brake = self._data[67] if data_len > 67 else None
-                self._momentum = floor(self._data[68] / 16) if data_len > 68 else None
+                self._momentum = self._data[68] if data_len > 68 else None
+                self._momentum_tmcc = floor(self._data[68] / 16) if data_len > 68 else None
             elif self.pdi_command in [PdiCommand.BASE_ACC, PdiCommand.BASE_SWITCH, PdiCommand.BASE_ROUTE]:
                 if self.pdi_command == PdiCommand.BASE_ACC:
                     self._scope = CommandScope.ACC
@@ -193,9 +227,10 @@ class BaseReq(PdiReq):
             rl = f" RL: {self._run_level}" if self._run_level is not None else ""
             el = f" EB: {self._labor_bias}" if self._labor_bias is not None else ""
             sm = f" Smoke: {self._smoke_level}" if self._smoke_level is not None else ""
-            m = f" Momentum: {self._momentum}" if self._momentum is not None else ""
+            m = f" Momentum: {self._momentum} ({self._momentum_tmcc})" if self._momentum is not None else ""
+            b = f" Brake: {self._train_brake}" if self._train_brake is not None else ""
             return (
-                f"# {tmcc}{na}{no}{sp}{sl}{ms}{rl}{el}{sm}{m}\n"
+                f"# {tmcc}{na}{no}{sp}{sl}{ms}{rl}{el}{sm}{m}{b}\n"
                 f"flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl}\n"
                 f"{self.packet}"
             )

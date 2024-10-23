@@ -228,6 +228,10 @@ class CommBufferSingleton(CommBuffer, Thread):
                 self._last_output_at = self._current_milli_time()
                 # print(f"Task Done: 0x{data.hex()}")
                 self._queue.task_done()
+                # inform Base 3 of state change, if available
+                from ..pdi.base3_buffer import Base3Buffer
+
+                Base3Buffer.sync_state(data)
         except SerialException as se:
             # TODO: handle serial errors
             self._queue.task_done()  # processing is complete, albeit unsuccessful
@@ -246,8 +250,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         tmcc_cmd = CommandReq.from_bytes(data)
         pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
-        self._base3.send(pdi_cmd.as_bytes)
-        # also alert CommandListener
+        # also inform CommandDispatcher to update system state
         CommandDispatcher.get().offer(tmcc_cmd)
 
 
