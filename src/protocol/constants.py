@@ -47,13 +47,31 @@ class Mixins(Enum):
         for k, v in cls.__members__.items():
             if k.lower() == name:
                 return v
+        if not raise_exception:
+            return None
+        if name:
+            raise ValueError(f"'{orig_name}' is not a valid {cls.__name__}")
         else:
-            if not raise_exception:
-                return None
-            if name:
-                raise ValueError(f"'{orig_name}' is not a valid {cls.__name__}")
+            raise ValueError(f"None/Empty is not a valid {cls.__name__}")
+
+    @classmethod
+    def by_prefix(cls, name: str, raise_exception: bool = False) -> Self | None:
+        if name is None or not name.strip():
+            if raise_exception:
+                raise ValueError(f"None is not a valid {cls.__name__}")
             else:
-                raise ValueError(f"None/Empty is not a valid {cls.__name__}")
+                return None
+        orig_name = name = name.strip()
+        name = name.strip().upper()
+        for k, v in cls.__members__.items():
+            if k.upper().startswith(name):
+                return v
+        if not raise_exception:
+            return None
+        if name:
+            raise ValueError(f"'{orig_name}' is not a valid {cls.__name__}")
+        else:
+            raise ValueError(f"None/Empty is not a valid {cls.__name__}")
 
     @classmethod
     def by_value(cls, value: Any, raise_exception: bool = False) -> Self | None:

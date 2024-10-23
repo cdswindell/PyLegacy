@@ -56,8 +56,8 @@ class BaseReq(PdiReq):
                 self._valid2 = int.from_bytes(self._data[7:9], byteorder="little") if data_len > 7 else None
                 self._rev_link = self._data[9] if data_len > 9 else None
                 self._fwd_link = self._data[10] if data_len > 10 else None
-                self._name = self.decode_name(self._data[11:]) if data_len > 11 else None
-                self._number = self.decode_name(self._data[44:]) if data_len > 44 else None
+                self._name = self.decode_text(self._data[11:]) if data_len > 11 else None
+                self._number = self.decode_text(self._data[44:]) if data_len > 44 else None
                 self._loco_type = self._data[49] if data_len > 49 else None
                 self._control_type = self._data[50] if data_len > 50 else None
                 self._sound_type = self._data[51] if data_len > 51 else None
@@ -75,17 +75,22 @@ class BaseReq(PdiReq):
                 self._ditch_lights = self._data[66] if data_len > 66 else None
                 self._train_brake = self._data[67] if data_len > 67 else None
                 self._momentum = floor(self._data[68] / 16) if data_len > 68 else None
-            elif self.pdi_command == PdiCommand.BASE_ACC:
-                self._scope = CommandScope.ACC
+            elif self.pdi_command in [PdiCommand.BASE_ACC, PdiCommand.BASE_SWITCH, PdiCommand.BASE_ROUTE]:
+                if self.pdi_command == PdiCommand.BASE_ACC:
+                    self._scope = CommandScope.ACC
+                elif self.pdi_command == PdiCommand.BASE_SWITCH:
+                    self._scope = CommandScope.SWITCH
+                elif self.pdi_command == PdiCommand.BASE_ROUTE:
+                    self._scope = CommandScope.ROUTE
                 self._rev_link = self._data[7] if data_len > 7 else None
                 self._fwd_link = self._data[8] if data_len > 8 else None
-                self._name = self.decode_name(self._data[9:]) if data_len > 9 else None
-                self._number = self.decode_name(self._data[42:]) if data_len > 42 else None
+                self._name = self.decode_text(self._data[9:]) if data_len > 9 else None
+                self._number = self.decode_text(self._data[42:]) if data_len > 42 else None
             elif self.pdi_command == PdiCommand.BASE:
                 self._firmware_high = self._data[7] if data_len > 7 else None
                 self._firmware_low = self._data[8] if data_len > 8 else None
                 self._route_throw_rate = self.decode_throw_rate(self._data[9]) if data_len > 9 else None
-                self._name = self.decode_name(self._data[10:]) if data_len > 10 else None
+                self._name = self.decode_text(self._data[10:]) if data_len > 10 else None
         else:
             self._record_no = int(data)
             self._flags = flags
@@ -206,7 +211,7 @@ class BaseReq(PdiReq):
         return 9
 
     @staticmethod
-    def decode_name(data: bytes) -> str | None:
+    def decode_text(data: bytes) -> str | None:
         name = ""
         for b in data:
             if b == 0:

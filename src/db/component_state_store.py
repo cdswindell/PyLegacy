@@ -75,6 +75,9 @@ class ComponentStateStore:
                 else:
                     raise TypeError(f"Topic {topic} is not valid")
 
+    def __contains__(self, scope: CommandScope) -> bool:
+        return scope in self._state
+
     def __call__(self, command: Message) -> None:
         """
         Callback, per the Subscriber protocol in CommandListener
@@ -128,6 +131,12 @@ class ComponentStateStore:
                 return self._state[scope][address]
         else:
             return None
+
+    def get_all(self, scope: CommandScope) -> List[T]:
+        if scope in self._state:
+            return list(self._state[scope].values())
+        else:
+            return []
 
     def component(self, scope: CommandScope, address: int) -> T:
         if (

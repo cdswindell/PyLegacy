@@ -221,13 +221,19 @@ class PyTrain:
 
     def _query_status(self, param) -> None:
         try:
-            if len(param) > 1:
-                scope = CommandScope(param[0].upper())
-                address = int(param[1])
-                state = self._state_store.query(scope, address)
-                if state is not None:
-                    print(state)
-                    return
+            if len(param) >= 1:
+                scope = CommandScope.by_prefix(param[0])
+                if scope is not None:
+                    if len(param) > 1:
+                        address = int(param[1])
+                        state = self._state_store.query(scope, address)
+                        if state is not None:
+                            print(state)
+                            return
+                    elif scope in self._state_store:
+                        for state in self._state_store.get_all(scope):
+                            print(state)
+                        return
             print("No data")
         except Exception as e:
             print(e)
@@ -255,10 +261,16 @@ class PyTrain:
     def _do_pdi(self, param):
         param_len = len(param)
         if param_len == 2:
-            if param[0].lower().startswith("eng"):
+            if param[0].lower().startswith("e"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ENGINE)
-            elif param[0].lower().startswith("acc"):
+            elif param[0].lower().startswith("t"):
+                agr = BaseReq(int(param[1]), PdiCommand.BASE_TRAIN)
+            elif param[0].lower().startswith("a"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ACC)
+            elif param[0].lower().startswith("s"):
+                agr = BaseReq(int(param[1]), PdiCommand.BASE_SWITCH)
+            elif param[0].lower().startswith("r"):
+                agr = BaseReq(int(param[1]), PdiCommand.BASE_ROUTE)
             else:
                 return
         else:

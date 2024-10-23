@@ -211,22 +211,25 @@ class SwitchState(ComponentState):
         self._state: Switch | None = None
 
     def __repr__(self) -> str:
-        return f"Switch {self.address}: {self._state.name if self._state is not None else 'Unknown'}"
+        name = num = ""
+        if self.road_name is not None:
+            name = f" {self.road_name}"
+        if self.road_number is not None:
+            num = f" #{self.road_number} "
+        return f"Switch {self.address}: {self._state.name if self._state is not None else 'Unknown'}{name}{num}"
 
     def update(self, command: L | P) -> None:
         if command:
             super().update(command)
             if command.command == TMCC1HaltCommandDef.HALT:
                 return  # do nothing on halt
-            from src.pdi.asc2_req import Asc2Req
-
             if isinstance(command, CommandReq):
                 if command.command != Switch.SET_ADDRESS:
                     self._state = command.command
             elif isinstance(command, Asc2Req):
                 self._state = Switch.THROUGH if command.is_thru else Switch.OUT
             else:
-                print(f"Switch State Update received: {command}")
+                print(f"Unhandled Switch State Update received: {command}")
             self.changed.set()
 
     @property
@@ -484,7 +487,8 @@ class EngineState(ComponentState):
                 PdiCommand.UPDATE_TRAIN_SPEED,
             ]
         ):
-            pass
+            if self._speed is None:
+                self._speed = command.speed
         self.changed.set()
 
     @property
