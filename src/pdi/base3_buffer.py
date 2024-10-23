@@ -153,4 +153,4 @@ class KeepAlive(Thread):
     def run(self) -> None:
         while self._is_running:
             self._writer.send(KEEP_ALIVE_CMD)
-            time.sleep(2)
+            time.sleep(1.5)
