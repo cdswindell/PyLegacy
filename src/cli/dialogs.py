@@ -58,6 +58,14 @@ class DialogsCli(CliBaseTMCC):
         eng = sp.add_parser("engineer", aliases=["en"], help="Engineer dialogs")
         eng_group = eng.add_mutually_exclusive_group()
         eng_group.add_argument(
+            "-ac",
+            "-all_clear",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_ALL_CLEAR,
+            dest="option",
+            help="Engineer: first all clear",
+        )
+        eng_group.add_argument(
             "-ar",
             "-arriving",
             action="store_const",
@@ -74,12 +82,53 @@ class DialogsCli(CliBaseTMCC):
             help="Engineer: arrived",
         )
         eng_group.add_argument(
-            "-sd",
-            "-shutdown",
+            "-ack",
             action="store_const",
-            const=TMCC2RailSoundsDialogControl.ENGINEER_SHUTDOWN,
+            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK,
             dest="option",
-            help="Engineer: shut down",
+            help="Engineer: acknowledge communication",
+        )
+        eng_group.add_argument(
+            "-asb",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_STAND_BY,
+            dest="option",
+            help="Engineer: ACK standing by",
+        )
+        eng_group.add_argument(
+            "-aac",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_CLEARED,
+            dest="option",
+            help="Engineer: ACK cleared to go",
+        )
+        eng_group.add_argument(
+            "-aca",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_CLEAR_AHEAD,
+            dest="option",
+            help="Engineer: ACK clear ahead",
+        )
+        eng_group.add_argument(
+            "-aci",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_CLEAR_INBOUND,
+            dest="option",
+            help="Engineer: ACK clear inbound",
+        )
+        eng_group.add_argument(
+            "-awb",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_WELCOME_BACK,
+            dest="option",
+            help="Engineer: ACK welcome back",
+        )
+        eng_group.add_argument(
+            "-aid",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_ID,
+            dest="option",
+            help="Engineer: ACK identify & out",
         )
         eng_group.add_argument(
             "-dd",
@@ -106,12 +155,43 @@ class DialogsCli(CliBaseTMCC):
             help="Engineer: first have departed",
         )
         eng_group.add_argument(
-            "-ac",
-            "-all_clear",
+            "-fl",
+            "-fuel_level",
             action="store_const",
-            const=TMCC2RailSoundsDialogControl.ENGINEER_ALL_CLEAR,
+            const=TMCC2RailSoundsDialogControl.ENGINEER_FUEL_LEVEL,
             dest="option",
-            help="Engineer: first all clear",
+            help="Engineer: speaks fuel level",
+        )
+        eng_group.add_argument(
+            "-fr",
+            "-fuel_refilled",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_FUEL_REFILLED,
+            dest="option",
+            help="Engineer: speaks fuel refilled",
+        )
+        eng_group.add_argument(
+            "-id",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_ID,
+            dest="option",
+            help="Engineer: identify",
+        )
+        eng_group.add_argument(
+            "-s",
+            "-speed",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED,
+            dest="option",
+            help="Engineer: speaks speed",
+        )
+        eng_group.add_argument(
+            "-sd",
+            "-shutdown",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_SHUTDOWN,
+            dest="option",
+            help="Engineer: shut down",
         )
         eng_group.add_argument(
             "-sh",
@@ -170,60 +250,20 @@ class DialogsCli(CliBaseTMCC):
             help="Engineer: first highball speed ack",
         )
         eng_group.add_argument(
-            "-id",
+            "-wl",
+            "-water_level",
             action="store_const",
-            const=TMCC2RailSoundsDialogControl.ENGINEER_ID,
+            const=TMCC2RailSoundsDialogControl.ENGINEER_WATER_LEVEL,
             dest="option",
-            help="Engineer: identify",
+            help="Engineer: speaks water level",
         )
         eng_group.add_argument(
-            "-ack",
+            "-wr",
+            "-water_refilled",
             action="store_const",
-            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK,
+            const=TMCC2RailSoundsDialogControl.ENGINEER_WATER_REFILLED,
             dest="option",
-            help="Engineer: acknowledge communication",
-        )
-        eng_group.add_argument(
-            "-asb",
-            action="store_const",
-            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_STAND_BY,
-            dest="option",
-            help="Engineer: ACK standing by",
-        )
-        eng_group.add_argument(
-            "-aac",
-            action="store_const",
-            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_CLEARED,
-            dest="option",
-            help="Engineer: ACK cleared to go",
-        )
-        eng_group.add_argument(
-            "-aca",
-            action="store_const",
-            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_CLEAR_AHEAD,
-            dest="option",
-            help="Engineer: ACK clear ahead",
-        )
-        eng_group.add_argument(
-            "-aci",
-            action="store_const",
-            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_CLEAR_INBOUND,
-            dest="option",
-            help="Engineer: ACK clear inbound",
-        )
-        eng_group.add_argument(
-            "-awb",
-            action="store_const",
-            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_WELCOME_BACK,
-            dest="option",
-            help="Engineer: ACK welcome back",
-        )
-        eng_group.add_argument(
-            "-aid",
-            action="store_const",
-            const=TMCC2RailSoundsDialogControl.ENGINEER_ACK_ID,
-            dest="option",
-            help="Engineer: ACK identify & out",
+            help="Engineer: speaks water refilled",
         )
 
         tower = sp.add_parser("tower", aliases=["to"], help="Tower dialogs")
