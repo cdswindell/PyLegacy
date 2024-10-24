@@ -430,6 +430,14 @@ class DialogsCli(CliBaseTMCC):
             dest="option",
             help="SeqCtl: in transit",
         )
+        seq_group.add_argument(
+            "-x",
+            "-max_speed",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.SEQUENCE_MAX_SPEED,
+            dest="option",
+            help="SeqCtl: max authorized speed",
+        )
 
         cond = sp.add_parser("conductor", aliases=["co"], help="Conductor dialogs")
         cond_group = cond.add_mutually_exclusive_group()
