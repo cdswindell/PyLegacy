@@ -388,6 +388,48 @@ class DialogsCli(CliBaseTMCC):
             dest="option",
             help="Tower: shut down",
         )
+        seq = sp.add_parser("sequence", aliases=["sq"], help="Sequence control dialogs")
+        seq_group = seq.add_mutually_exclusive_group()
+        seq_group.add_argument(
+            "-off",
+            "-sequence_off",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.SEQUENCE_OFF,
+            dest="option",
+            help="SeqCtl: sequence control off",
+        )
+        seq_group.add_argument(
+            "-on",
+            "-sequence_on",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.SEQUENCE_ON,
+            dest="option",
+            help="SeqCtl: sequence control on",
+        )
+        seq_group.add_argument(
+            "-c",
+            "-clear",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.SEQUENCE_CLEAR,
+            dest="option",
+            help="SeqCtl: cleared out bound",
+        )
+        seq_group.add_argument(
+            "-d",
+            "-departed",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.SEQUENCE_DEPARTED,
+            dest="option",
+            help="SeqCtl: have departed",
+        )
+        seq_group.add_argument(
+            "-t",
+            "-in_transit",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.SEQUENCE_TRANSIT,
+            dest="option",
+            help="SeqCtl: in transit",
+        )
 
         cond = sp.add_parser("conductor", aliases=["co"], help="Conductor dialogs")
         cond_group = cond.add_mutually_exclusive_group()
