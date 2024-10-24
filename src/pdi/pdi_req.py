@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 from abc import ABC
-from typing import Tuple, TypeVar
+from typing import Tuple, TypeVar, List
 
 import sys
 
@@ -176,6 +176,23 @@ class PdiReq(ABC):
 
 class TmccReq(PdiReq):
     from ..protocol.command_req import CommandReq
+
+    @classmethod
+    def as_packets(cls, tmcc_cmd: CommandReq) -> List[bytes]:
+        """
+        Used to decompose multibyte TMCC commands into 3-byte packets, sending each
+        as a PdiCommand.TMCC_TX packet
+        """
+        byte_str = tmcc_cmd.as_bytes
+        packets = []
+        for i in range(0, len(byte_str), 3):
+            packet = PdiCommand.TMCC_TX.to_bytes(1, byteorder="big") + byte_str[i : i + 3]
+            packet, checksum = cls._calculate_checksum(packet)
+            packet = PDI_SOP.to_bytes(1, byteorder="big") + packet
+            packet += checksum
+            packet += PDI_EOP.to_bytes(1, byteorder="big")
+            packets.append(packet)
+        return packets
 
     def __init__(self, data: bytes | CommandReq, pdi_command: PdiCommand = None):
         super().__init__(data, pdi_command=pdi_command)

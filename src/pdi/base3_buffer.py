@@ -161,9 +161,12 @@ class Base3Buffer(Thread):
             tmcc_cmd = None
             if data[0] == PDI_SOP:  # it's a Base 3 cmd, we only care about TMCC TX
                 if len(data) > 2 and data[1] == PdiCommand.TMCC_TX:
-                    pdi_req = PdiReq.from_bytes(data)
-                    if isinstance(pdi_req, TmccReq) and pdi_req.pdi_command == PdiCommand.TMCC_TX:
-                        tmcc_cmd = pdi_req.tmcc_command
+                    try:
+                        pdi_req = PdiReq.from_bytes(data)
+                        if isinstance(pdi_req, TmccReq) and pdi_req.pdi_command == PdiCommand.TMCC_TX:
+                            tmcc_cmd = pdi_req.tmcc_command
+                    except NotImplementedError:
+                        return  # ignore exceptions; most likely it's a multibyte cmd
             else:
                 # convert the byte stream into a command
                 tmcc_cmd = CommandReq.from_bytes(data)
