@@ -58,6 +58,30 @@ class DialogsCli(CliBaseTMCC):
         eng = sp.add_parser("engineer", aliases=["en"], help="Engineer dialogs")
         eng_group = eng.add_mutually_exclusive_group()
         eng_group.add_argument(
+            "-ar",
+            "-arriving",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_ARRIVING,
+            dest="option",
+            help="Engineer: first departure denied",
+        )
+        eng_group.add_argument(
+            "-ad",
+            "-arrived",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_ARRIVED,
+            dest="option",
+            help="Engineer: arrived",
+        )
+        eng_group.add_argument(
+            "-sd",
+            "-shutdown",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.ENGINEER_SHUTDOWN,
+            dest="option",
+            help="Engineer: shut down",
+        )
+        eng_group.add_argument(
             "-dd",
             "-departure_denied",
             action="store_const",
@@ -90,7 +114,7 @@ class DialogsCli(CliBaseTMCC):
             help="Engineer: first all clear",
         )
         eng_group.add_argument(
-            "-hold",
+            "-sh",
             "-stop_hold",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_STOP_HOLD,
@@ -138,7 +162,7 @@ class DialogsCli(CliBaseTMCC):
             help="Engineer: first normal speed ack",
         )
         eng_group.add_argument(
-            "-sh",
+            "-sx",
             "-highball_speed",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_HIGHBALL,
@@ -213,7 +237,7 @@ class DialogsCli(CliBaseTMCC):
             help="Tower: first engine startup dialog",
         )
         tower_group.add_argument(
-            "-hold",
+            "-sh",
             "-stop_hold",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.TOWER_SPEED_STOP_HOLD,
@@ -221,7 +245,7 @@ class DialogsCli(CliBaseTMCC):
             help="Tower: first stop and hold dialog (non-emergency)",
         )
         tower_group.add_argument(
-            "-rs",
+            "-sr",
             "-restricted_speed",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.TOWER_SPEED_RESTRICTED,
@@ -237,7 +261,7 @@ class DialogsCli(CliBaseTMCC):
             help="Tower: first slow speed",
         )
         tower_group.add_argument(
-            "-ms",
+            "-sm",
             "-medium_speed",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.TOWER_SPEED_MEDIUM,
@@ -245,7 +269,7 @@ class DialogsCli(CliBaseTMCC):
             help="Tower: first medium speed",
         )
         tower_group.add_argument(
-            "-ls",
+            "-sl",
             "-limited_speed",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.TOWER_SPEED_LIMITED,
@@ -253,7 +277,7 @@ class DialogsCli(CliBaseTMCC):
             help="Tower: first limited speed",
         )
         tower_group.add_argument(
-            "-ns",
+            "-sn",
             "-normal_speed",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.TOWER_SPEED_NORMAL,
@@ -261,7 +285,7 @@ class DialogsCli(CliBaseTMCC):
             help="Tower: first normal speed",
         )
         tower_group.add_argument(
-            "-hs",
+            "-sx",
             "-highball_speed",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.TOWER_SPEED_HIGHBALL,
@@ -301,12 +325,28 @@ class DialogsCli(CliBaseTMCC):
             help="Tower: all clear",
         )
         tower_group.add_argument(
-            "-ac",
+            "-ar",
             "-arriving",
             action="store_const",
-            const=TMCC2RailSoundsDialogControl.TOWER_ALL_CLEAR,
+            const=TMCC2RailSoundsDialogControl.TOWER_ARRIVING,
             dest="option",
-            help="Tower: all clear",
+            help="Tower: arriving",
+        )
+        tower_group.add_argument(
+            "-ad",
+            "-arrived",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.TOWER_ARRIVED,
+            dest="option",
+            help="Tower: arrived",
+        )
+        tower_group.add_argument(
+            "-sd",
+            "-shutdown",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.TOWER_SHUTDOWN,
+            dest="option",
+            help="Tower: shut down",
         )
 
         cond = sp.add_parser("conductor", aliases=["co"], help="Conductor dialogs")
