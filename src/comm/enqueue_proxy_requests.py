@@ -41,6 +41,14 @@ class EnqueueProxyRequests(Thread):
             # noinspection PyProtectedMember
             cls._instance._clients.add(client)
 
+    # noinspection PyPropertyDefinition
+    @classmethod
+    def is_known_client(cls, ip_addr: str) -> bool:
+        # noinspection PyProtectedMember
+        if cls._instance and ip_addr in cls._instance._clients:
+            return True
+        return False
+
     @classmethod
     def get_comm_buffer(cls) -> CommBuffer:
         # noinspection PyProtectedMember
@@ -132,12 +140,14 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(str.encode("ack"))
             else:
                 break
-        EnqueueProxyRequests.note_client_addr(self.client_address[0])
         if byte_stream == EnqueueProxyRequests.register_request:
-            print(f"Client at {self.client_address[0]} connecting...")
+            if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
+                EnqueueProxyRequests.note_client_addr(self.client_address[0])
+                print(f"Client at {self.client_address[0]} connecting...")
         elif byte_stream == EnqueueProxyRequests.sync_state_request:
             from ..comm.command_listener import CommandDispatcher
 
+            EnqueueProxyRequests.note_client_addr(self.client_address[0])
             CommandDispatcher.build().send_current_state(self.client_address[0])
         else:
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)

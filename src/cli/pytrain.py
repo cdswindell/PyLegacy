@@ -33,10 +33,10 @@ from src.pdi.pdi_req import PdiReq, AllReq
 from src.pdi.pdi_state_store import PdiStateStore
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import (
-    DEFAULT_SERVER_PORT,
-    CommandScope,
     BROADCAST_TOPIC,
+    CommandScope,
     DEFAULT_BASE_PORT,
+    DEFAULT_SERVER_PORT,
     PROGRAM_NAME,
 )
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
