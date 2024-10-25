@@ -134,7 +134,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 break
         EnqueueProxyRequests.note_client_addr(self.client_address[0])
         if byte_stream == EnqueueProxyRequests.register_request:
-            pass
+            print(f"Client at {self.client_address[0]} connecting...")
         elif byte_stream == EnqueueProxyRequests.sync_state_request:
             from ..comm.command_listener import CommandDispatcher
 
