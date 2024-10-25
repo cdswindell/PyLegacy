@@ -44,10 +44,12 @@ class Mixins(Enum):
         if name in cls.__members__:
             return cls[name]
         # fall back to case-insensitive s
-        name = name.lower()
+        name = name.upper()
         for k, v in cls.__members__.items():
-            if k.lower() == name:
-                return v
+            if k != k.upper():
+                continue
+            if k.upper() == name:
+                return cls[k]
         if not raise_exception:
             return None
         if name:
@@ -65,8 +67,10 @@ class Mixins(Enum):
         orig_name = name = name.strip()
         name = name.strip().upper()
         for k, v in cls.__members__.items():
+            if k != k.upper():
+                continue
             if k.upper().startswith(name):
-                return v
+                return cls[k]
         if not raise_exception:
             return None
         if name:

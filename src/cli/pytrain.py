@@ -194,7 +194,10 @@ class PyTrain:
                         self._query_status(ui_parts[1:])
                         return
                     if args.command == "pdi":
-                        self._do_pdi(ui_parts[1:])
+                        try:
+                            self._do_pdi(ui_parts[1:])
+                        except Exception as e:
+                            print(e)
                         return
                     if args.command == "echo":
                         self._handle_echo(ui_parts)
@@ -276,6 +279,25 @@ class PyTrain:
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_SWITCH)
             elif param[0].lower().startswith("r"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ROUTE)
+            else:
+                return
+        elif param_len == 3:
+            from src.pdi.pdi_device import PdiDevice
+            from src.pdi.constants import CommonAction
+
+            dev = PdiDevice.by_prefix(param[0])
+            tmcc_id = int(param[1])
+            ca = CommonAction.by_prefix(param[2])
+            if ca == CommonAction.FIRMWARE:
+                agr = dev.firmware(tmcc_id)
+            elif ca == CommonAction.STATUS:
+                agr = dev.status(tmcc_id)
+            elif ca == CommonAction.INFO:
+                agr = dev.info(tmcc_id)
+            elif ca == CommonAction.CONFIG:
+                agr = dev.config(tmcc_id)
+            elif ca == CommonAction.IDENTITY:
+                agr = dev.identify(tmcc_id)
             else:
                 return
         else:

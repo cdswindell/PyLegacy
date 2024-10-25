@@ -341,6 +341,16 @@ class Stm2Action(PdiAction):
     CONTROL1 = ActionDef(ACTION_CONTROL1, True, False, True)
 
 
+ALL_FIRMWARE = {
+    Asc2Action.FIRMWARE,
+    Bpc2Action.FIRMWARE,
+    IrdaAction.FIRMWARE,
+    Ser2Action.FIRMWARE,
+    Stm2Action.FIRMWARE,
+    Stm2Action.FIRMWARE,
+    WiFiAction.FIRMWARE,
+}
+
 ALL_STATUS = {
     Asc2Action.STATUS,
     Bpc2Action.STATUS,

@@ -4,8 +4,8 @@ import abc
 from abc import ABC
 from typing import List, TypeVar
 
-from src.pdi.constants import PdiCommand, ALL_STATUS, PDI_SOP, PDI_EOP, Ser2Action, IrdaAction, PdiAction
-from src.pdi.constants import ALL_SETs, ALL_IDENTIFY
+from src.pdi.constants import PdiCommand, ALL_STATUS, PDI_SOP, PDI_EOP, Ser2Action, IrdaAction, PdiAction, ALL_INFO
+from src.pdi.constants import ALL_SETs, ALL_IDENTIFY, ALL_FIRMWARE
 from src.pdi.pdi_req import PdiReq
 from src.protocol.constants import CommandScope
 
@@ -22,6 +22,7 @@ class LcsReq(PdiReq, ABC):
         self._board_id = self._num_ids = self._model = self._uart0 = self._uart1 = self._base_type = None
         self._dc_volts: float | None = None
         self._action: T = action
+        self._version = self._revision = self._sub_revision = None
         if isinstance(data, bytes):
             if self._pdi_command.is_lcs is False:
                 raise ValueError(f"Invalid PDI LCS Request: {data}")
@@ -38,6 +39,15 @@ class LcsReq(PdiReq, ABC):
                 self._uart1 = payload[4] if payload_len > 4 else None
                 self._base_type = payload[5] if payload_len > 5 else None
                 self._dc_volts = payload[6] / 10.0 if payload_len > 6 else None
+            if self._is_action(ALL_FIRMWARE):
+                self._version = payload[0] if payload_len > 0 else None
+                self._revision = payload[1] if payload_len > 1 else None
+                self._sub_revision = payload[2] if payload_len > 2 else None
+            if self._is_action(ALL_INFO):
+                self._board_id = payload[0] if payload_len > 0 else None
+                self._num_ids = payload[1] if payload_len > 1 else None
+                self._model = payload[2] if payload_len > 2 else None
+                self._dc_volts = payload[3] / 10.0 if payload_len > 3 else None
         else:
             self._action_byte = action.bits if action else 0
             self._tmcc_id = int(data) if data else 0
@@ -114,7 +124,17 @@ class LcsReq(PdiReq, ABC):
     @property
     def payload(self) -> str | None:
         if self._is_action(ALL_STATUS) and self.pdi_command.name.endswith("_RX"):
-            return f"Board ID: {self.board_id} Num IDs: {self.num_ids} Model: {self.model}  ({self.packet})"
+            return (
+                f"Board ID: {self.board_id} Num IDs: {self.num_ids} Model: {self.model} "
+                f"DC Volts: {self.dc_volts} ({self.packet})"
+            )
+        elif self._is_action(ALL_INFO) and self.pdi_command.name.endswith("_RX"):
+            return (
+                f"Board ID: {self.board_id} Num IDs: {self.num_ids} Model: {self.model} "
+                f"DC Volts: {self.dc_volts} ({self.packet})"
+            )
+        elif self._is_action(ALL_FIRMWARE) and self.pdi_command.name.endswith("_RX"):
+            return f"Firmware {self._version}.{self._revision}.{self._sub_revision}"
         elif self._is_action(ALL_IDENTIFY):
             if self._is_command(ALL_SETs):
                 return f"Ident: {self.ident} ({self.packet})"
@@ -143,7 +163,7 @@ class Ser2Req(LcsReq):
 
     @property
     def payload(self) -> str | None:
-        return None
+        return super().payload
 
     @property
     def scope(self) -> CommandScope:
@@ -168,7 +188,7 @@ class IrdaReq(LcsReq):
 
     @property
     def payload(self) -> str | None:
-        return None
+        return super().payload
 
     @property
     def scope(self) -> CommandScope:

@@ -144,10 +144,16 @@ class DeviceWrapper:
         self.set: PdiCommand = self._harvest_command("SET")
         self.rx: PdiCommand = self._harvest_command("RX")
 
+    def __repr__(self) -> str:
+        return f"{self.req_class.__class__.__name__}"
+
     def build(self, data: bytes) -> T:
-        action_byte = data[2] if len(data) > 2 else None
-        action = self.enums.by_value(action_byte)
-        return self.req_class(data, action=action)
+        if self.enums is not None:
+            action_byte = data[3] if len(data) > 3 else None
+            action = self.enums.by_value(action_byte)
+            return self.req_class(data, action=action)
+        else:
+            return self.req_class(data)
 
     def firmware(self, tmcc_id: int) -> T:
         if self.get is not None:
@@ -162,6 +168,11 @@ class DeviceWrapper:
     def info(self, tmcc_id: int) -> T:
         if self.get is not None:
             enum = self.enums.by_name("INFO")
+            return self.req_class(tmcc_id, self.get, enum)
+
+    def config(self, tmcc_id: int) -> T:
+        if self.get is not None:
+            enum = self.enums.by_name("CONFIG")
             return self.req_class(tmcc_id, self.get, enum)
 
     def clear_errors(self, tmcc_id: int) -> T:
@@ -185,6 +196,9 @@ class DeviceWrapper:
             if e.name.endswith(suffix):
                 return e
         return None
+
+
+D = TypeVar("D", bound=PdiDeviceConfig)
 
 
 @unique
@@ -236,9 +250,6 @@ class PdiDevice(Mixins, FriendlyMixins):
     )
     UPDATE = DeviceWrapper(BaseReq)
 
-    D = TypeVar("D", bound=PdiDeviceConfig)
-    T = TypeVar("T", bound=PdiReq)
-
     @classmethod
     def from_pdi_command(cls, cmd: PdiCommand) -> PdiDevice:
         return cls(cmd.name.split("_")[0].upper())
@@ -252,13 +263,16 @@ class PdiDevice(Mixins, FriendlyMixins):
         return self.value.dev_class is not None
 
     def build_req(self, data: bytes) -> T:
-        return self.value.req_class(data)
+        return self.value.build(data)
 
     def build_device(self, cmd: T) -> D:
         return self.value.dev_class(cmd)
 
     def firmware(self, tmcc_id: int) -> T:
         return self.value.firmware(tmcc_id)
+
+    def config(self, tmcc_id: int) -> T:
+        return self.value.config(tmcc_id)
 
     def status(self, tmcc_id: int) -> T:
         return self.value.status(tmcc_id)
