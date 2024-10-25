@@ -32,11 +32,16 @@ from src.pdi.pdi_listener import PdiListener
 from src.pdi.pdi_req import PdiReq, AllReq
 from src.pdi.pdi_state_store import PdiStateStore
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC, DEFAULT_BASE_PORT
+from src.protocol.constants import (
+    DEFAULT_SERVER_PORT,
+    CommandScope,
+    BROADCAST_TOPIC,
+    DEFAULT_BASE_PORT,
+    PROGRAM_NAME,
+)
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
-PROGRAM_NAME: str = "PyTrain"
 
 
 class PyTrain:
@@ -58,7 +63,7 @@ class PyTrain:
             self._base_port = base_pieces[1] if len(base_pieces) > 1 else DEFAULT_BASE_PORT
         else:
             if self._no_ser2:
-                raise AttributeError("PyTrain requires either an LCS SER2 and/or Base 2/3 connection")
+                raise AttributeError(f"{PROGRAM_NAME} requires either an LCS SER2 and/or Base 2/3 connection")
             self._base_addr = self._base_port = None
         self._pdi_buffer = None
         self._tmcc_buffer = CommBuffer.build(

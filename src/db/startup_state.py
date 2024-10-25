@@ -8,11 +8,12 @@ from ..pdi.constants import PdiCommand
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import PdiReq, AllReq
 from ..pdi.pdi_state_store import PdiStateStore
+from ..protocol.constants import PROGRAM_NAME
 
 
 class StartupState(Thread):
     def __init__(self, listener: PdiListener, state_store: PdiStateStore) -> None:
-        super().__init__(daemon=True, name="PyTrain Startup State Sniffer")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup State Sniffer")
         self.listener = listener
         self.state_store = state_store
         self.start()

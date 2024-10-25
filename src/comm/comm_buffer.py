@@ -21,7 +21,13 @@ elif sys.version_info >= (3, 9):
 import serial
 from serial.serialutil import SerialException
 
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
+from ..protocol.constants import (
+    DEFAULT_BAUDRATE,
+    DEFAULT_PORT,
+    DEFAULT_QUEUE_SIZE,
+    DEFAULT_VALID_BAUDRATES,
+    PROGRAM_NAME,
+)
 from ..protocol.constants import DEFAULT_THROTTLE_DELAY, DEFAULT_SERVER_PORT
 
 
@@ -317,7 +323,7 @@ class CommBufferProxy(CommBuffer):
                 if retries < 60:
                     retries += 1
                     if retries % 5 == 0:
-                        print(f"Waiting for PyTrain server at {self._server}...")
+                        print(f"Waiting for {PROGRAM_NAME} server at {self._server}...")
                     time.sleep(1)
                 else:
                     raise ce
