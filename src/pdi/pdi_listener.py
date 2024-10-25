@@ -11,7 +11,7 @@ from .constants import PDI_SOP, PDI_STF, PDI_EOP, PdiAction
 from .pdi_req import PdiReq, TmccReq
 from ..comm.command_listener import Topic, Message, Channel, Subscriber, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
-from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE3_PORT, BROADCAST_TOPIC
+from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE_PORT, BROADCAST_TOPIC
 
 
 class PdiListener(Thread):
@@ -22,7 +22,7 @@ class PdiListener(Thread):
     def build(
         cls,
         base3: str = None,
-        base3_port: int = DEFAULT_BASE3_PORT,
+        base3_port: int = DEFAULT_BASE_PORT,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         build_base3_reader: bool = True,
     ) -> PdiListener:
@@ -81,7 +81,7 @@ class PdiListener(Thread):
     def __init__(
         self,
         base3_addr: str,
-        base3_port: int = DEFAULT_BASE3_PORT,
+        base3_port: int = DEFAULT_BASE_PORT,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         build_base3_reader: bool = True,
     ) -> None:

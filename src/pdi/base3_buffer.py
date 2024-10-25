@@ -14,7 +14,7 @@ from .pdi_listener import PdiListener
 from .pdi_req import PdiReq, TmccReq
 from ..protocol.command_req import CommandReq
 
-from ..protocol.constants import DEFAULT_BASE3_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY
+from ..protocol.constants import DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY
 from ..utils.pollable_queue import PollableQueue
 
 
@@ -49,7 +49,7 @@ class Base3Buffer(Thread):
     def __init__(
         self,
         base3_addr: str,
-        base3_port: int = DEFAULT_BASE3_PORT,
+        base3_port: int = DEFAULT_BASE_PORT,
         buffer_size: int = DEFAULT_QUEUE_SIZE,
         listener: PdiListener = None,
     ) -> None:

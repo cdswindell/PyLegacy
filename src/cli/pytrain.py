@@ -32,7 +32,7 @@ from src.pdi.pdi_listener import PdiListener
 from src.pdi.pdi_req import PdiReq, AllReq
 from src.pdi.pdi_state_store import PdiStateStore
 from src.protocol.command_req import CommandReq
-from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC, DEFAULT_BASE3_PORT
+from src.protocol.constants import DEFAULT_SERVER_PORT, CommandScope, BROADCAST_TOPIC, DEFAULT_BASE_PORT
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
@@ -52,14 +52,14 @@ class PyTrain:
         self._echo = args.echo
         self._no_ser2 = args.no_ser2
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
-        if args.base3 is not None:
-            base3_pieces = args.base3.split(":")
-            self._base3_addr = args.base3 = base3_pieces[0]
-            self._base3_port = base3_pieces[1] if len(base3_pieces) > 1 else DEFAULT_BASE3_PORT
+        if args.base is not None:
+            base_pieces = args.base.split(":")
+            self._base_addr = args.base = base_pieces[0]
+            self._base_port = base_pieces[1] if len(base_pieces) > 1 else DEFAULT_BASE_PORT
         else:
             if self._no_ser2:
-                raise AttributeError("PyTrain requires either an LCS SER2 and/or Base 3 connection")
-            self._base3_addr = self._base3_port = None
+                raise AttributeError("PyTrain requires either an LCS SER2 and/or Base 2/3 connection")
+            self._base_addr = self._base_port = None
         self._pdi_buffer = None
         self._tmcc_buffer = CommBuffer.build(
             baudrate=self._baudrate, port=self._port, server=self._server, no_ser2=self._no_ser2
@@ -67,7 +67,7 @@ class PyTrain:
         listeners = []
         if isinstance(self.buffer, CommBufferSingleton):
             if self._no_ser2:
-                print(f"Sending commands directly to Lionel Base 3 at {self._base3_addr}:{self._base3_port}...")
+                print(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
             else:
                 print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
             # listen for client connections
@@ -75,9 +75,9 @@ class PyTrain:
             self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
             self._tmcc_listener = CommandListener.build(build_serial_reader=not self._no_ser2)
             listeners.append(self._tmcc_listener)
-            if self._base3_addr is not None:
-                print(f"Listening for Base3 broadcasts on  {self._base3_addr}:{self._base3_port}...")
-                self._pdi_buffer = PdiListener.build(self._base3_addr, self._base3_port)
+            if self._base_addr is not None:
+                print(f"Listening for Lionel Base broadcasts on  {self._base_addr}:{self._base_port}...")
+                self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
                 listeners.append(self._pdi_buffer)
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
@@ -98,7 +98,7 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.ACC)
 
         if self._pdi_buffer is not None:
-            print(f"Determining initial system state from Lionel Base 3 at {self._base3_addr}:{self._base3_port}...")
+            print(f"Determining initial system state from Lionel Base at {self._base_addr}:{self._base_port}...")
             self._pdi_state_store = PdiStateStore()
             self._get_system_state()
 
@@ -351,7 +351,7 @@ if __name__ == "__main__":
         description="Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
         parents=[parser, CliBase.cli_parser()],
     )
-    parser.add_argument("-base3", type=str, help="IP Address of Lionel Base 3")
+    parser.add_argument("-base", type=str, help="IP Address of Lionel Base 2/3")
     parser.add_argument("-echo", action="store_true", help="Echo received TMCC commands to console")
     parser.add_argument("-no_listeners", action="store_true", help="Do not listen for events")
     parser.add_argument("-no_ser2", action="store_true", help="Do not send or receive TMCC commands from an LCS SER2")
