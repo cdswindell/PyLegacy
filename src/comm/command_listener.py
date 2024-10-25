@@ -389,7 +389,9 @@ class CommandDispatcher(Thread):
             for scope in state.scopes():
                 for address in state.addresses(scope):
                     with self._lock:
-                        state_as_bytes: bytes = state.query(scope, address).as_bytes()
+                        cur_state = state.query(scope, address)
+                        print(cur_state)
+                        state_as_bytes: bytes = cur_state.as_bytes()
                         if state_as_bytes:  # we can only send states for tracked conditions
                             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                                 s.connect((client_ip, self._client_port))

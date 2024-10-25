@@ -258,7 +258,6 @@ class SwitchState(ComponentState):
     def is_legacy(self) -> bool:
         return False
 
-    @property
     def as_bytes(self) -> bytes:
         if self.is_known:
             return CommandReq.build(self.state, self.address).as_bytes
@@ -390,7 +389,6 @@ class AccessoryState(ComponentState):
     def is_legacy(self) -> bool:
         return False
 
-    @property
     def as_bytes(self) -> bytes:
         byte_str = bytes()
         if self._aux_state is not None:
@@ -493,7 +491,6 @@ class EngineState(ComponentState):
                 self._speed = command.speed
         self.changed.set()
 
-    @property
     def as_bytes(self) -> bytes:
         byte_str = bytes()
         if self._start_stop is not None:
