@@ -293,6 +293,7 @@ class AccessoryState(ComponentState):
             num = f" #{self.road_number} "
         return f"Accessory {self.address}: {aux}; {aux1}; {aux2} {self._number}{name}{num}"
 
+    # noinspection DuplicatedCode
     def update(self, command: L | P) -> None:
         if command:
             super().update(command)
