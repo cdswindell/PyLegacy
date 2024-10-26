@@ -286,8 +286,12 @@ class PyTrain:
             from src.pdi.constants import CommonAction
 
             dev = PdiDevice.by_prefix(param[0])
+            if dev is None:
+                raise AttributeError(f"Device '{param[0]}' not defined")
             tmcc_id = int(param[1])
             ca = CommonAction.by_prefix(param[2])
+            if ca is None:
+                raise AttributeError(f"Action '{param[2]}' not valid")
             if ca == CommonAction.FIRMWARE:
                 agr = dev.firmware(tmcc_id)
             elif ca == CommonAction.STATUS:
