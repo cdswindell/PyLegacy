@@ -300,8 +300,12 @@ class PyTrain:
                 agr = dev.info(tmcc_id)
             elif ca == CommonAction.CONFIG:
                 agr = dev.config(tmcc_id)
-            elif ca == CommonAction.IDENTITY:
+            elif ca == CommonAction.IDENTIFY:
                 agr = dev.identify(tmcc_id)
+            elif ca == CommonAction.CLEAR_ERRORS:
+                agr = dev.clear_errors(tmcc_id)
+            elif ca == CommonAction.RESET:
+                agr = dev.reset(tmcc_id)
             else:
                 return
         else:
