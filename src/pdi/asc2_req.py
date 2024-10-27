@@ -88,6 +88,10 @@ class Asc2Req(LcsReq):
         return self._values
 
     @property
+    def state(self) -> int | None:
+        return self._values
+
+    @property
     def valids(self) -> int | None:
         return self._valids
 

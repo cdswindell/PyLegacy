@@ -25,8 +25,8 @@ class StartupState(Thread):
         if isinstance(cmd, PdiReq):
             if isinstance(cmd, BaseReq):
                 # we request engine/sw/acc roster at startup; do this by asking for
-                # Eng/Acc/Sw #100 then examining the rev links returned until we find
-                # one out of range; make a request for each discovered entity
+                # Eng/Train/Acc/Sw #100 then examining the rev links returned until
+                # we find one out of range; make a request for each discovered entity
                 rev_link = cmd.reverse_link if cmd.forward_link is not None else 0
                 if 0 < rev_link < 100:
                     self.listener.enqueue_command(BaseReq(rev_link, cmd.pdi_command))
@@ -42,7 +42,9 @@ class StartupState(Thread):
         self.listener.subscribe_any(self)
         self.listener.enqueue_command(AllReq())
         self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_ENGINE))
+        self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_TRAIN))
         self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_ACC))
+        self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_ROUTE))
         self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_SWITCH))
         total_time = 0
         while total_time < 60:  # only listen for a minute

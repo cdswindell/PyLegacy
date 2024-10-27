@@ -93,6 +93,8 @@ class Bpc2Req(LcsReq):
         if self.pdi_command != PdiCommand.ASC2_GET:
             if self.action == Bpc2Action.CONFIG:
                 return f"Mode: {self.mode} Debug: Restore: {self.restore} {self.debug} ({self.packet})"
+            elif self.action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+                return f"Power {'ON' if self.state == 1 else 'OFF'} ({self.packet})"
         return super().payload
 
     @property

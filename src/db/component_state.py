@@ -8,7 +8,9 @@ from datetime import datetime
 from typing import Tuple, TypeVar, Set
 
 from ..pdi.base_req import BaseReq
-from ..pdi.constants import Asc2Action, PdiCommand
+from ..pdi.bpc2_req import Bpc2Req
+from ..pdi.constants import Asc2Action, PdiCommand, Bpc2Action
+from ..pdi.lcs_req import IrdaReq
 from ..pdi.pdi_req import PdiReq
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.stm2_req import Stm2Req
@@ -279,23 +281,32 @@ class AccessoryState(ComponentState):
         self._aux1_state: Aux | None = None
         self._aux2_state: Aux | None = None
         self._aux_state: Aux | None = None
+        self._block_power = False
+        self._sensor_track = False
         self._number: int | None = None
 
     def __repr__(self) -> str:
-        name = num = ""
-        if self.aux_state == Aux.AUX1_OPT_ONE:
-            aux = "Aux 1"
-        elif self.aux_state == Aux.AUX2_OPT_ONE:
-            aux = "Aux 2"
+        aux1 = aux2 = aux_num = ""
+        if self._block_power:
+            aux = f"Block Power {'ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
+        elif self._sensor_track:
+            aux = "Sensor Track"
         else:
-            aux = "Unknown"
-        aux1 = self.aux1_state.name if self.aux1_state is not None else "Unknown"
-        aux2 = self.aux2_state.name if self.aux2_state is not None else "Unknown"
+            if self.aux_state == Aux.AUX1_OPT_ONE:
+                aux = "Aux 1"
+            elif self.aux_state == Aux.AUX2_OPT_ONE:
+                aux = "Aux 2"
+            else:
+                aux = "Unknown"
+            aux1 = f" Aux1: {self.aux1_state.name if self.aux1_state is not None else 'Unknown'}"
+            aux2 = f" Aux2: {self.aux2_state.name if self.aux2_state is not None else 'Unknown'}"
+            aux_num = f" Aux Num: {self._number if self._number is not None else 'NA'}"
+        name = num = ""
         if self.road_name is not None:
             name = f" {self.road_name}"
         if self.road_number is not None:
             num = f" #{self.road_number} "
-        return f"Accessory {self.address}: {aux}; {aux1}; {aux2} {self._number}{name}{num}"
+        return f"Accessory {self.address}: {aux}{aux1}{aux2}{aux_num}{name}{num}"
 
     # noinspection DuplicatedCode
     def update(self, command: L | P) -> None:
@@ -343,14 +354,20 @@ class AccessoryState(ComponentState):
                             self._last_aux2_opt1 = self.last_updated
                         if command.command == Aux.NUMERIC:
                             self._number = command.data
-            elif isinstance(command, Asc2Req):
-                if command.action == Asc2Action.CONTROL1:
-                    if command.values == 1:
+            elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req):
+                if command.action in [Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+                    if command.action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+                        self._block_power = True
+                    if command.state == 1:
                         self._aux1_state = Aux.AUX1_ON
                         self._aux2_state = Aux.AUX2_ON
+                        self._aux_state = Aux.AUX1_OPT_ONE
                     else:
                         self._aux1_state = Aux.AUX1_OFF
                         self._aux2_state = Aux.AUX2_OFF
+                        self._aux_state = Aux.AUX2_OPT_ONE
+            elif isinstance(command, IrdaReq):
+                self._sensor_track = True
             self.changed.set()
 
     @property

@@ -216,11 +216,18 @@ class IrdaReq(LcsReq):
         data: bytes | int,
         pdi_command: PdiCommand = PdiCommand.IRDA_GET,
         action: IrdaAction = IrdaAction.CONFIG,
+        scope: CommandScope = CommandScope.SYSTEM,
         ident: int | None = None,
     ) -> None:
         super().__init__(data, pdi_command, action, ident)
         if isinstance(data, bytes):
             self._action = IrdaAction(self._action_byte)
+            if self._action == IrdaAction.INFO:
+                self._scope = CommandScope.ACC
+            else:
+                self._scope = CommandScope.SYSTEM
+        else:
+            self._scope = scope if scope is not None else CommandScope.System
 
     @property
     def action(self) -> IrdaAction:
@@ -232,4 +239,4 @@ class IrdaReq(LcsReq):
 
     @property
     def scope(self) -> CommandScope:
-        return CommandScope.SYSTEM
+        return self._scope

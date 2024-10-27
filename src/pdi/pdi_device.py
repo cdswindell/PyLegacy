@@ -20,9 +20,10 @@ from .constants import (
 )
 from .asc2_req import Asc2Req
 from .bpc2_req import Bpc2Req
+from .lcs_req import IrdaReq
 from .stm2_req import Stm2Req
 from .pdi_req import PdiReq
-from ..protocol.constants import Mixins
+from ..protocol.constants import Mixins, CommandScope
 
 T = TypeVar("T", bound=PdiReq)
 
@@ -129,6 +130,15 @@ class Stm2DeviceConfig(PdiDeviceConfig):
         return cmds
 
 
+class IrdaDeviceConfig(PdiDeviceConfig):
+    def __init__(self, cmd: IrdaReq) -> None:
+        super().__init__(PdiDevice.IRDA, cmd)
+
+    @property
+    def state_requests(self) -> List[T]:
+        return [IrdaReq(self.tmcc_id, action=IrdaAction.INFO, scope=CommandScope.ACC)]
+
+
 class DeviceWrapper:
     C = TypeVar("C", bound=PdiReq.__class__)
     E = TypeVar("E", bound=Enum)
@@ -223,7 +233,14 @@ class PdiDevice(Mixins, FriendlyMixins):
     TMCC = DeviceWrapper(TmccReq, PdiCommand.TMCC_TX, PdiCommand.TMCC_RX)
     WIFI = DeviceWrapper(WiFiReq, PdiCommand.WIFI_GET, PdiCommand.WIFI_SET, PdiCommand.WIFI_RX, enums=WiFiAction)
     SER2 = DeviceWrapper(Ser2Req, PdiCommand.SER2_GET, PdiCommand.SER2_SET, PdiCommand.SER2_RX, enums=Ser2Action)
-    IRDA = DeviceWrapper(IrdaReq, PdiCommand.IRDA_GET, PdiCommand.IRDA_SET, PdiCommand.IRDA_RX, enums=IrdaAction)
+    IRDA = DeviceWrapper(
+        IrdaReq,
+        PdiCommand.IRDA_GET,
+        PdiCommand.IRDA_SET,
+        PdiCommand.IRDA_RX,
+        enums=IrdaAction,
+        dev_class=IrdaDeviceConfig,
+    )
     ASC2 = DeviceWrapper(
         Asc2Req,
         PdiCommand.ASC2_GET,
