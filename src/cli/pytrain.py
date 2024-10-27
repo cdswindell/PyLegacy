@@ -268,7 +268,11 @@ class PyTrain:
 
     def _do_pdi(self, param):
         param_len = len(param)
-        if param_len == 2:
+        agr = None
+        if param_len == 1:
+            if param[0].lower().startswith("re"):
+                self._get_system_state()
+        elif param_len == 2:
             if param[0].lower().startswith("e"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ENGINE)
             elif param[0].lower().startswith("t"):
@@ -279,8 +283,6 @@ class PyTrain:
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_SWITCH)
             elif param[0].lower().startswith("r"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ROUTE)
-            else:
-                return
         elif param_len == 3:
             from src.pdi.pdi_device import PdiDevice
             from src.pdi.constants import CommonAction
@@ -310,11 +312,10 @@ class PyTrain:
                 agr = dev.clear_errors(tmcc_id)
             elif ca == CommonAction.RESET:
                 agr = dev.reset(tmcc_id)
-            else:
-                return
         else:
             agr = AllReq()
-        self._pdi_buffer.enqueue_command(agr)
+        if agr is not None:
+            self._pdi_buffer.enqueue_command(agr)
 
     def _command_parser(self) -> ArgumentParser:
         """
