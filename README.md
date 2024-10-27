@@ -35,9 +35,9 @@ actions, allowing the development of physical control panels to operate trains.
 
 `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
 
-- Python 3.11 (your version may be newer):
+- Python 3.12.6 (your version may be newer; Note: Python 3.13 is _**not**_ supported:
 
-`brew install python@3.11`
+`brew install python@3.12`
 
 - gh:
 
@@ -73,8 +73,7 @@ Note that some or all of this software may already be installed on your pi
 ```
 cd /where/you/like/your/source
 
-# ake sure this says 3.12.1 or greater; don't keep going in these directions until it does
-# Note: Python 3.13 is not yet supported!!
+# Make sure this says 3.11. or greater; don't keep going in these directions until it does
 python3 --version
 
 # authenticate gh/git:
