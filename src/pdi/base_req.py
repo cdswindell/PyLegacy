@@ -117,8 +117,8 @@ class BaseReq(PdiReq):
             _ = self._data[4] if data_len > 4 else None
             self._valid1 = int.from_bytes(self._data[5:7], byteorder="little") if data_len > 5 else None
 
-            if self.pdi_command == PdiCommand.BASE_ENGINE:
-                self._scope = CommandScope.ENGINE
+            if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
+                self._scope = CommandScope.ENGINE if self.pdi_command == PdiCommand.BASE_ENGINE else CommandScope.TRAIN
                 self._valid2 = int.from_bytes(self._data[7:9], byteorder="little") if data_len > 7 else None
                 self._rev_link = self._data[9] if data_len > 9 else None
                 self._fwd_link = self._data[10] if data_len > 10 else None
@@ -212,7 +212,7 @@ class BaseReq(PdiReq):
         f = hex(self.flags) if self.flags is not None else "NA"
         s = self.status if self.status is not None else "NA"
         v = hex(self.valid1) if self.valid1 is not None else "NA"
-        if self.pdi_command == PdiCommand.BASE_ENGINE:
+        if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
             tmcc = f"{self.record_no}"
             if self._tmcc_id is not None:
                 tmcc += f" ({self._tmcc_id})"

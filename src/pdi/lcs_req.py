@@ -47,6 +47,7 @@ class LcsReq(PdiReq, ABC):
         self._dc_volts: float | None = None
         self._action: T = action
         self._version = self._revision = self._sub_revision = None
+        self._scope = CommandScope.SYSTEM  # is customized based on the action and Pdi Command
         if isinstance(data, bytes):
             if self.is_lcs is False:
                 raise AttributeError(f"Invalid PDI LCS Request: {data}")
@@ -181,6 +182,10 @@ class LcsReq(PdiReq, ABC):
         return super().payload
 
     @property
+    def scope(self) -> CommandScope:
+        return self._scope
+
+    @property
     @abc.abstractmethod
     def action(self) -> T: ...
 
@@ -205,10 +210,6 @@ class Ser2Req(LcsReq):
     def payload(self) -> str | None:
         return super().payload
 
-    @property
-    def scope(self) -> CommandScope:
-        return CommandScope.SYSTEM
-
 
 class IrdaReq(LcsReq):
     def __init__(
@@ -224,8 +225,6 @@ class IrdaReq(LcsReq):
             self._action = IrdaAction(self._action_byte)
             if self._action == IrdaAction.INFO:
                 self._scope = CommandScope.ACC
-            else:
-                self._scope = CommandScope.SYSTEM
         else:
             self._scope = scope if scope is not None else CommandScope.System
 

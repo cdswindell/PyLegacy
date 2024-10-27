@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from src.pdi.constants import PdiCommand, WiFiAction
 from src.pdi.lcs_req import LcsReq
-from src.protocol.constants import CommandScope
 
 WIFI_MODE_MAP = {0: "AP", 1: "INF", 2: "WPS"}
 
@@ -65,7 +64,3 @@ class WiFiReq(LcsReq):
             elif self.action == WiFiAction.RESPBCASTS:
                 return f"Broadcasts {'ENABLED' if payload_bytes[0] == 1 else 'DISABLED'}: {payload_bytes[0]}"
             return super().payload
-
-    @property
-    def scope(self) -> CommandScope:
-        return CommandScope.SYSTEM

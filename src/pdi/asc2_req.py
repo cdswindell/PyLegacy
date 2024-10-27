@@ -21,7 +21,6 @@ class Asc2Req(LcsReq):
         sub_id: int = None,
     ) -> None:
         super().__init__(data, pdi_command, action, ident)
-        self._scope = CommandScope.ACC
         if isinstance(data, bytes):
             self._action = Asc2Action(self._action_byte)
             data_len = len(self._data)
@@ -36,10 +35,12 @@ class Asc2Req(LcsReq):
                 self._values = self._data[3] if data_len > 3 else None
                 self._time = self._data[4] / 100.0 if data_len > 4 else None
                 self._valids = self._sub_id = self._thru = None
+                self._scope = CommandScope.ACC
             elif self._action in [Asc2Action.CONTROL2, Asc2Action.CONTROL3]:
                 self._values = self._data[3] if data_len > 3 else None
                 self._valids = self._data[4] if data_len > 4 else None
                 self._time = self._sub_id = self._thru = None
+                self._scope = CommandScope.ACC
             elif self._action == Asc2Action.CONTROL4:
                 self._values = self._data[3] if data_len > 3 else None
                 self._time = self._data[4] / 100.0 if data_len > 4 else None

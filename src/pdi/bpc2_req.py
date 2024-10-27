@@ -20,7 +20,6 @@ class Bpc2Req(LcsReq):
         valids: int = None,
     ) -> None:
         super().__init__(data, pdi_command, action, ident)
-        self._scope = CommandScope.TRAIN
         if isinstance(data, bytes):
             self._action = Bpc2Action(self._action_byte)
             data_len = len(self._data)
@@ -38,12 +37,16 @@ class Bpc2Req(LcsReq):
                 self._values = self._valids = None
                 if self._action == Bpc2Action.CONTROL3:
                     self._scope = CommandScope.ACC
+                else:
+                    self._scope = CommandScope.TRAIN
             elif self._action in [Bpc2Action.CONTROL2, Bpc2Action.CONTROL4]:
                 self._values = self._data[3] if data_len > 3 else None
                 self._valids = self._data[4] if data_len > 4 else None
                 self._state = None
                 if self._action == Bpc2Action.CONTROL4:
                     self._scope = CommandScope.ACC
+                else:
+                    self._scope = CommandScope.TRAIN
             else:
                 self._state = self._values = self._valids = None
         else:
@@ -54,11 +57,6 @@ class Bpc2Req(LcsReq):
             self._state = state
             self._values = values
             self._valids = valids
-            self._scope = CommandScope.TRAIN if mode is not None and mode in [0, 1] else CommandScope.ACC
-
-    @property
-    def scope(self) -> CommandScope:
-        return self._scope
 
     @property
     def action(self) -> Bpc2Action:

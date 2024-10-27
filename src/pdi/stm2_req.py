@@ -30,6 +30,7 @@ class Stm2Req(LcsReq):
             if self._action == Stm2Action.CONTROL1:
                 sw_state = self._data[3] if data_len > 3 else None
                 self._state = TMCC1SwitchState.OUT if sw_state == 1 else TMCC1SwitchState.THROUGH
+                self._scope = CommandScope.SWITCH
             else:
                 self._state = None
         else:
@@ -37,10 +38,6 @@ class Stm2Req(LcsReq):
             self._mode = mode
             self._debug = debug
             self._state = state
-
-    @property
-    def scope(self) -> CommandScope:
-        return CommandScope.SWITCH
 
     @property
     def action(self) -> Stm2Action:
