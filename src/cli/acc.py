@@ -10,8 +10,8 @@ from src.utils.argument_parser import ArgumentParser
 AUX_OPTIONS_MAP = {
     "on": "ON",
     "off": "OFF",
-    "opt1": "OPTION_ONE",
-    "opt2": "OPTION_TWO",
+    "opt1": "OPT_ONE",
+    "opt2": "OPT_TWO",
 }
 
 
@@ -23,10 +23,20 @@ class AccCli(CliBase):
 
         aux_group = acc_parser.add_mutually_exclusive_group()
         aux_group.add_argument(
-            "-aux1", dest="aux1", choices=["on", "off", "opt1", "opt2"], nargs="?", type=str, const="opt1"
+            "-aux1",
+            dest="aux1",
+            choices=["on", "off", "opt1", "opt2"],
+            nargs="?",
+            type=str,
+            const="opt1",
         )
         aux_group.add_argument(
-            "-aux2", dest="aux2", choices=["on", "off", "opt1", "opt2"], nargs="?", type=str, const="opt1"
+            "-aux2",
+            dest="aux2",
+            choices=["on", "off", "opt1", "opt2"],
+            nargs="?",
+            type=str,
+            const="opt1",
         )
         aux_group.add_argument(
             "-n",
