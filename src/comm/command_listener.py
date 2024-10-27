@@ -357,6 +357,7 @@ class CommandDispatcher(Thread):
             finally:
                 self._queue.task_done()
 
+    # noinspection DuplicatedCode
     def update_client_state(self, command: CommandReq):
         """
         Update all PyTrain clients with the dispatched command. Used to keep

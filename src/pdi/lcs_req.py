@@ -2,14 +2,38 @@ from __future__ import annotations
 
 import abc
 from abc import ABC
-from typing import List, TypeVar
+from typing import List, TypeVar, Dict
 
-from src.pdi.constants import PdiCommand, ALL_STATUS, PDI_SOP, PDI_EOP, Ser2Action, IrdaAction, PdiAction, ALL_INFO
-from src.pdi.constants import ALL_SETs, ALL_IDENTIFY, ALL_FIRMWARE
+from src.pdi.constants import (
+    ALL_FIRMWARE,
+    ALL_IDENTIFY,
+    ALL_INFO,
+    ALL_SETs,
+    ALL_STATUS,
+    IrdaAction,
+    PdiAction,
+    PdiCommand,
+    Ser2Action,
+)
 from src.pdi.pdi_req import PdiReq
 from src.protocol.constants import CommandScope
 
 T = TypeVar("T", bound=PdiAction)
+
+BASE_TYPE_MAP: Dict[int, str] = {
+    0: "Unknown",
+    1: "Legacy",
+    2: "Base1-L",
+    3: "No Base",
+    4: "No Support",
+}
+
+UART_MAP: Dict[int, str] = {
+    0: "Unknown",
+    1: "Base",
+    2: "Towards Base",
+    3: "Away",
+}
 
 
 class LcsReq(PdiReq, ABC):
@@ -39,6 +63,22 @@ class LcsReq(PdiReq, ABC):
                 self._uart1 = payload[4] if payload_len > 4 else None
                 self._base_type = payload[5] if payload_len > 5 else None
                 self._dc_volts = payload[6] / 10.0 if payload_len > 6 else None
+                self._ec0 = payload[7] if payload_len > 7 else None
+                self._ec1 = payload[8] if payload_len > 8 else None
+                self._ec2 = payload[9] if payload_len > 9 else None
+                self._ec3 = payload[10] if payload_len > 10 else None
+                self._ec4 = payload[11] if payload_len > 11 else None
+                self._ec5 = payload[12] if payload_len > 12 else None
+                self._ec6 = payload[13] if payload_len > 13 else None
+                self._ec7 = payload[14] if payload_len > 14 else None
+                self._ec8 = payload[15] if payload_len > 15 else None
+                self._ec9 = payload[16] if payload_len > 16 else None
+                self._ec10 = payload[17] if payload_len > 17 else None
+                self._ec11 = payload[18] if payload_len > 18 else None
+                self._ec12 = payload[19] if payload_len > 19 else None
+                self._ec13 = payload[20] if payload_len > 20 else None
+                self._ec14 = payload[21] if payload_len > 21 else None
+                self._ec15 = payload[22] if payload_len > 22 else None
             if self._is_action(ALL_FIRMWARE):
                 self._version = payload[0] if payload_len > 0 else None
                 self._revision = payload[1] if payload_len > 1 else None
@@ -90,6 +130,18 @@ class LcsReq(PdiReq, ABC):
     def dc_volts(self) -> float | None:
         return self._dc_volts
 
+    @property
+    def base_type(self) -> str | None:
+        if self._base_type in BASE_TYPE_MAP:
+            return BASE_TYPE_MAP[self._base_type]
+        return "NA"
+
+    @staticmethod
+    def uart_mode(uart: int) -> str | None:
+        if uart in UART_MAP:
+            return UART_MAP[uart]
+        return "NA"
+
     def __repr__(self) -> str:
         if self.payload is not None:
             payload = " " + self.payload
@@ -109,24 +161,12 @@ class LcsReq(PdiReq, ABC):
         return self._ident
 
     @property
-    def as_bytes(self) -> bytes:
-        if self._original:
-            return self._original
-        byte_str = self.pdi_command.as_bytes
-        byte_str += self.tmcc_id.to_bytes(1, byteorder="big")
-        byte_str += self.action.as_bytes
-        byte_str, checksum = self._calculate_checksum(byte_str)
-        byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
-        byte_str += checksum
-        byte_str += PDI_EOP.to_bytes(1, byteorder="big")
-        return byte_str
-
-    @property
     def payload(self) -> str | None:
         if self._is_action(ALL_STATUS) and self.pdi_command.name.endswith("_RX"):
             return (
-                f"Board ID: {self.board_id} Num IDs: {self.num_ids} Model: {self.model} "
-                f"DC Volts: {self.dc_volts} ({self.packet})"
+                f"Board ID: {self.board_id} Num IDs: {self.num_ids} Model: {self.model} DC Volts: {self.dc_volts} "
+                f"Base: {self.base_type} UART0: {self.uart_mode(self.uart0)} UART1: {self.uart_mode(self.uart1)} "
+                f"\n({self.packet})"
             )
         elif self._is_action(ALL_INFO) and self.pdi_command.name.endswith("_RX"):
             return (

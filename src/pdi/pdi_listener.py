@@ -151,7 +151,7 @@ class PdiListener(Thread):
                             # print(f"Offering->0x{req_bytes.hex(':')}")
                             self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
                         except Exception as e:
-                            print(f"Failed to dispatch request {req_bytes.hex(':')}: {e}")
+                            print(f"Failed to dispatch request: {req_bytes.hex(':')}: {e}")
                         finally:
                             eop_pos = -1
                         continue  # with while dq_len > 0 loop
@@ -284,6 +284,7 @@ class PdiDispatcher(Thread):
             finally:
                 self._queue.task_done()
 
+    # noinspection DuplicatedCode
     def update_client_state(self, command: PdiReq):
         """
         Update all PyTrain clients with the dispatched command. Used to keep
