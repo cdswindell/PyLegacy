@@ -59,6 +59,14 @@ class Stm2Req(LcsReq):
         return self._state
 
     @property
+    def is_thru(self) -> bool | None:
+        return self._state == TMCC1SwitchState.THROUGH
+
+    @property
+    def is_out(self) -> bool | None:
+        return self._state == TMCC1SwitchState.OUT
+
+    @property
     def payload(self) -> str | None:
         if self.pdi_command != PdiCommand.STM2_GET:
             if self.action == Stm2Action.CONFIG:

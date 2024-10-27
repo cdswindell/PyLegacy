@@ -11,6 +11,7 @@ from ..pdi.base_req import BaseReq
 from ..pdi.constants import Asc2Action, PdiCommand
 from ..pdi.pdi_req import PdiReq
 from ..pdi.asc2_req import Asc2Req
+from ..pdi.stm2_req import Stm2Req
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS, CommandSyntax
@@ -70,6 +71,9 @@ class ComponentState(ABC):
 
     def __repr__(self) -> str:
         return f"{self.scope.name} {self._address}"
+
+    def __lt__(self, other):
+        return self.address < other.address
 
     def results_in(self, command: CommandReq) -> Set[E]:
         effects = self._dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
@@ -226,7 +230,7 @@ class SwitchState(ComponentState):
             if isinstance(command, CommandReq):
                 if command.command != Switch.SET_ADDRESS:
                     self._state = command.command
-            elif isinstance(command, Asc2Req):
+            elif isinstance(command, Asc2Req) or isinstance(command, Stm2Req):
                 self._state = Switch.THROUGH if command.is_thru else Switch.OUT
             elif isinstance(command, BaseReq):
                 pass

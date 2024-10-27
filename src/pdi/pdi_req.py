@@ -29,6 +29,8 @@ class PdiReq(ABC):
 
             dev = PdiDevice.from_pdi_command(pdi_cmd)
             return dev.build_req(data)
+        except AttributeError as ae:
+            raise ae
         except ValueError:
             raise NotImplementedError(f"PdiCommand {pdi_cmd.name} not implemented")
 

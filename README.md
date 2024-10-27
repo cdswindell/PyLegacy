@@ -73,7 +73,8 @@ Note that some or all of this software may already be installed on your pi
 ```
 cd /where/you/like/your/source
 
-#Make sure this says 3.11.x or greater; don't keep going in these directions until it does
+# ake sure this says 3.12.1 or greater; don't keep going in these directions until it does
+# Note: Python 3.13 is not yet supported!!
 python3 --version
 
 # authenticate gh/git:
