@@ -12,6 +12,7 @@ class Asc2Req(LcsReq):
         pdi_command: PdiCommand = PdiCommand.ASC2_GET,
         action: Asc2Action = Asc2Action.CONFIG,
         ident: int | None = None,
+        error: bool = False,
         mode: int = None,
         debug: int = None,
         delay: float = None,
@@ -20,7 +21,7 @@ class Asc2Req(LcsReq):
         time: float = None,
         sub_id: int = None,
     ) -> None:
-        super().__init__(data, pdi_command, action, ident)
+        super().__init__(data, pdi_command, action, ident, error)
         if isinstance(data, bytes):
             self._action = Asc2Action(self._action_byte)
             data_len = len(self._data)
@@ -106,6 +107,8 @@ class Asc2Req(LcsReq):
 
     @property
     def payload(self) -> str | None:
+        if self.is_error:
+            return super().payload
         if self.pdi_command != PdiCommand.ASC2_GET:
             if self.action == Asc2Action.CONFIG:
                 return f"Mode: {self.mode} Debug: {self.debug} Delay: {self.delay} ({self.packet})"

@@ -13,11 +13,12 @@ class Stm2Req(LcsReq):
         pdi_command: PdiCommand = PdiCommand.STM2_GET,
         action: Stm2Action = Stm2Action.CONFIG,
         ident: int | None = None,
+        error: bool = False,
         mode: int = None,
         debug: int = None,
         state: TMCC1SwitchState = None,
     ) -> None:
-        super().__init__(data, pdi_command, action, ident)
+        super().__init__(data, pdi_command, action, ident, error)
         if isinstance(data, bytes):
             self._action = Stm2Action(self._action_byte)
             data_len = len(self._data)
@@ -61,6 +62,8 @@ class Stm2Req(LcsReq):
 
     @property
     def payload(self) -> str | None:
+        if self.is_error:
+            return super().payload
         if self.pdi_command != PdiCommand.STM2_GET:
             if self.action == Stm2Action.CONFIG:
                 return f"Mode: {self.mode} Debug: {self.debug} ({self.packet})"

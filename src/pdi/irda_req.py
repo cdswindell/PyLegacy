@@ -36,12 +36,12 @@ class IrdaReq(LcsReq):
         action: IrdaAction = IrdaAction.CONFIG,
         scope: CommandScope = CommandScope.SYSTEM,
         ident: int | None = None,
+        error: bool = False,
     ) -> None:
         self._debug = self._sequence = self._loco_rl = self._loco_lr = None
         self._valid1 = self._valid2 = self._dir = self._engine_id = self._train_id = self._status = None
         self._fuel = self._water = self._burn = self._fwb_mask = None
-
-        super().__init__(data, pdi_command, action, ident)
+        super().__init__(data, pdi_command, action, ident, error)
         if isinstance(data, bytes):
             self._action = IrdaAction(self._action_byte)
             data_len = len(self._data)
@@ -84,6 +84,8 @@ class IrdaReq(LcsReq):
 
     @property
     def payload(self) -> str | None:
+        if self.is_error:
+            return super().payload
         if self.pdi_command != PdiCommand.IRDA_GET:
             if self.action == IrdaAction.CONFIG:
                 rl = f" When Engine ID (R -> L): {self._loco_rl}" if self._loco_rl else ""
@@ -97,7 +99,7 @@ class IrdaReq(LcsReq):
                     eng = f"Engine: {self._engine_id}"
                 else:
                     eng = "<Unknown>"
-                return f"{trav} {eng} Status: {self.status} (0x{hex(self._status)}) ({self.packet})"
+                return f"{trav} {eng} Status: {self.status} ({hex(self._status)}) ({self.packet})"
             elif self.action == IrdaAction.SEQUENCE:
                 return f"Sequence: {self.sequence} ({self.packet})"
             elif self.action == IrdaAction.RECORD:

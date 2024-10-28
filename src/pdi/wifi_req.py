@@ -13,8 +13,9 @@ class WiFiReq(LcsReq):
         pdi_command: PdiCommand = PdiCommand.WIFI_GET,
         action: WiFiAction = WiFiAction.CONFIG,
         ident: int | None = None,
+        error: bool = False,
     ) -> None:
-        super().__init__(data, pdi_command, action, ident)
+        super().__init__(data, pdi_command, action, ident, error)
         if isinstance(data, bytes):
             self._action = WiFiAction(self._action_byte)
         else:
@@ -39,8 +40,8 @@ class WiFiReq(LcsReq):
 
     @property
     def payload(self) -> str | None:
-        if self._data is None:
-            return None
+        if self.is_error:
+            return super().payload
         else:
             payload_bytes = self._data[3:]
             if self.action == WiFiAction.CONNECT:
@@ -59,4 +60,4 @@ class WiFiReq(LcsReq):
                 return f"Base IP: {ip_addr} {clients}"
             elif self.action == WiFiAction.RESPBCASTS:
                 return f"Broadcasts {'ENABLED' if payload_bytes[0] == 1 else 'DISABLED'}: {payload_bytes[0]}"
-            return super().payload
+        return super().payload

@@ -34,27 +34,48 @@ UART_MAP: Dict[int, str] = {
     3: "Away",
 }
 
+ERROR_CODE_MAP: Dict[int, str] = {
+    1: "PDI command not supported",
+    2: "Action not supported",
+    3: "Data field with missing parameter(s) - missing bytes before EOP",
+    4: "Data field with extra parameter(s) - extra bytes before EOP",
+    5: "Data field with invalid contents",
+    0xFF: "Undefined error",
+}
+
 
 class LcsReq(PdiReq, ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(
-        self, data: bytes | int, pdi_command: PdiCommand = None, action: T = None, ident: int | None = None
+        self,
+        data: bytes | int,
+        pdi_command: PdiCommand = None,
+        action: T = None,
+        ident: int | None = None,
+        error: bool = False,
     ) -> None:
         super().__init__(data, pdi_command)
         self._board_id = self._num_ids = self._model = self._uart0 = self._uart1 = self._base_type = None
+        self._error_code = None
         self._dc_volts: float | None = None
         self._action: T = action
         self._version = self._revision = self._sub_revision = None
         self._scope = CommandScope.SYSTEM  # is customized based on the action and Pdi Command
+        self._error = error
         if isinstance(data, bytes):
             if self.is_lcs is False:
                 raise AttributeError(f"Invalid PDI LCS Request: {data}")
             self._tmcc_id = self._data[1]
             self._action_byte = self._data[2]
+            if self._action_byte & 0x80 == 0x80:
+                self._error = True
+                self._action_byte &= 0x7F
             self._ident = None
             payload = self._data[3:]
             payload_len = len(payload)
+            if self.is_error:
+                self._error_code = payload[0] if payload_len > 0 else None
             if self._is_action(ALL_STATUS):
                 self._board_id = payload[0] if payload_len > 0 else None
                 self._num_ids = payload[1] if payload_len > 1 else None
@@ -105,6 +126,17 @@ class LcsReq(PdiReq, ABC):
     @property
     def is_lcs(self) -> bool:
         return True
+
+    @property
+    def is_error(self) -> bool:
+        return self._error
+
+    @property
+    def error(self) -> str:
+        if self.is_error and self._error_code in ERROR_CODE_MAP:
+            return ERROR_CODE_MAP[self._error_code]
+        else:
+            return "None"
 
     @property
     def board_id(self) -> int | None:
@@ -162,7 +194,9 @@ class LcsReq(PdiReq, ABC):
 
     @property
     def payload(self) -> str | None:
-        if self._is_action(ALL_STATUS) and self.pdi_command.name.endswith("_RX"):
+        if self.is_error:
+            return f"Error: {self.error}"
+        elif self._is_action(ALL_STATUS) and self.pdi_command.name.endswith("_RX"):
             return (
                 f"Board ID: {self.board_id} Num IDs: {self.num_ids} Model: {self.model} DC Volts: {self.dc_volts} "
                 f"Base: {self.base_type} UART0: {self.uart_mode(self.uart0)} UART1: {self.uart_mode(self.uart1)} "
@@ -196,15 +230,8 @@ class Ser2Req(LcsReq):
         pdi_command: PdiCommand = PdiCommand.SER2_GET,
         action: Ser2Action = Ser2Action.CONFIG,
         ident: int | None = None,
+        error: bool = False,
     ) -> None:
-        super().__init__(data, pdi_command, action, ident)
+        super().__init__(data, pdi_command, action, ident, error)
         if isinstance(data, bytes):
             self._action = Ser2Action(self._action_byte)
-
-    @property
-    def action(self) -> Ser2Action:
-        return self._action
-
-    @property
-    def payload(self) -> str | None:
-        return super().payload

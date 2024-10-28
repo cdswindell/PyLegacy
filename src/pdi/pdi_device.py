@@ -165,8 +165,13 @@ class DeviceWrapper:
         if isinstance(data, bytes):
             if self.enums is not None:
                 action_byte = data[3] if len(data) > 3 else None
+                if action_byte & 0x80 == 0x80:
+                    error = True
+                    action_byte = 0x7FF & action_byte
+                else:
+                    error = False
                 action = self.enums.by_value(action_byte)
-                return self.req_class(data, action=action)
+                return self.req_class(data, action=action, error=error)
             else:
                 return self.req_class(data)
         else:

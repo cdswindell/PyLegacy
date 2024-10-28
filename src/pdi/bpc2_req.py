@@ -12,6 +12,7 @@ class Bpc2Req(LcsReq):
         pdi_command: PdiCommand = PdiCommand.BPC2_GET,
         action: Bpc2Action = Bpc2Action.CONFIG,
         ident: int | None = None,
+        error: bool = False,
         mode: int = None,
         debug: int = None,
         restore: bool = None,
@@ -19,7 +20,7 @@ class Bpc2Req(LcsReq):
         values: int = None,
         valids: int = None,
     ) -> None:
-        super().__init__(data, pdi_command, action, ident)
+        super().__init__(data, pdi_command, action, ident, error)
         if isinstance(data, bytes):
             self._action = Bpc2Action(self._action_byte)
             data_len = len(self._data)
@@ -84,6 +85,8 @@ class Bpc2Req(LcsReq):
 
     @property
     def payload(self) -> str | None:
+        if self.is_error:
+            return super().payload
         if self.pdi_command != PdiCommand.ASC2_GET:
             if self.action == Bpc2Action.CONFIG:
                 return f"Mode: {self.mode} Debug: Restore: {self.restore} {self.debug} ({self.packet})"
