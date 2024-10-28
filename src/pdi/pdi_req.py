@@ -163,6 +163,15 @@ class PdiReq(ABC):
     def is_lcs(self) -> bool:
         return False
 
+    @staticmethod
+    def decode_text(data: bytes) -> str | None:
+        name = ""
+        for b in data:
+            if b == 0:
+                break
+            name += chr(b)
+        return name
+
     @property
     def payload(self) -> str:
         return f"({self.packet})"

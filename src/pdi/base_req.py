@@ -122,8 +122,8 @@ class BaseReq(PdiReq):
                 self._valid2 = int.from_bytes(self._data[7:9], byteorder="little") if data_len > 7 else None
                 self._rev_link = self._data[9] if data_len > 9 else None
                 self._fwd_link = self._data[10] if data_len > 10 else None
-                self._name = self.decode_text(self._data[11:]) if data_len > 11 else None
-                self._number = self.decode_text(self._data[44:]) if data_len > 44 else None
+                self._name = self.decode_text(self._data[11:44]) if data_len > 11 else None
+                self._number = self.decode_text(self._data[44:49]) if data_len > 44 else None
                 self._loco_type = self._data[49] if data_len > 49 else None
                 self._control_type = self._data[50] if data_len > 50 else None
                 self._sound_type = self._data[51] if data_len > 51 else None
@@ -151,7 +151,7 @@ class BaseReq(PdiReq):
                     self._scope = CommandScope.ROUTE
                 self._rev_link = self._data[7] if data_len > 7 else None
                 self._fwd_link = self._data[8] if data_len > 8 else None
-                self._name = self.decode_text(self._data[9:]) if data_len > 9 else None
+                self._name = self.decode_text(self._data[9:42]) if data_len > 9 else None
                 self._number = self.decode_text(self._data[42:]) if data_len > 42 else None
             elif self.pdi_command == PdiCommand.BASE:
                 self._firmware_high = self._data[7] if data_len > 7 else None
@@ -230,25 +230,25 @@ class BaseReq(PdiReq):
             m = f" Momentum: {self._momentum} ({self._momentum_tmcc})" if self._momentum is not None else ""
             b = f" Brake: {self._train_brake}" if self._train_brake is not None else ""
             return (
-                f"# {tmcc}{na}{no}{sp}{sl}{ms}{rl}{el}{sm}{m}{b}\n"
-                f"flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl}\n"
-                f"{self.packet}"
+                f"# {tmcc}{na}{no}{sp}{sl}{ms}{rl}{el}{sm}{m}{b} "
+                f"flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl} "
+                f"({self.packet})"
             )
         if self.pdi_command == PdiCommand.BASE_ACC:
             fwl = f" Fwd: {self._fwd_link}" if self._fwd_link is not None else ""
             rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
             na = f" {self._name}" if self._name is not None else ""
             no = f" {self._number}" if self._number is not None else ""
-            return f"# {self.record_no}{na}{no} flags: {f} status: {s} valid: {v}{fwl}{rvl}\n{self.packet}"
+            return f"# {self.record_no}{na}{no} flags: {f} status: {s} valid: {v}{fwl}{rvl}\n({self.packet})"
         elif self.pdi_command == PdiCommand.BASE:
             fw = f" V{self._firmware_high}.{self._firmware_low}" if self._firmware_high is not None else ""
             tr = f" Route Throw Rate: {self._route_throw_rate} sec" if self._route_throw_rate is not None else ""
             n = f"{self._name} " if self._name is not None else ""
-            return f"{n}Rec # {self.record_no} flags: {f} status: {s} valid: {v}{fw}{tr}\n{self.packet}"
+            return f"{n}Rec # {self.record_no} flags: {f} status: {s} valid: {v}{fw}{tr}\n({self.packet})"
         elif self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
             scope = "Engine" if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else "Train"
             return f"{scope} #{self.tmcc_id} New Speed: {self.speed}"
-        return f"Rec # {self.record_no} flags: {f} status: {s} valid: {v}\n{self.packet}"
+        return f"Rec # {self.record_no} flags: {f} status: {s} valid: {v}\n({self.packet})"
 
     @property
     def as_bytes(self) -> bytes:
@@ -279,12 +279,3 @@ class BaseReq(PdiReq):
             if value <= data < value + 0.25:
                 return key
         return 9
-
-    @staticmethod
-    def decode_text(data: bytes) -> str | None:
-        name = ""
-        for b in data:
-            if b == 0:
-                break
-            name += chr(b)
-        return name

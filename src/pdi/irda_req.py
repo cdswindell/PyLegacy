@@ -63,6 +63,15 @@ class IrdaReq(LcsReq):
                 self._water = self._data[12] if data_len > 12 else None
                 self._burn = self._data[13] if data_len > 13 else None
                 self._fwb_mask = self._data[14] if data_len > 14 else None
+                self._runtime = int.from_bytes(self._data[15:16], byteorder="little") if data_len > 15 else None
+                self._prod_rev = self._data[17] if data_len > 17 else None
+                self._prod_id = self._data[18] if data_len > 18 else None
+                self._prod_year = self.decode_text(self._data[21:]) if data_len > 21 else None
+                self._name = self.decode_text(self._data[24:58]) if data_len > 24 else None
+                self._number = self.decode_text(self._data[57:]) if data_len > 58 else None
+                self._tsdb_left = self._data[62] if data_len > 62 else None
+                self._tsdb_right = self._data[63] if data_len > 63 else None
+                self._max_speed = self._data[64] if data_len > 64 else None
             elif self._action == IrdaAction.SEQUENCE:
                 self._sequence = self._data[3] if data_len > 3 else None
             elif self._action == IrdaAction.RECORD:
@@ -83,6 +92,14 @@ class IrdaReq(LcsReq):
         return STATUS_MAP[self._status] if self._status in STATUS_MAP else "NA"
 
     @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def number(self) -> str:
+        return self._number
+
+    @property
     def payload(self) -> str | None:
         if self.is_error:
             return super().payload
@@ -92,14 +109,17 @@ class IrdaReq(LcsReq):
                 lr = f" When Engine ID (L -> R): {self._loco_lr}" if self._loco_lr else ""
                 return f"Sequence: {self.sequence}{rl}{lr} Debug: {self.debug} ({self.packet})"
             elif self.action == IrdaAction.DATA:
-                trav = "R -> L: " if self._dir == 0 else "L -> R: "
+                trav = "R -> L" if self._dir == 0 else "L -> R"
                 if self._train_id:
                     eng = f"Train: {self._train_id}"
                 elif self._engine_id:
                     eng = f"Engine: {self._engine_id}"
                 else:
                     eng = "<Unknown>"
-                return f"{trav} {eng} Status: {self.status} ({hex(self._status)}) ({self.packet})"
+                na = f" {self._name}" if self._name is not None else ""
+                no = f" #{self._number}" if self._number is not None else ""
+                yr = f" 20{self._prod_year}" if self._prod_year else ""
+                return f"{trav} {eng}{na}{no}{yr} Status: {self.status} ({hex(self._status)}) ({self.packet})"
             elif self.action == IrdaAction.SEQUENCE:
                 return f"Sequence: {self.sequence} ({self.packet})"
             elif self.action == IrdaAction.RECORD:
