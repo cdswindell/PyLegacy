@@ -37,6 +37,10 @@ class IrdaReq(LcsReq):
         scope: CommandScope = CommandScope.SYSTEM,
         ident: int | None = None,
     ) -> None:
+        self._debug = self._sequence = self._loco_rl = self._loco_lr = None
+        self._valid1 = self._valid2 = self._dir = self._engine_id = self._train_id = self._status = None
+        self._fuel = self._water = self._burn = self._fwb_mask = None
+
         super().__init__(data, pdi_command, action, ident)
         if isinstance(data, bytes):
             self._action = IrdaAction(self._action_byte)
@@ -72,11 +76,11 @@ class IrdaReq(LcsReq):
 
     @property
     def sequence(self) -> str | None:
-        return SEQUENCE_MAP.get(self._sequence, None) if self._sequence in SEQUENCE_MAP else None
+        return SEQUENCE_MAP.get(self._sequence, None) if self._sequence in SEQUENCE_MAP else "NA"
 
     @property
     def status(self) -> str | None:
-        return STATUS_MAP.get(self._status, None) if self._status in STATUS_MAP else None
+        return STATUS_MAP.get(self._status, None) if self._status in STATUS_MAP else "NA"
 
     @property
     def payload(self) -> str | None:
