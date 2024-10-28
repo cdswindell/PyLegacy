@@ -24,11 +24,11 @@ class Bpc2Req(LcsReq):
             self._action = Bpc2Action(self._action_byte)
             data_len = len(self._data)
             if self._action == Bpc2Action.CONFIG:
+                self._debug = self._data[4] if data_len > 4 else None
                 self._mode = self._data[7] if data_len > 7 else None
                 self._restore = (self._mode & 0x80) == 0x80
                 if self._restore:
                     self._mode &= 0x7F
-                self._debug = self._data[4] if data_len > 4 else None
             else:
                 self._mode = self._debug = self._restore = None
 
@@ -57,10 +57,6 @@ class Bpc2Req(LcsReq):
             self._state = state
             self._values = values
             self._valids = valids
-
-    @property
-    def action(self) -> Bpc2Action:
-        return self._action
 
     @property
     def mode(self) -> int | None:

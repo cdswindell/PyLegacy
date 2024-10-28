@@ -20,7 +20,7 @@ from .constants import (
 )
 from .asc2_req import Asc2Req
 from .bpc2_req import Bpc2Req
-from .lcs_req import IrdaReq
+from .irda_req import IrdaReq
 from .stm2_req import Stm2Req
 from .pdi_req import PdiReq
 from ..protocol.constants import Mixins, CommandScope

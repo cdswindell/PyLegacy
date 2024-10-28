@@ -40,10 +40,6 @@ class Stm2Req(LcsReq):
             self._state = state
 
     @property
-    def action(self) -> Stm2Action:
-        return self._action
-
-    @property
     def mode(self) -> int:
         return self._mode
 

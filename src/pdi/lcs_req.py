@@ -10,7 +10,6 @@ from src.pdi.constants import (
     ALL_INFO,
     ALL_SETs,
     ALL_STATUS,
-    IrdaAction,
     PdiAction,
     PdiCommand,
     Ser2Action,
@@ -186,8 +185,8 @@ class LcsReq(PdiReq, ABC):
         return self._scope
 
     @property
-    @abc.abstractmethod
-    def action(self) -> T: ...
+    def action(self) -> T:
+        return self._action
 
 
 class Ser2Req(LcsReq):
@@ -209,33 +208,3 @@ class Ser2Req(LcsReq):
     @property
     def payload(self) -> str | None:
         return super().payload
-
-
-class IrdaReq(LcsReq):
-    def __init__(
-        self,
-        data: bytes | int,
-        pdi_command: PdiCommand = PdiCommand.IRDA_GET,
-        action: IrdaAction = IrdaAction.CONFIG,
-        scope: CommandScope = CommandScope.SYSTEM,
-        ident: int | None = None,
-    ) -> None:
-        super().__init__(data, pdi_command, action, ident)
-        if isinstance(data, bytes):
-            self._action = IrdaAction(self._action_byte)
-            if self._action == IrdaAction.INFO:
-                self._scope = CommandScope.ACC
-        else:
-            self._scope = scope if scope is not None else CommandScope.System
-
-    @property
-    def action(self) -> IrdaAction:
-        return self._action
-
-    @property
-    def payload(self) -> str | None:
-        return super().payload
-
-    @property
-    def scope(self) -> CommandScope:
-        return self._scope

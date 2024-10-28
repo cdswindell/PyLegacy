@@ -25,8 +25,8 @@ class Asc2Req(LcsReq):
             self._action = Asc2Action(self._action_byte)
             data_len = len(self._data)
             if self._action == Asc2Action.CONFIG:
-                self._mode = self._data[7] if data_len > 7 else None
                 self._debug = self._data[4] if data_len > 4 else None
+                self._mode = self._data[7] if data_len > 7 else None
                 self._delay = self._data[8] / 100.0 if data_len > 8 else None
             else:
                 self._mode = self._debug = self._delay = None
@@ -63,14 +63,6 @@ class Asc2Req(LcsReq):
             self._valids = valids
             self._time = time
             self._sub_id = sub_id
-
-    @property
-    def scope(self) -> CommandScope:
-        return self._scope
-
-    @property
-    def action(self) -> Asc2Action:
-        return self._action
 
     @property
     def mode(self) -> int | None:

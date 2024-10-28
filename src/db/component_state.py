@@ -10,7 +10,7 @@ from typing import Tuple, TypeVar, Set
 from ..pdi.base_req import BaseReq
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Asc2Action, PdiCommand, Bpc2Action
-from ..pdi.lcs_req import IrdaReq
+from ..pdi.irda_req import IrdaReq
 from ..pdi.pdi_req import PdiReq
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.stm2_req import Stm2Req

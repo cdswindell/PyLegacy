@@ -21,10 +21,6 @@ class WiFiReq(LcsReq):
             self._action = action
 
     @property
-    def action(self) -> WiFiAction:
-        return self._action
-
-    @property
     def base_address(self) -> str | None:
         if self._data is not None and self.action == WiFiAction.IP:
             payload = self._data[3:]
