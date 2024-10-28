@@ -224,7 +224,7 @@ class PdiDevice(Mixins, FriendlyMixins):
     from .pdi_req import AllReq, PingReq, TmccReq
     from .base_req import BaseReq
     from .stm2_req import Stm2Req
-    from .lcs_req import IrdaReq
+    from .irda_req import IrdaReq
     from .lcs_req import Ser2Req
 
     BASE = DeviceWrapper(BaseReq)
