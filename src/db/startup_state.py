@@ -41,6 +41,7 @@ class StartupState(Thread):
     def run(self) -> None:
         self.listener.subscribe_any(self)
         self.listener.enqueue_command(AllReq())
+        self.listener.enqueue_command(BaseReq(0, PdiCommand.BASE))
         self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_ENGINE))
         self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_TRAIN))
         self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_ACC))

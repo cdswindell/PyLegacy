@@ -17,6 +17,7 @@ from .constants import (
     Stm2Action,
     WiFiAction,
     CommonAction,
+    PdiAction,
 )
 from .asc2_req import Asc2Req
 from .bpc2_req import Bpc2Req
@@ -139,6 +140,9 @@ class IrdaDeviceConfig(PdiDeviceConfig):
         return [IrdaReq(self.tmcc_id, action=IrdaAction.INFO, scope=CommandScope.ACC)]
 
 
+A = TypeVar("A", bound=PdiAction)
+
+
 class DeviceWrapper:
     C = TypeVar("C", bound=PdiReq.__class__)
     E = TypeVar("E", bound=Enum)
@@ -157,13 +161,16 @@ class DeviceWrapper:
     def __repr__(self) -> str:
         return f"{self.req_class.__class__.__name__}"
 
-    def build(self, data: bytes) -> T:
-        if self.enums is not None:
-            action_byte = data[3] if len(data) > 3 else None
-            action = self.enums.by_value(action_byte)
-            return self.req_class(data, action=action)
+    def build(self, data: bytes | int, action: A = None) -> T:
+        if isinstance(data, bytes):
+            if self.enums is not None:
+                action_byte = data[3] if len(data) > 3 else None
+                action = self.enums.by_value(action_byte)
+                return self.req_class(data, action=action)
+            else:
+                return self.req_class(data)
         else:
-            return self.req_class(data)
+            return self.req_class(data, action=action)
 
     def firmware(self, tmcc_id: int) -> T:
         if self.get is not None:
@@ -279,8 +286,8 @@ class PdiDevice(Mixins, FriendlyMixins):
     def can_build_device(self) -> bool:
         return self.value.dev_class is not None
 
-    def build_req(self, data: bytes) -> T:
-        return self.value.build(data)
+    def build_req(self, data: bytes | int, action: A = None) -> T:
+        return self.value.build(data, action)
 
     def build_device(self, cmd: T) -> D:
         return self.value.dev_class(cmd)

@@ -57,6 +57,10 @@ BPC2_GET: int = 0x40
 BPC2_SET: int = 0x41
 BPC2_RX: int = 0x42
 
+AMC2_GET: int = 0x44
+AMC2_SET: int = 0x45
+AMC2_RX: int = 0x46
+
 STM2_GET: int = 0x4C
 STM2_SET: int = 0x4D
 STM2_RX: int = 0x4E
@@ -302,6 +306,25 @@ class Asc2Action(PdiAction):
     CONTROL3 = ActionDef(ACTION_CONTROL3, True, True, True)
     CONTROL4 = ActionDef(ACTION_CONTROL4, True, True, True)
     CONTROL5 = ActionDef(ACTION_CONTROL5, True, True, True)
+
+
+ACTION_MOTOR: int = 0x10
+ACTION_LAMP: int = 0x11
+ACTION_MOTOR_CONFIG: int = 0x12
+
+
+@unique
+class Amc2Action(PdiAction):
+    FIRMWARE = ActionDef(ACTION_FIRMWARE, True, False, True)
+    STATUS = ActionDef(ACTION_STATUS, True, False, True)
+    CONFIG = ActionDef(ACTION_CONFIG, True, True, True)
+    INFO = ActionDef(ACTION_INFO, True, False, True)
+    CLEAR_ERRORS = ActionDef(ACTION_CLEAR_ERRORS, False, True, False)
+    RESET = ActionDef(ACTION_RESET, False, True, False)
+    IDENTIFY = ActionDef(ACTION_IDENTIFY, False, True, False)
+    MOTOR = ActionDef(ACTION_MOTOR, True, True, True)
+    LAMP = ActionDef(ACTION_LAMP, True, True, True)
+    MOTOR_CONFIG = ActionDef(ACTION_MOTOR_CONFIG, True, True, True)
 
 
 @unique

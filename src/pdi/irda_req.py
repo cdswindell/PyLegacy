@@ -76,22 +76,28 @@ class IrdaReq(LcsReq):
 
     @property
     def sequence(self) -> str | None:
-        return SEQUENCE_MAP.get(self._sequence, None) if self._sequence in SEQUENCE_MAP else "NA"
+        return SEQUENCE_MAP[self._sequence] if self._sequence in SEQUENCE_MAP else "NA"
 
     @property
     def status(self) -> str | None:
-        return STATUS_MAP.get(self._status, None) if self._status in STATUS_MAP else "NA"
+        return STATUS_MAP[self._status] if self._status in STATUS_MAP else "NA"
 
     @property
     def payload(self) -> str | None:
-        if self.pdi_command != PdiCommand.ASC2_GET:
+        if self.pdi_command != PdiCommand.IRDA_GET:
             if self.action == IrdaAction.CONFIG:
                 rl = f" When Engine ID (R -> L): {self._loco_rl}" if self._loco_rl else ""
                 lr = f" When Engine ID (L -> R): {self._loco_lr}" if self._loco_lr else ""
-                return f"Request: {self.sequence}{rl}{lr} Debug: {self.debug} ({self.packet})"
+                return f"Sequence: {self.sequence}{rl}{lr} Debug: {self.debug} ({self.packet})"
             elif self.action == IrdaAction.DATA:
                 trav = "R -> L: " if self._dir == 0 else "L -> R: "
-                return f"{trav} Engine: {self._engine_id} Train: {self._train_id} Status: {self.status} ({self.packet})"
+                if self._train_id:
+                    eng = f"Train: {self._train_id}"
+                elif self._engine_id:
+                    eng = f"Engine: {self._engine_id}"
+                else:
+                    eng = "<Unknown>"
+                return f"{trav} {eng} Status: {self.status} (0x{hex(self._status)}) ({self.packet})"
             elif self.action == IrdaAction.SEQUENCE:
                 return f"Sequence: {self.sequence} ({self.packet})"
             elif self.action == IrdaAction.RECORD:

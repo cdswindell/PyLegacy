@@ -272,6 +272,8 @@ class PyTrain:
         if param_len == 1:
             if param[0].lower().startswith("re"):
                 self._get_system_state()
+            elif param[0].lower().startswith("ba"):
+                agr = BaseReq(0, PdiCommand.BASE)
         elif param_len == 2:
             if param[0].lower().startswith("e"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ENGINE)
@@ -293,7 +295,9 @@ class PyTrain:
             tmcc_id = int(param[1])
             ca = CommonAction.by_prefix(param[2])
             if ca is None:
-                raise AttributeError(f"Action '{param[2]}' not valid")
+                ca = dev.value.enums.by_prefix(param[2])
+                if ca is None:
+                    raise AttributeError(f"Action '{param[2]}' not valid")
             if ca == CommonAction.FIRMWARE:
                 agr = dev.firmware(tmcc_id)
             elif ca == CommonAction.STATUS:
@@ -312,6 +316,8 @@ class PyTrain:
                 agr = dev.clear_errors(tmcc_id)
             elif ca == CommonAction.RESET:
                 agr = dev.reset(tmcc_id)
+            elif ca is not None:
+                agr = dev.build_req(tmcc_id, ca)
         else:
             agr = AllReq()
         if agr is not None:
