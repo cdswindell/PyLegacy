@@ -27,6 +27,46 @@ STATUS_MAP: Dict[int, str] = {
     4: "Recording...",
 }
 
+PRODUCT_REV_MAP: Dict[int, str] = {
+    0x00: "Switcher",
+    0x01: "Road",
+}
+
+PRODUCT_ID_MAP: Dict[int, str] = {
+    0x02: "Diesel",
+    0x03: "Diesel Switcher",
+    0x04: "Steam",
+    0x05: "Steam Switcher",
+    0x06: "Subway",
+    0x07: "Electric",
+    0x08: "Acela",
+    0x09: "Pullmor Diesel",
+    0x0A: "Pullmor Steam",
+    0x0B: "Breakdown",
+    0x0C: "Track Crane",
+    0x0D: "Accessory",
+    0x0E: "Stock Car",
+    0x0F: "Passenger Car",
+}
+
+TSDB_MAP: Dict[int, str] = {
+    0x01: "Ditch Lights",
+    0x02: "Ground Lights",
+    0x03: "MARS Lights",
+    0x04: "Hazard Lights",
+    0x05: "Strobe Lights",
+    0x06: "Reserved",
+    0x07: "Reserved",
+    0x08: "Rule 17",
+    0x09: "Loco Marker",
+    0x0A: "Tender Marker",
+    0x0B: "Doghouse",
+    0x0C: "Reserved",
+    0x0D: "Reserved",
+    0x0E: "Reserved",
+    0x0F: "Reserved",
+}
+
 
 class IrdaReq(LcsReq):
     def __init__(
@@ -72,6 +112,7 @@ class IrdaReq(LcsReq):
                 self._tsdb_left = self._data[62] if data_len > 62 else None
                 self._tsdb_right = self._data[63] if data_len > 63 else None
                 self._max_speed = self._data[64] if data_len > 64 else None
+                self._odometer = int.from_bytes(self._data[65:69], byteorder="little") / 4.0 if data_len > 68 else None
             elif self._action == IrdaAction.SEQUENCE:
                 self._sequence = self._data[3] if data_len > 3 else None
             elif self._action == IrdaAction.RECORD:
@@ -90,6 +131,14 @@ class IrdaReq(LcsReq):
     @property
     def status(self) -> str | None:
         return STATUS_MAP[self._status] if self._status in STATUS_MAP else "NA"
+
+    @property
+    def product_rev(self) -> str | None:
+        return PRODUCT_REV_MAP[self._prod_rev] if self._prod_rev in PRODUCT_REV_MAP else "NA"
+
+    @property
+    def product_id(self) -> str | None:
+        return PRODUCT_ID_MAP[self._prod_id] if self._prod_id in PRODUCT_ID_MAP else "NA"
 
     @property
     def name(self) -> str:
@@ -119,7 +168,9 @@ class IrdaReq(LcsReq):
                 na = f" {self._name}" if self._name is not None else ""
                 no = f" #{self._number}" if self._number is not None else ""
                 yr = f" 20{self._prod_year}" if self._prod_year else ""
-                return f"{trav} {eng}{na}{no}{yr} Status: {self.status} ({hex(self._status)}) ({self.packet})"
+                ty = f" Type: {self.product_id}"
+                ft = f" Travel: {self._odometer} ft" if self._odometer is not None else ""
+                return f"{trav} {eng}{na}{no}{yr}{ty}{ft} Status: {self.status} ({hex(self._status)}) ({self.packet})"
             elif self.action == IrdaAction.SEQUENCE:
                 return f"Sequence: {self.sequence} ({self.packet})"
             elif self.action == IrdaAction.RECORD:
