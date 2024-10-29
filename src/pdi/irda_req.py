@@ -170,7 +170,7 @@ class IrdaReq(LcsReq):
                 yr = f" 20{self._prod_year}" if self._prod_year else ""
                 ty = f" Type: {self.product_id}"
                 ft = f" Travel: {self._odometer} ft" if self._odometer is not None else ""
-                return f"{trav} {eng}{na}{no}{yr}{ty}{ft} Status: {self.status} ({hex(self._status)}) ({self.packet})"
+                return f"{trav} {eng}{na}{no}{yr}{ty}{ft} Status: {self.status} ({self.packet})"
             elif self.action == IrdaAction.SEQUENCE:
                 return f"Sequence: {self.sequence} ({self.packet})"
             elif self.action == IrdaAction.RECORD:
