@@ -158,8 +158,10 @@ class IrdaReq(LcsReq):
             return super().payload
         if self.pdi_command != PdiCommand.IRDA_GET:
             if self.action == IrdaAction.CONFIG:
-                rl = f" When Engine ID (R -> L): {self._loco_rl}" if self._loco_rl else ""
-                lr = f" When Engine ID (L -> R): {self._loco_lr}" if self._loco_lr else ""
+                rle = f"{self._loco_rl}" if self._loco_rl and self._loco_rl != 255 else "Any"
+                lre = f"{self._loco_lr}" if self._loco_lr and self._loco_lr != 255 else "Any"
+                rl = f" When Engine ID (R -> L): {rle}"
+                lr = f" When Engine ID (L -> R): {lre}"
                 return f"Sequence: {self.sequence}{rl}{lr} Debug: {self.debug} ({self.packet})"
             elif self.action == IrdaAction.DATA:
                 trav = "R -> L" if self._dir == 0 else "L -> R"
