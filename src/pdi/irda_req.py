@@ -112,7 +112,7 @@ class IrdaReq(LcsReq):
                 self._tsdb_left = self._data[62] if data_len > 62 else None
                 self._tsdb_right = self._data[63] if data_len > 63 else None
                 self._max_speed = self._data[64] if data_len > 64 else None
-                self._odometer = int.from_bytes(self._data[65:69], byteorder="little") / 4.0 if data_len > 68 else None
+                self._odometer = int.from_bytes(self._data[65:68], byteorder="little") if data_len > 68 else None
             elif self._action == IrdaAction.SEQUENCE:
                 self._sequence = self._data[3] if data_len > 3 else None
             elif self._action == IrdaAction.RECORD:
@@ -175,8 +175,11 @@ class IrdaReq(LcsReq):
                 no = f" #{self._number}" if self._number is not None else ""
                 yr = f" 20{self._prod_year}" if self._prod_year else ""
                 ty = f" Type: {self.product_id}"
-                ft = f" Travel: {self._odometer} ft" if self._odometer is not None else ""
-                return f"{trav} {eng}{na}{no}{yr}{ty}{ft} Status: {self.status} ({self.packet})"
+                ft = f" Od: {self._odometer:,} ft" if self._odometer is not None else ""
+                fl = f" Fuel: {(100. * self._fuel / 255):.2f}%" if self._fuel is not None else ""
+                wl = f" Water: {(100 * self._water / 255):.2f}%" if self._water is not None else ""
+
+                return f"{trav} {eng}{na}{no}{fl}{wl}{yr}{ty}{ft} Status: {self.status} ({self.packet})"
             elif self.action == IrdaAction.SEQUENCE:
                 return f"Sequence: {self.sequence} ({self.packet})"
             elif self.action == IrdaAction.RECORD:

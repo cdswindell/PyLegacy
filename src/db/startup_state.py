@@ -48,7 +48,7 @@ class StartupState(Thread):
         self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_ROUTE))
         self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_SWITCH))
         total_time = 0
-        while total_time < 60:  # only listen for a minute
+        while total_time < 120:  # only listen for 2 minutes
             time.sleep(0.1)
             total_time += 0.1
         self.listener.unsubscribe_any(self)

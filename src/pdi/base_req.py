@@ -224,13 +224,15 @@ class BaseReq(PdiReq):
             sp = f" SS: {self._speed_step}" if self._speed_step is not None else ""
             sl = f"/{self._speed_limit}" if self._speed_limit is not None else ""
             ms = f"/{self._max_speed}" if self._max_speed is not None else ""
+            fl = f" Fuel: {(100. * self._fuel_level/255):.2f}%" if self._fuel_level is not None else ""
+            wl = f" Water: {(100 * self._water_level/255):.2f}%" if self._water_level is not None else ""
             rl = f" RL: {self._run_level}" if self._run_level is not None else ""
             el = f" EB: {self._labor_bias}" if self._labor_bias is not None else ""
             sm = f" Smoke: {self._smoke_level}" if self._smoke_level is not None else ""
             m = f" Momentum: {self._momentum} ({self._momentum_tmcc})" if self._momentum is not None else ""
             b = f" Brake: {self._train_brake}" if self._train_brake is not None else ""
             return (
-                f"# {tmcc}{na}{no}{sp}{sl}{ms}{rl}{el}{sm}{m}{b} "
+                f"# {tmcc}{na}{no}{sp}{sl}{ms}{fl}{wl}{rl}{el}{sm}{m}{b} "
                 f"flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl} "
                 f"({self.packet})"
             )
