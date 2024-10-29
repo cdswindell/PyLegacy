@@ -140,6 +140,10 @@ class IrdaReq(LcsReq):
     def product_id(self) -> str | None:
         return PRODUCT_ID_MAP[self._prod_id] if self._prod_id in PRODUCT_ID_MAP else "NA"
 
+    @staticmethod
+    def tsdb(code: int) -> str | None:
+        return TSDB_MAP[code] if code in TSDB_MAP else "<Blank>"
+
     @property
     def name(self) -> str:
         return self._name
