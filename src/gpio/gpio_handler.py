@@ -1,7 +1,7 @@
 import math
 import time
 from threading import Thread
-from typing import Tuple, Callable, Dict
+from typing import Tuple, Callable, Dict, TypeVar
 
 from gpiozero import Button, LED, MCP3008, Device
 
@@ -18,6 +18,8 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef, TMCC2EngineCo
 DEFAULT_BOUNCE_TIME: float = 0.05  # button debounce threshold
 DEFAULT_VARIANCE: float = 0.001  # pot difference variance
 
+T = TypeVar("T", bound=CommandReq)
+
 
 class PotHandler(Thread):
     def __init__(
@@ -32,6 +34,7 @@ class PotHandler(Thread):
         port: int | str = DEFAULT_PORT,
         server: str = None,
         scale: Dict[int, int] = None,
+        cmds: Dict[int, T] = None,
         start: bool = True,
     ) -> None:
         super().__init__(daemon=True)
@@ -51,6 +54,7 @@ class PotHandler(Thread):
         self._delay = delay
         self._running = True
         self._scale = scale
+        self._command_map = cmds
         if start is True:
             self.start()
 
@@ -71,8 +75,15 @@ class PotHandler(Thread):
             if self._last_value == 0 and value == 0:
                 continue
             self._last_value = value
-            self._command.data = value
-            self._action(new_data=value)
+            if self._command_map and value in self._command_map:
+                cmd = self._command_map[value]
+                if cmd.is_data is True:
+                    cmd.as_action()(new_data=value)
+                else:
+                    cmd.as_action()()
+            elif self._command:
+                self._command.data = value
+                self._action(new_data=value)
             time.sleep(self._delay)
 
     def reset(self) -> None:
