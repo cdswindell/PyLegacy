@@ -43,6 +43,10 @@ class ComponentStateStore:
         return cls._instance is not None
 
     @classmethod
+    def get_state(cls, scope: CommandScope, address: int) -> T | None:
+        return cls._instance.query(scope, address) if cls._instance else None
+
+    @classmethod
     def reset(cls) -> None:
         with cls._lock:
             if cls._instance:

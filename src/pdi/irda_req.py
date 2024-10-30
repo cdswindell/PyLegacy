@@ -2,22 +2,23 @@ from __future__ import annotations
 
 from typing import Dict
 
-from src.pdi.constants import PdiCommand, IrdaAction, PDI_SOP, PDI_EOP
-from src.pdi.lcs_req import LcsReq
-from src.protocol.constants import CommandScope
+from .constants import PdiCommand, IrdaAction, PDI_SOP, PDI_EOP
+from .lcs_req import LcsReq
+from ..protocol.constants import CommandScope, Mixins
 
-SEQUENCE_MAP: Dict[int, str] = {
-    0: "None",
-    1: "Crossing gate signal/None",
-    2: "None/Crossing gate signal",
-    3: "Bell/None",
-    4: "None/Bell",
-    5: "Journey Begin/Journey End",
-    6: "Journey End/Journey Begin",
-    7: "Slow Speed/Normal Speed",
-    8: "Normal Speed/Slow Speed",
-    9: "Recording",
-}
+
+class IrdaSequence(Mixins):
+    NONE = 0
+    CROSSING_GATE_NONE = 1
+    NONE_CROSSING_GATE = 2
+    BELL_NONE = 3
+    NONE_BELL = 4
+    JOURNEY_BEGIN_JOURNEY_END = 5
+    JOURNEY_END_JOURNEY_BEGIN = 6
+    SLOW_SPEED_NORMAL_SPEED = 7
+    NORMAL_SPEED_SLOW_SPEED = 8
+    RECORDING = 9
+
 
 STATUS_MAP: Dict[int, str] = {
     0: "No Recording",
@@ -74,10 +75,10 @@ class IrdaReq(LcsReq):
         data: bytes | int,
         pdi_command: PdiCommand = PdiCommand.IRDA_GET,
         action: IrdaAction = IrdaAction.CONFIG,
-        scope: CommandScope = CommandScope.SYSTEM,
+        scope: CommandScope = CommandScope.IRDA,
         ident: int | None = None,
         error: bool = False,
-        sequence: int | None = None,
+        sequence: IrdaSequence | int = None,
         debug: int = 0,
         loco_rl: int = 255,
         loco_lr: int = 255,
@@ -94,7 +95,7 @@ class IrdaReq(LcsReq):
                 self._scope = CommandScope.ACC
             elif self._action == IrdaAction.CONFIG:
                 self._debug = self._data[4] if data_len > 4 else None
-                self._sequence = self._data[7] if data_len > 7 else None
+                self._sequence = IrdaSequence.by_value(self._data[7], True) if data_len > 7 else None
                 self._loco_rl = self._data[8] if data_len > 8 else None
                 self._loco_lr = self._data[9] if data_len > 9 else None
             elif self._action == IrdaAction.DATA:
@@ -119,13 +120,17 @@ class IrdaReq(LcsReq):
                 self._max_speed = self._data[64] if data_len > 64 else None
                 self._odometer = int.from_bytes(self._data[65:68], byteorder="little") if data_len > 68 else None
             elif self._action == IrdaAction.SEQUENCE:
-                self._sequence = self._data[3] if data_len > 3 else None
+                self._sequence = IrdaSequence.by_value(self._data[3], True) if data_len > 3 else None
             elif self._action == IrdaAction.RECORD:
                 self._status = self._data[3] if data_len > 3 else None
         else:
-            self._scope = scope if scope is not None else CommandScope.System
+            self._scope = scope if scope is not None else CommandScope.IRDA
             self._debug = debug
-            self._sequence = sequence
+            self._sequence = (
+                sequence
+                if sequence is None or isinstance(sequence, IrdaSequence)
+                else IrdaSequence.by_value(sequence, True)
+            )
             self._loco_rl = loco_rl
             self._loco_lr = loco_lr
 
@@ -134,12 +139,24 @@ class IrdaReq(LcsReq):
         return self._debug
 
     @property
-    def sequence(self) -> str | None:
-        return SEQUENCE_MAP[self._sequence] if self._sequence in SEQUENCE_MAP else "NA"
+    def is_right_to_left(self) -> bool:
+        return True if self._dir == 0 else False
+
+    @property
+    def is_left_to_right(self) -> bool:
+        return True if self._dir == 1 else False
+
+    @property
+    def sequence(self) -> IrdaSequence:
+        return self._sequence
+
+    @property
+    def sequence_str(self) -> str | None:
+        return self.sequence.name.title() if self._sequence else "NA"
 
     @property
     def sequence_id(self) -> int:
-        return self._sequence
+        return int(self.sequence.value) if self._sequence else None
 
     @property
     def loco_rl(self) -> int:
@@ -148,6 +165,14 @@ class IrdaReq(LcsReq):
     @property
     def loco_lr(self) -> int:
         return self._loco_lr
+
+    @property
+    def train_id(self) -> int:
+        return self._train_id
+
+    @property
+    def engine_id(self) -> int:
+        return self._engine_id
 
     @property
     def status(self) -> str | None:
@@ -183,13 +208,13 @@ class IrdaReq(LcsReq):
                 lre = f"{self._loco_lr}" if self._loco_lr and self._loco_lr != 255 else "Any"
                 rl = f" When Engine ID (R -> L): {rle}"
                 lr = f" When Engine ID (L -> R): {lre}"
-                return f"Sequence: {self.sequence}{rl}{lr} Debug: {self.debug} ({self.packet})"
+                return f"Sequence: {self.sequence_str}{rl}{lr} Debug: {self.debug} ({self.packet})"
             elif self.action == IrdaAction.DATA:
                 trav = "R -> L" if self._dir == 0 else "L -> R"
-                if self._train_id:
-                    eng = f"Train: {self._train_id}"
-                elif self._engine_id:
-                    eng = f"Engine: {self._engine_id}"
+                if self.train_id:
+                    eng = f"Train: {self.train_id}"
+                elif self.engine_id:
+                    eng = f"Engine: {self.engine_id}"
                 else:
                     eng = "<Unknown>"
                 na = f" {self._name}" if self._name is not None else ""
@@ -201,7 +226,7 @@ class IrdaReq(LcsReq):
                 wl = f" Water: {(100 * self._water / 255):.2f}%" if self._water is not None else ""
                 return f"{trav} {eng}{na}{no}{fl}{wl}{yr}{ty}{ft} Status: {self.status} ({self.packet})"
             elif self.action == IrdaAction.SEQUENCE:
-                return f"Sequence: {self.sequence} ({self.packet})"
+                return f"Sequence: {self.sequence_str} ({self.packet})"
             elif self.action == IrdaAction.RECORD:
                 return f"Status: {self.status} ({self.packet})"
         return super().payload
@@ -213,7 +238,7 @@ class IrdaReq(LcsReq):
         byte_str += self.action.as_bytes
         bs_len = len(byte_str)
         if self._action == IrdaAction.CONFIG:
-            if self.pdi_command != PdiCommand.ASC2_GET:
+            if self.pdi_command == PdiCommand.IRDA_RX:
                 debug = self.debug if self.debug is not None else 0
                 byte_str += self.tmcc_id.to_bytes(1, byteorder="big")  # allows board to be renumbered
                 byte_str += debug.to_bytes(1, byteorder="big")
@@ -221,6 +246,7 @@ class IrdaReq(LcsReq):
                 byte_str += self.sequence_id.to_bytes(1, byteorder="big")
                 byte_str += self.loco_rl.to_bytes(1, byteorder="big")
                 byte_str += self.loco_lr.to_bytes(1, byteorder="big")
+                print(byte_str.hex(":"))
         if len(byte_str) > bs_len:
             byte_str, checksum = self._calculate_checksum(byte_str)
             byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str

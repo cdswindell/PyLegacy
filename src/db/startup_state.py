@@ -16,6 +16,7 @@ class StartupState(Thread):
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup State Sniffer")
         self.listener = listener
         self.state_store = state_store
+        self._processed_configs = set()
         self.start()
 
     def __call__(self, cmd: PdiReq) -> None:
@@ -30,13 +31,21 @@ class StartupState(Thread):
                 rev_link = cmd.reverse_link if cmd.forward_link is not None else 0
                 if 0 < rev_link < 100:
                     self.listener.enqueue_command(BaseReq(rev_link, cmd.pdi_command))
-            elif cmd.action is not None and cmd.action.is_config:
+            elif cmd.action and cmd.action.is_config and self._config_key(cmd) not in self._processed_configs:
                 # register the device; registration returns a list of pdi commands
                 # to send to get device state
                 state_requests = self.state_store.register_pdi_device(cmd)
+                self._processed_configs.add(self._config_key(cmd))
                 if state_requests:
                     for state_request in state_requests:
                         self.listener.enqueue_command(state_request)
+
+    @staticmethod
+    def _config_key(cmd: PdiReq) -> bytes:
+        byte_str = cmd.pdi_command.as_bytes
+        byte_str += cmd.tmcc_id.to_bytes(1, byteorder="big")
+        byte_str += cmd.action.as_bytes
+        return byte_str
 
     def run(self) -> None:
         self.listener.subscribe_any(self)

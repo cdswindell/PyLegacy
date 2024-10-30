@@ -137,7 +137,11 @@ class IrdaDeviceConfig(PdiDeviceConfig):
 
     @property
     def state_requests(self) -> List[T]:
-        return [IrdaReq(self.tmcc_id, action=IrdaAction.INFO, scope=CommandScope.ACC)]
+        cmds = [
+            IrdaReq(self.tmcc_id, action=IrdaAction.INFO, scope=CommandScope.ACC),
+            IrdaReq(self.tmcc_id, action=IrdaAction.CONFIG),
+        ]
+        return cmds
 
 
 A = TypeVar("A", bound=PdiAction)

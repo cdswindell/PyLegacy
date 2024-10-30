@@ -7,19 +7,20 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Tuple, TypeVar, Set
 
+from ..comm.comm_buffer import CommBuffer
+from ..pdi.asc2_req import Asc2Req
 from ..pdi.base_req import BaseReq
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Asc2Action, PdiCommand, Bpc2Action, IrdaAction
-from ..pdi.irda_req import IrdaReq, SEQUENCE_MAP
+from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..pdi.pdi_req import PdiReq
-from ..pdi.asc2_req import Asc2Req
 from ..pdi.stm2_req import Stm2Req
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS, CommandSyntax
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2_COMMAND_TO_ALIAS_MAP
 
 C = TypeVar("C", bound=CommandDefEnum)
@@ -618,7 +619,7 @@ class IrdaState(LcsState):
         if scope != CommandScope.IRDA:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
-        self._sequence: int | None = None
+        self._sequence: IrdaSequence | None = None
         self._loco_rl: int | None = 255
         self._loco_lr: int | None = 255
 
@@ -627,20 +628,51 @@ class IrdaState(LcsState):
         lre = f"{self._loco_lr}" if self._loco_lr and self._loco_lr != 255 else "Any"
         rl = f" When Engine ID (R -> L): {rle}"
         lr = f" When Engine ID (L -> R): {lre}"
-        return f"Sensor Track {self.address}: Sequence: {self.sequence}{rl}{lr}"
+        return f"Sensor Track {self.address}: Sequence: {self.sequence_str}{rl}{lr}"
 
     def update(self, command: P) -> None:
+        from .component_state_store import ComponentStateStore
+
         if command:
             super().update(command)
-            if command.pdi_command != PdiCommand.IRDA_RX:
+            if command.pdi_command == PdiCommand.IRDA_RX:
                 if command.action == IrdaAction.CONFIG:
-                    self._sequence = command.sequence_id
+                    self._sequence = command.sequence
                     self._loco_rl = command.loco_rl
                     self._loco_lr = command.loco_lr
                 elif command.action == IrdaAction.SEQUENCE:
-                    self._sequence = command.sequence_id
-                elif command.action == IrdaAction.DATA:
-                    print(command)
+                    self._sequence = command.sequence
+                elif command.action == IrdaAction.DATA and CommBuffer.is_server:
+                    # change train speed, based on direction of travel
+                    if self.sequence in [IrdaSequence.SLOW_SPEED_NORMAL_SPEED, IrdaSequence.NORMAL_SPEED_SLOW_SPEED]:
+                        rr_speed = None
+                        if command.is_right_to_left:
+                            rr_speed = (
+                                "SPEED_SLOW"
+                                if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED
+                                else "SPEED_NORMAL"
+                            )
+                        elif command.is_left_to_right:
+                            rr_speed = (
+                                "SPEED_NORMAL"
+                                if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED
+                                else "SPEED_SLOW"
+                            )
+                        if rr_speed:
+                            address = None
+                            scope = CommandScope.ENGINE
+                            if command.train_id:
+                                address = command.train_id
+                                scope = CommandScope.TRAIN
+                            elif command.engine_id:
+                                address = command.engine_id
+                            state = ComponentStateStore.get_state(scope, address)
+                            if state:
+                                if state.is_tmcc:
+                                    cdef = TMCC1EngineCommandDef(rr_speed)
+                                else:
+                                    cdef = TMCC2EngineCommandDef(rr_speed)
+                                CommandReq.send_request(cdef, address, scope=scope)
             self.changed.set()
 
     @property
@@ -648,8 +680,12 @@ class IrdaState(LcsState):
         return self._sequence is not None
 
     @property
-    def sequence(self) -> str | None:
-        return SEQUENCE_MAP[self._sequence] if self._sequence in SEQUENCE_MAP else "NA"
+    def sequence(self) -> IrdaSequence:
+        return self._sequence
+
+    @property
+    def sequence_str(self) -> str | None:
+        return self.sequence.name.title() if self.sequence else "NA"
 
     def as_bytes(self) -> bytes:
         if self.is_known:
