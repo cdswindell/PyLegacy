@@ -370,6 +370,7 @@ class Stm2Action(PdiAction):
 
 ALL_FIRMWARE = {
     Asc2Action.FIRMWARE,
+    Amc2Action.FIRMWARE,
     Bpc2Action.FIRMWARE,
     IrdaAction.FIRMWARE,
     Ser2Action.FIRMWARE,
@@ -380,6 +381,7 @@ ALL_FIRMWARE = {
 
 ALL_STATUS = {
     Asc2Action.STATUS,
+    Amc2Action.STATUS,
     Bpc2Action.STATUS,
     IrdaAction.STATUS,
     Ser2Action.STATUS,
@@ -390,6 +392,7 @@ ALL_STATUS = {
 
 ALL_CONFIG = {
     Asc2Action.CONFIG,
+    Amc2Action.CONFIG,
     Bpc2Action.CONFIG,
     IrdaAction.CONFIG,
     Ser2Action.CONFIG,
@@ -400,6 +403,7 @@ ALL_CONFIG = {
 
 ALL_INFO = {
     Asc2Action.INFO,
+    Amc2Action.INFO,
     Bpc2Action.INFO,
     IrdaAction.INFO,
     Ser2Action.INFO,
@@ -410,6 +414,7 @@ ALL_INFO = {
 
 ALL_RESET = {
     Asc2Action.RESET,
+    Amc2Action.RESET,
     Bpc2Action.RESET,
     IrdaAction.RESET,
     Ser2Action.RESET,
@@ -420,6 +425,7 @@ ALL_RESET = {
 
 ALL_IDENTIFY = {
     Asc2Action.IDENTIFY,
+    Amc2Action.IDENTIFY,
     Bpc2Action.IDENTIFY,
     IrdaAction.IDENTIFY,
     Ser2Action.IDENTIFY,

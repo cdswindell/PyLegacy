@@ -121,6 +121,11 @@ class CommandScope(Mixins, Enum):
     ROUTE = 4
     ACC = 5
     SYSTEM = 6
+    ASC2 = 7
+    AMC2 = 8
+    BPC2 = 9
+    IRDA = 10
+    STM2 = 11
 
     @property
     def friendly(self) -> str:

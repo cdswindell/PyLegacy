@@ -385,7 +385,13 @@ class TestComponentState(TestBase):
 
         # including CommandScopes other than the 4 above
         for key in CommandScope:
-            if key in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+            if key in [
+                CommandScope.ENGINE,
+                CommandScope.TRAIN,
+                CommandScope.SWITCH,
+                CommandScope.ACC,
+                CommandScope.IRDA,
+            ]:
                 continue
             with pytest.raises(KeyError, match=f"Invalid scope key: {key}"):
                 _ = ss_dict[key]
@@ -399,7 +405,13 @@ class TestComponentState(TestBase):
         ComponentStateDict keys themselves are ints between 1 and 99 inclusive.
         """
         # test that all four types of ComponentStateDicts are built
-        for scope in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+        for scope in [
+            CommandScope.ENGINE,
+            CommandScope.TRAIN,
+            CommandScope.SWITCH,
+            CommandScope.ACC,
+            CommandScope.IRDA,
+        ]:
             cs_dict = ComponentStateDict(scope)
             assert isinstance(cs_dict, ComponentStateDict)
             assert cs_dict.scope == scope
@@ -410,7 +422,13 @@ class TestComponentState(TestBase):
 
         # verify we cannot construct a dict from an invalid scope
         for key in CommandScope:
-            if key in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+            if key in [
+                CommandScope.ENGINE,
+                CommandScope.TRAIN,
+                CommandScope.SWITCH,
+                CommandScope.ACC,
+                CommandScope.IRDA,
+            ]:
                 continue
             with pytest.raises(ValueError, match=f"Invalid scope: {key}"):
                 ComponentStateDict(key)

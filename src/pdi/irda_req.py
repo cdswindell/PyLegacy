@@ -77,11 +77,15 @@ class IrdaReq(LcsReq):
         scope: CommandScope = CommandScope.SYSTEM,
         ident: int | None = None,
         error: bool = False,
+        sequence: int | None = None,
+        loco_rl: int = 255,
+        loco_lr: int = 255,
     ) -> None:
         self._debug = self._sequence = self._loco_rl = self._loco_lr = None
         self._valid1 = self._valid2 = self._dir = self._engine_id = self._train_id = self._status = None
         self._fuel = self._water = self._burn = self._fwb_mask = None
         super().__init__(data, pdi_command, action, ident, error)
+        self._scope = CommandScope.IRDA
         if isinstance(data, bytes):
             self._action = IrdaAction(self._action_byte)
             data_len = len(self._data)
@@ -119,6 +123,9 @@ class IrdaReq(LcsReq):
                 self._status = self._data[3] if data_len > 3 else None
         else:
             self._scope = scope if scope is not None else CommandScope.System
+            self._sequence = sequence
+            self._loco_rl = loco_rl
+            self._loco_lr = loco_lr
 
     @property
     def debug(self) -> int | None:
@@ -127,6 +134,18 @@ class IrdaReq(LcsReq):
     @property
     def sequence(self) -> str | None:
         return SEQUENCE_MAP[self._sequence] if self._sequence in SEQUENCE_MAP else "NA"
+
+    @property
+    def sequence_id(self) -> int:
+        return self._sequence
+
+    @property
+    def loco_rl(self) -> int:
+        return self._loco_rl
+
+    @property
+    def loco_lr(self) -> int:
+        return self._loco_lr
 
     @property
     def status(self) -> str | None:

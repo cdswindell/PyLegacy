@@ -9,8 +9,8 @@ from typing import Tuple, TypeVar, Set
 
 from ..pdi.base_req import BaseReq
 from ..pdi.bpc2_req import Bpc2Req
-from ..pdi.constants import Asc2Action, PdiCommand, Bpc2Action
-from ..pdi.irda_req import IrdaReq
+from ..pdi.constants import Asc2Action, PdiCommand, Bpc2Action, IrdaAction
+from ..pdi.irda_req import IrdaReq, SEQUENCE_MAP
 from ..pdi.pdi_req import PdiReq
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.stm2_req import Stm2Req
@@ -193,6 +193,14 @@ class ComponentState(ABC):
         """
         ...
 
+    @property
+    @abc.abstractmethod
+    def is_lcs(self) -> bool:
+        """
+        Returns True if component is an LCS device, False otherwise.
+        """
+        ...
+
     @abc.abstractmethod
     def as_bytes(self) -> bytes:
         """
@@ -205,7 +213,45 @@ class ComponentState(ABC):
         ...
 
 
-class SwitchState(ComponentState):
+class TmccState(ComponentState, ABC):
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, scope: CommandScope = None) -> None:
+        super().__init__(scope)
+
+    @property
+    def is_tmcc(self) -> bool:
+        return True
+
+    @property
+    def is_legacy(self) -> bool:
+        return False
+
+    @property
+    def is_lcs(self) -> bool:
+        return True
+
+
+class LcsState(ComponentState, ABC):
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, scope: CommandScope = None) -> None:
+        super().__init__(scope)
+
+    @property
+    def is_tmcc(self) -> bool:
+        return False
+
+    @property
+    def is_legacy(self) -> bool:
+        return False
+
+    @property
+    def is_lcs(self) -> bool:
+        return True
+
+
+class SwitchState(TmccState):
     """
     Maintain the perceived state of a Switch
     """
@@ -271,7 +317,7 @@ class SwitchState(ComponentState):
             return bytes()
 
 
-class AccessoryState(ComponentState):
+class AccessoryState(TmccState):
     def __init__(self, scope: CommandScope = CommandScope.ACC) -> None:
         if scope != CommandScope.ACC:
             raise ValueError(f"Invalid scope: {scope}")
@@ -551,6 +597,10 @@ class EngineState(ComponentState):
     def is_legacy(self) -> bool:
         return self._is_legacy is True
 
+    @property
+    def is_lcs(self) -> bool:
+        return False
+
 
 class TrainState(EngineState):
     def __init__(self, scope: CommandScope = CommandScope.TRAIN) -> None:
@@ -559,11 +609,68 @@ class TrainState(EngineState):
         super().__init__(scope)
 
 
+class IrdaState(LcsState):
+    """
+    Maintain the state of a Sensor Track (Irda)
+    """
+
+    def __init__(self, scope: CommandScope = CommandScope.IRDA) -> None:
+        if scope != CommandScope.IRDA:
+            raise ValueError(f"Invalid scope: {scope}")
+        super().__init__(scope)
+        self._sequence: int | None = None
+        self._loco_rl: int | None = 255
+        self._loco_lr: int | None = 255
+
+    def __repr__(self) -> str:
+        rle = f"{self._loco_rl}" if self._loco_rl and self._loco_rl != 255 else "Any"
+        lre = f"{self._loco_lr}" if self._loco_lr and self._loco_lr != 255 else "Any"
+        rl = f" When Engine ID (R -> L): {rle}"
+        lr = f" When Engine ID (L -> R): {lre}"
+        return f"Sensor Track {self.address}: Sequence: {self.sequence}{rl}{lr}"
+
+    def update(self, command: P) -> None:
+        if command:
+            super().update(command)
+            if command.pdi_command != PdiCommand.IRDA_RX:
+                if command.action == IrdaAction.CONFIG:
+                    self._sequence = command.sequence_id
+                    self._loco_rl = command.loco_rl
+                    self._loco_lr = command.loco_lr
+                elif command.action == IrdaAction.SEQUENCE:
+                    self._sequence = command.sequence_id
+                elif command.action == IrdaAction.DATA:
+                    print(command)
+            self.changed.set()
+
+    @property
+    def is_known(self) -> bool:
+        return self._sequence is not None
+
+    @property
+    def sequence(self) -> str | None:
+        return SEQUENCE_MAP[self._sequence] if self._sequence in SEQUENCE_MAP else "NA"
+
+    def as_bytes(self) -> bytes:
+        if self.is_known:
+            return IrdaReq(
+                self.address,
+                PdiCommand.IRDA_RX,
+                IrdaAction.CONFIG,
+                sequence=self._sequence,
+                loco_rl=self._loco_rl,
+                loco_lr=self._loco_lr,
+            ).as_bytes
+        else:
+            return bytes()
+
+
 SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
     CommandScope.SWITCH: SwitchState,
     CommandScope.ACC: AccessoryState,
     CommandScope.ENGINE: EngineState,
     CommandScope.TRAIN: TrainState,
+    CommandScope.IRDA: IrdaState,
 }
 
 

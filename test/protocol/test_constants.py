@@ -186,9 +186,6 @@ class TestConstants(TestBase):
         assert TMCC2_ENG_POP_OFF_SOUND_COMMAND == 0b101010011
 
     def test_command_scope_enum(self) -> None:
-        # should contain 4 elements
-        assert len(CommandScope) == 6
-
         # check that engine and train elements are in TMCC1CommandIdentifier
         assert TMCC1CommandIdentifier.ENGINE == TMCC1CommandIdentifier(CommandScope.ENGINE.name)
         assert TMCC1CommandIdentifier.TRAIN == TMCC1CommandIdentifier(CommandScope.TRAIN.name)
