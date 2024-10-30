@@ -92,7 +92,7 @@ class PyTrain:
         # register listeners
         self._state_store: ComponentStateStore = ComponentStateStore(listeners=tuple(listeners))
         if self._args.echo:
-            self._handle_echo()
+            self.enable_echo()
         if self._args.no_listeners is True:
             print("Ignoring events...")
         else:
@@ -101,6 +101,7 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.TRAIN)
             self._state_store.listen_for(CommandScope.SWITCH)
             self._state_store.listen_for(CommandScope.ACC)
+            self._state_store.listen_for(CommandScope.IRDA)
 
         if self._pdi_buffer is not None:
             print(f"Determining initial system state from Lionel Base at {self._base_addr}:{self._base_port}...")
@@ -251,20 +252,26 @@ class PyTrain:
             ui_parts = ["echo"]
         if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == "on"):
             if self._echo is False:
-                self._tmcc_listener.listen_for(self, BROADCAST_TOPIC)
-                print("TMCC command echoing ENABLED..")
-                if self._pdi_buffer:
-                    self._pdi_buffer.listen_for(self, BROADCAST_TOPIC)
-                    print("PDI command echoing ENABLED")
-            self._echo = True
+                self.enable_echo()
         else:
             if self._echo is True:
-                self._tmcc_listener.unsubscribe(self, BROADCAST_TOPIC)
-                print("TMCC command echoing DISABLED...")
-                if self._pdi_buffer:
-                    self._pdi_buffer.unsubscribe(self, BROADCAST_TOPIC)
-                    print("PDI command echoing DISABLED")
-            self._echo = False
+                self.disable_echo()
+
+    def disable_echo(self):
+        self._tmcc_listener.unsubscribe(self, BROADCAST_TOPIC)
+        print("TMCC command echoing DISABLED...")
+        if self._pdi_buffer:
+            self._pdi_buffer.unsubscribe(self, BROADCAST_TOPIC)
+            print("PDI command echoing DISABLED")
+        self._echo = False
+
+    def enable_echo(self):
+        self._tmcc_listener.listen_for(self, BROADCAST_TOPIC)
+        print("TMCC command echoing ENABLED..")
+        if self._pdi_buffer:
+            self._pdi_buffer.listen_for(self, BROADCAST_TOPIC)
+            print("PDI command echoing ENABLED")
+        self._echo = True
 
     def _do_pdi(self, param):
         param_len = len(param)
@@ -398,7 +405,7 @@ if __name__ == "__main__":
         parents=[parser, CliBase.cli_parser()],
     )
     parser.add_argument("-base", type=str, help="IP Address of Lionel Base 2/3")
-    parser.add_argument("-echo", action="store_true", help="Echo received TMCC commands to console")
+    parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
     parser.add_argument("-no_listeners", action="store_true", help="Do not listen for events")
     parser.add_argument("-no_ser2", action="store_true", help="Do not send or receive TMCC commands from an LCS SER2")
     parser.add_argument(

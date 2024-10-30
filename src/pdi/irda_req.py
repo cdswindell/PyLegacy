@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from src.pdi.constants import PdiCommand, IrdaAction
+from src.pdi.constants import PdiCommand, IrdaAction, PDI_SOP, PDI_EOP
 from src.pdi.lcs_req import LcsReq
 from src.protocol.constants import CommandScope
 
@@ -78,6 +78,7 @@ class IrdaReq(LcsReq):
         ident: int | None = None,
         error: bool = False,
         sequence: int | None = None,
+        debug: int = 0,
         loco_rl: int = 255,
         loco_lr: int = 255,
     ) -> None:
@@ -123,6 +124,7 @@ class IrdaReq(LcsReq):
                 self._status = self._data[3] if data_len > 3 else None
         else:
             self._scope = scope if scope is not None else CommandScope.System
+            self._debug = debug
             self._sequence = sequence
             self._loco_rl = loco_rl
             self._loco_lr = loco_lr
@@ -203,3 +205,27 @@ class IrdaReq(LcsReq):
             elif self.action == IrdaAction.RECORD:
                 return f"Status: {self.status} ({self.packet})"
         return super().payload
+
+    @property
+    def as_bytes(self) -> bytes:
+        byte_str = self.pdi_command.as_bytes
+        byte_str += self.tmcc_id.to_bytes(1, byteorder="big")
+        byte_str += self.action.as_bytes
+        bs_len = len(byte_str)
+        if self._action == IrdaAction.CONFIG:
+            if self.pdi_command != PdiCommand.ASC2_GET:
+                debug = self.debug if self.debug is not None else 0
+                byte_str += self.tmcc_id.to_bytes(1, byteorder="big")  # allows board to be renumbered
+                byte_str += debug.to_bytes(1, byteorder="big")
+                byte_str += (0x0000).to_bytes(2, byteorder="big")
+                byte_str += self.sequence_id.to_bytes(1, byteorder="big")
+                byte_str += self.loco_rl.to_bytes(1, byteorder="big")
+                byte_str += self.loco_lr.to_bytes(1, byteorder="big")
+        if len(byte_str) > bs_len:
+            byte_str, checksum = self._calculate_checksum(byte_str)
+            byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
+            byte_str += checksum
+            byte_str += PDI_EOP.to_bytes(1, byteorder="big")
+            return byte_str
+        # if byte_str wasn't modified, return the superclass
+        return super().as_bytes
