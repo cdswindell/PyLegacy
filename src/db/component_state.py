@@ -545,11 +545,11 @@ class EngineState(ComponentState):
 
             # handle momentum
             if command.command in MOMENTUM_SET:
-                if command.command in [TMCC1EngineCommandDef.LOW, TMCC2EngineCommandDef.LOW]:
+                if command.command in [TMCC1EngineCommandDef.MOMENTUM_LOW, TMCC2EngineCommandDef.MOMENTUM_LOW]:
                     self._momentum = 0
-                if command.command in [TMCC1EngineCommandDef.MEDIUM, TMCC2EngineCommandDef.MEDIUM]:
+                if command.command in [TMCC1EngineCommandDef.MOMENTUM_MEDIUM, TMCC2EngineCommandDef.MOMENTUM_MEDIUM]:
                     self._momentum = 3
-                if command.command in [TMCC1EngineCommandDef.HIGH, TMCC2EngineCommandDef.HIGH]:
+                if command.command in [TMCC1EngineCommandDef.MOMENTUM_HIGH, TMCC2EngineCommandDef.MOMENTUM_HIGH]:
                     self._momentum = 7
                 elif command.command == TMCC2EngineCommandDef.MOMENTUM:
                     self._momentum = command.data
