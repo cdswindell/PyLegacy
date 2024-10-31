@@ -2,6 +2,8 @@ from typing import Dict
 
 import sys
 
+from .param_constants import TMCC2MaskingControl
+
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
@@ -21,6 +23,7 @@ from ..tmcc2.param_constants import TMCC2LightingControl
 PARAMETER_ENUM_TO_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {
     TMCC2RailSoundsDialogControl: TMCC2ParameterIndex.DIALOG_TRIGGERS,
     TMCC2RailSoundsEffectsControl: TMCC2ParameterIndex.EFFECTS_TRIGGERS,
+    TMCC2MaskingControl: TMCC2ParameterIndex.MASKING_CONTROLS,
     TMCC2EffectsControl: TMCC2ParameterIndex.EFFECTS_CONTROLS,
     TMCC2LightingControl: TMCC2ParameterIndex.LIGHTING_CONTROLS,
 }
