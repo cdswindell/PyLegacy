@@ -205,6 +205,21 @@ class PyTrain:
                         return
                     ui_parser = args.command.command_parser()
                     ui_parser.remove_args(["baudrate", "port", "server"])
+                    # very hacky; should turn into a method to reduce complexity of this section
+                    # if the user entered "tr....", treat this as a train command
+                    # normally, this is done by adding the "-train" token after the tmcc_id but
+                    # before any subparsers
+                    if "train".startswith(ui_parts[0].strip().lower()) and len(ui_parts) > 2:
+                        has_train_arg = False
+                        for token in ui_parts[2:]:
+                            if token.startswith("-"):
+                                if "-train".startswith(token.lower()):
+                                    has_train_arg = True
+                                    break
+                            else:
+                                break  # we're into a subparser
+                        if has_train_arg is False:
+                            ui_parts.insert(2, "-train")
                     cli_cmd = args.command(ui_parser, ui_parts[1:], False)
                     if cli_cmd.command is None:
                         raise argparse.ArgumentError(None, f"'{ui}' is not a valid command")
@@ -365,8 +380,9 @@ class PyTrain:
             help="Issue engine/train effects commands",
         )
         group.add_argument(
-            "-engine", action="store_const", const=EngineCli, dest="command", help="Issue engine/train commands"
+            "-engine", action="store_const", const=EngineCli, dest="command", help="Issue engine commands"
         )
+        group.add_argument("-train", action="store_const", const=EngineCli, dest="command", help="Issue train commands")
         group.add_argument("-halt", action="store_const", const=HaltCli, dest="command", help="Emergency stop")
         group.add_argument(
             "-lighting",
