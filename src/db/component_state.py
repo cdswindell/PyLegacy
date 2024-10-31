@@ -582,6 +582,11 @@ class EngineState(ComponentState):
         ):
             if self._speed is None:
                 self._speed = command.speed
+            if (
+                command.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]
+                and command.momentum_tmcc is not None
+            ):
+                self._momentum = command.momentum_tmcc
         self.changed.set()
 
     def as_bytes(self) -> bytes:
