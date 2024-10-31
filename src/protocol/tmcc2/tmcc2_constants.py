@@ -331,7 +331,6 @@ class TMCC2EngineCommandDef(TMCC2Enum):
     REAR_FORWARD = TMCC2CommandDef(TMCC2_ASSIGN_REAR_FORWARD)
     REAR_REVERSE = TMCC2CommandDef(TMCC2_ASSIGN_REAR_REVERSE)
     CLEAR_CONSIST = TMCC2CommandDef(TMCC2_ASSIGN_CLEAR_CONSIST)
-    ASSIGN_TRAIN = TMCC2CommandDef(TMCC2_ASSIGN_TO_TRAIN, d_max=15)
 
 
 # map dereferenced commands to their aliases
