@@ -76,7 +76,7 @@ class PyTrain:
             else:
                 print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
             # listen for client connections
-            print(f"Listening for client broadcasts on port {self._args.server_port}...")
+            print(f"Listening for client requests on port {self._args.server_port}...")
             self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
             self._tmcc_listener = CommandListener.build(build_serial_reader=not self._no_ser2)
             listeners.append(self._tmcc_listener)

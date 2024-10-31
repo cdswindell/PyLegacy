@@ -57,4 +57,4 @@ class SequenceDef(TMCC2CommandDef):
 class SequenceCommandEnum(CommandDefEnum):
     SYSTEM = SequenceDef(0x00)
     ABSOLUTE_SPEED_SEQ = SequenceDef(0, d_max=199, cmd_class=SpeedReq)
-    GRADE_CROSSING_SEQ = SequenceDef(1, d_max=199, cmd_class=GradeCrossingReq)
+    GRADE_CROSSING_SEQ = SequenceDef(1, cmd_class=GradeCrossingReq)

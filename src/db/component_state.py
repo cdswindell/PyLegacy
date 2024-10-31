@@ -36,6 +36,16 @@ DIRECTIONS_SET = {
     TMCC2EngineCommandDef.REVERSE_DIRECTION,
 }
 
+MOMENTUM_SET = {
+    TMCC1EngineCommandDef.MOMENTUM_LOW,
+    TMCC1EngineCommandDef.MOMENTUM_MEDIUM,
+    TMCC1EngineCommandDef.MOMENTUM_HIGH,
+    TMCC2EngineCommandDef.MOMENTUM_LOW,
+    TMCC2EngineCommandDef.MOMENTUM_MEDIUM,
+    TMCC2EngineCommandDef.MOMENTUM_HIGH,
+    TMCC2EngineCommandDef.MOMENTUM,
+}
+
 SPEED_SET = {
     TMCC1EngineCommandDef.ABSOLUTE_SPEED,
     TMCC2EngineCommandDef.ABSOLUTE_SPEED,
@@ -477,28 +487,31 @@ class EngineState(ComponentState):
         self._start_stop: CommandDefEnum | None = None
         self._speed: int | None = None
         self._direction: CommandDefEnum | None = None
+        self._momentum: int | None = None
         self._is_legacy: bool = False  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
-        speed = direction = start_stop = name = num = ""
+        speed = direction = start_stop = name = num = mom = ""
         if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
             direction = " FWD"
         elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
             direction = " REV"
 
         if self._speed is not None:
-            speed = f" Speed {self._speed}"
+            speed = f" Speed: {self._speed}"
 
         if self._start_stop is not None:
             if self._start_stop in STARTUP_SET:
                 start_stop = " Started up"
             elif self._start_stop in SHUTDOWN_SET:
                 start_stop = " Shut down"
+        if self._momentum is not None:
+            mom = f" Momentum: {self._momentum}"
         if self.road_name is not None:
             name = f" {self.road_name}"
         if self.road_number is not None:
             num = f" #{self.road_number}"
-        return f"{self.scope.name} {self._address}{start_stop}{speed}{direction}{name}{num}"
+        return f"{self.scope.name} {self._address}{start_stop}{speed}{mom}{direction}{name}{num}"
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
@@ -529,6 +542,17 @@ class EngineState(ComponentState):
                 else:
                     self._speed = None
                     print(f"**************** What am I supposed to do with {speed}?")
+
+            # handle momentum
+            if command.command in MOMENTUM_SET:
+                if command.command in [TMCC1EngineCommandDef.LOW, TMCC2EngineCommandDef.LOW]:
+                    self._momentum = 0
+                if command.command in [TMCC1EngineCommandDef.MEDIUM, TMCC2EngineCommandDef.MEDIUM]:
+                    self._momentum = 3
+                if command.command in [TMCC1EngineCommandDef.HIGH, TMCC2EngineCommandDef.HIGH]:
+                    self._momentum = 7
+                elif command.command == TMCC2EngineCommandDef.MOMENTUM:
+                    self._momentum = command.data
 
             # handle startup/shutdown
             if command.command in STARTUP_SET:

@@ -208,6 +208,14 @@ class BaseReq(PdiReq):
         return self._speed_step
 
     @property
+    def momentum(self) -> int:
+        return self._momentum
+
+    @property
+    def momentum_tmcc(self) -> int:
+        return self._momentum_tmcc
+
+    @property
     def payload(self) -> str:
         f = hex(self.flags) if self.flags is not None else "NA"
         s = self.status if self.status is not None else "NA"
@@ -229,7 +237,7 @@ class BaseReq(PdiReq):
             rl = f" RL: {self._run_level}" if self._run_level is not None else ""
             el = f" EB: {self._labor_bias}" if self._labor_bias is not None else ""
             sm = f" Smoke: {self._smoke_level}" if self._smoke_level is not None else ""
-            m = f" Momentum: {self._momentum} ({self._momentum_tmcc})" if self._momentum is not None else ""
+            m = f" Momentum: {self.momentum} ({self.momentum_tmcc})" if self.momentum is not None else ""
             b = f" Brake: {self._train_brake}" if self._train_brake is not None else ""
             return (
                 f"# {tmcc}{na}{no}{sp}{sl}{ms}{fl}{wl}{rl}{el}{sm}{m}{b} "
