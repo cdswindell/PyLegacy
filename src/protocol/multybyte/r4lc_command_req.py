@@ -36,11 +36,11 @@ class R4LCCommandReq(MultiByteReq):
         ):
             index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
             try:
-                pi = TMCC2R4LCIndex(index)
+                TMCC2R4LCIndex(index)
             except ValueError:
                 raise ValueError(f"Invalid R4LC command: : {param.hex(':')}")
 
-            cmd_enum = TMCC2R4LCEnum.by_value(pi)
+            cmd_enum = TMCC2R4LCEnum.by_value(index)
             data = int(param[5])
             scope = CommandScope.ENGINE
             if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
