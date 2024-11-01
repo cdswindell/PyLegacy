@@ -472,6 +472,19 @@ class TMCC2LightingControl(TMCC2ParameterEnum):
 
 
 # R4LC Commands; modify Engine eeprom
+@unique
+class UnitAssignment(Mixins, IntEnum):
+    SINGLE_FORWARD = 0b000
+    SINGLE_REVERSE = 0b100
+    HEAD_FORWARD = 0b001
+    HEAD_REVERSE = 0b101
+    MIDDLE_FORWARD = 0b010
+    MIDDLE_REVERSE = 0b110
+    TAIL_FORWARD = 0b011
+    TAIL_REVERSE = 0b111
+
+
+# index values,
 TMCC2_SET_ENGINE_ADDRESS_INDEX: int = 0x40
 TMCC2_SET_ENGINE_STALL_INDEX: int = 0x41
 TMCC2_SET_TRAIN_ADDRESS_INDEX: int = 0x42
@@ -507,15 +520,15 @@ class TMCC2R4LCIndex(Mixins, IntEnum):
 # echo commands
 @unique
 class TMCC2R4LCEnum(TMCC2MultiByteEnum):
-    ENGINE_ADDRESS = MultiByteCommandDef(TMCC2_SET_ENGINE_ADDRESS_INDEX, d_max=99)
+    ENGINE_ADDRESS = MultiByteCommandDef(TMCC2_SET_ENGINE_ADDRESS_INDEX, d_min=1, d_max=99)
     ENGINE_STALL = MultiByteCommandDef(TMCC2_SET_ENGINE_STALL_INDEX)
     TRAIN_ADDRESS = MultiByteCommandDef(TMCC2_SET_TRAIN_ADDRESS_INDEX, d_max=99)
-    TRAIN_UNIT = MultiByteCommandDef(TMCC2_SET_TRAIN_UNIT_INDEX, d_max=255)
+    TRAIN_UNIT = MultiByteCommandDef(TMCC2_SET_TRAIN_UNIT_INDEX, d_max=7)
     MAX_SPEED = MultiByteCommandDef(TMCC2_SET_MAX_SPEED_INDEX, d_min=32, d_max=200)
-    DIRECTION = MultiByteCommandDef(TMCC2_SET_DIRECTION_INDEX)
-    FLAGS = MultiByteCommandDef(TMCC2_SET_FLAGS_INDEX)
-    CONTROL = MultiByteCommandDef(TMCC2_SET_CONTROL_INDEX)
-    ENGINE_TYPE = MultiByteCommandDef(TMCC2_SET_ENGINE_TYPE_INDEX)
-    SPEED_RESOLUTION = MultiByteCommandDef(TMCC2_SET_SPEED_RESOLUTION_INDEX)
+    DIRECTION = MultiByteCommandDef(TMCC2_SET_DIRECTION_INDEX, d_max=255)
+    FLAGS = MultiByteCommandDef(TMCC2_SET_FLAGS_INDEX, d_max=63)
+    CONTROL = MultiByteCommandDef(TMCC2_SET_CONTROL_INDEX, d_max=1)
+    ENGINE_TYPE = MultiByteCommandDef(TMCC2_SET_ENGINE_TYPE_INDEX, d_max=7)
+    SPEED_RESOLUTION = MultiByteCommandDef(TMCC2_SET_SPEED_RESOLUTION_INDEX, d_max=7)
     VARIABLE_RESOLUTION = MultiByteCommandDef(TMCC2_SET_VARIABLE_RESOLUTION_INDEX)
     INDIRECT = MultiByteCommandDef(TMCC2_SET_INDIRECT_INDEX)

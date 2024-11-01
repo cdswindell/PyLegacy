@@ -4,7 +4,7 @@ from __future__ import annotations
 import sys
 
 from .multibyte_command_req import MultiByteReq
-from .multibyte_constants import TMCC2R4LCIndex, TMCC2R4LCEnum
+from .multibyte_constants import TMCC2R4LCIndex, TMCC2R4LCEnum, UnitAssignment
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -57,6 +57,14 @@ class R4LCCommandReq(MultiByteReq):
         scope: CommandScope = None,
     ) -> None:
         super().__init__(command_def_enum, address, data, scope)
+
+    def __repr__(self) -> str:
+        if self.command == TMCC2R4LCEnum.TRAIN_UNIT:
+            data = UnitAssignment.by_value(self._data)
+            if data is not None:
+                data = data.name.title()
+                return f"[{self.scope.name} {self.address} {self.command_name} {data}(0x{self.as_bytes.hex()})]"
+        return super().__repr__()
 
     @property
     def index_byte(self) -> bytes:
