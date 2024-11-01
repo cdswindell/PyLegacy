@@ -63,8 +63,8 @@ class TMCC2ParameterIndex(Mixins, IntEnum):
 class MultiByteCommandDef(TMCC2CommandDef):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, command_bits: int) -> None:
-        super().__init__(command_bits)
+    def __init__(self, command_bits: int, d_min: int = 0, d_max: int = 0) -> None:
+        super().__init__(command_bits, d_min=d_min, d_max=d_max)
         self._first_byte = TMCC2CommandPrefix.ENGINE
 
 
@@ -507,11 +507,11 @@ class TMCC2R4LCIndex(Mixins, IntEnum):
 # echo commands
 @unique
 class TMCC2R4LCEnum(TMCC2MultiByteEnum):
-    ENGINE_ADDRESS = MultiByteCommandDef(TMCC2_SET_ENGINE_ADDRESS_INDEX)
+    ENGINE_ADDRESS = MultiByteCommandDef(TMCC2_SET_ENGINE_ADDRESS_INDEX, d_max=99)
     ENGINE_STALL = MultiByteCommandDef(TMCC2_SET_ENGINE_STALL_INDEX)
-    TRAIN_ADDRESS = MultiByteCommandDef(TMCC2_SET_TRAIN_ADDRESS_INDEX)
+    TRAIN_ADDRESS = MultiByteCommandDef(TMCC2_SET_TRAIN_ADDRESS_INDEX, d_max=99)
     TRAIN_UNIT = MultiByteCommandDef(TMCC2_SET_TRAIN_UNIT_INDEX)
-    MAX_SPEED = MultiByteCommandDef(TMCC2_SET_MAX_SPEED_INDEX)
+    MAX_SPEED = MultiByteCommandDef(TMCC2_SET_MAX_SPEED_INDEX, d_min=32, d_max=200)
     DIRECTION = MultiByteCommandDef(TMCC2_SET_DIRECTION_INDEX)
     FLAGS = MultiByteCommandDef(TMCC2_SET_FLAGS_INDEX)
     CONTROL = MultiByteCommandDef(TMCC2_SET_CONTROL_INDEX)
