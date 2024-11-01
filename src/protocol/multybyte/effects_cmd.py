@@ -1,13 +1,13 @@
-from .tmcc2_command import TMCC2FixedParameterCommand
-from .multibyte_constants import TMCC2LightingControl
-from src.protocol.constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
+from .multibyte_constants import TMCC2EffectsControl
+from ..tmcc2.tmcc2_command import TMCC2FixedParameterCommand
+from ..constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
-class LightingCmd(TMCC2FixedParameterCommand):
+class EffectsCmd(TMCC2FixedParameterCommand):
     def __init__(
         self,
         engine: int,
-        command: TMCC2LightingControl,
+        command: TMCC2EffectsControl,
         data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,
         baudrate: int = DEFAULT_BAUDRATE,

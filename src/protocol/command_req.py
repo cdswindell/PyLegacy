@@ -35,14 +35,14 @@ class CommandReq:
         cls._vet_request(command, address, data, scope)
         # we have to do these imports here to avoid cyclic dependencies
         from .sequence.sequence_constants import SequenceCommandEnum
-        from .tmcc2.multibyte_constants import TMCC2MultiByteEnum
+        from src.protocol.multybyte.multibyte_constants import TMCC2MultiByteEnum
 
         if isinstance(command, SequenceCommandEnum):
             from .sequence.sequence_req import SequenceReq
 
             return SequenceReq.build(command, address, data, scope)
         elif isinstance(command, TMCC2MultiByteEnum):
-            from .tmcc2.param_command_req import MultiByteReq
+            from src.protocol.multybyte.param_command_req import MultiByteReq
 
             return MultiByteReq.build(command, address, data, scope)
         return CommandReq(command, address, data, scope)
@@ -438,7 +438,7 @@ class CommandReq:
                     return CommandReq.build(cmd_enum, address, data, scope)
             raise ValueError(f"Invalid tmcc2 command: : {param.hex(':')}")
         else:
-            from .tmcc2.multibyte_command_req import MultiByteReq
+            from src.protocol.multybyte.multibyte_command_req import MultiByteReq
 
             return MultiByteReq.from_bytes(param)
 

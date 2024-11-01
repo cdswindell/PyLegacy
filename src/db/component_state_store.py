@@ -16,7 +16,7 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as Engine1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef as Halt1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
-from ..protocol.tmcc2.multibyte_constants import TMCC2EffectsControl as Effects
+from src.protocol.multybyte.multibyte_constants import TMCC2EffectsControl as Effects
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as Engine2
 from ..protocol.tmcc2.tmcc2_constants import TMCC2HaltCommandDef as Halt2
 

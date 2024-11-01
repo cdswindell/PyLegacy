@@ -1,13 +1,13 @@
-from .tmcc2_command import TMCC2FixedParameterCommand
-from .multibyte_constants import TMCC2EffectsControl
-from src.protocol.constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
+from .multibyte_constants import TMCC2RailSoundsDialogControl
+from ..tmcc2.tmcc2_command import TMCC2FixedParameterCommand
+from ..constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 
-class EffectsCmd(TMCC2FixedParameterCommand):
+class DialogCmd(TMCC2FixedParameterCommand):
     def __init__(
         self,
         engine: int,
-        command: TMCC2EffectsControl,
+        command: TMCC2RailSoundsDialogControl,
         data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,
         baudrate: int = DEFAULT_BAUDRATE,

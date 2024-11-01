@@ -3,11 +3,11 @@ from abc import ABC
 
 from src.protocol.command_base import CommandBase
 from src.protocol.command_req import CommandReq
-from .param_command_req import ParameterCommandReq
+from src.protocol.multybyte.param_command_req import ParameterCommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from src.protocol.command_def import CommandDefEnum
 from .tmcc2_constants import TMCC2CommandPrefix
-from .multibyte_constants import TMCC2MultiByteEnum
+from src.protocol.multybyte.multibyte_constants import TMCC2MultiByteEnum
 from src.protocol.constants import CommandScope
 
 

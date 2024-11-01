@@ -15,7 +15,7 @@ elif sys.version_info >= (3, 9):
 from ..command_req import CommandReq
 from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_MULTIBYTE_COMMAND_PREFIX
-from ..tmcc2.multibyte_constants import TMCC2MultiByteEnum
+from .multibyte_constants import TMCC2MultiByteEnum
 
 E = TypeVar("E", bound=TMCC2MultiByteEnum)
 

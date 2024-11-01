@@ -3,8 +3,8 @@ from typing import List
 
 from src.cli.cli_base import CliBaseTMCC
 
-from src.protocol.tmcc2.effects_cmd import EffectsCmd
-from src.protocol.tmcc2.multibyte_constants import TMCC2EffectsControl
+from src.protocol.multybyte.effects_cmd import EffectsCmd
+from src.protocol.multybyte.multibyte_constants import TMCC2EffectsControl
 from src.utils.argument_parser import ArgumentParser
 
 

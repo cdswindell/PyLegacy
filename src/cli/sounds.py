@@ -2,8 +2,8 @@
 from typing import List
 
 from src.cli.cli_base import CliBaseTMCC
-from src.protocol.tmcc2.sound_effects_cmd import SoundEffectsCmd
-from src.protocol.tmcc2.multibyte_constants import TMCC2RailSoundsEffectsControl
+from src.protocol.multybyte.sound_effects_cmd import SoundEffectsCmd
+from src.protocol.multybyte.multibyte_constants import TMCC2RailSoundsEffectsControl
 from src.utils.argument_parser import ArgumentParser
 
 

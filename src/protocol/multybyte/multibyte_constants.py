@@ -5,7 +5,7 @@ from enum import IntEnum, unique
 
 from ..command_def import Mixins
 
-from .tmcc2_constants import (
+from ..tmcc2.tmcc2_constants import (
     TMCC2_SOUND_OFF_COMMAND,
     TMCC2_SOUND_ON_COMMAND,
     TMCC2CommandDef,

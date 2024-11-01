@@ -1,5 +1,5 @@
 from .tmcc2_command import TMCC2Command
-from .multibyte_constants import TMCC2MultiByteEnum
+from src.protocol.multybyte.multibyte_constants import TMCC2MultiByteEnum
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
 from .tmcc2_constants import TMCC2EngineCommandDef

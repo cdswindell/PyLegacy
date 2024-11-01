@@ -15,10 +15,10 @@ elif sys.version_info >= (3, 9):
 from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
-from ..tmcc2.multibyte_constants import TMCC2ParameterIndex
-from ..tmcc2.multibyte_constants import TMCC2RailSoundsDialogControl
-from ..tmcc2.multibyte_constants import TMCC2RailSoundsEffectsControl, TMCC2EffectsControl
-from ..tmcc2.multibyte_constants import TMCC2LightingControl
+from .multibyte_constants import TMCC2ParameterIndex
+from .multibyte_constants import TMCC2RailSoundsDialogControl
+from .multibyte_constants import TMCC2RailSoundsEffectsControl, TMCC2EffectsControl
+from .multibyte_constants import TMCC2LightingControl
 
 
 # noinspection PyTypeChecker
