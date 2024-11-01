@@ -39,7 +39,6 @@ class R4LCCommandReq(MultiByteReq):
                 pi = TMCC2R4LCIndex(index)
             except ValueError:
                 raise ValueError(f"Invalid R4LC command: : {param.hex(':')}")
-            print(param.hex(":"))
             cmd_enum = TMCC2R4LCEnum(pi.name)
             data = int(param[5])
             scope = CommandScope.ENGINE
