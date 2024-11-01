@@ -49,6 +49,10 @@ class MultiByteReq(CommandReq, ABC):
                 from .param_command_req import ParameterCommandReq  # noqa: E402
 
                 return ParameterCommandReq.from_bytes(param)
+            elif prefix == TMCCPrefixEnum.R4LC:
+                from .r4lc_command_req import R4LCCommandReq  # noqa: E402
+
+                return R4LCCommandReq.from_bytes(param)
         raise ValueError(f"Invalid multibyte command: : {param.hex(':')}")
 
     def __init__(
@@ -78,6 +82,7 @@ class MultiByteReq(CommandReq, ABC):
 
     @property
     def _word_1(self) -> bytes:
+        print(self._command_def_enum.as_bytes.hex(":"))
         return ((self.address << 1) + 1).to_bytes(1, "big") + self._command_def_enum.as_bytes
 
     @property
