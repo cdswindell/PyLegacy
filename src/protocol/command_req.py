@@ -4,6 +4,7 @@ from typing import Callable
 
 import sys
 
+
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
@@ -34,16 +35,16 @@ class CommandReq:
         cls._vet_request(command, address, data, scope)
         # we have to do these imports here to avoid cyclic dependencies
         from .sequence.sequence_constants import SequenceCommandEnum
-        from .tmcc2.param_constants import TMCC2ParameterEnum
+        from .tmcc2.multibyte_constants import TMCC2MultiByteEnum
 
         if isinstance(command, SequenceCommandEnum):
             from .sequence.sequence_req import SequenceReq
 
             return SequenceReq.build(command, address, data, scope)
-        elif isinstance(command, TMCC2ParameterEnum):
-            from .tmcc2.param_command_req import ParameterCommandReq
+        elif isinstance(command, TMCC2MultiByteEnum):
+            from .tmcc2.param_command_req import MultiByteReq
 
-            return ParameterCommandReq.build(command, address, data, scope)
+            return MultiByteReq.build(command, address, data, scope)
         return CommandReq(command, address, data, scope)
 
     @classmethod
@@ -437,9 +438,9 @@ class CommandReq:
                     return CommandReq.build(cmd_enum, address, data, scope)
             raise ValueError(f"Invalid tmcc2 command: : {param.hex(':')}")
         else:
-            from src.protocol.tmcc2.param_command_req import ParameterCommandReq
+            from .tmcc2.multibyte_command_req import MultiByteReq
 
-            return ParameterCommandReq.from_bytes(param)
+            return MultiByteReq.from_bytes(param)
 
 
 TMCC_FIRST_BYTE_TO_INTERPRETER = {

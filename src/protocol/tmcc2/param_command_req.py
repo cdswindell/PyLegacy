@@ -1,23 +1,25 @@
+from __future__ import annotations
+
 from typing import Dict
 
 import sys
 
-from .param_constants import TMCC2MaskingControl
+from .multibyte_command_req import MultiByteReq
+from .multibyte_constants import TMCC2MaskingControl, TMCC2ParameterEnum
 
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
-from src.protocol.command_req import CommandReq
-from src.protocol.constants import DEFAULT_ADDRESS, CommandScope
-from ..tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_PARAMETER_COMMAND_PREFIX
+from ..constants import DEFAULT_ADDRESS, CommandScope
+from ..tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
-from ..tmcc2.param_constants import TMCC2ParameterEnum, TMCC2ParameterIndex
-from ..tmcc2.param_constants import TMCC2_PARAMETER_INDEX_PREFIX
-from ..tmcc2.param_constants import TMCC2RailSoundsDialogControl
-from ..tmcc2.param_constants import TMCC2RailSoundsEffectsControl, TMCC2EffectsControl
-from ..tmcc2.param_constants import TMCC2LightingControl
+from ..tmcc2.multibyte_constants import TMCC2ParameterIndex
+from ..tmcc2.multibyte_constants import TMCC2RailSoundsDialogControl
+from ..tmcc2.multibyte_constants import TMCC2RailSoundsEffectsControl, TMCC2EffectsControl
+from ..tmcc2.multibyte_constants import TMCC2LightingControl
+
 
 # noinspection PyTypeChecker
 PARAMETER_ENUM_TO_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {
@@ -31,7 +33,7 @@ PARAMETER_ENUM_TO_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {
 PARAMETER_INDEX_TO_ENUM_MAP = {s: p for p, s in PARAMETER_ENUM_TO_INDEX_MAP.items()}
 
 
-class ParameterCommandReq(CommandReq):
+class ParameterCommandReq(MultiByteReq):
     @classmethod
     def build(
         cls, command: TMCC2ParameterEnum, address: int = DEFAULT_ADDRESS, data: int = 0, scope: CommandScope = None
@@ -46,10 +48,10 @@ class ParameterCommandReq(CommandReq):
             raise ValueError(f"Parameter command requires at least 9 bytes {param.hex(':')}")
         if (
             len(param) == 9
-            and param[3] == LEGACY_PARAMETER_COMMAND_PREFIX
-            and param[6] == LEGACY_PARAMETER_COMMAND_PREFIX
+            and param[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+            and param[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX
         ):
-            index = 0x000F & int.from_bytes(param[1:3], byteorder="big")
+            index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
             try:
                 pi = TMCC2ParameterIndex(index)
             except ValueError:
@@ -84,10 +86,10 @@ class ParameterCommandReq(CommandReq):
 
     @property
     def parameter_index_byte(self) -> bytes:
-        return (TMCC2_PARAMETER_INDEX_PREFIX | self.parameter_index).to_bytes(1, byteorder="big")
+        return self.parameter_index.to_bytes(1, byteorder="big")
 
     @property
-    def parameter_data_byte(self) -> bytes:
+    def data_byte(self) -> bytes:
         return self.command_def.bits.to_bytes(1, byteorder="big")
 
     @property
@@ -95,9 +97,9 @@ class ParameterCommandReq(CommandReq):
         return (
             TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big")
             + self._word_1
-            + LEGACY_PARAMETER_COMMAND_PREFIX.to_bytes(1, byteorder="big")
+            + LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
             + self._word_2
-            + LEGACY_PARAMETER_COMMAND_PREFIX.to_bytes(1, byteorder="big")
+            + LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
             + self._word_3
         )
 
@@ -112,7 +114,7 @@ class ParameterCommandReq(CommandReq):
 
     @property
     def _word_2(self) -> bytes:
-        return self._word_2_3_prefix + self.parameter_data_byte
+        return self._word_2_3_prefix + self.data_byte
 
     @property
     def _word_3(self) -> bytes:

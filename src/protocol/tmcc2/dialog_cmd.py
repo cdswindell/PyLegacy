@@ -1,5 +1,5 @@
 from .tmcc2_command import TMCC2FixedParameterCommand
-from .param_constants import TMCC2RailSoundsDialogControl
+from .multibyte_constants import TMCC2RailSoundsDialogControl
 from src.protocol.constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 

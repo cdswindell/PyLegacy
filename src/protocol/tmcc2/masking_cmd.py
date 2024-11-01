@@ -1,5 +1,5 @@
 from .tmcc2_command import TMCC2FixedParameterCommand
-from .param_constants import TMCC2MaskingControl
+from .multibyte_constants import TMCC2MaskingControl
 from ..constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
 
 

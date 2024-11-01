@@ -10,7 +10,7 @@ from src.comm.comm_buffer import CommBufferSingleton, CommBuffer
 
 from src.protocol.tmcc1.tmcc1_constants import *
 from src.protocol.tmcc2.tmcc2_constants import *
-from src.protocol.tmcc2.param_constants import *
+from src.protocol.tmcc2.multibyte_constants import *
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import *
 
@@ -255,7 +255,7 @@ class TestCommandReq(TestBase):
                 address = self.generate_random_address(cmd)
                 data = self.generate_random_data(cmd)
                 req = self.build_request(cmd, address, data)
-                if isinstance(cmd, TMCC2ParameterEnum):
+                if isinstance(cmd, TMCC2MultiByteEnum):
                     pass
                 else:
                     # make sure all bits in the definition are also in the request
@@ -395,6 +395,7 @@ class TestCommandReq(TestBase):
             TMCC2RailSoundsEffectsControl,
             TMCC2EffectsControl,
             TMCC2LightingControl,
+            TMCC2MultiByteEnum,
         ]:
             for tmcc_enum in tmcc_enums:
                 for scope in scopes:

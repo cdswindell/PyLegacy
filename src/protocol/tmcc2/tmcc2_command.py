@@ -7,7 +7,7 @@ from .param_command_req import ParameterCommandReq
 from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from src.protocol.command_def import CommandDefEnum
 from .tmcc2_constants import TMCC2CommandPrefix
-from .param_constants import TMCC2ParameterEnum
+from .multibyte_constants import TMCC2MultiByteEnum
 from src.protocol.constants import CommandScope
 
 
@@ -43,7 +43,7 @@ class TMCC2FixedParameterCommand(TMCC2Command, ABC):
 
     def __init__(
         self,
-        parameter_enum: TMCC2ParameterEnum,
+        parameter_enum: TMCC2MultiByteEnum,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,

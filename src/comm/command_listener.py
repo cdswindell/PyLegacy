@@ -12,7 +12,7 @@ from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
 from ..protocol.constants import CommandScope, BROADCAST_TOPIC
-from ..protocol.tmcc2.tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX
+from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 
 Message = TypeVar("Message")
 Topic = TypeVar("Topic")
@@ -146,12 +146,12 @@ class CommandListener(Thread):
                 cmd_bytes = bytes()
                 if (
                     dq_len >= 9
-                    and self._deque[3] == LEGACY_PARAMETER_COMMAND_PREFIX
-                    and self._deque[6] == LEGACY_PARAMETER_COMMAND_PREFIX
+                    and self._deque[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+                    and self._deque[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX
                 ):
                     for _ in range(9):
                         cmd_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
-                elif dq_len >= 4 and self._deque[3] == LEGACY_PARAMETER_COMMAND_PREFIX:
+                elif dq_len >= 4 and self._deque[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX:
                     # we could be in the middle of receiving a parameter command, wait a bit longer
                     continue
                 else:

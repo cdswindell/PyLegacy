@@ -11,7 +11,7 @@ from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
 from threading import Thread
 
-from ..protocol.tmcc2.tmcc2_constants import LEGACY_PARAMETER_COMMAND_PREFIX
+from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -260,7 +260,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         tmcc_cmd = CommandReq.from_bytes(data)
         if self._base3 is None:
             raise AttributeError(f"Base3Buffer is not built, failed to send {tmcc_cmd}")
-        if len(data) >= 9 and data[3] == data[6] == LEGACY_PARAMETER_COMMAND_PREFIX:
+        if len(data) >= 9 and data[3] == data[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX:
             # this is a legacy/tmcc2 multibyte parameter command. We have to send it
             # as 3 3 byte packets, using PdiCommand.TMCC_RX
             for packet in TmccReq.as_packets(tmcc_cmd):

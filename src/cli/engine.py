@@ -10,9 +10,9 @@ from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
-from src.protocol.tmcc2.param_constants import TMCC2ParameterEnum, TMCC2RailSoundsDialogControl
-from src.protocol.tmcc2.param_constants import TMCC2EffectsControl, TMCC2LightingControl
-from src.protocol.tmcc2.param_constants import TMCC2RailSoundsEffectsControl
+from src.protocol.tmcc2.multibyte_constants import TMCC2MultiByteEnum, TMCC2RailSoundsDialogControl
+from src.protocol.tmcc2.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
+from src.protocol.tmcc2.multibyte_constants import TMCC2RailSoundsEffectsControl
 
 from src.protocol.sequence.sequence_constants import SequenceCommandEnum
 
@@ -514,7 +514,7 @@ class EngineCli(CliBaseTMCC):
         except ValueError as ve:
             print(ve)
 
-    def _decode_engine_option(self) -> TMCC1EngineCommandDef | TMCC2EngineCommandDef | TMCC2ParameterEnum | None:
+    def _decode_engine_option(self) -> TMCC1EngineCommandDef | TMCC2EngineCommandDef | TMCC2MultiByteEnum | None:
         """
         Decode the 'option' argument, if present, into a valid
         TMCC1EngineCommandDef, TMCC2EngineCommandDef, or one of the multiword TMCC2

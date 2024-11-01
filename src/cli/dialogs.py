@@ -4,7 +4,7 @@ from typing import List
 from src.cli.cli_base import CliBaseTMCC
 
 from src.protocol.tmcc2.dialog_cmd import DialogCmd
-from src.protocol.tmcc2.param_constants import TMCC2RailSoundsDialogControl
+from src.protocol.tmcc2.multibyte_constants import TMCC2RailSoundsDialogControl
 from src.utils.argument_parser import ArgumentParser
 
 

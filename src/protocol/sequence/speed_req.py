@@ -5,7 +5,7 @@ import argparse
 from .sequence_req import SequenceReq, T
 from ..constants import CommandScope, OfficialRRSpeeds
 from ..tmcc1.tmcc1_constants import TMCC1RRSpeeds, TMCC1EngineCommandDef
-from ..tmcc2.param_constants import TMCC2RailSoundsDialogControl
+from ..tmcc2.multibyte_constants import TMCC2RailSoundsDialogControl
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RRSpeeds
 
 

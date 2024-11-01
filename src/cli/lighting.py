@@ -3,7 +3,7 @@ from typing import List
 
 from src.cli.cli_base import CliBaseTMCC
 from src.protocol.tmcc2.lighting_cmd import LightingCmd
-from src.protocol.tmcc2.param_constants import TMCC2LightingControl
+from src.protocol.tmcc2.multibyte_constants import TMCC2LightingControl
 from src.utils.argument_parser import ArgumentParser
 
 

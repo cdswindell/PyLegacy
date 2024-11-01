@@ -4,7 +4,7 @@ from typing import List
 from src.cli.cli_base import CliBaseTMCC
 
 from src.protocol.tmcc2.effects_cmd import EffectsCmd
-from src.protocol.tmcc2.param_constants import TMCC2EffectsControl
+from src.protocol.tmcc2.multibyte_constants import TMCC2EffectsControl
 from src.utils.argument_parser import ArgumentParser
 
 
