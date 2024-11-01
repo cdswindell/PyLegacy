@@ -82,8 +82,7 @@ class MultiByteReq(CommandReq, ABC):
 
     @property
     def _word_1(self) -> bytes:
-        print(self._command_def_enum.as_bytes.hex(":"))
-        return ((self.address << 1) + 1).to_bytes(1, "big") + self._command_def_enum.as_bytes
+        return ((self.address << 1) + 1).to_bytes(1, "big") + self.index_byte
 
     @property
     def _word_2(self) -> bytes:
@@ -114,6 +113,11 @@ class MultiByteReq(CommandReq, ABC):
 
     def _apply_data(self, **kwargs) -> int:
         return self.command_def.bits
+
+    @property
+    @abstractmethod
+    def index_byte(self) -> bytes:
+        pass
 
     @property
     @abstractmethod

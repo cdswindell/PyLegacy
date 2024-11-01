@@ -13,7 +13,7 @@ elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
 from ..constants import DEFAULT_ADDRESS, CommandScope
-from ..tmcc2.tmcc2_constants import TMCC2_SCOPE_TO_FIRST_BYTE_MAP, LEGACY_MULTIBYTE_COMMAND_PREFIX
+from ..tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
 from .multibyte_constants import TMCC2ParameterIndex
 from .multibyte_constants import TMCC2RailSoundsDialogControl
@@ -80,64 +80,55 @@ class ParameterCommandReq(MultiByteReq):
         super().__init__(command_def_enum, address, data, scope)
 
     @property
-    def parameter_index(self) -> TMCC2ParameterIndex:
+    def index_byte(self) -> bytes:
         # noinspection PyTypeChecker
-        return PARAMETER_ENUM_TO_INDEX_MAP[type(self._command_def_enum)]
-
-    @property
-    def parameter_index_byte(self) -> bytes:
-        return self.parameter_index.to_bytes(1, byteorder="big")
+        return PARAMETER_ENUM_TO_INDEX_MAP[type(self._command_def_enum)].to_bytes(1, byteorder="big")
 
     @property
     def data_byte(self) -> bytes:
         return self.command_def.bits.to_bytes(1, byteorder="big")
 
-    @property
-    def as_bytes(self) -> bytes:
-        return (
-            TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big")
-            + self._word_1
-            + LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
-            + self._word_2
-            + LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
-            + self._word_3
-        )
-
-    @property
-    def _word_2_3_prefix(self) -> bytes:
-        e_t = 1 if self.scope == CommandScope.TRAIN else 0
-        return ((self.address << 1) + e_t).to_bytes(1, "big")
-
-    @property
-    def _word_1(self) -> bytes:
-        return ((self.address << 1) + 1).to_bytes(1, "big") + self.parameter_index_byte
-
-    @property
-    def _word_2(self) -> bytes:
-        return self._word_2_3_prefix + self.data_byte
-
-    @property
-    def _word_3(self) -> bytes:
-        return self._word_2_3_prefix + self._checksum()
-
-    def _checksum(self) -> bytes:
-        """
-        Calculate the checksum of a lionel tmcc2 multibyte command. The checksum
-        is calculated adding together the second 2 bytes of the parameter index
-        and parameter data words, and the 2 byte of the checksum word, and returning
-        the 1's complement of that sum mod 256.
-
-        We make use of self.command_scope to determine if the command directed at
-        an engine or train.
-        """
-        cmd_bytes = self._word_1 + self._word_2 + self._word_2_3_prefix
-        byte_sum = 0
-        for b in cmd_bytes:
-            byte_sum += int(b)
-        return (~(byte_sum % 256) & 0xFF).to_bytes(1, byteorder="big")  # return 1's complement of sum mod 256
-
-    def _apply_address(self, **kwargs) -> int:
-        return self.command_def.bits
-
-    def _apply_data(self, **kwargs) -> int:
-        return self.command_def.bits
+    #
+    # @property
+    # def as_bytes(self) -> bytes:
+    #     return (
+    #         TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big")
+    #         + self._word_1
+    #         + LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
+    #         + self._word_2
+    #         + LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
+    #         + self._word_3
+    #     )
+    #
+    # @property
+    # def _word_2_3_prefix(self) -> bytes:
+    #     e_t = 1 if self.scope == CommandScope.TRAIN else 0
+    #     return ((self.address << 1) + e_t).to_bytes(1, "big")
+    #
+    # @property
+    # def _word_1(self) -> bytes:
+    #     return ((self.address << 1) + 1).to_bytes(1, "big") + self.index_byte
+    #
+    # @property
+    # def _word_2(self) -> bytes:
+    #     return self._word_2_3_prefix + self.data_byte
+    #
+    # @property
+    # def _word_3(self) -> bytes:
+    #     return self._word_2_3_prefix + self._checksum()
+    #
+    # def _checksum(self) -> bytes:
+    #     """
+    #     Calculate the checksum of a lionel tmcc2 multibyte command. The checksum
+    #     is calculated adding together the second 2 bytes of the parameter index
+    #     and parameter data words, and the 2 byte of the checksum word, and returning
+    #     the 1's complement of that sum mod 256.
+    #
+    #     We make use of self.command_scope to determine if the command directed at
+    #     an engine or train.
+    #     """
+    #     cmd_bytes = self._word_1 + self._word_2 + self._word_2_3_prefix
+    #     byte_sum = 0
+    #     for b in cmd_bytes:
+    #         byte_sum += int(b)
+    #     return (~(byte_sum % 256) & 0xFF).to_bytes(1, byteorder="big")  # return 1's complement of sum mod 256
