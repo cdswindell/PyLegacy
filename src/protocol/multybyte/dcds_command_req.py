@@ -35,9 +35,7 @@ class DcdsCommandReq(MultiByteReq):
 
     @classmethod
     def from_bytes(cls, param: bytes) -> Self:
-        if not param:
-            raise ValueError("Command requires at least 18 bytes")
-        if len(param) < 18:
+        if not param or len(param) < 18:
             raise ValueError(f"DCDS command requires at least 18 bytes {param.hex(':')}")
         if (
             len(param) >= 18
@@ -47,6 +45,8 @@ class DcdsCommandReq(MultiByteReq):
             if index != TMCC2_VARIABLE_INDEX:
                 raise ValueError(f"Invalid DSC4 command: : {param.hex(':')}")
             num_data_words = int(param[5])
+            if (5 + num_data_words) * 3 != len(param):
+                raise ValueError(f"Command requires {(5 + num_data_words) * 3} bytes: {param.hex(':')}")
             pi = int(param[11]) << 8 | int(param[8])
             cmd_enum = TMCC2DCDSEnum.by_value(pi)
             if cmd_enum:
