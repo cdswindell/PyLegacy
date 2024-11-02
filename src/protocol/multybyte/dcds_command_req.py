@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 
 from .multibyte_command_req import MultiByteReq
-from .multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2DCDSEnum, VariableCommandDef
+from .multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2VariableEnum, VariableCommandDef
 
 if sys.version_info >= (3, 11):
     from typing import List, Self
@@ -18,37 +18,37 @@ from ..tmcc2.tmcc2_constants import (
 )
 
 """
-Commands to modify DCDS EEPROM
+Commands to send/receive variable data byte commands
 """
 
 
-class DcdsCommandReq(MultiByteReq):
+class VariableCommandReq(MultiByteReq):
     @classmethod
     def build(
         cls,
-        command: TMCC2DCDSEnum,
+        command: TMCC2VariableEnum,
         address: int = DEFAULT_ADDRESS,
         data_bytes: int | List[int] = None,
         scope: CommandScope = None,
     ) -> Self:
-        return DcdsCommandReq(command, address, data_bytes, scope)
+        return VariableCommandReq(command, address, data_bytes, scope)
 
     @classmethod
     def from_bytes(cls, param: bytes) -> Self:
         if not param or len(param) < 18:
-            raise ValueError(f"DCDS command requires at least 18 bytes {param.hex(':')}")
+            raise ValueError(f"Variable byte command requires at least 18 bytes {param.hex(':')}")
         if (
             len(param) >= 18
             and param[3] == param[6] == param[9] == param[12] == param[15] == LEGACY_MULTIBYTE_COMMAND_PREFIX
         ):
             index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
             if index != TMCC2_VARIABLE_INDEX:
-                raise ValueError(f"Invalid DCDS command: {param.hex(':')}")
+                raise ValueError(f"Invalid Variable byte command: {param.hex(':')}")
             num_data_words = int(param[5])
             if (5 + num_data_words) * 3 != len(param):
                 raise ValueError(f"Command requires {(5 + num_data_words) * 3} bytes: {param.hex(':')}")
             pi = int(param[11]) << 8 | int(param[8])
-            cmd_enum = TMCC2DCDSEnum.by_value(pi)
+            cmd_enum = TMCC2VariableEnum.by_value(pi)
             if cmd_enum:
                 address = cmd_enum.value.address_from_bytes(param[1:3])
                 scope = CommandScope.ENGINE
@@ -61,14 +61,16 @@ class DcdsCommandReq(MultiByteReq):
                     data_bytes.append(param[i])
                 # check checksum
                 if cls.checksum(param[:-1]) != param[-1].to_bytes(1, byteorder="big"):
-                    raise ValueError(f"Invalid DCDS  checksum: {param.hex(':')} != {cls.checksum(param[:-1]).hex()}")
+                    raise ValueError(
+                        f"Invalid Variable byte checksum: {param.hex(':')} != {cls.checksum(param[:-1]).hex()}"
+                    )
                 # build_req the request and return
-                return DcdsCommandReq.build(cmd_enum, address, data_bytes, scope)
-        raise ValueError(f"Invalid DCDS command: {param.hex(':')}")
+                return VariableCommandReq.build(cmd_enum, address, data_bytes, scope)
+        raise ValueError(f"Invalid Variable byte command: {param.hex(':')}")
 
     def __init__(
         self,
-        command_def_enum: TMCC2DCDSEnum,
+        command_def_enum: TMCC2VariableEnum,
         address: int = DEFAULT_ADDRESS,
         data_bytes: int | List[int] = None,
         scope: CommandScope = None,
