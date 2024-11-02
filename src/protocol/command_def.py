@@ -188,6 +188,8 @@ class CommandDefMixins(Mixins):
         for _, member in cls.__members__.items():
             if member.value == value:
                 return member
+            if hasattr(member.value, "bits") and member.value.bits == value:
+                return member
             if isinstance(member, CommandDef) and CommandDef(value).bits == value:
                 return member
             if isinstance(member, CommandDefEnum) and isinstance(value, int) and not member.value.is_alias:
