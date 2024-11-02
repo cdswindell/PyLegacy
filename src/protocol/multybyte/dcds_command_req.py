@@ -61,7 +61,7 @@ class DcdsCommandReq(MultiByteReq):
                     data_bytes.append(param[i])
                 # check checksum
                 if cls.checksum(param[:-1]) != param[-1]:
-                    raise ValueError(f"Invalid DCDS command checksum: {param.hex(':')} != {cls.checksum(param[:-1])}")
+                    raise ValueError(f"Invalid DCDS  checksum: {param.hex(':')} != {cls.checksum(param[:-1]).hex()}")
                 # build_req the request and return
                 return DcdsCommandReq.build(cmd_enum, address, data_bytes, scope)
         raise ValueError(f"Invalid DCDS command: {param.hex(':')}")
