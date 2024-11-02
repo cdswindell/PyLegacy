@@ -3,7 +3,7 @@ import time
 from threading import Thread
 from typing import Tuple, Callable, Dict, TypeVar
 
-from gpiozero import Button, LED, MCP3008, Device
+from gpiozero import Button, LED, MCP3008, Device, MCP3208
 
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
@@ -26,6 +26,7 @@ class PotHandler(Thread):
         self,
         command: CommandReq,
         channel: int = 0,
+        use_12bit: bool = False,
         data_min: int = None,
         data_max: int = None,
         threshold: float = None,
@@ -38,7 +39,10 @@ class PotHandler(Thread):
         start: bool = True,
     ) -> None:
         super().__init__(daemon=True)
-        self._pot = MCP3008(channel=channel)
+        if use_12bit is True:
+            self._pot = MCP3208(channel=channel)
+        else:
+            self._pot = MCP3008(channel=channel)
         self._command = command
         self._last_value = None
         self._action = command.as_action(baudrate=baudrate, port=port, server=server)
@@ -111,6 +115,7 @@ class JoyStickHandler(PotHandler):
         self,
         command: CommandReq,
         channel: int = 0,
+        use_12bit: bool = True,
         data_min: int = None,
         data_max: int = None,
         delay: float = 0.05,
@@ -122,6 +127,7 @@ class JoyStickHandler(PotHandler):
         super().__init__(
             command,
             channel=channel,
+            use_12bit=use_12bit,
             data_min=data_min,
             data_max=data_max,
             threshold=None,
@@ -404,6 +410,7 @@ class GpioHandler:
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
         is_legacy: bool = True,
+        use_12bit: bool = True,
         scope: CommandScope = CommandScope.ENGINE,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str | int = DEFAULT_PORT,
@@ -432,7 +439,7 @@ class GpioHandler:
                     rev_pin, TMCC1EngineCommandDef.REVERSE_DIRECTION, address, 0, scope
                 )
         # make a pot to handle speed
-        pot = cls.when_pot(speed_cmd, channel=channel)
+        pot = cls.when_pot(speed_cmd, channel=channel, use_12bit=use_12bit)
 
         # assign button actions
         if fwd_btn is not None:
@@ -574,6 +581,7 @@ class GpioHandler:
         address: int = DEFAULT_ADDRESS,
         scope: CommandScope = None,
         channel: int = 0,
+        use_12bit: bool = True,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str | int = DEFAULT_PORT,
         server: str = None,
@@ -582,7 +590,7 @@ class GpioHandler:
             command = CommandReq.build(command, address, 0, scope)
         if command.num_data_bits == 0:
             raise ValueError("Command does not support variable data")
-        knob = PotHandler(command, channel, baudrate=baudrate, port=port, server=server)
+        knob = PotHandler(command, channel, use_12bit=use_12bit, baudrate=baudrate, port=port, server=server)
         cls._cache_handler(knob)
         cls._cache_device(knob.pot)
         return knob
