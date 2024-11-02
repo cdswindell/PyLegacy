@@ -1,19 +1,21 @@
 from __future__ import annotations
 
-
 import sys
 
 from .multibyte_command_req import MultiByteReq
-from .multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2DCDSEnum
+from .multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2DCDSEnum, VariableCommandDef
 
 if sys.version_info >= (3, 11):
-    from typing import Self, List
+    from typing import List, Self
 elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
 from ..constants import DEFAULT_ADDRESS, CommandScope
-from ..tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, TMCC2_SCOPE_TO_FIRST_BYTE_MAP
-from ..tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
+from ..tmcc2.tmcc2_constants import (
+    LEGACY_MULTIBYTE_COMMAND_PREFIX,
+    LEGACY_TRAIN_COMMAND_PREFIX,
+    TMCC2_SCOPE_TO_FIRST_BYTE_MAP,
+)
 
 """
 Commands to modify DCDS EEPROM
@@ -53,7 +55,9 @@ class DcdsCommandReq(MultiByteReq):
                 if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
                     scope = CommandScope.TRAIN
                 data_bytes = []
-                for i in range(14, 14 + (num_data_words - 1) * 3, 3):
+                # harvest all the data bytes; they are the third byte of each data word
+                # data starts with word 5
+                for i in range(14, 15 + (num_data_words - 1) * 3, 3):
                     data_bytes.append(param[i])
                 # build_req the request and return
                 return DcdsCommandReq.build(cmd_enum, address, data_bytes, scope)
@@ -93,16 +97,25 @@ class DcdsCommandReq(MultiByteReq):
         """
         return (5 + self.command.value.num_data_bytes) * 3
 
+    # noinspection PyTypeChecker
     @property
     def as_bytes(self) -> bytes:
-        return (
-            TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big")
-            + self._word_1
-            + self.word_prefix
-            + self._word_2
-            + self.word_prefix
-            + self._word_3
-        )
+        cd: VariableCommandDef = self.command_def
+        byte_str = bytes()
+        # first word is encoded address and 0x6F byte denoting variable byte packet
+        byte_str += TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big") + self._word_1
+        # Word 2: number of data bytes/words
+        byte_str += self.word_prefix + len(self.data_bytes).to_bytes(1, byteorder="big")
+        # words 3 & 4: command LSB and MSB
+        byte_str += self.word_prefix + cd.lsb.to_bytes(1, byteorder="big")
+        byte_str += self.word_prefix + cd.msb.to_bytes(1, byteorder="big")
+        # now add data words
+        for data_byte in self.data_bytes:
+            byte_str += self.word_prefix + data_byte.to_bytes(1, byteorder="big")
+        # finally, add the checksum word
+        byte_str += self.word_prefix
+        byte_str += self.checksum(byte_str)
+        return byte_str
 
     @property
     def index_byte(self) -> bytes:

@@ -81,14 +81,14 @@ class MultiByteReq(CommandReq, ABC):
 
     @property
     def as_bytes(self) -> bytes:
-        return (
-            TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big")
-            + self._word_1
-            + self.word_prefix
-            + self._word_2
-            + self.word_prefix
-            + self._word_3
-        )
+        byte_str = bytes()
+        byte_str += TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big")
+        byte_str += self._word_1
+        byte_str += self.word_prefix
+        byte_str += self._word_2
+        byte_str += self.word_prefix
+        byte_str += self.checksum(byte_str)
+        return byte_str
 
     @property
     def multibyte_word_prefix(self):
@@ -111,11 +111,9 @@ class MultiByteReq(CommandReq, ABC):
     def _word_2(self) -> bytes:
         return self.data_byte
 
-    @property
-    def _word_3(self) -> bytes:
-        return self.checksum()
-
-    def checksum(self) -> bytes:
+    # noinspection PyUnusedLocal
+    @staticmethod
+    def checksum(data: bytes = None) -> bytes:
         """
         Calculate the checksum of a fixed-length lionel tmcc2 multibyte command.
         The checksum is calculated adding together the second 2 bytes of the
@@ -125,10 +123,10 @@ class MultiByteReq(CommandReq, ABC):
         We make use of self.command_scope to determine if the command directed at
         an engine or train.
         """
-        cmd_bytes = self._word_1 + self.address_byte + self._word_2 + self.address_byte
         byte_sum = 0
-        for b in cmd_bytes:
-            byte_sum += int(b)
+        for b in data:
+            if b not in {0xF8, 0xF9, 0xFB}:
+                byte_sum += int(b)
         return (~(byte_sum % 256) & 0xFF).to_bytes(1, byteorder="big")  # return 1's complement of sum mod 256
 
     def _apply_address(self, **kwargs) -> int:

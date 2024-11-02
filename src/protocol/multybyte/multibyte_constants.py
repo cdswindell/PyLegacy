@@ -553,12 +553,19 @@ class VariableCommandDef(MultiByteCommandDef):
     ) -> None:
         super().__init__(command_bits, d_min=d_min, d_max=d_max)
         self._num_data_bytes = num_data_bytes
-        self._first_byte = TMCC2CommandPrefix.ENGINE
         self._data_bytes = data_bytes
 
     @property
     def num_data_bytes(self) -> int:
         return self._num_data_bytes
+
+    @property
+    def lsb(self) -> int:
+        return 0x00FF & self.bits
+
+    @property
+    def msb(self) -> int:
+        return (0xFF00 & self.bits) >> 8
 
 
 TMCC2_VARIABLE_INDEX: int = 0x6F
