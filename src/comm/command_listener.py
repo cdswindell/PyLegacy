@@ -12,6 +12,7 @@ from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
 from ..protocol.constants import CommandScope, BROADCAST_TOPIC
+from ..protocol.multybyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 
 Message = TypeVar("Message")
@@ -142,14 +143,25 @@ class CommandListener(Thread):
                 # at this point, we have some sort of command. It could be a TMCC1 or TMCC2
                 # 3-byte command, or, if there are more than 3 bytes, and the 4th byte is
                 # 0xf8 or 0xf9 AND the 5th byte is 0xfb, it could be a 9 byte param command
-                # Try for the 9-biters first
+                # Try for the 9+ byters first
                 cmd_bytes = bytes()
                 if (
                     dq_len >= 9
                     and self._deque[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX
                     and self._deque[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX
                 ):
-                    for _ in range(9):
+                    # if dq_len > 9 and byte 3 is the Variable Command marker, go for more
+                    if dq_len >= 9 and self._deque[2] == TMCC2_VARIABLE_INDEX:
+                        # byte 5 contains the data word count
+                        data_words = int(self._deque[5])
+                        command_bytes = (5 + data_words) * 3
+                        if dq_len < command_bytes:
+                            continue  # wait for more
+                        else:
+                            last_byte = command_bytes
+                    else:
+                        last_byte = 9
+                    for _ in range(last_byte):
                         cmd_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                 elif dq_len >= 4 and self._deque[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX:
                     # we could be in the middle of receiving a parameter command, wait a bit longer
