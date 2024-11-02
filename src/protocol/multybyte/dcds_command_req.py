@@ -60,7 +60,7 @@ class DcdsCommandReq(MultiByteReq):
                 for i in range(14, 15 + (num_data_words - 1) * 3, 3):
                     data_bytes.append(param[i])
                 # check checksum
-                if int(cls.checksum(param[:-1])) != param[-1]:
+                if cls.checksum(param[:-1]) != param[-1].to_bytes(1, byteorder="big"):
                     raise ValueError(f"Invalid DCDS  checksum: {param.hex(':')} != {cls.checksum(param[:-1]).hex()}")
                 # build_req the request and return
                 return DcdsCommandReq.build(cmd_enum, address, data_bytes, scope)
