@@ -40,9 +40,9 @@ class PotHandler(Thread):
     ) -> None:
         super().__init__(daemon=True)
         if use_12bit is True:
-            self._pot = MCP3208(channel=channel)
+            self._pot = MCP3208(channel=channel, differential=False)
         else:
-            self._pot = MCP3008(channel=channel)
+            self._pot = MCP3008(channel=channel, differential=False)
         self._command = command
         self._last_value = None
         self._action = command.as_action(baudrate=baudrate, port=port, server=server)
