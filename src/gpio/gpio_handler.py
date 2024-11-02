@@ -3,7 +3,7 @@ import time
 from threading import Thread
 from typing import Tuple, Callable, Dict, TypeVar
 
-from gpiozero import Button, LED, MCP3008, Device, MCP3208
+from gpiozero import Button, LED, MCP3008, Device, MCP3208, AnalogInputDevice
 
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
@@ -63,7 +63,7 @@ class PotHandler(Thread):
             self.start()
 
     @property
-    def pot(self) -> MCP3008:
+    def pot(self) -> AnalogInputDevice:
         return self._pot
 
     def run(self) -> None:
@@ -115,7 +115,7 @@ class JoyStickHandler(PotHandler):
         self,
         command: CommandReq,
         channel: int = 0,
-        use_12bit: bool = True,
+        use_12bit: bool = False,
         data_min: int = None,
         data_max: int = None,
         delay: float = 0.05,
@@ -410,7 +410,7 @@ class GpioHandler:
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
         is_legacy: bool = True,
-        use_12bit: bool = True,
+        use_12bit: bool = False,
         scope: CommandScope = CommandScope.ENGINE,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str | int = DEFAULT_PORT,
@@ -581,7 +581,7 @@ class GpioHandler:
         address: int = DEFAULT_ADDRESS,
         scope: CommandScope = None,
         channel: int = 0,
-        use_12bit: bool = True,
+        use_12bit: bool = False,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str | int = DEFAULT_PORT,
         server: str = None,
