@@ -43,12 +43,14 @@ class DcdsCommandReq(MultiByteReq):
         ):
             index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
             if index != TMCC2_VARIABLE_INDEX:
-                raise ValueError(f"Invalid DSC4 command: : {param.hex(':')}")
+                raise ValueError(f"Invalid DCDS command: {param.hex(':')}")
             num_data_words = int(param[5])
             if (5 + num_data_words) * 3 != len(param):
                 raise ValueError(f"Command requires {(5 + num_data_words) * 3} bytes: {param.hex(':')}")
             pi = int(param[11]) << 8 | int(param[8])
+            print(f"pi: {hex(pi)}")
             cmd_enum = TMCC2DCDSEnum.by_value(pi)
+            print(f"pi: {hex(pi)} enum: {cmd_enum}")
             if cmd_enum:
                 address = cmd_enum.value.address_from_bytes(param[1:3])
                 scope = CommandScope.ENGINE
@@ -61,7 +63,7 @@ class DcdsCommandReq(MultiByteReq):
                     data_bytes.append(param[i])
                 # build_req the request and return
                 return DcdsCommandReq.build(cmd_enum, address, data_bytes, scope)
-        raise ValueError(f"Invalid DCDS command: : {param.hex(':')}")
+        raise ValueError(f"Invalid DCDS command: {param.hex(':')}")
 
     def __init__(
         self,
