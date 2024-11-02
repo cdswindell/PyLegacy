@@ -48,9 +48,7 @@ class DcdsCommandReq(MultiByteReq):
             if (5 + num_data_words) * 3 != len(param):
                 raise ValueError(f"Command requires {(5 + num_data_words) * 3} bytes: {param.hex(':')}")
             pi = int(param[11]) << 8 | int(param[8])
-            print(f"pi: {hex(pi)}")
             cmd_enum = TMCC2DCDSEnum.by_value(pi)
-            print(f"pi: {hex(pi)} enum: {cmd_enum}")
             if cmd_enum:
                 address = cmd_enum.value.address_from_bytes(param[1:3])
                 scope = CommandScope.ENGINE
@@ -61,6 +59,9 @@ class DcdsCommandReq(MultiByteReq):
                 # data starts with word 5
                 for i in range(14, 15 + (num_data_words - 1) * 3, 3):
                     data_bytes.append(param[i])
+                # check checksum
+                if cls.checksum(param[:-1]) != param[-1]:
+                    raise ValueError(f"Invalid DCDS command checksum: {param.hex(':')} != {cls.checksum(param[:-1])}")
                 # build_req the request and return
                 return DcdsCommandReq.build(cmd_enum, address, data_bytes, scope)
         raise ValueError(f"Invalid DCDS command: {param.hex(':')}")
