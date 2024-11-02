@@ -19,6 +19,8 @@ from .multibyte_constants import TMCC2MultiByteEnum
 
 E = TypeVar("E", bound=TMCC2MultiByteEnum)
 
+MULTIBYTE_PREFIX_BYTE = LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
+
 
 class MultiByteReq(CommandReq, ABC):
     __metaclass__ = ABCMeta
@@ -39,7 +41,7 @@ class MultiByteReq(CommandReq, ABC):
         if len(param) < 9:
             raise ValueError(f"Multy-byte command requires at least 9 bytes {param.hex(':')}")
         if (
-            len(param) == 9
+            len(param) >= 9
             and param[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX
             and param[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX
         ):
@@ -53,6 +55,10 @@ class MultiByteReq(CommandReq, ABC):
                 from .r4lc_command_req import R4LCCommandReq  # noqa: E402
 
                 return R4LCCommandReq.from_bytes(param)
+            elif prefix == TMCCPrefixEnum.VARIABLE:
+                from src.protocol.multybyte.dcds_command_req import DcdsCommandReq
+
+                return DcdsCommandReq.from_bytes(param)
         raise ValueError(f"Invalid multibyte command: : {param.hex(':')}")
 
     def __init__(
@@ -65,20 +71,37 @@ class MultiByteReq(CommandReq, ABC):
         super().__init__(command_def_enum, address, data, scope)
 
     @property
+    def num_bytes(self) -> int:
+        """
+        Returns the number of bytes in this command. Except for the
+        Variable length  multibyte commands, this is always 9 bytes
+        in three sets of three bytes a piece.
+        """
+        return 9
+
+    @property
     def as_bytes(self) -> bytes:
         return (
             TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big")
             + self._word_1
-            + LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
+            + self.word_prefix
             + self._word_2
-            + LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
+            + self.word_prefix
             + self._word_3
         )
 
     @property
-    def _word_2_3_prefix(self) -> bytes:
+    def multibyte_word_prefix(self):
+        return LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
+
+    @property
+    def address_byte(self) -> bytes:
         e_t = 1 if self.scope == CommandScope.TRAIN else 0
         return ((self.address << 1) + e_t).to_bytes(1, "big")
+
+    @property
+    def word_prefix(self) -> bytes:
+        return MULTIBYTE_PREFIX_BYTE + self.address_byte
 
     @property
     def _word_1(self) -> bytes:
@@ -86,23 +109,23 @@ class MultiByteReq(CommandReq, ABC):
 
     @property
     def _word_2(self) -> bytes:
-        return self._word_2_3_prefix + self.data_byte
+        return self.data_byte
 
     @property
     def _word_3(self) -> bytes:
-        return self._word_2_3_prefix + self._checksum()
+        return self.checksum()
 
-    def _checksum(self) -> bytes:
+    def checksum(self) -> bytes:
         """
-        Calculate the checksum of a lionel tmcc2 multibyte command. The checksum
-        is calculated adding together the second 2 bytes of the parameter index
-        and parameter data words, and the 2 byte of the checksum word, and returning
-        the 1's complement of that sum mod 256.
+        Calculate the checksum of a fixed-length lionel tmcc2 multibyte command.
+        The checksum is calculated adding together the second 2 bytes of the
+        parameter index and parameter data words, and the addr byte of the checksum
+        word, and returning the 1's complement of that sum mod 256.
 
         We make use of self.command_scope to determine if the command directed at
         an engine or train.
         """
-        cmd_bytes = self._word_1 + self._word_2 + self._word_2_3_prefix
+        cmd_bytes = self._word_1 + self.address_byte + self._word_2 + self.address_byte
         byte_sum = 0
         for b in cmd_bytes:
             byte_sum += int(b)

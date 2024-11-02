@@ -4,7 +4,7 @@ import abc
 import math
 from abc import ABC
 from enum import Enum
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, TypeVar
 
 import sys
 
@@ -14,6 +14,8 @@ elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
 from .constants import CommandSyntax, CommandScope, Mixins
+
+E = TypeVar("E", bound="CommandDefEnum")
 
 
 class CommandDef(ABC):
@@ -173,7 +175,7 @@ class CommandDef(ABC):
 
     @property
     @abc.abstractmethod
-    def alias(self) -> CommandDefEnum | Tuple[CommandDefEnum, int] | None:
+    def alias(self) -> E | Tuple[E, int] | None:
         return None
 
 
@@ -243,7 +245,7 @@ class CommandDefEnum(CommandDefMixins, Enum):
         return self.command_def.is_alias
 
     @property
-    def alias(self) -> CommandDefEnum | Tuple[CommandDefEnum, int]:
+    def alias(self) -> E | Tuple[E, int]:
         return self.command_def.alias
 
     @property

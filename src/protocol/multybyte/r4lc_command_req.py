@@ -15,6 +15,10 @@ from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
 
+"""
+Commands to modify R4LC EEPROM
+"""
+
 
 class R4LCCommandReq(MultiByteReq):
     @classmethod
@@ -62,8 +66,7 @@ class R4LCCommandReq(MultiByteReq):
         if self.command == TMCC2R4LCEnum.TRAIN_UNIT:
             data = UnitAssignment.by_value(self._data)
             if data is not None:
-                data = data.name.title()
-                return f"[{self.scope.name} {self.address} {self.command_name} {data}(0x{self.as_bytes.hex()})]"
+                return f"[{self.scope.name} {self.address} {self.command_name} {data.name} (0x{self.as_bytes.hex()})]"
         return super().__repr__()
 
     @property

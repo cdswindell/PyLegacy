@@ -208,6 +208,10 @@ class BaseReq(PdiReq):
         return self._speed_step
 
     @property
+    def max_speed(self) -> int:
+        return self._max_speed
+
+    @property
     def momentum(self) -> int:
         return self._momentum
 

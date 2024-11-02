@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 from enum import IntEnum, unique
+from typing import List
 
 from ..command_def import Mixins
 
@@ -30,12 +31,14 @@ class TMCC2MultiByteEnum(TMCC2Enum):
     Word #1 - Function indexes
 """
 TMCC2_R4LC_INDEX_PREFIX: int = 0x40
+TMCC2_VARIABLE_INDEX_PREFIX: int = 0x60
 TMCC2_PARAMETER_INDEX_PREFIX: int = 0x70
 
 
 @unique
 class TMCCPrefixEnum(Mixins, IntEnum):
     R4LC = TMCC2_R4LC_INDEX_PREFIX
+    VARIABLE = TMCC2_VARIABLE_INDEX_PREFIX
     PARAMETER = TMCC2_PARAMETER_INDEX_PREFIX
 
 
@@ -532,3 +535,42 @@ class TMCC2R4LCEnum(TMCC2MultiByteEnum):
     SPEED_RESOLUTION = MultiByteCommandDef(TMCC2_SET_SPEED_RESOLUTION_INDEX, d_max=7)
     VARIABLE_RESOLUTION = MultiByteCommandDef(TMCC2_SET_VARIABLE_RESOLUTION_INDEX)
     INDIRECT = MultiByteCommandDef(TMCC2_SET_INDIRECT_INDEX)
+
+
+#
+# Variable length Multibyte commands
+#
+class VariableCommandDef(MultiByteCommandDef):
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(
+        self,
+        command_bits: int,
+        num_data_bytes: int,
+        data_bytes: List[int] = None,
+        d_min: int = 0,
+        d_max: int = 0,
+    ) -> None:
+        super().__init__(command_bits, d_min=d_min, d_max=d_max)
+        self._num_data_bytes = num_data_bytes
+        self._first_byte = TMCC2CommandPrefix.ENGINE
+        self._data_bytes = data_bytes
+
+    @property
+    def num_data_bytes(self) -> int:
+        return self._num_data_bytes
+
+
+TMCC2_VARIABLE_INDEX: int = 0x6F
+
+TMCC2_DCDS_FACTORY_DEFAULT = 0xF000
+TMCC2_DCDS_STORE = 0xF001
+
+
+class TMCC2DCDSEnum(TMCC2MultiByteEnum):
+    FACTORY_DEFAULT = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 2, [0xEF, 0xBF])
+    STORE = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 1)
+
+    @property
+    def num_data_bytes(self) -> int:
+        return self.value.num_data_bytes

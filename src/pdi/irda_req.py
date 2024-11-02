@@ -246,7 +246,6 @@ class IrdaReq(LcsReq):
                 byte_str += self.sequence_id.to_bytes(1, byteorder="big")
                 byte_str += self.loco_rl.to_bytes(1, byteorder="big")
                 byte_str += self.loco_lr.to_bytes(1, byteorder="big")
-                print(byte_str.hex(":"))
         if len(byte_str) > bs_len:
             byte_str, checksum = self._calculate_checksum(byte_str)
             byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str

@@ -582,6 +582,10 @@ class EngineState(ComponentState):
         ):
             if self._speed is None:
                 self._speed = command.speed
+                # if max speed > 31, we have a legacy engine. As we receive PDI Base Engine
+                # packets before we receive any TMCC data, mark this engine/train accordingly
+                if command.max_speed > 31:
+                    self._is_legacy = True
             if (
                 command.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]
                 and command.momentum_tmcc is not None
