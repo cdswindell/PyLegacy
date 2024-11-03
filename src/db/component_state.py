@@ -594,7 +594,7 @@ class EngineState(ComponentState):
                 and command.momentum_tmcc is not None
             ):
                 self._momentum = command.momentum_tmcc
-        elif isinstance(command, IrdaReq) and command.pdi_command == PdiCommand.IRDA_RX:
+        elif isinstance(command, IrdaReq) and command.action == IrdaAction.IRDA_DATA:
             self._prod_year = command.year
         self.changed.set()
 
@@ -684,13 +684,12 @@ class IrdaState(LcsState):
                     self._loco_lr = command.loco_lr
                 elif command.action == IrdaAction.SEQUENCE:
                     self._sequence = command.sequence
-                elif command.action == IrdaAction.DATA and CommBuffer.is_server:
-                    # get the product year
-                    if hasattr(command, "year"):
-                        year = command.year
-                        print(f" Product released: {year}")
-                    # change train speed, based on direction of travel
-                    if self.sequence in [IrdaSequence.SLOW_SPEED_NORMAL_SPEED, IrdaSequence.NORMAL_SPEED_SLOW_SPEED]:
+                elif command.action == IrdaAction.DATA:
+                    # change engine/train speed, based on direction of travel
+                    if (
+                        self.sequence in [IrdaSequence.SLOW_SPEED_NORMAL_SPEED, IrdaSequence.NORMAL_SPEED_SLOW_SPEED]
+                        and CommBuffer.is_server
+                    ):
                         rr_speed = None
                         if command.is_right_to_left:
                             rr_speed = (
@@ -719,6 +718,19 @@ class IrdaState(LcsState):
                                 else:
                                     cdef = TMCC2EngineCommandDef(rr_speed)
                                 CommandReq.send_request(cdef, address, scope=scope)
+                    # send update to Train and component engines as well
+                    orig_scope = command.scope
+                    try:
+                        if command.train_id:
+                            command.state = CommandScope.TRAIN
+                            train_state = ComponentStateStore.get_state(CommandScope.TRAIN, command.train_id)
+                            train_state.update(command)
+                        if command.engine_id:
+                            command.state = CommandScope.ENGINE
+                            engine_state = ComponentStateStore.get_state(CommandScope.ENGINE, command.engine_id)
+                            engine_state.update(command)
+                    finally:
+                        command.scope = orig_scope
             self.changed.set()
 
     @property
