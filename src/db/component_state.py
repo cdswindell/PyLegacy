@@ -594,7 +594,7 @@ class EngineState(ComponentState):
                 and command.momentum_tmcc is not None
             ):
                 self._momentum = command.momentum_tmcc
-        elif isinstance(command, IrdaReq) and command.action == IrdaAction.IRDA_DATA:
+        elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
             self._prod_year = command.year
         self.changed.set()
 
@@ -722,14 +722,9 @@ class IrdaState(LcsState):
                     orig_scope = command.scope
                     orig_tmcc_id = command.tmcc_id
                     try:
-                        if command.train_id:
-                            command.state = CommandScope.TRAIN
-                            train_state = ComponentStateStore.get_state(CommandScope.TRAIN, command.train_id)
-                            command.tmcc_id = command.train_id
-                            train_state.update(command)
                         if command.engine_id:
-                            command.state = CommandScope.ENGINE
                             engine_state = ComponentStateStore.get_state(CommandScope.ENGINE, command.engine_id)
+                            command.scope = CommandScope.ENGINE
                             command.tmcc_id = command.engine_id
                             engine_state.update(command)
                     finally:
