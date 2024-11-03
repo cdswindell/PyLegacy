@@ -110,7 +110,7 @@ class BaseReq(PdiReq):
         self._loco_type = self._control_type = self._sound_type = self._engine_class = self._speed_step = None
         if isinstance(data, bytes):
             data_len = len(self._data)
-            self._record_no = self._data[1] if data_len > 1 else None
+            self._record_no = self.tmcc_id = self._data[1] if data_len > 1 else None
             self._flags = self._data[2] if data_len > 2 else None
             self._status = self._data[3] if data_len > 3 else None
             _ = self._data[4] if data_len > 4 else None
@@ -134,7 +134,7 @@ class BaseReq(PdiReq):
                 self._max_speed = self._data[60] if data_len > 60 else None
                 self._fuel_level = self._data[61] if data_len > 61 else None
                 self._water_level = self._data[62] if data_len > 62 else None
-                self._tmcc_id = self._data[63] if data_len > 63 else None
+                self._req_tmcc_id = self._data[63] if data_len > 63 else None
                 self._train_pos = self._data[64] if data_len > 64 else None
                 self._smoke_level = self._data[65] if data_len > 65 else None
                 self._ditch_lights = self._data[66] if data_len > 66 else None
@@ -167,8 +167,8 @@ class BaseReq(PdiReq):
         return self._record_no
 
     @property
-    def tmcc_id(self) -> int:
-        return self.record_no
+    def req_tmcc_id(self) -> int:
+        return self._req_tmcc_id
 
     @property
     def flags(self) -> int:
@@ -221,8 +221,8 @@ class BaseReq(PdiReq):
         v = hex(self.valid1) if self.valid1 is not None else "NA"
         if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
             tmcc = f"{self.record_no}"
-            if self._tmcc_id is not None:
-                tmcc += f" ({self._tmcc_id})"
+            if self._req_tmcc_id is not None:
+                tmcc += f" ({self._req_tmcc_id})"
             fwl = f" Fwd: {self._fwd_link}" if self._fwd_link is not None else ""
             rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
             na = f" {self._name}" if self._name is not None else ""

@@ -38,6 +38,7 @@ class PdiReq(ABC):
         # default scope is system; override as needed in child classes
         # also change as needed when sending command updates to state handler
         self._scope = CommandScope.SYSTEM
+        self._tmcc_id = 0
         if isinstance(data, bytes):
             # first byte should be SOP, last should be EOP, if not, raise exception
             if data[0] != PDI_SOP or data[-1] != PDI_EOP:
@@ -117,7 +118,11 @@ class PdiReq(ABC):
 
     @property
     def tmcc_id(self) -> int:
-        return 0
+        return self._tmcc_id
+
+    @tmcc_id.setter
+    def tmcc_id(self, tmcc_id: int) -> None:
+        self._tmcc_id = tmcc_id
 
     @property
     def address(self) -> int:

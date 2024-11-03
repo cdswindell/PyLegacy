@@ -28,9 +28,9 @@ class StartupState(Thread):
                 # we request engine/sw/acc roster at startup; do this by asking for
                 # Eng/Train/Acc/Sw #100 then examining the rev links returned until
                 # we find one out of range; make a request for each discovered entity
-                rev_link = cmd.reverse_link if cmd.forward_link is not None else 0
-                if 0 < rev_link < 100:
-                    self.listener.enqueue_command(BaseReq(rev_link, cmd.pdi_command))
+                fwd_link = cmd.forward_link if cmd.forward_link is not None else 0
+                if 0 < fwd_link < 100:
+                    self.listener.enqueue_command(BaseReq(fwd_link, cmd.pdi_command))
             elif cmd.action and cmd.action.is_config and self._config_key(cmd) not in self._processed_configs:
                 # register the device; registration returns a list of pdi commands
                 # to send to get device state
@@ -51,11 +51,11 @@ class StartupState(Thread):
         self.listener.subscribe_any(self)
         self.listener.enqueue_command(AllReq())
         self.listener.enqueue_command(BaseReq(0, PdiCommand.BASE))
-        self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_ENGINE))
-        self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_TRAIN))
-        self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_ACC))
-        self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_ROUTE))
-        self.listener.enqueue_command(BaseReq(100, PdiCommand.BASE_SWITCH))
+        self.listener.enqueue_command(BaseReq(101, PdiCommand.BASE_ENGINE))
+        self.listener.enqueue_command(BaseReq(101, PdiCommand.BASE_TRAIN))
+        self.listener.enqueue_command(BaseReq(101, PdiCommand.BASE_ACC))
+        self.listener.enqueue_command(BaseReq(101, PdiCommand.BASE_ROUTE))
+        self.listener.enqueue_command(BaseReq(101, PdiCommand.BASE_SWITCH))
         total_time = 0
         while total_time < 120:  # only listen for 2 minutes
             time.sleep(0.1)

@@ -165,7 +165,7 @@ class ComponentState(ABC):
             if self.scope != command.scope:
                 scope = command.scope.name.title()
                 raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
-            if isinstance(command, BaseReq) and command.status == 0:
+            if (isinstance(command, BaseReq) and command.status == 0) or isinstance(command, IrdaReq):
                 if hasattr(command, "name") and command.name:
                     self._road_name = command.name
                 if hasattr(command, "number") and command.number:
@@ -720,17 +720,21 @@ class IrdaState(LcsState):
                                 CommandReq.send_request(cdef, address, scope=scope)
                     # send update to Train and component engines as well
                     orig_scope = command.scope
+                    orig_tmcc_id = command.tmcc_id
                     try:
                         if command.train_id:
                             command.state = CommandScope.TRAIN
                             train_state = ComponentStateStore.get_state(CommandScope.TRAIN, command.train_id)
+                            command.tmcc_id = command.train_id
                             train_state.update(command)
                         if command.engine_id:
                             command.state = CommandScope.ENGINE
                             engine_state = ComponentStateStore.get_state(CommandScope.ENGINE, command.engine_id)
+                            command.tmcc_id = command.engine_id
                             engine_state.update(command)
                     finally:
                         command.scope = orig_scope
+                        command.tmcc_id = orig_tmcc_id
             self.changed.set()
 
     @property

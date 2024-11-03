@@ -64,7 +64,7 @@ class LcsReq(PdiReq, ABC):
         if isinstance(data, bytes):
             if self.is_lcs is False:
                 raise AttributeError(f"Invalid PDI LCS Request: {data}")
-            self._tmcc_id = self._data[1]
+            self.tmcc_id = self._data[1]
             self._action_byte = self._data[2]
             if self._action_byte & 0x80 == 0x80:
                 self._error = True
@@ -109,7 +109,7 @@ class LcsReq(PdiReq, ABC):
                 self._dc_volts = payload[3] / 10.0 if payload_len > 3 else None
         else:
             self._action_byte = action.bits if action else 0
-            self._tmcc_id = int(data) if data else 0
+            self.tmcc_id = int(data) if data else 0
             self._ident = ident
 
     def _is_action(self, enums: List[T]) -> bool:
@@ -180,11 +180,7 @@ class LcsReq(PdiReq, ABC):
         else:
             payload = ""
 
-        return f"[PDI {self._pdi_command.name} ID: {self._tmcc_id} {self.action.name}{payload}]"
-
-    @property
-    def tmcc_id(self) -> int:
-        return self._tmcc_id
+        return f"[PDI {self._pdi_command.name} ID: {self.tmcc_id} {self.action.name}{payload}]"
 
     @property
     def ident(self) -> int:
