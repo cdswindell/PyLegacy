@@ -36,23 +36,23 @@ class Asc2Req(LcsReq):
                 self._values = self._data[3] if data_len > 3 else None
                 self._time = self._data[4] / 100.0 if data_len > 4 else None
                 self._valids = self._sub_id = self._thru = None
-                self._scope = CommandScope.ACC
+                self.scope = CommandScope.ACC
             elif self._action in [Asc2Action.CONTROL2, Asc2Action.CONTROL3]:
                 self._values = self._data[3] if data_len > 3 else None
                 self._valids = self._data[4] if data_len > 4 else None
                 self._time = self._sub_id = self._thru = None
-                self._scope = CommandScope.ACC
+                self.scope = CommandScope.ACC
             elif self._action == Asc2Action.CONTROL4:
                 self._values = self._data[3] if data_len > 3 else None
                 self._time = self._data[4] / 100.0 if data_len > 4 else None
                 self._valids = self._sub_id = None
                 self._thru = self._values == 0 if self._values is not None else None
-                self._scope = CommandScope.SWITCH
+                self.scope = CommandScope.SWITCH
             elif self._action == Asc2Action.CONTROL5:
                 self._values = self._data[3] if data_len > 3 else None
                 self._valids = self._sub_id = self._time = None
                 self._thru = self._values == 0 if self._values is not None else None
-                self._scope = CommandScope.SWITCH
+                self.scope = CommandScope.SWITCH
             else:
                 self._values = self._valids = self._time = self._sub_id = self._thru = None
         else:

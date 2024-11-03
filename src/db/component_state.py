@@ -488,10 +488,11 @@ class EngineState(ComponentState):
         self._speed: int | None = None
         self._direction: CommandDefEnum | None = None
         self._momentum: int | None = None
+        self._prod_year: int | None = None
         self._is_legacy: bool = False  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
-        speed = direction = start_stop = name = num = mom = ""
+        speed = direction = start_stop = name = num = mom = yr = ""
         if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
             direction = " FWD"
         elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
@@ -511,7 +512,9 @@ class EngineState(ComponentState):
             name = f" {self.road_name}"
         if self.road_number is not None:
             num = f" #{self.road_number}"
-        return f"{self.scope.name} {self._address}{start_stop}{speed}{mom}{direction}{name}{num}"
+        if self.year is not None:
+            num = f" Released: {self.year}"
+        return f"{self.scope.name} {self._address}{start_stop}{speed}{mom}{direction}{name}{num}{yr}"
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
@@ -591,6 +594,8 @@ class EngineState(ComponentState):
                 and command.momentum_tmcc is not None
             ):
                 self._momentum = command.momentum_tmcc
+        elif isinstance(command, IrdaReq) and command.pdi_command == PdiCommand.IRDA_RX:
+            self._prod_year = command.year
         self.changed.set()
 
     def as_bytes(self) -> bytes:
@@ -612,7 +617,7 @@ class EngineState(ComponentState):
         return byte_str
 
     @property
-    def speed(self) -> int | None:
+    def speed(self) -> int:
         return self._speed
 
     @property
@@ -622,6 +627,10 @@ class EngineState(ComponentState):
     @property
     def stop_start(self) -> CommandDefEnum | None:
         return self._start_stop
+
+    @property
+    def year(self) -> int:
+        return self._prod_year
 
     @property
     def is_tmcc(self) -> bool:
@@ -676,6 +685,10 @@ class IrdaState(LcsState):
                 elif command.action == IrdaAction.SEQUENCE:
                     self._sequence = command.sequence
                 elif command.action == IrdaAction.DATA and CommBuffer.is_server:
+                    # get the product year
+                    if hasattr(command, "year"):
+                        year = command.year
+                        print(f" Product released: {year}")
                     # change train speed, based on direction of travel
                     if self.sequence in [IrdaSequence.SLOW_SPEED_NORMAL_SPEED, IrdaSequence.NORMAL_SPEED_SLOW_SPEED]:
                         rr_speed = None

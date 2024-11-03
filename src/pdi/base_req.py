@@ -108,7 +108,6 @@ class BaseReq(PdiReq):
         self._route_throw_rate = self._name = self._number = None
         self._rev_link = self._fwd_link = None
         self._loco_type = self._control_type = self._sound_type = self._engine_class = self._speed_step = None
-        self._scope = CommandScope.SYSTEM
         if isinstance(data, bytes):
             data_len = len(self._data)
             self._record_no = self._data[1] if data_len > 1 else None
@@ -118,7 +117,7 @@ class BaseReq(PdiReq):
             self._valid1 = int.from_bytes(self._data[5:7], byteorder="little") if data_len > 5 else None
 
             if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
-                self._scope = CommandScope.ENGINE if self.pdi_command == PdiCommand.BASE_ENGINE else CommandScope.TRAIN
+                self.scope = CommandScope.ENGINE if self.pdi_command == PdiCommand.BASE_ENGINE else CommandScope.TRAIN
                 self._valid2 = int.from_bytes(self._data[7:9], byteorder="little") if data_len > 7 else None
                 self._rev_link = self._data[9] if data_len > 9 else None
                 self._fwd_link = self._data[10] if data_len > 10 else None
@@ -144,11 +143,11 @@ class BaseReq(PdiReq):
                 self._momentum_tmcc = floor(self._data[68] / 16) if data_len > 68 else None
             elif self.pdi_command in [PdiCommand.BASE_ACC, PdiCommand.BASE_SWITCH, PdiCommand.BASE_ROUTE]:
                 if self.pdi_command == PdiCommand.BASE_ACC:
-                    self._scope = CommandScope.ACC
+                    self.scope = CommandScope.ACC
                 elif self.pdi_command == PdiCommand.BASE_SWITCH:
-                    self._scope = CommandScope.SWITCH
+                    self.scope = CommandScope.SWITCH
                 elif self.pdi_command == PdiCommand.BASE_ROUTE:
-                    self._scope = CommandScope.ROUTE
+                    self.scope = CommandScope.ROUTE
                 self._rev_link = self._data[7] if data_len > 7 else None
                 self._fwd_link = self._data[8] if data_len > 8 else None
                 self._name = self.decode_text(self._data[9:42]) if data_len > 9 else None
@@ -162,10 +161,6 @@ class BaseReq(PdiReq):
             self._record_no = int(data)
             self._flags = flags
             self._speed_step = speed
-
-    @property
-    def scope(self) -> CommandScope:
-        return self._scope
 
     @property
     def record_no(self) -> int:

@@ -15,7 +15,6 @@ from src.pdi.constants import (
     Ser2Action,
 )
 from src.pdi.pdi_req import PdiReq
-from src.protocol.constants import CommandScope
 
 T = TypeVar("T", bound=PdiAction)
 
@@ -61,7 +60,6 @@ class LcsReq(PdiReq, ABC):
         self._dc_volts: float | None = None
         self._action: T = action
         self._version = self._revision = self._sub_revision = None
-        self._scope = CommandScope.SYSTEM  # is customized based on the action and Pdi Command
         self._error = error
         if isinstance(data, bytes):
             if self.is_lcs is False:
@@ -213,10 +211,6 @@ class LcsReq(PdiReq, ABC):
             if self._is_command(ALL_SETs):
                 return f"Ident: {self.ident} ({self.packet})"
         return super().payload
-
-    @property
-    def scope(self) -> CommandScope:
-        return self._scope
 
     @property
     def action(self) -> T:

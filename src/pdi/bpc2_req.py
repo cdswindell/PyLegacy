@@ -37,17 +37,17 @@ class Bpc2Req(LcsReq):
                 self._state = self._data[3] if data_len > 3 else None
                 self._values = self._valids = None
                 if self._action == Bpc2Action.CONTROL3:
-                    self._scope = CommandScope.ACC
+                    self.scope = CommandScope.ACC
                 else:
-                    self._scope = CommandScope.TRAIN
+                    self.scope = CommandScope.TRAIN
             elif self._action in [Bpc2Action.CONTROL2, Bpc2Action.CONTROL4]:
                 self._values = self._data[3] if data_len > 3 else None
                 self._valids = self._data[4] if data_len > 4 else None
                 self._state = None
                 if self._action == Bpc2Action.CONTROL4:
-                    self._scope = CommandScope.ACC
+                    self.scope = CommandScope.ACC
                 else:
-                    self._scope = CommandScope.TRAIN
+                    self.scope = CommandScope.TRAIN
             else:
                 self._state = self._values = self._valids = None
         else:

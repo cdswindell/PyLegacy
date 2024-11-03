@@ -87,12 +87,12 @@ class IrdaReq(LcsReq):
         self._valid1 = self._valid2 = self._dir = self._engine_id = self._train_id = self._status = None
         self._fuel = self._water = self._burn = self._fwb_mask = None
         super().__init__(data, pdi_command, action, ident, error)
-        self._scope = CommandScope.IRDA
+        self.scope = CommandScope.IRDA
         if isinstance(data, bytes):
             self._action = IrdaAction(self._action_byte)
             data_len = len(self._data)
             if self._action == IrdaAction.INFO:
-                self._scope = CommandScope.ACC
+                self.scope = CommandScope.ACC
             elif self._action == IrdaAction.CONFIG:
                 self._debug = self._data[4] if data_len > 4 else None
                 self._sequence = IrdaSequence.by_value(self._data[7], True) if data_len > 7 else None
@@ -112,7 +112,7 @@ class IrdaReq(LcsReq):
                 self._runtime = int.from_bytes(self._data[15:16], byteorder="little") if data_len > 15 else None
                 self._prod_rev = self._data[17] if data_len > 17 else None
                 self._prod_id = self._data[18] if data_len > 18 else None
-                self._prod_year = self.decode_text(self._data[21:]) if data_len > 21 else None
+                self._prod_year = 2000 + int(self.decode_text(self._data[21:])) if data_len > 21 else None
                 self._name = self.decode_text(self._data[24:58]) if data_len > 24 else None
                 self._number = self.decode_text(self._data[57:]) if data_len > 58 else None
                 self._tsdb_left = self._data[62] if data_len > 62 else None
@@ -124,7 +124,7 @@ class IrdaReq(LcsReq):
             elif self._action == IrdaAction.RECORD:
                 self._status = self._data[3] if data_len > 3 else None
         else:
-            self._scope = scope if scope is not None else CommandScope.IRDA
+            self.scope = scope if scope is not None else CommandScope.IRDA
             self._debug = debug
             self._sequence = (
                 sequence
@@ -175,6 +175,10 @@ class IrdaReq(LcsReq):
         return self._engine_id
 
     @property
+    def year(self) -> int:
+        return self._prod_year
+
+    @property
     def status(self) -> str | None:
         return STATUS_MAP[self._status] if self._status in STATUS_MAP else "NA"
 
@@ -219,7 +223,7 @@ class IrdaReq(LcsReq):
                     eng = "<Unknown>"
                 na = f" {self._name}" if self._name is not None else ""
                 no = f" #{self._number}" if self._number is not None else ""
-                yr = f" 20{self._prod_year}" if self._prod_year else ""
+                yr = f" {self.year}" if self.year is not None else ""
                 ty = f" Type: {self.product_id}"
                 ft = f" Od: {self._odometer:,} ft" if self._odometer is not None else ""
                 fl = f" Fuel: {(100. * self._fuel / 255):.2f}%" if self._fuel is not None else ""

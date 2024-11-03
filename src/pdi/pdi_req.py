@@ -35,6 +35,9 @@ class PdiReq(ABC):
             raise NotImplementedError(f"PdiCommand {pdi_cmd.name} not implemented")
 
     def __init__(self, data: bytes | None, pdi_command: PdiCommand = None) -> None:
+        # default scope is system; override as needed in child classes
+        # also change as needed when sending command updates to state handler
+        self._scope = CommandScope.SYSTEM
         if isinstance(data, bytes):
             # first byte should be SOP, last should be EOP, if not, raise exception
             if data[0] != PDI_SOP or data[-1] != PDI_EOP:
@@ -101,6 +104,16 @@ class PdiReq(ABC):
     @property
     def pdi_command(self) -> PdiCommand:
         return self._pdi_command
+
+    @property
+    def scope(self) -> CommandScope:
+        return self._scope
+
+    @scope.setter
+    def scope(self, scope: CommandScope) -> None:
+        if scope is None or not isinstance(scope, CommandScope):
+            raise ValueError(f"Invalid CommandScope: {scope}")
+        self._scope = scope
 
     @property
     def tmcc_id(self) -> int:
@@ -182,10 +195,6 @@ class PdiReq(ABC):
             return "0x" + self.as_bytes.hex(" ").upper()
         else:
             return "0x" + self._data.hex(" ").upper()
-
-    @property
-    @abc.abstractmethod
-    def scope(self) -> CommandScope: ...
 
 
 class TmccReq(PdiReq):
