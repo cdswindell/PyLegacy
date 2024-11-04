@@ -112,6 +112,7 @@ class IrdaReq(LcsReq):
                 self._runtime = int.from_bytes(self._data[15:16], byteorder="little") if data_len > 15 else None
                 self._prod_rev = self._data[17] if data_len > 17 else None
                 self._prod_id = self._data[18] if data_len > 18 else None
+                self._bluetooth_id = int.from_bytes(self._data[19:21], byteorder="little") if data_len > 20 else None
                 self._prod_year = 2000 + int(self.decode_text(self._data[21:])) if data_len > 21 else None
                 self._name = self.decode_text(self._data[24:58]) if data_len > 24 else None
                 self._number = self.decode_text(self._data[57:]) if data_len > 58 else None
@@ -175,6 +176,11 @@ class IrdaReq(LcsReq):
         return self._engine_id
 
     @property
+    def bluetooth_id(self) -> int:
+        print(f" Engine: {self.tmcc_id} BT: {hex(self._bluetooth_id)}")
+        return self._bluetooth_id
+
+    @property
     def year(self) -> int:
         return self._prod_year
 
@@ -224,11 +230,12 @@ class IrdaReq(LcsReq):
                 na = f" {self._name}" if self._name is not None else ""
                 no = f" #{self._number}" if self._number is not None else ""
                 yr = f" {self.year}" if self.year is not None else ""
+                bt = f" BT: {hex(self._bluetooth_id)}" if self._bluetooth_id else ""
                 ty = f" Type: {self.product_id}"
                 ft = f" Od: {self._odometer:,} ft" if self._odometer is not None else ""
                 fl = f" Fuel: {(100. * self._fuel / 255):.2f}%" if self._fuel is not None else ""
                 wl = f" Water: {(100 * self._water / 255):.2f}%" if self._water is not None else ""
-                return f"{trav} {eng}{na}{no}{fl}{wl}{yr}{ty}{ft} Status: {self.status} ({self.packet})"
+                return f"{trav} {eng}{na}{no}{bt}{yr}{ty}{ft}{fl}{wl} Status: {self.status} ({self.packet})"
             elif self.action == IrdaAction.SEQUENCE:
                 return f"Sequence: {self.sequence_str} ({self.packet})"
             elif self.action == IrdaAction.RECORD:
