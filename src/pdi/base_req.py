@@ -34,6 +34,10 @@ ENGINE_WRITE_MAP = {
     "MOMENTUM_MEDIUM": (22, 68, lambda t: 63),
     "MOMENTUM_LOW": (22, 68, lambda t: 0),
     "MOMENTUM": (22, 68, lambda t: floor(t * 18.285)),
+    "DITCH_OFF": (20, 66, lambda t: 0),
+    "DITCH_OFF_PULSE_ON_WITH_HORN": (20, 66, lambda t: 1),
+    "DITCH_ON_PULSE_OFF_WITH_HORN": (20, 66, lambda t: 2),
+    "DITCH_ON": (20, 66, lambda t: 3),
 }
 
 CONTROL_TYPE: Dict[int, str] = {

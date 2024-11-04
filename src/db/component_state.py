@@ -499,7 +499,7 @@ class EngineState(ComponentState):
             direction = " REV"
 
         if self._speed is not None:
-            speed = f" Speed: {self._speed}"
+            speed = f" Speed: {self._speed:>3}"
 
         if self._start_stop is not None:
             if self._start_stop in STARTUP_SET:
@@ -515,7 +515,7 @@ class EngineState(ComponentState):
         if self.year is not None:
             num = f" Released: {self.year}"
         ct = " Legacy" if self.is_legacy else " TMCC"
-        return f"{self.scope.name} {self._address}{start_stop}{speed}{mom}{direction}{name}{num}{ct}{yr}"
+        return f"{self.scope.name} {self._address:02}{speed}{mom}{direction}{name}{num}{ct}{yr}{start_stop}"
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
