@@ -514,7 +514,8 @@ class EngineState(ComponentState):
             num = f" #{self.road_number}"
         if self.year is not None:
             num = f" Released: {self.year}"
-        return f"{self.scope.name} {self._address}{start_stop}{speed}{mom}{direction}{name}{num}{yr}"
+        ct = " Legacy" if self.is_legacy else " TMCC"
+        return f"{self.scope.name} {self._address}{start_stop}{speed}{mom}{direction}{name}{num}{ct}{yr}"
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
@@ -587,7 +588,7 @@ class EngineState(ComponentState):
                 self._speed = command.speed
                 # if max speed > 31, we have a legacy engine. As we receive PDI Base Engine
                 # packets before we receive any TMCC data, mark this engine/train accordingly
-                if command.max_speed > 31:
+                if hasattr(command, "is_legacy") and command.is_legacy:
                     self._is_legacy = True
             if (
                 command.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]

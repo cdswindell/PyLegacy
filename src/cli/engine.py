@@ -147,7 +147,7 @@ class EngineCli(CliBaseTMCC):
             "-rpm",
             action=DataAction,
             dest="option",
-            choices=range(0, 7),
+            choices=range(0, 8),
             metavar="0 - 7",
             type=int,
             nargs="?",

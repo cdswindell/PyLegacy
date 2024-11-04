@@ -36,6 +36,48 @@ ENGINE_WRITE_MAP = {
     "MOMENTUM": (22, 68, lambda t: floor(t * 18.285)),
 }
 
+CONTROL_TYPE: Dict[int, str] = {
+    0: "Cab-1",
+    1: "TMCC",
+    2: "Legacy",
+    3: "R100",
+}
+
+SOUND_TYPE: Dict[int, str] = {
+    0: "None",
+    1: "RainSounds",
+    2: "RailSounds 5",
+    3: "Legacy",
+}
+
+LOCO_TYPE: Dict[int, str] = {
+    0: "Diesel",
+    1: "Steam",
+    2: "Electric",
+    3: "Subway",
+    4: "Accessory/Operating Car",
+    5: "Passenger",
+    6: "Breakdown",
+    7: "reserved",
+    8: "Acela",
+    9: "Track Crane",
+    10: "Diesel Switcher",
+    11: "Steam Switcher",
+    12: "Freight",
+    13: "Diesel Pullmor",
+    14: "Steam Pullmor",
+    15: "Transformer",
+}
+
+LOCO_CLASS: Dict[int, str] = {
+    0: "Locomotive",
+    1: "Switcher",
+    2: "Subway",
+    10: "Pullmor",
+    20: "Transformer",
+    255: "Universal",
+}
+
 
 class BaseReq(PdiReq):
     @classmethod
@@ -107,7 +149,7 @@ class BaseReq(PdiReq):
         self._status = self._valid1 = self._valid2 = self._firmware_high = self._firmware_low = None
         self._route_throw_rate = self._name = self._number = None
         self._rev_link = self._fwd_link = None
-        self._loco_type = self._control_type = self._sound_type = self._engine_class = self._speed_step = None
+        self._loco_type = self._control_type = self._sound_type = self._loco_class = self._speed_step = None
         if isinstance(data, bytes):
             data_len = len(self._data)
             self._record_no = self.tmcc_id = self._data[1] if data_len > 1 else None
@@ -126,7 +168,10 @@ class BaseReq(PdiReq):
                 self._loco_type = self._data[49] if data_len > 49 else None
                 self._control_type = self._data[50] if data_len > 50 else None
                 self._sound_type = self._data[51] if data_len > 51 else None
-                self._engine_class = self._data[52] if data_len > 52 else None
+                self._loco_class = self._data[52] if data_len > 52 else None
+                self._tsdb_left = self._data[53] if data_len > 53 else None
+                self._tsdb_right = self._data[54] if data_len > 54 else None
+                self._spare = self._data[55] if data_len > 55 else None
                 self._speed_step = self._data[56] if data_len > 56 else None
                 self._run_level = self._data[57] if data_len > 57 else None
                 self._labor_bias = self._data[58] if data_len > 58 else None
@@ -134,7 +179,7 @@ class BaseReq(PdiReq):
                 self._max_speed = self._data[60] if data_len > 60 else None
                 self._fuel_level = self._data[61] if data_len > 61 else None
                 self._water_level = self._data[62] if data_len > 62 else None
-                self._req_tmcc_id = self._data[63] if data_len > 63 else None
+                self._last_train_id = self._data[63] if data_len > 63 else None
                 self._train_pos = self._data[64] if data_len > 64 else None
                 self._smoke_level = self._data[65] if data_len > 65 else None
                 self._ditch_lights = self._data[66] if data_len > 66 else None
@@ -167,8 +212,8 @@ class BaseReq(PdiReq):
         return self._record_no
 
     @property
-    def req_tmcc_id(self) -> int:
-        return self._req_tmcc_id
+    def last_train_id(self) -> int:
+        return self._last_train_id
 
     @property
     def flags(self) -> int:
@@ -215,18 +260,48 @@ class BaseReq(PdiReq):
         return self._momentum_tmcc
 
     @property
+    def is_legacy(self) -> bool:
+        return self._control_type == 2
+
+    @property
+    def is_tmcc(self) -> bool:
+        return self._control_type == 1
+
+    @property
+    def is_cab1(self) -> bool:
+        return self._control_type == 0
+
+    @property
+    def control(self) -> str:
+        return CONTROL_TYPE.get(self._control_type, "NA")
+
+    @property
+    def sound(self) -> str:
+        return SOUND_TYPE.get(self._sound_type, "NA")
+
+    @property
+    def loco_type(self) -> str:
+        return LOCO_TYPE.get(self._loco_type, "NA")
+
+    @property
+    def loco_class(self) -> str:
+        return LOCO_CLASS.get(self._loco_class, "NA")
+
+    @property
     def payload(self) -> str:
         f = hex(self.flags) if self.flags is not None else "NA"
         s = self.status if self.status is not None else "NA"
         v = hex(self.valid1) if self.valid1 is not None else "NA"
         if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
             tmcc = f"{self.record_no}"
-            if self._req_tmcc_id is not None:
-                tmcc += f" ({self._req_tmcc_id})"
             fwl = f" Fwd: {self._fwd_link}" if self._fwd_link is not None else ""
             rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
             na = f" {self._name}" if self._name is not None else ""
             no = f" {self._number}" if self._number is not None else ""
+            ct = f" {self.control}"
+            st = f" {self.sound}"
+            lt = f" {self.loco_type} ({self._loco_type})"
+            lc = f" {self.loco_class} ({self._loco_class})"
             v2 = f" {hex(self._valid2)}" if self._valid2 is not None else ""
             sp = f" SS: {self._speed_step}" if self._speed_step is not None else ""
             sl = f"/{self._speed_limit}" if self._speed_limit is not None else ""
@@ -239,7 +314,7 @@ class BaseReq(PdiReq):
             m = f" Momentum: {self.momentum} ({self.momentum_tmcc})" if self.momentum is not None else ""
             b = f" Brake: {self._train_brake}" if self._train_brake is not None else ""
             return (
-                f"# {tmcc}{na}{no}{sp}{sl}{ms}{fl}{wl}{rl}{el}{sm}{m}{b} "
+                f"# {tmcc}{na}{no}{ct}{st}{lt}{lc}{sp}{sl}{ms}{fl}{wl}{rl}{el}{sm}{m}{b} "
                 f"flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl} "
                 f"({self.packet})"
             )
