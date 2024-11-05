@@ -61,4 +61,3 @@ class SequenceCommandEnum(CommandDefEnum):
     RAMPED_SPEED_SEQ = SequenceDef(1, d_max=199, cmd_class=RampedSpeedReq)
     RAMPED_SPEED_DIALOG_SEQ = SequenceDef(1, d_max=199, cmd_class=RampedSpeedDialogReq)
     GRADE_CROSSING_SEQ = SequenceDef(1, cmd_class=GradeCrossingReq)
-
