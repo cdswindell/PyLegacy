@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import argparse
 from collections.abc import Sequence
-from typing import List, Callable, TypeVar
+from typing import List, Callable, TypeVar, Tuple
 
 import sys
+
+from ..multybyte.multibyte_constants import TMCC2RailSoundsDialogControl
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -12,7 +15,7 @@ elif sys.version_info >= (3, 9):
 
 from ..command_def import CommandDefEnum
 from ..command_req import CommandReq
-from ..constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
+from ..constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT, OfficialRRSpeeds
 from ..constants import CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1RRSpeeds
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RRSpeeds
@@ -150,6 +153,48 @@ class SequenceReq(CommandReq, Sequence):
         group.add_argument("-normal", action="store_const", const=cde.SPEED_NORMAL, dest="command")
         group.add_argument("-hi", "-high", "-highball", action="store_const", const=cde.SPEED_HIGHBALL, dest="command")
         return command_parser
+
+    def decode_rr_speed(self, speed, is_tmcc) -> Tuple[CommandDefEnum, CommandDefEnum, int, CommandDefEnum]:
+        base = None
+        speed_enum = None
+        speed_int = None
+        if isinstance(speed, OfficialRRSpeeds):
+            base = f"SPEED_{speed.name}"
+            if isinstance(speed, TMCC1RRSpeeds):
+                speed_enum = TMCC1EngineCommandDef.by_name(base)
+            else:
+                speed_enum = TMCC2EngineCommandDef.by_name(base)
+            if speed_enum is None:
+                raise ValueError(f"Unknown speed type: {speed}")
+        elif isinstance(speed, int):
+            if is_tmcc:
+                for rr_speed in TMCC1RRSpeeds:
+                    if speed in rr_speed.value:
+                        speed_int = rr_speed.value[0]
+                        base = f"SPEED_{rr_speed.name}"
+                        speed_enum = TMCC1EngineCommandDef.by_name(base)
+                        break
+            else:
+                for rr_speed in TMCC2RRSpeeds:
+                    if speed in rr_speed.value:
+                        speed_int = rr_speed.value[0]
+                        base = f"SPEED_{rr_speed.name}"
+                        speed_enum = TMCC2EngineCommandDef.by_name(base)
+                        break
+        elif isinstance(speed, str):
+            try:
+                args = self._speed_parser().parse_args(["-" + speed.strip()])
+                speed_enum = args.command
+                base = speed_enum.name
+                speed_int = speed_enum.value[0]
+            except argparse.ArgumentError:
+                pass
+        if speed_enum is None:
+            raise ValueError(f"Unknown speed type: {speed}")
+
+        tower = TMCC2RailSoundsDialogControl.by_name(f"TOWER_{base}")
+        engr = TMCC2RailSoundsDialogControl.by_name(f"ENGINEER_{base}")
+        return tower, speed_enum, speed_int, engr
 
 
 class SequencedReq:
