@@ -62,6 +62,10 @@ class SequenceReq(CommandReq, Sequence):
             cmd_bytes += req.as_bytes
         return cmd_bytes
 
+    @property
+    def requests(self) -> List[SequencedReq]:
+        return self._requests.copy()
+
     def __len__(self) -> int:
         return len(self._requests)
 
@@ -186,7 +190,7 @@ class SequenceReq(CommandReq, Sequence):
                 args = self._speed_parser().parse_args(["-" + speed.strip()])
                 speed_enum = args.command
                 base = speed_enum.name
-                speed_int = speed_enum.value[0]
+                _, speed_int = speed_enum.value.alias
             except argparse.ArgumentError:
                 pass
         if speed_enum is None:

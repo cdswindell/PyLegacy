@@ -622,6 +622,10 @@ class EngineState(ComponentState):
         return self._speed
 
     @property
+    def momentum(self) -> int:
+        return self._momentum
+
+    @property
     def direction(self) -> CommandDefEnum | None:
         return self._direction
 
@@ -693,17 +697,9 @@ class IrdaState(LcsState):
                     ):
                         rr_speed = None
                         if command.is_right_to_left:
-                            rr_speed = (
-                                "SPEED_SLOW"
-                                if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED
-                                else "SPEED_NORMAL"
-                            )
+                            rr_speed = "slow" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "normal"
                         elif command.is_left_to_right:
-                            rr_speed = (
-                                "SPEED_NORMAL"
-                                if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED
-                                else "SPEED_SLOW"
-                            )
+                            rr_speed = "normal" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "slow"
                         if rr_speed:
                             address = None
                             scope = CommandScope.ENGINE
@@ -713,12 +709,11 @@ class IrdaState(LcsState):
                             elif command.engine_id:
                                 address = command.engine_id
                             state = ComponentStateStore.get_state(scope, address)
-                            if state:
-                                if state.is_tmcc:
-                                    cdef = TMCC1EngineCommandDef(rr_speed)
-                                else:
-                                    cdef = TMCC2EngineCommandDef(rr_speed)
-                                CommandReq.send_request(cdef, address, scope=scope)
+                            if state is not None:
+                                from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
+
+                                # noinspection PyTypeChecker
+                                RampedSpeedReq(address, rr_speed, scope=scope, is_tmcc=state.is_tmcc).send()
                     # send update to Train and component engines as well
                     orig_scope = command.scope
                     orig_tmcc_id = command.tmcc_id

@@ -14,6 +14,6 @@ class SpeedReq(SequenceReq):
     ) -> None:
         super().__init__(address, scope)
         t, s, _, e = self.decode_rr_speed(speed, is_tmcc)
-        self.add(t, address)
+        self.add(t, address, scope=scope)
         self.add(s, address, scope=scope, delay=3)
         self.add(e, address, scope=scope, delay=6)

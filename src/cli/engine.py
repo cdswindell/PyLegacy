@@ -453,24 +453,34 @@ class EngineCli(CliBaseTMCC):
         speed.add_argument(
             "-dialog",
             action="store_const",
-            const="ABSOLUTE_SPEED_SEQ",
+            const="RAMPED_SPEED_DIALOG_SEQ",
             dest="option",
             help="Trigger tower/engineer dialog",
         )
 
         speed_group = speed.add_mutually_exclusive_group()
         speed_group.add_argument(
-            "-a", "--absolute", action="store_const", const="ABSOLUTE_SPEED", dest="option", help="Set absolute speed"
+            "-absolute",
+            action="store_const",
+            const="RAMPED_SPEED_SEQ",
+            dest="option",
+            help="Set absolute speed (using ramp)",
         )
         speed_group.add_argument(
-            "-r",
-            "--relative",
+            "-immediate",
+            action="store_const",
+            const="ABSOLUTE_SPEED",
+            dest="option",
+            help="Set absolute speed (immediate)",
+        )
+        speed_group.add_argument(
+            "-relative",
             action="store_const",
             const="RELATIVE_SPEED",
             dest="option",
             help="Set relative speed speed (-5 to 5)",
         )
-        speed_group.set_defaults(option="ABSOLUTE_SPEED")
+        speed_group.set_defaults(option="RAMPED_SPEED_SEQ")
 
         # construct final parser with all components in order
         return ArgumentParser(
