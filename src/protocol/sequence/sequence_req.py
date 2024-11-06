@@ -162,6 +162,7 @@ class SequenceReq(CommandReq, Sequence):
         base = None
         speed_enum = None
         speed_int = None
+        tower = engr = None
         if isinstance(speed, OfficialRRSpeeds):
             base = f"SPEED_{speed.name}"
             if isinstance(speed, TMCC1RRSpeeds):
@@ -193,11 +194,10 @@ class SequenceReq(CommandReq, Sequence):
                 _, speed_int = speed_enum.value.alias
             except argparse.ArgumentError:
                 pass
-        if speed_enum is None:
-            raise ValueError(f"Unknown speed type: {speed}")
 
-        tower = TMCC2RailSoundsDialogControl.by_name(f"TOWER_{base}")
-        engr = TMCC2RailSoundsDialogControl.by_name(f"ENGINEER_{base}")
+        if base is not None:
+            tower = TMCC2RailSoundsDialogControl.by_name(f"TOWER_{base}")
+            engr = TMCC2RailSoundsDialogControl.by_name(f"ENGINEER_{base}")
         return tower, speed_enum, speed_int, engr
 
 

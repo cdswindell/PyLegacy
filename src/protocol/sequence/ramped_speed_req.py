@@ -22,22 +22,25 @@ class RampedSpeedReq(SequenceReq):
         # # provided by decode call; only do this if dialogs are NOT requested
         if isinstance(speed, int) and dialog is False:
             speed_req = speed
-        speed_enum = TMCC2EngineCommandDef.ABSOLUTE_SPEED if s.is_tmcc2 else TMCC1EngineCommandDef.ABSOLUTE_SPEED
         # get current state record
         cur_state = ComponentStateStore.get_state(scope, address, create=False)
         # if there is no state information, treat this as an ABSOLUTE_SPEED req
         if cur_state is None or cur_state.speed is None:
-            if dialog is True:
+            if tower and engr and dialog is True:
                 from src.protocol.sequence.speed_req import SpeedReq
 
                 sr = SpeedReq(address, speed, scope, is_tmcc)
                 for request in sr.requests:
                     self.add(request.request, delay=request.delay, repeat=request.repeat)
             else:
+                speed_enum = TMCC1EngineCommandDef.ABSOLUTE_SPEED if is_tmcc else TMCC2EngineCommandDef.ABSOLUTE_SPEED
                 self.add(speed_enum, address, speed_req, scope)
         else:
+            speed_enum = (
+                TMCC2EngineCommandDef.ABSOLUTE_SPEED if cur_state.is_legacy else TMCC1EngineCommandDef.ABSOLUTE_SPEED
+            )
             # issue tower dialog, if requested
-            if dialog is True:
+            if tower and dialog is True:
                 self.add(tower, address, scope=scope)
             # use current speed and momentum to build up or down speed
             cs = cur_state.speed
@@ -53,13 +56,13 @@ class RampedSpeedReq(SequenceReq):
             ramp = range(cs + inc, speed_req + 1, inc) if cs < speed_req else range(cs - inc, speed_req + 1, -inc)
             if ramp:
                 for speed in ramp:
-                    self.add(speed_enum, address, speed, scope, delay=delay)
+                    self.add(speed_enum, address, speed, scope, repeat=2, delay=delay)
                     delay += delay_inc
                 # make sure the final speed is requested
                 if ramp[-1] != speed_req:
                     self.add(speed_enum, address, speed_req, scope, delay=delay)
             # issue engineer dialog, if requested
-            if dialog is True:
+            if engr and dialog is True:
                 self.add(engr, address, scope=scope, delay=delay)
 
 
