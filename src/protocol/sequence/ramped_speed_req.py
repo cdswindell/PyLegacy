@@ -51,12 +51,13 @@ class RampedSpeedReq(SequenceReq):
                 delay_inc = 0.200
             # are we speeding up or down?
             ramp = range(cs + inc, speed_req + 1, inc) if cs < speed_req else range(cs - inc, speed_req + 1, -inc)
-            for speed in ramp:
-                self.add(speed_enum, address, speed, scope, delay=delay)
-                delay += delay_inc
-            # make sure the final speed is requested
-            if ramp[-1] != speed_req:
-                self.add(speed_enum, address, speed_req, scope, delay=delay)
+            if ramp:
+                for speed in ramp:
+                    self.add(speed_enum, address, speed, scope, delay=delay)
+                    delay += delay_inc
+                # make sure the final speed is requested
+                if ramp[-1] != speed_req:
+                    self.add(speed_enum, address, speed_req, scope, delay=delay)
             # issue engineer dialog, if requested
             if dialog is True:
                 self.add(engr, address, scope=scope, delay=delay)
