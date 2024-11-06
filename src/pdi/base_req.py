@@ -23,6 +23,7 @@ ROUTE_THROW_RATE_MAP: Dict[int, float] = {
 
 ENGINE_WRITE_MAP = {
     "ABSOLUTE_SPEED": (11, 56, None),
+    "STOP_IMMEDIATE": (11, 56, lambda t: 0),
     "DIESEL_RPM": (12, 57, None),
     "ENGINE_LABOR": (13, 58, lambda t: t + 12),
     "TRAIN_BRAKE": (21, 67, lambda t: round(t * 2.143)),
