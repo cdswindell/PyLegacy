@@ -473,7 +473,7 @@ class EngineState(ComponentState):
         self._direction: CommandDefEnum | None = None
         self._momentum: int | None = None
         self._prod_year: int | None = None
-        self._is_legacy: bool = False  # assume we are in TMCC mode until/unless we receive a Legacy cmd
+        self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
         speed = direction = start_stop = name = num = mom = yr = ""
@@ -507,6 +507,8 @@ class EngineState(ComponentState):
     def update(self, command: L | P) -> None:
         super().update(command)
         if isinstance(command, CommandReq):
+            if self.is_legacy is None:
+                self._is_legacy = command.is_tmcc2
             # get the downstream effects of this command, as they also impact state
             cmd_effects = self.results_in(command)
             # print(f"Update: {command}\nEffects: {cmd_effects}")
@@ -569,8 +571,10 @@ class EngineState(ComponentState):
                 self._speed = command.speed
                 # if max speed > 31, we have a legacy engine. As we receive PDI Base Engine
                 # packets before we receive any TMCC data, mark this engine/train accordingly
-                if hasattr(command, "is_legacy") and command.is_legacy:
+                if self._is_legacy is None and hasattr(command, "is_legacy") and command.is_legacy:
                     self._is_legacy = True
+                if self._is_legacy is None and hasattr(command, "is_tmcc") and command.is_tmcc:
+                    self._is_legacy = False
             if (
                 command.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]
                 and command.momentum_tmcc is not None
@@ -595,6 +599,15 @@ class EngineState(ComponentState):
             elif self.is_legacy:
                 byte_str += CommandReq.build(
                     TMCC2EngineCommandDef.ABSOLUTE_SPEED, self.address, data=self.speed, scope=self.scope
+                ).as_bytes
+        if self._momentum is not None:
+            if self.is_tmcc:
+                byte_str += CommandReq.build(
+                    TMCC1EngineCommandDef.MOMENTUM, self.address, data=self.momentum, scope=self.scope
+                ).as_bytes
+            elif self.is_legacy:
+                byte_str += CommandReq.build(
+                    TMCC2EngineCommandDef.MOMENTUM, self.address, data=self.momentum, scope=self.scope
                 ).as_bytes
         return byte_str
 
