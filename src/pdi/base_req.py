@@ -220,12 +220,13 @@ class BaseReq(PdiReq):
             if state:
                 from ..db.component_state import EngineState
 
+                self._name = state.road_name
+                self._number = state.road_number
+                self._status = 0
+                self._valid1 = 0b1100
                 if isinstance(state, EngineState):
-                    self._status = 0
                     self._valid1 = 0b1100000101100
                     self._valid2 = 0b10000000
-                    self._name = state.road_name
-                    self._number = state.road_number
                     self._speed_step = state.speed
                     self._momentum_tmcc = state.momentum
                     self._momentum = state.momentum * 16
@@ -386,16 +387,17 @@ class BaseReq(PdiReq):
         if self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
             byte_str += self.speed.to_bytes(1, byteorder="little")
         elif self._state:
-            if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
-                byte_str += self.flags.to_bytes(1, byteorder="little")
-                byte_str += self.status.to_bytes(1, byteorder="little")
-                byte_str += (0).to_bytes(1, byteorder="big")  # spare
-                byte_str += self._valid1.to_bytes(2, byteorder="little")
+            byte_str += self.flags.to_bytes(1, byteorder="little")
+            byte_str += self.status.to_bytes(1, byteorder="little")
+            byte_str += (0).to_bytes(1, byteorder="big")  # spare
+            byte_str += self._valid1.to_bytes(2, byteorder="little")
+            if self._valid2 is not None:
                 byte_str += self._valid2.to_bytes(2, byteorder="little")
-                byte_str += (101).to_bytes(1, byteorder="little")  # rev link
-                byte_str += (101).to_bytes(1, byteorder="little")  # fwd link
-                byte_str += self.encode_text(self.name, 33)
-                byte_str += self.encode_text(self.number, 5)
+            byte_str += (101).to_bytes(1, byteorder="little")  # rev link
+            byte_str += (101).to_bytes(1, byteorder="little")  # fwd link
+            byte_str += self.encode_text(self.name, 33)
+            byte_str += self.encode_text(self.number, 5)
+            if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
                 byte_str += (255).to_bytes(1, byteorder="little")  # loco type
                 byte_str += self._control_type.to_bytes(1, byteorder="little")
                 byte_str += (0).to_bytes(5, byteorder="little")  # 5 misc fields

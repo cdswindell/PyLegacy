@@ -321,10 +321,12 @@ class SwitchState(TmccState):
         return self._state == Switch.OUT
 
     def as_bytes(self) -> bytes:
+        from src.pdi.base_req import BaseReq
+
+        byte_str = BaseReq(self.address, PdiCommand.BASE_SWITCH, state=self).as_bytes
         if self.is_known:
-            return CommandReq.build(self.state, self.address).as_bytes
-        else:
-            return bytes()
+            byte_str += CommandReq.build(self.state, self.address).as_bytes
+        return byte_str
 
 
 class AccessoryState(TmccState):
@@ -460,7 +462,9 @@ class AccessoryState(TmccState):
         return self._number
 
     def as_bytes(self) -> bytes:
-        byte_str = bytes()
+        from src.pdi.base_req import BaseReq
+
+        byte_str = BaseReq(self.address, PdiCommand.BASE_ACC, state=self).as_bytes
         if self._aux_state is not None:
             byte_str += CommandReq.build(self.aux_state, self.address).as_bytes
         if self._aux1_state is not None:
