@@ -602,9 +602,13 @@ class EngineState(ComponentState):
                 ).as_bytes
         if self._momentum is not None:
             if self.is_tmcc:
-                byte_str += CommandReq.build(
-                    TMCC1EngineCommandDef.MOMENTUM, self.address, data=self.momentum, scope=self.scope
-                ).as_bytes
+                if self._momentum in range(0, 3):
+                    menum = TMCC1EngineCommandDef.MOMENTUM_LOW
+                elif self._momentum in range(3, 6):
+                    menum = TMCC1EngineCommandDef.MOMENTUM_MEDIUM
+                else:
+                    menum = TMCC1EngineCommandDef.MOMENTUM_HIGH
+                byte_str += CommandReq.build(menum, self.address, scope=self.scope).as_bytes
             elif self.is_legacy:
                 byte_str += CommandReq.build(
                     TMCC2EngineCommandDef.MOMENTUM, self.address, data=self.momentum, scope=self.scope
