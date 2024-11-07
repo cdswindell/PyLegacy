@@ -5,6 +5,7 @@ from typing import Dict
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
+from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
@@ -109,9 +110,9 @@ class BaseReq(PdiReq):
             state = cmd
         else:
             raise ValueError(f"Invalid option: {cmd}")
-
         if state.name in ENGINE_WRITE_MAP:
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
+
             if bit_pos <= 15:
                 value1 = 1 << bit_pos
                 value2 = 0
@@ -147,6 +148,7 @@ class BaseReq(PdiReq):
         pdi_command: PdiCommand = PdiCommand.BASE,
         flags: int = 2,
         speed: int = None,
+        state: ComponentState = None,
     ) -> None:
         super().__init__(data, pdi_command)
         if self.pdi_command.is_base is False:
@@ -154,7 +156,11 @@ class BaseReq(PdiReq):
         self._status = self._valid1 = self._valid2 = self._firmware_high = self._firmware_low = None
         self._route_throw_rate = self._name = self._number = None
         self._rev_link = self._fwd_link = None
-        self._loco_type = self._control_type = self._sound_type = self._loco_class = self._speed_step = None
+        self._loco_type = self._control_type = self._sound_type = self._loco_class = None
+        self._speed_step = self._speed_limit = self._max_speed = self._labor_bias = None
+        self._fuel_level = self._water_level = self._last_train_id = self._train_pos = self._train_brake = None
+        self._smoke_level = self._ditch_lights = self._momentum = self._momentum_tmcc = None
+        self._state = state
         if isinstance(data, bytes):
             data_len = len(self._data)
             self._record_no = self.tmcc_id = self._data[1] if data_len > 1 else None
@@ -211,6 +217,21 @@ class BaseReq(PdiReq):
             self._record_no = int(data)
             self._flags = flags
             self._speed_step = speed
+            if state:
+                from ..db.component_state import EngineState
+
+                if isinstance(state, EngineState):
+                    self._status = 0
+                    self._valid1 = 0b1100000101100
+                    self._valid2 = 0b10000000
+                    self._name = state.road_name
+                    self._number = state.road_number
+                    self._speed_step = state.speed
+                    self._momentum_tmcc = state.momentum
+                    self._momentum = state.momentum * 16
+                    self._run_level = state.rpm
+                    self._scope = state.scope
+                    self._control_type = 2 if state.is_legacy else 1
 
     @property
     def record_no(self) -> int:
@@ -259,6 +280,10 @@ class BaseReq(PdiReq):
     @property
     def momentum(self) -> int:
         return self._momentum
+
+    @property
+    def run_level(self) -> int:
+        return self._run_level
 
     @property
     def momentum_tmcc(self) -> int:
@@ -359,7 +384,25 @@ class BaseReq(PdiReq):
         byte_str = self.pdi_command.as_bytes
         byte_str += self.record_no.to_bytes(1, byteorder="big")
         if self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
-            byte_str += self.speed.to_bytes(1, byteorder="big")
+            byte_str += self.speed.to_bytes(1, byteorder="little")
+        elif self._state:
+            if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
+                byte_str += self.flags.to_bytes(1, byteorder="little")
+                byte_str += self.status.to_bytes(1, byteorder="little")
+                byte_str += (0).to_bytes(1, byteorder="big")  # spare
+                byte_str += self._valid1.to_bytes(2, byteorder="little")
+                byte_str += self._valid2.to_bytes(2, byteorder="little")
+                byte_str += (101).to_bytes(1, byteorder="little")  # rev link
+                byte_str += (101).to_bytes(1, byteorder="little")  # fwd link
+                byte_str += self.encode_text(self.name, 33)
+                byte_str += self.encode_text(self.number, 5)
+                byte_str += (255).to_bytes(1, byteorder="little")  # loco type
+                byte_str += self._control_type.to_bytes(1, byteorder="little")
+                byte_str += (0).to_bytes(5, byteorder="little")  # 5 misc fields
+                byte_str += self._speed_step.to_bytes(1, byteorder="little")
+                byte_str += self._run_level.to_bytes(1, byteorder="little")
+                byte_str += (0).to_bytes(10, byteorder="little")  # 5 misc fields
+                byte_str += self._momentum.to_bytes(1, byteorder="little")
         else:
             byte_str += self.flags.to_bytes(1, byteorder="big")
         byte_str, checksum = self._calculate_checksum(byte_str)

@@ -9,7 +9,6 @@ from typing import Tuple, TypeVar, Set
 
 from ..comm.comm_buffer import CommBuffer
 from ..pdi.asc2_req import Asc2Req
-from ..pdi.base_req import BaseReq
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Asc2Action, PdiCommand, Bpc2Action, IrdaAction
 from ..pdi.irda_req import IrdaReq, IrdaSequence
@@ -51,6 +50,10 @@ SPEED_SET = {
     TMCC2EngineCommandDef.ABSOLUTE_SPEED,
     (TMCC1EngineCommandDef.ABSOLUTE_SPEED, 0),
     (TMCC2EngineCommandDef.ABSOLUTE_SPEED, 0),
+}
+
+RPM_SET = {
+    TMCC2EngineCommandDef.DIESEL_RPM,
 }
 
 STARTUP_SET = {TMCC2EngineCommandDef.START_UP_IMMEDIATE, TMCC2EngineCommandDef.START_UP_DELAYED}
@@ -148,6 +151,8 @@ class ComponentState(ABC):
 
     @abc.abstractmethod
     def update(self, command: L | P) -> None:
+        from ..pdi.base_req import BaseReq
+
         if command and command.command != TMCC1HaltCommandDef.HALT:
             if self._address is None and command.address != BROADCAST_ADDRESS:
                 self._address = command.address
@@ -282,6 +287,8 @@ class SwitchState(TmccState):
         return f"Switch {self.address}: {self._state.name if self._state is not None else 'Unknown'}{name}{num}"
 
     def update(self, command: L | P) -> None:
+        from ..pdi.base_req import BaseReq
+
         if command:
             super().update(command)
             if command.command == TMCC1HaltCommandDef.HALT:
@@ -473,10 +480,11 @@ class EngineState(ComponentState):
         self._direction: CommandDefEnum | None = None
         self._momentum: int | None = None
         self._prod_year: int | None = None
+        self._rpm: int | None = None
         self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
-        speed = direction = start_stop = name = num = mom = yr = ""
+        speed = direction = start_stop = name = num = mom = rl = yr = ""
         if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
             direction = " FWD"
         elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
@@ -492,6 +500,8 @@ class EngineState(ComponentState):
                 start_stop = " Shut down"
         if self._momentum is not None:
             mom = f" Momentum: {self._momentum}"
+        if self._rpm is not None:
+            rl = f" RPM: {self._rpm}"
         if self.road_name is not None:
             name = f" {self.road_name}"
         if self.road_number is not None:
@@ -499,12 +509,14 @@ class EngineState(ComponentState):
         if self.year is not None:
             num = f" Released: {self.year}"
         ct = " Legacy" if self.is_legacy else " TMCC"
-        return f"{self.scope.name} {self._address:02}{speed}{mom}{direction}{name}{num}{ct}{yr}{start_stop}"
+        return f"{self.scope.name} {self._address:02}{speed}{rl}{mom}{direction}{name}{num}{ct}{yr}{start_stop}"
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
 
     def update(self, command: L | P) -> None:
+        from ..pdi.base_req import BaseReq
+
         super().update(command)
         if isinstance(command, CommandReq):
             if self.is_legacy is None:
@@ -518,6 +530,17 @@ class EngineState(ComponentState):
                 self._direction = command.command
             elif cmd_effects & DIRECTIONS_SET:
                 self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
+
+            # handle run level/rpm
+            if command.command in RPM_SET:
+                self._rpm = command.data
+            elif cmd_effects & RPM_SET:
+                rpm = self._harvest_effect(cmd_effects & RPM_SET)
+                if isinstance(rpm, tuple) and len(rpm) == 2:
+                    self._rpm = rpm[1]
+                else:
+                    self._rpm = None
+                    print(f"**************** What am I supposed to do with {rpm}?")
 
             # handle speed
             if command.command in SPEED_SET:
@@ -580,39 +603,28 @@ class EngineState(ComponentState):
                 and command.momentum_tmcc is not None
             ):
                 self._momentum = command.momentum_tmcc
+                self._rpm = command.run_level
         elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
             self._prod_year = command.year
         self.changed.set()
 
     def as_bytes(self) -> bytes:
+        from src.pdi.base_req import BaseReq
+
         byte_str = bytes()
+        # encode name, number, momentum, speed, and rpm using PDI command
+        pdi = None
+        if self.scope == CommandScope.ENGINE:
+            pdi = BaseReq(self.address, PdiCommand.BASE_ENGINE, state=self)
+        elif self.scope == CommandScope.TRAIN:
+            pdi = BaseReq(self.address, PdiCommand.BASE_TRAIN, state=self)
+        if pdi:
+            byte_str += pdi.as_bytes
         if self._start_stop is not None:
             byte_str += CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes
         if self._direction is not None:
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
             byte_str += CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes
-        if self._speed is not None:
-            if self.is_tmcc:
-                byte_str += CommandReq.build(
-                    TMCC1EngineCommandDef.ABSOLUTE_SPEED, self.address, data=self.speed, scope=self.scope
-                ).as_bytes
-            elif self.is_legacy:
-                byte_str += CommandReq.build(
-                    TMCC2EngineCommandDef.ABSOLUTE_SPEED, self.address, data=self.speed, scope=self.scope
-                ).as_bytes
-        if self._momentum is not None:
-            if self.is_tmcc:
-                if self._momentum in range(0, 3):
-                    menum = TMCC1EngineCommandDef.MOMENTUM_LOW
-                elif self._momentum in range(3, 6):
-                    menum = TMCC1EngineCommandDef.MOMENTUM_MEDIUM
-                else:
-                    menum = TMCC1EngineCommandDef.MOMENTUM_HIGH
-                byte_str += CommandReq.build(menum, self.address, scope=self.scope).as_bytes
-            elif self.is_legacy:
-                byte_str += CommandReq.build(
-                    TMCC2EngineCommandDef.MOMENTUM, self.address, data=self.momentum, scope=self.scope
-                ).as_bytes
         return byte_str
 
     @property
@@ -622,6 +634,10 @@ class EngineState(ComponentState):
     @property
     def momentum(self) -> int:
         return self._momentum
+
+    @property
+    def rpm(self) -> int:
+        return self._rpm
 
     @property
     def direction(self) -> CommandDefEnum | None:

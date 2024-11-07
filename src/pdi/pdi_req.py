@@ -190,6 +190,13 @@ class PdiReq(ABC):
             name += chr(b)
         return name
 
+    @staticmethod
+    def encode_text(text: str, field_len: int) -> bytes | None:
+        if text is None:
+            return b"\x00" * field_len
+        else:
+            return bytes(text, "ascii").ljust(field_len, b"\x00")
+
     @property
     def payload(self) -> str:
         return f"({self.packet})"
