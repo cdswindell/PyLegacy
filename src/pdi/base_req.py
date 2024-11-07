@@ -293,6 +293,19 @@ class BaseReq(PdiReq):
         return LOCO_CLASS.get(self._loco_class, "NA")
 
     @property
+    def is_active(self) -> bool:
+        if self.pdi_command in [
+            PdiCommand.BASE_ENGINE,
+            PdiCommand.BASE_TRAIN,
+            PdiCommand.BASE_ROUTE,
+            PdiCommand.BASE_ACC,
+            PdiCommand.BASE_SWITCH,
+        ]:
+            if self.forward_link == 255 and self.reverse_link == 255 and not self.name and not self.number:
+                return False
+        return True
+
+    @property
     def payload(self) -> str:
         f = hex(self.flags) if self.flags is not None else "NA"
         s = self.status if self.status is not None else "NA"

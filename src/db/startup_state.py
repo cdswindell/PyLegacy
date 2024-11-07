@@ -24,14 +24,7 @@ class StartupState(Thread):
         Callback specified in the Subscriber protocol used to send events to listeners
         """
         if isinstance(cmd, PdiReq):
-            if isinstance(cmd, BaseReq):
-                # we request engine/sw/acc roster at startup; do this by asking for
-                # Eng/Train/Acc/Sw #100 then examining the rev links returned until
-                # we find one out of range; make a request for each discovered entity
-                fwd_link = cmd.forward_link if cmd.forward_link is not None else 0
-                if 0 < fwd_link < 100:
-                    self.listener.enqueue_command(BaseReq(fwd_link, cmd.pdi_command))
-            elif cmd.action and cmd.action.is_config and self._config_key(cmd) not in self._processed_configs:
+            if cmd.action and cmd.action.is_config and self._config_key(cmd) not in self._processed_configs:
                 # register the device; registration returns a list of pdi commands
                 # to send to get device state
                 state_requests = self.state_store.register_pdi_device(cmd)
@@ -51,13 +44,16 @@ class StartupState(Thread):
         self.listener.subscribe_any(self)
         self.listener.enqueue_command(AllReq())
         self.listener.enqueue_command(BaseReq(0, PdiCommand.BASE))
-        self.listener.enqueue_command(BaseReq(101, PdiCommand.BASE_ENGINE))
-        self.listener.enqueue_command(BaseReq(101, PdiCommand.BASE_TRAIN))
-        self.listener.enqueue_command(BaseReq(101, PdiCommand.BASE_ACC))
-        self.listener.enqueue_command(BaseReq(101, PdiCommand.BASE_ROUTE))
-        self.listener.enqueue_command(BaseReq(101, PdiCommand.BASE_SWITCH))
+        # we request engine/sw/acc roster at startup; do this by asking for
+        # Eng/Train/Acc/Sw #100 then examining the rev links returned until
+        # we find one out of range; make a request for each discovered entity
+        for tmcc_id in range(1, 98):
+            self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ENGINE))
+            self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_TRAIN))
+            self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ACC))
+            self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_SWITCH))
         total_time = 0
         while total_time < 120:  # only listen for 2 minutes
-            time.sleep(0.1)
-            total_time += 0.1
+            time.sleep(0.25)
+            total_time += 0.25
         self.listener.unsubscribe_any(self)

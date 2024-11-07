@@ -7,6 +7,7 @@ from queue import Queue
 from threading import Thread
 from typing import Tuple
 
+from .base_req import BaseReq
 from .constants import PDI_SOP, PDI_STF, PDI_EOP, PdiAction
 from .pdi_req import PdiReq, TmccReq
 from ..comm.command_listener import Topic, Message, Channel, Subscriber, CommandDispatcher
@@ -267,6 +268,8 @@ class PdiDispatcher(Thread):
                 # print(cmd)
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
+                    if isinstance(cmd, BaseReq) and cmd.is_active is False:
+                        continue
                     # for TMCC requests, forward to CommandListener
                     if isinstance(cmd, TmccReq):
                         self._tmcc_dispatcher.offer(cmd.tmcc_command)

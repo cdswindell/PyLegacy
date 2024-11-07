@@ -313,14 +313,6 @@ class SwitchState(TmccState):
     def is_out(self) -> bool:
         return self._state == Switch.OUT
 
-    @property
-    def is_tmcc(self) -> bool:
-        return True
-
-    @property
-    def is_legacy(self) -> bool:
-        return False
-
     def as_bytes(self) -> bytes:
         if self.is_known:
             return CommandReq.build(self.state, self.address).as_bytes
@@ -460,14 +452,6 @@ class AccessoryState(TmccState):
     def value(self) -> int:
         return self._number
 
-    @property
-    def is_tmcc(self) -> bool:
-        return True
-
-    @property
-    def is_legacy(self) -> bool:
-        return False
-
     def as_bytes(self) -> bytes:
         byte_str = bytes()
         if self._aux_state is not None:
@@ -523,9 +507,6 @@ class EngineState(ComponentState):
     def update(self, command: L | P) -> None:
         super().update(command)
         if isinstance(command, CommandReq):
-            if command.syntax == CommandSyntax.LEGACY:
-                self._is_legacy = True
-
             # get the downstream effects of this command, as they also impact state
             cmd_effects = self.results_in(command)
             # print(f"Update: {command}\nEffects: {cmd_effects}")
