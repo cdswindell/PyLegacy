@@ -739,7 +739,7 @@ class GpioHandler:
             }
         # bind commands
         re.when_rotated_clockwise = cls._with_re_action(clockwise_cmd.as_action(), ramp)
-        re.when_rotated_counterclockwise = cls._with_re_action(counterclockwise_cmd.as_action(), ramp, cc=True)
+        re.when_rotated_counter_clockwise = cls._with_re_action(counterclockwise_cmd.as_action(), ramp, cc=True)
 
         # return rotary encoder
         return re
