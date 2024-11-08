@@ -551,7 +551,7 @@ class EngineState(ComponentState):
                 self._numeric_cmd = command.command
             elif cmd_effects & NUMERIC_SET:
                 numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
-                print(f"{command} {numeric}")
+                print(f"{command}: {numeric}")
 
             # handle run level/rpm
             if command.command in RPM_SET:

@@ -357,7 +357,6 @@ class DependencyCache:
             Engine1.FORWARD_DIRECTION,
             Engine1.RPM_DOWN,
         )
-        self.causes(Engine1.STOP_IMMEDIATE, Engine1.SPEED_STOP_HOLD)
         self.causes(Engine1.FORWARD_DIRECTION, Engine1.SPEED_STOP_HOLD)
         self.causes(Engine1.REVERSE_DIRECTION, Engine1.SPEED_STOP_HOLD)
         self.causes(Engine1.TOGGLE_DIRECTION, Engine1.SPEED_STOP_HOLD)
