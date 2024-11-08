@@ -16,7 +16,14 @@ from ..pdi.pdi_req import PdiReq
 from ..pdi.stm2_req import Stm2Req
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, BROADCAST_ADDRESS, CommandSyntax, LOCO_TYPE
+from ..protocol.constants import (
+    CommandScope,
+    BROADCAST_ADDRESS,
+    CommandSyntax,
+    LOCO_TYPE,
+    LOCO_TRACK_CRANE,
+    TRACK_CRANE_STATE_NUMERICS,
+)
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
@@ -553,8 +560,13 @@ class EngineState(ComponentState):
 
             # handle last numeric
             if command.command in NUMERIC_SET:
-                self._numeric = command.data
-                self._numeric_cmd = command.command
+                if self.engine_type == LOCO_TRACK_CRANE:
+                    if command.data in TRACK_CRANE_STATE_NUMERICS:
+                        self._numeric = command.data
+                        self._numeric_cmd = command.command
+                else:
+                    self._numeric = command.data
+                    self._numeric_cmd = command.command
             elif cmd_effects & NUMERIC_SET:
                 numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
                 print(f"{command}: {numeric} {type(numeric)}")

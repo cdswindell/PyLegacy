@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum, unique, IntEnum
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Set
 
 import sys
 
@@ -195,3 +195,6 @@ LOCO_CLASS: Dict[int, str] = {
     20: "Transformer",
     255: "Universal",
 }
+
+LOCO_TRACK_CRANE: int = 9
+TRACK_CRANE_STATE_NUMERICS: Set[int] = {1, 2, 3}
