@@ -551,7 +551,7 @@ class GpioHandler:
         # boom control
         lift_btn = lift_led = None
         if lift_pin is not None:
-            lift_btn, lift_led = cls.when_button_pressed(
+            cmd, lift_btn, lift_led = cls.when_button_pressed(
                 lift_pin,
                 TMCC1EngineCommandDef.NUMERIC,
                 address,
@@ -616,13 +616,13 @@ class GpioHandler:
         data: int = 0,
         scope: CommandScope = None,
         led_pin: int | str = None,
-    ) -> Button:
+    ) -> Tuple[CommandReq, Button, LED]:
         # Use helper method to construct objects
         command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
 
         # create a command function to fire when button pressed
         button.when_pressed = command.as_action()
-        return button
+        return command, button, led
 
     @classmethod
     def when_button_held(
