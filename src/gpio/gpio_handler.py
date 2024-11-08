@@ -515,7 +515,7 @@ class GpioHandler:
         lift_pin: int | str = None,
         bh_pin: int | str = None,
         lh_pin: int | str = None,
-        lift_led: int | str = None,
+        li_led: int | str = None,
         bh_led: int | str = None,
         lh_led: int | str = None,
     ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED]:
@@ -556,7 +556,8 @@ class GpioHandler:
                 TMCC1EngineCommandDef.NUMERIC,
                 address,
                 data=1,
-                led_pin=lift_led,
+                scope=CommandScope.ENGINE,
+                led_pin=li_led,
             )
             if lift_led:
                 lift_led.source = lift_btn
