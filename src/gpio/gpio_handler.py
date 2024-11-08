@@ -88,7 +88,7 @@ class PotHandler(Thread):
             self._pot = MCP3008(channel=channel)
         self._command = command
         self._last_value = None
-        self._action = command.as_action()
+        self._action = command.as_action() if command else None
         if data_max is None:
             data_max = command.data_max
         if data_min is None:
@@ -129,7 +129,7 @@ class PotHandler(Thread):
                         cmd.as_action()(new_data=value)
                     else:
                         cmd.as_action()()
-            elif self._command:
+            elif self._command and self._action:
                 self._command.data = value
                 self._action(new_data=value)
             time.sleep(self._delay)
