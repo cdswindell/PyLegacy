@@ -27,6 +27,8 @@ from src.gpio.gpio_handler import GpioHandler
 # GpioHandler.culvert_loader(11, cycle_pin=5, cycle_led_pin=20)
 # GpioHandler.smoke_fluid_loader(12, channel=0, dispense_pin=21, lights_on_pin=26, lights_off_pin=19)
 # GpioHandler.engine(18, channel=0, fwd_pin=13, rev_pin=21)
-GpioHandler.gantry_crane(91, 20, 21, 0, 1, 16, 24)
+# GpioHandler.gantry_crane(91, 20, 21, 0, 1, 16, 24)
+GpioHandler.crane_car(91, 20, 21, 0, 16, 24)
+
 
 print("Buttons registered...")

@@ -525,6 +525,62 @@ class GpioHandler:
         return cab_ctrl, lift_cntr, move_cntr, btn, led
 
     @classmethod
+    def crane_car(
+        cls,
+        address: int,
+        cab_pin_1: int | str,
+        cab_pin_2: int | str,
+        lift_chn: int | str = 0,
+        lift_pin: int | str = None,
+        bh_pin: int | str = None,
+        lh_pin: int | str = None,
+        lift_led: int | str = None,
+        bh_led: int | str = None,
+        lh_led: int | str = None,
+    ) -> Tuple[RotaryEncoder, JoyStickHandler, Button]:
+        # use rotary encoder to control crane cab
+        cab_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 1)
+        turn_right = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, 1)
+        turn_left = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, -1)
+        cab_ctrl = cls.when_rotary_encoder(
+            cab_pin_1,
+            cab_pin_2,
+            turn_right,
+            counterclockwise_cmd=turn_left,
+            prefix=cab_prefix,
+        )
+
+        # set up joystick for boom lift
+        lift_cmd = CommandReq.build(TMCC1EngineCommandDef.BOOST_SPEED, address)
+        drop_cmd = CommandReq.build(TMCC1EngineCommandDef.BRAKE_SPEED, address)
+        cmd_map = {}
+        for i in range(-20, 0, 1):
+            cmd_map[i] = drop_cmd
+        cmd_map[0] = None  # no action
+        for i in range(0, 21, 1):
+            cmd_map[i] = lift_cmd
+        lift_cntr = cls.when_joystick(
+            channel=lift_chn,
+            use_12bit=True,
+            data_min=-20,
+            data_max=20,
+            cmds=cmd_map,
+        )
+
+        # boom control
+        lift_btn = lift_led = None
+        if lift_pin is not None:
+            lift_btn, lift_led = cls.when_button_pressed(
+                lift_pin,
+                TMCC1EngineCommandDef.NUMERIC,
+                address,
+                data=1,
+                led_pin=lift_led,
+            )
+
+        return cab_ctrl, lift_cntr, lift_btn
+
+    @classmethod
     def engine(
         cls,
         address: int,
