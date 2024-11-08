@@ -222,9 +222,6 @@ class GpioHandler:
         address: int,
         btn_pin: int,
         led_pin: int | str = None,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
     ) -> Button | Tuple[Button, LED]:
         """
         Fire a TMCC2/Legacy Route, throwing all incorporated turnouts to the correct state
@@ -232,7 +229,7 @@ class GpioHandler:
         # make the CommandReq
         req, btn, led = cls._make_button(btn_pin, TMCC2RouteCommandDef.FIRE, address, led_pin=led_pin, bind=True)
         # bind actions to buttons
-        btn.when_pressed = req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+        btn.when_pressed = req.as_action(repeat=3)
 
         # return created objects
         if led is not None:
@@ -250,9 +247,6 @@ class GpioHandler:
         out_led_pin: int | str = None,
         cathode: bool = True,
         initial_state: TMCC1SwitchState = None,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
     ) -> Tuple[Button, Button] | Tuple[Button, Button, LED, LED]:
         """
         Control a switch/turnout that responds to TMCC1 switch commands, such
@@ -284,8 +278,8 @@ class GpioHandler:
             cathode=cathode,
         )
         # bind actions to buttons
-        thru_action = thru_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
-        out_action = out_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+        thru_action = thru_req.as_action(repeat=3)
+        out_action = out_req.as_action(repeat=3)
 
         thru_btn.when_pressed = cls._with_on_action(thru_action, thru_led, out_led)
         out_btn.when_pressed = cls._with_on_action(out_action, out_led, thru_led)
@@ -307,9 +301,6 @@ class GpioHandler:
         on_led_pin: int | str = None,
         cathode: bool = True,
         initial_state: TMCC1AuxCommandDef | bool = None,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
     ) -> Tuple[Button, Button] | Tuple[Button, Button, LED]:
         """
         Control a power district that responds to TMCC1 accessory commands, such
@@ -335,8 +326,8 @@ class GpioHandler:
             initially_on=initial_state == TMCC1AuxCommandDef.AUX2_OPT_ONE,
         )
         # bind actions to buttons
-        on_action = on_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
-        off_action = off_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+        on_action = on_req.as_action(repeat=3)
+        off_action = off_req.as_action(repeat=3)
 
         on_btn.when_pressed = cls._with_on_action(on_action, on_led)
         off_btn.when_pressed = cls._with_off_action(off_action, on_led)
@@ -358,9 +349,6 @@ class GpioHandler:
         aux2_pin: int | str,
         aux1_led_pin: int | str = None,
         cathode: bool = True,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
     ) -> Tuple[Button, Button] | Tuple[Button, Button, LED]:
         """
         Control an accessory that responds to TMCC1 accessory commands, such as one connected
@@ -375,8 +363,8 @@ class GpioHandler:
         )
         aux2_req, aux2_btn, aux2_led = cls._make_button(aux2_pin, TMCC1AuxCommandDef.AUX2_OPT_ONE, address)
         # bind actions to buttons
-        aux1_action = aux1_req.as_action(baudrate=baudrate, port=port, server=server)
-        aux2_action = aux2_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+        aux1_action = aux1_req.as_action()
+        aux2_action = aux2_req.as_action()
 
         aux1_btn.when_pressed = cls._with_held_action(aux1_action, aux1_btn)
         aux2_btn.when_pressed = aux2_action
@@ -395,15 +383,12 @@ class GpioHandler:
         cycle_led_pin: int | str = None,
         command_control: bool = True,
         cathode: bool = True,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
     ) -> Button | Tuple[Button, LED]:
         if command_control is True:
             cycle_req, cycle_btn, cycle_led = cls._make_button(
                 cycle_pin, TMCC1AuxCommandDef.AUX2_OPT_ONE, address, led_pin=cycle_led_pin, cathode=cathode
             )
-            cycle_btn.when_pressed = cycle_req.as_action(repeat=3, baudrate=baudrate, port=port, server=server)
+            cycle_btn.when_pressed = cycle_req.as_action(repeat=3)
         else:
             raise NotImplementedError
         if cycle_led is None:
@@ -421,9 +406,6 @@ class GpioHandler:
         lights_on_pin: int | str = None,
         lights_off_pin: int | str = None,
         command_control: bool = True,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
     ) -> Tuple[Button, Button]:
         if command_control is True:
             scale = {0: 0} | {x: 1 for x in range(1, 9)} | {x: 2 for x in range(9, 11)}
@@ -447,11 +429,9 @@ class GpioHandler:
                 lights_off_pin, TMCC1AuxCommandDef.NUMERIC, address, data=8
             )
             dispense_req, dispense_btn, dispense_led = cls._make_button(dispense_pin, TMCC1AuxCommandDef.BRAKE, address)
-            dispense_btn.when_pressed = dispense_req.as_action(repeat=2, baudrate=baudrate, port=port, server=server)
-            lights_on_btn.when_pressed = lights_on_req.as_action(repeat=2, baudrate=baudrate, port=port, server=server)
-            lights_off_btn.when_pressed = lights_off_req.as_action(
-                repeat=2, baudrate=baudrate, port=port, server=server
-            )
+            dispense_btn.when_pressed = dispense_req.as_action(repeat=2)
+            lights_on_btn.when_pressed = lights_on_req.as_action(repeat=2)
+            lights_off_btn.when_pressed = lights_off_req.as_action(repeat=2)
         else:
             raise NotImplementedError
         return lights_on_btn, lights_off_btn
@@ -554,10 +534,10 @@ class GpioHandler:
         lift_cmd = CommandReq.build(TMCC1EngineCommandDef.BOOST_SPEED, address)
         drop_cmd = CommandReq.build(TMCC1EngineCommandDef.BRAKE_SPEED, address)
         cmd_map = {}
-        for i in range(-20, 0, 1):
+        for i in range(-20, 1, 1):
             cmd_map[i] = drop_cmd
-        cmd_map[0] = None  # no action
-        for i in range(0, 21, 1):
+        cmd_map[-1] = cmd_map[0] = cmd_map[1] = None  # no action
+        for i in range(1, 21, 1):
             cmd_map[i] = lift_cmd
         lift_cntr = cls.when_joystick(
             channel=lift_chn,
@@ -577,6 +557,8 @@ class GpioHandler:
                 data=1,
                 led_pin=lift_led,
             )
+            if lift_led:
+                lift_led.source = lift_btn
 
         return cab_ctrl, lift_cntr, lift_btn
 
@@ -633,15 +615,12 @@ class GpioHandler:
         data: int = 0,
         scope: CommandScope = None,
         led_pin: int | str = None,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
     ) -> Button:
         # Use helper method to construct objects
         command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
 
         # create a command function to fire when button pressed
-        button.when_pressed = command.as_action(baudrate=baudrate, port=port, server=server)
+        button.when_pressed = command.as_action()
         return button
 
     @classmethod
@@ -654,15 +633,12 @@ class GpioHandler:
         scope: CommandScope = None,
         frequency: float = 1,
         led_pin: int | str = None,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
     ) -> Button:
         # Use helper method to construct objects
         command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
 
         # create a command function to fire when button held
-        button.when_held = command.as_action(baudrate=baudrate, port=port, server=server)
+        button.when_held = command.as_action()
         button.hold_repeat = True
         button.hold_time = frequency
         return button
