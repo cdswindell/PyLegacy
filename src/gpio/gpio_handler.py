@@ -37,6 +37,7 @@ class GpioDelayHandler(Thread):
         self._cv = threading.Condition()
         self._ev = threading.Event()
         self._scheduler = sched.scheduler(time.time, self._ev.wait)
+        self._running = True
         self.start()
 
     def cancel(self, ev: sched.Event) -> None:
@@ -46,8 +47,11 @@ class GpioDelayHandler(Thread):
         except ValueError:
             pass
 
+    def reset(self) -> None:
+        self._running = False
+
     def run(self) -> None:
-        while True:
+        while self._running:
             with self._cv:
                 while self._scheduler.empty():
                     self._cv.wait()
