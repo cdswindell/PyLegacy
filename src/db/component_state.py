@@ -542,8 +542,9 @@ class EngineState(ComponentState):
                 rpm = self._harvest_effect(cmd_effects & RPM_SET)
                 if isinstance(rpm, tuple) and len(rpm) == 2:
                     self._rpm = rpm[1]
+                elif isinstance(rpm, CommandDefEnum):
+                    self._rpm = rpm.value.data
                 else:
-                    self._rpm = None
                     print(f"**************** What am I supposed to do with {rpm}?")
 
             # handle speed
