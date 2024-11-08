@@ -48,8 +48,9 @@ class GpioDelayHandler(Thread):
             pass
 
     def reset(self) -> None:
-        self._running = False
-        self._ev.set()
+        with self._cv:
+            self._running = False
+            self._ev.set()
         print("GpioDelayHandler: set running to FALSE")
 
     def run(self) -> None:
