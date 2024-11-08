@@ -518,7 +518,7 @@ class GpioHandler:
         lift_led: int | str = None,
         bh_led: int | str = None,
         lh_led: int | str = None,
-    ) -> Tuple[RotaryEncoder, JoyStickHandler, Button]:
+    ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED]:
         # use rotary encoder to control crane cab
         cab_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 1)
         turn_right = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, 1)
@@ -561,7 +561,7 @@ class GpioHandler:
             if lift_led:
                 lift_led.source = lift_btn
 
-        return cab_ctrl, lift_cntr, lift_btn
+        return cab_ctrl, lift_cntr, lift_btn, lift_led
 
     @classmethod
     def engine(
