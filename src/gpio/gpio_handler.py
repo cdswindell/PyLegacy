@@ -91,6 +91,7 @@ class PotHandler(Thread):
         scale: Dict[int, int] = None,
         cmds: Dict[int, T] = None,
         start: bool = True,
+        prefix: CommandReq = None,
     ) -> None:
         super().__init__(daemon=True)
         if use_12bit is True:
@@ -98,6 +99,7 @@ class PotHandler(Thread):
         else:
             self._pot = MCP3008(channel=channel)
         self._command = command
+        self._prefix_action = prefix.as_action() if prefix else None
         self._last_value = None
         self._action = command.as_action() if command else None
         if data_max is None:
@@ -137,12 +139,17 @@ class PotHandler(Thread):
             self._last_value = value
             if self._command_map and value in self._command_map:
                 cmd = self._command_map[value]
-                if cmd:  # command could be None, indicating no action
+                if cmd:
+                    if self._prefix_action:
+                        self._prefix_action()
+                    # command could be None, indicating no action
                     if cmd.is_data is True:
                         cmd.as_action()(new_data=value)
                     else:
                         cmd.as_action()()
             elif self._command and self._action:
+                if self._prefix_action:
+                    self._prefix_action()
                 self._command.data = value
                 self._action(new_data=value)
             time.sleep(self._delay)
@@ -178,6 +185,7 @@ class JoyStickHandler(PotHandler):
         delay: float = 0.05,
         scale: Dict[int, int] = None,
         cmds: Dict[int, T] = None,
+        prefix: CommandReq = None,
     ) -> None:
         super().__init__(
             command,
@@ -190,6 +198,7 @@ class JoyStickHandler(PotHandler):
             scale=scale,
             cmds=cmds,
             start=False,
+            prefix=prefix,
         )
         self._threshold = None
         self.start()
@@ -457,11 +466,18 @@ class GpioHandler:
         roll_chn: int | str = 1,
         mag_pin: int | str = None,
         led_pin: int | str = None,
-    ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED]:
+    ) -> Tuple[RotaryEncoder, JoyStickHandler, JoyStickHandler, Button, LED]:
         # use rotary encoder to control crane cab
+        cab_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 1)
         turn_right = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, 1)
         turn_left = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, -1)
-        re = cls.when_rotary_encoder(cab_pin_1, cab_pin_2, turn_right, counterclockwise_cmd=turn_left)
+        cab_ctrl = cls.when_rotary_encoder(
+            cab_pin_1,
+            cab_pin_2,
+            turn_right,
+            counterclockwise_cmd=turn_left,
+            prefix=cab_prefix,
+        )
 
         # set up joystick for boom lift
         lift_cmd = CommandReq.build(TMCC1EngineCommandDef.BOOST_SPEED, address)
@@ -472,7 +488,29 @@ class GpioHandler:
         cmd_map[0] = None  # no action
         for i in range(0, 21, 1):
             cmd_map[i] = lift_cmd
-        lift_cntr = cls.when_joystick(channel=lift_chn, use_12bit=True, data_min=-20, data_max=20, cmds=cmd_map)
+        lift_cntr = cls.when_joystick(
+            channel=lift_chn,
+            use_12bit=True,
+            data_min=-20,
+            data_max=20,
+            cmds=cmd_map,
+        )
+
+        # set up for crane track motion
+        scale = {0: 0} | {x: 1 for x in range(1, 9)} | {x: 2 for x in range(9, 11)}
+        scale |= {-x: -1 for x in range(1, 9)} | {-x: -2 for x in range(9, 11)}
+        move_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 2)
+        move_cmd = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
+        move_cntr = cls.when_joystick(
+            move_cmd,
+            channel=roll_chn,
+            use_12bit=True,
+            data_min=-10,
+            data_max=10,
+            delay=0.2,
+            scale=scale,
+            prefix=move_prefix,
+        )
 
         btn = led = None
         if mag_pin is not None:
@@ -484,7 +522,7 @@ class GpioHandler:
                 auto_timeout=59,
             )
 
-        return re, lift_cntr, btn, led
+        return cab_ctrl, lift_cntr, move_cntr, btn, led
 
     @classmethod
     def engine(
@@ -699,6 +737,7 @@ class GpioHandler:
         delay: float = 0.05,
         scale: Dict[int, int] = None,
         cmds: Dict[int, T] = None,
+        prefix: CommandReq = None,
     ) -> JoyStickHandler:
         if isinstance(command, CommandDefEnum):
             command = CommandReq.build(command, address, 0, scope)
@@ -713,6 +752,7 @@ class GpioHandler:
             delay=delay,
             scale=scale,
             cmds=cmds,
+            prefix=prefix,
         )
         cls.cache_handler(joystick)
         cls.cache_device(joystick.pot)
@@ -731,6 +771,7 @@ class GpioHandler:
         cc_data: int = None,
         max_steps: int = 100,
         ramp: Dict[int, int] = None,
+        prefix: CommandReq = None,
     ) -> RotaryEncoder:
         re = RotaryEncoder(pin_1, pin_2, wrap=True, max_steps=max_steps)
         cls.cache_device(re)
@@ -751,9 +792,17 @@ class GpioHandler:
                 500: 1,
             }
         # bind commands
-        re.when_rotated_clockwise = cls._with_re_action(clockwise_cmd.as_action(), ramp)
-        re.when_rotated_counter_clockwise = cls._with_re_action(counterclockwise_cmd.as_action(), ramp, cc=True)
-
+        re.when_rotated_clockwise = cls._with_re_action(
+            clockwise_cmd.as_action(),
+            ramp,
+            prefix.as_action() if prefix else None,
+        )
+        re.when_rotated_counter_clockwise = cls._with_re_action(
+            counterclockwise_cmd.as_action(),
+            ramp,
+            prefix.as_action() if prefix else None,
+            True,
+        )
         # return rotary encoder
         return re
 
@@ -878,7 +927,13 @@ class GpioHandler:
         return on_action
 
     @classmethod
-    def _with_re_action(cls, action: Callable, ramp: Dict[int, int] = None, cc: bool = False) -> Callable:
+    def _with_re_action(
+        cls,
+        action: Callable,
+        ramp: Dict[int, int] = None,
+        prefix: Callable = None,
+        cc: bool = False,
+    ) -> Callable:
         last_rotation_at = cls.current_milli_time()
 
         def func() -> None:
@@ -890,6 +945,8 @@ class GpioHandler:
                     if last_rotated <= ramp_val:
                         data = data_val if cc is False else -data_val
                         break
+            if prefix:
+                prefix()
             action(new_data=data)
             last_rotation_at = cls.current_milli_time()
 
