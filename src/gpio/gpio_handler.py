@@ -57,7 +57,7 @@ class GpioDelayHandler(Thread):
     def run(self) -> None:
         while self._running:
             with self._cv:
-                while self._scheduler.empty():
+                while self._running and self._scheduler.empty():
                     self._cv.wait()
                     print(f"GpioDelayHandler thread interrupted... {self._running}")
             # run the scheduler outside the cv lock, otherwise,
