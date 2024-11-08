@@ -543,9 +543,10 @@ class EngineState(ComponentState):
                 if isinstance(rpm, tuple) and len(rpm) == 2:
                     self._rpm = rpm[1]
                 elif isinstance(rpm, CommandDefEnum):
-                    print(f"{rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
-                    self._rpm = rpm.value.data
+                    print(f"{command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
+                    self._rpm = 0
                 else:
+                    print(f"{command} {rpm} {type(rpm)} {cmd_effects}")
                     print(f"**************** What am I supposed to do with {rpm}?")
 
             # handle speed
