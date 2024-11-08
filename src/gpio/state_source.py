@@ -110,6 +110,7 @@ class EngineStateSource(StateSource):
 
     @property
     def is_active(self) -> bool:
+        # if a getter was specified, use it to compare value to input data
         if self._getter and hasattr(self._component, self._getter):
             return self._data == getattr(self._component, self._getter)
         return False
