@@ -143,7 +143,7 @@ class PotHandler(Thread):
                     if self._prefix_action:
                         self._prefix_action()
                     # command could be None, indicating no action
-                    print(f"{cmd} {value}")
+                    # print(f"{cmd} {value}")
                     if cmd.is_data is True:
                         cmd.as_action()(new_data=value)
                     else:
@@ -230,7 +230,7 @@ class GpioHandler:
         # make the CommandReq
         req, btn, led = cls._make_button(btn_pin, TMCC2RouteCommandDef.FIRE, address, led_pin=led_pin, bind=True)
         # bind actions to buttons
-        btn.when_pressed = req.as_action(repeat=3)
+        btn.when_pressed = req.as_action(repeat=2)
 
         # return created objects
         if led is not None:
@@ -279,8 +279,8 @@ class GpioHandler:
             cathode=cathode,
         )
         # bind actions to buttons
-        thru_action = thru_req.as_action(repeat=3)
-        out_action = out_req.as_action(repeat=3)
+        thru_action = thru_req.as_action(repeat=2)
+        out_action = out_req.as_action(repeat=2)
 
         thru_btn.when_pressed = cls._with_on_action(thru_action, thru_led, out_led)
         out_btn.when_pressed = cls._with_on_action(out_action, out_led, thru_led)
@@ -327,8 +327,8 @@ class GpioHandler:
             initially_on=initial_state == TMCC1AuxCommandDef.AUX2_OPT_ONE,
         )
         # bind actions to buttons
-        on_action = on_req.as_action(repeat=3)
-        off_action = off_req.as_action(repeat=3)
+        on_action = on_req.as_action(repeat=2)
+        off_action = off_req.as_action(repeat=2)
 
         on_btn.when_pressed = cls._with_on_action(on_action, on_led)
         off_btn.when_pressed = cls._with_off_action(off_action, on_led)
@@ -389,7 +389,7 @@ class GpioHandler:
             cycle_req, cycle_btn, cycle_led = cls._make_button(
                 cycle_pin, TMCC1AuxCommandDef.AUX2_OPT_ONE, address, led_pin=cycle_led_pin, cathode=cathode
             )
-            cycle_btn.when_pressed = cycle_req.as_action(repeat=3)
+            cycle_btn.when_pressed = cycle_req.as_action(repeat=2)
         else:
             raise NotImplementedError
         if cycle_led is None:
@@ -447,6 +447,7 @@ class GpioHandler:
         roll_chn: int | str = 1,
         mag_pin: int | str = None,
         led_pin: int | str = None,
+        use_12bit: bool = True,
     ) -> Tuple[RotaryEncoder, JoyStickHandler, JoyStickHandler, Button, LED]:
         # use rotary encoder to control crane cab
         cab_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 1)
@@ -471,7 +472,7 @@ class GpioHandler:
             cmd_map[i] = lift_cmd
         lift_cntr = cls.when_joystick(
             channel=lift_chn,
-            use_12bit=True,
+            use_12bit=use_12bit,
             data_min=-20,
             data_max=20,
             delay=0.2,
@@ -486,7 +487,7 @@ class GpioHandler:
         move_cntr = cls.when_joystick(
             move_cmd,
             channel=roll_chn,
-            use_12bit=True,
+            use_12bit=use_12bit,
             data_min=-10,
             data_max=10,
             delay=0.2,
@@ -515,11 +516,12 @@ class GpioHandler:
         lift_chn: int | str = 0,
         lift_pin: int | str = None,
         bh_pin: int | str = None,
-        lh_pin: int | str = None,
+        sh_pin: int | str = None,
         lift_led_pin: int | str = None,
         bh_led_pin: int | str = None,
-        lh_led_pin: int | str = None,
-    ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED, Button, LED]:
+        sh_led_pin: int | str = None,
+        use_12bit: bool = True,
+    ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED, Button, LED, Button, LED]:
         # use rotary encoder to control crane cab
         cab_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 1)
         turn_right = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, 1)
@@ -543,9 +545,10 @@ class GpioHandler:
             cmd_map[i] = lift_cmd
         lift_cntr = cls.when_joystick(
             channel=lift_chn,
-            use_12bit=True,
+            use_12bit=use_12bit,
             data_min=-20,
             data_max=20,
+            delay=0.2,
             cmds=cmd_map,
         )
 
@@ -577,7 +580,21 @@ class GpioHandler:
             if bh_led:
                 cls.cache_handler(EngineStateSource(address, bh_led, data=2, getter="numeric"))
 
-        return cab_ctrl, lift_cntr, lift_btn, lift_led, bh_btn, bh_led
+        # small hook control
+        sh_btn = sh_led = None
+        if sh_pin is not None:
+            cmd, sh_btn, sh_led = cls.when_button_pressed(
+                sh_pin,
+                TMCC1EngineCommandDef.NUMERIC,
+                address,
+                data=3,
+                scope=CommandScope.ENGINE,
+                led_pin=sh_led_pin,
+            )
+            if sh_led:
+                cls.cache_handler(EngineStateSource(address, sh_led, data=3, getter="numeric"))
+
+        return cab_ctrl, lift_cntr, lift_btn, lift_led, bh_btn, bh_led, sh_btn, sh_led
 
     @classmethod
     def engine(
