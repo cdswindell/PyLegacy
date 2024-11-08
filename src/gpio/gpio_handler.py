@@ -187,7 +187,7 @@ class JoyStickHandler(PotHandler):
 class GpioHandler:
     GPIO_DEVICE_CACHE = set()
     GPIO_HANDLER_CACHE = set()
-    GPIO_DELAY_HANDLER = GpioDelayHandler()
+    GPIO_DELAY_HANDLER = None
 
     @staticmethod
     def current_milli_time() -> int:
@@ -821,6 +821,10 @@ class GpioHandler:
 
     @classmethod
     def _with_toggle_action(cls, action: Callable, led: LED, auto_timeout: int = None) -> Callable:
+        if cls.GPIO_DELAY_HANDLER is None:
+            cls.GPIO_DELAY_HANDLER = GpioDelayHandler()
+            cls.cache_handler(cls.GPIO_DELAY_HANDLER)
+
         ev: sched.Event | None = None
 
         def toggle_action() -> None:
