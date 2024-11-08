@@ -1,9 +1,11 @@
 import math
+import sched
+import threading
 import time
 from threading import Thread
 from typing import Tuple, Callable, Dict, TypeVar
 
-from gpiozero import Button, LED, MCP3008, Device, MCP3208, AnalogInputDevice
+from gpiozero import Button, LED, MCP3008, Device, MCP3208, RotaryEncoder
 
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
@@ -21,19 +23,60 @@ DEFAULT_VARIANCE: float = 0.001  # pot difference variance
 T = TypeVar("T", bound=CommandReq)
 
 
+class GpioDelayHandler(Thread):
+    """
+    Handle delayed (scheduled) requests. Implementation uses Python's lightweight
+    sched module to keep a list of requests to issue in the future. We use
+    threading.Event.wait() as the sleep function, as it is interruptable. This
+    allows us to schedule requests in any order and still have them fire at the
+    appropriate time.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(daemon=True, name="PyLegacy GPIO Delay Handler")
+        self._cv = threading.Condition()
+        self._ev = threading.Event()
+        self._scheduler = sched.scheduler(time.time, self._ev.wait)
+        self.start()
+
+    def cancel(self, ev: sched.Event) -> None:
+        try:
+            if ev:
+                self._scheduler.cancel(ev)
+        except ValueError:
+            pass
+
+    def run(self) -> None:
+        while True:
+            with self._cv:
+                while self._scheduler.empty():
+                    self._cv.wait()
+            # run the scheduler outside the cv lock, otherwise,
+            #  we couldn't schedule more commands
+            self._scheduler.run()
+            self._ev.clear()
+
+    def schedule(self, delay: float, command: Callable) -> sched.Event:
+        with self._cv:
+            ev = self._scheduler.enter(delay, 1, command)
+            # this interrupts the running scheduler
+            self._ev.set()
+            # and this notifies the main thread to restart, as there is a new
+            # request in the sched queue
+            self._cv.notify()
+            return ev
+
+
 class PotHandler(Thread):
     def __init__(
         self,
-        command: CommandReq,
+        command: CommandReq | None,
         channel: int = 0,
         use_12bit: bool = False,
         data_min: int = None,
         data_max: int = None,
         threshold: float = None,
         delay: float = 0.05,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: int | str = DEFAULT_PORT,
-        server: str = None,
         scale: Dict[int, int] = None,
         cmds: Dict[int, T] = None,
         start: bool = True,
@@ -42,10 +85,10 @@ class PotHandler(Thread):
         if use_12bit is True:
             self._pot = MCP3208(channel=channel, differential=False)
         else:
-            self._pot = MCP3008(channel=channel, differential=False)
+            self._pot = MCP3008(channel=channel)
         self._command = command
         self._last_value = None
-        self._action = command.as_action(baudrate=baudrate, port=port, server=server)
+        self._action = command.as_action()
         if data_max is None:
             data_max = command.data_max
         if data_min is None:
@@ -63,7 +106,7 @@ class PotHandler(Thread):
             self.start()
 
     @property
-    def pot(self) -> AnalogInputDevice:
+    def pot(self) -> MCP3008:
         return self._pot
 
     def run(self) -> None:
@@ -81,10 +124,11 @@ class PotHandler(Thread):
             self._last_value = value
             if self._command_map and value in self._command_map:
                 cmd = self._command_map[value]
-                if cmd.is_data is True:
-                    cmd.as_action()(new_data=value)
-                else:
-                    cmd.as_action()()
+                if cmd:  # command could be None, indicating no action
+                    if cmd.is_data is True:
+                        cmd.as_action()(new_data=value)
+                    else:
+                        cmd.as_action()()
             elif self._command:
                 self._command.data = value
                 self._action(new_data=value)
@@ -113,16 +157,14 @@ class PotHandler(Thread):
 class JoyStickHandler(PotHandler):
     def __init__(
         self,
-        command: CommandReq,
+        command: CommandReq | None = None,
         channel: int = 0,
-        use_12bit: bool = False,
+        use_12bit: bool = True,
         data_min: int = None,
         data_max: int = None,
         delay: float = 0.05,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
         scale: Dict[int, int] = None,
+        cmds: Dict[int, T] = None,
     ) -> None:
         super().__init__(
             command,
@@ -132,11 +174,9 @@ class JoyStickHandler(PotHandler):
             data_max=data_max,
             threshold=None,
             delay=delay,
-            baudrate=baudrate,
-            port=port,
-            server=server,
-            start=False,
             scale=scale,
+            cmds=cmds,
+            start=False,
         )
         self._threshold = None
         self.start()
@@ -145,6 +185,14 @@ class JoyStickHandler(PotHandler):
 class GpioHandler:
     GPIO_DEVICE_CACHE = set()
     GPIO_HANDLER_CACHE = set()
+    GPIO_DELAY_HANDLER = GpioDelayHandler()
+
+    @staticmethod
+    def current_milli_time() -> int:
+        """
+        Return the current time, in milliseconds past the "epoch"
+        """
+        return round(time.time() * 1000)
 
     @classmethod
     def route(
@@ -221,8 +269,8 @@ class GpioHandler:
         out_btn.when_pressed = cls._with_on_action(out_action, out_led, thru_led)
 
         if thru_led is not None and out_led is not None:
-            cls._cache_handler(SwitchStateSource(address, thru_led, TMCC1SwitchState.THROUGH))
-            cls._cache_handler(SwitchStateSource(address, out_led, TMCC1SwitchState.OUT))
+            cls.cache_handler(SwitchStateSource(address, thru_led, TMCC1SwitchState.THROUGH))
+            cls.cache_handler(SwitchStateSource(address, out_led, TMCC1SwitchState.OUT))
             return thru_btn, out_btn, thru_led, out_led
         else:
             # return created objects
@@ -276,7 +324,7 @@ class GpioHandler:
             return on_btn, off_btn
         else:
             # listen for external state changes
-            cls._cache_handler(AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandDef.AUX1_OPT_ONE))
+            cls.cache_handler(AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandDef.AUX1_OPT_ONE))
             # return created objects
             return on_btn, off_btn, on_led
 
@@ -339,7 +387,7 @@ class GpioHandler:
         if cycle_led is None:
             return cycle_btn
         else:
-            cls._cache_handler(AccessoryStateSource(address, cycle_led, aux2_state=TMCC1AuxCommandDef.AUX2_ON))
+            cls.cache_handler(AccessoryStateSource(address, cycle_led, aux2_state=TMCC1AuxCommandDef.AUX2_ON))
             return cycle_btn, cycle_led
 
     @classmethod
@@ -365,13 +413,10 @@ class GpioHandler:
                 data_min=-10,
                 data_max=10,
                 delay=0.2,
-                baudrate=baudrate,
-                port=port,
-                server=server,
                 scale=scale,
             )
-            cls._cache_handler(knob)
-            cls._cache_device(knob.pot)
+            cls.cache_handler(knob)
+            cls.cache_device(knob.pot)
 
             lights_on_req, lights_on_btn, lights_on_led = cls._make_button(
                 lights_on_pin, TMCC1AuxCommandDef.NUMERIC, address, data=9
@@ -395,12 +440,38 @@ class GpioHandler:
         address: int,
         cab_pin_1: int | str,
         cab_pin_2: int | str,
-        roll_chn: int,
-        lift_chn: int,
-        mag_pin: int | str,
-        mag_led_pin: int | str = None,
-    ):
-        pass
+        lift_chn: int | str = 0,
+        roll_chn: int | str = 1,
+        mag_pin: int | str = None,
+        led_pin: int | str = None,
+    ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED]:
+        # use rotary encoder to control crane cab
+        turn_right = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, 1)
+        turn_left = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, -1)
+        re = cls.when_rotary_encoder(cab_pin_1, cab_pin_2, turn_right, counterclockwise_cmd=turn_left)
+
+        # set up joystick for boom lift
+        lift_cmd = CommandReq.build(TMCC1EngineCommandDef.BOOST_SPEED, address)
+        drop_cmd = CommandReq.build(TMCC1EngineCommandDef.BRAKE_SPEED, address)
+        cmd_map = {}
+        for i in range(-20, 0, 1):
+            cmd_map[i] = drop_cmd
+        cmd_map[0] = None  # no action
+        for i in range(0, 21, 1):
+            cmd_map[i] = lift_cmd
+        lift_cntr = cls.when_joystick(channel=lift_chn, use_12bit=True, data_min=-20, data_max=20, cmds=cmd_map)
+
+        btn = led = None
+        if mag_pin is not None:
+            btn, led = cls.when_toggle_button_pressed(
+                mag_pin,
+                TMCC1EngineCommandDef.AUX2_OPTION_ONE,
+                address,
+                led_pin=led_pin,
+                auto_timeout=59,
+            )
+
+        return re, lift_cntr, btn, led
 
     @classmethod
     def engine(
@@ -410,11 +481,8 @@ class GpioHandler:
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
         is_legacy: bool = True,
-        use_12bit: bool = False,
+        use_12bit: bool = True,
         scope: CommandScope = CommandScope.ENGINE,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
     ) -> Tuple[PotHandler, Button, Button]:
         fwd_btn = rev_btn = None
         fwd_cmd = rev_cmd = None
@@ -443,9 +511,9 @@ class GpioHandler:
 
         # assign button actions
         if fwd_btn is not None:
-            fwd_btn.when_pressed = fwd_cmd.as_action(baudrate=baudrate, port=port, server=server)
+            fwd_btn.when_pressed = fwd_cmd.as_action()
         if rev_btn is not None:
-            rev_btn.when_pressed = rev_cmd.as_action(baudrate=baudrate, port=port, server=server)
+            rev_btn.when_pressed = rev_cmd.as_action()
         # return objects
         return pot, fwd_btn, rev_btn
 
@@ -537,10 +605,10 @@ class GpioHandler:
             off_button.when_pressed = off_action
             on_button.when_pressed = on_action
 
-        cls._cache_device(off_button)
-        cls._cache_device(on_button)
+        cls.cache_device(off_button)
+        cls.cache_device(on_button)
         if led is not None:
-            cls._cache_device(led)
+            cls.cache_device(led)
         return off_button, on_button, led
 
     @classmethod
@@ -552,48 +620,129 @@ class GpioHandler:
         data: int = 0,
         scope: CommandScope = None,
         led_pin: int | str = None,
-        initial_state: bool = False,  # off
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
-    ) -> Button | tuple[Button, LED]:
+        initial_state: bool = False,
+        auto_timeout: int = None,
+    ) -> tuple[Button, LED]:
         # Use helper method to construct objects
         command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
 
         # create a command function to fire when button pressed
-        action = command.as_action(baudrate=baudrate, port=port, server=server)
+        action = command.as_action()
         if led_pin is not None and led_pin != 0:
-            button.when_pressed = cls._with_toggle_action(action, led)
+            button.when_pressed = cls._with_toggle_action(action, led, auto_timeout)
             led.source = None  # want led to stay lit when button pressed
-            if initial_state:
+            if initial_state is True:
                 led.on()
             else:
                 led.off()
-            return button, led
         else:
             button.when_pressed = action
-            return button
+        return button, led
 
     @classmethod
     def when_pot(
         cls,
-        command: CommandReq | CommandDefEnum,
+        command: CommandReq | CommandDefEnum | None = None,
+        address: int = DEFAULT_ADDRESS,
+        scope: CommandScope = None,
+        channel: int = 0,
+        use_12bit: bool = True,
+        data_min: int = None,
+        data_max: int = None,
+        threshold: float = None,
+        delay: float = 0.05,
+        scale: Dict[int, int] = None,
+        cmds: Dict[int, T] = None,
+    ) -> PotHandler:
+        if isinstance(command, CommandDefEnum):
+            command = CommandReq.build(command, address, 0, scope)
+        if command and command.num_data_bits == 0:
+            raise ValueError("Command does not support variable data")
+        knob = PotHandler(
+            command=command,
+            channel=channel,
+            use_12bit=use_12bit,
+            data_min=data_min,
+            data_max=data_max,
+            threshold=threshold,
+            delay=delay,
+            scale=scale,
+            cmds=cmds,
+        )
+        cls.cache_handler(knob)
+        cls.cache_device(knob.pot)
+        return knob
+
+    @classmethod
+    def when_joystick(
+        cls,
+        command: CommandReq | CommandDefEnum | None = None,
         address: int = DEFAULT_ADDRESS,
         scope: CommandScope = None,
         channel: int = 0,
         use_12bit: bool = False,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
-    ) -> PotHandler:
+        data_min: int = None,
+        data_max: int = None,
+        delay: float = 0.05,
+        scale: Dict[int, int] = None,
+        cmds: Dict[int, T] = None,
+    ) -> JoyStickHandler:
         if isinstance(command, CommandDefEnum):
             command = CommandReq.build(command, address, 0, scope)
-        if command.num_data_bits == 0:
+        if command and command.num_data_bits == 0:
             raise ValueError("Command does not support variable data")
-        knob = PotHandler(command, channel, use_12bit=use_12bit, baudrate=baudrate, port=port, server=server)
-        cls._cache_handler(knob)
-        cls._cache_device(knob.pot)
-        return knob
+        joystick = JoyStickHandler(
+            command=command,
+            channel=channel,
+            use_12bit=use_12bit,
+            data_min=data_min,
+            data_max=data_max,
+            delay=delay,
+            scale=scale,
+            cmds=cmds,
+        )
+        cls.cache_handler(joystick)
+        cls.cache_device(joystick.pot)
+        return joystick
+
+    @classmethod
+    def when_rotary_encoder(
+        cls,
+        pin_1: int | str,
+        pin_2: int | str,
+        clockwise_cmd: CommandReq | CommandDefEnum,
+        address: int = DEFAULT_ADDRESS,
+        data: int = None,
+        scope: CommandScope = None,
+        counterclockwise_cmd: CommandReq | CommandDefEnum = None,
+        cc_data: int = None,
+        max_steps: int = 100,
+        ramp: Dict[int, int] = None,
+    ) -> RotaryEncoder:
+        re = RotaryEncoder(pin_1, pin_2, wrap=True, max_steps=max_steps)
+        cls.cache_device(re)
+
+        # make commands
+        if isinstance(clockwise_cmd, CommandDefEnum):
+            clockwise_cmd = CommandReq.build(clockwise_cmd, address=address, data=data, scope=scope)
+        if counterclockwise_cmd is None:
+            counterclockwise_cmd = clockwise_cmd
+        elif isinstance(counterclockwise_cmd, CommandDefEnum):
+            counterclockwise_cmd = CommandReq.build(counterclockwise_cmd, address=address, data=cc_data, scope=scope)
+
+        # construct ramp
+        if ramp is None:
+            ramp = {
+                50: 3,
+                250: 2,
+                500: 1,
+            }
+        # bind commands
+        re.when_rotated_clockwise = cls._with_re_action(clockwise_cmd.as_action(), ramp)
+        re.when_rotated_counterclockwise = cls._with_re_action(counterclockwise_cmd.as_action(), ramp, cc=True)
+
+        # return rotary encoder
+        return re
 
     @classmethod
     def reset_all(cls) -> None:
@@ -607,22 +756,18 @@ class GpioHandler:
         cls.GPIO_DEVICE_CACHE = set()
 
     @classmethod
-    def _cache_handler(cls, handler: Thread) -> None:
+    def cache_handler(cls, handler: Thread) -> None:
         cls.GPIO_HANDLER_CACHE.add(handler)
 
     @classmethod
-    def release_device(cls, device: Device) -> None:
-        cls._release_device(device)
-
-    @classmethod
-    def _cache_device(cls, device: Device) -> None:
+    def cache_device(cls, device: Device) -> None:
         """
         Keep devices around after creation so they remain in scope
         """
         cls.GPIO_DEVICE_CACHE.add(device)
 
     @classmethod
-    def _release_device(cls, device: Device) -> None:
+    def release_device(cls, device: Device) -> None:
         device.close()
         cls.GPIO_DEVICE_CACHE.remove(device)
 
@@ -630,7 +775,7 @@ class GpioHandler:
     def _make_button(
         cls,
         pin: int | str,
-        command: CommandReq | CommandDefEnum | CommandDefEnum,
+        command: CommandReq | CommandDefEnum,
         address: int = DEFAULT_ADDRESS,
         data: int = None,
         scope: CommandScope = None,
@@ -650,7 +795,7 @@ class GpioHandler:
         if held is True:
             button.hold_repeat = held
             button.hold_repeat = frequency
-        cls._cache_device(button)
+        cls.cache_device(button)
 
         # create a LED, if asked, and tie its source to the button
         if led_pin is not None and led_pin != 0:
@@ -658,7 +803,7 @@ class GpioHandler:
             led.source = None
             if bind:
                 led.source = button
-            cls._cache_device(led)
+            cls.cache_device(led)
         else:
             led = None
         return command, button, led
@@ -673,13 +818,21 @@ class GpioHandler:
         return held_action
 
     @classmethod
-    def _with_toggle_action(cls, action: Callable, led: LED) -> Callable:
+    def _with_toggle_action(cls, action: Callable, led: LED, auto_timeout: int = None) -> Callable:
+        ev: sched.Event | None = None
+
         def toggle_action() -> None:
+            nonlocal ev
             action()
             if led.value:
+                if ev is not None:
+                    cls.GPIO_DELAY_HANDLER.cancel(ev)
+                    ev = None
                 led.off()
             else:
                 led.on()
+                if auto_timeout:
+                    ev = cls.GPIO_DELAY_HANDLER.schedule(auto_timeout, led.off)
 
         return toggle_action
 
@@ -706,6 +859,24 @@ class GpioHandler:
                     impacted_led.off()
 
         return on_action
+
+    @classmethod
+    def _with_re_action(cls, action: Callable, ramp: Dict[int, int] = None, cc: bool = False) -> Callable:
+        last_rotation_at = cls.current_milli_time()
+
+        def func() -> None:
+            nonlocal last_rotation_at
+            last_rotated = cls.current_milli_time() - last_rotation_at
+            data = 1 if cc is False else -1
+            if ramp:
+                for ramp_val, data_val in ramp.items():
+                    if last_rotated <= ramp_val:
+                        data = data_val if cc is False else -data_val
+                        break
+            action(new_data=data)
+            last_rotation_at = cls.current_milli_time()
+
+        return func
 
     @classmethod
     def _create_listeners(cls, req, active_led: LED = None, *inactive_leds: LED) -> None:

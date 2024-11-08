@@ -39,7 +39,7 @@ ENGINE_WRITE_MAP = {
     "DITCH_OFF": (20, 66, lambda t: 0),
     "DITCH_OFF_PULSE_ON_WITH_HORN": (20, 66, lambda t: 1),
     "DITCH_ON_PULSE_OFF_WITH_HORN": (20, 66, lambda t: 2),
-    "DITCH_ON": (20, 66, lambda t: 3),
+    "DITCH_ON": (20, 68, lambda t: 3),
 }
 
 CONTROL_TYPE: Dict[int, str] = {
@@ -110,9 +110,10 @@ class BaseReq(PdiReq):
             state = cmd
         else:
             raise ValueError(f"Invalid option: {cmd}")
+        print(f"State: {state}")
         if state.name in ENGINE_WRITE_MAP:
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
-
+            print(f"State: {state} {data} {bit_pos} {offset} {scaler(data)}")
             if bit_pos <= 15:
                 value1 = 1 << bit_pos
                 value2 = 0
