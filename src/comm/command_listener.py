@@ -266,6 +266,7 @@ class Channel(Generic[Topic]):
                 subscriber(message)
             except Exception as e:
                 print(f"Error publishing to {self}: {e}")
+                raise e
 
 
 class CommandDispatcher(Thread):
