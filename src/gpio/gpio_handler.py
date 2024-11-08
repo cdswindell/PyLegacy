@@ -536,7 +536,7 @@ class GpioHandler:
         lift_cmd = CommandReq.build(TMCC1EngineCommandDef.BOOST_SPEED, address)
         drop_cmd = CommandReq.build(TMCC1EngineCommandDef.BRAKE_SPEED, address)
         cmd_map = {}
-        for i in range(-20, 1, 1):
+        for i in range(-20, -1, 1):
             cmd_map[i] = drop_cmd
         cmd_map[-1] = cmd_map[0] = cmd_map[1] = None  # no action
         for i in range(1, 21, 1):
