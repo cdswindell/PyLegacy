@@ -473,6 +473,7 @@ class GpioHandler:
             use_12bit=True,
             data_min=-20,
             data_max=20,
+            delay=0.2,
             cmds=cmd_map,
         )
 
