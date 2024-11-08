@@ -8,7 +8,7 @@ from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
+from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS
 
 ROUTE_THROW_RATE_MAP: Dict[int, float] = {
     1: 0.00,
@@ -40,48 +40,6 @@ ENGINE_WRITE_MAP = {
     "DITCH_OFF_PULSE_ON_WITH_HORN": (20, 66, lambda t: 1),
     "DITCH_ON_PULSE_OFF_WITH_HORN": (20, 66, lambda t: 2),
     "DITCH_ON": (20, 68, lambda t: 3),
-}
-
-CONTROL_TYPE: Dict[int, str] = {
-    0: "Cab-1",
-    1: "TMCC",
-    2: "Legacy",
-    3: "R100",
-}
-
-SOUND_TYPE: Dict[int, str] = {
-    0: "None",
-    1: "RainSounds",
-    2: "RailSounds 5",
-    3: "Legacy",
-}
-
-LOCO_TYPE: Dict[int, str] = {
-    0: "Diesel",
-    1: "Steam",
-    2: "Electric",
-    3: "Subway",
-    4: "Accessory/Operating Car",
-    5: "Passenger",
-    6: "Breakdown",
-    7: "reserved",
-    8: "Acela",
-    9: "Track Crane",
-    10: "Diesel Switcher",
-    11: "Steam Switcher",
-    12: "Freight",
-    13: "Diesel Pullmor",
-    14: "Steam Pullmor",
-    15: "Transformer",
-}
-
-LOCO_CLASS: Dict[int, str] = {
-    0: "Locomotive",
-    1: "Switcher",
-    2: "Subway",
-    10: "Pullmor",
-    20: "Transformer",
-    255: "Universal",
 }
 
 
@@ -233,6 +191,8 @@ class BaseReq(PdiReq):
                     self._run_level = state.rpm
                     self._scope = state.scope
                     self._control_type = 2 if state.is_legacy else 1
+                    self._loco_type = state.engine_type
+                    self._loco_class = state.engine_class
 
     @property
     def record_no(self) -> int:
@@ -315,8 +275,16 @@ class BaseReq(PdiReq):
         return LOCO_TYPE.get(self._loco_type, "NA")
 
     @property
+    def loco_type_id(self) -> int:
+        return self._loco_type
+
+    @property
     def loco_class(self) -> str:
         return LOCO_CLASS.get(self._loco_class, "NA")
+
+    @property
+    def loco_class_id(self) -> int:
+        return self._loco_class
 
     @property
     def is_active(self) -> bool:
@@ -398,9 +366,11 @@ class BaseReq(PdiReq):
             byte_str += self.encode_text(self.name, 33)
             byte_str += self.encode_text(self.number, 5)
             if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
-                byte_str += (255).to_bytes(1, byteorder="little")  # loco type
+                byte_str += self._loco_type.to_bytes(1, byteorder="little")  # loco type
                 byte_str += self._control_type.to_bytes(1, byteorder="little")
-                byte_str += (0).to_bytes(5, byteorder="little")  # 5 misc fields
+                byte_str += (0).to_bytes(1, byteorder="little")  # sount type
+                byte_str += self._loco_class.to_bytes(1, byteorder="little")
+                byte_str += (0).to_bytes(3, byteorder="little")  # 3 misc fields
                 byte_str += self._speed_step.to_bytes(1, byteorder="little")
                 byte_str += self._run_level.to_bytes(1, byteorder="little")
                 byte_str += (0).to_bytes(10, byteorder="little")  # 5 misc fields

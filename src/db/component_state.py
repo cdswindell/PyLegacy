@@ -16,7 +16,7 @@ from ..pdi.pdi_req import PdiReq
 from ..pdi.stm2_req import Stm2Req
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, BROADCAST_ADDRESS, CommandSyntax
+from ..protocol.constants import CommandScope, BROADCAST_ADDRESS, CommandSyntax, LOCO_TYPE
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
@@ -491,12 +491,14 @@ class EngineState(ComponentState):
         self._momentum: int | None = None
         self._prod_year: int | None = None
         self._rpm: int | None = None
+        self._engine_type: int | None = None
+        self._engine_class: int | None = None
         self._numeric: int | None = None
         self._numeric_cmd: CommandDefEnum | None = None
         self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
-        speed = direction = start_stop = name = num = mom = rl = yr = nu = ""
+        speed = direction = start_stop = name = num = mom = rl = yr = nu = lt = ""
         if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
             direction = " FWD"
         elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
@@ -522,8 +524,12 @@ class EngineState(ComponentState):
             num = f" #{self.road_number}"
         if self.year is not None:
             num = f" Released: {self.year}"
+        if self.engine_type is not None:
+            lt = f" {LOCO_TYPE.get(self.engine_type, 'NA')}"
+        # if self.engine_class is not None:
+        #     cl = f" Class: {LOCO_CLASS.get(self.engine_class, 'NA')}"
         ct = " Legacy" if self.is_legacy else " TMCC"
-        return f"{self.scope.name} {self._address:02}{speed}{rl}{mom}{direction}{nu}{name}{num}{ct}{yr}{start_stop}"
+        return f"{self.scope.name} {self._address:02}{speed}{rl}{mom}{direction}{nu}{name}{num}{lt}{ct}{yr}{start_stop}"
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
@@ -629,6 +635,8 @@ class EngineState(ComponentState):
             ):
                 self._momentum = command.momentum_tmcc
                 self._rpm = command.run_level
+                self._engine_class = command.loco_class_id
+                self._engine_type = command.loco_type_id
         elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
             self._prod_year = command.year
         self.changed.set()
@@ -670,6 +678,14 @@ class EngineState(ComponentState):
     @property
     def rpm(self) -> int:
         return self._rpm
+
+    @property
+    def engine_type(self) -> int:
+        return self._engine_type
+
+    @property
+    def engine_class(self) -> int:
+        return self._engine_class
 
     @property
     def direction(self) -> CommandDefEnum | None:

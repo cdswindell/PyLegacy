@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from enum import Enum, unique, IntEnum
-from typing import Any, List
+from typing import Any, List, Dict
 
 import sys
 
@@ -155,3 +157,41 @@ class CommandPrefix(Mixins, IntEnum):
     mapped to values 0 - 10
 """
 RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
+CONTROL_TYPE: Dict[int, str] = {
+    0: "Cab-1",
+    1: "TMCC",
+    2: "Legacy",
+    3: "R100",
+}
+SOUND_TYPE: Dict[int, str] = {
+    0: "None",
+    1: "RainSounds",
+    2: "RailSounds 5",
+    3: "Legacy",
+}
+LOCO_TYPE: Dict[int, str] = {
+    0: "Diesel",
+    1: "Steam",
+    2: "Electric",
+    3: "Subway",
+    4: "Accessory/Operating Car",
+    5: "Passenger",
+    6: "Breakdown",
+    7: "reserved",
+    8: "Acela",
+    9: "Track Crane",
+    10: "Diesel Switcher",
+    11: "Steam Switcher",
+    12: "Freight",
+    13: "Diesel Pullmor",
+    14: "Steam Pullmor",
+    15: "Transformer",
+}
+LOCO_CLASS: Dict[int, str] = {
+    0: "Locomotive",
+    1: "Switcher",
+    2: "Subway",
+    10: "Pullmor",
+    20: "Transformer",
+    255: "Universal",
+}
