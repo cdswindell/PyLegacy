@@ -56,6 +56,12 @@ RPM_SET = {
     TMCC2EngineCommandDef.DIESEL_RPM,
 }
 
+NUMERIC_SET = {
+    TMCC1EngineCommandDef.NUMERIC,
+    TMCC2EngineCommandDef.NUMERIC,
+}
+
+
 STARTUP_SET = {TMCC2EngineCommandDef.START_UP_IMMEDIATE, TMCC2EngineCommandDef.START_UP_DELAYED}
 
 SHUTDOWN_SET = {
@@ -485,10 +491,12 @@ class EngineState(ComponentState):
         self._momentum: int | None = None
         self._prod_year: int | None = None
         self._rpm: int | None = None
+        self._numeric: int | None = None
+        self._numeric_cmd: CommandDefEnum | None = None
         self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
-        speed = direction = start_stop = name = num = mom = rl = yr = ""
+        speed = direction = start_stop = name = num = mom = rl = yr = nu = ""
         if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
             direction = " FWD"
         elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
@@ -506,6 +514,8 @@ class EngineState(ComponentState):
             mom = f" Momentum: {self._momentum}"
         if self._rpm is not None:
             rl = f" RPM: {self._rpm}"
+        if self._numeric is not None:
+            nu = f" Last Num: {self._numeric}"
         if self.road_name is not None:
             name = f" {self.road_name}"
         if self.road_number is not None:
@@ -513,7 +523,7 @@ class EngineState(ComponentState):
         if self.year is not None:
             num = f" Released: {self.year}"
         ct = " Legacy" if self.is_legacy else " TMCC"
-        return f"{self.scope.name} {self._address:02}{speed}{rl}{mom}{direction}{name}{num}{ct}{yr}{start_stop}"
+        return f"{self.scope.name} {self._address:02}{speed}{rl}{mom}{direction}{nu}{name}{num}{ct}{yr}{start_stop}"
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
@@ -535,6 +545,14 @@ class EngineState(ComponentState):
             elif cmd_effects & DIRECTIONS_SET:
                 self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
+            # handle last numeric
+            if command.command in NUMERIC_SET:
+                self._numeric = command.data
+                self._numeric_cmd = command.command
+            elif cmd_effects & NUMERIC_SET:
+                numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
+                print(f"{command} {numeric}")
+
             # handle run level/rpm
             if command.command in RPM_SET:
                 self._rpm = command.data
@@ -546,8 +564,8 @@ class EngineState(ComponentState):
                     # print(f"{command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
                     self._rpm = 0
                 else:
-                    print(f"{command} {rpm} {type(rpm)} {cmd_effects}")
-                    print(f"**************** What am I supposed to do with {rpm}?")
+                    # print(f"{command} {rpm} {type(rpm)} {cmd_effects}")
+                    self._rpm = 0
 
             # handle speed
             if command.command in SPEED_SET:
@@ -632,11 +650,18 @@ class EngineState(ComponentState):
         if self._direction is not None:
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
             byte_str += CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes
+        if self._numeric is not None:
+            # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
+            byte_str += CommandReq.build(self._numeric_cmd, self.address, data=self._numeric, scope=self.scope).as_bytes
         return byte_str
 
     @property
     def speed(self) -> int:
         return self._speed
+
+    @property
+    def numeric(self) -> int:
+        return self._numeric
 
     @property
     def momentum(self) -> int:

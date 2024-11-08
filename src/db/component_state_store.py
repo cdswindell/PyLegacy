@@ -350,6 +350,18 @@ class DependencyCache:
         self.causes(Engine2.REVERSE_DIRECTION, Engine2.SPEED_STOP_HOLD)
         self.causes(Engine2.TOGGLE_DIRECTION, Engine2.SPEED_STOP_HOLD)
 
+        # TMCC1 Engine Reset
+        self.causes(
+            Engine1.RESET,
+            Engine1.SPEED_STOP_HOLD,
+            Engine1.FORWARD_DIRECTION,
+            Engine1.RPM_DOWN,
+        )
+        self.causes(Engine1.STOP_IMMEDIATE, Engine1.SPEED_STOP_HOLD)
+        self.causes(Engine1.FORWARD_DIRECTION, Engine1.SPEED_STOP_HOLD)
+        self.causes(Engine1.REVERSE_DIRECTION, Engine1.SPEED_STOP_HOLD)
+        self.causes(Engine1.TOGGLE_DIRECTION, Engine1.SPEED_STOP_HOLD)
+
         # define command toggles; commands that are essentially mutually exclusive
         self.toggles(Switch.OUT, Switch.THROUGH)
         self.toggles(Switch.THROUGH, Switch.OUT)
