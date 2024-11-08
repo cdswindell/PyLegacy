@@ -50,16 +50,19 @@ class GpioDelayHandler(Thread):
     def reset(self) -> None:
         self._running = False
         self._ev.set()
+        print("GpioDelayHandler: set running to FALSE")
 
     def run(self) -> None:
         while self._running:
             with self._cv:
-                while self._scheduler.empty():
+                while self._running and self._scheduler.empty():
                     self._cv.wait()
+            print("GpioDelayHandler thread interrupted...")
             # run the scheduler outside the cv lock, otherwise,
             #  we couldn't schedule more commands
             self._scheduler.run()
             self._ev.clear()
+        print("GpioDelayHandler thread exiting...")
 
     def schedule(self, delay: float, command: Callable) -> sched.Event:
         with self._cv:
