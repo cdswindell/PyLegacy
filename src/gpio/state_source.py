@@ -7,9 +7,9 @@ from gpiozero import LED
 
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
+from ..protocol.command_def import CommandDefEnum
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState, TMCC1AuxCommandDef
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 T = TypeVar("T", bound=ComponentState)
 
@@ -91,14 +91,16 @@ class EngineStateSource(StateSource):
         self,
         address: int,
         led: LED,
-        dir_state: TMCC2EngineCommandDef = None,
-        stop_start_state: TMCC2EngineCommandDef = None,
-        speed_state: int = None,
+        command: CommandDefEnum = None,
+        data: int = None,
+        scope: CommandScope = CommandScope.ENGINE,
+        getter: str = None,
     ) -> None:
-        self._dir_state = dir_state
-        self._stop_start_state = stop_start_state
-        self._speed_state = speed_state
-        super().__init__(CommandScope.ENGINE, address, led)
+        self._command = command
+        self._data = data
+        self._scope = scope
+        self._getter = getter
+        super().__init__(scope, address, led)
 
     def __iter__(self):
         return self
@@ -108,8 +110,6 @@ class EngineStateSource(StateSource):
 
     @property
     def is_active(self) -> bool:
-        return (
-            (self._dir_state is not None and self._component.direction == self._dir_state)
-            or (self._stop_start_state is not None and self._component.stop_start == self._stop_start_state)
-            or (self._speed_state is not None and self._component.speed == self._speed_state)
-        )
+        if self._getter and hasattr(self._component, self._getter):
+            return self._data == getattr(self._component, self._getter)
+        return False

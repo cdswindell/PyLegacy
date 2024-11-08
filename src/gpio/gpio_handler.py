@@ -9,7 +9,7 @@ from gpiozero import Button, LED, MCP3008, Device, MCP3208, RotaryEncoder
 
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
-from ..gpio.state_source import SwitchStateSource, AccessoryStateSource
+from ..gpio.state_source import SwitchStateSource, AccessoryStateSource, EngineStateSource
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from ..protocol.command_def import CommandDefEnum
@@ -516,10 +516,10 @@ class GpioHandler:
         lift_pin: int | str = None,
         bh_pin: int | str = None,
         lh_pin: int | str = None,
-        li_led: int | str = None,
-        bh_led: int | str = None,
-        lh_led: int | str = None,
-    ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED]:
+        lift_led_pin: int | str = None,
+        bh_led_pin: int | str = None,
+        lh_led_pin: int | str = None,
+    ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED, Button, LED]:
         # use rotary encoder to control crane cab
         cab_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 1)
         turn_right = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, 1)
@@ -558,12 +558,26 @@ class GpioHandler:
                 address,
                 data=1,
                 scope=CommandScope.ENGINE,
-                led_pin=li_led,
+                led_pin=lift_led_pin,
             )
             if lift_led:
-                lift_led.source = lift_btn
+                cls.cache_handler(EngineStateSource(address, lift_led, data=1, getter="numeric"))
 
-        return cab_ctrl, lift_cntr, lift_btn, lift_led
+        # large hook control
+        bh_btn = bh_led = None
+        if bh_pin is not None:
+            cmd, bh_btn, bh_led = cls.when_button_pressed(
+                bh_pin,
+                TMCC1EngineCommandDef.NUMERIC,
+                address,
+                data=2,
+                scope=CommandScope.ENGINE,
+                led_pin=bh_led_pin,
+            )
+            if bh_led:
+                cls.cache_handler(EngineStateSource(address, bh_led, data=2, getter="numeric"))
+
+        return cab_ctrl, lift_cntr, lift_btn, lift_led, bh_btn, bh_led
 
     @classmethod
     def engine(
