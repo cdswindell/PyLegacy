@@ -96,8 +96,10 @@ class PotHandler(Thread):
         self._interp = self.make_interpolator(data_max, data_min)
         if threshold is not None:
             self._threshold = threshold
-        else:
+        elif command:
             self._threshold = 1 if command.num_data_bits < 6 else 2
+        else:
+            self._threshold = None
         self._delay = delay
         self._running = True
         self._scale = scale
