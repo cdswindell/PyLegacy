@@ -49,6 +49,8 @@ class GpioDelayHandler(Thread):
 
     def reset(self) -> None:
         self._running = False
+        for ev in self._scheduler.queue:
+            print(ev)
         with self._cv:
             self._ev.set()
             self._cv.notify()
