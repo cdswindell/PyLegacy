@@ -102,10 +102,8 @@ class PotHandler(Thread):
         self._prefix_action = prefix.as_action() if prefix else None
         self._last_value = None
         self._action = command.as_action() if command else None
-        if data_max is None:
-            data_max = command.data_max
-        if data_min is None:
-            data_min = command.data_min
+        self._data_max = data_max = data_max if data_max is not None else command.data_max
+        self._data_min = data_min = data_min if data_min is not None else command.data_min
         self._interp = self.make_interpolator(data_max, data_min)
         if threshold is not None:
             self._threshold = threshold
@@ -125,7 +123,7 @@ class PotHandler(Thread):
         return self._pot
 
     def run(self) -> None:
-        print(f"Pot Handler Delay: {self._delay}")
+        print(f"Delay: {self._delay} threshold: {self._threshold} d_min: {self._data_min} d_max: {self._data_max}")
         # give the system a bit to settle
         time.sleep(30)
         while self._running:

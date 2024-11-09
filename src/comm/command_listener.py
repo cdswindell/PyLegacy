@@ -183,6 +183,7 @@ class CommandListener(Thread):
             else:
                 # pop this byte and continue; we either received unparsable input
                 # or started receiving data mid-command
+                dq_len -= 1
                 print(f"Ignoring {hex(self._deque.popleft())}")
         # shut down the dispatcher
         if self._dispatcher:
@@ -415,7 +416,7 @@ class CommandDispatcher(Thread):
                                     _ = s.recv(16)
                                 except Exception as e:
                                     print(f"Exception sending TMCC state update {state} to {client_ip}: {e}")
-                            sleep(0.1)
+                            sleep(0.2)
 
     @property
     def broadcasts_enabled(self) -> bool:
