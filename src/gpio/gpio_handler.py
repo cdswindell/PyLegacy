@@ -588,7 +588,7 @@ class GpioHandler:
         cmd_map[-1] = cmd_map[0] = cmd_map[1] = None  # no action
         for i in range(2, 21, 1):
             cmd_map[i] = lift_cmd
-        lift_cntr = cls.when_joystick(
+        bo_cntr = cls.when_joystick(
             channel=bo_chn,
             use_12bit=use_12bit,
             data_min=-20,
@@ -642,7 +642,7 @@ class GpioHandler:
             if sh_led:
                 cls.cache_handler(EngineStateSource(address, sh_led, data=3, getter="numeric"))
 
-        return cab_ctrl, lift_cntr, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
+        return cab_ctrl, bo_cntr, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
 
     @classmethod
     def engine(
