@@ -108,6 +108,6 @@ class ClientStateHandler(socketserver.BaseRequestHandler):
                     eop_index = byte_stream.index(PDI_EOP)
                     command_bytes = byte_stream[0 : eop_index + 1]
                     byte_stream = byte_stream[eop_index + 1 :]
-                else:
-                    byte_stream = bytes()
+            else:
+                byte_stream = bytes()
             ClientStateListener.build().offer(command_bytes)
