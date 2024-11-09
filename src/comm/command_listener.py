@@ -415,7 +415,7 @@ class CommandDispatcher(Thread):
                                     _ = s.recv(16)
                                 except Exception as e:
                                     print(f"Exception sending TMCC state update {state} to {client_ip}: {e}")
-                            sleep(0.2)
+                            sleep(0.05)
 
     @property
     def broadcasts_enabled(self) -> bool:
