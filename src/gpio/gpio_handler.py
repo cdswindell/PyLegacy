@@ -124,8 +124,6 @@ class PotHandler(Thread):
 
     def run(self) -> None:
         print(f"Delay: {self._delay} threshold: {self._threshold} d_min: {self._data_min} d_max: {self._data_max}")
-        # give the system a bit to settle
-        time.sleep(30)
         while self._running:
             raw_value = self.pot.value
             value = self._interp(raw_value)
