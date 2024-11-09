@@ -382,6 +382,7 @@ class AccessoryState(TmccState):
     # noinspection DuplicatedCode
     def update(self, command: L | P) -> None:
         if command:
+            print(command)
             super().update(command)
             if isinstance(command, CommandReq):
                 if command.command != Aux.SET_ADDRESS:
