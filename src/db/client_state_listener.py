@@ -5,6 +5,7 @@ import threading
 
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Subscriber, Topic
+from ..pdi.constants import PDI_SOP, PDI_EOP
 from ..protocol.command_def import CommandDefEnum
 
 
@@ -97,4 +98,16 @@ class ClientStateHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(str.encode("ack"))
             else:
                 break
-        ClientStateListener.build().offer(byte_stream)
+        # the byte stream could be a combo of PDI AND TMCC commands; we don't
+        # want to duplicate all the byte stuffing code, but if the first byte
+        # is PDI_SOP, look for a PDI_EOP and just send that portion
+        while byte_stream:
+            command_bytes = byte_stream
+            if byte_stream[0] == PDI_SOP:
+                if PDI_EOP in byte_stream:
+                    eop_index = byte_stream.index(PDI_EOP)
+                    command_bytes = byte_stream[0 : eop_index + 1]
+                    byte_stream = byte_stream[eop_index + 1 :]
+                else:
+                    byte_stream = bytes()
+            ClientStateListener.build().offer(command_bytes)
