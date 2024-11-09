@@ -1,17 +1,22 @@
+from __future__ import annotations
+
 import abc
 from abc import ABC
 from threading import Thread
-from typing import TypeVar
+from typing import TypeVar, Protocol
 
 from gpiozero import LED
 
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
-from ..protocol.command_def import CommandDefEnum
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState, TMCC1AuxCommandDef
 
 T = TypeVar("T", bound=ComponentState)
+
+
+class StateValidator(Protocol):
+    def __call__(self, state: StateSource) -> bool: ...
 
 
 # noinspection PyUnresolvedReferences
@@ -91,15 +96,11 @@ class EngineStateSource(StateSource):
         self,
         address: int,
         led: LED,
-        command: CommandDefEnum = None,
-        data: int = None,
+        func: StateValidator = None,
         scope: CommandScope = CommandScope.ENGINE,
-        getter: str = None,
     ) -> None:
-        self._command = command
-        self._data = data
+        self._func = func
         self._scope = scope
-        self._getter = getter
         super().__init__(scope, address, led)
 
     def __iter__(self):
@@ -110,7 +111,4 @@ class EngineStateSource(StateSource):
 
     @property
     def is_active(self) -> bool:
-        # if a getter was specified, use it to compare value to input data
-        if self._getter and hasattr(self._component, self._getter):
-            return self._data == getattr(self._component, self._getter)
-        return False
+        return self._func(self._component) if self._func else False

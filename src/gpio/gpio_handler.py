@@ -610,7 +610,7 @@ class GpioHandler:
                 cathode=cathode,
             )
             if bo_led:
-                cls.cache_handler(EngineStateSource(address, bo_led, data=1, getter="numeric"))
+                cls.cache_handler(EngineStateSource(address, bo_led, lambda x: x.numeric == 1))
 
         # large hook control
         bh_btn = bh_led = None
@@ -625,7 +625,7 @@ class GpioHandler:
                 cathode=cathode,
             )
             if bh_led:
-                cls.cache_handler(EngineStateSource(address, bh_led, data=2, getter="numeric"))
+                cls.cache_handler(EngineStateSource(address, bh_led, lambda x: x.numeric == 2))
 
         # small hook control
         sh_btn = sh_led = None
@@ -640,7 +640,7 @@ class GpioHandler:
                 cathode=cathode,
             )
             if sh_led:
-                cls.cache_handler(EngineStateSource(address, sh_led, data=3, getter="numeric"))
+                cls.cache_handler(EngineStateSource(address, sh_led, lambda x: x.numeric == 3))
 
         return cab_ctrl, bo_cntr, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
 
