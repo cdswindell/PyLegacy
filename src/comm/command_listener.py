@@ -194,7 +194,7 @@ class CommandListener(Thread):
     def offer(self, data: bytes) -> None:
         if data:
             with self._cv:
-                print(f"TMCC CommandListener offered: {data.hex(' ')}")
+                # print(f"TMCC CommandListener offered: {data.hex(' ')}")
                 self._deque.extend(data)
                 self._cv.notify()
 
@@ -395,7 +395,7 @@ class CommandDispatcher(Thread):
                     # ignore disconnects; client will receive state update on reconnect
                     pass
                 except Exception as e:
-                    print(f"Exception while sending TMCC state update to {client}: {e}")
+                    print(f"Exception while sending TMCC state update {command} to {client}: {e}")
 
     def send_current_state(self, client_ip: str):
         """
