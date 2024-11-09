@@ -123,7 +123,7 @@ class PotHandler(Thread):
         return self._pot
 
     def run(self) -> None:
-        print(f"Delay: {self._delay} threshold: {self._threshold} d_min: {self._data_min} d_max: {self._data_max}")
+        # print(f"Delay: {self._delay} threshold: {self._threshold} d_min: {self._data_min} d_max: {self._data_max}")
         while self._running:
             raw_value = self.pot.value
             value = self._interp(raw_value)
@@ -143,7 +143,7 @@ class PotHandler(Thread):
                     if self._prefix_action:
                         self._prefix_action()
                     # command could be None, indicating no action
-                    print(f"{cmd} {value} {raw_value}")
+                    # print(f"{cmd} {value} {raw_value}")
                     if cmd.is_data is True:
                         cmd.as_action()(new_data=value)
                     else:
