@@ -59,7 +59,7 @@ class ClientStateListener(threading.Thread):
         # look at first byte to determine handler
         from ..pdi.constants import PDI_SOP
 
-        print(f"Offered: {data.hex(' ')}")
+        # print(f"Offered: {data.hex(' ')}")
         if data and data[0] == PDI_SOP:
             self._pdi_listener.offer(data)
         else:
