@@ -382,7 +382,7 @@ class AccessoryState(TmccState):
     # noinspection DuplicatedCode
     def update(self, command: L | P) -> None:
         if command:
-            print(command)
+            # print(command)
             super().update(command)
             if isinstance(command, CommandReq):
                 if command.command != Aux.SET_ADDRESS:
@@ -485,8 +485,8 @@ class AccessoryState(TmccState):
             byte_str += CommandReq.build(self.aux_state, self.address).as_bytes
         if self._aux1_state is not None:
             byte_str += CommandReq.build(self.aux1_state, self.address).as_bytes
-            if self._aux2_state is not None:
-                byte_str += CommandReq.build(self.aux2_state, self.address).as_bytes
+        if self._aux2_state is not None:
+            byte_str += CommandReq.build(self.aux2_state, self.address).as_bytes
         return byte_str
 
 
