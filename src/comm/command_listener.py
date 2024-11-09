@@ -37,7 +37,10 @@ class CommandListener(Thread):
         Factory method to create a CommandListener instance
         """
         return CommandListener(
-            baudrate=baudrate, port=port, queue_size=queue_size, build_serial_reader=build_serial_reader
+            baudrate=baudrate,
+            port=port,
+            queue_size=queue_size,
+            build_serial_reader=build_serial_reader,
         )
 
     @classmethod
@@ -191,6 +194,7 @@ class CommandListener(Thread):
     def offer(self, data: bytes) -> None:
         if data:
             with self._cv:
+                print(f"TMCC CommandListener offered: {data.hex(' ')}")
                 self._deque.extend(data)
                 self._cv.notify()
 
