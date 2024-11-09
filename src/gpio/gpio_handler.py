@@ -557,11 +557,11 @@ class GpioHandler:
         address: int,
         cab_pin_1: int | str,
         cab_pin_2: int | str,
-        lift_chn: int | str = 0,
-        lift_pin: int | str = None,
+        bo_chn: int | str = 0,
+        bo_pin: int | str = None,
         bh_pin: int | str = None,
         sh_pin: int | str = None,
-        lift_led_pin: int | str = None,
+        bo_led_pin: int | str = None,
         bh_led_pin: int | str = None,
         sh_led_pin: int | str = None,
         use_12bit: bool = True,
@@ -589,7 +589,7 @@ class GpioHandler:
         for i in range(2, 21, 1):
             cmd_map[i] = lift_cmd
         lift_cntr = cls.when_joystick(
-            channel=lift_chn,
+            channel=bo_chn,
             use_12bit=use_12bit,
             data_min=-20,
             data_max=20,
@@ -598,19 +598,19 @@ class GpioHandler:
         )
 
         # boom control
-        lift_btn = lift_led = None
-        if lift_pin is not None:
-            cmd, lift_btn, lift_led = cls.when_button_pressed(
-                lift_pin,
+        bo_btn = bo_led = None
+        if bo_pin is not None:
+            cmd, bo_btn, bo_led = cls.when_button_pressed(
+                bo_pin,
                 TMCC1EngineCommandDef.NUMERIC,
                 address,
                 data=1,
                 scope=CommandScope.ENGINE,
-                led_pin=lift_led_pin,
+                led_pin=bo_led_pin,
                 cathode=cathode,
             )
-            if lift_led:
-                cls.cache_handler(EngineStateSource(address, lift_led, data=1, getter="numeric"))
+            if bo_led:
+                cls.cache_handler(EngineStateSource(address, bo_led, data=1, getter="numeric"))
 
         # large hook control
         bh_btn = bh_led = None
@@ -642,7 +642,7 @@ class GpioHandler:
             if sh_led:
                 cls.cache_handler(EngineStateSource(address, sh_led, data=3, getter="numeric"))
 
-        return cab_ctrl, lift_cntr, lift_btn, lift_led, bh_btn, bh_led, sh_btn, sh_led
+        return cab_ctrl, lift_cntr, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
 
     @classmethod
     def engine(
