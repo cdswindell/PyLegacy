@@ -478,6 +478,8 @@ class AccessoryState(TmccState):
         from src.pdi.base_req import BaseReq
 
         byte_str = BaseReq(self.address, PdiCommand.BASE_ACC, state=self).as_bytes
+        if self._sensor_track:
+            byte_str += IrdaReq(self.address, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC).as_bytes
         if self._aux_state is not None:
             byte_str += CommandReq.build(self.aux_state, self.address).as_bytes
         if self._aux1_state is not None:
