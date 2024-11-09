@@ -143,7 +143,7 @@ class PotHandler(Thread):
                     if self._prefix_action:
                         self._prefix_action()
                     # command could be None, indicating no action
-                    # print(f"{cmd} {value}")
+                    print(f"{cmd} {value}")
                     if cmd.is_data is True:
                         cmd.as_action()(new_data=value)
                     else:
