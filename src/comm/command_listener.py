@@ -141,7 +141,7 @@ class CommandListener(Thread):
                     self._cv.wait()  # wait to be notified
             # check if the first bite is in the list of allowable command prefixes
             dq_len = len(self._deque)
-            if dq_len and self._deque[0] in TMCC_FIRST_BYTE_TO_INTERPRETER and dq_len >= 3:
+            if dq_len >= 3 and self._deque[0] in TMCC_FIRST_BYTE_TO_INTERPRETER:
                 # at this point, we have some sort of command. It could be a TMCC1 or TMCC2
                 # 3-byte command, or, if there are more than 3 bytes, and the 4th byte is
                 # 0xf8 or 0xf9 AND the 5th byte is 0xfb, it could be a 9 byte param command
@@ -183,8 +183,7 @@ class CommandListener(Thread):
             else:
                 # pop this byte and continue; we either received unparsable input
                 # or started receiving data mid-command
-                dq_len -= 1
-                print(f"Ignoring {hex(self._deque.popleft())}")
+                print(f"Ignoring {hex(self._deque.popleft())} (deque: {len(self._deque)} bytes)")
         # shut down the dispatcher
         if self._dispatcher:
             self._dispatcher.shutdown()

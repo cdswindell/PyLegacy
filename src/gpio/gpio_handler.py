@@ -127,7 +127,8 @@ class PotHandler(Thread):
         # give the system a bit to settle
         time.sleep(30)
         while self._running:
-            value = raw_value = self._interp(self.pot.value)
+            raw_value = self.pot.value
+            value = self._interp(raw_value)
             if self._scale:
                 value = self._scale[value]
             if self._last_value is None:
