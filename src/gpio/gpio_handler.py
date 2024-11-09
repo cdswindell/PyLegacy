@@ -125,8 +125,11 @@ class PotHandler(Thread):
         return self._pot
 
     def run(self) -> None:
+        print(f"Pot Handler Delay: {self._delay}")
+        # give the system a bit to settle
+        time.sleep(30)
         while self._running:
-            value = self._interp(self.pot.value)
+            value = raw_value = self._interp(self.pot.value)
             if self._scale:
                 value = self._scale[value]
             if self._last_value is None:
@@ -143,7 +146,7 @@ class PotHandler(Thread):
                     if self._prefix_action:
                         self._prefix_action()
                     # command could be None, indicating no action
-                    print(f"{cmd} {value}")
+                    print(f"{cmd} {value} {raw_value}")
                     if cmd.is_data is True:
                         cmd.as_action()(new_data=value)
                     else:
