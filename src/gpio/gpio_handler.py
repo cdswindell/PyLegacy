@@ -5,15 +5,15 @@ import time
 from threading import Thread
 from typing import Tuple, Callable, Dict, TypeVar
 
-from gpiozero import Button, LED, MCP3008, Device, MCP3208, RotaryEncoder
+from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice
 
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
 from ..gpio.state_source import SwitchStateSource, AccessoryStateSource, EngineStateSource
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
 from ..protocol.command_def import CommandDefEnum
+from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
+from ..protocol.constants import DEFAULT_ADDRESS
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState, TMCC1AuxCommandDef, TMCC1EngineCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef, TMCC2EngineCommandDef
 
@@ -121,7 +121,7 @@ class PotHandler(Thread):
             self.start()
 
     @property
-    def pot(self) -> MCP3008:
+    def pot(self) -> AnalogInputDevice:
         return self._pot
 
     def run(self) -> None:
@@ -159,7 +159,12 @@ class PotHandler(Thread):
         self._running = False
 
     @staticmethod
-    def make_interpolator(to_max: int, to_min: int = 0, from_min: float = 0.0, from_max: float = 1.0) -> Callable:
+    def make_interpolator(
+        to_max: int,
+        to_min: int = 0,
+        from_min: float = 0.0,
+        from_max: float = 1.0,
+    ) -> Callable:
         # Figure out how 'wide' each range is
         from_span = from_max - from_min
         to_span = to_max - to_min
@@ -223,12 +228,20 @@ class GpioHandler:
         address: int,
         btn_pin: int,
         led_pin: int | str = None,
+        cathode: bool = True,
     ) -> Button | Tuple[Button, LED]:
         """
         Fire a TMCC2/Legacy Route, throwing all incorporated turnouts to the correct state
         """
         # make the CommandReq
-        req, btn, led = cls._make_button(btn_pin, TMCC2RouteCommandDef.FIRE, address, led_pin=led_pin, bind=True)
+        req, btn, led = cls._make_button(
+            btn_pin,
+            TMCC2RouteCommandDef.FIRE,
+            address,
+            led_pin=led_pin,
+            bind=True,
+            cathode=cathode,
+        )
         # bind actions to buttons
         btn.when_pressed = req.as_action(repeat=2)
 
@@ -324,6 +337,7 @@ class GpioHandler:
             off_pin,
             TMCC1AuxCommandDef.AUX2_OPT_ONE,
             address,
+            cathode=cathode,
             initially_on=initial_state == TMCC1AuxCommandDef.AUX2_OPT_ONE,
         )
         # bind actions to buttons
@@ -360,9 +374,19 @@ class GpioHandler:
         """
         # make the CommandReqs
         aux1_req, aux1_btn, aux1_led = cls._make_button(
-            aux1_pin, TMCC1AuxCommandDef.AUX1_OPT_ONE, address, led_pin=aux1_led_pin, cathode=cathode, bind=True
+            aux1_pin,
+            TMCC1AuxCommandDef.AUX1_OPT_ONE,
+            address,
+            led_pin=aux1_led_pin,
+            cathode=cathode,
+            bind=True,
         )
-        aux2_req, aux2_btn, aux2_led = cls._make_button(aux2_pin, TMCC1AuxCommandDef.AUX2_OPT_ONE, address)
+        aux2_req, aux2_btn, aux2_led = cls._make_button(
+            aux2_pin,
+            TMCC1AuxCommandDef.AUX2_OPT_ONE,
+            address,
+            cathode=cathode,
+        )
         # bind actions to buttons
         aux1_action = aux1_req.as_action()
         aux2_action = aux2_req.as_action()
@@ -387,7 +411,11 @@ class GpioHandler:
     ) -> Button | Tuple[Button, LED]:
         if command_control is True:
             cycle_req, cycle_btn, cycle_led = cls._make_button(
-                cycle_pin, TMCC1AuxCommandDef.AUX2_OPT_ONE, address, led_pin=cycle_led_pin, cathode=cathode
+                cycle_pin,
+                TMCC1AuxCommandDef.AUX2_OPT_ONE,
+                address,
+                led_pin=cycle_led_pin,
+                cathode=cathode,
             )
             cycle_btn.when_pressed = cycle_req.as_action(repeat=2)
         else:
@@ -407,6 +435,7 @@ class GpioHandler:
         lights_on_pin: int | str = None,
         lights_off_pin: int | str = None,
         command_control: bool = True,
+        cathode: bool = True,
     ) -> Tuple[Button, Button]:
         if command_control is True:
             scale = {0: 0} | {x: 1 for x in range(1, 9)} | {x: 2 for x in range(9, 11)}
@@ -424,12 +453,25 @@ class GpioHandler:
             cls.cache_device(knob.pot)
 
             lights_on_req, lights_on_btn, lights_on_led = cls._make_button(
-                lights_on_pin, TMCC1AuxCommandDef.NUMERIC, address, data=9
+                lights_on_pin,
+                TMCC1AuxCommandDef.NUMERIC,
+                address,
+                data=9,
+                cathode=cathode,
             )
             lights_off_req, lights_off_btn, lights_off_led = cls._make_button(
-                lights_off_pin, TMCC1AuxCommandDef.NUMERIC, address, data=8
+                lights_off_pin,
+                TMCC1AuxCommandDef.NUMERIC,
+                address,
+                data=8,
+                cathode=cathode,
             )
-            dispense_req, dispense_btn, dispense_led = cls._make_button(dispense_pin, TMCC1AuxCommandDef.BRAKE, address)
+            dispense_req, dispense_btn, dispense_led = cls._make_button(
+                dispense_pin,
+                TMCC1AuxCommandDef.BRAKE,
+                address,
+                cathode=cathode,
+            )
             dispense_btn.when_pressed = dispense_req.as_action(repeat=2)
             lights_on_btn.when_pressed = lights_on_req.as_action(repeat=2)
             lights_off_btn.when_pressed = lights_off_req.as_action(repeat=2)
@@ -448,6 +490,7 @@ class GpioHandler:
         mag_pin: int | str = None,
         led_pin: int | str = None,
         use_12bit: bool = True,
+        cathode: bool = True,
     ) -> Tuple[RotaryEncoder, JoyStickHandler, JoyStickHandler, Button, LED]:
         # use rotary encoder to control crane cab
         cab_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 1)
@@ -503,6 +546,7 @@ class GpioHandler:
                 address,
                 led_pin=led_pin,
                 auto_timeout=59,
+                cathode=cathode,
             )
 
         return cab_ctrl, lift_cntr, move_cntr, btn, led
@@ -521,6 +565,7 @@ class GpioHandler:
         bh_led_pin: int | str = None,
         sh_led_pin: int | str = None,
         use_12bit: bool = True,
+        cathode: bool = True,
     ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED, Button, LED, Button, LED]:
         # use rotary encoder to control crane cab
         cab_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 1)
@@ -562,6 +607,7 @@ class GpioHandler:
                 data=1,
                 scope=CommandScope.ENGINE,
                 led_pin=lift_led_pin,
+                cathode=cathode,
             )
             if lift_led:
                 cls.cache_handler(EngineStateSource(address, lift_led, data=1, getter="numeric"))
@@ -576,6 +622,7 @@ class GpioHandler:
                 data=2,
                 scope=CommandScope.ENGINE,
                 led_pin=bh_led_pin,
+                cathode=cathode,
             )
             if bh_led:
                 cls.cache_handler(EngineStateSource(address, bh_led, data=2, getter="numeric"))
@@ -590,6 +637,7 @@ class GpioHandler:
                 data=3,
                 scope=CommandScope.ENGINE,
                 led_pin=sh_led_pin,
+                cathode=cathode,
             )
             if sh_led:
                 cls.cache_handler(EngineStateSource(address, sh_led, data=3, getter="numeric"))
@@ -606,6 +654,7 @@ class GpioHandler:
         is_legacy: bool = True,
         use_12bit: bool = True,
         scope: CommandScope = CommandScope.ENGINE,
+        cathode: bool = True,
     ) -> Tuple[PotHandler, Button, Button]:
         fwd_btn = rev_btn = None
         fwd_cmd = rev_cmd = None
@@ -613,21 +662,37 @@ class GpioHandler:
             speed_cmd = CommandReq.build(TMCC2EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
             if fwd_pin is not None:
                 fwd_cmd, fwd_btn, _ = cls._make_button(
-                    fwd_pin, TMCC2EngineCommandDef.FORWARD_DIRECTION, address, 0, scope
+                    fwd_pin,
+                    TMCC2EngineCommandDef.FORWARD_DIRECTION,
+                    address,
+                    scope=scope,
+                    cathode=cathode,
                 )
             if rev_pin is not None:
                 rev_cmd, rev_btn, _ = cls._make_button(
-                    rev_pin, TMCC2EngineCommandDef.REVERSE_DIRECTION, address, 0, scope
+                    rev_pin,
+                    TMCC2EngineCommandDef.REVERSE_DIRECTION,
+                    address,
+                    scope=scope,
+                    cathode=cathode,
                 )
         else:
             speed_cmd = CommandReq.build(TMCC1EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
             if fwd_pin is not None:
                 fwd_cmd, fwd_btn, _ = cls._make_button(
-                    fwd_pin, TMCC1EngineCommandDef.FORWARD_DIRECTION, address, 0, scope
+                    fwd_pin,
+                    TMCC1EngineCommandDef.FORWARD_DIRECTION,
+                    address,
+                    scope=scope,
+                    cathode=cathode,
                 )
             if rev_pin is not None:
                 rev_cmd, rev_btn, _ = cls._make_button(
-                    rev_pin, TMCC1EngineCommandDef.REVERSE_DIRECTION, address, 0, scope
+                    rev_pin,
+                    TMCC1EngineCommandDef.REVERSE_DIRECTION,
+                    address,
+                    scope=scope,
+                    cathode=cathode,
                 )
         # make a pot to handle speed
         pot = cls.when_pot(speed_cmd, channel=channel, use_12bit=use_12bit)
@@ -649,9 +714,18 @@ class GpioHandler:
         data: int = 0,
         scope: CommandScope = None,
         led_pin: int | str = None,
+        cathode: bool = True,
     ) -> Tuple[CommandReq, Button, LED]:
         # Use helper method to construct objects
-        command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
+        command, button, led = cls._make_button(
+            pin,
+            command,
+            address,
+            data,
+            scope,
+            led_pin,
+            cathode=cathode,
+        )
 
         # create a command function to fire when button pressed
         button.when_pressed = command.as_action()
@@ -667,9 +741,18 @@ class GpioHandler:
         scope: CommandScope = None,
         frequency: float = 1,
         led_pin: int | str = None,
+        cathode: bool = True,
     ) -> Button:
         # Use helper method to construct objects
-        command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
+        command, button, led = cls._make_button(
+            pin,
+            command,
+            address,
+            data=data,
+            scope=scope,
+            led_pin=led_pin,
+            cathode=cathode,
+        )
 
         # create a command function to fire when button held
         button.when_held = command.as_action()
@@ -685,14 +768,12 @@ class GpioHandler:
         off_command: CommandReq,
         on_command: CommandReq,
         led_pin: int | str = None,
-        baudrate: int = DEFAULT_BAUDRATE,
-        port: str | int = DEFAULT_PORT,
-        server: str = None,
+        cathode: bool = True,
     ) -> Tuple[Button, Button, LED]:
         # create a LED, if requested. It is turned on by pressing the
         # ON button, and turned off by pressing the OFF button
         if led_pin is not None and led_pin != 0:
-            led = LED(led_pin)
+            led = LED(led_pin, active_high=cathode)
             led.on()
         else:
             led = None
@@ -702,8 +783,8 @@ class GpioHandler:
         on_button = Button(on_pin, bounce_time=DEFAULT_BOUNCE_TIME)
 
         # bind them to functions; we need to wrap the functions if we're using a LED
-        off_action = off_command.as_action(baudrate=baudrate, port=port, server=server)
-        on_action = on_command.as_action(baudrate=baudrate, port=port, server=server)
+        off_action = off_command.as_action()
+        on_action = on_command.as_action()
         if led is not None:
             off_button.when_pressed = cls._with_off_action(off_action, led)
             on_button.when_pressed = cls._with_on_action(on_action, led)
@@ -739,9 +820,18 @@ class GpioHandler:
         led_pin: int | str = None,
         initial_state: bool = False,
         auto_timeout: int = None,
+        cathode: bool = True,
     ) -> tuple[Button, LED]:
         # Use helper method to construct objects
-        command, button, led = cls._make_button(pin, command, address, data, scope, led_pin)
+        command, button, led = cls._make_button(
+            pin,
+            command,
+            address,
+            data,
+            scope,
+            led_pin,
+            cathode=cathode,
+        )
 
         # create a command function to fire when button pressed
         action = command.as_action()
@@ -1017,22 +1107,3 @@ class GpioHandler:
             last_rotation_at = cls.current_milli_time()
 
         return func
-
-    @classmethod
-    def _create_listeners(cls, req, active_led: LED = None, *inactive_leds: LED) -> None:
-        def func_on(msg: Message) -> None:
-            if msg.address == req.address:
-                if active_led is not None:
-                    active_led.on()
-                for led in inactive_leds:
-                    led.off()
-
-        def func_off(msg: Message) -> None:
-            if msg.address == req.address:
-                if active_led is not None:
-                    active_led.off()
-                for led in inactive_leds:
-                    led.on()
-
-        DependencyCache.listen_for_enablers(req, func_on)
-        DependencyCache.listen_for_disablers(req, func_off)
