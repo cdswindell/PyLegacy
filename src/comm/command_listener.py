@@ -5,13 +5,15 @@ import threading
 from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
+from time import sleep
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
 from .enqueue_proxy_requests import EnqueueProxyRequests
+from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
 from ..protocol.constants import CommandScope, BROADCAST_TOPIC
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
 from ..protocol.multybyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 
@@ -399,16 +401,21 @@ class CommandDispatcher(Thread):
         if self._client_port is not None:
             from ..db.component_state_store import ComponentStateStore
 
-            state = ComponentStateStore.build()
-            for scope in state.scopes():
-                for address in state.addresses(scope):
+            store = ComponentStateStore.build()
+            for scope in store.scopes():
+                for address in store.addresses(scope):
                     with self._lock:
-                        state_as_bytes: bytes = state.query(scope, address).as_bytes()
+                        state: ComponentState = store.query(scope, address)
+                        state_as_bytes: bytes = state.as_bytes()
                         if state_as_bytes:  # we can only send states for tracked conditions
                             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                                s.connect((client_ip, self._client_port))
-                                s.sendall(state_as_bytes)
-                                _ = s.recv(16)
+                                try:
+                                    s.connect((client_ip, self._client_port))
+                                    s.sendall(state_as_bytes)
+                                    _ = s.recv(16)
+                                except Exception as e:
+                                    print(f"Exception sending TMCC state update {state} to {client_ip}: {e}")
+                            sleep(0.1)
 
     @property
     def broadcasts_enabled(self) -> bool:
