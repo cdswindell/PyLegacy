@@ -28,9 +28,9 @@ BASE_TYPE_MAP: Dict[int, str] = {
 
 UART_MAP: Dict[int, str] = {
     0: "Unknown",
-    1: "Base",
-    2: "Towards Base",
-    3: "Away",
+    1: ">Base<",
+    2: "->Base",
+    3: "Base->",
 }
 
 ERROR_CODE_MAP: Dict[int, str] = {
