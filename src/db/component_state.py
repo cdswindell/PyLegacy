@@ -292,12 +292,14 @@ class SwitchState(TmccState):
         self._state: Switch | None = None
 
     def __repr__(self) -> str:
-        name = num = ""
+        nm = nu = ""
         if self.road_name is not None:
-            name = f" {self.road_name}"
+            nm = f" {self.road_name}"
         if self.road_number is not None:
-            num = f" #{self.road_number} "
-        return f"Switch {self.address}: {self._state.name if self._state is not None else 'Unknown'}{name}{num}"
+            nu = f" #{self.road_number} "
+        return (
+            f"{self.scope.title} {self.address}: {self._state.name if self._state is not None else 'Unknown'}{nm}{nu}"
+        )
 
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
@@ -379,7 +381,7 @@ class AccessoryState(TmccState):
             name = f" {self.road_name}"
         if self.road_number is not None:
             num = f" #{self.road_number} "
-        return f"Accessory {self.address}: {aux}{aux1}{aux2}{aux_num}{name}{num}"
+        return f"{self.scope.title} {self.address}: {aux}{aux1}{aux2}{aux_num}{name}{num}"
 
     # noinspection DuplicatedCode
     def update(self, command: L | P) -> None:
@@ -565,7 +567,9 @@ class EngineState(ComponentState):
         # if self.engine_class is not None:
         #     cl = f" Class: {LOCO_CLASS.get(self.engine_class, 'NA')}"
         ct = " Legacy" if self.is_legacy else " TMCC"
-        return f"{self.scope.name} {self._address:02}{speed}{rl}{mom}{direction}{nu}{name}{num}{lt}{ct}{yr}{start_stop}"
+        return (
+            f"{self.scope.title} {self._address:02}{speed}{rl}{mom}{direction}{nu}{name}{num}{lt}{ct}{yr}{start_stop}"
+        )
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None

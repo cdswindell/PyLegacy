@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import sys
 from enum import Enum, unique, IntEnum
 from typing import Any, List, Dict, Set
-
-import sys
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -101,6 +100,10 @@ class Mixins(Enum):
         elif type(value) is int:
             return cls.by_value(value, raise_exception=True)
         raise ValueError(f"{value} is not a valid {cls.__name__}")
+
+    @property
+    def title(self) -> str:
+        return self.name.title()
 
 
 class OfficialRRSpeeds(Mixins, Enum):
