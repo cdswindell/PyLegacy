@@ -434,6 +434,7 @@ class AccessoryState(TmccState):
                 if self._first_pdi_action is None:
                     self._first_pdi_action = command.action
                 if command.action in [Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+                    print(self, command)
                     if command.action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
                         self._block_power = True
                     if command.state == 1:
@@ -444,6 +445,7 @@ class AccessoryState(TmccState):
                         self._aux1_state = Aux.AUX1_OFF
                         self._aux2_state = Aux.AUX2_OFF
                         self._aux_state = Aux.AUX2_OPT_ONE
+                    print(self)
             elif isinstance(command, IrdaReq):
                 if self._first_pdi_command is None:
                     self._first_pdi_command = command.command
