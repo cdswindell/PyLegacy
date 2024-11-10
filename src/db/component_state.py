@@ -23,6 +23,7 @@ from ..protocol.constants import (
     LOCO_TYPE,
     LOCO_TRACK_CRANE,
     TRACK_CRANE_STATE_NUMERICS,
+    CONTROL_TYPE,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
@@ -529,6 +530,7 @@ class EngineState(ComponentState):
         self._momentum: int | None = None
         self._prod_year: int | None = None
         self._rpm: int | None = None
+        self._control_type: int | None = None
         self._engine_type: int | None = None
         self._engine_class: int | None = None
         self._numeric: int | None = None
@@ -566,7 +568,7 @@ class EngineState(ComponentState):
             lt = f" {LOCO_TYPE.get(self.engine_type, 'NA')}"
         # if self.engine_class is not None:
         #     cl = f" Class: {LOCO_CLASS.get(self.engine_class, 'NA')}"
-        ct = " Legacy" if self.is_legacy else " TMCC"
+        ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
         return (
             f"{self.scope.title} {self._address:02}{speed}{rl}{mom}{direction}{nu}{name}{num}{lt}{ct}{yr}{start_stop}"
         )
@@ -674,14 +676,13 @@ class EngineState(ComponentState):
                     self._is_legacy = True
                 if self._is_legacy is None and hasattr(command, "is_tmcc") and command.is_tmcc:
                     self._is_legacy = False
-            if (
-                command.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]
-                and command.momentum_tmcc is not None
-            ):
+            if command.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
                 self._momentum = command.momentum_tmcc
                 self._rpm = command.run_level
+                self._control_type = command.control_id
                 self._engine_class = command.loco_class_id
                 self._engine_type = command.loco_type_id
+                self._is_legacy = command.is_legacy
         elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
             self._prod_year = command.year
         self.changed.set()
@@ -723,6 +724,10 @@ class EngineState(ComponentState):
     @property
     def rpm(self) -> int:
         return self._rpm
+
+    @property
+    def control_type(self) -> int:
+        return self._control_type
 
     @property
     def engine_type(self) -> int:

@@ -190,7 +190,7 @@ class BaseReq(PdiReq):
                     self._momentum = state.momentum * 16
                     self._run_level = state.rpm
                     self._scope = state.scope
-                    self._control_type = 2 if state.is_legacy else 1
+                    self._control_type = state.control_type
                     self._loco_type = state.engine_type
                     self._loco_class = state.engine_class
 
@@ -265,6 +265,10 @@ class BaseReq(PdiReq):
     @property
     def control(self) -> str:
         return CONTROL_TYPE.get(self._control_type, "NA")
+
+    @property
+    def control_id(self) -> int:
+        return self._control_type
 
     @property
     def sound(self) -> str:
