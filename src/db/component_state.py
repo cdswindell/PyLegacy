@@ -347,6 +347,8 @@ class AccessoryState(TmccState):
         if scope != CommandScope.ACC:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
+        self._first_pdi_command = None
+        self._first_pdi_action = None
         self._last_aux1_opt1 = None
         self._last_aux2_opt1 = None
         self._aux1_state: Aux | None = None
@@ -427,6 +429,10 @@ class AccessoryState(TmccState):
                         if command.command == Aux.NUMERIC:
                             self._number = command.data
             elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req):
+                if self._first_pdi_command is None:
+                    self._first_pdi_command = command.command
+                if self._first_pdi_action is None:
+                    self._first_pdi_action = command.action
                 if command.action in [Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
                     if command.action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
                         self._block_power = True
@@ -481,12 +487,28 @@ class AccessoryState(TmccState):
         byte_str = BaseReq(self.address, PdiCommand.BASE_ACC, state=self).as_bytes
         if self._sensor_track:
             byte_str += IrdaReq(self.address, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC).as_bytes
-        if self._aux_state is not None:
-            byte_str += CommandReq.build(self.aux_state, self.address).as_bytes
-        if self._aux1_state is not None:
-            byte_str += CommandReq.build(self.aux1_state, self.address).as_bytes
-        if self._aux2_state is not None:
-            byte_str += CommandReq.build(self.aux2_state, self.address).as_bytes
+        elif self._block_power:
+            if isinstance(self._first_pdi_command, Asc2Action):
+                byte_str += Asc2Req(
+                    self.address,
+                    self._first_pdi_command,
+                    self._first_pdi_action,
+                    values=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
+                ).as_bytes
+            else:
+                byte_str += Bpc2Req(
+                    self.address,
+                    self._first_pdi_command,
+                    self._first_pdi_action,
+                    values=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
+                ).as_bytes
+        else:
+            if self._aux_state is not None:
+                byte_str += CommandReq.build(self.aux_state, self.address).as_bytes
+            if self._aux1_state is not None:
+                byte_str += CommandReq.build(self.aux1_state, self.address).as_bytes
+            if self._aux2_state is not None:
+                byte_str += CommandReq.build(self.aux2_state, self.address).as_bytes
         return byte_str
 
 
