@@ -299,7 +299,12 @@ class CommandDispatcher(Thread):
 
     @classmethod
     def listen_for(
-        cls, listener: Subscriber, channel: Topic, address: int = None, command: CommandDefEnum = None, data: int = None
+        cls,
+        listener: Subscriber,
+        channel: Topic,
+        address: int = None,
+        command: CommandDefEnum = None,
+        data: int = None,
     ):
         cls.build().subscribe(listener, channel, address, command, data)
 
@@ -351,7 +356,6 @@ class CommandDispatcher(Thread):
             cmd = self._queue.get()
             try:
                 # publish dispatched commands to listeners on the command scope,
-                # to listeners
                 if isinstance(cmd, CommandReq):
                     # if command is a TMCC1 Halt, send to everyone
                     if cmd.is_halt:
@@ -372,7 +376,7 @@ class CommandDispatcher(Thread):
                     if self._client_port is not None:
                         self.update_client_state(cmd)
             except Exception as e:
-                print(e)
+                print(f"CommandDispatcher exception publishing: {cmd} Exception: {e}")
             finally:
                 self._queue.task_done()
 
@@ -443,7 +447,10 @@ class CommandDispatcher(Thread):
 
     @staticmethod
     def _make_channel(
-        channel: Topic, address: int = None, command: CommandDefEnum = None, data: int = None
+        channel: Topic,
+        address: int = None,
+        command: CommandDefEnum = None,
+        data: int = None,
     ) -> CommandScope | Tuple:
         if channel is None:
             raise ValueError("Channel required")
