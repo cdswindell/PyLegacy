@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Callable
-
 import sys
+from typing import Callable
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -380,7 +379,7 @@ class CommandReq:
             else:
                 raise ValueError(f"Invalid data value: {data} (not in map)")
         elif data < self.command_def.data_min or data > self.command_def.data_max:
-            raise ValueError(f"Invalid data value: {data} (not in range)")
+            raise ValueError(f"Invalid: {data} not in range {self.command_def.data_min}-{self.command_def.data_max}")
         # sanitize data so we don't set bits we shouldn't
         data_bits = 2**self.num_data_bits - 1
         filtered_data = data & data_bits

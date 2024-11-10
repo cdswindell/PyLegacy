@@ -271,8 +271,7 @@ class Channel(Generic[Topic]):
             try:
                 subscriber(message)
             except Exception as e:
-                print(f"Error publishing to {self}: {e}")
-                raise e
+                print(f"CommandDispatcher: Error publishing {message}: {e}")
 
 
 class CommandDispatcher(Thread):

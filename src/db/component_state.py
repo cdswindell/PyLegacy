@@ -668,21 +668,22 @@ class EngineState(ComponentState):
                 PdiCommand.UPDATE_TRAIN_SPEED,
             ]
         ):
-            if self._speed is None:
+            from ..pdi.base_req import EngineBits
+
+            if self._speed is None and command.is_valid(EngineBits.SPEED):
                 self._speed = command.speed
-                # if max speed > 31, we have a legacy engine. As we receive PDI Base Engine
-                # packets before we receive any TMCC data, mark this engine/train accordingly
-                if self._is_legacy is None and hasattr(command, "is_legacy") and command.is_legacy:
-                    self._is_legacy = True
-                if self._is_legacy is None and hasattr(command, "is_tmcc") and command.is_tmcc:
-                    self._is_legacy = False
             if command.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
-                self._momentum = command.momentum_tmcc
-                self._rpm = command.run_level
-                self._control_type = command.control_id
-                self._engine_class = command.loco_class_id
-                self._engine_type = command.loco_type_id
-                self._is_legacy = command.is_legacy
+                if command.is_valid(EngineBits.MOMENTUM):
+                    self._momentum = command.momentum_tmcc
+                if command.is_valid(EngineBits.RUN_LEVEL):
+                    self._rpm = command.run_level
+                if command.is_valid(EngineBits.CONTROL_TYPE):
+                    self._control_type = command.control_id
+                    self._is_legacy = command.is_legacy
+                if command.is_valid(EngineBits.CLASS_TYPE):
+                    self._engine_class = command.loco_class_id
+                if command.is_valid(EngineBits.LOCO_TYPE):
+                    self._engine_type = command.loco_type_id
         elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
             self._prod_year = command.year
         self.changed.set()
@@ -767,6 +768,9 @@ class TrainState(EngineState):
         if scope not in [CommandScope.TRAIN]:
             raise ValueError(f"Invalid scope: {scope}, expected TRAIN")
         super().__init__(scope)
+        # hard code TMCC2, for now
+        self._is_legacy = True
+        self._control_type = 2
 
 
 class IrdaState(LcsState):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import IntEnum, unique
 from math import floor
 from typing import Dict
 
@@ -8,7 +9,7 @@ from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS
+from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS, Mixins
 
 ROUTE_THROW_RATE_MAP: Dict[int, float] = {
     1: 0.00,
@@ -43,6 +44,34 @@ ENGINE_WRITE_MAP = {
 }
 
 
+@unique
+class EngineBits(Mixins, IntEnum):
+    REVERSE_LINK = 0
+    FORWARD_LINK = 1
+    ROAD_NAME = 2
+    ROAD_NUMBER = 3
+    LOCO_TYPE = 4
+    CONTROL_TYPE = 5
+    SOUND_TYPE = 6
+    CLASS_TYPE = 7
+    TSDB_LEFT = 8
+    TSDB_RIGHT = 9
+    SPARE = 10
+    SPEED = 11
+    RUN_LEVEL = 12
+    LABOR_BIAS = 13
+    SPEED_LIMIT = 14
+    MAX_SPEED = 15
+    FUEL_LEVEL = 16
+    WATER_LEVEL = 17
+    TRAIN_ADDRESS = 18
+    TRAIN_POSITION = 19
+    SMOKE_LEVEL = 20
+    DITCH_LIGHT = 21
+    TRAIN_BRAKE = 22
+    MOMENTUM = 23
+
+
 class BaseReq(PdiReq):
     @classmethod
     def update_speed(cls, address: int, speed: int, scope: CommandScope = CommandScope.ENGINE) -> BaseReq:
@@ -71,11 +100,10 @@ class BaseReq(PdiReq):
         if state.name in ENGINE_WRITE_MAP:
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
             # print(f"State: {state} {data} {bit_pos} {offset} {scaler(data)}")
+            value1 = value2 = 0
             if bit_pos <= 15:
                 value1 = 1 << bit_pos
-                value2 = 0
             else:
-                value1 = 0
                 value2 = 1 << (bit_pos - 15)
             # build data packet
             if scaler:
@@ -111,7 +139,7 @@ class BaseReq(PdiReq):
         super().__init__(data, pdi_command)
         if self.pdi_command.is_base is False:
             raise ValueError(f"Invalid PDI Base Request: {data}")
-        self._status = self._valid1 = self._valid2 = self._firmware_high = self._firmware_low = None
+        self._status = self._firmware_high = self._firmware_low = None
         self._route_throw_rate = self._name = self._number = None
         self._rev_link = self._fwd_link = None
         self._loco_type = self._control_type = self._sound_type = self._loco_class = None
@@ -119,6 +147,7 @@ class BaseReq(PdiReq):
         self._fuel_level = self._water_level = self._last_train_id = self._train_pos = self._train_brake = None
         self._smoke_level = self._ditch_lights = self._momentum = self._momentum_tmcc = None
         self._state = state
+        self._valid1 = self._valid2 = None
         if isinstance(data, bytes):
             data_len = len(self._data)
             self._record_no = self.tmcc_id = self._data[1] if data_len > 1 else None
@@ -126,6 +155,7 @@ class BaseReq(PdiReq):
             self._status = self._data[3] if data_len > 3 else None
             _ = self._data[4] if data_len > 4 else None
             self._valid1 = int.from_bytes(self._data[5:7], byteorder="little") if data_len > 5 else None
+            self._valid2 = None
 
             if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
                 self.scope = CommandScope.ENGINE if self.pdi_command == PdiCommand.BASE_ENGINE else CommandScope.TRAIN
@@ -171,6 +201,9 @@ class BaseReq(PdiReq):
                 self._firmware_low = self._data[8] if data_len > 8 else None
                 self._route_throw_rate = self.decode_throw_rate(self._data[9]) if data_len > 9 else None
                 self._name = self.decode_text(self._data[10:]) if data_len > 10 else None
+            elif self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
+                self._speed = self._data[2] if data_len > 2 else None
+                self._valid1 = (1 << EngineBits.SPEED) if data_len > 2 else 0
         else:
             self._record_no = int(data)
             self._flags = flags
@@ -183,7 +216,7 @@ class BaseReq(PdiReq):
                 self._status = 0
                 self._valid1 = 0b1100
                 if isinstance(state, EngineState):
-                    self._valid1 = 0b1100000101100
+                    self._valid1 = 0b1100010111100
                     self._valid2 = 0b10000000
                     self._speed_step = state.speed
                     self._momentum_tmcc = state.momentum
@@ -193,6 +226,13 @@ class BaseReq(PdiReq):
                     self._control_type = state.control_type
                     self._loco_type = state.engine_type
                     self._loco_class = state.engine_class
+
+    def is_valid(self, field: EngineBits) -> bool:
+        if self._valid1 and field.value <= 15:
+            return (self._valid1 & (1 << field.value)) != 0
+        elif self._valid2 and field.value <= 31:
+            return (self._valid2 & (1 << (field.value - 16))) != 0
+        return False
 
     @property
     def record_no(self) -> int:
@@ -221,6 +261,10 @@ class BaseReq(PdiReq):
     @property
     def valid1(self) -> int:
         return self._valid1
+
+    @property
+    def valid2(self) -> int:
+        return self._valid2
 
     @property
     def name(self) -> str:
@@ -307,48 +351,51 @@ class BaseReq(PdiReq):
     def payload(self) -> str:
         f = hex(self.flags) if self.flags is not None else "NA"
         s = self.status if self.status is not None else "NA"
-        v = hex(self.valid1) if self.valid1 is not None else "NA"
-        if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
-            tmcc = f"{self.record_no}"
-            fwl = f" Fwd: {self._fwd_link}" if self._fwd_link is not None else ""
-            rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
-            na = f" {self._name}" if self._name is not None else ""
-            no = f" {self._number}" if self._number is not None else ""
-            ct = f" {self.control}"
-            st = f" {self.sound}"
-            lt = f" {self.loco_type} ({self._loco_type})"
-            lc = f" {self.loco_class} ({self._loco_class})"
-            v2 = f" {hex(self._valid2)}" if self._valid2 is not None else ""
-            sp = f" SS: {self._speed_step}" if self._speed_step is not None else ""
-            sl = f"/{self._speed_limit}" if self._speed_limit is not None else ""
-            ms = f"/{self._max_speed}" if self._max_speed is not None else ""
-            fl = f" Fuel: {(100. * self._fuel_level/255):.2f}%" if self._fuel_level is not None else ""
-            wl = f" Water: {(100 * self._water_level/255):.2f}%" if self._water_level is not None else ""
-            rl = f" RL: {self._run_level}" if self._run_level is not None else ""
-            el = f" EB: {self._labor_bias}" if self._labor_bias is not None else ""
-            sm = f" Smoke: {self._smoke_level}" if self._smoke_level is not None else ""
-            m = f" Momentum: {self.momentum} ({self.momentum_tmcc})" if self.momentum is not None else ""
-            b = f" Brake: {self._train_brake}" if self._train_brake is not None else ""
-            return (
-                f"# {tmcc}{na}{no}{ct}{st}{lt}{lc}{sp}{sl}{ms}{fl}{wl}{rl}{el}{sm}{m}{b} "
-                f"flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl} "
-                f"({self.packet})"
-            )
-        if self.pdi_command == PdiCommand.BASE_ACC:
-            fwl = f" Fwd: {self._fwd_link}" if self._fwd_link is not None else ""
-            rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
-            na = f" {self._name}" if self._name is not None else ""
-            no = f" {self._number}" if self._number is not None else ""
-            return f"# {self.record_no}{na}{no} flags: {f} status: {s} valid: {v}{fwl}{rvl}\n({self.packet})"
-        elif self.pdi_command == PdiCommand.BASE:
-            fw = f" V{self._firmware_high}.{self._firmware_low}" if self._firmware_high is not None else ""
-            tr = f" Route Throw Rate: {self._route_throw_rate} sec" if self._route_throw_rate is not None else ""
-            n = f"{self._name} " if self._name is not None else ""
-            return f"{n}Rec # {self.record_no} flags: {f} status: {s} valid: {v}{fw}{tr}\n({self.packet})"
-        elif self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
-            scope = "Engine" if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else "Train"
-            return f"{scope} #{self.tmcc_id} New Speed: {self.speed}"
-        return f"Rec # {self.record_no} flags: {f} status: {s} valid: {v}\n({self.packet})"
+        if self._valid1 is None and self._valid2 is None:  # ACK received
+            return f"Rec # {self.record_no} flags: {f} status: {s} ACK ({self.packet})"
+        else:
+            v = hex(self.valid1) if self.valid1 is not None else "NA"
+            if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
+                tmcc = f"{self.record_no}"
+                fwl = f" Fwd: {self._fwd_link}" if self._fwd_link is not None else ""
+                rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
+                na = f" {self._name}" if self._name is not None else ""
+                no = f" {self._number}" if self._number is not None else ""
+                ct = f" {self.control}"
+                st = f" {self.sound}"
+                lt = f" {self.loco_type} ({self._loco_type})"
+                lc = f" {self.loco_class} ({self._loco_class})"
+                v2 = f" {hex(self._valid2)}" if self._valid2 is not None else ""
+                sp = f" SS: {self._speed_step}" if self._speed_step is not None else ""
+                sl = f"/{self._speed_limit}" if self._speed_limit is not None else ""
+                ms = f"/{self._max_speed}" if self._max_speed is not None else ""
+                fl = f" Fuel: {(100. * self._fuel_level/255):.2f}%" if self._fuel_level is not None else ""
+                wl = f" Water: {(100 * self._water_level/255):.2f}%" if self._water_level is not None else ""
+                rl = f" RL: {self._run_level}" if self._run_level is not None else ""
+                el = f" EB: {self._labor_bias}" if self._labor_bias is not None else ""
+                sm = f" Smoke: {self._smoke_level}" if self._smoke_level is not None else ""
+                m = f" Momentum: {self.momentum} ({self.momentum_tmcc})" if self.momentum is not None else ""
+                b = f" Brake: {self._train_brake}" if self._train_brake is not None else ""
+                return (
+                    f"# {tmcc}{na}{no}{ct}{st}{lt}{lc}{sp}{sl}{ms}{fl}{wl}{rl}{el}{sm}{m}{b} "
+                    f"flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl} "
+                    f"({self.packet})"
+                )
+            if self.pdi_command == PdiCommand.BASE_ACC:
+                fwl = f" Fwd: {self._fwd_link}" if self._fwd_link is not None else ""
+                rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
+                na = f" {self._name}" if self._name is not None else ""
+                no = f" {self._number}" if self._number is not None else ""
+                return f"# {self.record_no}{na}{no} flags: {f} status: {s} valid: {v}{fwl}{rvl}\n({self.packet})"
+            elif self.pdi_command == PdiCommand.BASE:
+                fw = f" V{self._firmware_high}.{self._firmware_low}" if self._firmware_high is not None else ""
+                tr = f" Route Throw Rate: {self._route_throw_rate} sec" if self._route_throw_rate is not None else ""
+                n = f"{self._name} " if self._name is not None else ""
+                return f"{n}Rec # {self.record_no} flags: {f} status: {s} valid: {v}{fw}{tr}\n({self.packet})"
+            elif self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
+                scope = "Engine" if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else "Train"
+                return f"{scope} #{self.tmcc_id} New Speed: {self.speed}"
+            return f"Rec # {self.record_no} flags: {f} status: {s} valid: {v}\n({self.packet})"
 
     @property
     def as_bytes(self) -> bytes:

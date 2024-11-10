@@ -283,7 +283,8 @@ class PdiDispatcher(Thread):
                     if self._client_port is not None:
                         self.update_client_state(cmd)
             except Exception as e:
-                print(e)
+                print(f"PdiDispatcher: Error publishing {cmd}: {e}")
+                # raise e
             finally:
                 self._queue.task_done()
 
