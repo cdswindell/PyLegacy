@@ -531,6 +531,7 @@ class EngineState(ComponentState):
         self._prod_year: int | None = None
         self._rpm: int | None = None
         self._control_type: int | None = None
+        self._sound_type: int | None = None
         self._engine_type: int | None = None
         self._engine_class: int | None = None
         self._numeric: int | None = None
@@ -680,6 +681,8 @@ class EngineState(ComponentState):
                 if command.is_valid(EngineBits.CONTROL_TYPE):
                     self._control_type = command.control_id
                     self._is_legacy = command.is_legacy
+                if command.is_valid(EngineBits.SOUND_TYPE):
+                    self._sound_type = command.sound_id
                 if command.is_valid(EngineBits.CLASS_TYPE):
                     self._engine_class = command.loco_class_id
                 if command.is_valid(EngineBits.LOCO_TYPE):
@@ -729,6 +732,10 @@ class EngineState(ComponentState):
     @property
     def control_type(self) -> int:
         return self._control_type
+
+    @property
+    def sound_type(self) -> int:
+        return self._sound_type
 
     @property
     def engine_type(self) -> int:

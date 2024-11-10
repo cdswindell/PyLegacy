@@ -216,7 +216,7 @@ class BaseReq(PdiReq):
                 self._status = 0
                 self._valid1 = 0b1100
                 if isinstance(state, EngineState):
-                    self._valid1 = 0b1100010111100
+                    self._valid1 = 0b1100011111100
                     self._valid2 = 0b10000000
                     self._speed_step = state.speed
                     self._momentum_tmcc = state.momentum
@@ -224,6 +224,7 @@ class BaseReq(PdiReq):
                     self._run_level = state.rpm
                     self._scope = state.scope
                     self._control_type = state.control_type
+                    self._sound_type = state.sound_type
                     self._loco_type = state.engine_type
                     self._loco_class = state.engine_class
 
@@ -317,6 +318,10 @@ class BaseReq(PdiReq):
     @property
     def sound(self) -> str:
         return SOUND_TYPE.get(self._sound_type, "NA")
+
+    @property
+    def sound_id(self) -> int:
+        return self._sound_type
 
     @property
     def loco_type(self) -> str:
@@ -419,7 +424,7 @@ class BaseReq(PdiReq):
             if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
                 byte_str += self._loco_type.to_bytes(1, byteorder="little")  # loco type
                 byte_str += self._control_type.to_bytes(1, byteorder="little")
-                byte_str += (0).to_bytes(1, byteorder="little")  # sount type
+                byte_str += self._sound_type.to_bytes(1, byteorder="little")
                 byte_str += self._loco_class.to_bytes(1, byteorder="little")
                 byte_str += (0).to_bytes(3, byteorder="little")  # 3 misc fields
                 byte_str += self._speed_step.to_bytes(1, byteorder="little")
