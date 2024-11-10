@@ -507,7 +507,7 @@ class AccessoryState(TmccState):
                     self.address,
                     self._first_pdi_command,
                     self._first_pdi_action,
-                    values=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
+                    state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
             print(f"BPC2 Address: {self.address} {self._aux_state}")
         else:
