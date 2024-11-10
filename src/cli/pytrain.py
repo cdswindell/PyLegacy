@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import os
 import readline
-
 from datetime import datetime
 from typing import List
 
@@ -27,7 +26,7 @@ from src.db.component_state_store import ComponentStateStore
 from src.db.startup_state import StartupState
 from src.gpio.gpio_handler import GpioHandler
 from src.pdi.base_req import BaseReq
-from src.pdi.constants import PdiCommand
+from src.pdi.constants import PdiCommand, PDI_SOP
 from src.pdi.pdi_listener import PdiListener
 from src.pdi.pdi_req import PdiReq, AllReq
 from src.pdi.pdi_state_store import PdiStateStore
@@ -166,11 +165,11 @@ class PyTrain:
                 try:
                     ComponentStateStore.reset()
                 except Exception as e:
-                    self.logger.warning(f"Error resetting state store, continuing shutdown: {e}")
+                    self.logger.warning(f"Error closing state store, continuing shutdown: {e}")
                 try:
                     GpioHandler.reset_all()
                 except Exception as e:
-                    self.logger.warning(f"Error releasing GPIO, continuing shutdown: {e}")
+                    self.logger.warning(f"Error closing GPIO, continuing shutdown: {e}")
                 break
 
     def _handle_command(self, ui: str) -> None:
@@ -199,6 +198,9 @@ class PyTrain:
                         self._command_parser().parse_args(["-help"])
                     if args.command == "db":
                         self._query_status(ui_parts[1:])
+                        return
+                    if args.command == "decode":
+                        self._decode_command(ui_parts[1:])
                         return
                     if args.command == "pdi":
                         try:
@@ -294,7 +296,7 @@ class PyTrain:
             print("PDI command echoing ENABLED")
         self._echo = True
 
-    def _do_pdi(self, param):
+    def _do_pdi(self, param: List[str]) -> None:
         param_len = len(param)
         agr = None
         if param_len == 1:
@@ -351,6 +353,21 @@ class PyTrain:
         if agr is not None:
             self._pdi_buffer.enqueue_command(agr)
 
+    @staticmethod
+    def _decode_command(param: List[str]) -> None:
+        try:
+            param = "".join(param).lower().strip()
+            if param.startswith("0x"):
+                param = param[2:]
+            byte_str = bytes.fromhex(param)
+            if byte_str and byte_str[0] == PDI_SOP:
+                cmd = PdiReq.from_bytes(byte_str)
+            else:
+                cmd = CommandReq.from_bytes(byte_str)
+            print(f"0x{byte_str.hex()} --> {cmd}")
+        except Exception as e:
+            print(e)
+
     def _command_parser(self) -> ArgumentParser:
         """
         Parse the first token of the user's input
@@ -371,6 +388,9 @@ class PyTrain:
         )
         group.add_argument(
             "-db", action="store_const", const="db", dest="command", help="Query engine/train/switch/accessory state"
+        )
+        group.add_argument(
+            "-decode", action="store_const", const="decode", dest="command", help="Decode TMCC command bytes"
         )
         group.add_argument(
             "-dialogs", action="store_const", const=DialogsCli, dest="command", help="Trigger RailSounds dialogs"
