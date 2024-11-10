@@ -445,6 +445,10 @@ class AccessoryState(TmccState):
                         self._aux2_state = Aux.AUX2_OFF
                         self._aux_state = Aux.AUX2_OPT_ONE
             elif isinstance(command, IrdaReq):
+                if self._first_pdi_command is None:
+                    self._first_pdi_command = command.command
+                if self._first_pdi_action is None:
+                    self._first_pdi_action = command.action
                 self._sensor_track = True
             self.changed.set()
 
