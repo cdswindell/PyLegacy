@@ -501,7 +501,6 @@ class AccessoryState(TmccState):
                     self._first_pdi_action,
                     values=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
-                print(f"ASC2 Address: {self.address} {self._aux_state}")
             else:
                 byte_str += Bpc2Req(
                     self.address,
@@ -509,7 +508,6 @@ class AccessoryState(TmccState):
                     self._first_pdi_action,
                     state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
-            print(f"BPC2 Address: {self.address} {self._aux_state}")
         else:
             if self._aux_state is not None:
                 byte_str += CommandReq.build(self.aux_state, self.address).as_bytes
