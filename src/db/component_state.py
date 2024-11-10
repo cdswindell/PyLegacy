@@ -557,7 +557,7 @@ class EngineState(ComponentState):
         if self._rpm is not None:
             rl = f" RPM: {self._rpm}"
         if self._numeric is not None:
-            nu = f" Last Num: {self._numeric}"
+            nu = f" Num: {self._numeric}"
         if self.road_name is not None:
             name = f" {self.road_name}"
         if self.road_number is not None:

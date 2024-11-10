@@ -359,6 +359,7 @@ class PyTrain:
             param = "".join(param).lower().strip()
             if param.startswith("0x"):
                 param = param[2:]
+            param = param.replace(":", "")
             byte_str = bytes.fromhex(param)
             if byte_str and byte_str[0] == PDI_SOP:
                 cmd = PdiReq.from_bytes(byte_str)

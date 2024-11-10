@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import abc
+import sys
 from abc import ABC
 from typing import Tuple, TypeVar, List
-
-import sys
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -31,8 +30,8 @@ class PdiReq(ABC):
             return dev.build_req(data)
         except AttributeError as ae:
             raise ae
-        except ValueError:
-            raise NotImplementedError(f"PdiCommand {pdi_cmd.name} not implemented")
+        except ValueError as ve:
+            raise ve
 
     def __init__(self, data: bytes | None, pdi_command: PdiCommand = None) -> None:
         # default scope is system; override as needed in child classes
