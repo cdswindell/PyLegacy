@@ -22,12 +22,19 @@ class SerialReader(Thread):
         self.start()
 
     def run(self) -> None:
-        with serial.Serial(self._port, self._baudrate, timeout=1.0) as ser:
+        with serial.Serial(
+            self._port,
+            self._baudrate,
+            parity=serial.PARITY_NONE,
+            stopbits=serial.STOPBITS_ONE,
+            bytesize=serial.EIGHTBITS,
+            timeout=1.0,
+        ) as ser:
             while self._is_running:
                 try:
                     if ser.in_waiting > 0:
-                        time.sleep(0.05)
-                        ser2_bytes = ser.read(256)
+                        time.sleep(0.1)
+                        ser2_bytes = ser.read(ser.in_waiting)
                         if ser2_bytes:
                             if self._consumer:
                                 self._consumer.offer(ser2_bytes)
