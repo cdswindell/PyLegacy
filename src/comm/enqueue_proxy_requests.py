@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import socketserver
 import threading
 from threading import Thread
@@ -7,6 +8,8 @@ from typing import List
 
 from ..comm.comm_buffer import CommBuffer
 from ..protocol.constants import DEFAULT_SERVER_PORT
+
+log = logging.getLogger(__name__)
 
 REGISTER_REQUEST: bytes = int(0xFF).to_bytes(1, byteorder="big") * 6
 SYNC_STATE_REQUEST: bytes = int(0xFFF0).to_bytes(2, byteorder="big") * 3
@@ -142,7 +145,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 break
         if byte_stream == EnqueueProxyRequests.register_request:
             if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
-                print(f"Client at {self.client_address[0]} connecting...")
+                log.info(f"Client at {self.client_address[0]} connecting...")
         elif byte_stream == EnqueueProxyRequests.sync_state_request:
             from ..comm.command_listener import CommandDispatcher
 

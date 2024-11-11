@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 #
+import logging
 from typing import List
 
 from src.cli.cli_base import CliBase, DataAction
 from src.protocol.tmcc1.acc_cmd import AccCmd
 from src.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
 from src.utils.argument_parser import ArgumentParser
+
+log = logging.getLogger(__name__)
 
 AUX_OPTIONS_MAP = {
     "on": "ON",
@@ -87,7 +90,7 @@ class AccCli(CliBase):
                 cmd.fire()
             self._command = cmd
         except ValueError as ve:
-            print(ve)
+            log.exception(ve)
 
 
 if __name__ == "__main__":

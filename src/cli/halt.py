@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 #
+import logging
 from typing import List
 
 from src.cli.cli_base import CliBaseTMCC
-
 from src.protocol.constants import CommandSyntax
 from src.protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
 from src.protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
 from src.utils.argument_parser import ArgumentParser
+
+log = logging.getLogger(__name__)
 
 
 class HaltCli(CliBaseTMCC):
@@ -29,7 +31,7 @@ class HaltCli(CliBaseTMCC):
                 cmd.fire()
             self._command = cmd
         except ValueError as ve:
-            print(ve)
+            log.exception(ve)
 
 
 if __name__ == "__main__":

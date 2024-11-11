@@ -1,5 +1,6 @@
 import abc
 import argparse
+import logging
 import sys
 from abc import ABC
 from typing import List, Any
@@ -10,6 +11,8 @@ from src.protocol.constants import DEFAULT_VALID_BAUDRATES
 from src.protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
 from src.protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
 from src.utils.argument_parser import ArgumentParser
+
+log = logging.getLogger(__name__)
 
 
 class CliBase(ABC):
@@ -130,7 +133,7 @@ class CliBase(ABC):
             self._server = self._args.server
         else:
             self._server = None
-        # print(self._args)
+        log.debug(self._args)
 
     def send(self) -> None:
         repeat = self._args.repeat if "repeat" in self._args else 1

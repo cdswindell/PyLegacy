@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 #
+import logging
 from datetime import datetime
 from typing import List
 
 from src.cli.cli_base import CliBase
-
 from src.comm.command_listener import CommandListener
 from src.protocol.command_req import CommandReq
 from src.utils.argument_parser import ArgumentParser
+
+log = logging.getLogger(__name__)
 
 
 class EchoCli:
@@ -24,7 +26,7 @@ class EchoCli:
             self._listener.shutdown()
 
     def __call__(self, cmd: CommandReq) -> None:
-        print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
+        log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
 
 
 if __name__ == "__main__":

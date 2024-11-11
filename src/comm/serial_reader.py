@@ -1,3 +1,4 @@
+import logging
 import time
 from threading import Thread
 
@@ -5,6 +6,8 @@ import serial
 
 from .command_listener import CommandListener
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+
+log = logging.getLogger(__name__)
 
 
 class SerialReader(Thread):
@@ -28,11 +31,11 @@ class SerialReader(Thread):
                             if self._consumer:
                                 self._consumer.offer(ser2_bytes)
                             else:
-                                print(ser2_bytes.hex(":"))
+                                log.warning(f"No serial consumer for: {ser2_bytes.hex(':')}")
                     # give the CPU a break
-                    time.sleep(0.01)
+                    time.sleep(0.02)
         except Exception as e:
-            print(e)
+            log.exception(e)
 
     @property
     def baudrate(self) -> int:

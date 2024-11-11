@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections
+import logging
 import threading
 from collections import defaultdict
 from typing import List, TypeVar, Set, Tuple
@@ -19,6 +20,8 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef as Halt1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as Engine2
 from ..protocol.tmcc2.tmcc2_constants import TMCC2HaltCommandDef as Halt2
+
+log = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=ComponentState)
 C = TypeVar("C", bound=CommandDefEnum)
@@ -111,7 +114,7 @@ class ComponentStateStore:
                 else:  # update the device state (identified by scope/address)
                     self._state[command.scope][command.address].update(command)
             else:
-                print(f"Received Unknown State Update: {command}")
+                log.warning(f"Received Unknown State Update: {command}")
 
     @property
     def is_empty(self) -> bool:

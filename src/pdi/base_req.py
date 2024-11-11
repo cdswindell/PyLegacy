@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from enum import IntEnum, unique
 from math import floor
 from typing import Dict
@@ -10,6 +11,8 @@ from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS, Mixins
+
+log = logging.getLogger(__name__)
 
 ROUTE_THROW_RATE_MAP: Dict[int, float] = {
     1: 0.00,
@@ -99,7 +102,8 @@ class BaseReq(PdiReq):
             raise ValueError(f"Invalid option: {cmd}")
         if state.name in ENGINE_WRITE_MAP:
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
-            # print(f"State: {state} {data} {bit_pos} {offset} {scaler(data)}")
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(f"State: {state} {data} {bit_pos} {offset} {scaler(data)}")
             value1 = value2 = 0
             if bit_pos <= 15:
                 value1 = 1 << bit_pos

@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 #
+import logging
 from typing import List
 
 from src.cli.cli_base import CliBaseTMCC, DataAction, CliBase
-
-from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
-
+from src.protocol.multybyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
+from src.protocol.multybyte.multibyte_constants import TMCC2MultiByteEnum, TMCC2RailSoundsDialogControl
+from src.protocol.multybyte.multibyte_constants import TMCC2RailSoundsEffectsControl
+from src.protocol.sequence.sequence_constants import SequenceCommandEnum
 from src.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
+from src.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from src.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
-
-from src.protocol.multybyte.multibyte_constants import TMCC2MultiByteEnum, TMCC2RailSoundsDialogControl
-from src.protocol.multybyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
-from src.protocol.multybyte.multibyte_constants import TMCC2RailSoundsEffectsControl
-
-from src.protocol.sequence.sequence_constants import SequenceCommandEnum
-
 from src.utils.argument_parser import ArgumentParser
+
+log = logging.getLogger(__name__)
 
 AUX_COMMAND_MAP = {
     "on": "_ON",
@@ -502,7 +500,7 @@ class EngineCli(CliBaseTMCC):
             option = self._decode_engine_option()  # raise ValueError if can't decode
             if option is None:
                 raise ValueError("Must specify an option, use -h for help")
-            # print(self._args)
+            log.debug(self._args)
             scope = self._determine_scope()
             if self.is_tmcc2 or option.is_tmcc2:
                 cmd = EngineCmdTMCC2(
@@ -522,7 +520,7 @@ class EngineCli(CliBaseTMCC):
                 cmd.fire(repeat=self._args.repeat, delay=self._args.delay)
             self._command = cmd
         except ValueError as ve:
-            print(ve)
+            log.exception(ve)
 
     def _decode_engine_option(self) -> TMCC1EngineCommandDef | TMCC2EngineCommandDef | TMCC2MultiByteEnum | None:
         """

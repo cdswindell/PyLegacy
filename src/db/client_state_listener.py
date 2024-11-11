@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import socketserver
 import threading
 
@@ -7,6 +8,8 @@ from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Subscriber, Topic
 from ..pdi.constants import PDI_SOP, PDI_EOP
 from ..protocol.command_def import CommandDefEnum
+
+log = logging.getLogger(__name__)
 
 
 class ClientStateListener(threading.Thread):
@@ -59,7 +62,8 @@ class ClientStateListener(threading.Thread):
         # look at first byte to determine handler
         from ..pdi.constants import PDI_SOP
 
-        # print(f"Offered: {data.hex(' ')}")
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(f"ClientStateListener Offered: {data.hex(' ')}")
         if data and data[0] == PDI_SOP:
             self._pdi_listener.offer(data)
         else:

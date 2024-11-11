@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import socket
 import threading
 from collections import deque, defaultdict
@@ -13,6 +14,8 @@ from .pdi_req import PdiReq, TmccReq
 from ..comm.command_listener import Topic, Message, Channel, Subscriber, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE_PORT, BROADCAST_TOPIC
+
+log = logging.getLogger(__name__)
 
 
 class PdiListener(Thread):
@@ -149,16 +152,18 @@ class PdiListener(Thread):
                             req_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                             dq_len -= 1
                         try:
-                            # print(f"Offering->0x{req_bytes.hex(':')}")
+                            if log.isEnabledFor(logging.DEBUG):
+                                log.debug(f"Offering->0x{req_bytes.hex(':')}")
                             self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
                         except Exception as e:
-                            print(f"Failed to dispatch request: {req_bytes.hex(':')}: {e}")
+                            log.error(f"Failed to dispatch request: {req_bytes.hex(':')}")
+                            log.exception(e)
                         finally:
                             eop_pos = -1
                         continue  # with while dq_len > 0 loop
                 # pop this byte and continue; we either received unparsable input
                 # or started receiving data mid-command
-                print(f"Ignoring {hex(self._deque.popleft())}")
+                log.warning(f"PdiListener Ignoring {hex(self._deque.popleft())}")
                 dq_len -= 1
                 eop_pos = -1
         # shut down the dispatcher
@@ -265,7 +270,8 @@ class PdiDispatcher(Thread):
                 continue
             cmd: PdiReq = self._queue.get()
             try:
-                # print(cmd)
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(cmd)
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
                     if isinstance(cmd, BaseReq) and cmd.is_active is False:
@@ -283,8 +289,8 @@ class PdiDispatcher(Thread):
                     if self._client_port is not None:
                         self.update_client_state(cmd)
             except Exception as e:
-                print(f"PdiDispatcher: Error publishing {cmd}: {e}")
-                # raise e
+                log.error(f"PdiDispatcher: Error publishing {cmd}")
+                log.exception(e)
             finally:
                 self._queue.task_done()
 
@@ -307,7 +313,8 @@ class PdiDispatcher(Thread):
                     # ignore disconnects; client will receive state update on reconnect
                     pass
                 except Exception as e:
-                    print(f"Exception while sending PDI state update to {client}: {e}")
+                    log.warning(f"Exception while sending PDI state update {command} to {client}")
+                    log.exception(e)
 
     def offer(self, pdi_req: PdiReq) -> None:
         """

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
+import logging
 from typing import List
 
 from src.cli.cli_base import CliBaseTMCC
-
 from src.protocol.multybyte.dialog_cmd import DialogCmd
 from src.protocol.multybyte.multibyte_constants import TMCC2RailSoundsDialogControl
 from src.utils.argument_parser import ArgumentParser
+
+log = logging.getLogger(__name__)
 
 
 class DialogsCli(CliBaseTMCC):
@@ -474,7 +476,7 @@ class DialogsCli(CliBaseTMCC):
                 cmd.fire()
             self._command = cmd
         except ValueError as ve:
-            print(ve)
+            log.exception(ve)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import logging
 import threading
 from abc import ABC
 from collections import defaultdict
@@ -29,6 +30,8 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2_COMMAND_TO_ALIAS_MAP
+
+log = logging.getLogger(__name__)
 
 C = TypeVar("C", bound=CommandDefEnum)
 E = TypeVar("E", bound=CommandDefEnum)
@@ -317,7 +320,7 @@ class SwitchState(TmccState):
             elif isinstance(command, BaseReq):
                 pass
             else:
-                print(f"Unhandled Switch State Update received: {command}")
+                log.warning(f"Unhandled Switch State Update received: {command}")
             self.changed.set()
 
     @property
@@ -387,7 +390,8 @@ class AccessoryState(TmccState):
     # noinspection DuplicatedCode
     def update(self, command: L | P) -> None:
         if command:
-            # print(command)
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(command)
             super().update(command)
             if isinstance(command, CommandReq):
                 if command.command != Aux.SET_ADDRESS:
@@ -586,7 +590,7 @@ class EngineState(ComponentState):
                 self._is_legacy = command.is_tmcc2
             # get the downstream effects of this command, as they also impact state
             cmd_effects = self.results_in(command)
-            # print(f"Update: {command}\nEffects: {cmd_effects}")
+            log.debug(f"Update: {command}\nEffects: {cmd_effects}")
 
             # handle direction
             if command.command in DIRECTIONS_SET:
@@ -605,7 +609,7 @@ class EngineState(ComponentState):
                     self._numeric_cmd = command.command
             elif cmd_effects & NUMERIC_SET:
                 numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
-                print(f"{command}: {numeric} {type(numeric)}")
+                log.info(f"What to do? {command}: {numeric} {type(numeric)}")
 
             # handle run level/rpm
             if command.command in RPM_SET:
@@ -615,10 +619,12 @@ class EngineState(ComponentState):
                 if isinstance(rpm, tuple) and len(rpm) == 2:
                     self._rpm = rpm[1]
                 elif isinstance(rpm, CommandDefEnum):
-                    # print(f"{command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug(f"{command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
                     self._rpm = 0
                 else:
-                    # print(f"{command} {rpm} {type(rpm)} {cmd_effects}")
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug(f"{command} {rpm} {type(rpm)} {cmd_effects}")
                     self._rpm = 0
 
             # handle speed
@@ -629,7 +635,8 @@ class EngineState(ComponentState):
                 if isinstance(speed, tuple) and len(speed) == 2:
                     self._speed = speed[1]
                 else:
-                    # print(f"{command} {speed} {type(speed)} {cmd_effects}")
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
                     self._speed = 0
 
             # handle momentum

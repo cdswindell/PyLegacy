@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 #
+import logging
 from typing import List
 
 from src.cli.cli_base import CliBase
 from src.protocol.tmcc1.switch_cmd import SwitchCmd
 from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
 from src.utils.argument_parser import ArgumentParser
+
+log = logging.getLogger(__name__)
 
 
 class SwitchCli(CliBase):
@@ -46,7 +49,7 @@ class SwitchCli(CliBase):
                 cmd.fire()
             self._command = cmd
         except ValueError as ve:
-            print(ve)
+            log.exception(ve)
 
 
 if __name__ == "__main__":
