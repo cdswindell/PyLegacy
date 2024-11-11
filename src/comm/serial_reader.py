@@ -35,6 +35,7 @@ class SerialReader(Thread):
                     # give the CPU a break
                     time.sleep(0.01)
                 except Exception as e:
+                    log.info(f"{type(e)}")
                     log.exception(e)
 
     @property
