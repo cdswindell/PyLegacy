@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging.config
 import os
 import readline
 from datetime import datetime
@@ -39,7 +40,9 @@ from src.protocol.constants import (
     PROGRAM_NAME,
 )
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
-from src.utils.logger import Logger
+
+log = logging.getLogger(__name__)
+logging.config.fileConfig("logging.ini", disable_existing_loggers=False)
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 
@@ -57,7 +60,6 @@ class PyTrain:
         self._echo = args.echo
         self._no_ser2 = args.no_ser2
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
-        self._logger = Logger(__name__)
         if args.base is not None:
             base_pieces = args.base.split(":")
             self._base_addr = args.base = base_pieces[0]
@@ -131,10 +133,6 @@ class PyTrain:
     def buffer(self) -> CommBuffer:
         return self._tmcc_buffer
 
-    @property
-    def logger(self) -> Logger:
-        return self._logger
-
     def run(self) -> None:
         # process startup script
         self._process_startup_scripts()
@@ -153,23 +151,23 @@ class PyTrain:
                 try:
                     CommBuffer.stop()
                 except Exception as e:
-                    self.logger.warning(f"Error closing command buffer, continuing shutdown: {e}")
+                    log.warning(f"Error closing command buffer, continuing shutdown: {e}")
                 try:
                     CommandListener.stop()
                 except Exception as e:
-                    self.logger.warning(f"Error closing TMCC listener, continuing shutdown: {e}")
+                    log.warning(f"Error closing TMCC listener, continuing shutdown: {e}")
                 try:
                     PdiListener.stop()
                 except Exception as e:
-                    self.logger.warning(f"Error closing PDI listener, continuing shutdown: {e}")
+                    log.warning(f"Error closing PDI listener, continuing shutdown: {e}")
                 try:
                     ComponentStateStore.reset()
                 except Exception as e:
-                    self.logger.warning(f"Error closing state store, continuing shutdown: {e}")
+                    log.warning(f"Error closing state store, continuing shutdown: {e}")
                 try:
                     GpioHandler.reset_all()
                 except Exception as e:
-                    self.logger.warning(f"Error closing GPIO, continuing shutdown: {e}")
+                    log.warning(f"Error closing GPIO, continuing shutdown: {e}")
                 break
 
     def _handle_command(self, ui: str) -> None:
@@ -206,7 +204,7 @@ class PyTrain:
                         try:
                             self._do_pdi(ui_parts[1:])
                         except Exception as e:
-                            self.logger.warning(e)
+                            log.warning(e)
                         return
                     if args.command == "echo":
                         self._handle_echo(ui_parts)
@@ -233,7 +231,7 @@ class PyTrain:
                         raise argparse.ArgumentError(None, f"'{ui}' is not a valid command")
                     cli_cmd.send()
                 except argparse.ArgumentError as e:
-                    self.logger.warning(e)
+                    log.warning(e)
 
     def _get_system_state(self):
         self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
@@ -247,7 +245,7 @@ class PyTrain:
                     try:
                         exec(code)
                     except Exception as e:
-                        self.logger.warning(f"Error while loading startup script: {e}")
+                        log.warning(f"Error while loading startup script: {e}")
             elif self._startup_script != DEFAULT_SCRIPT_FILE:
                 print(f"Startup script file {self._startup_script} not found, continuing...")
 
@@ -268,7 +266,7 @@ class PyTrain:
                         return
             print("No data")
         except Exception as e:
-            self.logger.warning(e)
+            log.info(e)
 
     def _handle_echo(self, ui_parts: List[str] = None):
         if ui_parts is None:

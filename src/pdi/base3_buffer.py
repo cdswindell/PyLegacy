@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import select
 import socket
 import threading
@@ -13,9 +14,10 @@ from .constants import KEEP_ALIVE_CMD, PDI_SOP, PdiCommand
 from .pdi_listener import PdiListener
 from .pdi_req import PdiReq, TmccReq
 from ..protocol.command_req import CommandReq
-
 from ..protocol.constants import DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY
 from ..utils.pollable_queue import PollableQueue
+
+log = logging.getLogger(__name__)
 
 
 class Base3Buffer(Thread):
@@ -102,48 +104,52 @@ class Base3Buffer(Thread):
         # signal(SIGPIPE, SIG_DFL)
         while self._is_running:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect((str(self._base3_addr), self._base3_port))
-                # we want to wait on either data being available to send to the Base3 of
-                # data available from the Base 3 to process
-                socket_list = [s, self._send_queue]
-                while self._is_running:
-                    try:
-                        readable, _, _ = select.select(socket_list, [], [])
-                        for sock in readable:
-                            if sock == self._send_queue:
-                                received = None
-                                sending = sock.get()
-                                millis_since_last_output = self._current_milli_time() - self._last_output_at
-                                if millis_since_last_output < DEFAULT_THROTTLE_DELAY:
-                                    time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
-                                s.sendall(sending.hex().upper().encode())
-                                self._last_output_at = self._current_milli_time()
-                                # update base3 of new state; required if command is a tmcc_tx
-                                self.sync_state(sending)
+                try:
+                    s.connect((str(self._base3_addr), self._base3_port))
+                    # we want to wait on either data being available to send to the Base3 of
+                    # data available from the Base 3 to process
+                    socket_list = [s, self._send_queue]
+                    while self._is_running:
+                        try:
+                            readable, _, _ = select.select(socket_list, [], [])
+                            for sock in readable:
+                                if sock == self._send_queue:
+                                    received = None
+                                    sending = sock.get()
+                                    millis_since_last_output = self._current_milli_time() - self._last_output_at
+                                    if millis_since_last_output < DEFAULT_THROTTLE_DELAY:
+                                        time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
+                                    s.sendall(sending.hex().upper().encode())
+                                    self._last_output_at = self._current_milli_time()
+                                    # update base3 of new state; required if command is a tmcc_tx
+                                    self.sync_state(sending)
+                                else:
+                                    sending = None
+                                    # we will always call s.recv, as in either case, there will
+                                    # be a response, either because we received an 'ack' from
+                                    # our send or because the select was triggered on the socket
+                                    # being able to be read.
+                                    received = bytes.fromhex(s.recv(512).decode())
+                                    # but there is more trickiness; The Base3 sends ascii characters
+                                    # so when we receive: 'D12729DF', this actually is sent as eight
+                                    # characters; D, 1, 2, 7, 2, 9, D, F, so we must decode the 8
+                                    # received bytes into 8 ASCII characters, then interpret that
+                                    # ASCII string as Hex representation to arrive at 0xd12729df...
+                                if self._listener is not None and received:
+                                    self._listener.offer(received)
+                        except BrokenPipeError as bpe:
+                            # keep trying; unix can sometimes just hang up
+                            if sending is not None:
+                                log.info(f"Exception sending: 0x{sending.hex(':').upper()}  Exception: {bpe}")
+                                self.send(sending)
+                            elif received is not None:
+                                log.info(f"Exception receiving: 0x{received.hex(':').upper()}  Exception: {bpe}")
                             else:
-                                sending = None
-                                # we will always call s.recv, as in either case, there will
-                                # be a response, either because we received an 'ack' from
-                                # our send or because the select was triggered on the socket
-                                # being able to be read.
-                                received = bytes.fromhex(s.recv(512).decode())
-                                # but there is more trickiness; The Base3 sends ascii characters
-                                # so when we receive: 'D12729DF', this actually is sent as eight
-                                # characters; D, 1, 2, 7, 2, 9, D, F, so we must decode the 8
-                                # received bytes into 8 ASCII characters, then interpret that
-                                # ASCII string as Hex representation to arrive at 0xd12729df...
-                            if self._listener is not None and received:
-                                self._listener.offer(received)
-                    except BrokenPipeError as bpe:
-                        # keep trying; unix can sometimes just hang up
-                        if sending is not None:
-                            print(f"Exception sending: 0x{sending.hex(':').upper()}  Exception: {bpe}")
-                            self.send(sending)
-                        elif received is not None:
-                            print(f"Exception receiving: 0x{received.hex(':').upper()}  Exception: {bpe}")
-                        else:
-                            print(f"Exception: {bpe}")
-                        break  # continues to outer loop
+                                log.exception(bpe, stack_info=True)
+                            break  # continues to outer loop
+                except TimeoutError as te:
+                    log.info(f"No response from Lionel Base 3 at {self._base3_addr}; is the Base 3 turned on?")
+                    log.exception(te, stack_info=True)
 
     def shutdown(self) -> None:
         with self._lock:

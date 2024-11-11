@@ -646,6 +646,24 @@ class GpioHandler:
         return cab_ctrl, bo_cntr, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
 
     @classmethod
+    def rocket_launcher(
+        cls,
+        address: int,
+        gantry_chanel: int | str = 0,
+        launch_seq_pin: int | str = None,
+        launch_now_pin: int | str = None,
+        launch_15_pin: int | str = None,
+        abort_pin: int | str = None,
+        siren_pin: int | str = None,
+        klaxon_pin: int | str = None,
+        ground_crew_pin: int | str = None,
+        mission_control_pin: int | str = None,
+        flicker_on_pin: int | str = None,
+        flicker_off_pin: int | str = None,
+    ):
+        pass
+
+    @classmethod
     def engine(
         cls,
         address: int,
