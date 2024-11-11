@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import socket
 import threading
 from collections import deque, defaultdict
@@ -16,6 +17,8 @@ from ..protocol.constants import CommandScope, BROADCAST_TOPIC
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
 from ..protocol.multybyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
+
+log = logging.getLogger(__name__)
 
 Message = TypeVar("Message")
 Topic = TypeVar("Topic")
@@ -180,13 +183,13 @@ class CommandListener(Thread):
                         # build_req a CommandReq from the received bytes and send it to the dispatcher
                         self._dispatcher.offer(CommandReq.from_bytes(cmd_bytes))
                     except ValueError as ve:
-                        print(ve)
+                        log.exception(ve, stack_info=True)
             elif dq_len < 3:
                 continue  # wait for more bytes
             else:
                 # pop this byte and continue; we either received unparsable input
                 # or started receiving data mid-command
-                print(f"Ignoring {hex(self._deque.popleft())} (deque: {len(self._deque)} bytes)")
+                log.warning(f"Ignoring {hex(self._deque.popleft())} (deque: {len(self._deque)} bytes)")
         # shut down the dispatcher
         if self._dispatcher:
             self._dispatcher.shutdown()
@@ -194,7 +197,8 @@ class CommandListener(Thread):
     def offer(self, data: bytes) -> None:
         if data:
             with self._cv:
-                # print(f"TMCC CommandListener offered: {data.hex(' ')}")
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"TMCC CommandListener offered: {data.hex(' ')}")
                 self._deque.extend(data)
                 self._cv.notify()
 
@@ -271,7 +275,8 @@ class Channel(Generic[Topic]):
             try:
                 subscriber(message)
             except Exception as e:
-                print(f"CommandDispatcher: Error publishing {message}: {e}")
+                log.warning(f"CommandDispatcher: Error publishing {message}; see log for details")
+                log.exception(e, stack_info=True)
 
 
 class CommandDispatcher(Thread):
@@ -375,7 +380,8 @@ class CommandDispatcher(Thread):
                     if self._client_port is not None:
                         self.update_client_state(cmd)
             except Exception as e:
-                print(f"CommandDispatcher exception publishing: {cmd} Exception: {e}")
+                log.warning(f"CommandDispatcher: Error publishing {cmd}; see log for details")
+                log.exception(e, stack_info=True)
             finally:
                 self._queue.task_done()
 
@@ -398,7 +404,8 @@ class CommandDispatcher(Thread):
                     # ignore disconnects; client will receive state update on reconnect
                     pass
                 except Exception as e:
-                    print(f"Exception while sending TMCC state update {command} to {client}: {e}")
+                    log.warning(f"Exception while sending TMCC state update {command} to {client}")
+                    log.exception(e, stack_info=True)
 
     def send_current_state(self, client_ip: str):
         """
@@ -421,7 +428,8 @@ class CommandDispatcher(Thread):
                                     s.sendall(state_as_bytes)
                                     _ = s.recv(16)
                                 except Exception as e:
-                                    print(f"Exception sending TMCC state update {state} to {client_ip}: {e}")
+                                    log.warning(f"Exception sending TMCC state update {state} to {client_ip}")
+                                    log.exception(e, stack_info=True)
                             sleep(0.05)
 
     @property

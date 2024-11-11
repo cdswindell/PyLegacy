@@ -1,3 +1,4 @@
+import logging
 import math
 import sched
 import threading
@@ -16,6 +17,8 @@ from ..protocol.constants import CommandScope
 from ..protocol.constants import DEFAULT_ADDRESS
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState, TMCC1AuxCommandDef, TMCC1EngineCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef, TMCC2EngineCommandDef
+
+log = logging.getLogger(__name__)
 
 DEFAULT_BOUNCE_TIME: float = 0.05  # button debounce threshold
 DEFAULT_VARIANCE: float = 0.001  # pot difference variance
@@ -123,7 +126,10 @@ class PotHandler(Thread):
         return self._pot
 
     def run(self) -> None:
-        # print(f"Delay: {self._delay} threshold: {self._threshold} d_min: {self._data_min} d_max: {self._data_max}")
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(
+                f"Delay: {self._delay} threshold: {self._threshold} d_min: {self._data_min} d_max: {self._data_max}"
+            )
         while self._running:
             raw_value = self.pot.value
             value = self._interp(raw_value)
@@ -143,7 +149,8 @@ class PotHandler(Thread):
                     if self._prefix_action:
                         self._prefix_action()
                     # command could be None, indicating no action
-                    # print(f"{cmd} {value} {raw_value}")
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug(f"{cmd} {value} {raw_value}")
                     if cmd.is_data is True:
                         cmd.as_action()(new_data=value)
                     else:

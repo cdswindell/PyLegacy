@@ -247,7 +247,8 @@ class PyTrain:
                     try:
                         exec(code)
                     except Exception as e:
-                        log.exception(f"Error while loading startup script: {e} (see logs)", stack_info=True)
+                        log.error(f"Error loading startup script {self._startup_script} (see logs)")
+                        log.exception(e, stack_info=True)
             elif self._startup_script != DEFAULT_SCRIPT_FILE:
                 log.warning(f"Startup script file {self._startup_script} not found, continuing...")
 

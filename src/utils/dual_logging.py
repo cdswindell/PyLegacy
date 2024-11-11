@@ -17,6 +17,8 @@
 # -------------------------------------------------------------------------------
 
 import logging
+import logging.handlers
+import os
 
 # Imports
 import sys
@@ -53,6 +55,9 @@ class ConsoleFormatter(LogFormatter):
         super().__init__(*args, **kwargs)
 
     def formatException(self, exc_info):
+        return ""
+
+    def formatStack(self, stack_trace):
         return ""
 
 
@@ -102,7 +107,10 @@ def set_up_logging(
 
     # Create log file handler
     try:
-        logfile_handler = logging.FileHandler(logfile_file)
+        should_roll_over = os.path.isfile(logfile_file)
+        logfile_handler = logging.handlers.RotatingFileHandler(logfile_file, mode="w", backupCount=5)
+        if should_roll_over:  # log already exists, roll over!
+            logfile_handler.doRollover()
     except Exception as exception:
         print(f"Failed to set up log file: {str(exception)}")
         return False

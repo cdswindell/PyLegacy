@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 import ipaddress
+import logging
 import sched
 import socket
 import sys
@@ -29,6 +30,8 @@ from ..protocol.constants import (
     PROGRAM_NAME,
 )
 from ..protocol.constants import DEFAULT_THROTTLE_DELAY, DEFAULT_SERVER_PORT
+
+log = logging.getLogger(__name__)
 
 
 class CommBuffer(abc.ABC):
@@ -61,7 +64,8 @@ class CommBuffer(abc.ABC):
                 elif isinstance(port, str) and not port.isnumeric():
                     port = str(DEFAULT_SERVER_PORT)
             except Exception as e:
-                print(f"Failed to resolve {server}: {e} ({type(e)})")
+                log.error(f"Failed to resolve {server}: {e}")
+                log.exception(e, stack_info=True)
                 raise e
         return server, port
 
@@ -189,7 +193,7 @@ class CommBufferSingleton(CommBuffer, Thread):
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if command:
-            # print(f"Enqueue command 0x{command.hex()}")
+            log.debug(f"Enqueue command 0x{command.hex()}")
             if delay > 0:
                 self._scheduler.schedule(delay, command)
             else:
@@ -225,7 +229,8 @@ class CommBufferSingleton(CommBuffer, Thread):
             except Empty:
                 pass
             except Exception as e:
-                print(f"Exception sending command: {e}")
+                log.error(f"Error sending {data}: {e}")
+                log.exception(e, stack_info=True)
             finally:
                 if data is not None:
                     self._queue.task_done()
@@ -245,7 +250,7 @@ class CommBufferSingleton(CommBuffer, Thread):
                 Base3Buffer.sync_state(data)
         except SerialException as se:
             # TODO: handle serial errors
-            print(f"0x{data.hex()} {se}")
+            log.exception(se, stack_info=True)
 
     def base3_send(self, data: bytes):
         from ..protocol.command_req import CommandReq
@@ -323,7 +328,7 @@ class CommBufferProxy(CommBuffer):
                 if retries < 60:
                     retries += 1
                     if retries % 5 == 0:
-                        print(f"Waiting for {PROGRAM_NAME} server at {self._server}...")
+                        log.info(f"Waiting for {PROGRAM_NAME} server at {self._server}...")
                     time.sleep(1)
                 else:
                     raise ce

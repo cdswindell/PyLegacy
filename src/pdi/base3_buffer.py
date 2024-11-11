@@ -140,10 +140,10 @@ class Base3Buffer(Thread):
                         except BrokenPipeError as bpe:
                             # keep trying; unix can sometimes just hang up
                             if sending is not None:
-                                log.info(f"Exception sending: 0x{sending.hex(':').upper()}  Exception: {bpe}")
+                                log.info(f"Exception sending: 0x{sending.hex(':').upper()}; retrying ({bpe})")
                                 self.send(sending)
                             elif received is not None:
-                                log.info(f"Exception receiving: 0x{received.hex(':').upper()}  Exception: {bpe}")
+                                log.info(f"Exception receiving: 0x{received.hex(':').upper()}; retrying: {bpe}")
                             else:
                                 log.exception(bpe, stack_info=True)
                             break  # continues to outer loop
