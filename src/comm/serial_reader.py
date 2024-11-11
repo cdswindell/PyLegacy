@@ -43,7 +43,7 @@ class SerialReader(Thread):
                     # give the CPU a break
                     time.sleep(0.05)
                 except serial.SerialException as se:
-                    print(in_waiting, se, dir(se))
+                    print(in_waiting, se, se.errno, dir(se))
                 except Exception as e:
                     log.exception(e)
 
