@@ -33,7 +33,7 @@ class SerialReader(Thread):
             while self._is_running:
                 try:
                     if ser.in_waiting > 0:
-                        time.sleep(0.1)
+                        time.sleep(0.05)
                         ser2_bytes = ser.read(ser.in_waiting)
                         if ser2_bytes:
                             if self._consumer:
