@@ -25,15 +25,15 @@ class SerialReader(Thread):
         with serial.Serial(
             self._port,
             self._baudrate,
+            bytesize=serial.EIGHTBITS,
             exclusive=True,
-            timeout=1.0,
+            timeout=5.0,
         ) as ser:
             while self._is_running:
                 in_waiting = 0
                 try:
                     in_waiting = ser.in_waiting
                     if in_waiting > 0:
-                        time.sleep(0.05)
                         ser2_bytes = ser.read(256)
                         if ser2_bytes:
                             if self._consumer:
