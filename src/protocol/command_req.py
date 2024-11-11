@@ -434,7 +434,7 @@ class CommandReq:
                     data = cmd_enum.value.data_from_bytes(param[1:3])
                     address = cmd_enum.value.address_from_bytes(param[1:3])
                     return CommandReq.build(cmd_enum, address, data, scope)
-            raise ValueError(f"Invalid tmcc2 command: : {param.hex(':')}")
+            raise ValueError(f"Invalid tmcc2 command: {param.hex(':')}")
         else:
             from src.protocol.multybyte.multibyte_command_req import MultiByteReq
 
