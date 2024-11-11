@@ -25,16 +25,18 @@ class SerialReader(Thread):
         with serial.Serial(
             self._port,
             self._baudrate,
-            parity=serial.PARITY_NONE,
-            stopbits=serial.STOPBITS_ONE,
-            bytesize=serial.EIGHTBITS,
+            # parity=serial.PARITY_NONE,
+            # stopbits=serial.STOPBITS_ONE,
+            # bytesize=serial.EIGHTBITS,
             timeout=1.0,
         ) as ser:
             while self._is_running:
+                in_waiting = 0
                 try:
-                    if ser.in_waiting > 0:
+                    in_waiting = ser.in_waiting
+                    if in_waiting > 0:
                         time.sleep(0.05)
-                        ser2_bytes = ser.read(ser.in_waiting)
+                        ser2_bytes = ser.read(in_waiting)
                         if ser2_bytes:
                             if self._consumer:
                                 self._consumer.offer(ser2_bytes)
@@ -44,6 +46,7 @@ class SerialReader(Thread):
                     else:
                         time.sleep(0.05)
                 except Exception as e:
+                    log.info(f"in waiting: {in_waiting}")
                     log.exception(e)
 
     @property
