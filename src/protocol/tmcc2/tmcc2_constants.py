@@ -98,7 +98,7 @@ class TMCC2CommandDef(CommandDef):
             if isinstance(self._alias, str):
                 alias = TMCC2EngineCommandDef.by_name(self._alias, raise_exception=True)
             else:
-                raise ValueError(f"Cannot classify {self._alias}")
+                raise ValueError(f"Cannot classify command alias: {self._alias} ({type(self._alias)})")
             if self._data is None:
                 return alias
             else:
@@ -286,7 +286,7 @@ class TMCC2EngineCommandDef(TMCC2Enum):
     SET_ADDRESS = TMCC2CommandDef(TMCC2_SET_ADDRESS_COMMAND)
     SHUTDOWN_DELAYED = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 5, alias="NUMERIC", data=5)
     RESET = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 0, alias="NUMERIC", data=0)
-    # SHUTDOWN_DELAYED = TMCC2CommandDef(TMCC2_SHUTDOWN_SEQ_ONE_COMMAND)
+    SHUTDOWN_DELAYED_NOP = TMCC2CommandDef(TMCC2_SHUTDOWN_SEQ_ONE_COMMAND)
     SHUTDOWN_IMMEDIATE = TMCC2CommandDef(TMCC2_SHUTDOWN_SEQ_TWO_COMMAND)
     SOUND_OFF = TMCC2CommandDef(TMCC2_SOUND_OFF_COMMAND)
     SOUND_ON = TMCC2CommandDef(TMCC2_SOUND_ON_COMMAND)

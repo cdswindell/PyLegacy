@@ -53,7 +53,7 @@ class TMCC1CommandIdentifier(CommandPrefix):
             return CommandScope.ACC
         if fb_value & 0b11111000 == TMCC1CommandIdentifier.TRAIN:
             return CommandScope.TRAIN
-        raise ValueError(f"Cannot classify {byte_data.hex(':')}")
+        raise ValueError(f"Cannot classify TMCC identifier: {byte_data.hex(':')}")
 
 
 TMCC1_IDENT_TO_SCOPE_MAP: Dict[TMCC1CommandIdentifier, CommandScope] = {
@@ -144,7 +144,7 @@ class TMCC1CommandDef(CommandDef):
                 else:
                     return alias, self._data
             else:
-                raise ValueError(f"Cannot classify {self._alias}")
+                raise ValueError(f"Cannot classify command alias: {self._alias} ({type(self._alias)})")
         return None
 
 
