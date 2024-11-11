@@ -210,6 +210,7 @@ class JoyStickHandler(PotHandler):
         self.start()
 
 
+# noinspection DuplicatedCode
 class GpioHandler:
     GPIO_DEVICE_CACHE = set()
     GPIO_HANDLER_CACHE = set()

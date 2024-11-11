@@ -1,14 +1,14 @@
 import abc
 from abc import ABC
 
-from src.protocol.command_base import CommandBase
-from src.protocol.command_req import CommandReq
-from src.protocol.multybyte.param_command_req import ParameterCommandReq
-from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
-from src.protocol.command_def import CommandDefEnum
 from .tmcc2_constants import TMCC2CommandPrefix
-from src.protocol.multybyte.multibyte_constants import TMCC2MultiByteEnum
-from src.protocol.constants import CommandScope
+from ..command_base import CommandBase
+from ..command_def import CommandDefEnum
+from ..command_req import CommandReq
+from ..constants import CommandScope
+from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
+from ..multybyte.multibyte_constants import TMCC2ParameterEnum
+from ..multybyte.param_command_req import ParameterCommandReq
 
 
 class TMCC2Command(CommandBase, ABC):
@@ -43,7 +43,7 @@ class TMCC2FixedParameterCommand(TMCC2Command, ABC):
 
     def __init__(
         self,
-        parameter_enum: TMCC2MultiByteEnum,
+        parameter_enum: TMCC2ParameterEnum,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,

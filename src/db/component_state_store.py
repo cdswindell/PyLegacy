@@ -6,6 +6,7 @@ from collections import defaultdict
 from typing import List, TypeVar, Set, Tuple
 
 from src.db.client_state_listener import ClientStateListener
+from src.protocol.multybyte.multibyte_constants import TMCC2EffectsControl as Effects
 from .component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Topic, Subscriber
@@ -16,7 +17,6 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as Engine1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef as Halt1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
-from src.protocol.multybyte.multibyte_constants import TMCC2EffectsControl as Effects
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as Engine2
 from ..protocol.tmcc2.tmcc2_constants import TMCC2HaltCommandDef as Halt2
 
@@ -164,6 +164,7 @@ class ComponentStateStore:
         return set(self._state[scope].keys())
 
 
+# noinspection DuplicatedCode
 class DependencyCache:
     """
     Manages relationships between TMCC Commands. For example, sending the Reset command
