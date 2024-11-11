@@ -25,7 +25,8 @@ class SerialReader(Thread):
         with serial.Serial(self._port, self._baudrate, timeout=1.0) as ser:
             while self._is_running:
                 try:
-                    if ser.in_waiting:
+                    if ser.in_waiting > 0:
+                        time.sleep(0.05)
                         ser2_bytes = ser.read(256)
                         if ser2_bytes:
                             if self._consumer:
@@ -33,9 +34,9 @@ class SerialReader(Thread):
                             else:
                                 log.warning(f"No serial consumer for: {ser2_bytes.hex(':')}")
                     # give the CPU a break
-                    time.sleep(0.01)
+                    else:
+                        time.sleep(0.05)
                 except Exception as e:
-                    log.info(f"{type(e)}")
                     log.exception(e)
 
     @property
