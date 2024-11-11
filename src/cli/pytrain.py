@@ -40,9 +40,11 @@ from src.protocol.constants import (
     PROGRAM_NAME,
 )
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
+from src.utils.dual_logging import set_up_logging
 
+set_up_logging()
 log = logging.getLogger(__name__)
-logging.config.fileConfig("logging.ini", disable_existing_loggers=False)
+# logging.config.fileConfig("logging.ini", disable_existing_loggers=False)
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 
@@ -119,7 +121,7 @@ class PyTrain:
         Callback specified in the Subscriber protocol used to send events to listeners
         """
         if self._echo:
-            print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
+            log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
 
     @property
     def is_server(self) -> bool:
@@ -245,9 +247,9 @@ class PyTrain:
                     try:
                         exec(code)
                     except Exception as e:
-                        log.warning(f"Error while loading startup script: {e}")
+                        log.exception(f"Error while loading startup script: {e} (see logs)", stack_info=True)
             elif self._startup_script != DEFAULT_SCRIPT_FILE:
-                print(f"Startup script file {self._startup_script} not found, continuing...")
+                log.warning(f"Startup script file {self._startup_script} not found, continuing...")
 
     def _query_status(self, param) -> None:
         try:
@@ -266,7 +268,7 @@ class PyTrain:
                         return
             print("No data")
         except Exception as e:
-            log.info(e)
+            log.exception(e, stack_info=True)
 
     def _handle_echo(self, ui_parts: List[str] = None):
         if ui_parts is None:
@@ -365,7 +367,7 @@ class PyTrain:
                 cmd = CommandReq.from_bytes(byte_str)
             print(f"0x{byte_str.hex()} --> {cmd}")
         except Exception as e:
-            print(e)
+            log.info(e)
 
     def _command_parser(self) -> ArgumentParser:
         """
@@ -458,4 +460,4 @@ if __name__ == "__main__":
     try:
         PyTrain(parser.parse_args())
     except Exception as ex:
-        print(ex)
+        log.exception(ex, stack_info=True)
