@@ -22,9 +22,9 @@ class SerialReader(Thread):
         self.start()
 
     def run(self) -> None:
-        try:
-            with serial.Serial(self._port, self._baudrate, timeout=1.0) as ser:
-                while self._is_running:
+        with serial.Serial(self._port, self._baudrate, timeout=1.0) as ser:
+            while self._is_running:
+                try:
                     if ser.in_waiting:
                         ser2_bytes = ser.read(256)
                         if ser2_bytes:
@@ -33,9 +33,9 @@ class SerialReader(Thread):
                             else:
                                 log.warning(f"No serial consumer for: {ser2_bytes.hex(':')}")
                     # give the CPU a break
-                    time.sleep(0.02)
-        except Exception as e:
-            log.exception(e)
+                    time.sleep(0.01)
+                except Exception as e:
+                    log.exception(e)
 
     @property
     def baudrate(self) -> int:

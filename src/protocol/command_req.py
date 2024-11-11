@@ -153,13 +153,9 @@ class CommandReq:
             from ..comm.comm_buffer import CommBuffer
 
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
-        cumulative_delay = 0
+        delay = 0 if delay is None else delay
         for _ in range(repeat):
-            if delay > 0 and repeat == 1:
-                cumulative_delay = delay
-            buffer.enqueue_command(cmd, cumulative_delay)
-            if repeat != 1 and delay > 0 and _ != repeat - 1:
-                cumulative_delay += delay
+            buffer.enqueue_command(cmd, delay)
 
     @staticmethod
     def _validate_requested_scope(command_def: CommandDef, request: CommandScope) -> CommandScope:
