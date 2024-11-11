@@ -183,7 +183,7 @@ class CommandListener(Thread):
                         # build_req a CommandReq from the received bytes and send it to the dispatcher
                         self._dispatcher.offer(CommandReq.from_bytes(cmd_bytes))
                     except ValueError as ve:
-                        log.exception(ve, stack_info=True)
+                        log.exception(ve)
             elif dq_len < 3:
                 continue  # wait for more bytes
             else:
@@ -276,7 +276,7 @@ class Channel(Generic[Topic]):
                 subscriber(message)
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {message}; see log for details")
-                log.exception(e, stack_info=True)
+                log.exception(e)
 
 
 class CommandDispatcher(Thread):
@@ -381,7 +381,7 @@ class CommandDispatcher(Thread):
                         self.update_client_state(cmd)
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {cmd}; see log for details")
-                log.exception(e, stack_info=True)
+                log.exception(e)
             finally:
                 self._queue.task_done()
 
@@ -405,7 +405,7 @@ class CommandDispatcher(Thread):
                     pass
                 except Exception as e:
                     log.warning(f"Exception while sending TMCC state update {command} to {client}")
-                    log.exception(e, stack_info=True)
+                    log.exception(e)
 
     def send_current_state(self, client_ip: str):
         """
@@ -429,7 +429,7 @@ class CommandDispatcher(Thread):
                                     _ = s.recv(16)
                                 except Exception as e:
                                     log.warning(f"Exception sending TMCC state update {state} to {client_ip}")
-                                    log.exception(e, stack_info=True)
+                                    log.exception(e)
                             sleep(0.05)
 
     @property

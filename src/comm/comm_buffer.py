@@ -65,7 +65,7 @@ class CommBuffer(abc.ABC):
                     port = str(DEFAULT_SERVER_PORT)
             except Exception as e:
                 log.error(f"Failed to resolve {server}: {e}")
-                log.exception(e, stack_info=True)
+                log.exception(e)
                 raise e
         return server, port
 
@@ -229,8 +229,8 @@ class CommBufferSingleton(CommBuffer, Thread):
             except Empty:
                 pass
             except Exception as e:
-                log.error(f"Error sending {data}: {e}")
-                log.exception(e, stack_info=True)
+                log.error(f"Error sending {data}")
+                log.exception(e)
             finally:
                 if data is not None:
                     self._queue.task_done()
@@ -250,7 +250,7 @@ class CommBufferSingleton(CommBuffer, Thread):
                 Base3Buffer.sync_state(data)
         except SerialException as se:
             # TODO: handle serial errors
-            log.exception(se, stack_info=True)
+            log.exception(se)
 
     def base3_send(self, data: bytes):
         from ..protocol.command_req import CommandReq

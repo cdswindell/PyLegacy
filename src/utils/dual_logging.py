@@ -68,9 +68,9 @@ def set_up_logging(
     console_log_color: bool = True,
     console_template: str = "%(color)s%(message)s%(no_color)s",
     logfile_file: str = "pytrain.log",
-    logfile_log_level: str = "DEBUG",
+    logfile_log_level: str = "INFO",
     logfile_log_color: bool = False,
-    logfile_template: str = "%(color)s[%(asctime)s] [%(name)s] [%(levelname)-8s] %(message)s\n%(exc_text)s%(no_color)s",
+    logfile_template: str = "%(color)s[%(asctime)s] [%(name)s] [%(levelname)-8s] %(message)s%(no_color)s",
 ) -> bool:
     # Create logger
     # For simplicity, we use the root logger, i.e. call 'logging.getLogger()'
@@ -108,7 +108,7 @@ def set_up_logging(
     # Create log file handler
     try:
         should_roll_over = os.path.isfile(logfile_file)
-        logfile_handler = logging.handlers.RotatingFileHandler(logfile_file, mode="w", backupCount=4)
+        logfile_handler = logging.handlers.RotatingFileHandler(logfile_file, backupCount=4)
         if should_roll_over:  # log already exists, roll over!
             logfile_handler.doRollover()
     except Exception as exception:

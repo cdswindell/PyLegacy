@@ -145,11 +145,11 @@ class Base3Buffer(Thread):
                             elif received is not None:
                                 log.info(f"Exception receiving: 0x{received.hex(':').upper()}; retrying: {bpe}")
                             else:
-                                log.exception(bpe, stack_info=True)
+                                log.exception(bpe)
                             break  # continues to outer loop
                 except TimeoutError as te:
                     log.info(f"No response from Lionel Base 3 at {self._base3_addr}; is the Base 3 turned on?")
-                    log.exception(te, stack_info=True)
+                    log.exception(te)
 
     def shutdown(self) -> None:
         with self._lock:

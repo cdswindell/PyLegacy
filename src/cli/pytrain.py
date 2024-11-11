@@ -248,7 +248,7 @@ class PyTrain:
                         exec(code)
                     except Exception as e:
                         log.error(f"Error loading startup script {self._startup_script} (see logs)")
-                        log.exception(e, stack_info=True)
+                        log.exception(e)
             elif self._startup_script != DEFAULT_SCRIPT_FILE:
                 log.warning(f"Startup script file {self._startup_script} not found, continuing...")
 
@@ -269,7 +269,7 @@ class PyTrain:
                         return
             print("No data")
         except Exception as e:
-            log.exception(e, stack_info=True)
+            log.exception(e)
 
     def _handle_echo(self, ui_parts: List[str] = None):
         if ui_parts is None:
@@ -461,4 +461,4 @@ if __name__ == "__main__":
     try:
         PyTrain(parser.parse_args())
     except Exception as ex:
-        log.exception(ex, stack_info=True)
+        log.exception(ex)
