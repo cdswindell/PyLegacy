@@ -41,10 +41,10 @@ class SerialReader(Thread):
                             else:
                                 log.warning(f"No serial consumer for: {ser2_bytes.hex(':')}")
                     # give the CPU a break
-                    else:
-                        time.sleep(0.05)
+                    time.sleep(0.05)
+                except serial.SerialException as se:
+                    print(in_waiting, se, dir(se))
                 except Exception as e:
-                    log.info(f"in waiting: {in_waiting}")
                     log.exception(e)
 
     @property
