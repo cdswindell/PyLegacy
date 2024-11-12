@@ -103,6 +103,8 @@ class PotHandler(Thread):
             self._pot = MCP3008(channel=channel)
         self._command = command
         self._prefix_action = prefix.as_action() if prefix else None
+        self._prefix_data = prefix.data if prefix else None
+        self._prefix_address = prefix.address if prefix else None
         self._last_value = None
         self._action = command.as_action() if command else None
         self._data_max = data_max = data_max if data_max is not None else command.data_max
@@ -147,7 +149,10 @@ class PotHandler(Thread):
                 cmd = self._command_map[value]
                 if cmd:
                     if self._prefix_action:
-                        self._prefix_action()
+                        if GpioHandler.engine_numeric(self._prefix_address) == self._prefix_data:
+                            pass
+                        else:
+                            self._prefix_action(repeat=2)
                     # command could be None, indicating no action
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"{cmd} {value} {raw_value}")
@@ -157,7 +162,7 @@ class PotHandler(Thread):
                         cmd.as_action()()
             elif self._command and self._action:
                 if self._prefix_action:
-                    self._prefix_action()
+                    self._prefix_action(repeat=2)
                 self._command.data = value
                 self._action(new_data=value)
             time.sleep(self._delay)
@@ -229,6 +234,16 @@ class GpioHandler:
         Return the current time, in milliseconds past the "epoch"
         """
         return round(time.time() * 1000)
+
+    @staticmethod
+    def engine_numeric(address: int) -> int | None:
+        if address is not None:
+            from ..db.component_state_store import ComponentStateStore
+
+            state = ComponentStateStore.get_state(CommandScope.ENGINE, address, create=False)
+            if state:
+                return state.numeric_value
+        return None
 
     @classmethod
     def base_watcher(
@@ -551,8 +566,8 @@ class GpioHandler:
     ) -> Tuple[RotaryEncoder, JoyStickHandler, JoyStickHandler, Button, LED]:
         # use rotary encoder to control crane cab
         cab_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 1)
-        turn_right = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, 1)
-        turn_left = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, -1)
+        turn_right = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, 2)
+        turn_left = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, -2)
         cab_ctrl = cls.when_rotary_encoder(
             cab_pin_1,
             cab_pin_2,
