@@ -245,7 +245,7 @@ class GpioHandler:
 
             state = ComponentStateStore.get_state(CommandScope.ENGINE, address, create=False)
             if state:
-                return state.numeric_value
+                return state.numeric
         return None
 
     @classmethod
