@@ -6,7 +6,7 @@ import time
 from threading import Thread
 from typing import Tuple, Callable, Dict, TypeVar
 
-from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice
+from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice, PingServer
 
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
@@ -229,6 +229,52 @@ class GpioHandler:
         Return the current time, in milliseconds past the "epoch"
         """
         return round(time.time() * 1000)
+
+    @classmethod
+    def base_watcher(
+        cls,
+        server: str,
+        active_pin: int | str = None,
+        inactive_pin: int | str = None,
+        cathode: bool = True,
+        delay: float = 10,
+    ) -> Tuple[PingServer, LED, LED]:
+        # set up a ping server, treat it as a device
+        ping_server = PingServer(server, event_delay=delay)
+
+        # set up active led, if any
+        active_led = None
+        if active_pin:
+            active_led = LED(active_pin, active_high=cathode)
+            active_led.value = 1 if ping_server.is_active else 0
+
+        inactive_led = None
+        if inactive_pin:
+            inactive_led = LED(inactive_pin, active_high=cathode)
+            inactive_led.value = 0 if ping_server.is_active else 1
+
+        # set ping server state change actions
+        if active_led and inactive_led:
+            # we have to toggle the leds; we need a custom function
+            def on_active() -> None:
+                active_led.on()
+                inactive_led.off()
+
+            ping_server.when_activated = on_active
+
+            def on_inactive() -> None:
+                active_led.off()
+                inactive_led.on()
+
+            ping_server.when_deactivated = on_inactive
+        elif active_led:
+            ping_server.when_activated = active_led.on
+            ping_server.when_deactivated = active_led.off
+        elif inactive_led:
+            ping_server.when_activated = inactive_led.off
+            ping_server.when_deactivated = inactive_led.on
+
+        return ping_server, active_led, inactive_led
 
     @classmethod
     def route(

@@ -3,9 +3,10 @@ from __future__ import annotations
 import abc
 from abc import ABC
 from threading import Thread
+from time import sleep
 from typing import TypeVar, Protocol
 
-from gpiozero import LED
+from gpiozero import LED, PingServer
 
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
@@ -44,6 +45,38 @@ class StateSource(ABC, Thread):
     @property
     @abc.abstractmethod
     def is_active(self) -> bool: ...
+
+
+class LionelBaseSource(StateSource):
+    def __init__(
+        self,
+        server: str,
+        led: LED,
+        delay: float = 10,
+    ) -> None:
+        self._delay = delay
+        self._pieces = server.split(".")
+        if len(self._pieces) == 4:
+            address = int(self._pieces[3])
+        else:
+            address = 99
+        self._ping = PingServer(server, event_delay=delay)
+        super().__init__(CommandScope.SYSTEM, address, led)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.is_active
+
+    @property
+    def is_active(self) -> bool:
+        return self._ping.is_active
+
+    def run(self) -> None:
+        while self._is_running:
+            self._led.value = 1 if self.is_active else 0
+            sleep(self._delay)
 
 
 class SwitchStateSource(StateSource):
