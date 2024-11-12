@@ -152,7 +152,7 @@ class PotHandler(Thread):
                         if GpioHandler.engine_numeric(self._prefix_address) == self._prefix_data:
                             pass
                         else:
-                            self._prefix_action(repeat=2)
+                            self._prefix_action()
                     # command could be None, indicating no action
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"{cmd} {value} {raw_value}")
@@ -162,7 +162,7 @@ class PotHandler(Thread):
                         cmd.as_action()()
             elif self._command and self._action:
                 if self._prefix_action:
-                    self._prefix_action(repeat=2)
+                    self._prefix_action()
                 self._command.data = value
                 self._action(new_data=value)
             time.sleep(self._delay)
