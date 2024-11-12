@@ -237,7 +237,7 @@ class GpioHandler:
         active_pin: int | str = None,
         inactive_pin: int | str = None,
         cathode: bool = True,
-        delay: float = 10,
+        delay: float = 5,
     ) -> Tuple[PingServer, LED, LED]:
         # set up a ping server, treat it as a device
         ping_server = PingServer(server, event_delay=delay)
