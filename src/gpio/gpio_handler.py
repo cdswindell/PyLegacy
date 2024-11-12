@@ -162,7 +162,10 @@ class PotHandler(Thread):
                         cmd.as_action()()
             elif self._command and self._action:
                 if self._prefix_action:
-                    self._prefix_action()
+                    if GpioHandler.engine_numeric(self._prefix_address) == self._prefix_data:
+                        pass
+                    else:
+                        self._prefix_action()
                 self._command.data = value
                 self._action(new_data=value)
             time.sleep(self._delay)
@@ -580,10 +583,10 @@ class GpioHandler:
         lift_cmd = CommandReq.build(TMCC1EngineCommandDef.BOOST_SPEED, address)
         drop_cmd = CommandReq.build(TMCC1EngineCommandDef.BRAKE_SPEED, address)
         cmd_map = {}
-        for i in range(-20, -1, 1):
+        for i in range(-20, -2, 1):
             cmd_map[i] = drop_cmd
-        cmd_map[-1] = cmd_map[0] = cmd_map[1] = None  # no action
-        for i in range(2, 21, 1):
+        cmd_map[-2] = cmd_map[-1] = cmd_map[0] = cmd_map[1] = cmd_map[2] = None  # no action
+        for i in range(3, 21, 1):
             cmd_map[i] = lift_cmd
         lift_cntr = cls.when_joystick(
             channel=lift_chn,
@@ -595,8 +598,8 @@ class GpioHandler:
         )
 
         # set up for crane track motion
-        scale = {0: 0} | {x: 1 for x in range(1, 9)} | {x: 2 for x in range(9, 11)}
-        scale |= {-x: -1 for x in range(1, 9)} | {-x: -2 for x in range(9, 11)}
+        scale = {-1: 0, 0: 0, 1: 0} | {x: 1 for x in range(2, 9)} | {x: 2 for x in range(9, 11)}
+        scale |= {-x: -1 for x in range(2, 9)} | {-x: -2 for x in range(9, 11)}
         move_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 2)
         move_cmd = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
         move_cntr = cls.when_joystick(
@@ -1039,14 +1042,16 @@ class GpioHandler:
             }
         # bind commands
         re.when_rotated_clockwise = cls._with_re_action(
+            clockwise_cmd.address,
             clockwise_cmd.as_action(),
             ramp,
-            prefix.as_action() if prefix else None,
+            prefix if prefix else None,
         )
         re.when_rotated_counter_clockwise = cls._with_re_action(
+            clockwise_cmd.address,
             counterclockwise_cmd.as_action(),
             ramp,
-            prefix.as_action() if prefix else None,
+            prefix if prefix else None,
             True,
         )
         # return rotary encoder
@@ -1175,9 +1180,10 @@ class GpioHandler:
     @classmethod
     def _with_re_action(
         cls,
+        address: int,
         action: Callable,
         ramp: Dict[int, int] = None,
-        prefix: Callable = None,
+        prefix: CommandReq = None,
         cc: bool = False,
     ) -> Callable:
         last_rotation_at = cls.current_milli_time()
@@ -1192,7 +1198,12 @@ class GpioHandler:
                         data = data_val if cc is False else -data_val
                         break
             if prefix:
-                prefix()
+                prefix.as_action()()
+            if prefix:
+                if GpioHandler.engine_numeric(address) == prefix.data:
+                    pass
+                else:
+                    prefix.as_action()()
             action(new_data=data)
             last_rotation_at = cls.current_milli_time()
 
