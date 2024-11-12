@@ -846,18 +846,19 @@ class IrdaState(LcsState):
 
                                 # noinspection PyTypeChecker
                                 RampedSpeedReq(address, rr_speed, scope=scope, is_tmcc=state.is_tmcc).send()
-                    # send update to Train and component engines as well
-                    orig_scope = command.scope
-                    orig_tmcc_id = command.tmcc_id
-                    try:
-                        if command.engine_id:
-                            engine_state = ComponentStateStore.get_state(CommandScope.ENGINE, command.engine_id)
-                            command.scope = CommandScope.ENGINE
-                            command.tmcc_id = command.engine_id
-                            engine_state.update(command)
-                    finally:
-                        command.scope = orig_scope
-                        command.tmcc_id = orig_tmcc_id
+                        # send update to Train and component engines as well
+                        print(f"+++ IRDA {self.address} Sequence: {self.sequence}")
+                        orig_scope = command.scope
+                        orig_tmcc_id = command.tmcc_id
+                        try:
+                            if command.engine_id:
+                                engine_state = ComponentStateStore.get_state(CommandScope.ENGINE, command.engine_id)
+                                command.scope = CommandScope.ENGINE
+                                command.tmcc_id = command.engine_id
+                                engine_state.update(command)
+                        finally:
+                            command.scope = orig_scope
+                            command.tmcc_id = orig_tmcc_id
             self.changed.set()
 
     @property
