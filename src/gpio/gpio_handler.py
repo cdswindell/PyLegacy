@@ -241,17 +241,20 @@ class GpioHandler:
     ) -> Tuple[PingServer, LED, LED]:
         # set up a ping server, treat it as a device
         ping_server = PingServer(server, event_delay=delay)
+        cls.cache_device(ping_server)
 
         # set up active led, if any
         active_led = None
         if active_pin:
             active_led = LED(active_pin, active_high=cathode)
             active_led.value = 1 if ping_server.is_active else 0
+            cls.cache_device(active_led)
 
         inactive_led = None
         if inactive_pin:
             inactive_led = LED(inactive_pin, active_high=cathode)
             inactive_led.value = 0 if ping_server.is_active else 1
+            cls.cache_device(inactive_led)
 
         # set ping server state change actions
         if active_led and inactive_led:
