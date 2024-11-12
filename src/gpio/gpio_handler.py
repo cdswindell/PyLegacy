@@ -593,22 +593,22 @@ class GpioHandler:
             use_12bit=use_12bit,
             data_min=-20,
             data_max=20,
-            delay=0.2,
+            delay=0.10,
             cmds=cmd_map,
         )
 
         # set up for crane track motion
-        scale = {-1: 0, 0: 0, 1: 0} | {x: 1 for x in range(2, 9)} | {x: 2 for x in range(9, 11)}
-        scale |= {-x: -1 for x in range(2, 9)} | {-x: -2 for x in range(9, 11)}
+        scale = {-x: -2 for x in range(9, 11)} | {-x: -1 for x in range(2, 9)}
+        scale |= {-1: 0, 0: 0, 1: 0} | {x: 1 for x in range(2, 9)} | {x: 2 for x in range(9, 11)}
         move_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 2)
-        move_cmd = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
+        move_cmd = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address)
         move_cntr = cls.when_joystick(
             move_cmd,
             channel=roll_chn,
             use_12bit=use_12bit,
             data_min=-10,
             data_max=10,
-            delay=0.2,
+            delay=0.005,
             scale=scale,
             prefix=move_prefix,
         )
@@ -623,6 +623,7 @@ class GpioHandler:
                 auto_timeout=59,
                 cathode=cathode,
             )
+            cls.cache_handler(EngineStateSource(address, led, lambda x: x.is_aux2_on))
 
         return cab_ctrl, lift_cntr, move_cntr, btn, led
 

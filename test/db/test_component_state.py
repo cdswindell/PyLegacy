@@ -1,21 +1,19 @@
 import time
 from collections import defaultdict
+from unittest import mock
 
 # noinspection PyPackageRequirements
 import pytest
-from unittest import mock
 
 # noinspection PyProtectedMember
 from src.comm.command_listener import CommandListener, CommandDispatcher, Message
-from src.db.component_state import SwitchState, AccessoryState, EngineState, TrainState, SCOPE_TO_STATE_MAP
 from src.db.component_state import ComponentState, SystemStateDict, ComponentStateDict
+from src.db.component_state import SwitchState, AccessoryState, EngineState, TrainState, SCOPE_TO_STATE_MAP
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import BROADCAST_ADDRESS, CommandScope
-
-from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
 from src.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Acc
+from src.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
 from src.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef
-
 from ..test_base import TestBase
 
 
@@ -264,7 +262,7 @@ class TestComponentState(TestBase):
         assert acc_state.last_updated >= last_updated
 
         # noinspection PyUnusedLocal
-        def patched(arg) -> int:
+        def patched(arg1, arg2) -> int:
             return 2
 
         # turn Aux back on, then off

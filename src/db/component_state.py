@@ -28,8 +28,10 @@ from ..protocol.constants import (
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2_COMMAND_TO_ALIAS_MAP
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as TMCC2
 
 log = logging.getLogger(__name__)
 
@@ -82,6 +84,30 @@ SHUTDOWN_SET = {
     (TMCC2EngineCommandDef.NUMERIC, 5),
     TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE,
 }
+
+ENGINE_AUX1_SET = {
+    TMCC1EngineCommandDef.AUX1_ON,
+    TMCC1EngineCommandDef.AUX1_OFF,
+    TMCC1EngineCommandDef.AUX1_OPTION_ONE,
+    TMCC1EngineCommandDef.AUX1_OPTION_TWO,
+    TMCC2EngineCommandDef.AUX1_ON,
+    TMCC2EngineCommandDef.AUX1_OFF,
+    TMCC2EngineCommandDef.AUX1_OPTION_ONE,
+    TMCC2EngineCommandDef.AUX1_OPTION_TWO,
+}
+
+ENGINE_AUX2_SET = {
+    TMCC1EngineCommandDef.AUX2_ON,
+    TMCC1EngineCommandDef.AUX2_OFF,
+    TMCC1EngineCommandDef.AUX2_OPTION_ONE,
+    TMCC1EngineCommandDef.AUX2_OPTION_TWO,
+    TMCC2EngineCommandDef.AUX2_ON,
+    TMCC2EngineCommandDef.AUX2_OFF,
+    TMCC2EngineCommandDef.AUX2_OPTION_ONE,
+    TMCC2EngineCommandDef.AUX2_OPTION_TWO,
+}
+
+BIG_NUMBER = float("inf")
 
 
 # noinspection PyUnresolvedReferences
@@ -195,8 +221,20 @@ class ComponentState(ABC):
             self._last_updated = datetime.now()
             self._last_command = command
 
-    def time_delta(self, recv_time: datetime) -> float:
-        return (self._last_updated - recv_time).total_seconds()
+    @staticmethod
+    def time_delta(last_updated: datetime, recv_time: datetime) -> float:
+        if last_updated is None or recv_time is None:
+            return BIG_NUMBER
+        return (last_updated - recv_time).total_seconds()
+
+    @staticmethod
+    def update_aux_state(
+        aux: CommandDefEnum,
+        on: CommandDefEnum,
+        opt1: CommandDefEnum,
+        off: CommandDefEnum,
+    ):
+        return on if aux is None or aux in [opt1, off] else off
 
     @property
     def syntax(self) -> CommandSyntax:
@@ -404,30 +442,24 @@ class AccessoryState(TmccState):
                         if command.command in [Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE]:
                             self._aux_state = command.command
                         if command.command == Aux.AUX1_OPT_ONE:
-                            if self._last_aux1_opt1 is None or self.time_delta(self._last_aux1_opt1) > 1:
-                                self._aux1_state = (
-                                    Aux.AUX1_ON
-                                    if (
-                                        self._aux1_state is None
-                                        or self._aux1_state == Aux.AUX1_OPT_ONE
-                                        or self._aux1_state == Aux.AUX1_OFF
-                                    )
-                                    else Aux.AUX1_OFF
+                            if self.time_delta(self._last_updated, self._last_aux1_opt1) > 1:
+                                self._aux1_state = self.update_aux_state(
+                                    self._aux1_state,
+                                    Aux.AUX1_ON,
+                                    Aux.AUX1_OPT_ONE,
+                                    Aux.AUX1_OFF,
                                 )
                             self._last_aux1_opt1 = self.last_updated
                         elif command.command in [Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO]:
                             self._aux1_state = command.command
                             self._last_aux1_opt1 = self.last_updated
                         elif command.command == Aux.AUX2_OPT_ONE:
-                            if self._last_aux2_opt1 is None or self.time_delta(self._last_aux2_opt1) > 1:
-                                self._aux2_state = (
-                                    Aux.AUX2_ON
-                                    if (
-                                        self._aux2_state is None
-                                        or self._aux2_state == Aux.AUX2_OPT_ONE
-                                        or self._aux2_state == Aux.AUX2_OFF
-                                    )
-                                    else Aux.AUX2_OFF
+                            if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
+                                self._aux2_state = self.update_aux_state(
+                                    self._aux2_state,
+                                    Aux.AUX2_ON,
+                                    Aux.AUX2_OPT_ONE,
+                                    Aux.AUX2_OFF,
                                 )
                             self._last_aux2_opt1 = self.last_updated
                         elif command.command in [Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO]:
@@ -540,6 +572,11 @@ class EngineState(ComponentState):
         self._engine_class: int | None = None
         self._numeric: int | None = None
         self._numeric_cmd: CommandDefEnum | None = None
+        self._aux: CommandDefEnum | None = None
+        self._aux1: CommandDefEnum | None = None
+        self._aux2: CommandDefEnum | None = None
+        self._last_aux1_opt1 = None
+        self._last_aux2_opt1 = None
         self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
@@ -588,6 +625,14 @@ class EngineState(ComponentState):
         if isinstance(command, CommandReq):
             if self.is_legacy is None:
                 self._is_legacy = command.is_tmcc2
+
+            # handle some aspects of halt command
+            if command.command == TMCC1HaltCommandDef.HALT:
+                self._aux1 = Aux.AUX1_OFF
+                self._aux2 = Aux.AUX2_OFF
+                self._aux = Aux.AUX2_OPT_ONE
+                self._numeric = None
+
             # get the downstream effects of this command, as they also impact state
             cmd_effects = self.results_in(command)
             log.debug(f"Update: {command}\nEffects: {cmd_effects}")
@@ -610,6 +655,44 @@ class EngineState(ComponentState):
             elif cmd_effects & NUMERIC_SET:
                 numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
                 log.info(f"What to do? {command}: {numeric} {type(numeric)}")
+
+            # aux commands
+            if command.command in ENGINE_AUX1_SET:
+                self._aux = (
+                    command.command if command.command in {TMCC1.AUX1_OPT_ONE, TMCC2.AUX1_OPT_ONE} else self._aux
+                )
+                self._aux1 = command.command
+            elif command.command in ENGINE_AUX2_SET:
+                self._aux = (
+                    command.command if command.command in {TMCC1.AUX2_OPT_ONE, TMCC2.AUX2_OPT_ONE} else self._aux
+                )
+                if command.command in {TMCC1.AUX2_OPT_ONE, TMCC2.AUX2_OPT_ONE}:
+                    if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
+                        if self.is_legacy:
+                            self._aux2 = self.update_aux_state(
+                                self._aux2,
+                                TMCC2.AUX2_ON,
+                                TMCC2.AUX2_OPT_ONE,
+                                TMCC2.AUX2_OFF,
+                            )
+                        else:
+                            self._aux2 = self.update_aux_state(
+                                self._aux2,
+                                TMCC1.AUX2_ON,
+                                TMCC1.AUX2_OPT_ONE,
+                                TMCC1.AUX2_OFF,
+                            )
+                    self._last_aux2_opt1 = self.last_updated
+                elif command.command in {
+                    TMCC1.AUX2_ON,
+                    TMCC1.AUX2_OFF,
+                    TMCC1.AUX2_OPT_TWO,
+                    TMCC2.AUX2_ON,
+                    TMCC2.AUX2_OFF,
+                    TMCC2.AUX2_OPT_TWO,
+                }:
+                    self._aux2 = command.command
+                    self._last_aux2_opt1 = self.last_updated
 
             # handle run level/rpm
             if command.command in RPM_SET:
@@ -763,6 +846,22 @@ class EngineState(ComponentState):
     @property
     def year(self) -> int:
         return self._prod_year
+
+    @property
+    def is_aux_on(self) -> bool:
+        return self._aux in {TMCC1.AUX1_OPT_ONE, TMCC2.AUX1_OPT_ONE}
+
+    @property
+    def is_aux_off(self) -> bool:
+        return self.is_aux_on is False
+
+    @property
+    def aux1(self) -> CommandDefEnum:
+        return self._aux1
+
+    @property
+    def aux2(self) -> CommandDefEnum:
+        return self._aux2
 
     @property
     def is_tmcc(self) -> bool:
