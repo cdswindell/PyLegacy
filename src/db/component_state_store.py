@@ -348,6 +348,9 @@ class DependencyCache:
             Engine2.START_UP_IMMEDIATE,
             Engine2.BELL_OFF,
             Engine2.DIESEL_RPM,
+            Engine2.AUX1_OFF,
+            Engine2.AUX2_OFF,
+            Engine1.NUMERIC,
         )
         self.causes(Engine2.STOP_IMMEDIATE, Engine2.SPEED_STOP_HOLD)
         self.causes(Engine2.FORWARD_DIRECTION, Engine2.SPEED_STOP_HOLD)
@@ -360,6 +363,9 @@ class DependencyCache:
             Engine1.SPEED_STOP_HOLD,
             Engine1.FORWARD_DIRECTION,
             Engine1.RPM_DOWN,
+            Engine1.AUX1_OFF,
+            Engine1.AUX2_OFF,
+            Engine1.NUMERIC,
         )
         self.causes(Engine1.FORWARD_DIRECTION, Engine1.SPEED_STOP_HOLD)
         self.causes(Engine1.REVERSE_DIRECTION, Engine1.SPEED_STOP_HOLD)

@@ -657,42 +657,41 @@ class EngineState(ComponentState):
                 log.info(f"What to do? {command}: {numeric} {type(numeric)}")
 
             # aux commands
-            if command.command in ENGINE_AUX1_SET:
-                self._aux = (
-                    command.command if command.command in {TMCC1.AUX1_OPTION_ONE, TMCC2.AUX1_OPTION_ONE} else self._aux
-                )
-                self._aux1 = command.command
-            elif command.command in ENGINE_AUX2_SET:
-                self._aux = (
-                    command.command if command.command in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE} else self._aux
-                )
-                if command.command in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
-                    if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
-                        if self.is_legacy:
-                            self._aux2 = self.update_aux_state(
-                                self._aux2,
-                                TMCC2.AUX2_ON,
-                                TMCC2.AUX2_OPTION_ONE,
-                                TMCC2.AUX2_OFF,
-                            )
-                        else:
-                            self._aux2 = self.update_aux_state(
-                                self._aux2,
-                                TMCC1.AUX2_ON,
-                                TMCC1.AUX2_OPTION_ONE,
-                                TMCC1.AUX2_OFF,
-                            )
-                    self._last_aux2_opt1 = self.last_updated
-                elif command.command in {
-                    TMCC1.AUX2_ON,
-                    TMCC1.AUX2_OFF,
-                    TMCC1.AUX2_OPTION_TWO,
-                    TMCC2.AUX2_ON,
-                    TMCC2.AUX2_OFF,
-                    TMCC2.AUX2_OPTION_TWO,
-                }:
-                    self._aux2 = command.command
-                    self._last_aux2_opt1 = self.last_updated
+            for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
+                if cmd in ENGINE_AUX1_SET:
+                    self._aux = cmd if cmd in {TMCC1.AUX1_OPTION_ONE, TMCC2.AUX1_OPTION_ONE} else self._aux
+                    self._aux1 = cmd
+
+            for cmd in {command.command} | (cmd_effects & ENGINE_AUX2_SET):
+                if cmd in ENGINE_AUX2_SET:
+                    self._aux = cmd if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE} else self._aux
+                    if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
+                        if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
+                            if self.is_legacy:
+                                self._aux2 = self.update_aux_state(
+                                    self._aux2,
+                                    TMCC2.AUX2_ON,
+                                    TMCC2.AUX2_OPTION_ONE,
+                                    TMCC2.AUX2_OFF,
+                                )
+                            else:
+                                self._aux2 = self.update_aux_state(
+                                    self._aux2,
+                                    TMCC1.AUX2_ON,
+                                    TMCC1.AUX2_OPTION_ONE,
+                                    TMCC1.AUX2_OFF,
+                                )
+                        self._last_aux2_opt1 = self.last_updated
+                    elif cmd in {
+                        TMCC1.AUX2_ON,
+                        TMCC1.AUX2_OFF,
+                        TMCC1.AUX2_OPTION_TWO,
+                        TMCC2.AUX2_ON,
+                        TMCC2.AUX2_OFF,
+                        TMCC2.AUX2_OPTION_TWO,
+                    }:
+                        self._aux2 = cmd
+                        self._last_aux2_opt1 = self.last_updated
 
             # handle run level/rpm
             if command.command in RPM_SET:
