@@ -30,7 +30,6 @@ class SerialReader(Thread):
             timeout=1.0,
         ) as ser:
             while self._is_running:
-                in_waiting = 0
                 try:
                     in_waiting = ser.in_waiting
                     if in_waiting > 0:

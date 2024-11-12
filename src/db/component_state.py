@@ -821,10 +821,12 @@ class IrdaState(LcsState):
                     self._sequence = command.sequence
                 elif command.action == IrdaAction.DATA:
                     # change engine/train speed, based on direction of travel
+                    print(f"IRDA {self.address} Sequence: {self.sequence}")
                     if (
                         self.sequence in [IrdaSequence.SLOW_SPEED_NORMAL_SPEED, IrdaSequence.NORMAL_SPEED_SLOW_SPEED]
                         and CommBuffer.is_server
                     ):
+                        print(f"*** IRDA {self.address} Sequence: {self.sequence}")
                         rr_speed = None
                         if command.is_right_to_left:
                             rr_speed = "slow" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "normal"
