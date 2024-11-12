@@ -580,11 +580,11 @@ class EngineState(ComponentState):
         self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
-        speed = direction = start_stop = name = num = mom = rl = yr = nu = lt = ""
+        speed = dr = start_stop = name = num = mom = rl = yr = nu = lt = aux = ""
         if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
-            direction = " FWD"
+            dr = " FWD"
         elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
-            direction = " REV"
+            dr = " REV"
 
         if self._speed is not None:
             speed = f" Speed: {self._speed:>3}"
@@ -608,12 +608,12 @@ class EngineState(ComponentState):
             num = f" Released: {self.year}"
         if self.engine_type is not None:
             lt = f" {LOCO_TYPE.get(self.engine_type, 'NA')}"
+        if self._aux2:
+            aux = f" Aux2: {self._aux2.name.split("_")[-1]}"
         # if self.engine_class is not None:
         #     cl = f" Class: {LOCO_CLASS.get(self.engine_class, 'NA')}"
         ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
-        return (
-            f"{self.scope.title} {self._address:02}{speed}{rl}{mom}{direction}{nu}{name}{num}{lt}{ct}{yr}{start_stop}"
-        )
+        return f"{self.scope.title} {self._address:02}{speed}{rl}{mom}{dr}{nu}{aux}{name}{num}{lt}{ct}{yr}{start_stop}"
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
