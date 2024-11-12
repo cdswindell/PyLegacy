@@ -672,24 +672,24 @@ class EngineState(ComponentState):
                             self._aux2 = self.update_aux_state(
                                 self._aux2,
                                 TMCC2.AUX2_ON,
-                                TMCC2.AUX2_OPT_ONE,
+                                TMCC2.AUX2_OPTION_ONE,
                                 TMCC2.AUX2_OFF,
                             )
                         else:
                             self._aux2 = self.update_aux_state(
                                 self._aux2,
                                 TMCC1.AUX2_ON,
-                                TMCC1.AUX2_OPT_ONE,
+                                TMCC1.AUX2_OPTION_ONE,
                                 TMCC1.AUX2_OFF,
                             )
                     self._last_aux2_opt1 = self.last_updated
                 elif command.command in {
                     TMCC1.AUX2_ON,
                     TMCC1.AUX2_OFF,
-                    TMCC1.AUX2_OPT_TWO,
+                    TMCC1.AUX2_OPTION_TWO,
                     TMCC2.AUX2_ON,
                     TMCC2.AUX2_OFF,
-                    TMCC2.AUX2_OPT_TWO,
+                    TMCC2.AUX2_OPTION_TWO,
                 }:
                     self._aux2 = command.command
                     self._last_aux2_opt1 = self.last_updated
@@ -855,7 +855,7 @@ class EngineState(ComponentState):
 
     @property
     def is_aux_on(self) -> bool:
-        return self._aux in {TMCC1.AUX1_OPT_ONE, TMCC2.AUX1_OPT_ONE}
+        return self._aux in {TMCC1.AUX1_OPTION_ONE, TMCC2.AUX1_OPTION_ONE}
 
     @property
     def is_aux_off(self) -> bool:
