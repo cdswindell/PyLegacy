@@ -316,9 +316,10 @@ class PyTrain:
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_SWITCH)
             elif param[0].lower().startswith("r"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ROUTE)
-        elif param_len == 3:
+        elif param_len >= 3:
             from src.pdi.pdi_device import PdiDevice
-            from src.pdi.constants import CommonAction
+            from src.pdi.constants import CommonAction, IrdaAction
+            from src.pdi.irda_req import IrdaReq, IrdaSequence
 
             dev = PdiDevice.by_prefix(param[0])
             if dev is None:
@@ -347,6 +348,14 @@ class PyTrain:
                 agr = dev.clear_errors(tmcc_id)
             elif ca == CommonAction.RESET:
                 agr = dev.reset(tmcc_id)
+            elif ca == IrdaAction.SEQUENCE:
+                if param_len > 3:
+                    seq = IrdaSequence.by_prefix(param[3])
+                    if seq is None and param[3].isnumeric():
+                        seq = IrdaSequence.by_value(int(param[3]))
+                    if seq is None:
+                        raise AttributeError(f"Sequence '{param[3]}' is invalid")
+                    agr = IrdaReq(tmcc_id, PdiCommand.IRDA_SET, ca, sequence=seq)
             elif ca is not None:
                 agr = dev.build_req(tmcc_id, ca)
         else:
