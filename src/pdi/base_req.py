@@ -103,7 +103,7 @@ class BaseReq(PdiReq):
         if state.name in ENGINE_WRITE_MAP:
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
             if log.isEnabledFor(logging.DEBUG):
-                log.debug(f"State: {state} {data} {bit_pos} {offset} {scaler(data)}")
+                log.debug(f"State: {state} {data} {bit_pos} {offset} {scaler(data) if scaler else data}")
             value1 = value2 = 0
             if bit_pos <= 15:
                 value1 = 1 << bit_pos
