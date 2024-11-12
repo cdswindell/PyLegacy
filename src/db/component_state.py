@@ -801,6 +801,12 @@ class EngineState(ComponentState):
         if self._numeric is not None:
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
             byte_str += CommandReq.build(self._numeric_cmd, self.address, data=self._numeric, scope=self.scope).as_bytes
+        if self._aux is not None:
+            byte_str += CommandReq.build(self._aux, self.address).as_bytes
+        if self._aux1 is not None:
+            byte_str += CommandReq.build(self.aux1, self.address).as_bytes
+        if self._aux2 is not None:
+            byte_str += CommandReq.build(self.aux2, self.address).as_bytes
         return byte_str
 
     @property
@@ -862,6 +868,14 @@ class EngineState(ComponentState):
     @property
     def aux2(self) -> CommandDefEnum:
         return self._aux2
+
+    @property
+    def is_aux1(self) -> bool:
+        return self._aux2 in [TMCC1.AUX1_ON, TMCC2.AUX1_ON]
+
+    @property
+    def is_aux2(self) -> bool:
+        return self._aux2 in [TMCC1.AUX2_ON, TMCC2.AUX2_ON]
 
     @property
     def is_tmcc(self) -> bool:
