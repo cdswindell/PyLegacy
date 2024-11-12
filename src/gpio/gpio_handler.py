@@ -623,7 +623,7 @@ class GpioHandler:
                 auto_timeout=59,
                 cathode=cathode,
             )
-            cls.cache_handler(EngineStateSource(address, led, lambda x: x.is_aux2_on))
+            cls.cache_handler(EngineStateSource(address, led, lambda x: x.is_aux2))
 
         return cab_ctrl, lift_cntr, move_cntr, btn, led
 

@@ -630,7 +630,7 @@ class EngineState(ComponentState):
             if command.command == TMCC1HaltCommandDef.HALT:
                 self._aux1 = Aux.AUX1_OFF
                 self._aux2 = Aux.AUX2_OFF
-                self._aux = Aux.AUX2_OPT_ONE
+                self._aux = Aux.AUX2_OPTION_ONE
                 self._numeric = None
 
             # get the downstream effects of this command, as they also impact state
@@ -659,14 +659,14 @@ class EngineState(ComponentState):
             # aux commands
             if command.command in ENGINE_AUX1_SET:
                 self._aux = (
-                    command.command if command.command in {TMCC1.AUX1_OPT_ONE, TMCC2.AUX1_OPT_ONE} else self._aux
+                    command.command if command.command in {TMCC1.AUX1_OPTION_ONE, TMCC2.AUX1_OPTION_ONE} else self._aux
                 )
                 self._aux1 = command.command
             elif command.command in ENGINE_AUX2_SET:
                 self._aux = (
-                    command.command if command.command in {TMCC1.AUX2_OPT_ONE, TMCC2.AUX2_OPT_ONE} else self._aux
+                    command.command if command.command in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE} else self._aux
                 )
-                if command.command in {TMCC1.AUX2_OPT_ONE, TMCC2.AUX2_OPT_ONE}:
+                if command.command in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
                     if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
                         if self.is_legacy:
                             self._aux2 = self.update_aux_state(
