@@ -102,7 +102,7 @@ class PotHandler(Thread):
         else:
             self._pot = MCP3008(channel=channel)
         self._command = command
-        self._prefix_action = prefix.as_action() if prefix else None
+        self._prefix = prefix
         self._prefix_data = prefix.data if prefix else None
         self._prefix_address = prefix.address if prefix else None
         self._last_value = None
@@ -148,11 +148,11 @@ class PotHandler(Thread):
             if self._command_map and value in self._command_map:
                 cmd = self._command_map[value]
                 if cmd:
-                    if self._prefix_action:
+                    if self._prefix:
                         if GpioHandler.engine_numeric(self._prefix_address) == self._prefix_data:
                             pass
                         else:
-                            self._prefix_action()
+                            self._prefix.as_action(repeat=3)()
                     # command could be None, indicating no action
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"{cmd} {value} {raw_value}")
@@ -161,11 +161,11 @@ class PotHandler(Thread):
                     else:
                         cmd.as_action()()
             elif self._command and self._action:
-                if self._prefix_action:
+                if self._prefix:
                     if GpioHandler.engine_numeric(self._prefix_address) == self._prefix_data:
                         pass
                     else:
-                        self._prefix_action()
+                        self._prefix.as_action(repeat=3)()
                 self._command.data = value
                 self._action(new_data=value)
             time.sleep(self._delay)
@@ -598,16 +598,16 @@ class GpioHandler:
         )
 
         # set up for crane track motion
-        scale = {-x: -2 for x in range(9, 11)} | {-x: -1 for x in range(2, 9)}
-        scale |= {-1: 0, 0: 0, 1: 0} | {x: 1 for x in range(2, 9)} | {x: 2 for x in range(9, 11)}
+        scale = {-x: -2 for x in range(9, 21)} | {-x: -1 for x in range(2, 9)}
+        scale |= {-1: 0, 0: 0, 1: 0} | {x: 1 for x in range(2, 9)} | {x: 2 for x in range(9, 21)}
         move_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 2)
         move_cmd = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address)
         move_cntr = cls.when_joystick(
             move_cmd,
             channel=roll_chn,
             use_12bit=use_12bit,
-            data_min=-10,
-            data_max=10,
+            data_min=-20,
+            data_max=20,
             delay=0.10,
             scale=scale,
             prefix=move_prefix,
