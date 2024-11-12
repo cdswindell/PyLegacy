@@ -608,7 +608,7 @@ class GpioHandler:
             use_12bit=use_12bit,
             data_min=-10,
             data_max=10,
-            delay=0.005,
+            delay=0.10,
             scale=scale,
             prefix=move_prefix,
         )
@@ -1044,13 +1044,13 @@ class GpioHandler:
         # bind commands
         re.when_rotated_clockwise = cls._with_re_action(
             clockwise_cmd.address,
-            clockwise_cmd.as_action(),
+            clockwise_cmd,
             ramp,
             prefix if prefix else None,
         )
         re.when_rotated_counter_clockwise = cls._with_re_action(
             clockwise_cmd.address,
-            counterclockwise_cmd.as_action(),
+            counterclockwise_cmd,
             ramp,
             prefix if prefix else None,
             True,
@@ -1182,7 +1182,7 @@ class GpioHandler:
     def _with_re_action(
         cls,
         address: int,
-        action: Callable,
+        command: CommandReq,
         ramp: Dict[int, int] = None,
         prefix: CommandReq = None,
         cc: bool = False,
@@ -1199,13 +1199,11 @@ class GpioHandler:
                         data = data_val if cc is False else -data_val
                         break
             if prefix:
-                prefix.as_action()()
-            if prefix:
                 if GpioHandler.engine_numeric(address) == prefix.data:
                     pass
                 else:
-                    prefix.as_action()()
-            action(new_data=data)
+                    prefix.as_action(repeat=3)()
+            command.as_action(repeat=2)(new_data=data)
             last_rotation_at = cls.current_milli_time()
 
         return func
