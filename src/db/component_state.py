@@ -609,7 +609,7 @@ class EngineState(ComponentState):
         if self.engine_type is not None:
             lt = f" {LOCO_TYPE.get(self.engine_type, 'NA')}"
         if self._aux2:
-            aux = f" Aux2: {self._aux2.name.split("_")[-1]}"
+            aux = f" Aux2: {self._aux2.name.split('_')[-1]}"
         # if self.engine_class is not None:
         #     cl = f" Class: {LOCO_CLASS.get(self.engine_class, 'NA')}"
         ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
