@@ -27,7 +27,7 @@ class SerialReader(Thread):
             self._baudrate,
             bytesize=serial.EIGHTBITS,
             exclusive=True,
-            timeout=5.0,
+            timeout=1.0,
         ) as ser:
             while self._is_running:
                 in_waiting = 0
@@ -43,7 +43,10 @@ class SerialReader(Thread):
                     # give the CPU a break
                     time.sleep(0.05)
                 except serial.SerialException as se:
-                    print(in_waiting, se.args, se.__dict__, se, dir(se))
+                    if se.errno is None:
+                        pass
+                    else:
+                        log.exception(se)
                 except Exception as e:
                     log.exception(e)
 
