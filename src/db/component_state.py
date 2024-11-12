@@ -818,15 +818,17 @@ class IrdaState(LcsState):
                     self._loco_rl = command.loco_rl
                     self._loco_lr = command.loco_lr
                 elif command.action == IrdaAction.SEQUENCE:
+                    print(f"Irda {self.address} Sequence: {self.sequence} Command: {command}")
                     self._sequence = command.sequence
+                    print(f"Irda {self.address} New Sequence: {self.sequence}")
                 elif command.action == IrdaAction.DATA:
                     # change engine/train speed, based on direction of travel
-                    print(f"IRDA {self.address} Sequence: {self.sequence} Command: {command}")
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug(f"IRDA {self.address} Sequence: {self.sequence} Command: {command}")
                     if (
                         self.sequence in [IrdaSequence.SLOW_SPEED_NORMAL_SPEED, IrdaSequence.NORMAL_SPEED_SLOW_SPEED]
                         and CommBuffer.is_server
                     ):
-                        print(f"*** IRDA {self.address} Sequence: {self.sequence}")
                         rr_speed = None
                         if command.is_right_to_left:
                             rr_speed = "slow" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "normal"
@@ -847,7 +849,6 @@ class IrdaState(LcsState):
                                 # noinspection PyTypeChecker
                                 RampedSpeedReq(address, rr_speed, scope=scope, is_tmcc=state.is_tmcc).send()
                         # send update to Train and component engines as well
-                        print(f"+++ IRDA {self.address} Sequence: {self.sequence}")
                         orig_scope = command.scope
                         orig_tmcc_id = command.tmcc_id
                         try:
