@@ -1263,10 +1263,12 @@ class GpioHandler:
         prefix: CommandReq = None,
         cc: bool = False,
     ) -> Callable:
+        tmcc_command_buffer = CommBuffer.build()
         last_rotation_at = cls.current_milli_time()
 
         def func() -> None:
             nonlocal last_rotation_at
+            nonlocal tmcc_command_buffer
             last_rotated = cls.current_milli_time() - last_rotation_at
             data = 1 if cc is False else -1
             if ramp:
@@ -1274,12 +1276,15 @@ class GpioHandler:
                     if last_rotated <= ramp_val:
                         data = data_val if cc is False else -data_val
                         break
+            byte_str = bytes()
             if prefix:
                 if GpioHandler.engine_numeric(address) == prefix.data:
                     pass
                 else:
-                    prefix.as_action(repeat=3)()
-            command.as_action(repeat=2)(new_data=data)
+                    byte_str += prefix.as_bytes * 3
+            command.data = data
+            byte_str += command.as_bytes * 2
+            tmcc_command_buffer.enqueue_command(byte_str)
             last_rotation_at = cls.current_milli_time()
 
         return func
