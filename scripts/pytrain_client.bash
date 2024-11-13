@@ -8,8 +8,8 @@ STARTUP_SCRIPT=examples/buttons.py
 
 # if a startup script is specified, use it if found
 if [ -n "$STARTUP_SCRIPT" ]; then
-  if [ -f $STARTUP_SCRIPT ];
-    START=-start
+  if [ -f $STARTUP_SCRIPT ]; then
+    :
   elif [ -f $PYTRAIN_HOME/$STARTUP_SCRIPT ]; then
     STARTUP_SCRIPT=$PYTRAIN_HOME/$STARTUP_SCRIPT
   elif [ -f $PYTRAIN_HOME$STARTUP_SCRIPT ]; then
