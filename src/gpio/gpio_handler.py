@@ -8,6 +8,7 @@ from typing import Tuple, Callable, Dict, TypeVar
 
 from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice, PingServer
 
+from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
 from ..gpio.state_source import SwitchStateSource, AccessoryStateSource, EngineStateSource
@@ -120,6 +121,7 @@ class PotHandler(Thread):
         self._running = True
         self._scale = scale
         self._command_map = cmds
+        self._tmcc_command_buffer = CommBuffer.build()
         if start is True:
             self.start()
 
@@ -145,6 +147,7 @@ class PotHandler(Thread):
             if self._last_value == 0 and value == 0:
                 continue
             self._last_value = value
+            byte_str = bytes()
             if self._command_map and value in self._command_map:
                 cmd = self._command_map[value]
                 if cmd:
@@ -152,22 +155,23 @@ class PotHandler(Thread):
                         if GpioHandler.engine_numeric(self._prefix_address) == self._prefix_data:
                             pass
                         else:
-                            self._prefix.as_action(repeat=3)()
+                            byte_str += self._prefix.as_bytes * 3
                     # command could be None, indicating no action
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"{cmd} {value} {raw_value}")
                     if cmd.is_data is True:
-                        cmd.as_action()(new_data=value)
-                    else:
-                        cmd.as_action()()
+                        cmd.data = value
+                    byte_str += cmd.as_bytes
             elif self._command and self._action:
                 if self._prefix:
                     if GpioHandler.engine_numeric(self._prefix_address) == self._prefix_data:
                         pass
                     else:
-                        self._prefix.as_action(repeat=3)()
+                        byte_str += self._prefix.as_bytes * 3
                 self._command.data = value
-                self._action(new_data=value)
+                byte_str += self._command.as_bytes
+            if byte_str:
+                self._tmcc_command_buffer.enqueue_command(byte_str)
             time.sleep(self._delay)
 
     def reset(self) -> None:
