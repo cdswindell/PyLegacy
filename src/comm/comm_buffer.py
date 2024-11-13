@@ -321,11 +321,9 @@ class CommBufferProxy(CommBuffer):
                         if retries < 60:
                             retries += 1
                             if retries % 5 == 0:
-                                log.info(
-                                    f"Waiting for {PROGRAM_NAME} server at {self._server}... [NO ROUTE {60 - retries}]"
-                                )
-                    else:
-                        raise oe
+                                log.info(f"Waiting for {PROGRAM_NAME} server at {self._server}... [NO ROUTE]")
+                            continue
+                    raise oe
 
     def register(self) -> None:
         from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
