@@ -316,6 +316,7 @@ class CommBufferProxy(CommBuffer):
                         s.connect((str(self._server), self._port))
                         s.sendall(command)
                         _ = s.recv(16)  # we don't care about the response
+                    return
                 except OSError as oe:
                     if oe.errno == 113:  # no route to host
                         if retries < 90:
