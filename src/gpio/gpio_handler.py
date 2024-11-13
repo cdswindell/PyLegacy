@@ -264,9 +264,11 @@ class GpioHandler:
         min_x = min_y = float("inf")
         max_x = max_y = float("-inf")
         print("Rotate Joystick clockwise, making sure to blah...")
+        time.sleep(5)
         is_running = True
         num_cycles = 100
         start_at = cls.current_milli_time()
+        cycle = 0
         while is_running:
             x = x_axis.value
             y = y_axis.value
@@ -284,6 +286,7 @@ class GpioHandler:
             if y > max_y:
                 new_range = True
                 max_y = y
+            cycle += 1
 
             elapsed = cls.current_milli_time() - start_at
             if new_range is False:
@@ -291,13 +294,15 @@ class GpioHandler:
                 if num_cycles <= 0 and elapsed > 10000:
                     is_running = False
                 else:
-                    print(elapsed, num_cycles, end="\r")
-                    time.sleep(0.1)
+                    if cycle % 1000 == 0:
+                        remaining = (10000 - elapsed) / 1000.0
+                        print(f"Time remaining: {remaining} seconds", end="\r")
+                    time.sleep(0.05)
         print(f" X axis range: {min_x} - {max_x}")
         print(f" Y axis range: {min_y} - {max_y}")
-        print("Now take your hands off hit joystick and let it recenter for 10 seconds")
-        time.sleep(2)
 
+        print("Now take your hands off hit joystick and let it recenter for 10 seconds")
+        time.sleep(5)
         is_running = True
         min_x = min_y = float("inf")
         max_x = max_y = float("-inf")
