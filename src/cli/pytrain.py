@@ -7,6 +7,7 @@ import logging.config
 import os
 import readline
 from datetime import datetime
+from signal import pause
 from typing import List
 
 from src.cli.acc import AccCli
@@ -60,6 +61,7 @@ class PyTrain:
         self._state_store = None
         self._pdi_store = None
         self._echo = args.echo
+        self._headless = args.headless
         self._no_ser2 = args.no_ser2
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         if args.base is not None:
@@ -142,9 +144,13 @@ class PyTrain:
         print(f"{PROGRAM_NAME}, Ver 0.1")
         while True:
             try:
-                ui: str = input(">> ")
-                readline.add_history(ui)  # provides limited command line recall and editing
-                self._handle_command(ui)
+                if self._headless:
+                    log.info("Not accepting user input; background mode")
+                    pause()  # essentially puts the job into the background
+                else:
+                    ui: str = input(">> ")
+                    readline.add_history(ui)  # provides limited command line recall and editing
+                    self._handle_command(ui)
             except SystemExit:
                 pass
             except argparse.ArgumentError:
@@ -459,6 +465,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("-base", type=str, help="IP Address of Lionel Base 2/3")
     parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
+    parser.add_argument("-headless", action="store_true", help="Do not prompt for user input (run in the background)")
     parser.add_argument("-no_listeners", action="store_true", help="Do not listen for events")
     parser.add_argument("-no_ser2", action="store_true", help="Do not send or receive TMCC commands from an LCS SER2")
     parser.add_argument(

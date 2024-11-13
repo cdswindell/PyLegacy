@@ -10,5 +10,5 @@ cd $PYTRAIN_HOME
 # activate the virtual environment
 source ../bin/activate; export PYTHONPATH=.
 # run the program
-src/cli/pytrain.py -base $LIONEL_BASE_3
+src/cli/pytrain.py -base $LIONEL_BASE_3 -headless
 

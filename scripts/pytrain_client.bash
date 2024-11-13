@@ -30,5 +30,5 @@ cd $PYTRAIN_HOME
 # activate the virtual environment
 source ../bin/activate; export PYTHONPATH=.
 # run the program
-src/cli/pytrain.py -server $PYTRAIN_SERVER $START $STARTUP_SCRIPT
+src/cli/pytrain.py -server $PYTRAIN_SERVER $START $STARTUP_SCRIPT -headless
 
