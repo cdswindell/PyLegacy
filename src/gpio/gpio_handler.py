@@ -288,8 +288,6 @@ class GpioHandler:
                 print(f"Time remaining: {remaining} seconds", end="\r")
             if elapsed > 10000:
                 is_running = False
-            else:
-                time.sleep(0.05)
         print(f" X axis range: {min_x} - {max_x}")
         print(f" Y axis range: {min_y} - {max_y}")
 
@@ -323,8 +321,6 @@ class GpioHandler:
                 print(f"Time remaining: {remaining} seconds", end="\r")
             if elapsed >= 10000:
                 is_running = False
-            else:
-                time.sleep(0.05)
         print(f" X center range: {min_x} - {max_x}; average: {sum_x / cycle}")
         print(f" Y center range: {min_y} - {max_y}; average: {sum_y / cycle}")
 
