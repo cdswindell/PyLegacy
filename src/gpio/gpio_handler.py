@@ -252,8 +252,8 @@ class GpioHandler:
                 return state.numeric
         return None
 
-    @staticmethod
-    def calibrate_joystick(x_axis_chn: int = 0, y_axis_chn: int = 0, use_12bit: bool = True) -> None:
+    @classmethod
+    def calibrate_joystick(cls, x_axis_chn: int = 0, y_axis_chn: int = 0, use_12bit: bool = True) -> None:
         if use_12bit is True:
             x_axis = MCP3208(channel=x_axis_chn, differential=False)
             y_axis = MCP3208(channel=y_axis_chn, differential=False)
@@ -265,7 +265,8 @@ class GpioHandler:
         max_x = max_y = float("-inf")
         print("Rotate Joystick clockwise, making sure to blah...")
         is_running = True
-        num_cycles = 5
+        num_cycles = 100
+        start_at = cls.current_milli_time()
         while is_running:
             x = x_axis.value
             y = y_axis.value
@@ -284,10 +285,13 @@ class GpioHandler:
                 new_range = True
                 max_y = y
 
+            elapsed = cls.current_milli_time() - start_at
             if new_range is False:
                 num_cycles -= 1
-                if num_cycles == 0:
+                if num_cycles == 0 and elapsed > 10000:
                     is_running = False
+                else:
+                    time.sleep(0.1)
         print(f" X axis range: {min_x} - {max_x}")
         print(f" Y axis range: {min_y} - {max_y}")
 
