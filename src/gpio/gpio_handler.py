@@ -291,7 +291,7 @@ class GpioHandler:
                 if num_cycles <= 0 and elapsed > 10000:
                     is_running = False
                 else:
-                    print(elapsed, num_cycles)
+                    print(elapsed, num_cycles, end="\r")
                     time.sleep(0.1)
         print(f" X axis range: {min_x} - {max_x}")
         print(f" Y axis range: {min_y} - {max_y}")
