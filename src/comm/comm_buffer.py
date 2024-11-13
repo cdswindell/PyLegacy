@@ -309,10 +309,22 @@ class CommBufferProxy(CommBuffer):
         if delay > 0:
             self._scheduler.schedule(delay, command)
         else:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect((str(self._server), self._port))
-                s.sendall(command)
-                _ = s.recv(16)  # we don't care about the response
+            keep_trying = 10
+            while keep_trying > 0:
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.connect((str(self._server), self._port))
+                        s.sendall(command)
+                        _ = s.recv(16)  # we don't care about the response
+                except OSError as oe:
+                    log.exception(oe)
+                    if oe.errno == 113:  # no route to host
+                        keep_trying -= 1
+                        if keep_trying > 0:
+                            log.info(f"{PROGRAM_NAME} server at {self._server} not responding, will retry...")
+                            time.sleep(60)
+                            continue
+                    raise oe
 
     def register(self) -> None:
         from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -325,7 +337,7 @@ class CommBufferProxy(CommBuffer):
                 return
             except ConnectionError as ce:
                 # give server time to boot up:
-                if retries < 60:
+                if retries < 120:
                     retries += 1
                     if retries % 5 == 0:
                         log.info(f"Waiting for {PROGRAM_NAME} server at {self._server}...")
