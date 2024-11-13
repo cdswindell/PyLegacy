@@ -1,0 +1,12 @@
+[Unit]
+Description=PyTrain Client
+After=multi-user.target
+
+[Service]
+Type=idle
+User=davids
+Group=davids
+ExecStart=/home/davids/dev/PyLegacyEnv/PyLegacy/scripts/pytrain_client.bash
+
+[Install]
+WantedBy=multi-user.target
