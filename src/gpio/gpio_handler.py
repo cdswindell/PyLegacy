@@ -266,38 +266,30 @@ class GpioHandler:
         print("Rotate Joystick clockwise, making sure to blah...")
         time.sleep(5)
         is_running = True
-        num_cycles = 100
         start_at = cls.current_milli_time()
         cycle = 0
         while is_running:
             x = x_axis.value
             y = y_axis.value
 
-            new_range = False
             if x < min_x:
-                new_range = True
                 min_x = x
             if x > max_x:
-                new_range = True
                 max_x = x
             if y < min_y:
-                new_range = True
                 min_y = y
             if y > max_y:
-                new_range = True
                 max_y = y
             cycle += 1
 
             elapsed = cls.current_milli_time() - start_at
-            if new_range is False:
-                num_cycles -= 1
-                if num_cycles <= 0 and elapsed > 10000:
-                    is_running = False
-                else:
-                    if cycle % 1000 == 0:
-                        remaining = (10000 - elapsed) / 1000.0
-                        print(f"Time remaining: {remaining} seconds", end="\r")
-                    time.sleep(0.05)
+            if cycle % 1000 == 0:
+                remaining = (10000 - elapsed) / 1000.0
+                print(f"Time remaining: {remaining} seconds", end="\r")
+            if elapsed > 10000:
+                is_running = False
+            else:
+                time.sleep(0.05)
         print(f" X axis range: {min_x} - {max_x}")
         print(f" Y axis range: {min_y} - {max_y}")
 
@@ -331,6 +323,8 @@ class GpioHandler:
                 print(f"Time remaining: {remaining} seconds", end="\r")
             if elapsed >= 10000:
                 is_running = False
+            else:
+                time.sleep(0.05)
         print(f" X center range: {min_x} - {max_x}; average: {sum_x / cycle}")
         print(f" Y center range: {min_y} - {max_y}; average: {sum_y / cycle}")
 
