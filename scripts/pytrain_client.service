@@ -7,6 +7,7 @@ Type=idle
 User=davids
 Group=davids
 ExecStart=/home/davids/dev/PyLegacyEnv/PyLegacy/scripts/pytrain_client.bash
+Nice=-10
 
 [Install]
 WantedBy=multi-user.target
