@@ -319,8 +319,9 @@ class CommBufferProxy(CommBuffer):
                 except OSError as oe:
                     if oe.errno == 113:  # no route to host
                         if retries < 120:
+                            retries += 1
                             if retries % 5 == 0:
-                                log.info(f"Waiting for {PROGRAM_NAME} server at {self._server} [NO ROUTE]...")
+                                log.info(f"Waiting for {PROGRAM_NAME} server at {self._server}... [NO ROUTE]")
                             time.sleep(1)
                     else:
                         log.exception(oe)
@@ -340,7 +341,7 @@ class CommBufferProxy(CommBuffer):
                 if retries < 120:
                     retries += 1
                     if retries % 5 == 0:
-                        log.info(f"Waiting for {PROGRAM_NAME} server at {self._server}...")
+                        log.info(f"Waiting for {PROGRAM_NAME} server at {self._server}... [CONN ERR]")
                     time.sleep(1)
                 else:
                     raise ce
