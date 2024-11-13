@@ -295,7 +295,8 @@ class GpioHandler:
                     time.sleep(0.1)
         print(f" X axis range: {min_x} - {max_x}")
         print(f" Y axis range: {min_y} - {max_y}")
-        print("Now take your hands off hit joystick and let it recenter for 5 seconds")
+        print("Now take your hands off hit joystick and let it recenter for 10 seconds")
+        time.sleep(2)
 
         is_running = True
         min_x = min_y = float("inf")
@@ -321,9 +322,9 @@ class GpioHandler:
 
             elapsed = cls.current_milli_time() - start_at
             if cycle % 1000 == 0:
-                remaining = (5000 - elapsed) / 1000.0
+                remaining = (10000 - elapsed) / 1000.0
                 print(f"Time remaining: {remaining} seconds", end="\r")
-            if elapsed >= 5000:
+            if elapsed >= 10000:
                 is_running = False
         print(f" X center range: {min_x} - {max_x}; average: {sum_x / cycle}")
         print(f" Y center range: {min_y} - {max_y}; average: {sum_y / cycle}")
