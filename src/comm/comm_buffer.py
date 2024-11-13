@@ -318,10 +318,10 @@ class CommBufferProxy(CommBuffer):
                         _ = s.recv(16)  # we don't care about the response
                 except OSError as oe:
                     if oe.errno == 113:  # no route to host
-                        if retries < 60:
+                        if retries < 90:
                             retries += 1
                             if retries % 5 == 0:
-                                log.info(f"Waiting for {PROGRAM_NAME} server at {self._server}... [NO ROUTE]")
+                                log.info(f"Looking for {PROGRAM_NAME} server at {self._server}... [NO ROUTE]")
                             continue
                     raise oe
 
