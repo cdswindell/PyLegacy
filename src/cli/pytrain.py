@@ -183,7 +183,7 @@ class PyTrain:
             while True:
                 try:
                     if self._headless:
-                        log.info("Not accepting user input; background mode")
+                        log.warning("Not accepting user input; background mode")
                         pause()  # essentially puts the job into the background
                     else:
                         ui: str = input(">> ")
@@ -367,10 +367,9 @@ class PyTrain:
             properties=properties,
             server=hostname,
         )
-        log.info(info)
         # register this machine as serving PyTrain, allowing clients to connect for state updates
         self._zeroconf.register_service(info, allow_name_change=True)
-        log.info("Service registered successfully!")
+        log.info(f"{PROGRAM_NAME} Service registered successfully!")
         return info
 
     def get_service_info(self) -> Tuple[str, int] | None:
@@ -394,7 +393,6 @@ class PyTrain:
                                 is_ser2 = value.decode("utf-8") == "1"
                             elif prop.decode("utf-8") == "Base3":
                                 is_base3 = value.decode("utf-8") == "1"
-                        log.info(info)
                         if is_ser2 is True and is_base3 is True:
                             waiting = 0
                             break
