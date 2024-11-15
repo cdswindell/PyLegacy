@@ -628,9 +628,14 @@ class EngineState(ComponentState):
 
             # handle some aspects of halt command
             if command.command == TMCC1HaltCommandDef.HALT:
-                self._aux1 = Aux.AUX1_OFF
-                self._aux2 = Aux.AUX2_OFF
-                self._aux = Aux.AUX2_OPTION_ONE
+                if self.is_legacy:
+                    self._aux1 = TMCC2.AUX1_OFF
+                    self._aux2 = TMCC2.AUX2_OFF
+                    self._aux = TMCC2.AUX2_OPTION_ONE
+                else:
+                    self._aux1 = TMCC1.AUX1_OFF
+                    self._aux2 = TMCC1.AUX2_OFF
+                    self._aux = TMCC1.AUX2_OPTION_ONE
                 self._numeric = None
 
             # get the downstream effects of this command, as they also impact state
