@@ -323,7 +323,6 @@ class PyTrain:
         self._echo = True
 
     def register_service(self, ser2, base3, server_port) -> ServiceInfo:
-        print("hello")
         service_type = "_pytrain._tcp.local."
         service_name = "PyTrain-Server." + service_type
         port = server_port
@@ -343,7 +342,7 @@ class PyTrain:
             properties=properties,
             server=socket.gethostname(),
         )
-
+        print(f"{service_type} {server_ips} {info}")
         self._zeroconf.register_service(info)
         return info
 
