@@ -332,6 +332,8 @@ class PyTrain:
             "Base3": "1" if base3 else "0",
         }
         server_ips = get_ip_address()
+        hostname = socket.gethostname()
+        hostname = hostname if hostname.endswith(".local") else hostname + ".local"
 
         # Create the ServiceInfo object
         info = ServiceInfo(
@@ -340,7 +342,7 @@ class PyTrain:
             addresses=[socket.inet_aton(x) for x in server_ips],
             port=port,
             properties=properties,
-            server=socket.gethostname(),
+            server=hostname,
         )
         print(f"{service_type} {server_ips} {info}")
         self._zeroconf.register_service(info)
