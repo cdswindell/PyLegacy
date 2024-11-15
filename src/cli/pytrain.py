@@ -344,7 +344,7 @@ class PyTrain:
             properties=properties,
             server=hostname,
         )
-        print(f"{service_type} {server_ips} {info}")
+        # register this machine as serving PyTrain, allowing clients to connect for state updates
         self._zeroconf.register_service(info)
         return info
 
