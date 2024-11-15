@@ -6,9 +6,12 @@ import argparse
 import logging.config
 import os
 import readline
+import socket
 from datetime import datetime
 from signal import pause
 from typing import List
+
+from zeroconf import ServiceInfo, Zeroconf
 
 from src.cli.acc import AccCli
 from src.cli.cli_base import CliBase
@@ -42,6 +45,7 @@ from src.protocol.constants import (
 )
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 from src.utils.dual_logging import set_up_logging
+from src.utils.ip_tools import get_ip_address
 
 set_up_logging()
 log = logging.getLogger(__name__)
@@ -63,6 +67,8 @@ class PyTrain:
         self._echo = args.echo
         self._headless = args.headless
         self._no_ser2 = args.no_ser2
+        self._avahi_info = None
+        self._zeroconf = None
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         if args.base is not None:
             base_pieces = args.base.split(":")
@@ -78,6 +84,14 @@ class PyTrain:
         )
         listeners = []
         if isinstance(self.buffer, CommBufferSingleton):
+            # register avahi service
+            self._zeroconf = Zeroconf()
+            self._avahi_info = self.register_service(
+                self._no_ser2 is False,
+                self._base_addr is not None,
+                self._args.server_port,
+            )
+
             if self._no_ser2:
                 print(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
             else:
@@ -142,41 +156,46 @@ class PyTrain:
         self._process_startup_scripts()
         # print opening line
         print(f"{PROGRAM_NAME}, Ver 0.1")
-        while True:
-            try:
-                if self._headless:
-                    log.info("Not accepting user input; background mode")
-                    pause()  # essentially puts the job into the background
-                else:
-                    ui: str = input(">> ")
-                    readline.add_history(ui)  # provides limited command line recall and editing
-                    self._handle_command(ui)
-            except SystemExit:
-                pass
-            except argparse.ArgumentError:
-                pass
-            except KeyboardInterrupt:
+        try:
+            while True:
                 try:
-                    CommBuffer.stop()
-                except Exception as e:
-                    log.warning(f"Error closing command buffer, continuing shutdown: {e}")
-                try:
-                    CommandListener.stop()
-                except Exception as e:
-                    log.warning(f"Error closing TMCC listener, continuing shutdown: {e}")
-                try:
-                    PdiListener.stop()
-                except Exception as e:
-                    log.warning(f"Error closing PDI listener, continuing shutdown: {e}")
-                try:
-                    ComponentStateStore.reset()
-                except Exception as e:
-                    log.warning(f"Error closing state store, continuing shutdown: {e}")
-                try:
-                    GpioHandler.reset_all()
-                except Exception as e:
-                    log.warning(f"Error closing GPIO, continuing shutdown: {e}")
-                break
+                    if self._headless:
+                        log.info("Not accepting user input; background mode")
+                        pause()  # essentially puts the job into the background
+                    else:
+                        ui: str = input(">> ")
+                        readline.add_history(ui)  # provides limited command line recall and editing
+                        self._handle_command(ui)
+                except SystemExit:
+                    pass
+                except argparse.ArgumentError:
+                    pass
+                except KeyboardInterrupt:
+                    try:
+                        CommBuffer.stop()
+                    except Exception as e:
+                        log.warning(f"Error closing command buffer, continuing shutdown: {e}")
+                    try:
+                        CommandListener.stop()
+                    except Exception as e:
+                        log.warning(f"Error closing TMCC listener, continuing shutdown: {e}")
+                    try:
+                        PdiListener.stop()
+                    except Exception as e:
+                        log.warning(f"Error closing PDI listener, continuing shutdown: {e}")
+                    try:
+                        ComponentStateStore.reset()
+                    except Exception as e:
+                        log.warning(f"Error closing state store, continuing shutdown: {e}")
+                    try:
+                        GpioHandler.reset_all()
+                    except Exception as e:
+                        log.warning(f"Error closing GPIO, continuing shutdown: {e}")
+                    break
+        finally:
+            if self._avahi_info and self._zeroconf:
+                self._zeroconf.unregister_service(self._avahi_info)
+                self._zeroconf.close()
 
     def _handle_command(self, ui: str) -> None:
         """
@@ -302,6 +321,31 @@ class PyTrain:
             self._pdi_buffer.listen_for(self, BROADCAST_TOPIC)
             print("PDI command echoing ENABLED")
         self._echo = True
+
+    def register_service(self, ser2, base3, server_port) -> ServiceInfo:
+        print("hello")
+        service_type = "_pytrain._tcp.local."
+        service_name = "PyTrain-Server." + service_type
+        port = server_port
+        properties = {
+            "version": "1.0",
+            "Ser2": "1" if ser2 else "0",
+            "Base3": "1" if base3 else "0",
+        }
+        server_ips = get_ip_address()
+
+        # Create the ServiceInfo object
+        info = ServiceInfo(
+            service_type,
+            service_name,
+            addresses=[socket.inet_aton(x) for x in server_ips],
+            port=port,
+            properties=properties,
+            server=socket.gethostname(),
+        )
+
+        self._zeroconf.register_service(info)
+        return info
 
     def _do_pdi(self, param: List[str]) -> None:
         param_len = len(param)
