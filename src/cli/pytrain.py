@@ -9,7 +9,7 @@ import readline
 import socket
 from datetime import datetime
 from signal import pause
-from typing import List
+from typing import List, Tuple
 
 from zeroconf import ServiceInfo, Zeroconf
 
@@ -70,6 +70,15 @@ class PyTrain:
         self._avahi_info = None
         self._zeroconf = None
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
+        self._client = args.client
+        if self._server is None and args.client is True:
+            # use avahi/zeroconf to locate a PyTrain server on the local network
+            # raise exception and exit if none found
+            info = self.get_service_info()
+            if info is None:
+                log.warning(f"No {PROGRAM_NAME} servers found on the local network, exiting")
+                return
+            self._server, self._port = info
         if args.base is not None:
             base_pieces = args.base.split(":")
             self._base_addr = args.base = base_pieces[0]
@@ -79,6 +88,7 @@ class PyTrain:
                 raise AttributeError(f"{PROGRAM_NAME} requires either an LCS SER2 and/or Base 2/3 connection")
             self._base_addr = self._base_port = None
         self._pdi_buffer = None
+        # Based on the arguments, we are either connecting to n LCS Ser 2 or a named PyTrain server
         self._tmcc_buffer = CommBuffer.build(
             baudrate=self._baudrate, port=self._port, server=self._server, no_ser2=self._no_ser2
         )
@@ -348,6 +358,21 @@ class PyTrain:
         self._zeroconf.register_service(info)
         return info
 
+    @staticmethod
+    def get_service_info() -> Tuple[str, int] | None:
+        service_type = "_pytrain._tcp.local."
+        service_name = "PyTrain-Server." + service_type
+        z = Zeroconf()
+        try:
+            info = z.get_service_info(service_type, service_name)
+            if info is not None:
+                return info.parsed_addresses()[0], info.port
+        except Exception as e:
+            log.warning(e)
+        finally:
+            z.close()
+        return None
+
     def _do_pdi(self, param: List[str]) -> None:
         param_len = len(param)
         agr = None
@@ -505,7 +530,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser(
         prog="pytrain.py",
-        description="Send TMCC and Legacy-formatted commands to a Lionel LCS SER2",
+        description="Send TMCC and Legacy-formatted commands to a Lionel Base 3 and/or LCS Ser2",
         parents=[parser, CliBase.cli_parser()],
     )
     parser.add_argument("-base", type=str, help="IP Address of Lionel Base 2/3")
@@ -513,6 +538,7 @@ if __name__ == "__main__":
     parser.add_argument("-headless", action="store_true", help="Do not prompt for user input (run in the background)")
     parser.add_argument("-no_listeners", action="store_true", help="Do not listen for events")
     parser.add_argument("-no_ser2", action="store_true", help="Do not send or receive TMCC commands from an LCS SER2")
+    parser.add_argument("-client", action="store_true", help=f"Connect to an available {PROGRAM_NAME} server")
     parser.add_argument(
         "-server_port",
         type=int,
