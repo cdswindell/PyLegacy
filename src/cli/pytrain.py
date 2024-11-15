@@ -354,8 +354,10 @@ class PyTrain:
             properties=properties,
             server=hostname,
         )
+        print(f"Registering service {service_name} on {hostname}:{port} {info}...")
         # register this machine as serving PyTrain, allowing clients to connect for state updates
         self._zeroconf.register_service(info)
+        print("Service registered successfully!")
         return info
 
     @staticmethod

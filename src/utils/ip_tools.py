@@ -11,5 +11,4 @@ def get_ip_address() -> List[str]:
     ip_addresses = socket.gethostbyname_ex(hostname)[2]
 
     filtered_ips = [ip for ip in ip_addresses if not ip.startswith("127.")]
-    print(ip_addresses, filtered_ips)
     return filtered_ips
