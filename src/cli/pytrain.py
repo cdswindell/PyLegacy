@@ -7,11 +7,12 @@ import logging.config
 import os
 import readline
 import socket
+import threading
 from datetime import datetime
 from signal import pause
 from typing import List, Tuple
 
-from zeroconf import ServiceInfo, Zeroconf
+from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
 from src.cli.acc import AccCli
 from src.cli.cli_base import CliBase
@@ -54,6 +55,16 @@ log = logging.getLogger(__name__)
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 
 
+class ServiceListener:
+    @staticmethod
+    def remove_service(zeroconf, type_, name):
+        pass
+
+    @staticmethod
+    def add_service(zeroconf, type_, name):
+        pass
+
+
 class PyTrain:
     def __init__(self, args: argparse.Namespace) -> None:
         self._args = args
@@ -69,6 +80,8 @@ class PyTrain:
         self._no_ser2 = args.no_ser2
         self._avahi_info = None
         self._zeroconf = None
+        self._pytrain_servers: List[ServiceInfo] = []
+        self._server_discovered = threading.Event()
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
         if self._server is None and args.client is True:
@@ -354,26 +367,60 @@ class PyTrain:
             properties=properties,
             server=hostname,
         )
-        print(f"Registering service {service_name} on {hostname}:{port} {info}...")
         # register this machine as serving PyTrain, allowing clients to connect for state updates
         self._zeroconf.register_service(info, allow_name_change=True)
-        print("Service registered successfully!")
+        log.info("Service registered successfully!")
         return info
 
-    @staticmethod
-    def get_service_info() -> Tuple[str, int] | None:
+    def get_service_info(self) -> Tuple[str, int] | None:
         service_type = "_pytrain._tcp.local."
-        service_name = "PyTrain-Server." + service_type
         z = Zeroconf()
+        an_info = None
         try:
-            info = z.get_service_info(service_type, service_name)
-            if info is not None:
-                return info.parsed_addresses()[0], info.port
+            # listens for services on a background thread
+            ServiceBrowser(z, [service_type], handlers=[self.on_service_state_change])
+            #
+            waiting = 10
+
+            while waiting:
+                print(f"Looking for {PROGRAM_NAME} servers{'.' * ((10 - waiting) + 1)}", end="\r")
+                if self._server_discovered.wait(1) is True:
+                    for info in self._pytrain_servers:
+                        is_ser2 = False
+                        is_base3 = False
+                        an_info = info
+                        for prop, value in info.properties.items():
+                            if prop.decode("utf-8") == "Ser2":
+                                is_ser2 = value.decode("utf-8") == "1"
+                            elif prop.decode("utf-8") == "Base3":
+                                is_base3 = value.decode("utf-8") == "1"
+                        if is_ser2 and is_base3:
+                            break
+                    self._server_discovered.clear()
+                waiting -= 1
+
         except Exception as e:
             log.warning(e)
         finally:
             z.close()
-        return None
+        if an_info:
+            return an_info.parsed_addresses()[0], an_info.port
+        else:
+            return None
+
+    def on_service_state_change(
+        self,
+        zeroconf: Zeroconf,
+        service_type: str,
+        name: str,
+        state_change: ServiceStateChange,
+    ):
+        log.debug(f"Service {name} of type {service_type} state changed: {state_change}")
+        if state_change is ServiceStateChange.Added:
+            info = zeroconf.get_service_info(service_type, name)
+            if info:
+                self._pytrain_servers.append(info)
+                self._server_discovered.set()
 
     def _do_pdi(self, param: List[str]) -> None:
         param_len = len(param)

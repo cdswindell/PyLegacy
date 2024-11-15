@@ -38,7 +38,7 @@ class StateSource(ABC, Thread):
 
     def run(self) -> None:
         while self._is_running:
-            if self._component.changed.wait(1) is True:
+            if self._component.changed.wait(5) is True:
                 self._led.value = 1 if self.is_active else 0
                 self._component.changed.clear()
 
