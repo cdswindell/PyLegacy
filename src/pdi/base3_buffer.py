@@ -159,7 +159,7 @@ class Base3Buffer(Thread):
                     if keep_trying <= 0:
                         raise oe
                     else:
-                        time.sleep(60 if oe.errno == 113 else 5)
+                        time.sleep(30 if oe.errno == 113 else 1)
 
     def shutdown(self) -> None:
         with self._lock:
