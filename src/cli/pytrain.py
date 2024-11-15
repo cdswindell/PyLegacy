@@ -351,8 +351,8 @@ class PyTrain:
         port = server_port
         properties = {
             "version": "1.0",
-            "Ser2": "1" if ser2 else "0",
-            "Base3": "1" if base3 else "0",
+            "Ser2": "1" if ser2 is True else "0",
+            "Base3": "1" if base3 is True else "0",
         }
         server_ips = get_ip_address()
         hostname = socket.gethostname()
@@ -379,11 +379,10 @@ class PyTrain:
         try:
             # listens for services on a background thread
             ServiceBrowser(z, [service_type], handlers=[self.on_service_state_change])
-            #
             waiting = 10
-
-            while waiting:
+            while waiting > 0:
                 print(f"Looking for {PROGRAM_NAME} servers{'.' * ((10 - waiting) + 1)}", end="\r")
+                waiting -= 1
                 if self._server_discovered.wait(1) is True:
                     for info in self._pytrain_servers:
                         is_ser2 = False
@@ -394,11 +393,11 @@ class PyTrain:
                                 is_ser2 = value.decode("utf-8") == "1"
                             elif prop.decode("utf-8") == "Base3":
                                 is_base3 = value.decode("utf-8") == "1"
-                        if is_ser2 and is_base3:
+                        log.info(info)
+                        if is_ser2 is True and is_base3 is True:
+                            waiting = 0
                             break
-                    self._server_discovered.clear()
-                waiting -= 1
-
+                self._server_discovered.clear()
         except Exception as e:
             log.warning(e)
         finally:
