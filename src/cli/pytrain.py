@@ -379,9 +379,9 @@ class PyTrain:
         try:
             # listens for services on a background thread
             ServiceBrowser(z, [service_type], handlers=[self.on_service_state_change])
-            waiting = 10
+            waiting = 30
             while waiting > 0:
-                print(f"Looking for {PROGRAM_NAME} servers{'.' * ((10 - waiting) + 1)}", end="\r")
+                print(f"Looking for {PROGRAM_NAME} servers{'.' * ((30 - waiting) + 1)}", end="\r")
                 waiting -= 1
                 if self._server_discovered.wait(1) is True:
                     for info in self._pytrain_servers:
