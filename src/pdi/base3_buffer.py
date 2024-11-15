@@ -151,9 +151,15 @@ class Base3Buffer(Thread):
                             keep_trying -= 1
                             break  # continues to outer loop
                 except OSError as oe:
-                    log.info(f"No response from Lionel Base 3 at {self._base3_addr}; is the Base 3 turned on?")
+                    log.info(
+                        f"No response from Lionel Base 3 at {self._base3_addr}; is the Base 3 turned on? Retrying..."
+                    )
                     log.exception(oe)
                     keep_trying -= 1
+                    if keep_trying <= 0:
+                        raise oe
+                    else:
+                        time.sleep(60 if oe.errno == 113 else 5)
 
     def shutdown(self) -> None:
         with self._lock:
