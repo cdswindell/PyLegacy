@@ -102,14 +102,15 @@ class Base3Buffer(Thread):
 
     def run(self) -> None:
         # signal(SIGPIPE, SIG_DFL)
-        while self._is_running:
+        keep_trying = 10  # when we can't send a packet, retry 10 times
+        while self._is_running and keep_trying:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 try:
                     s.connect((str(self._base3_addr), self._base3_port))
                     # we want to wait on either data being available to send to the Base3 of
                     # data available from the Base 3 to process
                     socket_list = [s, self._send_queue]
-                    while self._is_running:
+                    while self._is_running and keep_trying:
                         try:
                             readable, _, _ = select.select(socket_list, [], [])
                             for sock in readable:
@@ -137,6 +138,7 @@ class Base3Buffer(Thread):
                                     # ASCII string as Hex representation to arrive at 0xd12729df...
                                 if self._listener is not None and received:
                                     self._listener.offer(received)
+                            keep_trying = 10
                         except BrokenPipeError as bpe:
                             # keep trying; unix can sometimes just hang up
                             if sending is not None:
@@ -146,10 +148,12 @@ class Base3Buffer(Thread):
                                 log.info(f"Exception receiving: 0x{received.hex(':').upper()}; retrying: {bpe}")
                             else:
                                 log.exception(bpe)
+                            keep_trying -= 1
                             break  # continues to outer loop
-                except TimeoutError as te:
+                except OSError as oe:
                     log.info(f"No response from Lionel Base 3 at {self._base3_addr}; is the Base 3 turned on?")
-                    log.exception(te)
+                    log.exception(oe)
+                    keep_trying -= 1
 
     def shutdown(self) -> None:
         with self._lock:
