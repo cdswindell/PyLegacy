@@ -10,7 +10,7 @@ import socket
 import threading
 from datetime import datetime
 from signal import pause
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
@@ -43,6 +43,8 @@ from src.protocol.constants import (
     DEFAULT_BASE_PORT,
     DEFAULT_SERVER_PORT,
     PROGRAM_NAME,
+    SERVICE_TYPE,
+    SERVICE_NAME,
 )
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 from src.utils.dual_logging import set_up_logging
@@ -78,7 +80,7 @@ class PyTrain:
         self._echo = args.echo
         self._headless = args.headless
         self._no_ser2 = args.no_ser2
-        self._avahi_info = None
+        self._service_info = None
         self._zeroconf = None
         self._pytrain_servers: List[ServiceInfo] = []
         self._server_discovered = threading.Event()
@@ -109,7 +111,7 @@ class PyTrain:
         if isinstance(self.buffer, CommBufferSingleton):
             # register avahi service
             self._zeroconf = Zeroconf()
-            self._avahi_info = self.register_service(
+            self._service_info = self.register_service(
                 self._no_ser2 is False,
                 self._base_addr is not None,
                 self._args.server_port,
@@ -216,8 +218,8 @@ class PyTrain:
                         log.warning(f"Error closing GPIO, continuing shutdown: {e}")
                     break
         finally:
-            if self._avahi_info and self._zeroconf:
-                self._zeroconf.unregister_service(self._avahi_info)
+            if self._service_info and self._zeroconf:
+                self._zeroconf.unregister_service(self._service_info)
                 self._zeroconf.close()
 
     def _handle_command(self, ui: str) -> None:
@@ -346,13 +348,12 @@ class PyTrain:
         self._echo = True
 
     def register_service(self, ser2, base3, server_port) -> ServiceInfo:
-        service_type = "_pytrain._tcp.local."
-        service_name = "PyTrain-Server." + service_type
         port = server_port
         properties = {
             "version": "1.0",
             "Ser2": "1" if ser2 is True else "0",
             "Base3": "1" if base3 is True else "0",
+            "abc": None,
         }
         server_ips = get_ip_address()
         hostname = socket.gethostname()
@@ -360,8 +361,8 @@ class PyTrain:
 
         # Create the ServiceInfo object
         info = ServiceInfo(
-            service_type,
-            service_name,
+            SERVICE_TYPE,
+            SERVICE_NAME,
             addresses=[socket.inet_aton(x) for x in server_ips],
             port=port,
             properties=properties,
@@ -372,13 +373,18 @@ class PyTrain:
         log.info(f"{PROGRAM_NAME} Service registered successfully!")
         return info
 
+    def update_service(self, update: Dict[str, Any]) -> None:
+        for prop, value in update.items():
+            self._service_info.properties[prop.encode("utf-8")] = str(value).encode("utf-8")
+        print(self._service_info)
+        self._zeroconf.update_service(self._service_info)
+
     def get_service_info(self) -> Tuple[str, int] | None:
-        service_type = "_pytrain._tcp.local."
         z = Zeroconf()
         an_info = None
         try:
             # listens for services on a background thread
-            ServiceBrowser(z, [service_type], handlers=[self.on_service_state_change])
+            ServiceBrowser(z, [SERVICE_TYPE], handlers=[self.on_service_state_change])
             waiting = 30
             while waiting > 0:
                 print(f"Looking for {PROGRAM_NAME} servers{'.' * ((30 - waiting) + 1)}", end="\r")
@@ -389,10 +395,13 @@ class PyTrain:
                         is_base3 = False
                         an_info = info
                         for prop, value in info.properties.items():
-                            if prop.decode("utf-8") == "Ser2":
-                                is_ser2 = value.decode("utf-8") == "1"
-                            elif prop.decode("utf-8") == "Base3":
-                                is_base3 = value.decode("utf-8") == "1"
+                            decoded_prop = prop.decode("utf-8")
+                            decoded_value = value.decode("utf-8")
+                            print(decoded_prop, decoded_value)
+                            if decoded_prop == "Ser2":
+                                is_ser2 = decoded_value == "1"
+                            elif decoded_prop == "Base3":
+                                is_base3 = decoded_value == "1"
                         if is_ser2 is True and is_base3 is True:
                             waiting = 0
                             break
@@ -483,6 +492,7 @@ class PyTrain:
                 agr = dev.build_req(tmcc_id, ca)
         else:
             agr = AllReq()
+            self.update_service({"abc": "def"})
         if agr is not None:
             self._pdi_buffer.enqueue_command(agr)
 
