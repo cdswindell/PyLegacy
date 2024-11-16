@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from typing import List
 
-from gpiozero import Button, LED, CompositeDevice, EventsMixin, GPIOPinMissing, PinInvalidPin
+from gpiozero import Button, CompositeDevice, EventsMixin, GPIOPinMissing, PinInvalidPin, DigitalOutputDevice
 import time
 
 KEYS = ["1", "2", "3", "A", "4", "5", "6", "B", "7", "8", "9", "C", "*", "0", "#", "D"]
@@ -26,7 +26,7 @@ class Keypad(EventsMixin, CompositeDevice):
         devices = []
         self._rows = []
         for pin in row_pins:
-            dev = LED(pin, pin_factory=pin_factory)
+            dev = DigitalOutputDevice(pin, pin_factory=pin_factory)
             self._rows.append(dev)
             devices.append(dev)
         self._cols = []
@@ -44,23 +44,17 @@ class Keypad(EventsMixin, CompositeDevice):
         return self._scan_keys()
 
     def _scan_keys(self) -> str | None:
-        r = 0
-        for row in self._rows:
+        for r, row in enumerate(self._rows):
             row.on()
-            c = 0
             try:
-                for col in self._cols:
+                for c, col in enumerate(self._cols):
                     if col.is_active:
                         self._last_keypress = KEYS[(r * 4) + c]
-                        yield self._last_keypress
                         while col.is_active:
                             time.sleep(0.05)
-                        break
-                    else:
-                        c += 1
+                        return self._last_keypress
             finally:
                 row.off()
-            r += 1
         return None
 
 
