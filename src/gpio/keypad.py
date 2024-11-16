@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from typing import List
 
-from gpiozero import Button, LED, CompositeDevice, EventsMixin
+from gpiozero import Button, LED, CompositeDevice, EventsMixin, GPIOPinMissing, PinInvalidPin
 import time
 
 KEYS = ["1", "2", "3", "A", "4", "5", "6", "B", "7", "8", "9", "C", "*", "0", "#", "D"]
@@ -15,6 +15,14 @@ class Keypad(EventsMixin, CompositeDevice):
         bounce_time: float = None,
         pin_factory=None,
     ):
+        if len(row_pins) < 4:
+            raise GPIOPinMissing("Need exactly 4 Row pins")
+        if len(row_pins) > 4:
+            raise PinInvalidPin("Need exactly 4 Row pins")
+        if len(column_pins) < 4:
+            raise GPIOPinMissing("Need exactly 4 Column pins")
+        if len(column_pins) > 4:
+            raise PinInvalidPin("Need exactly 4 Column pins")
         devices = []
         self._rows = []
         for pin in row_pins:
@@ -23,10 +31,13 @@ class Keypad(EventsMixin, CompositeDevice):
             devices.append(dev)
         self._cols = []
         for pin in column_pins:
-            dev = Button(pin, pull_up=False, bounce_time=bounce_time, pin_factory=pin_factory)
+            dev = Button(pin, pull_up=False, bounce_time=bounce_time, hold_repeat=False, pin_factory=pin_factory)
             self._cols.append(dev)
             devices.append(dev)
         super().__init__(*devices, pin_factory=pin_factory)
+        if len(self) == 0:
+            raise GPIOPinMissing("No pins given")
+        self._last_keypress = None
 
     @property
     def key(self) -> str:
@@ -40,9 +51,11 @@ class Keypad(EventsMixin, CompositeDevice):
             try:
                 for col in self._cols:
                     if col.is_active:
+                        self._last_keypress = KEYS[(r * 4) + c]
+                        yield self._last_keypress
                         while col.is_active:
                             time.sleep(0.05)
-                        return KEYS[(r * 4) + c]
+                        break
                     else:
                         c += 1
             finally:
