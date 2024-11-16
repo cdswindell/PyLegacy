@@ -353,7 +353,6 @@ class PyTrain:
             "version": "1.0",
             "Ser2": "1" if ser2 is True else "0",
             "Base3": "1" if base3 is True else "0",
-            "abc": None,
         }
         server_ips = get_ip_address()
         hostname = socket.gethostname()
@@ -374,10 +373,10 @@ class PyTrain:
         return info
 
     def update_service(self, update: Dict[str, Any]) -> None:
+        self._zeroconf.unregister_service(self._service_info)
         for prop, value in update.items():
             self._service_info.properties[prop.encode("utf-8")] = str(value).encode("utf-8")
-        print(self._service_info)
-        self._zeroconf.update_service(self._service_info)
+        self._zeroconf.register_service(self._service_info)
 
     def get_service_info(self) -> Tuple[str, int] | None:
         z = Zeroconf()
@@ -396,8 +395,7 @@ class PyTrain:
                         an_info = info
                         for prop, value in info.properties.items():
                             decoded_prop = prop.decode("utf-8")
-                            decoded_value = value.decode("utf-8")
-                            print(decoded_prop, decoded_value)
+                            decoded_value = value.decode("utf-8") if value is not None else None
                             if decoded_prop == "Ser2":
                                 is_ser2 = decoded_value == "1"
                             elif decoded_prop == "Base3":
@@ -492,7 +490,6 @@ class PyTrain:
                 agr = dev.build_req(tmcc_id, ca)
         else:
             agr = AllReq()
-            self.update_service({"abc": "def"})
         if agr is not None:
             self._pdi_buffer.enqueue_command(agr)
 
