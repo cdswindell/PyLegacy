@@ -28,26 +28,27 @@ class Keypad(CompositeDevice):
             devices.append(dev)
         super().__init__(*devices, pin_factory=pin_factory)
 
+    @property
     def key(self) -> str:
         return self._scan_keys()
 
     def _scan_keys(self) -> str | None:
-        while True:
-            r = 0
-            for row in self._rows:
-                row.on()
-                c = 0
-                try:
-                    for col in self._cols:
-                        if col.is_active:
-                            while col.is_active:
-                                time.sleep(0.05)
-                            return KEYS[(r * 4) + c]
-                        else:
-                            c += 1
-                finally:
-                    row.off()
-                r += 1
+        r = 0
+        for row in self._rows:
+            row.on()
+            c = 0
+            try:
+                for col in self._cols:
+                    if col.is_active:
+                        while col.is_active:
+                            time.sleep(0.05)
+                        return KEYS[(r * 4) + c]
+                    else:
+                        c += 1
+            finally:
+                row.off()
+            r += 1
+        return None
 
 
 # Initialize the columns
