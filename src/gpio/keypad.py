@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 from typing import List
 
-from gpiozero import Button, LED, CompositeDevice
+from gpiozero import Button, LED, CompositeDevice, EventsMixin
 import time
 
 KEYS = ["1", "2", "3", "A", "4", "5", "6", "B", "7", "8", "9", "C", "*", "0", "#", "D"]
 
 
-class Keypad(CompositeDevice):
+class Keypad(EventsMixin, CompositeDevice):
     def __init__(
         self,
         row_pins: List[int | str],
