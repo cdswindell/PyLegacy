@@ -41,9 +41,13 @@ class Keypad(EventsMixin, CompositeDevice):
 
     @property
     def key(self) -> str:
-        return self._scan_keys()
+        return self._read()
 
-    def _scan_keys(self) -> str | None:
+    def last_key(self) -> str | None:
+        return self._last_keypress
+
+    def _read(self) -> str | None:
+        self._reset_pin_states()
         for r, row in enumerate(self._rows):
             row.on()
             try:
@@ -56,6 +60,10 @@ class Keypad(EventsMixin, CompositeDevice):
             finally:
                 row.off()
         return None
+
+    def _reset_pin_states(self) -> None:
+        for r in self._rows:
+            r.off()
 
 
 # Initialize the columns
