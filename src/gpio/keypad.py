@@ -162,17 +162,7 @@ class KeyQueue:
         self._deque: deque[str] = deque(maxlen=max_length)
         self._cv = Condition()
 
-    def __call__(self, keypad: Keypad) -> None:
-        """
-        Use as when_pressed handler for a Keypad instance.
-        """
-        keypress = keypad.keypress
-        if keypress:
-            with self._cv:
-                self._deque.extend(keypress)
-                self._cv.notify()
-
-    def handler(self) -> Callable:
+    def keypress_handler(self) -> Callable:
         def fn(keypad: Keypad) -> None:
             keypress = keypad.keypress
             if keypress:
@@ -184,7 +174,7 @@ class KeyQueue:
 
     def key_presses(self) -> str:
         with self._cv:
-            return str(self._deque)
+            return "".join(self._deque)
 
 
 # Initialize the columns
