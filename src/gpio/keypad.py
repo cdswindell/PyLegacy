@@ -26,24 +26,19 @@ class Keypad(HoldMixin, CompositeDevice):
         row_pins: List[int | str],
         column_pins: List[int | str],
         bounce_time: float = None,
-        keys: List[List[str]] = TELEPHONE_4X3_KEYS,
+        keys: List[List[str]] = DEFAULT_4X4_KEYS,
         hold_time=1,
         hold_repeat=False,
         pin_factory=None,
     ):
-        num_rows = len(keys)
-        if keys is None or num_rows == 0 or len(keys[0]) == 0:
+        if keys is None or len(keys) == 0:
             raise ValueError("Must specify at least one row of keys")
-        if len(row_pins) != num_rows:
-            raise GPIOPinMissing(
-                "Number of row pins must match the number of rows of keys " "({} != {})".format(len(row_pins), num_rows)
-            )
+        if len(row_pins) != len(keys):
+            raise GPIOPinMissing(f"Number of row pins must match the number of rows ({len(row_pins)} != {len(keys)})")
         num_cols = len(keys[0])
         if len(column_pins) != num_cols:
             raise ValueError(
-                "Number of column pins must match the number of columns of keys " "({} != {})".format(
-                    len(column_pins), num_cols
-                )
+                f"Number of column pins must match the number of keys ({len(column_pins)} != {len(keys[0])})"
             )
 
         devices = []
@@ -52,6 +47,7 @@ class Keypad(HoldMixin, CompositeDevice):
             dev = DigitalOutputDevice(pin, pin_factory=pin_factory)
             self._rows.append(dev)
             devices.append(dev)
+
         self._cols = []
         for pin in column_pins:
             dev = Button(
@@ -88,6 +84,7 @@ class Keypad(HoldMixin, CompositeDevice):
         self._last_value = None
         self._keypress = self._last_keypress = None
         self._keys = keys
+
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
         self._hold_repeat = hold_repeat
