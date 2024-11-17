@@ -92,7 +92,7 @@ class Keypad(EventsMixin, CompositeDevice):
             self._key_queue = key_queue
         else:
             raise ValueError(f"{key_queue} is not a KeyQueue")
-        self.when_pressed = key_queue.keypress_handler()
+        self.when_pressed = self._key_queue.keypress_handler()
 
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
