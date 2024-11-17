@@ -2,7 +2,7 @@
 import time
 from typing import List
 
-from gpiozero import Button, CompositeDevice, GPIOPinMissing, PinInvalidPin, DigitalOutputDevice, event, HoldMixin
+from gpiozero import Button, CompositeDevice, GPIOPinMissing, DigitalOutputDevice, event, HoldMixin
 from gpiozero.threads import GPIOThread
 
 DEFAULT_4X4_KEYS = (
@@ -12,6 +12,13 @@ DEFAULT_4X4_KEYS = (
     ("*", "0", "#", "D"),
 )
 
+TELEPHONE_4X3_KEYS = (
+    ("1", "2", "3"),
+    ("4", "5", "6"),
+    ("7", "8", "9"),
+    ("*", "0", "#"),
+)
+
 
 class Keypad(HoldMixin, CompositeDevice):
     def __init__(
@@ -19,19 +26,26 @@ class Keypad(HoldMixin, CompositeDevice):
         row_pins: List[int | str],
         column_pins: List[int | str],
         bounce_time: float = None,
-        keys: List[List[str]] = DEFAULT_4X4_KEYS,
+        keys: List[List[str]] = TELEPHONE_4X3_KEYS,
         hold_time=1,
         hold_repeat=False,
         pin_factory=None,
     ):
-        if len(row_pins) < 4:
-            raise GPIOPinMissing("Need exactly 4 Row pins")
-        if len(row_pins) > 4:
-            raise PinInvalidPin("Need exactly 4 Row pins")
-        if len(column_pins) < 4:
-            raise GPIOPinMissing("Need exactly 4 Column pins")
-        if len(column_pins) > 4:
-            raise PinInvalidPin("Need exactly 4 Column pins")
+        num_rows = len(keys)
+        if keys is None or num_rows == 0 or len(keys[0]) == 0:
+            raise ValueError("Must specify at least one row of keys")
+        if len(row_pins) != num_rows:
+            raise GPIOPinMissing(
+                "Number of row pins must match the number of rows of keys " "({} != {})".format(len(row_pins), num_rows)
+            )
+        num_cols = len(keys[0])
+        if len(column_pins) != num_cols:
+            raise ValueError(
+                "Number of column pins must match the number of columns of keys " "({} != {})".format(
+                    len(column_pins), num_cols
+                )
+            )
+
         devices = []
         self._rows = []
         for pin in row_pins:
