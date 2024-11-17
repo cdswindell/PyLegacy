@@ -273,7 +273,8 @@ class KeyQueue:
     def wait_for_keypress(self, timeout: float = 10) -> str | None:
         try:
             self._keypress_ev.wait(timeout)
-            if self._keypress_ev.is_set() is False or self._keypress_ev.is_set() or self._clear_ev.is_set():
+            print(self._keypress_ev, self._eol_ev, self._clear_ev)
+            if self._keypress_ev.is_set() is False or self._eol_ev.is_set() or self._clear_ev.is_set():
                 return None
             else:
                 print(f"Len: {len(self._deque)} {self._deque[-1]}")
