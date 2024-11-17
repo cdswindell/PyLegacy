@@ -40,3 +40,5 @@ class Controller(Thread):
         self._is_running = False
         self._keypad.close()
         self._lcd.close(True)
+
+    close = reset
