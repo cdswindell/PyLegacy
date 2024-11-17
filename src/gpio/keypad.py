@@ -1,7 +1,8 @@
-#!/usr/bin/env python3
+from __future__ import annotations
+
 import time
 from collections import deque
-from threading import Condition
+from threading import Condition, Event
 from typing import List, Callable
 
 from gpiozero import Button, CompositeDevice, GPIOPinMissing, DigitalOutputDevice, event, EventsMixin
@@ -30,6 +31,7 @@ class Keypad(EventsMixin, CompositeDevice):
         bounce_time: float = None,
         keys: List[List[str]] = DEFAULT_4X4_KEYS,
         pin_factory=None,
+        key_queue: KeyQueue = None,
     ):
         if keys is None or len(keys) == 0:
             raise ValueError("Must specify at least one row of keys")
@@ -84,6 +86,13 @@ class Keypad(EventsMixin, CompositeDevice):
         self._last_value = None
         self._keypress = self._last_keypress = None
         self._keys = keys
+        if key_queue is None:
+            self._key_queue = KeyQueue()
+        elif isinstance(key_queue, KeyQueue):
+            self._key_queue = key_queue
+        else:
+            raise ValueError(f"{key_queue} is not a KeyQueue")
+        self.when_pressed = key_queue.keypress_handler()
 
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
@@ -97,6 +106,10 @@ class Keypad(EventsMixin, CompositeDevice):
         self._is_running = False
         self._reset_pin_states()
         super().close()
+
+    def reset_key_presses(self) -> None:
+        self._key_queue.reset()
+        self._keypress = self._last_keypress = None
 
     when_changed = event()
 
@@ -116,6 +129,10 @@ class Keypad(EventsMixin, CompositeDevice):
     @property
     def keypress(self) -> str | None:
         return self._keypress
+
+    @property
+    def key_presses(self) -> str:
+        return self._key_queue.key_presses
 
     @property
     def last_keypress(self) -> str | None:
@@ -158,16 +175,29 @@ Keypad.wait_for_release = Keypad.wait_for_inactive
 
 
 class KeyQueue:
-    def __init__(self, max_length: int = 256) -> None:
+    def __init__(
+        self,
+        clear_key: str = "C",
+        eol_key: str = "#",
+        max_length: int = 256,
+    ) -> None:
         self._deque: deque[str] = deque(maxlen=max_length)
         self._cv = Condition()
+        self._ev = Event()
+        self._clear_key = clear_key
+        self._eol_key = eol_key
 
     def keypress_handler(self) -> Callable:
         def fn(keypad: Keypad) -> None:
             keypress = keypad.keypress
             if keypress:
                 with self._cv:
-                    self._deque.extend(keypress)
+                    if keypress == self._clear_key:
+                        self._deque.clear()
+                    elif keypress == self._eol_key:
+                        self._ev.set()
+                    else:
+                        self._deque.extend(keypress)
                     self._cv.notify()
 
         return fn
@@ -178,6 +208,19 @@ class KeyQueue:
     def key_presses(self) -> str:
         with self._cv:
             return "".join(self._deque)
+
+    def reset(self) -> None:
+        with self._cv:
+            self._deque.clear()
+            self._ev.clear()
+            self._cv.notify()
+
+    @property
+    def is_eol(self) -> bool:
+        return self._ev.is_set()
+
+    def wait_for_eol(self, timeout: float = 10) -> None:
+        self._ev.wait(timeout)
 
 
 # Initialize the columns
