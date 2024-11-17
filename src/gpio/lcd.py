@@ -36,6 +36,8 @@ class Lcd(CharLCD):
             auto_linebreaks=auto_linebreaks,
             backlight_enabled=backlight_enabled,
         )
+        self.home()
+        self.clear()
         self.create_char(0, SMILEY_CHAR)
 
     def print(self, c: int | str) -> None:
