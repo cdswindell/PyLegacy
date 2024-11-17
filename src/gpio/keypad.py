@@ -36,7 +36,6 @@ class Keypad(EventsMixin, CompositeDevice):
                 pin,
                 pull_up=False,
                 bounce_time=bounce_time,
-                hold_time=1,
                 hold_repeat=False,
                 active_state=None,
                 pin_factory=pin_factory,
@@ -109,7 +108,7 @@ class Keypad(EventsMixin, CompositeDevice):
                     for c, col in enumerate(self._cols):
                         if col.is_active:
                             self._keypress = self._last_keypress = KEYS[(r * 4) + c]
-                            self.when_changed()
+                            self._fire_events(self.pin_factory.ticks(), True)
                             while col.is_active:
                                 time.sleep(0.05)
                             break
