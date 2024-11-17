@@ -71,6 +71,7 @@ class Keypad(EventsMixin, CompositeDevice):
 
     def close(self) -> None:
         self._is_running = False
+        self._reset_pin_states()
         super().close()
 
     when_changed = event()
@@ -113,6 +114,7 @@ class Keypad(EventsMixin, CompositeDevice):
             if self._keypress:
                 break
             self._keypress = None
+            time.sleep(0.1)  # give CPU a break
 
     def _reset_pin_states(self) -> None:
         for r in self._rows:
