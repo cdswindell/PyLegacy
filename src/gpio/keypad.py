@@ -83,7 +83,6 @@ class Keypad(EventsMixin, CompositeDevice):
     def _fire_events(self, ticks, new_value):
         super()._fire_events(ticks, new_value)
         old_value, self._last_value = self._last_value, new_value
-        print(old_value, new_value)
         if old_value is None:
             # Initial "indeterminate" value; don't do anything
             pass
