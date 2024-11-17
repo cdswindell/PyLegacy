@@ -2,7 +2,7 @@
 import time
 from collections import deque
 from threading import Condition
-from typing import List
+from typing import List, Callable
 
 from gpiozero import Button, CompositeDevice, GPIOPinMissing, DigitalOutputDevice, event, EventsMixin
 from gpiozero.threads import GPIOThread
@@ -171,6 +171,16 @@ class KeyQueue:
             with self._cv:
                 self._deque.extend(keypress)
                 self._cv.notify()
+
+    def handler(self) -> Callable:
+        def fn(keypad: Keypad) -> None:
+            keypress = keypad.keypress
+            if keypress:
+                with self._cv:
+                    self._deque.extend(keypress)
+                    self._cv.notify()
+
+        return fn
 
     def key_presses(self) -> str:
         with self._cv:
