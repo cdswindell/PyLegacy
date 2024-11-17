@@ -41,9 +41,15 @@ class Lcd(CharLCD):
         self.create_char(0, SMILEY_CHAR)
 
     def print(self, c: int | str) -> None:
-        if isinstance(c, int):
+        if isinstance(c, int) and 0 <= c <= 255:
             self.write(c)
         elif isinstance(c, str) and len(c) == 1:
             self.write(ord(c[0]))
-        else:
+        elif isinstance(c, str):
             self.write_string(c)
+        else:
+            self.write_string(str(c))
+
+    def reset(self) -> None:
+        self.clear()
+        self.home()

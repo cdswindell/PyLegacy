@@ -115,6 +115,10 @@ class Keypad(EventsMixin, CompositeDevice):
     def last_keypress(self) -> str | None:
         return self._last_keypress
 
+    @property
+    def key_queue(self) -> KeyQueue:
+        return self._key_queue
+
     """
     The following methods expose behavior of KeyQueue and are
     repeated here for convenience
@@ -212,8 +216,9 @@ class KeyQueue:
     ) -> None:
         self._deque: deque[str] = deque(maxlen=max_length)
         self._cv = Condition()
-        self._eol_ev = Event()
         self._keypress_ev = Event()
+        self._eol_ev = Event() if eol_key else None
+        self._clear_ev = Event() if clear_key else None
         self._clear_key = clear_key
         self._eol_key = eol_key
 
@@ -222,13 +227,20 @@ class KeyQueue:
             keypress = keypad.keypress
             if keypress:
                 with self._cv:
+                    if self._eol_ev:
+                        self._eol_ev.clear()
+                    if self._clear_ev:
+                        self._clear_ev.clear()
                     if keypress == self._clear_key:
                         self._deque.clear()
+                        if self._clear_ev:
+                            self._clear_ev.set()
                     elif keypress == self._eol_key:
-                        self._eol_ev.set()
+                        if self._eol_ev:
+                            self._eol_ev.set()
                     else:
                         self._deque.extend(keypress)
-                        self._keypress_ev.set()
+                    self._keypress_ev.set()
                     self._cv.notify()
 
         return fn
@@ -244,28 +256,32 @@ class KeyQueue:
         with self._cv:
             self._deque.clear()
             self._eol_ev.clear()
+            self._clear_ev.clear()
             self._keypress_ev.clear()
             self._cv.notify()
 
     @property
     def is_eol(self) -> bool:
-        return self._eol_ev.is_set()
+        return self._eol_ev.is_set() if self._eol_ev else False
 
-    def wait_for_eol(self, timeout: float = 10) -> str | None:
-        self._eol_ev.wait(timeout)
-        if self._eol_ev.is_set():
-            self._eol_ev.clear()
-            return self.keypresses
-        else:
-            return None
+    @property
+    def is_clear(self) -> bool:
+        return self._clear_ev.is_set() if self._eol_ev else False
 
     def wait_for_keypress(self, timeout: float = 10) -> str | None:
         self._keypress_ev.wait(timeout)
         if self._keypress_ev.is_set():
             self._keypress_ev.clear()
             return self._deque[-1] if len(self._deque) > 0 else None
-        else:
-            return None
+        return None
+
+    def wait_for_eol(self, timeout: float = 10) -> str | None:
+        if self._eol_ev:
+            self._eol_ev.wait(timeout)
+            if self._eol_ev.is_set():
+                self._eol_ev.clear()
+                return self.keypresses
+        return None
 
 
 # Initialize the columns
