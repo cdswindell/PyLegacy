@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import time
 from typing import List
 
 from gpiozero import Button, CompositeDevice, EventsMixin, GPIOPinMissing, PinInvalidPin, DigitalOutputDevice, event
@@ -61,7 +62,7 @@ class Keypad(EventsMixin, CompositeDevice):
             button.pin.when_changed = handler
         self._when_changed = None
         self._last_value = None
-        self._last_keypress = None
+        self._keypress = self._last_keypress = None
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
         self._scan_thread = GPIOThread(self._scan)
@@ -98,13 +99,12 @@ class Keypad(EventsMixin, CompositeDevice):
                 try:
                     for c, col in enumerate(self._cols):
                         if col.is_active:
-                            self._last_keypress = KEYS[(r * 4) + c]
-                            # return self._last_keypress
-                            # while col.is_active:
-                            #    time.sleep(0.05)
+                            self._keypress = self._last_keypress = KEYS[(r * 4) + c]
+                            while col.is_active:
+                                time.sleep(0.05)
                 finally:
                     row.off()
-        # return None
+            self._keypress = None
 
     def _reset_pin_states(self) -> None:
         for r in self._rows:
