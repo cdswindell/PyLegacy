@@ -98,7 +98,7 @@ class Keypad(EventsMixin, CompositeDevice):
         self._fire_events(self.pin_factory.ticks(), self.is_active)
 
         # create the background thread to continually scan the matrix
-        self._scan_thread = GPIOThread(self._scan)
+        self._scan_thread = GPIOThread(self._scan_keyboard)
         self._is_running = True
         self._scan_thread.start()
 
@@ -107,9 +107,33 @@ class Keypad(EventsMixin, CompositeDevice):
         self._reset_pin_states()
         super().close()
 
+    @property
+    def keypress(self) -> str | None:
+        return self._keypress
+
+    @property
+    def last_keypress(self) -> str | None:
+        return self._last_keypress
+
+    """
+    The following methods expose behavior of KeyQueue and are
+    repeated here for convenience
+    """
+
     def reset_key_presses(self) -> None:
         self._key_queue.reset()
         self._keypress = self._last_keypress = None
+
+    def wait_for_eol(self, timeout: float = 10) -> str | None:
+        return self._key_queue.wait_for_eol(timeout)
+
+    @property
+    def keypresses(self) -> str:
+        return self._key_queue.keypresses
+
+    @property
+    def is_eol(self) -> bool:
+        return self._key_queue.is_eol
 
     when_changed = event()
 
@@ -126,19 +150,29 @@ class Keypad(EventsMixin, CompositeDevice):
         elif old_value != new_value:
             self._fire_changed()
 
-    @property
-    def keypress(self) -> str | None:
-        return self._keypress
+    def _reset_pin_states(self) -> None:
+        """
+        Resets the states of all pins associated with the rows.
 
-    @property
-    def key_presses(self) -> str:
-        return self._key_queue.key_presses
+        Sets the state of each row pin to 'off' if it is not already closed.
+        """
+        for r in self._rows:
+            if r.closed is False:
+                r.off()
 
-    @property
-    def last_keypress(self) -> str | None:
-        return self._last_keypress
+    def _scan_keyboard(self) -> None:
+        """
+        Scan the keys and handle keypress events in a loop that runs in a
+        background thread.
 
-    def _scan(self) -> None:
+        This method continuously scans the keys of a matrix keypad until
+        the _is_running flag is set to False. For each row, it checks each
+        column to detect if a key is pressed and handles keypress events
+        accordingly.
+
+        The method ensures a rest period to avoid excessive CPU usage
+        when no key is pressed.
+        """
         while self._is_running:
             self._reset_pin_states()
             self._keypress = None
@@ -159,11 +193,6 @@ class Keypad(EventsMixin, CompositeDevice):
                     row.off()
             if self._keypress is None:
                 time.sleep(0.05)  # give CPU a break
-
-    def _reset_pin_states(self) -> None:
-        for r in self._rows:
-            if r.closed is False:
-                r.off()
 
 
 Keypad.is_pressed = Keypad.is_active
@@ -205,7 +234,7 @@ class KeyQueue:
     __call__ = keypress_handler
 
     @property
-    def key_presses(self) -> str:
+    def keypresses(self) -> str:
         with self._cv:
             return "".join(self._deque)
 
@@ -219,8 +248,12 @@ class KeyQueue:
     def is_eol(self) -> bool:
         return self._ev.is_set()
 
-    def wait_for_eol(self, timeout: float = 10) -> None:
+    def wait_for_eol(self, timeout: float = 10) -> str | None:
         self._ev.wait(timeout)
+        if self._ev.is_set():
+            return self.keypresses
+        else:
+            return None
 
 
 # Initialize the columns
