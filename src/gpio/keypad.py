@@ -31,7 +31,14 @@ class Keypad(EventsMixin, CompositeDevice):
             devices.append(dev)
         self._cols = []
         for pin in column_pins:
-            dev = Button(pin, pull_up=False, bounce_time=bounce_time, hold_repeat=False, pin_factory=pin_factory)
+            dev = Button(
+                pin,
+                pull_up=False,
+                bounce_time=bounce_time,
+                hold_repeat=False,
+                active_state=None,
+                pin_factory=pin_factory,
+            )
             self._cols.append(dev)
             devices.append(dev)
         super().__init__(*devices, pin_factory=pin_factory)
