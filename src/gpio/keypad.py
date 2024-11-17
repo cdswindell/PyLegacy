@@ -100,6 +100,7 @@ class Keypad(EventsMixin, CompositeDevice):
     def _scan(self) -> None:
         while self._is_running:
             self._reset_pin_states()
+            self._keypress = None
             for r, row in enumerate(self._rows):
                 row.on()
                 try:
@@ -108,14 +109,12 @@ class Keypad(EventsMixin, CompositeDevice):
                             self._keypress = self._last_keypress = KEYS[(r * 4) + c]
                             while col.is_active:
                                 time.sleep(0.05)
-                            print("breaking...")
                             break
                 finally:
                     row.off()
             if self._keypress:
-                print("breaking 2...")
-                break
-            self._keypress = None
+                print(f"breaking 2 {self._is_running}...")
+                # break
             time.sleep(0.1)  # give CPU a break
         print("Exiting Keypad Scan")
 
