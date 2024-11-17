@@ -172,6 +172,9 @@ class KeyQueue:
 
         return fn
 
+    __call__ = keypress_handler
+
+    @property
     def key_presses(self) -> str:
         with self._cv:
             return "".join(self._deque)
