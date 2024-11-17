@@ -46,6 +46,7 @@ class Keypad(EventsMixin, CompositeDevice):
 
         def get_new_handler(device):
             def fire_both_events(ticks, state):
+                print(ticks, state)
                 # noinspection PyProtectedMember
                 device._fire_events(ticks, device._state_to_value(state))
                 self._fire_events(ticks, self.is_active)
@@ -71,7 +72,6 @@ class Keypad(EventsMixin, CompositeDevice):
             self.when_changed()
 
     def _fire_events(self, ticks, new_value):
-        print(ticks, new_value)
         super()._fire_events(ticks, new_value)
         old_value, self._last_value = self._last_value, new_value
         if old_value is None:
