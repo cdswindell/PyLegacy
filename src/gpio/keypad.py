@@ -276,6 +276,7 @@ class KeyQueue:
             if self._keypress_ev.is_set() is False or self._keypress_ev.is_set() or self._clear_ev.is_set():
                 return None
             else:
+                print(f"Len: {len(self._deque)} {self._deque[-1]}")
                 return self._deque[-1] if len(self._deque) > 0 else None
         finally:
             self._keypress_ev.clear()
