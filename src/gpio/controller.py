@@ -26,13 +26,14 @@ class Controller(Thread):
         self._lcd.print("Engine: ")
         while self._is_running:
             while True:
-                key = self._key_queue.wait_for_keypress()
+                key = self._key_queue.wait_for_keypress(60)
+                print(key, self._key_queue.is_clear, self._key_queue.is_eol)
                 if self._key_queue.is_clear:
                     self._lcd.reset()
                     self._lcd.print("Engine: ")
                 elif self._key_queue.is_eol:
                     break  # we have an engine
-                elif key:
+                elif key is not None:
                     self._lcd.print(key)
                 sleep(0.5)
             if self._key_queue.is_eol and self._key_queue.keypresses:
