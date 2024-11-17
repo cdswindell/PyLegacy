@@ -2,6 +2,7 @@
 from typing import List
 
 from gpiozero import Button, CompositeDevice, EventsMixin, GPIOPinMissing, PinInvalidPin, DigitalOutputDevice, event
+from gpiozero.threads import GPIOThread
 
 KEYS = ["1", "2", "3", "A", "4", "5", "6", "B", "7", "8", "9", "C", "*", "0", "#", "D"]
 
@@ -46,7 +47,6 @@ class Keypad(EventsMixin, CompositeDevice):
 
         def get_new_handler(device):
             def fire_both_events(ticks, state):
-                print(ticks, state)
                 # noinspection PyProtectedMember
                 device._fire_events(ticks, device._state_to_value(state))
                 self._fire_events(ticks, self.is_active)
@@ -64,6 +64,8 @@ class Keypad(EventsMixin, CompositeDevice):
         self._last_keypress = None
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
+        self._scan_thread = GPIOThread(self._scan)
+        self._scan_thread.start()
 
     when_changed = event()
 
