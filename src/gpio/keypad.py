@@ -2,18 +2,26 @@
 import time
 from typing import List
 
-from gpiozero import Button, CompositeDevice, EventsMixin, GPIOPinMissing, PinInvalidPin, DigitalOutputDevice, event
+from gpiozero import Button, CompositeDevice, GPIOPinMissing, PinInvalidPin, DigitalOutputDevice, event, HoldMixin
 from gpiozero.threads import GPIOThread
 
-KEYS = ["1", "2", "3", "A", "4", "5", "6", "B", "7", "8", "9", "C", "*", "0", "#", "D"]
+DEFAULT_4X4_KEYS = (
+    ("1", "2", "3", "A"),
+    ("4", "5", "6", "B"),
+    ("7", "8", "9", "C"),
+    ("*", "0", "#", "D"),
+)
 
 
-class Keypad(EventsMixin, CompositeDevice):
+class Keypad(HoldMixin, CompositeDevice):
     def __init__(
         self,
         row_pins: List[int | str],
         column_pins: List[int | str],
         bounce_time: float = None,
+        keys: List[List[str]] = DEFAULT_4X4_KEYS,
+        hold_time=1,
+        hold_repeat=False,
         pin_factory=None,
     ):
         if len(row_pins) < 4:
@@ -43,9 +51,13 @@ class Keypad(EventsMixin, CompositeDevice):
             self._cols.append(dev)
             devices.append(dev)
         super().__init__(*devices, pin_factory=pin_factory)
+
         if len(self) == 0:
             raise GPIOPinMissing("No pins given")
 
+        # _handlers only exists to ensure that we keep a reference to the
+        # generated fire_both_events handler for each Button (remember that
+        # pin.when_changed only keeps a weak reference to handlers)
         def get_new_handler(device):
             def fire_both_events(ticks, state):
                 # noinspection PyProtectedMember
@@ -54,17 +66,20 @@ class Keypad(EventsMixin, CompositeDevice):
 
             return fire_both_events
 
-        # _handlers only exists to ensure that we keep a reference to the
-        # generated fire_both_events handler for each Button (remember that
-        # pin.when_changed only keeps a weak reference to handlers)
         self._handlers = tuple(get_new_handler(device) for device in self._cols)
         for button, handler in zip(self._cols, self._handlers):
             button.pin.when_changed = handler
+
         self._when_changed = None
         self._last_value = None
         self._keypress = self._last_keypress = None
+        self._keys = keys
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
+        self._hold_repeat = hold_repeat
+        self._hold_time = hold_time
+
+        # create the background thread to continually scan the matrix
         self._scan_thread = GPIOThread(self._scan)
         self._is_running = True
         self._scan_thread.start()
@@ -89,12 +104,12 @@ class Keypad(EventsMixin, CompositeDevice):
         elif old_value != new_value:
             self._fire_changed()
 
-    # @property
-    # def key(self) -> str:
-    #     return self._scan()
+    @property
+    def keypress(self) -> str | None:
+        return self._keypress
 
     @property
-    def last_key(self) -> str | None:
+    def last_keypress(self) -> str | None:
         return self._last_keypress
 
     def _scan(self) -> None:
@@ -106,7 +121,7 @@ class Keypad(EventsMixin, CompositeDevice):
                 try:
                     for c, col in enumerate(self._cols):
                         if col.is_active:
-                            self._keypress = self._last_keypress = KEYS[(r * 4) + c]
+                            self._keypress = self._last_keypress = self._keys[r][c]
                             self._fire_events(self.pin_factory.ticks(), True)
                             while col.is_active:
                                 time.sleep(0.05)
@@ -116,7 +131,8 @@ class Keypad(EventsMixin, CompositeDevice):
                     if self._keypress:
                         break
                     row.off()
-            time.sleep(0.05)  # give CPU a break
+            if self._keypress is None:
+                time.sleep(0.05)  # give CPU a break
 
     def _reset_pin_states(self) -> None:
         for r in self._rows:
