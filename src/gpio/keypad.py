@@ -269,11 +269,15 @@ class KeyQueue:
         return self._clear_ev.is_set() if self._eol_ev else False
 
     def wait_for_keypress(self, timeout: float = 10) -> str | None:
-        self._keypress_ev.wait(timeout)
-        if self._keypress_ev.is_set() | self._clear_ev.is_set():
-            return None
-        else:
-            return self._deque[-1] if len(self._deque) > 0 else None
+        with self._cv:
+            try:
+                self._keypress_ev.wait(timeout)
+                if self._keypress_ev.is_set() is False or self._keypress_ev.is_set() or self._clear_ev.is_set():
+                    return None
+                else:
+                    return self._deque[-1] if len(self._deque) > 0 else None
+            finally:
+                self._keypress_ev.clear()
 
     def wait_for_eol(self, timeout: float = 10) -> str | None:
         if self._eol_ev:
