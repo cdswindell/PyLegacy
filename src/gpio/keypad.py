@@ -66,7 +66,12 @@ class Keypad(EventsMixin, CompositeDevice):
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
         self._scan_thread = GPIOThread(self._scan)
+        self._is_running = True
         self._scan_thread.start()
+
+    def close(self) -> None:
+        self._is_running = False
+        super().close()
 
     when_changed = event()
 
@@ -92,7 +97,7 @@ class Keypad(EventsMixin, CompositeDevice):
         return self._last_keypress
 
     def _scan(self) -> None:
-        while True:
+        while self._is_running:
             self._reset_pin_states()
             for r, row in enumerate(self._rows):
                 row.on()
@@ -102,8 +107,11 @@ class Keypad(EventsMixin, CompositeDevice):
                             self._keypress = self._last_keypress = KEYS[(r * 4) + c]
                             while col.is_active:
                                 time.sleep(0.05)
+                            break
                 finally:
                     row.off()
+            if self._keypress:
+                break
             self._keypress = None
 
     def _reset_pin_states(self) -> None:
