@@ -82,28 +82,29 @@ class Keypad(EventsMixin, CompositeDevice):
         elif old_value != new_value:
             self._fire_changed()
 
-    @property
-    def key(self) -> str:
-        return self._scan()
+    # @property
+    # def key(self) -> str:
+    #     return self._scan()
 
     @property
     def last_key(self) -> str | None:
         return self._last_keypress
 
-    def _scan(self) -> str | None:
-        self._reset_pin_states()
-        for r, row in enumerate(self._rows):
-            row.on()
-            try:
-                for c, col in enumerate(self._cols):
-                    if col.is_active:
-                        self._last_keypress = KEYS[(r * 4) + c]
-                        return self._last_keypress
-                        # while col.is_active:
-                        #    time.sleep(0.05)
-            finally:
-                row.off()
-        return None
+    def _scan(self) -> None:
+        while True:
+            self._reset_pin_states()
+            for r, row in enumerate(self._rows):
+                row.on()
+                try:
+                    for c, col in enumerate(self._cols):
+                        if col.is_active:
+                            self._last_keypress = KEYS[(r * 4) + c]
+                            # return self._last_keypress
+                            # while col.is_active:
+                            #    time.sleep(0.05)
+                finally:
+                    row.off()
+        # return None
 
     def _reset_pin_states(self) -> None:
         for r in self._rows:
