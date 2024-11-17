@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import time
 from typing import List
 
 from gpiozero import Button, CompositeDevice, EventsMixin, GPIOPinMissing, PinInvalidPin, DigitalOutputDevice, event
@@ -48,6 +47,7 @@ class Keypad(EventsMixin, CompositeDevice):
 
         def get_new_handler(device):
             def fire_both_events(ticks, state):
+                self._scan()
                 # noinspection PyProtectedMember
                 device._fire_events(ticks, device._state_to_value(state))
                 self._fire_events(ticks, self.is_active)
@@ -82,12 +82,13 @@ class Keypad(EventsMixin, CompositeDevice):
 
     @property
     def key(self) -> str:
-        return self._read()
+        return self._scan()
 
+    @property
     def last_key(self) -> str | None:
         return self._last_keypress
 
-    def _read(self) -> str | None:
+    def _scan(self) -> str | None:
         self._reset_pin_states()
         for r, row in enumerate(self._rows):
             row.on()
@@ -95,9 +96,9 @@ class Keypad(EventsMixin, CompositeDevice):
                 for c, col in enumerate(self._cols):
                     if col.is_active:
                         self._last_keypress = KEYS[(r * 4) + c]
-                        yield self._last_keypress
-                        while col.is_active:
-                            time.sleep(0.05)
+                        return self._last_keypress
+                        # while col.is_active:
+                        #    time.sleep(0.05)
             finally:
                 row.off()
         return None
@@ -108,11 +109,11 @@ class Keypad(EventsMixin, CompositeDevice):
 
     @property
     def value(self):
-        return self._read()
+        return self.namedtuple(*(col.value for col in self._cols))
 
     @property
     def is_active(self):
-        return self.value is not None
+        return any(self._value)
 
 
 Keypad.is_pressed = Keypad.is_active
