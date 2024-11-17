@@ -43,7 +43,6 @@ class Keypad(EventsMixin, CompositeDevice):
         super().__init__(*devices, pin_factory=pin_factory)
         if len(self) == 0:
             raise GPIOPinMissing("No pins given")
-        self._last_keypress = None
 
         def get_new_handler(device):
             def fire_both_events(ticks, state):
@@ -61,6 +60,7 @@ class Keypad(EventsMixin, CompositeDevice):
             button.pin.when_changed = handler
         self._when_changed = None
         self._last_value = None
+        self._last_keypress = None
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
 
@@ -71,6 +71,7 @@ class Keypad(EventsMixin, CompositeDevice):
             self.when_changed()
 
     def _fire_events(self, ticks, new_value):
+        print(ticks, new_value)
         super()._fire_events(ticks, new_value)
         old_value, self._last_value = self._last_value, new_value
         if old_value is None:
@@ -78,10 +79,6 @@ class Keypad(EventsMixin, CompositeDevice):
             pass
         elif old_value != new_value:
             self._fire_changed()
-
-    @property
-    def value(self):
-        return self.namedtuple(*(col.value for col in self._cols))
 
     @property
     def key(self) -> str:
