@@ -1,4 +1,5 @@
 from threading import Thread
+from time import sleep
 from typing import List
 
 from .keypad import Keypad
@@ -26,15 +27,17 @@ class Controller(Thread):
         while self._is_running:
             while True:
                 key = self._key_queue.wait_for_keypress()
-                if key:
-                    self._lcd.print(key)
-                elif self._key_queue.is_clear:
+                if self._key_queue.is_clear:
                     self._lcd.reset()
                     self._lcd.print("Engine: ")
                 elif self._key_queue.is_eol:
                     break  # we have an engine
-            tmcc_id = self._key_queue.keypresses
-            print(tmcc_id)
+                elif key:
+                    self._lcd.print(key)
+                sleep(0.5)
+            if self._key_queue.is_eol and self._key_queue.keypresses:
+                tmcc_id = self._key_queue.keypresses
+                print(tmcc_id)
 
     def reset(self) -> None:
         self._is_running = False
