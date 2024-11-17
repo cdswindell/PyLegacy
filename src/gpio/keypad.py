@@ -212,7 +212,8 @@ class KeyQueue:
     ) -> None:
         self._deque: deque[str] = deque(maxlen=max_length)
         self._cv = Condition()
-        self._ev = Event()
+        self._eol_ev = Event()
+        self._keypress_ev = Event()
         self._clear_key = clear_key
         self._eol_key = eol_key
 
@@ -224,9 +225,10 @@ class KeyQueue:
                     if keypress == self._clear_key:
                         self._deque.clear()
                     elif keypress == self._eol_key:
-                        self._ev.set()
+                        self._eol_ev.set()
                     else:
                         self._deque.extend(keypress)
+                        self._keypress_ev.set()
                     self._cv.notify()
 
         return fn
@@ -241,17 +243,27 @@ class KeyQueue:
     def reset(self) -> None:
         with self._cv:
             self._deque.clear()
-            self._ev.clear()
+            self._eol_ev.clear()
+            self._keypress_ev.clear()
             self._cv.notify()
 
     @property
     def is_eol(self) -> bool:
-        return self._ev.is_set()
+        return self._eol_ev.is_set()
 
     def wait_for_eol(self, timeout: float = 10) -> str | None:
-        self._ev.wait(timeout)
-        if self._ev.is_set():
+        self._eol_ev.wait(timeout)
+        if self._eol_ev.is_set():
+            self._eol_ev.clear()
             return self.keypresses
+        else:
+            return None
+
+    def wait_for_keypress(self, timeout: float = 10) -> str | None:
+        self._keypress_ev.wait(timeout)
+        if self._keypress_ev.is_set():
+            self._keypress_ev.clear()
+            return self._deque[-1] if len(self._deque) > 0 else None
         else:
             return None
 
