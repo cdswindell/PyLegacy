@@ -41,7 +41,7 @@ class Controller(Thread):
                 tmcc_id = int(self._key_queue.keypresses)
                 state = self._state.get_state(CommandScope.ENGINE, tmcc_id)
                 if state:
-                    self._lcd.cursor_pos(1, 0)
+                    self._lcd.cursor_pos = (1, 0)
                     self._lcd.print(state.name)
                 print(tmcc_id)
 
@@ -50,4 +50,5 @@ class Controller(Thread):
         self._keypad.close()
         self._lcd.close(True)
 
-    close = reset
+    def close(self) -> None:
+        self.reset()
