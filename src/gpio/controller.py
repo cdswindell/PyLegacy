@@ -4,7 +4,8 @@ from typing import List
 
 from .keypad import Keypad
 from .lcd import Lcd
-from ..protocol.constants import PROGRAM_NAME
+from ..protocol.constants import PROGRAM_NAME, CommandScope
+from ..db.component_state_store import ComponentStateStore
 
 
 class Controller(Thread):
@@ -18,6 +19,7 @@ class Controller(Thread):
         self._lcd = Lcd(address=lcd_address)
         self._keypad = Keypad(row_pins, column_pins)
         self._key_queue = self._keypad.key_queue
+        self._state = ComponentStateStore.build()
         self._is_running = True
         self.start()
 
@@ -27,7 +29,6 @@ class Controller(Thread):
         while self._is_running:
             while True:
                 key = self._key_queue.wait_for_keypress(60)
-                print(key, self._key_queue.is_clear, self._key_queue.is_eol)
                 if self._key_queue.is_clear:
                     self._lcd.reset()
                     self._lcd.print("Engine: ")
@@ -37,7 +38,11 @@ class Controller(Thread):
                     self._lcd.print(key)
                 sleep(0.5)
             if self._key_queue.is_eol and self._key_queue.keypresses:
-                tmcc_id = self._key_queue.keypresses
+                tmcc_id = int(self._key_queue.keypresses)
+                state = self._state.get_state(CommandScope.ENGINE, tmcc_id)
+                if state:
+                    self._lcd.cursor_pos(1, 0)
+                    self._lcd.print(state.name)
                 print(tmcc_id)
 
     def reset(self) -> None:

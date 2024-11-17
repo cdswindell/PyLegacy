@@ -1,8 +1,9 @@
+"""
+Simple examples of how to associate Lionel commands to Raspberry Pi buttons
+"""
+
 from src.gpio.gpio_handler import GpioHandler
 
-"""
-    Simple examples of how to associate Lionel commands to Raspberry Pi buttons
-"""
 # GpioHandler.when_button_held(26, TMCC2EngineCommandDef.BLOW_HORN_ONE)
 # GpioHandler.when_button_pressed(21, TMCC2RouteCommandDef.FIRE, 10)
 
@@ -27,10 +28,10 @@ from src.gpio.gpio_handler import GpioHandler
 # GpioHandler.culvert_loader(11, cycle_pin=5, cycle_led_pin=20)
 # GpioHandler.smoke_fluid_loader(12, channel=0, dispense_pin=21, lights_on_pin=26, lights_off_pin=19)
 # GpioHandler.engine(18, channel=0, fwd_pin=13, rev_pin=21)
-GpioHandler.gantry_crane(92, 20, 21, 0, 1, 16, 24)
-GpioHandler.base_watcher("192.168.3.124", 5, 6)
+# GpioHandler.gantry_crane(92, 20, 21, 0, 1, 16, 24)
+# GpioHandler.base_watcher("192.168.3.124", 5, 6)
 
 # GpioHandler.crane_car(91, 20, 21, 0, 16, bh_pin=25, bo_led_pin=23, bh_led_pin=24)
-
+GpioHandler.controller([18, 23, 24, 25], [12, 16, 20, 21], 0x27)
 
 print("Buttons registered...")

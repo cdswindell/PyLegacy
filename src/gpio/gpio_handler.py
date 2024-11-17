@@ -4,10 +4,11 @@ import sched
 import threading
 import time
 from threading import Thread
-from typing import Tuple, Callable, Dict, TypeVar
+from typing import Tuple, Callable, Dict, TypeVar, List
 
 from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice, PingServer
 
+from .controller import Controller
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
@@ -323,6 +324,17 @@ class GpioHandler:
                 is_running = False
         print(f" X center range: {min_x} - {max_x}; average: {sum_x / cycle}")
         print(f" Y center range: {min_y} - {max_y}; average: {sum_y / cycle}")
+
+    @classmethod
+    def controller(
+        cls,
+        row_pins: List[int | str],
+        column_pins: List[int | str],
+        lcd_address: int = 0x27,
+    ) -> Controller:
+        c = Controller(row_pins, column_pins, lcd_address)
+        cls.cache_handler(c)
+        return c
 
     @classmethod
     def base_watcher(
