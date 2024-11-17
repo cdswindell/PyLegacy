@@ -40,9 +40,11 @@ class Controller(Thread):
             if self._key_queue.is_eol and self._key_queue.keypresses:
                 tmcc_id = int(self._key_queue.keypresses)
                 state = self._state.get_state(CommandScope.ENGINE, tmcc_id)
+                self._lcd.cursor_pos = (1, 0)
                 if state:
-                    self._lcd.cursor_pos = (1, 0)
-                    self._lcd.print(state.name)
+                    self._lcd.print(state.road_name)
+                else:
+                    self._lcd.print("No Data")
                 print(tmcc_id)
 
     def reset(self) -> None:
