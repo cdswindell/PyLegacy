@@ -116,6 +116,7 @@ class Keypad(EventsMixin, CompositeDevice):
                     if self._keypress:
                         break
                     row.off()
+            self._fire_events(self.pin_factory.ticks(), False)
             time.sleep(0.05)  # give CPU a break
 
     def _reset_pin_states(self) -> None:
