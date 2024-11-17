@@ -119,7 +119,8 @@ class Keypad(EventsMixin, CompositeDevice):
 
     def _reset_pin_states(self) -> None:
         for r in self._rows:
-            r.off()
+            if r.closed is False:
+                r.off()
 
 
 Keypad.is_pressed = Keypad.is_active
