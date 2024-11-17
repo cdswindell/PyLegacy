@@ -36,6 +36,7 @@ class Keypad(EventsMixin, CompositeDevice):
                 pin,
                 pull_up=False,
                 bounce_time=bounce_time,
+                hold_time=1,
                 hold_repeat=False,
                 active_state=None,
                 pin_factory=pin_factory,
