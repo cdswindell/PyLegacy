@@ -35,3 +35,8 @@ class Controller(Thread):
                     break  # we have an engine
             tmcc_id = self._key_queue.keypresses
             print(tmcc_id)
+
+    def reset(self) -> None:
+        self._is_running = False
+        self._keypad.close()
+        self._lcd.close(True)
