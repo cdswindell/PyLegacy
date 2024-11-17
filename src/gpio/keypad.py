@@ -4,7 +4,7 @@ from collections import deque
 from threading import Condition
 from typing import List
 
-from gpiozero import Button, CompositeDevice, GPIOPinMissing, DigitalOutputDevice, event, HoldMixin
+from gpiozero import Button, CompositeDevice, GPIOPinMissing, DigitalOutputDevice, event, EventsMixin
 from gpiozero.threads import GPIOThread
 
 DEFAULT_4X4_KEYS = (
@@ -22,15 +22,13 @@ TELEPHONE_4X3_KEYS = (
 )
 
 
-class Keypad(HoldMixin, CompositeDevice):
+class Keypad(EventsMixin, CompositeDevice):
     def __init__(
         self,
         row_pins: List[int | str],
         column_pins: List[int | str],
         bounce_time: float = None,
         keys: List[List[str]] = DEFAULT_4X4_KEYS,
-        hold_time=1,
-        hold_repeat=False,
         pin_factory=None,
     ):
         if keys is None or len(keys) == 0:
@@ -89,8 +87,6 @@ class Keypad(HoldMixin, CompositeDevice):
 
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
-        self._hold_repeat = hold_repeat
-        self._hold_time = hold_time
 
         # create the background thread to continually scan the matrix
         self._scan_thread = GPIOThread(self._scan)
