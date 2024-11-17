@@ -107,6 +107,14 @@ class Keypad(EventsMixin, CompositeDevice):
         for r in self._rows:
             r.off()
 
+    @property
+    def value(self):
+        return self._read()
+
+    @property
+    def is_active(self):
+        return self.value is not None
+
 
 Keypad.is_pressed = Keypad.is_active
 Keypad.pressed_time = Keypad.active_time
