@@ -2,7 +2,6 @@
 from typing import List
 
 from gpiozero import Button, CompositeDevice, EventsMixin, GPIOPinMissing, PinInvalidPin, DigitalOutputDevice, event
-import time
 
 KEYS = ["1", "2", "3", "A", "4", "5", "6", "B", "7", "8", "9", "C", "*", "0", "#", "D"]
 
@@ -96,8 +95,8 @@ class Keypad(EventsMixin, CompositeDevice):
                 for c, col in enumerate(self._cols):
                     if col.is_active:
                         self._last_keypress = KEYS[(r * 4) + c]
-                        while col.is_active:
-                            time.sleep(0.05)
+                        # while col.is_active:
+                        #     time.sleep(0.05)
                         return self._last_keypress
             finally:
                 row.off()
