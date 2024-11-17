@@ -47,7 +47,6 @@ class Keypad(EventsMixin, CompositeDevice):
 
         def get_new_handler(device):
             def fire_both_events(ticks, state):
-                self._scan()
                 # noinspection PyProtectedMember
                 device._fire_events(ticks, device._state_to_value(state))
                 self._fire_events(ticks, self.is_active)
@@ -81,6 +80,14 @@ class Keypad(EventsMixin, CompositeDevice):
             self._fire_changed()
 
     @property
+    def value(self):
+        return self.namedtuple(*(col.value for col in self._cols))
+
+    @property
+    def is_active(self):
+        return any(self._value)
+
+    @property
     def key(self) -> str:
         return self._scan()
 
@@ -106,14 +113,6 @@ class Keypad(EventsMixin, CompositeDevice):
     def _reset_pin_states(self) -> None:
         for r in self._rows:
             r.off()
-
-    @property
-    def value(self):
-        return self.namedtuple(*(col.value for col in self._cols))
-
-    @property
-    def is_active(self):
-        return any(self._value)
 
 
 Keypad.is_pressed = Keypad.is_active
