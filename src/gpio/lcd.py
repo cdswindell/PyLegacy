@@ -12,7 +12,7 @@ SMILEY_CHAR = (
 )
 
 
-class LCD(CharLCD):
+class Lcd(CharLCD):
     def __init__(
         self,
         i2c_expander="PCF8574",
@@ -37,3 +37,11 @@ class LCD(CharLCD):
             backlight_enabled=backlight_enabled,
         )
         self.create_char(0, SMILEY_CHAR)
+
+    def print(self, c: int | str) -> None:
+        if isinstance(c, int):
+            self.write(c)
+        elif isinstance(c, str) and len(c) == 1:
+            self.write(ord(c[0]))
+        else:
+            self.write_string(c)
