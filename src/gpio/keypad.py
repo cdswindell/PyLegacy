@@ -79,13 +79,9 @@ class Keypad(EventsMixin, CompositeDevice):
         elif old_value != new_value:
             self._fire_changed()
 
-    # @property
-    # def value(self):
-    #     return self.namedtuple(*(col.value for col in self._cols))
-    #
-    # @property
-    # def is_active(self):
-    #     return any(self._value)
+    @property
+    def value(self):
+        return self.namedtuple(*(col.value for col in self._cols))
 
     @property
     def key(self) -> str:
