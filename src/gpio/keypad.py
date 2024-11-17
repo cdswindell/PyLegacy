@@ -104,6 +104,8 @@ class Keypad(EventsMixin, CompositeDevice):
 
     def close(self) -> None:
         self._is_running = False
+        if self._key_queue:
+            self._key_queue.reset()
         self._reset_pin_states()
         super().close()
 
@@ -240,7 +242,6 @@ class KeyQueue:
                         if self._eol_ev:
                             self._eol_ev.set()
                     else:
-                        print(f"Extending {keypress}")
                         self._deque.extend(keypress)
                     self._keypress_ev.set()
                     self._cv.notify()
@@ -256,10 +257,11 @@ class KeyQueue:
 
     def reset(self) -> None:
         with self._cv:
-            self._deque.clear()
+            self._clear_ev.set()  # force controllers to wake up
             self._eol_ev.clear()
             self._clear_ev.clear()
             self._keypress_ev.clear()
+            self._deque.clear()
             self._cv.notify()
 
     @property

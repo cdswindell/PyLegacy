@@ -45,7 +45,6 @@ class Controller(Thread):
                     self._lcd.print(state.road_name)
                 else:
                     self._lcd.print("No Data")
-                print(tmcc_id)
 
     def reset(self) -> None:
         self._is_running = False
