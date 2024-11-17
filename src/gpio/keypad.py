@@ -215,18 +215,19 @@ class KeyQueue:
         max_length: int = 256,
     ) -> None:
         self._deque: deque[str] = deque(maxlen=max_length)
+        self._clear_key = clear_key
+        self._eol_key = eol_key
         self._cv = Condition()
         self._keypress_ev = Event()
         self._eol_ev = Event() if eol_key else None
         self._clear_ev = Event() if clear_key else None
-        self._clear_key = clear_key
-        self._eol_key = eol_key
 
     def keypress_handler(self) -> Callable:
         def fn(keypad: Keypad) -> None:
             keypress = keypad.keypress
             if keypress:
                 with self._cv:
+                    self._keypress_ev.clear()
                     if self._eol_ev:
                         self._eol_ev.clear()
                     if self._clear_ev:
@@ -239,6 +240,7 @@ class KeyQueue:
                         if self._eol_ev:
                             self._eol_ev.set()
                     else:
+                        print(f"Extending {keypress}")
                         self._deque.extend(keypress)
                     self._keypress_ev.set()
                     self._cv.notify()
@@ -269,15 +271,14 @@ class KeyQueue:
         return self._clear_ev.is_set() if self._eol_ev else False
 
     def wait_for_keypress(self, timeout: float = 10) -> str | None:
-        with self._cv:
-            try:
-                self._keypress_ev.wait(timeout)
-                if self._keypress_ev.is_set() is False or self._keypress_ev.is_set() or self._clear_ev.is_set():
-                    return None
-                else:
-                    return self._deque[-1] if len(self._deque) > 0 else None
-            finally:
-                self._keypress_ev.clear()
+        try:
+            self._keypress_ev.wait(timeout)
+            if self._keypress_ev.is_set() is False or self._keypress_ev.is_set() or self._clear_ev.is_set():
+                return None
+            else:
+                return self._deque[-1] if len(self._deque) > 0 else None
+        finally:
+            self._keypress_ev.clear()
 
     def wait_for_eol(self, timeout: float = 10) -> str | None:
         if self._eol_ev:
