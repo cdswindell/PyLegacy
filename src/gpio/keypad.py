@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import time
+from collections import deque
+from threading import Condition
 from typing import List
 
 from gpiozero import Button, CompositeDevice, GPIOPinMissing, DigitalOutputDevice, event, HoldMixin
@@ -157,6 +159,26 @@ Keypad.when_pressed = Keypad.when_activated
 Keypad.when_released = Keypad.when_deactivated
 Keypad.wait_for_press = Keypad.wait_for_active
 Keypad.wait_for_release = Keypad.wait_for_inactive
+
+
+class KeyQueue:
+    def __init__(self, max_length: int = 256) -> None:
+        self._deque: deque[str] = deque(maxlen=max_length)
+        self._cv = Condition()
+
+    def __call__(self, keypad: Keypad) -> None:
+        """
+        Use as when_pressed handler for a Keypad instance.
+        """
+        keypress = keypad.keypress
+        if keypress:
+            with self._cv:
+                self._deque.extend(keypress)
+                self._cv.notify()
+
+    def key_presses(self) -> str:
+        with self._cv:
+            return str(self._deque)
 
 
 # Initialize the columns
