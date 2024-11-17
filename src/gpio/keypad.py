@@ -87,6 +87,7 @@ class Keypad(EventsMixin, CompositeDevice):
             # Initial "indeterminate" value; don't do anything
             pass
         elif old_value != new_value:
+            print(old_value, new_value)
             self._fire_changed()
 
     # @property
@@ -107,14 +108,13 @@ class Keypad(EventsMixin, CompositeDevice):
                     for c, col in enumerate(self._cols):
                         if col.is_active:
                             self._keypress = self._last_keypress = KEYS[(r * 4) + c]
-                            # while col.is_active:
-                            #    time.sleep(0.05)
+                            while col.is_active:
+                                time.sleep(0.05)
                             break
                 finally:
                     if self._keypress:
                         break
-                    else:
-                        row.off()
+                    row.off()
             time.sleep(0.05)  # give CPU a break
 
     def _reset_pin_states(self) -> None:
