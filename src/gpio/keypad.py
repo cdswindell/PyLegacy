@@ -108,6 +108,7 @@ class Keypad(EventsMixin, CompositeDevice):
                             self._keypress = self._last_keypress = KEYS[(r * 4) + c]
                             while col.is_active:
                                 time.sleep(0.05)
+                            print("breaking...")
                             break
                 finally:
                     row.off()
