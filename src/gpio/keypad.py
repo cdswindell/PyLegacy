@@ -120,7 +120,7 @@ class Keypad(EventsMixin, CompositeDevice):
     repeated here for convenience
     """
 
-    def reset_key_presses(self) -> None:
+    def reset_keypresses(self) -> None:
         self._key_queue.reset()
         self._keypress = self._last_keypress = None
 
