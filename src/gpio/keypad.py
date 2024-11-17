@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import time
 from typing import List
 
 from gpiozero import Button, CompositeDevice, EventsMixin, GPIOPinMissing, PinInvalidPin, DigitalOutputDevice, event
@@ -94,9 +95,9 @@ class Keypad(EventsMixin, CompositeDevice):
                 for c, col in enumerate(self._cols):
                     if col.is_active:
                         self._last_keypress = KEYS[(r * 4) + c]
-                        # while col.is_active:
-                        #     time.sleep(0.05)
-                        return self._last_keypress
+                        yield self._last_keypress
+                        while col.is_active:
+                            time.sleep(0.05)
             finally:
                 row.off()
         return None
