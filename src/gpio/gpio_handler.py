@@ -330,6 +330,8 @@ class GpioHandler:
         cls,
         row_pins: List[int | str],
         column_pins: List[int | str],
+        speed_pins: List[int | str],
+        toggle_dir_pin: List[int | str],
         lcd_address: int = 0x27,
         num_rows: int = 4,
         num_columns: int = 20,
@@ -337,11 +339,14 @@ class GpioHandler:
         c = Controller(
             row_pins=row_pins,
             column_pins=column_pins,
+            speed_pins=speed_pins,
+            toggle_dir_pin=toggle_dir_pin,
             lcd_address=lcd_address,
             num_rows=num_rows,
             num_columns=num_columns,
         )
         cls.cache_handler(c)
+
         return c
 
     @classmethod
@@ -842,12 +847,13 @@ class GpioHandler:
         speed_pin_2: int | str = None,
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
+        toggle_pin: int | str = None,
         is_legacy: bool = True,
         scope: CommandScope = CommandScope.ENGINE,
         cathode: bool = True,
-    ) -> Tuple[RotaryEncoder, Button, Button]:
-        fwd_btn = rev_btn = None
-        fwd_cmd = rev_cmd = None
+    ) -> Tuple[RotaryEncoder, Button, Button, Button]:
+        fwd_btn = rev_btn = tgl_btn = None
+        fwd_cmd = rev_cmd = tgl_cmd = None
         if is_legacy is True:
             max_steps = 200
             speed_cmd = CommandReq.build(TMCC2EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
@@ -867,6 +873,14 @@ class GpioHandler:
                     scope=scope,
                     cathode=cathode,
                 )
+            if toggle_pin is not None:
+                tgl_cmd, tgl_btn, _ = cls._make_button(
+                    toggle_pin,
+                    TMCC2EngineCommandDef.TOGGLE_DIRECTION,
+                    address,
+                    scope=scope,
+                    cathode=cathode,
+                )
         else:
             max_steps = 32
             speed_cmd = CommandReq.build(TMCC1EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
@@ -882,6 +896,14 @@ class GpioHandler:
                 rev_cmd, rev_btn, _ = cls._make_button(
                     rev_pin,
                     TMCC1EngineCommandDef.REVERSE_DIRECTION,
+                    address,
+                    scope=scope,
+                    cathode=cathode,
+                )
+            if toggle_pin is not None:
+                tgl_cmd, tgl_btn, _ = cls._make_button(
+                    toggle_pin,
+                    TMCC1EngineCommandDef.TOGGLE_DIRECTION,
                     address,
                     scope=scope,
                     cathode=cathode,
@@ -910,8 +932,10 @@ class GpioHandler:
             fwd_btn.when_pressed = fwd_cmd.as_action()
         if rev_btn is not None:
             rev_btn.when_pressed = rev_cmd.as_action()
+        if tgl_btn is not None:
+            tgl_btn.when_pressed = tgl_cmd.as_action()
         # return objects
-        return speed_ctrl, fwd_btn, rev_btn
+        return speed_ctrl, fwd_btn, rev_btn, tgl_btn
 
     @classmethod
     def when_button_pressed(
@@ -1316,27 +1340,38 @@ class GpioHandler:
     ) -> Callable:
         tmcc_command_buffer = CommBuffer.build()
         last_rotation_at = cls.current_milli_time()
+        last_steps = None
 
         def func() -> None:
             nonlocal last_rotation_at
             nonlocal tmcc_command_buffer
+            nonlocal last_steps
+            nonlocal cc
             last_rotated = cls.current_milli_time() - last_rotation_at
             if re:
                 data = re.steps
-                print(re.steps)
+                if last_steps is not None:
+                    cc = data >= last_steps
+                last_steps = data
             else:
                 data = 1 if cc is False else -1
-                if ramp:
-                    for ramp_val, data_val in ramp.items():
-                        if last_rotated <= ramp_val:
-                            data = data_val if cc is False else -data_val
-                            break
+            adj = 0
+            if ramp:
+                for ramp_val, data_val in ramp.items():
+                    if last_rotated <= ramp_val:
+                        adj = data_val if cc is False else -data_val
+                        break
+            # apply adjustment
+            if re:
+                data += adj
+            else:
+                data = adj
             byte_str = bytes()
             if prefix:
                 if GpioHandler.engine_numeric(address) == prefix.data:
                     pass
                 else:
-                    byte_str += prefix.as_bytes * 3
+                    byte_str += prefix.as_bytes * 2
             if scaler:
                 print(f"Steps: {data} New speed: {scaler(data)}")
                 data = scaler(data)

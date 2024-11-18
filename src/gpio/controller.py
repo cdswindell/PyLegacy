@@ -13,6 +13,8 @@ class Controller(Thread):
         self,
         row_pins: List[int | str],
         column_pins: List[int | str],
+        speed_pins: List[int | str],
+        toggle_dir_pin: List[int | str],
         lcd_address: int = 0x27,
         num_rows: int = 4,
         num_columns: int = 20,
