@@ -63,18 +63,21 @@ class Controller(Thread):
         else:
             state = None
         if state and state.road_number:
-            row += f" {state.road_number}"
+            row += f" #{state.road_number}"
         self._frame_buffer.append(row)
 
         if self._tmcc_id is not None:
             row = state.name if state else "No Information"
-            self._frame_buffer.append(row)
+        else:
+            row = ""
+        self._frame_buffer.append(row)
         self.write_to_lcd()
 
     def write_to_lcd(self) -> None:
         self._lcd.home()
         for row in self._frame_buffer:
             self._lcd.write_string(row.ljust(self._num_cols)[: self._num_cols])
+            self._lcd.write_string("\r\n")
 
     def reset(self) -> None:
         self._is_running = False
