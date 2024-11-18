@@ -67,6 +67,7 @@ class Controller(Thread):
             self._last_tmcc_id = self._tmcc_id
             self._scope = tmp_scope
             self._tmcc_id = tmp_tmcc_id
+            self._key_queue.reset()
             self.update_display()
 
     def change_scope(self, scope: CommandScope) -> None:
