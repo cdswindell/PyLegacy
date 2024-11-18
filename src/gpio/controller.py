@@ -34,13 +34,10 @@ class Controller(Thread):
             elif self._key_queue.is_eol:
                 if self._key_queue.keypresses:
                     tmcc_id = int(self._key_queue.keypresses)
-                    state = self._state.get_state(CommandScope.ENGINE, tmcc_id)
                     self._lcd.cursor_pos = (1, 0)
-                    if state:
-                        # noinspection PyTypeChecker
-                        self._lcd.print(state.road_name)
-                    else:
-                        self._lcd.print("No Data")
+                    state = self._state.get_state(CommandScope.ENGINE, tmcc_id)
+                    road_name = state.road_name if state else "No Data"
+                    self._lcd.print(road_name)
             elif key is not None:
                 self._lcd.print(key)
             sleep(0.1)
