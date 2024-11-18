@@ -890,6 +890,7 @@ class GpioHandler:
             max_steps=max_steps,
             initial_step=initial_speed,
             scaler=lambda x: max(x + (max_steps / 2), max_steps - 1),
+            use_steps=True,
         )
 
         # assign button actions
@@ -1125,6 +1126,7 @@ class GpioHandler:
         ramp: Dict[int, int] = None,
         prefix: CommandReq = None,
         scaler: Callable[[int], int] = None,
+        use_steps=False,
     ) -> RotaryEncoder:
         re = RotaryEncoder(pin_1, pin_2, wrap=False, max_steps=max_steps)
         if initial_step is not None:
@@ -1153,14 +1155,15 @@ class GpioHandler:
             ramp,
             prefix if prefix else None,
             scaler=scaler,
+            re=re if use_steps else None,
         )
         re.when_rotated_counter_clockwise = cls._with_re_action(
             clockwise_cmd.address,
             counterclockwise_cmd,
             ramp,
             prefix if prefix else None,
-            True,
             scaler=scaler,
+            re=re if use_steps else None,
         )
         # return rotary encoder
         return re
@@ -1295,6 +1298,7 @@ class GpioHandler:
         prefix: CommandReq = None,
         cc: bool = False,
         scaler: Callable[[int], int] = None,
+        re: RotaryEncoder = None,
     ) -> Callable:
         tmcc_command_buffer = CommBuffer.build()
         last_rotation_at = cls.current_milli_time()
@@ -1303,12 +1307,15 @@ class GpioHandler:
             nonlocal last_rotation_at
             nonlocal tmcc_command_buffer
             last_rotated = cls.current_milli_time() - last_rotation_at
-            data = 1 if cc is False else -1
-            if ramp:
-                for ramp_val, data_val in ramp.items():
-                    if last_rotated <= ramp_val:
-                        data = data_val if cc is False else -data_val
-                        break
+            if re:
+                data = re.steps
+            else:
+                data = 1 if cc is False else -1
+                if ramp:
+                    for ramp_val, data_val in ramp.items():
+                        if last_rotated <= ramp_val:
+                            data = data_val if cc is False else -data_val
+                            break
             byte_str = bytes()
             if prefix:
                 if GpioHandler.engine_numeric(address) == prefix.data:
@@ -1318,7 +1325,7 @@ class GpioHandler:
             if scaler:
                 data = scaler(data)
             command.data = data
-            byte_str += command.as_bytes * 2
+            byte_str += command.as_bytes
             tmcc_command_buffer.enqueue_command(byte_str)
             last_rotation_at = cls.current_milli_time()
 
