@@ -197,7 +197,20 @@ class CommBufferSingleton(CommBuffer, Thread):
             if delay > 0:
                 self._scheduler.schedule(delay, command)
             else:
-                self._queue.put(command)
+                # break up multiple command sequences, sending each command separately
+                command_seq = bytes()
+                for b in command:
+                    from src.protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER
+
+                    # if the byte indicates the start of a command, send the previous
+                    # command sequence, if it exists, and start a new one
+                    if b in TMCC_FIRST_BYTE_TO_INTERPRETER:
+                        if command_seq:
+                            self._queue.put(command_seq)
+                            command_seq = bytes()
+                        command_seq += b
+                if command_seq:
+                    self._queue.put(command_seq)
 
     def shutdown(self, immediate: bool = False) -> None:
         if immediate:
