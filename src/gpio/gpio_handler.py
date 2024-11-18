@@ -908,7 +908,7 @@ class GpioHandler:
             wrap=False,
             max_steps=int(max_steps / 2),
             initial_step=initial_step,
-            scaler=lambda x: int(min(x + (max_steps / 2), max_steps - 1)),
+            scaler=lambda x: int(max(min(x + (max_steps / 2), max_steps - 1), 0)),
             use_steps=True,
         )
 
