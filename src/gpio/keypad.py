@@ -260,7 +260,7 @@ class KeyQueue:
     def reset(self) -> None:
         print("Resetting KeyQueue..")
         with self._cv:
-            self._clear_ev.set()  # force controllers to wake up
+            self._keypress_ev.set()  # force controllers to wake up
             self._eol_ev.clear()
             self._clear_ev.clear()
             self._keypress_ev.clear()
