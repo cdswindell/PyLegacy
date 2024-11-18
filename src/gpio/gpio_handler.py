@@ -1135,7 +1135,7 @@ class GpioHandler:
         print(f"Init Steps: {initial_step} max_steps: {max_steps}")
         re = RotaryEncoder(pin_1, pin_2, wrap=wrap, max_steps=max_steps)
         if initial_step is not None:
-            re.step = initial_step
+            re.steps = initial_step
         cls.cache_device(re)
 
         # make commands
