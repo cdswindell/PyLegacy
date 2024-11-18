@@ -1314,6 +1314,7 @@ class GpioHandler:
             last_rotated = cls.current_milli_time() - last_rotation_at
             if re:
                 data = re.steps
+                print(re.steps)
             else:
                 data = 1 if cc is False else -1
                 if ramp:
@@ -1328,6 +1329,7 @@ class GpioHandler:
                 else:
                     byte_str += prefix.as_bytes * 3
             if scaler:
+                print(f"Steps: {data} New speed: {scaler(data)}")
                 data = scaler(data)
             command.data = data
             byte_str += command.as_bytes
