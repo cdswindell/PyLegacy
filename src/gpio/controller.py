@@ -35,9 +35,9 @@ class Controller(Thread):
             elif self._key_queue.is_eol:
                 if self._key_queue.keypresses:
                     tmcc_id = int(self._key_queue.keypresses)
-                    self._lcd.cursor_pos = (1, 0)
-                    state = self._state.get_state(CommandScope.ENGINE, tmcc_id)
+                    state = self._state.get_state(self._scope, tmcc_id)
                     road_name = state.name if state else "No Information"
+                    self._lcd.cursor_pos = (1, 0)
                     self._lcd.print(road_name)
             elif key == "A":
                 self._change_scope(CommandScope.ENGINE)
