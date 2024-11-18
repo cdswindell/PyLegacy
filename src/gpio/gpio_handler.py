@@ -11,7 +11,7 @@ from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, Analo
 from .controller import Controller
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
-from ..db.component_state_store import DependencyCache
+from ..db.component_state_store import DependencyCache, ComponentStateStore
 from ..gpio.state_source import SwitchStateSource, AccessoryStateSource, EngineStateSource
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
@@ -830,17 +830,18 @@ class GpioHandler:
     def engine(
         cls,
         address: int,
-        channel: int = 0,
+        speed_pin_1: int | str = None,
+        speed_pin_2: int | str = None,
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
         is_legacy: bool = True,
-        use_12bit: bool = True,
         scope: CommandScope = CommandScope.ENGINE,
         cathode: bool = True,
-    ) -> Tuple[PotHandler, Button, Button]:
+    ) -> Tuple[RotaryEncoder, Button, Button]:
         fwd_btn = rev_btn = None
         fwd_cmd = rev_cmd = None
         if is_legacy is True:
+            max_steps = 200
             speed_cmd = CommandReq.build(TMCC2EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
             if fwd_pin is not None:
                 fwd_cmd, fwd_btn, _ = cls._make_button(
@@ -859,6 +860,7 @@ class GpioHandler:
                     cathode=cathode,
                 )
         else:
+            max_steps = 32
             speed_cmd = CommandReq.build(TMCC1EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
             if fwd_pin is not None:
                 fwd_cmd, fwd_btn, _ = cls._make_button(
@@ -876,8 +878,19 @@ class GpioHandler:
                     scope=scope,
                     cathode=cathode,
                 )
-        # make a pot to handle speed
-        pot = cls.when_pot(speed_cmd, channel=channel, use_12bit=use_12bit)
+
+        # get the initial speed of the engine/train
+        state = ComponentStateStore.get_state(scope, address)
+        initial_speed = state.speed if state else -max_steps / 2
+        # make a RE to handle speed
+        speed_ctrl = cls.when_rotary_encoder(
+            speed_pin_1,
+            speed_pin_2,
+            speed_cmd,
+            max_steps=max_steps,
+            initial_step=initial_speed,
+            scaler=lambda x: max(x + (max_steps / 2), max_steps - 1),
+        )
 
         # assign button actions
         if fwd_btn is not None:
@@ -885,7 +898,7 @@ class GpioHandler:
         if rev_btn is not None:
             rev_btn.when_pressed = rev_cmd.as_action()
         # return objects
-        return pot, fwd_btn, rev_btn
+        return speed_ctrl, fwd_btn, rev_btn
 
     @classmethod
     def when_button_pressed(
@@ -1105,13 +1118,17 @@ class GpioHandler:
         address: int = DEFAULT_ADDRESS,
         data: int = None,
         scope: CommandScope = None,
+        initial_step=None,
         counterclockwise_cmd: CommandReq | CommandDefEnum = None,
         cc_data: int = None,
         max_steps: int = 100,
         ramp: Dict[int, int] = None,
         prefix: CommandReq = None,
+        scaler: Callable[[int], int] = None,
     ) -> RotaryEncoder:
-        re = RotaryEncoder(pin_1, pin_2, wrap=True, max_steps=max_steps)
+        re = RotaryEncoder(pin_1, pin_2, wrap=False, max_steps=max_steps)
+        if initial_step is not None:
+            re.step = initial_step
         cls.cache_device(re)
 
         # make commands
@@ -1135,6 +1152,7 @@ class GpioHandler:
             clockwise_cmd,
             ramp,
             prefix if prefix else None,
+            scaler=scaler,
         )
         re.when_rotated_counter_clockwise = cls._with_re_action(
             clockwise_cmd.address,
@@ -1142,6 +1160,7 @@ class GpioHandler:
             ramp,
             prefix if prefix else None,
             True,
+            scaler=scaler,
         )
         # return rotary encoder
         return re
@@ -1275,6 +1294,7 @@ class GpioHandler:
         ramp: Dict[int, int] = None,
         prefix: CommandReq = None,
         cc: bool = False,
+        scaler: Callable[[int], int] = None,
     ) -> Callable:
         tmcc_command_buffer = CommBuffer.build()
         last_rotation_at = cls.current_milli_time()
@@ -1295,6 +1315,8 @@ class GpioHandler:
                     pass
                 else:
                     byte_str += prefix.as_bytes * 3
+            if scaler:
+                data = scaler(data)
             command.data = data
             byte_str += command.as_bytes * 2
             tmcc_command_buffer.enqueue_command(byte_str)
