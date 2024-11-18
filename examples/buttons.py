@@ -32,6 +32,6 @@ GpioHandler.engine(67, speed_pin_1=19, speed_pin_2=26, fwd_pin=13, rev_pin=21)
 # GpioHandler.base_watcher("192.168.3.124", 5, 6)
 
 # GpioHandler.crane_car(91, 20, 21, 0, 16, bh_pin=25, bo_led_pin=23, bh_led_pin=24)
-# GpioHandler.controller([18, 23, 24, 25], [12, 16, 20, 21], 0x27)
+GpioHandler.controller([18, 23, 24, 25], [12, 16, 20, 21], 0x27)
 
 print("Buttons registered...")
