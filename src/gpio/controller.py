@@ -38,6 +38,7 @@ class Controller(Thread):
                     state = self._state.get_state(CommandScope.ENGINE, tmcc_id)
                     road_name = state.road_name if state else "No Data"
                     self._lcd.print(road_name)
+                    print(road_name, state)
             elif key is not None:
                 self._lcd.print(key)
             sleep(0.1)
