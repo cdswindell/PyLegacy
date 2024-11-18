@@ -331,7 +331,8 @@ class GpioHandler:
         row_pins: List[int | str] = None,
         column_pins: List[int | str] = None,
         speed_pins: List[int | str] = None,
-        toggle_dir_pin: int | str = None,
+        fwd_pin: int | str = None,
+        rev_pin: int | str = None,
         lcd_address: int = 0x27,
         num_rows: int = 4,
         num_columns: int = 20,
@@ -340,7 +341,8 @@ class GpioHandler:
             row_pins=row_pins,
             column_pins=column_pins,
             speed_pins=speed_pins,
-            toggle_dir_pin=toggle_dir_pin,
+            fwd_pin=fwd_pin,
+            rev_pin=rev_pin,
             lcd_address=lcd_address,
             num_rows=num_rows,
             num_columns=num_columns,
@@ -847,13 +849,12 @@ class GpioHandler:
         speed_pin_2: int | str = None,
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
-        toggle_pin: int | str = None,
         is_legacy: bool = True,
         scope: CommandScope = CommandScope.ENGINE,
         cathode: bool = True,
-    ) -> Tuple[RotaryEncoder, Button, Button, Button]:
-        fwd_btn = rev_btn = tgl_btn = None
-        fwd_cmd = rev_cmd = tgl_cmd = None
+    ) -> Tuple[RotaryEncoder, Button, Button]:
+        fwd_btn = rev_btn = None
+        fwd_cmd = rev_cmd = None
         if is_legacy is True:
             max_steps = 200
             speed_cmd = CommandReq.build(TMCC2EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
@@ -873,14 +874,6 @@ class GpioHandler:
                     scope=scope,
                     cathode=cathode,
                 )
-            if toggle_pin is not None:
-                tgl_cmd, tgl_btn, _ = cls._make_button(
-                    toggle_pin,
-                    TMCC2EngineCommandDef.TOGGLE_DIRECTION,
-                    address,
-                    scope=scope,
-                    cathode=cathode,
-                )
         else:
             max_steps = 32
             speed_cmd = CommandReq.build(TMCC1EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
@@ -896,14 +889,6 @@ class GpioHandler:
                 rev_cmd, rev_btn, _ = cls._make_button(
                     rev_pin,
                     TMCC1EngineCommandDef.REVERSE_DIRECTION,
-                    address,
-                    scope=scope,
-                    cathode=cathode,
-                )
-            if toggle_pin is not None:
-                tgl_cmd, tgl_btn, _ = cls._make_button(
-                    toggle_pin,
-                    TMCC1EngineCommandDef.TOGGLE_DIRECTION,
                     address,
                     scope=scope,
                     cathode=cathode,
@@ -932,10 +917,8 @@ class GpioHandler:
             fwd_btn.when_pressed = fwd_cmd.as_action()
         if rev_btn is not None:
             rev_btn.when_pressed = rev_cmd.as_action()
-        if tgl_btn is not None:
-            tgl_btn.when_pressed = tgl_cmd.as_action()
         # return objects
-        return speed_ctrl, fwd_btn, rev_btn, tgl_btn
+        return speed_ctrl, fwd_btn, rev_btn
 
     @classmethod
     def when_button_pressed(
