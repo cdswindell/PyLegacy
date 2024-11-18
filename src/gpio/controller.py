@@ -57,6 +57,7 @@ class Controller(Thread):
     def update_display(self):
         self._frame_buffer = []
         row = f"{self._scope.friendly}: "
+        tmcc_id_pos = len(row)
         if self._tmcc_id is not None:
             row += f"{self._tmcc_id}"
             state = self._state.get_state(self._scope, self._tmcc_id)
@@ -72,6 +73,8 @@ class Controller(Thread):
             row = ""
         self._frame_buffer.append(row)
         self.write_to_lcd()
+        if self._tmcc_id is None:
+            self._lcd.cursor_pos = (0, tmcc_id_pos)
 
     def write_to_lcd(self) -> None:
         self._lcd.home()
