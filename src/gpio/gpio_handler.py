@@ -328,10 +328,10 @@ class GpioHandler:
     @classmethod
     def controller(
         cls,
-        row_pins: List[int | str],
-        column_pins: List[int | str],
-        speed_pins: List[int | str],
-        toggle_dir_pin: List[int | str],
+        row_pins: List[int | str] = None,
+        column_pins: List[int | str] = None,
+        speed_pins: List[int | str] = None,
+        toggle_dir_pin: int | str = None,
         lcd_address: int = 0x27,
         num_rows: int = 4,
         num_columns: int = 20,
