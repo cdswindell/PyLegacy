@@ -79,6 +79,7 @@ class Controller(Thread):
     def write_to_lcd(self) -> None:
         self._lcd.home()
         for row in self._frame_buffer:
+            print(row)
             self._lcd.write_string(row.ljust(self._num_cols)[: self._num_cols])
             self._lcd.write_string("\r\n")
 
