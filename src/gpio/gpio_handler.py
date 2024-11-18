@@ -890,6 +890,7 @@ class GpioHandler:
             speed_pin_1,
             speed_pin_2,
             speed_cmd,
+            wrap=False,
             max_steps=int(max_steps / 2),
             initial_step=initial_step,
             scaler=lambda x: int(min(x + (max_steps / 2), max_steps - 1)),
