@@ -208,7 +208,7 @@ class CommBufferSingleton(CommBuffer, Thread):
                         if command_seq:
                             self._queue.put(command_seq)
                             command_seq = bytes()
-                        command_seq += b
+                        command_seq += b.to_bytes(1, byteorder="big")
                 if command_seq:
                     self._queue.put(command_seq)
 
