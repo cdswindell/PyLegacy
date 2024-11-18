@@ -31,6 +31,7 @@ class Controller(Thread):
             if self._key_queue.is_clear:
                 self._lcd.reset()
                 self._lcd.print("Engine: ")
+                print(f"Clear set {self._is_running}")
             elif self._key_queue.is_eol:
                 if self._key_queue.keypresses:
                     tmcc_id = int(self._key_queue.keypresses)
@@ -48,6 +49,7 @@ class Controller(Thread):
     def reset(self) -> None:
         print("Resetting controller...")
         self._is_running = False
+        self._key_queue.reset()
         self._lcd.close(True)
         self._keypad.close()
         print(f"Controller reset. {self.is_alive()}")
