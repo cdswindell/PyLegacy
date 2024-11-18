@@ -331,8 +331,16 @@ class GpioHandler:
         row_pins: List[int | str],
         column_pins: List[int | str],
         lcd_address: int = 0x27,
+        num_rows: int = 4,
+        num_columns: int = 20,
     ) -> Controller:
-        c = Controller(row_pins, column_pins, lcd_address)
+        c = Controller(
+            row_pins=row_pins,
+            column_pins=column_pins,
+            lcd_address=lcd_address,
+            num_rows=num_rows,
+            num_columns=num_columns,
+        )
         cls.cache_handler(c)
         return c
 
