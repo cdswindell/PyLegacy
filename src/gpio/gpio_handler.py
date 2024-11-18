@@ -881,7 +881,7 @@ class GpioHandler:
 
         # get the initial speed of the engine/train
         state = ComponentStateStore.get_state(scope, address)
-        if state:
+        if state and state.speed:
             initial_step = min(state.speed - max_steps, int(-max_steps / 2))
         else:
             initial_step = int(-max_steps / 2)
