@@ -881,13 +881,17 @@ class GpioHandler:
 
         # get the initial speed of the engine/train
         state = ComponentStateStore.get_state(scope, address)
+        if state:
+            initial_step = min(state.speed - max_steps, int(-max_steps / 2))
+        else:
+            initial_step = int(-max_steps / 2)
         # make a RE to handle speed
         speed_ctrl = cls.when_rotary_encoder(
             speed_pin_1,
             speed_pin_2,
             speed_cmd,
             max_steps=int(max_steps / 2),
-            initial_step=min(state.speed - max_steps, -max_steps / 2) if state else -max_steps / 2,
+            initial_step=initial_step,
             scaler=lambda x: max(x + (max_steps / 2), max_steps - 1),
             use_steps=True,
         )
