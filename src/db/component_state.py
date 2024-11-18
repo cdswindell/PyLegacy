@@ -192,6 +192,12 @@ class ComponentState(ABC):
     def road_number(self) -> str | None:
         return self._road_number
 
+    @property
+    def name(self):
+        the_name = "#" + self.road_number if self.road_number else ""
+        the_name = self.road_name + " " + the_name if self.road_name else "NA"
+        return the_name
+
     @abc.abstractmethod
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq

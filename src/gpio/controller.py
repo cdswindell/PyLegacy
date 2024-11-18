@@ -36,9 +36,8 @@ class Controller(Thread):
                     tmcc_id = int(self._key_queue.keypresses)
                     self._lcd.cursor_pos = (1, 0)
                     state = self._state.get_state(CommandScope.ENGINE, tmcc_id)
-                    road_name = state.road_name if state and state.road_name else "No Data"
+                    road_name = state.name if state else "No Information"
                     self._lcd.print(road_name)
-                    print(road_name, state)
             elif key is not None:
                 self._lcd.print(key)
             sleep(0.1)
