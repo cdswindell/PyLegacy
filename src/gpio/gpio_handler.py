@@ -881,14 +881,13 @@ class GpioHandler:
 
         # get the initial speed of the engine/train
         state = ComponentStateStore.get_state(scope, address)
-        initial_speed = state.speed if state else -max_steps / 2
         # make a RE to handle speed
         speed_ctrl = cls.when_rotary_encoder(
             speed_pin_1,
             speed_pin_2,
             speed_cmd,
-            max_steps=max_steps,
-            initial_step=initial_speed,
+            max_steps=int(max_steps / 2),
+            initial_step=min(state.speed - max_steps, -max_steps / 2) if state else -max_steps / 2,
             scaler=lambda x: max(x + (max_steps / 2), max_steps - 1),
             use_steps=True,
         )
@@ -1126,9 +1125,11 @@ class GpioHandler:
         ramp: Dict[int, int] = None,
         prefix: CommandReq = None,
         scaler: Callable[[int], int] = None,
-        use_steps=False,
+        use_steps: bool = False,
+        wrap: bool = True,
     ) -> RotaryEncoder:
-        re = RotaryEncoder(pin_1, pin_2, wrap=False, max_steps=max_steps)
+        print(f"Init Steps: {initial_step} max_steps: {max_steps}")
+        re = RotaryEncoder(pin_1, pin_2, wrap=wrap, max_steps=max_steps)
         if initial_step is not None:
             re.step = initial_step
         cls.cache_device(re)
