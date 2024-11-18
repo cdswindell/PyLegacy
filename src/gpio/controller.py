@@ -56,10 +56,12 @@ class Controller(Thread):
 
     def update_display(self):
         self._frame_buffer = []
-        state = self._state.get_state(self._scope, self._tmcc_id)
         row = f"{self._scope.friendly}: "
         if self._tmcc_id is not None:
             row += f"{self._tmcc_id}"
+            state = self._state.get_state(self._scope, self._tmcc_id)
+        else:
+            state = None
         if state and state.road_number:
             row += f" {state.road_number}"
         self._frame_buffer.append(row)
