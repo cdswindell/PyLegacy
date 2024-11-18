@@ -39,20 +39,42 @@ class Controller(Thread):
         while self._is_running:
             key = self._key_queue.wait_for_keypress(60)
             if self._key_queue.is_clear:
-                self._change_scope(self._scope)
+                self.change_scope(self._scope)
             elif self._key_queue.is_eol:
                 if self._key_queue.keypresses:
                     self._tmcc_id = int(self._key_queue.keypresses)
                     self.update_display()
             elif key == "A":
-                self._change_scope(CommandScope.ENGINE)
+                self.change_scope(CommandScope.ENGINE)
             elif key == "B":
-                self._change_scope(CommandScope.TRAIN)
+                self.change_scope(CommandScope.TRAIN)
             elif key == "*":
-                self._change_scope(CommandScope.TRAIN)
+                self.last_engine()
             elif key is not None:
                 self._lcd.print(key)
             sleep(0.1)
+
+    def cache_engine(self):
+        if self._tmcc_id and self._scope:
+            self._last_scope = self._scope
+            self._last_tmcc_id = self._tmcc_id
+
+    def last_engine(self):
+        if self._last_scope and self._last_tmcc_id:
+            tmp_scope = self._last_scope
+            tmp_tmcc_id = self._last_tmcc_id
+            self._last_scope = self._scope
+            self._last_tmcc_id = self._tmcc_id
+            self._scope = tmp_scope
+            self._tmcc_id = tmp_tmcc_id
+            self.update_display()
+
+    def change_scope(self, scope: CommandScope) -> None:
+        self.cache_engine()
+        self._scope = scope
+        self._tmcc_id = None
+        self._key_queue.reset()
+        self.update_display()
 
     def update_display(self):
         self._frame_buffer = []
@@ -90,9 +112,3 @@ class Controller(Thread):
 
     def close(self) -> None:
         self.reset()
-
-    def _change_scope(self, scope: CommandScope) -> None:
-        self._scope = scope
-        self._lcd.reset()
-        self._lcd.print(f"{self._scope.friendly}: ")
-        self._key_queue.reset()
