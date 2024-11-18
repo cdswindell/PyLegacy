@@ -1341,7 +1341,7 @@ class GpioHandler:
                 print(f"Steps: {data} New speed: {scaler(data)}")
                 data = scaler(data)
             command.data = data
-            byte_str += command.as_bytes
+            byte_str += command.as_bytes * 2
             tmcc_command_buffer.enqueue_command(byte_str)
             last_rotation_at = cls.current_milli_time()
 
