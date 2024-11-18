@@ -103,11 +103,13 @@ class Keypad(EventsMixin, CompositeDevice):
         self._scan_thread.start()
 
     def close(self) -> None:
+        print("Closing Keypad...")
         self._is_running = False
         if self._key_queue:
             self._key_queue.reset()
         self._reset_pin_states()
         super().close()
+        print("Keypad closed.")
 
     @property
     def keypress(self) -> str | None:
@@ -256,6 +258,7 @@ class KeyQueue:
             return "".join(self._deque)
 
     def reset(self) -> None:
+        print("Resetting KeyQueue..")
         with self._cv:
             self._clear_ev.set()  # force controllers to wake up
             self._eol_ev.clear()
@@ -263,6 +266,7 @@ class KeyQueue:
             self._keypress_ev.clear()
             self._deque.clear()
             self._cv.notify()
+        print("KeyQueue reset.")
 
     @property
     def is_eol(self) -> bool:

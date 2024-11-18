@@ -1151,7 +1151,8 @@ class GpioHandler:
         for handler in cls.GPIO_HANDLER_CACHE:
             print(f"Resetting {handler}...")
             handler.reset()
-            handler.join()  # wait for thread to shut down
+            if isinstance(handler, Thread):
+                handler.join()  # wait for thread to shut down
         cls.GPIO_HANDLER_CACHE = set()
 
         for device in cls.GPIO_DEVICE_CACHE:

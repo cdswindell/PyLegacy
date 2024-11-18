@@ -47,9 +47,11 @@ class Controller(Thread):
                     self._lcd.print("No Data")
 
     def reset(self) -> None:
+        print("Resetting controller...")
         self._is_running = False
-        self._keypad.close()
         self._lcd.close(True)
+        self._keypad.close()
+        print("Controller reset.")
 
     def close(self) -> None:
         self.reset()
