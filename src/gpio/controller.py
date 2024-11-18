@@ -27,31 +27,30 @@ class Controller(Thread):
         self._lcd.reset()
         self._lcd.print("Engine: ")
         while self._is_running:
-            while True:
-                key = self._key_queue.wait_for_keypress(60)
-                if self._key_queue.is_clear:
-                    self._lcd.reset()
-                    self._lcd.print("Engine: ")
-                elif self._key_queue.is_eol:
-                    break  # we have an engine
-                elif key is not None:
-                    self._lcd.print(key)
-                sleep(0.5)
-            if self._key_queue.is_eol and self._key_queue.keypresses:
-                tmcc_id = int(self._key_queue.keypresses)
-                state = self._state.get_state(CommandScope.ENGINE, tmcc_id)
-                self._lcd.cursor_pos = (1, 0)
-                if state:
-                    self._lcd.print(state.road_name)
-                else:
-                    self._lcd.print("No Data")
+            key = self._key_queue.wait_for_keypress(60)
+            if self._key_queue.is_clear:
+                self._lcd.reset()
+                self._lcd.print("Engine: ")
+            elif self._key_queue.is_eol:
+                if self._key_queue.keypresses:
+                    tmcc_id = int(self._key_queue.keypresses)
+                    state = self._state.get_state(CommandScope.ENGINE, tmcc_id)
+                    self._lcd.cursor_pos = (1, 0)
+                    if state:
+                        # noinspection PyTypeChecker
+                        self._lcd.print(state.road_name)
+                    else:
+                        self._lcd.print("No Data")
+            elif key is not None:
+                self._lcd.print(key)
+            sleep(0.05)
 
     def reset(self) -> None:
         print("Resetting controller...")
         self._is_running = False
         self._lcd.close(True)
         self._keypad.close()
-        print("Controller reset.")
+        print(f"Controller reset. {self.is_alive()}")
 
     def close(self) -> None:
         self.reset()
