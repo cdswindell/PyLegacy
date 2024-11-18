@@ -105,10 +105,10 @@ class Keypad(EventsMixin, CompositeDevice):
     def close(self) -> None:
         print("Closing Keypad...")
         self._is_running = False
-        if self._key_queue:
-            self._key_queue.reset()
         self._reset_pin_states()
         super().close()
+        if self._key_queue:
+            self._key_queue.reset()
         print("Keypad closed.")
 
     @property
