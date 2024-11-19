@@ -17,22 +17,19 @@ class Controller(Thread):
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
         lcd_address: int = 0x27,
-        num_rows: int = 4,
-        num_columns: int = 20,
-        scope: CommandScope = CommandScope.ENGINE,
+        lcd_rows: int = 4,
+        lcd_cols: int = 20,
     ):
         super().__init__(name=f"{PROGRAM_NAME} Controller", daemon=True)
-        self._lcd = Lcd(address=lcd_address)
+        self._lcd = Lcd(address=lcd_address, rows=lcd_rows, cols=lcd_cols)
         self._keypad = Keypad(row_pins, column_pins)
         self._key_queue = self._keypad.key_queue
         self._state = ComponentStateStore.build()
-        self._scope = scope
-        self._num_rows = num_rows
-        self._num_cols = num_columns
+        self._scope = CommandScope.ENGINE
         self._tmcc_id = None
         self._last_scope = None
         self._last_tmcc_id = None
-        self._frame_buffer = None
+
         self._is_running = True
         self.start()
 
@@ -81,7 +78,7 @@ class Controller(Thread):
         self.update_display()
 
     def update_display(self):
-        self._frame_buffer = []
+        self._lcd.reset()
         row = f"{self._scope.friendly}: "
         tmcc_id_pos = len(row)
         if self._tmcc_id is not None:
@@ -91,22 +88,16 @@ class Controller(Thread):
             state = None
         if state and state.road_number:
             row += f" #{state.road_number}"
-        self._frame_buffer.append(row)
+        self._lcd.add(row)
 
         if self._tmcc_id is not None:
             row = state.road_name if state and state.road_name else "No Information"
         else:
             row = ""
-        self._frame_buffer.append(row)
-        self.write_to_lcd()
+        self._lcd.add(row)
+        self._lcd.write_frame_buffer()
         if self._tmcc_id is None:
             self._lcd.cursor_pos = (0, tmcc_id_pos)
-
-    def write_to_lcd(self) -> None:
-        self._lcd.home()
-        for row in self._frame_buffer:
-            self._lcd.write_string(row.ljust(self._num_cols)[: self._num_cols])
-            self._lcd.write_string("\r\n")
 
     def reset(self) -> None:
         self._is_running = False

@@ -1,3 +1,5 @@
+from typing import List
+
 from RPLCD.i2c import CharLCD
 
 SMILEY_CHAR = (
@@ -18,8 +20,8 @@ class Lcd(CharLCD):
         i2c_expander="PCF8574",
         address=0x27,
         port=1,
-        cols=20,
         rows=4,
+        cols=20,
         dotsize=8,
         charmap="A02",
         auto_linebreaks=True,
@@ -39,6 +41,39 @@ class Lcd(CharLCD):
         self.home()
         self.clear()
         self.create_char(0, SMILEY_CHAR)
+        self._rows = rows
+        self._cols = cols
+        self._backlight_enabled = backlight_enabled
+        self._frame_buffer = []
+        for _ in range(self._rows):
+            self._frame_buffer.append("")
+
+    @property
+    def rows(self) -> int:
+        return self._rows
+
+    @property
+    def cols(self) -> int:
+        return self._cols
+
+    @property
+    def frame_buffer(self) -> List[str]:
+        return self._frame_buffer
+
+    def add(self, row: str) -> None:
+        self._frame_buffer.append(row)
+
+    def reset(self) -> None:
+        self.clear()
+        self.home()
+        self._frame_buffer = []
+
+    def write_frame_buffer(self) -> None:
+        self.home()
+        self.clear()
+        for row in self._frame_buffer:
+            self.write_string(row.ljust(self.cols)[: self.cols])
+            self.write_string("\r\n")
 
     def print(self, c: int | str) -> None:
         if isinstance(c, int) and 0 <= c <= 255:
@@ -49,7 +84,3 @@ class Lcd(CharLCD):
             self.write_string(c)
         else:
             self.write_string(str(c))
-
-    def reset(self) -> None:
-        self.clear()
-        self.home()
