@@ -242,7 +242,7 @@ class CommBufferSingleton(CommBuffer, Thread):
             except Empty:
                 pass
             except Exception as e:
-                log.error(f"Error sending {data}")
+                log.error(f"Error sending {data.hex()}")
                 log.exception(e)
             finally:
                 if data is not None:
