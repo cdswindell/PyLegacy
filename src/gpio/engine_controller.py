@@ -195,6 +195,7 @@ class EngineController:
             cmd.scope = scope
             btn.when_pressed = cmd.as_action(repeat=self._repeat)
         for btn, cmd in when_held.items():
+            print(btn, cmd)
             cmd.address = self._tmcc_id
             cmd.scope = scope
             btn.when_held = cmd.as_action(repeat=self._repeat)
