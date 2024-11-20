@@ -716,7 +716,7 @@ class EngineState(ComponentState):
                 self._rpm = command.data
             elif cmd_effects & RPM_SET:
                 rpm = self._harvest_effect(cmd_effects & RPM_SET)
-                print(f"RPM Affected: {rpm}")
+                print(f"RPM Affected: {rpm} {type(rpm)}")
                 if isinstance(rpm, tuple) and len(rpm) == 2:
                     self._rpm = rpm[1]
                 elif isinstance(rpm, CommandDefEnum):
