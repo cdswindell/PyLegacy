@@ -116,7 +116,6 @@ class BaseReq(PdiReq):
                         elif data == 3:  # RPM Up
                             cur_rpm = min(cur_rpm + 1, 7)
                         data = cur_rpm
-                        print("*******", state.name, cur_state.rpm if cur_state else "NA", data)
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
         else:
