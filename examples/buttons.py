@@ -38,8 +38,8 @@ GpioHandler.controller(
     speed_pins=[19, 26],
     rpm_up_pin=4,
     lcd_address=0x27,
-    lcd_rows=2,
-    lcd_cols=16,
+    lcd_rows=4,
+    lcd_cols=20,
 )
 
 print("Buttons registered...")

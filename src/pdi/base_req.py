@@ -105,6 +105,7 @@ class BaseReq(PdiReq):
             if state.name == "NUMERIC":
                 if data == 0:
                     state = TMCC2EngineCommandDef.RESET if state.is_legacy else TMCC1EngineCommandDef.RESET
+                    print("Received Reset command")
                 elif data in [3, 6]:  # RPM up/down
                     state = TMCC2EngineCommandDef.DIESEL_RPM
                     cur_state = ComponentStateStore.build().get_state(scope, address, False)
@@ -150,9 +151,6 @@ class BaseReq(PdiReq):
             byte_str += checksum
             byte_str += PDI_EOP.to_bytes(1, byteorder="big")
             cmds.append(cls(byte_str))
-            # if speed-related, send other updates
-            if bit_pos == EngineBits.SPEED.value:
-                cmds.append(cls.update_speed(address, data, scope))
             # send a command to refresh all state
             cmds.append(cls(address, pdi_cmd))
             return cmds

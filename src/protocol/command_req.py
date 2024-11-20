@@ -345,6 +345,7 @@ class CommandReq:
                 self.address = new_address
             if self.num_data_bits and new_data and new_data != self.data:
                 self.data = new_data
+
             self._enqueue_command(
                 self.as_bytes, repeat=repeat, delay=delay, baudrate=baudrate, port=port, server=server, buffer=buffer
             )

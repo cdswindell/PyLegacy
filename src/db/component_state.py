@@ -663,7 +663,6 @@ class EngineState(ComponentState):
                     from ..pdi.base3_buffer import Base3Buffer
 
                     Base3Buffer.request_state_update(self.address, self.scope)
-                    print(command)
             elif cmd_effects & NUMERIC_SET:
                 numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
                 log.info(f"What to do? {command}: {numeric} {type(numeric)}")
@@ -716,7 +715,6 @@ class EngineState(ComponentState):
                 self._rpm = command.data
             elif cmd_effects & RPM_SET:
                 rpm = self._harvest_effect(cmd_effects & RPM_SET)
-                print(f"RPM Affected: {rpm} {type(rpm)}")
                 if isinstance(rpm, tuple) and len(rpm) == 2:
                     self._rpm = rpm[1]
                 elif isinstance(rpm, CommandDefEnum):
