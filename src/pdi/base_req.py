@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from enum import IntEnum, unique
 from math import floor
-from typing import Dict
+from typing import Dict, List
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
@@ -29,6 +29,7 @@ ROUTE_THROW_RATE_MAP: Dict[int, float] = {
 ENGINE_WRITE_MAP = {
     "ABSOLUTE_SPEED": (11, 56, None),
     "STOP_IMMEDIATE": (11, 56, lambda t: 0),
+    "RESET": (11, 56, lambda t: 0),
     "DIESEL_RPM": (12, 57, None),
     "ENGINE_LABOR": (13, 58, lambda t: t + 12),
     "TRAIN_BRAKE": (21, 67, lambda t: round(t * 2.143)),
@@ -90,7 +91,7 @@ class BaseReq(PdiReq):
         address: int = None,
         data: int | None = None,
         scope: CommandScope = CommandScope.ENGINE,
-    ) -> BaseReq | None:
+    ) -> List[BaseReq] | None:
         if isinstance(cmd, CommandReq):
             state = cmd.command
             address = cmd.address
@@ -101,6 +102,7 @@ class BaseReq(PdiReq):
         else:
             raise ValueError(f"Invalid option: {cmd}")
         if state.name in ENGINE_WRITE_MAP:
+            cmds = []
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
             if log.isEnabledFor(logging.DEBUG):
                 log.debug(f"State: {state} {data} {bit_pos} {offset} {scaler(data) if scaler else data}")
@@ -129,7 +131,11 @@ class BaseReq(PdiReq):
             byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
             byte_str += checksum
             byte_str += PDI_EOP.to_bytes(1, byteorder="big")
-            return cls(byte_str)
+            cmds.append(cls(byte_str))
+            # if speed-related, send other updates
+            if bit_pos == EngineBits.SPEED.value:
+                cmds.append(cls.update_speed(address, data, scope))
+            return cmds
         return None
 
     def __init__(

@@ -210,9 +210,10 @@ class Base3Buffer(Thread):
 
             for tmcc_cmd in tmcc_cmds:
                 # is it a command that requires a state sync?
-                sync_req = BaseReq.update_eng(tmcc_cmd)
-                if sync_req:
-                    cls._instance.send(sync_req.as_bytes)
+                sync_reqs = BaseReq.update_eng(tmcc_cmd)
+                if sync_reqs:
+                    for sync_req in sync_reqs:
+                        cls._instance.send(sync_req.as_bytes)
 
 
 class KeepAlive(Thread):
