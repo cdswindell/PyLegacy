@@ -157,7 +157,8 @@ class BaseReq(PdiReq):
             # if speed-related, send other updates
             if bit_pos == EngineBits.SPEED.value:
                 cmds.append(cls.update_speed(address, data, scope))
-            print(cmds)
+            # send a command to refresh all state
+            cmds.append(cls(address, pdi_cmd))
             return cmds
         return None
 
