@@ -174,25 +174,47 @@ class Base3Buffer(Thread):
         if cls._instance is None:  # if no base 3, nothing to do
             return
         if data:
-            tmcc_cmd = None
+            tmcc_cmds = []
             if data[0] == PDI_SOP:  # it's a Base 3 cmd, we only care about TMCC TX
                 if len(data) > 2 and data[1] == PdiCommand.TMCC_TX:
                     try:
                         pdi_req = PdiReq.from_bytes(data)
                         if isinstance(pdi_req, TmccReq) and pdi_req.pdi_command == PdiCommand.TMCC_TX:
-                            tmcc_cmd = pdi_req.tmcc_command
+                            tmcc_cmds.append(pdi_req.tmcc_command)
                     except NotImplementedError:
                         return  # ignore exceptions; most likely it's a multibyte cmd
             else:
                 # convert the byte stream into a command
-                tmcc_cmd = CommandReq.from_bytes(data)
-            if tmcc_cmd is None:
+                # TODO: byte sequence could contain multiple commands; break them up
+                # break up multiple command sequences, sending each command separately
+                command_seq = bytes()
+                for b in data:
+                    from src.protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER
+
+                    # When we sync state, states are expressed as the byte-string representations
+                    # of the command(s) that generate them. This means that the byte string we
+                    # receive here are likely comprised of multiple commands. CommandReq.from_bytes
+                    # expects to receive only one command's-worth of bytes at a time, so we have
+                    # to break up the byte stream back into the component byte strings for each cmd.
+                    if b in TMCC_FIRST_BYTE_TO_INTERPRETER and len(command_seq) >= 3:
+                        if command_seq:
+                            try:
+                                tmcc_cmds.append(CommandReq.from_bytes(command_seq))
+                                command_seq = bytes()
+                            except ValueError:
+                                pass
+                    command_seq += b.to_bytes(1, byteorder="big")
+                if command_seq:
+                    tmcc_cmds.append(CommandReq.from_bytes(command_seq))
+
+            if not tmcc_cmds:
                 return
 
-            # is it a command that requires a state sync?
-            sync_req = BaseReq.update_eng(tmcc_cmd)
-            if sync_req:
-                cls._instance.send(sync_req.as_bytes)
+            for tmcc_cmd in tmcc_cmds:
+                # is it a command that requires a state sync?
+                sync_req = BaseReq.update_eng(tmcc_cmd)
+                if sync_req:
+                    cls._instance.send(sync_req.as_bytes)
 
 
 class KeepAlive(Thread):
