@@ -111,9 +111,9 @@ class BaseReq(PdiReq):
                     if cur_state and cur_state.rpm is not None:
                         cur_rpm = cur_state.rpm
                         if data == 6:  # RPM Down
-                            cur_rpm = min(cur_rpm - 1, 0)
+                            cur_rpm = max(cur_rpm - 1, 0)
                         elif data == 3:  # RPM Up
-                            cur_rpm = max(cur_rpm + 1, 7)
+                            cur_rpm = min(cur_rpm + 1, 7)
                         data = cur_rpm
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
