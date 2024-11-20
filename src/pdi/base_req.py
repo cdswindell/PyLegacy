@@ -80,9 +80,9 @@ class BaseReq(PdiReq):
     @classmethod
     def update_speed(cls, address: int, speed: int, scope: CommandScope = CommandScope.ENGINE) -> BaseReq:
         if scope == CommandScope.TRAIN:
-            return cls(address, PdiCommand.UPDATE_TRAIN_SPEED, speed=speed)
+            return cls(address, PdiCommand.UPDATE_TRAIN_SPEED, flags=0xC2, speed=speed)
         else:
-            return cls(address, PdiCommand.UPDATE_ENGINE_SPEED, speed=speed)
+            return cls(address, PdiCommand.UPDATE_ENGINE_SPEED, flags=0xC2, speed=speed)
 
     @classmethod
     def update_eng(
@@ -135,6 +135,7 @@ class BaseReq(PdiReq):
             # if speed-related, send other updates
             if bit_pos == EngineBits.SPEED.value:
                 cmds.append(cls.update_speed(address, data, scope))
+            print(bit_pos, cmds)
             return cmds
         return None
 
