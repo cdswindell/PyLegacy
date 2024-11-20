@@ -205,3 +205,38 @@ LOCO_CLASS: Dict[int, str] = {
 
 LOCO_TRACK_CRANE: int = 9
 TRACK_CRANE_STATE_NUMERICS: Set[int] = {1, 2, 3}
+
+
+# Turn some of these into enums
+class ControlTypeDef:
+    def __init__(self, control_type: int, is_legacy: bool = False) -> None:
+        self._control_type = control_type
+        self._is_legacy = is_legacy
+
+    @property
+    def is_legacy(self) -> bool:
+        return self.is_legacy
+
+    @property
+    def control_type(self) -> int:
+        return self._control_type
+
+    @property
+    def label(self) -> str:
+        return CONTROL_TYPE[self.control_type]
+
+
+@unique
+class ControlType(Mixins):
+    CAB1 = ControlTypeDef(0)
+    TMCC = ControlTypeDef(1)
+    LEGACY = ControlTypeDef(2, True)
+    R100 = ControlTypeDef(3)
+
+    @property
+    def is_legacy(self) -> bool:
+        return self.value.is_legacy
+
+    @property
+    def label(self) -> str:
+        return self.value.label

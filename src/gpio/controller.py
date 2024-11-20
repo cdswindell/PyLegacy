@@ -2,6 +2,7 @@ from threading import Thread
 from time import sleep
 from typing import List
 
+from .engine_controller import EngineController
 from .keypad import Keypad
 from .lcd import Lcd
 from ..protocol.constants import PROGRAM_NAME, CommandScope
@@ -16,6 +17,7 @@ class Controller(Thread):
         speed_pins: List[int | str] = None,
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
+        reset_pin: int | str = None,
         lcd_address: int = 0x27,
         lcd_rows: int = 4,
         lcd_cols: int = 20,
@@ -29,12 +31,24 @@ class Controller(Thread):
         self._tmcc_id = None
         self._last_scope = None
         self._last_tmcc_id = None
-
+        if speed_pins or fwd_pin or rev_pin or reset_pin:
+            self._engine_controller = EngineController(
+                speed_pin_1=speed_pins[0] if speed_pins and len(speed_pins) > 0 else None,
+                speed_pin_2=speed_pins[1] if speed_pins and len(speed_pins) > 1 else None,
+                reset_pin=reset_pin,
+                fwd_pin=fwd_pin,
+                rev_pin=rev_pin,
+            )
+        else:
+            self._engine_controller = None
         self._is_running = True
         self.start()
 
+    @property
+    def engine_controller(self) -> EngineController:
+        return self._engine_controller
+
     def run(self) -> None:
-        self._lcd.reset()
         self.update_display()
         while self._is_running:
             key = self._key_queue.wait_for_keypress(60)
@@ -42,8 +56,7 @@ class Controller(Thread):
                 self.change_scope(self._scope)
             elif self._key_queue.is_eol:
                 if self._key_queue.keypresses:
-                    self._tmcc_id = int(self._key_queue.keypresses)
-                    self.update_display()
+                    self.update_engine(self._key_queue.keypresses)
             elif key == "A":
                 self.change_scope(CommandScope.ENGINE)
             elif key == "B":
@@ -53,6 +66,13 @@ class Controller(Thread):
             elif key is not None:
                 self._lcd.print(key)
             sleep(0.1)
+
+    def update_engine(self, engine_id_str: str):
+        tmcc_id = int(engine_id_str)
+        self.update_display()
+        if self._engine_controller:
+            self._engine_controller.update(tmcc_id)
+        self._tmcc_id = tmcc_id
 
     def cache_engine(self):
         if self._tmcc_id and self._scope:
@@ -78,7 +98,7 @@ class Controller(Thread):
         self.update_display()
 
     def update_display(self):
-        self._lcd.reset()
+        self._lcd.clear()
         row = f"{self._scope.friendly}: "
         tmcc_id_pos = len(row)
         if self._tmcc_id is not None:

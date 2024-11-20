@@ -36,10 +36,10 @@ GpioHandler.controller(
     row_pins=[18, 23, 24, 25],
     column_pins=[12, 16, 20, 21],
     speed_pins=[19, 26],
-    fwd_pin=4,
+    reset_pin=4,
     lcd_address=0x27,
-    num_rows=2,
-    num_columns=16,
+    lcd_rows=2,
+    lcd_cols=16,
 )
 
 print("Buttons registered...")

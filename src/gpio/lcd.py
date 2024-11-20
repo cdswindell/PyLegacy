@@ -60,11 +60,14 @@ class Lcd(CharLCD):
     def frame_buffer(self) -> List[str]:
         return self._frame_buffer
 
-    def add(self, row: str) -> None:
-        self._frame_buffer.append(row)
+    def add(self, row: str) -> bool:
+        if len(self._frame_buffer) < self.rows:
+            self._frame_buffer.append(row)
+            return True
+        return False
 
-    def reset(self) -> None:
-        self.clear()
+    def clear(self) -> None:
+        super().clear()
         self.home()
         self._frame_buffer = []
 
