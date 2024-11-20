@@ -108,7 +108,6 @@ class BaseReq(PdiReq):
                 elif data in [3, 6]:  # RPM up/down
                     state = TMCC2EngineCommandDef.DIESEL_RPM
                     cur_state = ComponentStateStore.build().get_state(scope, address, False)
-                    print(cur_state, cur_state.rpm if cur_state else "NA")
                     if cur_state and cur_state.rpm is not None:
                         cur_rpm = cur_state.rpm
                         if data == 6:  # RPM Down
