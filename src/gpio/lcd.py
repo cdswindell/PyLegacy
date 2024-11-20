@@ -77,7 +77,6 @@ class Lcd(CharLCD):
         super().clear()  # call the super, otherwise frame buffer is cleared
         self.home()  # reposition cursor
         for r, row in enumerate(self._frame_buffer):
-            print(row)
             self.write_string(row.ljust(self.cols)[: self.cols])
             self.write_string("\r\n")
             self._row_pos = r
