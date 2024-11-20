@@ -14,10 +14,10 @@ class Controller(Thread):
         self,
         row_pins: List[int | str],
         column_pins: List[int | str],
+        reset_pin: int | str = None,
         speed_pins: List[int | str] = None,
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
-        reset_pin: int | str = None,
         lcd_address: int = 0x27,
         lcd_rows: int = 4,
         lcd_cols: int = 20,
@@ -67,12 +67,11 @@ class Controller(Thread):
                 self._lcd.print(key)
             sleep(0.1)
 
-    def update_engine(self, engine_id_str: str):
-        tmcc_id = int(engine_id_str)
+    def update_engine(self, engine_id: str | int):
+        self._tmcc_id = tmcc_id = int(engine_id)
         self.update_display()
         if self._engine_controller:
             self._engine_controller.update(tmcc_id)
-        self._tmcc_id = tmcc_id
 
     def cache_engine(self):
         if self._tmcc_id and self._scope:
@@ -88,7 +87,7 @@ class Controller(Thread):
             self._scope = tmp_scope
             self._tmcc_id = tmp_tmcc_id
             self._key_queue.reset()
-            self.update_display()
+            self.update_engine(tmp_tmcc_id)
 
     def change_scope(self, scope: CommandScope) -> None:
         self.cache_engine()
