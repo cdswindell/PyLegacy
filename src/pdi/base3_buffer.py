@@ -14,7 +14,7 @@ from .constants import KEEP_ALIVE_CMD, PDI_SOP, PdiCommand
 from .pdi_listener import PdiListener
 from .pdi_req import PdiReq, TmccReq
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY
+from ..protocol.constants import DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY, CommandScope
 from ..utils.pollable_queue import PollableQueue
 
 log = logging.getLogger(__name__)
@@ -42,6 +42,12 @@ class Base3Buffer(Thread):
         if cls._instance is None:
             raise AttributeError("Base3Buffer has not been initialized")
         return cls._instance
+
+    @classmethod
+    def request_state_update(cls, tmcc_id: int, scope: CommandScope) -> None:
+        if cls._instance is not None:
+            pdi_cmd = PdiCommand.BASE_ENGINE if scope == CommandScope.ENGINE else PdiCommand.BASE_TRAIN
+            cls.enqueue_command(BaseReq(tmcc_id, pdi_cmd).as_bytes)
 
     @classmethod
     def enqueue_command(cls, data: bytes) -> None:

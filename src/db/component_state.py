@@ -655,9 +655,14 @@ class EngineState(ComponentState):
                         self._numeric = command.data
                         self._numeric_cmd = command.command
                 else:
-                    print(command)
                     self._numeric = command.data
                     self._numeric_cmd = command.command
+                    # numeric commands can change RPM, Volume, and reset the train
+                    # force a state update for this engine/train, if we are connected
+                    # to a Base 3
+                    from ..pdi.base3_buffer import Base3Buffer
+
+                    Base3Buffer.request_state_update(self.address, self.scope)
             elif cmd_effects & NUMERIC_SET:
                 numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
                 log.info(f"What to do? {command}: {numeric} {type(numeric)}")
