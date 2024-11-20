@@ -179,4 +179,4 @@ class EngineController:
         for btn, cmd in when_held.items():
             cmd.address = self._tmcc_id
             cmd.scope = scope
-            btn.when_held = cmd.as_action()
+            btn.when_held = cmd.as_action(repeat=self._repeat)
