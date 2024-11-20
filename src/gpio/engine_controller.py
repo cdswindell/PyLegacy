@@ -52,6 +52,7 @@ class EngineController:
             self._halt_btn.when_pressed = cmd.as_action(repeat=repeat)
         else:
             self._halt_btn = None
+
         # construct the commands; make both the TMCC1 and Legacy versions
         self._tmcc1_commands = {}
         self._tmcc2_commands = {}
@@ -61,12 +62,40 @@ class EngineController:
             self._tmcc2_commands[self._reset_btn] = CommandReq(TMCC2EngineCommandDef.RESET)
         else:
             self._reset_btn = None
+
         if fwd_pin is not None:
             self._fwd_btn = GpioHandler.make_button(fwd_pin)
             self._tmcc1_commands[self._fwd_btn] = CommandReq(TMCC1EngineCommandDef.FORWARD_DIRECTION)
             self._tmcc2_commands[self._fwd_btn] = CommandReq(TMCC2EngineCommandDef.FORWARD_DIRECTION)
         else:
             self._fwd_btn = None
+
+        if rev_pin is not None:
+            self._rev_btn = GpioHandler.make_button(rev_pin)
+            self._tmcc1_commands[self._rev_btn] = CommandReq(TMCC1EngineCommandDef.REVERSE_DIRECTION)
+            self._tmcc2_commands[self._rev_btn] = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION)
+        else:
+            self._rev_btn = None
+
+        if toggle_pin is not None:
+            self._toggle_btn = GpioHandler.make_button(toggle_pin)
+            self._tmcc1_commands[self._toggle_btn] = CommandReq(TMCC1EngineCommandDef.REVERSE_DIRECTION)
+            self._tmcc2_commands[self._toggle_btn] = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION)
+        else:
+            self._toggle_btn = None
+
+        if start_up_pin is not None:
+            self._start_up_btn = GpioHandler.make_button(start_up_pin)
+            self._tmcc2_commands[self._start_up_btn] = CommandReq(TMCC2EngineCommandDef.START_UP_IMMEDIATE)
+        else:
+            self._start_up_btn = None
+
+        if shutdown_pin is not None:
+            self._shutdown_btn = GpioHandler.make_button(shutdown_pin)
+            self._tmcc1_commands[self._shutdown_btn] = CommandReq(TMCC1EngineCommandDef.SHUTDOWN_IMMEDIATE)
+            self._tmcc2_commands[self._shutdown_btn] = CommandReq(TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE)
+        else:
+            self._shutdown_btn = None
 
     @property
     def tmcc_id(self) -> int:
@@ -92,25 +121,45 @@ class EngineController:
     def reset_btn(self) -> Button:
         return self._reset_btn
 
-    def update(
-        self,
-        tmcc_id: int,
-        scope: CommandScope = CommandScope.ENGINE,
-        control_type: ControlType = ControlType.LEGACY,
-    ) -> None:
+    @property
+    def fwd_btn(self) -> Button:
+        return self._fwd_btn
+
+    @property
+    def rev_btn(self) -> Button:
+        return self._rev_btn
+
+    @property
+    def toggle_btn(self) -> Button:
+        return self._toggle_btn
+
+    @property
+    def start_up_btn(self) -> Button:
+        return self._start_up_btn
+
+    @property
+    def shutdown_btn(self) -> Button:
+        return self._shutdown_btn
+
+    def update(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE) -> None:
         """
         When a new engine/train is selected, redo the button bindings to
         reflect the new engine/train tmcc_id
         """
-        self._tmcc_id = tmcc_id
         self._scope = scope
-        self._control_type = control_type
+        self._tmcc_id = tmcc_id
+        current_state = self._store.get_state(scope, tmcc_id, create=False)
+        if current_state is None or current_state.control_type is None:
+            self._control_type = ControlType.LEGACY
+        else:
+            self._control_type = ControlType.by_value(current_state.control_type)
         # update buttons
+        print(f"TMCC_ID: {tmcc_id}, ControlType: {self._control_type} Scope: {self._scope}")
         if self.is_legacy:
             btn_cmds = self._tmcc2_commands
         else:
             btn_cmds = self._tmcc1_commands
         for btn, cmd in btn_cmds.items():
             cmd.address = self._tmcc_id
-            # cmd.scope = scope
+            cmd.scope = scope
             btn.when_pressed = cmd.as_action(repeat=self._repeat)

@@ -222,6 +222,10 @@ class ControlTypeDef:
         return self._control_type
 
     @property
+    def bits(self) -> int:
+        return self._control_type
+
+    @property
     def label(self) -> str:
         return CONTROL_TYPE[self.control_type]
 

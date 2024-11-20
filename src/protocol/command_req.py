@@ -236,6 +236,21 @@ class CommandReq:
             self._apply_data()
 
     @property
+    def scope(self) -> CommandScope:
+        return self._scope
+
+    @scope.setter
+    def scope(self, new_scope: CommandScope) -> None:
+        if new_scope != self._scope:
+            # can only change scope for Engine and Train commands, and then, just from the one to the other
+            if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                if new_scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                    self._scope = new_scope
+                    self._apply_scope()
+                    return
+            raise AttributeError(f"Scope {new_scope} not supported for {self}")
+
+    @property
     def is_halt(self) -> bool:
         return self.command == TMCC1HaltCommandDef.HALT
 
@@ -254,10 +269,6 @@ class CommandReq:
     @property
     def command_def(self) -> TMCC2CommandDef:
         return self._command_def
-
-    @property
-    def scope(self) -> CommandScope:
-        return self._scope
 
     @property
     def native_scope(self) -> CommandScope:
@@ -385,6 +396,18 @@ class CommandReq:
         self._command_bits &= 0xFFFF & ~data_bits
         # set new data
         self._command_bits |= data
+        return self._command_bits
+
+    def _apply_scope(self, new_scope: CommandScope = None) -> int:
+        scope = new_scope if new_scope is not None else self.scope
+        if self.syntax == CommandSyntax.TMCC and self.identifier == TMCC1CommandIdentifier.ENGINE:
+            self._command_bits &= TMCC1_TRAIN_COMMAND_PURIFIER
+            if scope == CommandScope.TRAIN:
+                self._command_bits |= TMCC1_TRAIN_COMMAND_MODIFIER
+        elif self.syntax == CommandSyntax.LEGACY:
+            pass
+        else:
+            raise ValueError(f"Command syntax not recognized {self.syntax}")
         return self._command_bits
 
     @classmethod

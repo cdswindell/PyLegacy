@@ -43,6 +43,7 @@ class Lcd(CharLCD):
         self.create_char(0, SMILEY_CHAR)
         self._rows = rows
         self._cols = cols
+        self._row_pos = self._col_pos = 0
         self._backlight_enabled = backlight_enabled
         self._frame_buffer = []
         for _ in range(self._rows):
@@ -69,14 +70,18 @@ class Lcd(CharLCD):
     def clear(self) -> None:
         super().clear()
         self.home()
+        self._row_pos = self._col_pos = 0
         self._frame_buffer = []
 
     def write_frame_buffer(self) -> None:
         super().clear()  # call the super, otherwise frame buffer is cleared
         self.home()  # reposition cursor
-        for row in self._frame_buffer:
+        for r, row in enumerate(self._frame_buffer):
             self.write_string(row.ljust(self.cols)[: self.cols])
             self.write_string("\r\n")
+            self._row_pos = r
+            self._col_pos = 0
+            self.cursor_pos = (r, 0)
 
     def print(self, c: int | str) -> None:
         if isinstance(c, int) and 0 <= c <= 255:
