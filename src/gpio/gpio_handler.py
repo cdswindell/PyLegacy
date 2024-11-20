@@ -1246,8 +1246,8 @@ class GpioHandler:
         data: int = None,
         scope: CommandScope = None,
         led_pin: int | str = None,
-        held: bool = False,
-        frequency: float = 0.06,
+        hold_repeat: bool = False,
+        hold_time: float = None,
         initially_on: bool = False,
         bind: bool = False,
         cathode: bool = True,
@@ -1257,10 +1257,11 @@ class GpioHandler:
             command = CommandReq.build(command, address=address, data=data, scope=scope)
 
         # create the button object we will associate an action with
-        button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
-        if held is True:
-            button.hold_repeat = held
-            button.hold_repeat = frequency
+
+        if hold_repeat is True:
+            button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
+        else:
+            button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
         cls.cache_device(button)
 
         # create a LED, if asked, and tie its source to the button
