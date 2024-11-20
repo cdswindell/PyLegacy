@@ -45,7 +45,8 @@ class EngineController:
         # (or initializing) prior to creating an EngineController instance
         # we will use this info when switching engines to initialize speed
         self._store = ComponentStateStore.build()
-        # the Halt command only exists in TMCC1 form
+
+        # the Halt command only exists in TMCC1 form, and it doesn't take an engine address modifier
         if halt_pin is not None:
             self._halt_btn = GpioHandler.make_button(halt_pin)
             cmd = CommandReq(TMCC1HaltCommandDef.HALT)
@@ -118,6 +119,40 @@ class EngineController:
         else:
             self._horn_btn = None
 
+        if boost_pin is not None:
+            self._boost_btn = GpioHandler.make_button(boost_pin, hold_repeat=True, hold_time=0.1)
+            self._tmcc1_when_pushed[self._boost_btn] = CommandReq(TMCC1EngineCommandDef.BOOST_SPEED)
+            self._tmcc2_when_pushed[self._boost_btn] = CommandReq(TMCC2EngineCommandDef.BOOST_SPEED)
+
+            self._tmcc1_when_held[self._boost_btn] = self._tmcc1_when_pushed[self._boost_btn]
+            self._tmcc2_when_held[self._boost_btn] = self._tmcc2_when_pushed[self._boost_btn]
+        else:
+            self._boost_btn = None
+
+        if brake_pin is not None:
+            self._brake_btn = GpioHandler.make_button(brake_pin, hold_repeat=True, hold_time=0.1)
+            self._tmcc1_when_pushed[self._brake_btn] = CommandReq(TMCC1EngineCommandDef.BRAKE_SPEED)
+            self._tmcc2_when_pushed[self._brake_btn] = CommandReq(TMCC2EngineCommandDef.BRAKE_SPEED)
+
+            self._tmcc1_when_held[self._brake_btn] = self._tmcc1_when_pushed[self._boost_btn]
+            self._tmcc2_when_held[self._brake_btn] = self._tmcc2_when_pushed[self._boost_btn]
+        else:
+            self._brake_btn = None
+
+        if rpm_up_pin is not None:
+            self._rpm_up_btn = GpioHandler.make_button(rpm_up_pin)
+            self._tmcc1_when_pushed[self._rpm_up_btn] = CommandReq(TMCC1EngineCommandDef.RPM_UP)
+            self._tmcc2_when_pushed[self._rpm_up_btn] = CommandReq(TMCC2EngineCommandDef.RPM_UP)
+        else:
+            self._rpm_up_btn = None
+
+        if rpm_down_pin is not None:
+            self._rpm_down_btn = GpioHandler.make_button(rpm_down_pin)
+            self._tmcc1_when_pushed[self._rpm_down_btn] = CommandReq(TMCC1EngineCommandDef.RPM_DOWN)
+            self._tmcc2_when_pushed[self._rpm_down_btn] = CommandReq(TMCC2EngineCommandDef.RPM_DOWN)
+        else:
+            self._rpm_down_btn = None
+
     @property
     def tmcc_id(self) -> int:
         return self._tmcc_id
@@ -170,6 +205,22 @@ class EngineController:
     def horn_btn(self) -> Button:
         return self._horn_btn
 
+    @property
+    def boost_btn(self) -> Button:
+        return self._boost_btn
+
+    @property
+    def brake_btn(self) -> Button:
+        return self._brake_btn
+
+    @property
+    def rpm_up_btn(self) -> Button:
+        return self._rpm_up_btn
+
+    @property
+    def rpm_down_btn(self) -> Button:
+        return self._rpm_down_btn
+
     def update(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE) -> None:
         """
         When a new engine/train is selected, redo the button bindings to
@@ -190,12 +241,15 @@ class EngineController:
         else:
             when_pushed = self._tmcc1_when_pushed
             when_held = self._tmcc1_when_held
+
+        # reset the when_pressed button handlers
         for btn, cmd in when_pushed.items():
             cmd.address = self._tmcc_id
             cmd.scope = scope
             btn.when_pressed = cmd.as_action(repeat=self._repeat)
+
+        # reset the when_held button handlers
         for btn, cmd in when_held.items():
-            print(btn, cmd)
             cmd.address = self._tmcc_id
             cmd.scope = scope
             btn.when_held = cmd.as_action()
