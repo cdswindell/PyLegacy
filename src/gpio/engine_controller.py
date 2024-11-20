@@ -10,10 +10,10 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 class EngineController:
     def __init__(
         self,
-        halt_pin: int | str = None,
-        reset_pin: int | str = None,
         speed_pin_1: int | str = None,
         speed_pin_2: int | str = None,
+        halt_pin: int | str = None,
+        reset_pin: int | str = None,
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
         toggle_pin: int | str = None,
@@ -96,6 +96,13 @@ class EngineController:
             self._tmcc2_commands[self._shutdown_btn] = CommandReq(TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE)
         else:
             self._shutdown_btn = None
+
+        if bell_pin is not None:
+            self._bell_btn = GpioHandler.make_button(bell_pin)
+            self._tmcc1_commands[self._bell_btn] = CommandReq(TMCC1EngineCommandDef.RING_BELL)
+            self._tmcc2_commands[self._bell_btn] = CommandReq(TMCC2EngineCommandDef.BELL_ONE_SHOT_DING)
+        else:
+            self.bell_pin = None
 
     @property
     def tmcc_id(self) -> int:
