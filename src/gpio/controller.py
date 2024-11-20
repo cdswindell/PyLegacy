@@ -97,10 +97,8 @@ class Controller(Thread):
         self.update_display()
 
     def update_display(self):
-        print("Updating display")
         self._lcd.clear()
         row = f"{self._scope.friendly}: "
-        print(f"Updating display {row}")
         tmcc_id_pos = len(row)
         if self._tmcc_id is not None:
             row += f"{self._tmcc_id}"
