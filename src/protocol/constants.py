@@ -109,6 +109,10 @@ class Mixins(Enum):
     def title(self) -> str:
         return self.name.title()
 
+    @property
+    def label(self) -> str:
+        return self.name.capitalize()
+
 
 class OfficialRRSpeeds(Mixins, Enum):
     """

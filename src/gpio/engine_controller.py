@@ -154,7 +154,7 @@ class EngineController:
         else:
             self._control_type = ControlType.by_value(current_state.control_type)
         # update buttons
-        print(f"TMCC_ID: {tmcc_id}, {self._control_type} {self._scope}")
+        print(f"TMCC_ID: {tmcc_id}, {self._control_type.label} {self._scope.label}")
         if self.is_legacy:
             btn_cmds = self._tmcc2_commands
         else:
