@@ -70,6 +70,7 @@ class Controller(Thread):
     def update_engine(self, engine_id: str | int):
         self._tmcc_id = tmcc_id = int(engine_id)
         self.update_display()
+        self._key_queue.reset()
         if self._engine_controller:
             self._engine_controller.update(tmcc_id)
 
@@ -86,14 +87,12 @@ class Controller(Thread):
             self._last_tmcc_id = self._tmcc_id
             self._scope = tmp_scope
             self._tmcc_id = tmp_tmcc_id
-            self._key_queue.reset()
             self.update_engine(tmp_tmcc_id)
 
     def change_scope(self, scope: CommandScope) -> None:
         self.cache_engine()
         self._scope = scope
         self._tmcc_id = None
-        self._key_queue.reset()
         self.update_display()
 
     def update_display(self):

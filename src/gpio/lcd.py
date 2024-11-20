@@ -62,7 +62,6 @@ class Lcd(CharLCD):
 
     def add(self, row: str) -> bool:
         if len(self._frame_buffer) < self.rows:
-            print(f"Adding: {row}")
             self._frame_buffer.append(row)
             return True
         return False
