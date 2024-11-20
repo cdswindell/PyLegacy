@@ -73,8 +73,8 @@ class Lcd(CharLCD):
         self._frame_buffer = []
 
     def write_frame_buffer(self) -> None:
-        self.home()
-        self.clear()
+        super().clear()  # call the super, otherwise frame buffer is cleared
+        self.home()  # reposition cursor
         for row in self._frame_buffer:
             self.write_string(row.ljust(self.cols)[: self.cols])
             self.write_string("\r\n")
