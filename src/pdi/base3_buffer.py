@@ -184,9 +184,7 @@ class Base3Buffer(Thread):
                     except NotImplementedError:
                         return  # ignore exceptions; most likely it's a multibyte cmd
             else:
-                # convert the byte stream into a command
-                # TODO: byte sequence could contain multiple commands; break them up
-                # break up multiple command sequences, sending each command separately
+                # convert the byte stream into one or more commands
                 command_seq = bytes()
                 for b in data:
                     from src.protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER
