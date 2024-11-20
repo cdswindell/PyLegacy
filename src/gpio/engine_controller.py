@@ -1,6 +1,5 @@
 from gpiozero import Button
 
-from .gpio_handler import GpioHandler
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
@@ -35,6 +34,8 @@ class EngineController:
         train_brake_chn: int | str = None,
         repeat: int = 2,
     ) -> None:
+        from .gpio_handler import GpioHandler
+
         # initial defaults, use update_engine to modify
         self._tmcc_id = 1
         self._control_type = ControlType.LEGACY
