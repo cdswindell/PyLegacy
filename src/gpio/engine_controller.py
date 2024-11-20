@@ -102,7 +102,7 @@ class EngineController:
         if bell_pin is not None:
             self._bell_btn = GpioHandler.make_button(bell_pin)
             self._tmcc1_when_pushed[self._bell_btn] = CommandReq(TMCC1EngineCommandDef.RING_BELL)
-            self._tmcc2_when_pushed[self._bell_btn] = CommandReq(TMCC2EngineCommandDef.BELL_ONE_SHOT_DING, data=4)
+            self._tmcc2_when_pushed[self._bell_btn] = CommandReq(TMCC2EngineCommandDef.BELL_ONE_SHOT_DING, data=3)
 
             self._bell_btn.hold_time = 2
             self._tmcc2_when_held[self._bell_btn] = CommandReq(TMCC2EngineCommandDef.RING_BELL)
