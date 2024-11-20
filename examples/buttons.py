@@ -36,7 +36,7 @@ GpioHandler.controller(
     row_pins=[18, 23, 24, 25],
     column_pins=[12, 16, 20, 21],
     speed_pins=[19, 26],
-    bell_pin=4,
+    horn_pin=4,
     lcd_address=0x27,
     lcd_rows=2,
     lcd_cols=16,

@@ -108,6 +108,16 @@ class EngineController:
         else:
             self.bell_pin = None
 
+        if horn_pin is not None:
+            self._horn_btn = GpioHandler.make_button(horn_pin, hold_repeat=True, hold_time=0.01)
+            self._tmcc1_when_pushed[self._horn_btn] = CommandReq(TMCC1EngineCommandDef.BLOW_HORN_ONE)
+            self._tmcc2_when_pushed[self._horn_btn] = CommandReq(TMCC2EngineCommandDef.BLOW_HORN_ONE)
+
+            self._tmcc2_when_held[self._horn_btn] = CommandReq(TMCC1EngineCommandDef.BLOW_HORN_ONE)
+            self._tmcc2_when_held[self._horn_btn] = CommandReq(TMCC2EngineCommandDef.QUILLING_HORN_INTENSITY, data=7)
+        else:
+            self._horn_btn = None
+
     @property
     def tmcc_id(self) -> int:
         return self._tmcc_id
@@ -151,6 +161,14 @@ class EngineController:
     @property
     def shutdown_btn(self) -> Button:
         return self._shutdown_btn
+
+    @property
+    def bell_btn(self) -> Button:
+        return self._bell_btn
+
+    @property
+    def horn_btn(self) -> Button:
+        return self._horn_btn
 
     def update(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE) -> None:
         """
