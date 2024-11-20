@@ -54,53 +54,58 @@ class EngineController:
             self._halt_btn = None
 
         # construct the commands; make both the TMCC1 and Legacy versions
-        self._tmcc1_commands = {}
-        self._tmcc2_commands = {}
+        self._tmcc1_when_pushed = {}
+        self._tmcc2_when_pushed = {}
+        self._tmcc1_when_held = {}
+        self._tmcc2_when_held = {}
         if reset_pin is not None:
             self._reset_btn = GpioHandler.make_button(reset_pin)
-            self._tmcc1_commands[self._reset_btn] = CommandReq(TMCC1EngineCommandDef.RESET)
-            self._tmcc2_commands[self._reset_btn] = CommandReq(TMCC2EngineCommandDef.RESET)
+            self._tmcc1_when_pushed[self._reset_btn] = CommandReq(TMCC1EngineCommandDef.RESET)
+            self._tmcc2_when_pushed[self._reset_btn] = CommandReq(TMCC2EngineCommandDef.RESET)
         else:
             self._reset_btn = None
 
         if fwd_pin is not None:
             self._fwd_btn = GpioHandler.make_button(fwd_pin)
-            self._tmcc1_commands[self._fwd_btn] = CommandReq(TMCC1EngineCommandDef.FORWARD_DIRECTION)
-            self._tmcc2_commands[self._fwd_btn] = CommandReq(TMCC2EngineCommandDef.FORWARD_DIRECTION)
+            self._tmcc1_when_pushed[self._fwd_btn] = CommandReq(TMCC1EngineCommandDef.FORWARD_DIRECTION)
+            self._tmcc2_when_pushed[self._fwd_btn] = CommandReq(TMCC2EngineCommandDef.FORWARD_DIRECTION)
         else:
             self._fwd_btn = None
 
         if rev_pin is not None:
             self._rev_btn = GpioHandler.make_button(rev_pin)
-            self._tmcc1_commands[self._rev_btn] = CommandReq(TMCC1EngineCommandDef.REVERSE_DIRECTION)
-            self._tmcc2_commands[self._rev_btn] = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION)
+            self._tmcc1_when_pushed[self._rev_btn] = CommandReq(TMCC1EngineCommandDef.REVERSE_DIRECTION)
+            self._tmcc2_when_pushed[self._rev_btn] = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION)
         else:
             self._rev_btn = None
 
         if toggle_pin is not None:
             self._toggle_btn = GpioHandler.make_button(toggle_pin)
-            self._tmcc1_commands[self._toggle_btn] = CommandReq(TMCC1EngineCommandDef.REVERSE_DIRECTION)
-            self._tmcc2_commands[self._toggle_btn] = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION)
+            self._tmcc1_when_pushed[self._toggle_btn] = CommandReq(TMCC1EngineCommandDef.REVERSE_DIRECTION)
+            self._tmcc2_when_pushed[self._toggle_btn] = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION)
         else:
             self._toggle_btn = None
 
         if start_up_pin is not None:
             self._start_up_btn = GpioHandler.make_button(start_up_pin)
-            self._tmcc2_commands[self._start_up_btn] = CommandReq(TMCC2EngineCommandDef.START_UP_IMMEDIATE)
+            self._tmcc2_when_pushed[self._start_up_btn] = CommandReq(TMCC2EngineCommandDef.START_UP_IMMEDIATE)
         else:
             self._start_up_btn = None
 
         if shutdown_pin is not None:
             self._shutdown_btn = GpioHandler.make_button(shutdown_pin)
-            self._tmcc1_commands[self._shutdown_btn] = CommandReq(TMCC1EngineCommandDef.SHUTDOWN_IMMEDIATE)
-            self._tmcc2_commands[self._shutdown_btn] = CommandReq(TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE)
+            self._tmcc1_when_pushed[self._shutdown_btn] = CommandReq(TMCC1EngineCommandDef.SHUTDOWN_IMMEDIATE)
+            self._tmcc2_when_pushed[self._shutdown_btn] = CommandReq(TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE)
         else:
             self._shutdown_btn = None
 
         if bell_pin is not None:
             self._bell_btn = GpioHandler.make_button(bell_pin)
-            self._tmcc1_commands[self._bell_btn] = CommandReq(TMCC1EngineCommandDef.RING_BELL)
-            self._tmcc2_commands[self._bell_btn] = CommandReq(TMCC2EngineCommandDef.BELL_ONE_SHOT_DING)
+            self._tmcc1_when_pushed[self._bell_btn] = CommandReq(TMCC1EngineCommandDef.RING_BELL)
+            self._tmcc2_when_pushed[self._bell_btn] = CommandReq(TMCC2EngineCommandDef.BELL_ONE_SHOT_DING, data=4)
+
+            self._bell_btn.hold_time = 2
+            self._tmcc2_when_held[self._bell_btn] = CommandReq(TMCC2EngineCommandDef.RING_BELL)
         else:
             self.bell_pin = None
 
@@ -163,10 +168,16 @@ class EngineController:
         # update buttons
         print(f"TMCC_ID: {tmcc_id}, {self._control_type.label} {self._scope.label}")
         if self.is_legacy:
-            btn_cmds = self._tmcc2_commands
+            when_pushed = self._tmcc2_when_pushed
+            when_held = self._tmcc2_when_held
         else:
-            btn_cmds = self._tmcc1_commands
-        for btn, cmd in btn_cmds.items():
+            when_pushed = self._tmcc1_when_pushed
+            when_held = self._tmcc1_when_held
+        for btn, cmd in when_pushed.items():
             cmd.address = self._tmcc_id
             cmd.scope = scope
             btn.when_pressed = cmd.as_action(repeat=self._repeat)
+        for btn, cmd in when_held.items():
+            cmd.address = self._tmcc_id
+            cmd.scope = scope
+            btn.when_pressed = cmd.as_action()
