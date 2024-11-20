@@ -215,7 +215,7 @@ class ControlTypeDef:
 
     @property
     def is_legacy(self) -> bool:
-        return self.is_legacy
+        return self._is_legacy
 
     @property
     def control_type(self) -> int:
