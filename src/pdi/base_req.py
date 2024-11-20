@@ -120,7 +120,6 @@ class BaseReq(PdiReq):
             state = cmd
         else:
             raise ValueError(f"Invalid option: {cmd}")
-        print(state.name, data, scope, state, cmd)
         if state.name in ENGINE_WRITE_MAP:
             cmds = []
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
@@ -152,7 +151,6 @@ class BaseReq(PdiReq):
             byte_str += checksum
             byte_str += PDI_EOP.to_bytes(1, byteorder="big")
             cmds.append(cls(byte_str))
-            print("*******", state.name, address, data, "\n", cmds[0])
             # if speed-related, send other updates
             if bit_pos == EngineBits.SPEED.value:
                 cmds.append(cls.update_speed(address, data, scope))

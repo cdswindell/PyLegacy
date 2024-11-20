@@ -648,12 +648,6 @@ class EngineState(ComponentState):
             cmd_effects = self.results_in(command)
             log.debug(f"Update: {command}\nEffects: {cmd_effects}")
 
-            # handle direction
-            if command.command in DIRECTIONS_SET:
-                self._direction = command.command
-            elif cmd_effects & DIRECTIONS_SET:
-                self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
-
             # handle last numeric
             if command.command in NUMERIC_SET:
                 if self.engine_type == LOCO_TRACK_CRANE:
@@ -661,11 +655,18 @@ class EngineState(ComponentState):
                         self._numeric = command.data
                         self._numeric_cmd = command.command
                 else:
+                    print(command)
                     self._numeric = command.data
                     self._numeric_cmd = command.command
             elif cmd_effects & NUMERIC_SET:
                 numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
                 log.info(f"What to do? {command}: {numeric} {type(numeric)}")
+
+            # handle direction
+            if command.command in DIRECTIONS_SET:
+                self._direction = command.command
+            elif cmd_effects & DIRECTIONS_SET:
+                self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
             # aux commands
             for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
