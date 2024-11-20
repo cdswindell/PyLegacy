@@ -8,9 +8,12 @@ from typing import Dict, List
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
+from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS, Mixins
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 log = logging.getLogger(__name__)
 
@@ -97,10 +100,26 @@ class BaseReq(PdiReq):
             address = cmd.address
             data = cmd.data
             scope = cmd.scope
+
+            # special case numeric commands
+            if state.name == "NUMERIC":
+                if data == 0:
+                    state = TMCC2EngineCommandDef.RESET if state.is_legacy else TMCC1EngineCommandDef.RESET
+                elif data in [3, 6]:  # RPM up/down
+                    state = TMCC2EngineCommandDef.DIESEL_RPM
+                    cur_state = ComponentStateStore.build().get_state(scope, address, False)
+                    if cur_state and cur_state.rpm is not None:
+                        cur_rpm = cur_state.rpm
+                        if data == 6:  # RPM Down
+                            cur_rpm = min(cur_rpm - 1, 0)
+                        elif data == 3:  # RPM Up
+                            cur_rpm = max(cur_rpm + 1, 7)
+                        data = cur_rpm
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
         else:
             raise ValueError(f"Invalid option: {cmd}")
+        print(state.name, data, scope, state, cmd)
         if state.name in ENGINE_WRITE_MAP:
             cmds = []
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
@@ -132,10 +151,11 @@ class BaseReq(PdiReq):
             byte_str += checksum
             byte_str += PDI_EOP.to_bytes(1, byteorder="big")
             cmds.append(cls(byte_str))
+            print(f"bit_pos == EngineBits.SPEED.value: {bit_pos} {EngineBits.SPEED.value}")
             # if speed-related, send other updates
             if bit_pos == EngineBits.SPEED.value:
                 cmds.append(cls.update_speed(address, data, scope))
-            print(bit_pos, cmds)
+            print(cmds)
             return cmds
         return None
 
@@ -367,7 +387,10 @@ class BaseReq(PdiReq):
     def payload(self) -> str:
         f = hex(self.flags) if self.flags is not None else "NA"
         s = self.status if self.status is not None else "NA"
-        if self._valid1 is None and self._valid2 is None:  # ACK received
+        if self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
+            scope = "Engine" if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else "Train"
+            return f"{scope} #{self.tmcc_id} New Speed: {self.speed}"
+        elif self._valid1 is None and self._valid2 is None:  # ACK received
             return f"Rec # {self.record_no} flags: {f} status: {s} ACK ({self.packet})"
         else:
             v = hex(self.valid1) if self.valid1 is not None else "NA"
@@ -408,9 +431,6 @@ class BaseReq(PdiReq):
                 tr = f" Route Throw Rate: {self._route_throw_rate} sec" if self._route_throw_rate is not None else ""
                 n = f"{self._name} " if self._name is not None else ""
                 return f"{n}Rec # {self.record_no} flags: {f} status: {s} valid: {v}{fw}{tr}\n({self.packet})"
-            elif self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
-                scope = "Engine" if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else "Train"
-                return f"{scope} #{self.tmcc_id} New Speed: {self.speed}"
             return f"Rec # {self.record_no} flags: {f} status: {s} valid: {v}\n({self.packet})"
 
     @property
