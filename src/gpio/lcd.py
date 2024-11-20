@@ -77,11 +77,11 @@ class Lcd(CharLCD):
         super().clear()  # call the super, otherwise frame buffer is cleared
         self.home()  # reposition cursor
         for r, row in enumerate(self._frame_buffer):
+            print(row)
             self.write_string(row.ljust(self.cols)[: self.cols])
             self.write_string("\r\n")
             self._row_pos = r
             self._col_pos = 0
-            self.cursor_pos = (r, 0)
 
     def print(self, c: int | str) -> None:
         if isinstance(c, int) and 0 <= c <= 255:

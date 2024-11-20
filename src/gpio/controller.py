@@ -87,13 +87,14 @@ class Controller(Thread):
         self._scope = scope
         self._tmcc_id = None
         self.update_display()
+        self._key_queue.reset()
 
     def update_engine(self, engine_id: str | int):
         self._tmcc_id = tmcc_id = int(engine_id)
-        self.update_display()
-        self._key_queue.reset()
         if self._engine_controller:
             self._engine_controller.update(tmcc_id, self._scope)
+        self.update_display()
+        self._key_queue.reset()
 
     def update_display(self):
         self._lcd.clear()
