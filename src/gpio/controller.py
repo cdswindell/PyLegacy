@@ -10,6 +10,13 @@ from ..pdi.pdi_req import PdiReq
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..db.component_state_store import ComponentStateStore
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+
+COMMANDS_OF_INTEREST = {
+    TMCC2EngineCommandDef.ABSOLUTE_SPEED,
+    TMCC2EngineCommandDef.FORWARD_DIRECTION,
+    TMCC2EngineCommandDef.REVERSE_DIRECTION,
+}
 
 
 class Controller(Thread):
@@ -86,7 +93,9 @@ class Controller(Thread):
         """
         Callback specified in the Subscriber protocol used to send events to listeners
         """
-        self.update_display()
+        if isinstance(cmd, CommandReq):
+            if cmd.command in COMMANDS_OF_INTEREST
+                self.update_display()
 
     @property
     def engine_controller(self) -> EngineController:
