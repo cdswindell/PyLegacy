@@ -869,6 +869,10 @@ class EngineState(ComponentState):
         return self._speed
 
     @property
+    def speed_label(self) -> str:
+        return self._as_label(self._speed)
+
+    @property
     def numeric(self) -> int:
         return self._numeric
 
