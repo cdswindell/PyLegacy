@@ -123,7 +123,7 @@ class Controller(Thread):
         self._state_watcher = StateWatcher(self._state, self.refresh_display)
 
     def cache_engine(self):
-        if self._tmcc_id and self._scope:
+        if self._tmcc_id != self._last_tmcc_id:
             self._last_scope = self._scope
             self._last_tmcc_id = self._tmcc_id
 
