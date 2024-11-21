@@ -21,6 +21,10 @@ COMMANDS_OF_INTEREST = {
     TMCC2EngineCommandDef.REVERSE_DIRECTION,
     TMCC2EngineCommandDef.DIESEL_RPM,
     TMCC2EngineCommandDef.NUMERIC,
+    TMCC2EngineCommandDef.MOMENTUM,
+    TMCC2EngineCommandDef.MOMENTUM_LOW,
+    TMCC2EngineCommandDef.MOMENTUM_MEDIUM,
+    TMCC2EngineCommandDef.MOMENTUM_HIGH,
 }
 
 
