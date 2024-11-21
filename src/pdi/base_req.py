@@ -388,6 +388,12 @@ class BaseReq(PdiReq):
         return self._loco_class
 
     @property
+    def firmware(self) -> str | None:
+        if self._firmware_high and self._firmware_low:
+            return f"{self._firmware_high}.{self._firmware_low}"
+        return None
+
+    @property
     def is_active(self) -> bool:
         if self.pdi_command in [
             PdiCommand.BASE_ENGINE,

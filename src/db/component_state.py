@@ -1108,6 +1108,9 @@ class BaseState(ComponentState):
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
         self._base_name = None
+        self._firmware = None
+        self._firmware_high = None
+        self._firmware_low = None
 
     def __repr__(self) -> str:
         return f"Lionel Base 3: {self._base_name if self._base_name else 'NA'}"
@@ -1118,12 +1121,21 @@ class BaseState(ComponentState):
         if isinstance(command, BaseReq):
             with self._cv:
                 self._base_name = command.name if command.name else self._base_name
+                self._firmware = command.firmware if command.firmware else self._firmware
+                if self.firmware:
+                    version_info = self.firmware.split(".")
+                    self._firmware_high = int(version_info[0])
+                    self._firmware_low = int(version_info[1])
                 self._ev.set()
                 self._cv.notify_all()
 
     @property
     def base_name(self) -> str:
         return self._base_name if self._base_name else "NA"
+
+    @property
+    def firmware(self) -> str:
+        return self._firmware
 
     @property
     def is_known(self) -> bool:
