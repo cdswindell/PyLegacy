@@ -139,9 +139,10 @@ class Controller(Thread):
             state = self._state.get_state(self._scope, self._tmcc_id)
             if state:
                 if state.control_type is not None and self._lcd.cols > 16:
-                    row += f" {state.control_type_label[0]} "
+                    row += f" {state.control_type_label[0]}"
                 if state.road_number:
-                    row += f" #{state.road_number}"
+                    rn = f"#{state.road_number}"
+                    row += rn.rjust(self._lcd.cols - len(row), " ")
         else:
             state = None
         self._lcd.add(row)
