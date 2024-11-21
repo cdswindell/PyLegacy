@@ -169,7 +169,7 @@ class CommandReq:
                     effect_cmd = CommandReq.build(effect[0], request.address, effect[1], request.scope)
                 else:
                     continue  # we shouldn't ever get here
-                # buffer.enqueue_command(effect_cmd.as_bytes, delay)
+                buffer.enqueue_command(effect_cmd.as_bytes, delay)
 
     @staticmethod
     def results_in(command: CommandReq) -> Set[E]:
