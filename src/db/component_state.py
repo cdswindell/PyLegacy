@@ -846,6 +846,10 @@ class EngineState(ComponentState):
         return self._control_type
 
     @property
+    def control_type_label(self) -> str:
+        return CONTROL_TYPE.get(self.control_type, 'NA')
+
+    @property
     def sound_type(self) -> int:
         return self._sound_type
 

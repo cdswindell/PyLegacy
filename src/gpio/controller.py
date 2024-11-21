@@ -135,12 +135,15 @@ class Controller(Thread):
         row = f"{self._scope.friendly}: "
         tmcc_id_pos = len(row)
         if self._tmcc_id is not None:
-            row += f"{self._tmcc_id}"
+            row += f"{self._tmcc_id:>2}"
             state = self._state.get_state(self._scope, self._tmcc_id)
+            if state:
+                if state.control_type is not None and self._lcd.cols > 16:
+                    row += f" {state.control_type_label[0]} "
+                if state.road_number:
+                    row += f" #{state.road_number}"
         else:
             state = None
-        if state and state.road_number:
-            row += f" #{state.road_number}"
         self._lcd.add(row)
 
         if self._tmcc_id is not None:
