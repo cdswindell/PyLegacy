@@ -214,7 +214,5 @@ class StateWatcher(Thread):
         while self._state is not None and self._is_running:
             with self._state.syncronizer:
                 self._state.syncronizer.wait()
-                print(self._state)
                 if self._is_running:
                     self._action()
-        print(f"{self.name} shutdown...")
