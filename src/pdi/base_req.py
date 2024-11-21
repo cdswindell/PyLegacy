@@ -313,6 +313,10 @@ class BaseReq(PdiReq):
         return self._momentum
 
     @property
+    def smoke_level(self) -> int:
+        return self._smoke_level
+
+    @property
     def run_level(self) -> int:
         return self._run_level
 

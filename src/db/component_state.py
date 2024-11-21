@@ -186,7 +186,7 @@ class ComponentState(ABC):
         return self._ev
 
     @property
-    def syncronizer(self) -> threading.Condition:
+    def synchronizer(self) -> threading.Condition:
         return self._cv
 
     @property
@@ -291,7 +291,7 @@ class ComponentState(ABC):
         byte sequence used to trigger the corresponding action(s) when received by the
         component.
 
-        Used to synchronize component state when client attaches to the server.
+        Used to synchronizer component state when client attaches to the server.
         """
         ...
 
@@ -580,6 +580,7 @@ class EngineState(ComponentState):
         self._speed: int | None = None
         self._direction: CommandDefEnum | None = None
         self._momentum: int | None = None
+        self._smoke_level: int | None = None
         self._prod_year: int | None = None
         self._rpm: int | None = None
         self._control_type: int | None = None
@@ -813,6 +814,8 @@ class EngineState(ComponentState):
                         self._engine_class = command.loco_class_id
                     if command.is_valid(EngineBits.LOCO_TYPE):
                         self._engine_type = command.loco_type_id
+                    if command.is_valid(EngineBits.SMOKE_LEVEL):
+                        self._smoke_level = command.smoke_level
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
             self.changed.set()
@@ -859,8 +862,16 @@ class EngineState(ComponentState):
         return self._momentum
 
     @property
+    def momentum_label(self) -> str:
+        return f"{self.momentum if self.momentum is not None else 'NA'}"
+
+    @property
     def rpm(self) -> int:
         return self._rpm
+
+    @property
+    def rpm_label(self) -> str:
+        return f"{self.rpm if self.rpm is not None else 'NA'}"
 
     @property
     def control_type(self) -> int:

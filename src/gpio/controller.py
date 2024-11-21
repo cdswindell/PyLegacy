@@ -185,7 +185,8 @@ class Controller(Thread):
                     row += self._state.direction_label
                     self._lcd.add(row)
                 if self._lcd.rows > 3:
-                    row = f"RPM: {self._state.rpm} "
+                    row = f"RPM: {self._state.rpm_label} "
+                    row += f"Mom: {self._state.momentum_label}"
                     self._lcd.add(row)
             self._lcd.write_frame_buffer(clear_display)
             if self._tmcc_id is None:
@@ -213,12 +214,12 @@ class StateWatcher(Thread):
 
     def shutdown(self) -> None:
         self._is_running = False
-        with self._state.syncronizer:
-            self._state.syncronizer.notify_all()
+        with self._state.synchronizer:
+            self._state.synchronizer.notify_all()
 
     def run(self) -> None:
         while self._state is not None and self._is_running:
-            with self._state.syncronizer:
-                self._state.syncronizer.wait()
+            with self._state.synchronizer:
+                self._state.synchronizer.wait()
                 if self._is_running:
                     self._action()
