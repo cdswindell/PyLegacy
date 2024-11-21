@@ -145,8 +145,9 @@ class Controller(Thread):
         self._key_queue.reset()
 
     def update_engine(self, engine_id: str | int):
-        self.cache_engine()
-        self._tmcc_id = tmcc_id = int(engine_id)
+        tmcc_id = int(engine_id)
+        if tmcc_id != self._tmcc_id:
+            self.cache_engine()
         self._state = self._state_store.get_state(self._scope, tmcc_id)
         if self._engine_controller:
             self._engine_controller.update(tmcc_id, self._scope)
@@ -213,3 +214,4 @@ class StateWatcher(Thread):
                 print(self._state)
                 if self._is_running:
                     self._action()
+        print(f"{self.name} shutdown...")
