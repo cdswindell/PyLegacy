@@ -420,7 +420,7 @@ class CommandDispatcher(Thread):
                 for address in store.addresses(scope):
                     with self._lock:
                         state: ComponentState = store.query(scope, address)
-                        if state is not None
+                        if state is not None:
                             state_as_bytes: bytes = state.as_bytes()
                             if state_as_bytes:  # we can only send states for tracked conditions
                                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
