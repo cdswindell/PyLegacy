@@ -61,7 +61,7 @@ class EnqueueProxyRequests(Thread):
     @classmethod
     def is_known_client(cls, ip_addr: str) -> bool:
         # noinspection PyProtectedMember
-        if cls._instance and ip_addr in cls._instance._clients:
+        if cls._instance and (ip_addr in cls._instance._clients):
             return True
         return False
 
