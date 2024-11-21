@@ -149,7 +149,7 @@ class BaseReq(PdiReq):
             byte_str += PDI_EOP.to_bytes(1, byteorder="big")
             cmds.append(cls(byte_str))
             # send a command to refresh all state
-            cmds.append(cls(address, pdi_cmd))
+            # cmds.append(cls(address, pdi_cmd))
             return cmds
         return None
 
