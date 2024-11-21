@@ -1,4 +1,4 @@
-from threading import Thread
+from threading import Thread, Lock
 from time import sleep
 from typing import List
 
@@ -55,6 +55,7 @@ class Controller(Thread):
         lcd_cols: int = 20,
     ):
         super().__init__(name=f"{PROGRAM_NAME} Controller", daemon=True)
+        self._lock = Lock()
         self._lcd = Lcd(address=lcd_address, rows=lcd_rows, cols=lcd_cols)
         self._keypad = Keypad(row_pins, column_pins)
         self._key_queue = self._keypad.key_queue
@@ -102,6 +103,7 @@ class Controller(Thread):
         """
         if isinstance(cmd, CommandReq):
             if cmd.command in COMMANDS_OF_INTEREST and cmd.address == self._tmcc_id:
+                print(cmd)
                 self.update_display(clear=False)
 
     @property
@@ -160,35 +162,36 @@ class Controller(Thread):
         self._key_queue.reset()
 
     def update_display(self, clear: bool = True) -> None:
-        if clear is True:
-            self._lcd.clear()
-        else:
-            self._lcd.home()
-        row = f"{self._scope.friendly}: "
-        tmcc_id_pos = len(row)
-        if self._tmcc_id is not None:
-            row += f"{self._tmcc_id:04}"
-            state = self._state.get_state(self._scope, self._tmcc_id)
-            if state:
-                if state.control_type is not None and self._lcd.cols > 16:
-                    row += f" {state.control_type_label[0]}"
-                if state.road_number:
-                    rn = f"#{state.road_number}"
-                    row += rn.rjust(self._lcd.cols - len(row), " ")
-        else:
-            state = None
-        self._lcd.add(row)
-
-        if state is not None:
-            row = state.road_name if state.road_name else "No Information"
+        with self._lock:
+            if clear is True:
+                self._lcd.clear()
+            else:
+                self._lcd.home()
+            row = f"{self._scope.friendly}: "
+            tmcc_id_pos = len(row)
+            if self._tmcc_id is not None:
+                row += f"{self._tmcc_id:04}"
+                state = self._state.get_state(self._scope, self._tmcc_id)
+                if state:
+                    if state.control_type is not None and self._lcd.cols > 16:
+                        row += f" {state.control_type_label[0]}"
+                    if state.road_number:
+                        rn = f"#{state.road_number}"
+                        row += rn.rjust(self._lcd.cols - len(row), " ")
+            else:
+                state = None
             self._lcd.add(row)
-            if self._lcd.rows > 2:
-                row = f"Speed: {state.speed:03} "
-                row += state.direction_label
+
+            if state is not None:
+                row = state.road_name if state.road_name else "No Information"
                 self._lcd.add(row)
-        self._lcd.write_frame_buffer()
-        if self._tmcc_id is None:
-            self._lcd.cursor_pos = (0, tmcc_id_pos)
+                if self._lcd.rows > 2:
+                    row = f"Speed: {state.speed:03} "
+                    row += state.direction_label
+                    self._lcd.add(row)
+            self._lcd.write_frame_buffer()
+            if self._tmcc_id is None:
+                self._lcd.cursor_pos = (0, tmcc_id_pos)
 
     def reset(self) -> None:
         self._is_running = False
