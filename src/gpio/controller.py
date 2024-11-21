@@ -172,6 +172,8 @@ class Controller(Thread):
             self._lcd.clear_frame_buffer()
             if self._state is not None:
                 row = self._state.road_name if self._state.road_name else "No Information"
+                if self._state.road_number:
+                    row += f" #{self._state.road_number}".rjust(self._lcd.cols - len(row), " ")
             else:
                 row = ""
             self._lcd.add(row)
@@ -181,11 +183,9 @@ class Controller(Thread):
             if self._tmcc_id is not None:
                 row += f"{self._tmcc_id:04}"
                 if self._state:
-                    if self._state.control_type is not None and self._lcd.cols > 16:
-                        row += f" {self._state.control_type_label[0]}"
-                    if self._state.road_number:
-                        rn = f"#{self._state.road_number}"
-                        row += rn.rjust(self._lcd.cols - len(row), " ")
+                    if self._state.control_type is not None:
+                        row += f" {self._state.control_type_label}"
+
             self._lcd.add(row)
             if self._state is not None:
                 if self._lcd.rows > 2:
