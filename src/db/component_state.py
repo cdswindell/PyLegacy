@@ -123,6 +123,7 @@ class ComponentState(ABC):
         self._number = None
         self._address: int | None = None
         self._ev = threading.Event()
+        self._cv = threading.Condition()
 
         from .component_state_store import DependencyCache
 
@@ -183,6 +184,10 @@ class ComponentState(ABC):
     @property
     def changed(self) -> threading.Event:
         return self._ev
+
+    @property
+    def syncronizer(self) -> threading.Condition:
+        return self._cv
 
     @property
     def road_name(self) -> str | None:
@@ -354,19 +359,21 @@ class SwitchState(TmccState):
         from ..pdi.base_req import BaseReq
 
         if command:
-            super().update(command)
-            if command.command == TMCC1HaltCommandDef.HALT:
-                return  # do nothing on halt
-            if isinstance(command, CommandReq):
-                if command.command != Switch.SET_ADDRESS:
-                    self._state = command.command
-            elif isinstance(command, Asc2Req) or isinstance(command, Stm2Req):
-                self._state = Switch.THROUGH if command.is_thru else Switch.OUT
-            elif isinstance(command, BaseReq):
-                pass
-            else:
-                log.warning(f"Unhandled Switch State Update received: {command}")
-            self.changed.set()
+            with self._cv:
+                super().update(command)
+                if command.command == TMCC1HaltCommandDef.HALT:
+                    return  # do nothing on halt
+                if isinstance(command, CommandReq):
+                    if command.command != Switch.SET_ADDRESS:
+                        self._state = command.command
+                elif isinstance(command, Asc2Req) or isinstance(command, Stm2Req):
+                    self._state = Switch.THROUGH if command.is_thru else Switch.OUT
+                elif isinstance(command, BaseReq):
+                    pass
+                else:
+                    log.warning(f"Unhandled Switch State Update received: {command}")
+                self.changed.set()
+                self._cv.notify_all()
 
     @property
     def state(self) -> Switch:
@@ -435,68 +442,70 @@ class AccessoryState(TmccState):
     # noinspection DuplicatedCode
     def update(self, command: L | P) -> None:
         if command:
-            if log.isEnabledFor(logging.DEBUG):
-                log.debug(command)
-            super().update(command)
-            if isinstance(command, CommandReq):
-                if command.command != Aux.SET_ADDRESS:
-                    if command.command == TMCC1HaltCommandDef.HALT:
-                        self._aux1_state = Aux.AUX1_OFF
-                        self._aux2_state = Aux.AUX2_OFF
-                        self._aux_state = Aux.AUX2_OPT_ONE
-                        self._number = None
-                    else:
-                        if command.command in [Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE]:
-                            self._aux_state = command.command
-                        if command.command == Aux.AUX1_OPT_ONE:
-                            if self.time_delta(self._last_updated, self._last_aux1_opt1) > 1:
-                                self._aux1_state = self.update_aux_state(
-                                    self._aux1_state,
-                                    Aux.AUX1_ON,
-                                    Aux.AUX1_OPT_ONE,
-                                    Aux.AUX1_OFF,
-                                )
-                            self._last_aux1_opt1 = self.last_updated
-                        elif command.command in [Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO]:
-                            self._aux1_state = command.command
-                            self._last_aux1_opt1 = self.last_updated
-                        elif command.command == Aux.AUX2_OPT_ONE:
-                            if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
-                                self._aux2_state = self.update_aux_state(
-                                    self._aux2_state,
-                                    Aux.AUX2_ON,
-                                    Aux.AUX2_OPT_ONE,
-                                    Aux.AUX2_OFF,
-                                )
-                            self._last_aux2_opt1 = self.last_updated
-                        elif command.command in [Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO]:
-                            self._aux2_state = command.command
-                            self._last_aux2_opt1 = self.last_updated
-                        if command.command == Aux.NUMERIC:
-                            self._number = command.data
-            elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req):
-                if self._first_pdi_command is None:
-                    self._first_pdi_command = command.command
-                if self._first_pdi_action is None:
-                    self._first_pdi_action = command.action
-                if command.action in [Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
-                    if command.action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
-                        self._block_power = True
-                    if command.state == 1:
-                        self._aux1_state = Aux.AUX1_ON
-                        self._aux2_state = Aux.AUX2_ON
-                        self._aux_state = Aux.AUX1_OPT_ONE
-                    else:
-                        self._aux1_state = Aux.AUX1_OFF
-                        self._aux2_state = Aux.AUX2_OFF
-                        self._aux_state = Aux.AUX2_OPT_ONE
-            elif isinstance(command, IrdaReq):
-                if self._first_pdi_command is None:
-                    self._first_pdi_command = command.command
-                if self._first_pdi_action is None:
-                    self._first_pdi_action = command.action
-                self._sensor_track = True
-            self.changed.set()
+            with self._cv:
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(command)
+                super().update(command)
+                if isinstance(command, CommandReq):
+                    if command.command != Aux.SET_ADDRESS:
+                        if command.command == TMCC1HaltCommandDef.HALT:
+                            self._aux1_state = Aux.AUX1_OFF
+                            self._aux2_state = Aux.AUX2_OFF
+                            self._aux_state = Aux.AUX2_OPT_ONE
+                            self._number = None
+                        else:
+                            if command.command in [Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE]:
+                                self._aux_state = command.command
+                            if command.command == Aux.AUX1_OPT_ONE:
+                                if self.time_delta(self._last_updated, self._last_aux1_opt1) > 1:
+                                    self._aux1_state = self.update_aux_state(
+                                        self._aux1_state,
+                                        Aux.AUX1_ON,
+                                        Aux.AUX1_OPT_ONE,
+                                        Aux.AUX1_OFF,
+                                    )
+                                self._last_aux1_opt1 = self.last_updated
+                            elif command.command in [Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO]:
+                                self._aux1_state = command.command
+                                self._last_aux1_opt1 = self.last_updated
+                            elif command.command == Aux.AUX2_OPT_ONE:
+                                if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
+                                    self._aux2_state = self.update_aux_state(
+                                        self._aux2_state,
+                                        Aux.AUX2_ON,
+                                        Aux.AUX2_OPT_ONE,
+                                        Aux.AUX2_OFF,
+                                    )
+                                self._last_aux2_opt1 = self.last_updated
+                            elif command.command in [Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO]:
+                                self._aux2_state = command.command
+                                self._last_aux2_opt1 = self.last_updated
+                            if command.command == Aux.NUMERIC:
+                                self._number = command.data
+                elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req):
+                    if self._first_pdi_command is None:
+                        self._first_pdi_command = command.command
+                    if self._first_pdi_action is None:
+                        self._first_pdi_action = command.action
+                    if command.action in [Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+                        if command.action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+                            self._block_power = True
+                        if command.state == 1:
+                            self._aux1_state = Aux.AUX1_ON
+                            self._aux2_state = Aux.AUX2_ON
+                            self._aux_state = Aux.AUX1_OPT_ONE
+                        else:
+                            self._aux1_state = Aux.AUX1_OFF
+                            self._aux2_state = Aux.AUX2_OFF
+                            self._aux_state = Aux.AUX2_OPT_ONE
+                elif isinstance(command, IrdaReq):
+                    if self._first_pdi_command is None:
+                        self._first_pdi_command = command.command
+                    if self._first_pdi_action is None:
+                        self._first_pdi_action = command.action
+                    self._sensor_track = True
+                self.changed.set()
+                self._cv.notify_all()
 
     @property
     def is_known(self) -> bool:
@@ -628,175 +637,186 @@ class EngineState(ComponentState):
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
 
-        super().update(command)
-        if isinstance(command, CommandReq):
-            if self.is_legacy is None:
-                self._is_legacy = command.is_tmcc2
+        with self._cv:
+            super().update(command)
+            if isinstance(command, CommandReq):
+                if self.is_legacy is None:
+                    self._is_legacy = command.is_tmcc2
 
-            # handle some aspects of halt command
-            if command.command == TMCC1HaltCommandDef.HALT:
-                if self.is_legacy:
-                    self._aux1 = TMCC2.AUX1_OFF
-                    self._aux2 = TMCC2.AUX2_OFF
-                    self._aux = TMCC2.AUX2_OPTION_ONE
-                else:
-                    self._aux1 = TMCC1.AUX1_OFF
-                    self._aux2 = TMCC1.AUX2_OFF
-                    self._aux = TMCC1.AUX2_OPTION_ONE
-                self._numeric = None
+                # handle some aspects of halt command
+                if command.command == TMCC1HaltCommandDef.HALT:
+                    if self.is_legacy:
+                        self._aux1 = TMCC2.AUX1_OFF
+                        self._aux2 = TMCC2.AUX2_OFF
+                        self._aux = TMCC2.AUX2_OPTION_ONE
+                    else:
+                        self._aux1 = TMCC1.AUX1_OFF
+                        self._aux2 = TMCC1.AUX2_OFF
+                        self._aux = TMCC1.AUX2_OPTION_ONE
+                    self._numeric = None
 
-            # get the downstream effects of this command, as they also impact state
-            cmd_effects = self.results_in(command)
-            log.debug(f"Update: {command}\nEffects: {cmd_effects}")
+                # get the downstream effects of this command, as they also impact state
+                cmd_effects = self.results_in(command)
+                log.debug(f"Update: {command}\nEffects: {cmd_effects}")
 
-            # handle last numeric
-            if command.command in NUMERIC_SET:
-                if self.engine_type == LOCO_TRACK_CRANE:
-                    if command.data in TRACK_CRANE_STATE_NUMERICS:
+                # handle last numeric
+                if command.command in NUMERIC_SET:
+                    if self.engine_type == LOCO_TRACK_CRANE:
+                        if command.data in TRACK_CRANE_STATE_NUMERICS:
+                            self._numeric = command.data
+                            self._numeric_cmd = command.command
+                    else:
                         self._numeric = command.data
                         self._numeric_cmd = command.command
-                else:
-                    self._numeric = command.data
-                    self._numeric_cmd = command.command
-                    # numeric commands can change RPM, Volume, and reset the train
-                    # force a state update for this engine/train, if we are connected
-                    # to a Base 3
-                    from ..pdi.base3_buffer import Base3Buffer
+                        # numeric commands can change RPM, Volume, and reset the train
+                        # force a state update for this engine/train, if we are connected
+                        # to a Base 3
+                        from ..pdi.base3_buffer import Base3Buffer
 
-                    Base3Buffer.request_state_update(self.address, self.scope)
-            elif cmd_effects & NUMERIC_SET:
-                numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
-                log.info(f"What to do? {command}: {numeric} {type(numeric)}")
+                        Base3Buffer.request_state_update(self.address, self.scope)
+                elif cmd_effects & NUMERIC_SET:
+                    numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
+                    log.info(f"What to do? {command}: {numeric} {type(numeric)}")
 
-            # handle direction
-            if command.command in DIRECTIONS_SET:
-                self._direction = command.command
-            elif cmd_effects & DIRECTIONS_SET:
-                self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
+                # handle direction
+                if command.command in DIRECTIONS_SET:
+                    self._direction = command.command
+                elif cmd_effects & DIRECTIONS_SET:
+                    self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
-            # aux commands
-            for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
-                if cmd in ENGINE_AUX1_SET:
-                    self._aux = cmd if cmd in {TMCC1.AUX1_OPTION_ONE, TMCC2.AUX1_OPTION_ONE} else self._aux
-                    self._aux1 = cmd
+                # aux commands
+                for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
+                    if cmd in ENGINE_AUX1_SET:
+                        self._aux = cmd if cmd in {TMCC1.AUX1_OPTION_ONE, TMCC2.AUX1_OPTION_ONE} else self._aux
+                        self._aux1 = cmd
 
-            for cmd in {command.command} | (cmd_effects & ENGINE_AUX2_SET):
-                if cmd in ENGINE_AUX2_SET:
-                    self._aux = cmd if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE} else self._aux
-                    if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
-                        if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
-                            if self.is_legacy:
-                                self._aux2 = self.update_aux_state(
-                                    self._aux2,
-                                    TMCC2.AUX2_ON,
-                                    TMCC2.AUX2_OPTION_ONE,
-                                    TMCC2.AUX2_OFF,
-                                )
-                            else:
-                                self._aux2 = self.update_aux_state(
-                                    self._aux2,
-                                    TMCC1.AUX2_ON,
-                                    TMCC1.AUX2_OPTION_ONE,
-                                    TMCC1.AUX2_OFF,
-                                )
-                        self._last_aux2_opt1 = self.last_updated
-                    elif cmd in {
-                        TMCC1.AUX2_ON,
-                        TMCC1.AUX2_OFF,
-                        TMCC1.AUX2_OPTION_TWO,
-                        TMCC2.AUX2_ON,
-                        TMCC2.AUX2_OFF,
-                        TMCC2.AUX2_OPTION_TWO,
-                    }:
-                        self._aux2 = cmd
-                        self._last_aux2_opt1 = self.last_updated
+                for cmd in {command.command} | (cmd_effects & ENGINE_AUX2_SET):
+                    if cmd in ENGINE_AUX2_SET:
+                        self._aux = cmd if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE} else self._aux
+                        if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
+                            if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
+                                if self.is_legacy:
+                                    self._aux2 = self.update_aux_state(
+                                        self._aux2,
+                                        TMCC2.AUX2_ON,
+                                        TMCC2.AUX2_OPTION_ONE,
+                                        TMCC2.AUX2_OFF,
+                                    )
+                                else:
+                                    self._aux2 = self.update_aux_state(
+                                        self._aux2,
+                                        TMCC1.AUX2_ON,
+                                        TMCC1.AUX2_OPTION_ONE,
+                                        TMCC1.AUX2_OFF,
+                                    )
+                            self._last_aux2_opt1 = self.last_updated
+                        elif cmd in {
+                            TMCC1.AUX2_ON,
+                            TMCC1.AUX2_OFF,
+                            TMCC1.AUX2_OPTION_TWO,
+                            TMCC2.AUX2_ON,
+                            TMCC2.AUX2_OFF,
+                            TMCC2.AUX2_OPTION_TWO,
+                        }:
+                            self._aux2 = cmd
+                            self._last_aux2_opt1 = self.last_updated
 
-            # handle run level/rpm
-            if command.command in RPM_SET:
-                self._rpm = command.data
-            elif cmd_effects & RPM_SET:
-                rpm = self._harvest_effect(cmd_effects & RPM_SET)
-                if isinstance(rpm, tuple) and len(rpm) == 2:
-                    self._rpm = rpm[1]
-                elif isinstance(rpm, CommandDefEnum):
-                    if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"{command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
-                    self._rpm = 0
-                else:
-                    if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"{command} {rpm} {type(rpm)} {cmd_effects}")
-                    self._rpm = 0
+                # handle run level/rpm
+                if command.command in RPM_SET:
+                    self._rpm = command.data
+                elif cmd_effects & RPM_SET:
+                    rpm = self._harvest_effect(cmd_effects & RPM_SET)
+                    if isinstance(rpm, tuple) and len(rpm) == 2:
+                        self._rpm = rpm[1]
+                    elif isinstance(rpm, CommandDefEnum):
+                        if log.isEnabledFor(logging.DEBUG):
+                            log.debug(f"{command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
+                        self._rpm = 0
+                    else:
+                        if log.isEnabledFor(logging.DEBUG):
+                            log.debug(f"{command} {rpm} {type(rpm)} {cmd_effects}")
+                        self._rpm = 0
 
-            # handle speed
-            if command.command in SPEED_SET:
-                self._speed = command.data
-            elif cmd_effects & SPEED_SET:
-                speed = self._harvest_effect(cmd_effects & SPEED_SET)
-                if isinstance(speed, tuple) and len(speed) == 2:
-                    self._speed = speed[1]
-                else:
-                    if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
-                    self._speed = 0
+                # handle speed
+                if command.command in SPEED_SET:
+                    self._speed = command.data
+                elif cmd_effects & SPEED_SET:
+                    speed = self._harvest_effect(cmd_effects & SPEED_SET)
+                    if isinstance(speed, tuple) and len(speed) == 2:
+                        self._speed = speed[1]
+                    else:
+                        if log.isEnabledFor(logging.DEBUG):
+                            log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
+                        self._speed = 0
 
-            # handle momentum
-            if command.command in MOMENTUM_SET:
-                if command.command in [TMCC1EngineCommandDef.MOMENTUM_LOW, TMCC2EngineCommandDef.MOMENTUM_LOW]:
-                    self._momentum = 0
-                if command.command in [TMCC1EngineCommandDef.MOMENTUM_MEDIUM, TMCC2EngineCommandDef.MOMENTUM_MEDIUM]:
-                    self._momentum = 3
-                if command.command in [TMCC1EngineCommandDef.MOMENTUM_HIGH, TMCC2EngineCommandDef.MOMENTUM_HIGH]:
-                    self._momentum = 7
-                elif command.command == TMCC2EngineCommandDef.MOMENTUM:
-                    self._momentum = command.data
+                # handle momentum
+                if command.command in MOMENTUM_SET:
+                    if command.command in [
+                        TMCC1EngineCommandDef.MOMENTUM_LOW,
+                        TMCC2EngineCommandDef.MOMENTUM_LOW,
+                    ]:
+                        self._momentum = 0
+                    if command.command in [
+                        TMCC1EngineCommandDef.MOMENTUM_MEDIUM,
+                        TMCC2EngineCommandDef.MOMENTUM_MEDIUM,
+                    ]:
+                        self._momentum = 3
+                    if command.command in [
+                        TMCC1EngineCommandDef.MOMENTUM_HIGH,
+                        TMCC2EngineCommandDef.MOMENTUM_HIGH,
+                    ]:
+                        self._momentum = 7
+                    elif command.command == TMCC2EngineCommandDef.MOMENTUM:
+                        self._momentum = command.data
 
-            # handle startup/shutdown
-            if command.command in STARTUP_SET:
-                self._start_stop = command.command
-            elif command.command in SHUTDOWN_SET:
-                self._start_stop = command.command
-            elif cmd_effects & STARTUP_SET:
-                self._start_stop = self._harvest_effect(cmd_effects & STARTUP_SET)
-            elif cmd_effects & SHUTDOWN_SET:
-                shutdown = self._harvest_effect(cmd_effects & SHUTDOWN_SET)
-                if isinstance(shutdown, CommandDefEnum):
-                    self._start_stop = shutdown
-                elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
-                    self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-                elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
-                    self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-        elif (
-            isinstance(command, BaseReq)
-            and command.status == 0
-            and command.pdi_command
-            in [
-                PdiCommand.BASE_ENGINE,
-                PdiCommand.BASE_TRAIN,
-                PdiCommand.UPDATE_ENGINE_SPEED,
-                PdiCommand.UPDATE_TRAIN_SPEED,
-            ]
-        ):
-            from ..pdi.base_req import EngineBits
+                # handle startup/shutdown
+                if command.command in STARTUP_SET:
+                    self._start_stop = command.command
+                elif command.command in SHUTDOWN_SET:
+                    self._start_stop = command.command
+                elif cmd_effects & STARTUP_SET:
+                    self._start_stop = self._harvest_effect(cmd_effects & STARTUP_SET)
+                elif cmd_effects & SHUTDOWN_SET:
+                    shutdown = self._harvest_effect(cmd_effects & SHUTDOWN_SET)
+                    if isinstance(shutdown, CommandDefEnum):
+                        self._start_stop = shutdown
+                    elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
+                        self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                    elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
+                        self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+            elif (
+                isinstance(command, BaseReq)
+                and command.status == 0
+                and command.pdi_command
+                in [
+                    PdiCommand.BASE_ENGINE,
+                    PdiCommand.BASE_TRAIN,
+                    PdiCommand.UPDATE_ENGINE_SPEED,
+                    PdiCommand.UPDATE_TRAIN_SPEED,
+                ]
+            ):
+                from ..pdi.base_req import EngineBits
 
-            if self._speed is None and command.is_valid(EngineBits.SPEED):
-                self._speed = command.speed
-            if command.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
-                if command.is_valid(EngineBits.MOMENTUM):
-                    self._momentum = command.momentum_tmcc
-                if command.is_valid(EngineBits.RUN_LEVEL):
-                    self._rpm = command.run_level
-                if command.is_valid(EngineBits.CONTROL_TYPE):
-                    self._control_type = command.control_id
-                    self._is_legacy = command.is_legacy
-                if command.is_valid(EngineBits.SOUND_TYPE):
-                    self._sound_type = command.sound_id
-                if command.is_valid(EngineBits.CLASS_TYPE):
-                    self._engine_class = command.loco_class_id
-                if command.is_valid(EngineBits.LOCO_TYPE):
-                    self._engine_type = command.loco_type_id
-        elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
-            self._prod_year = command.year
-        self.changed.set()
+                if self._speed is None and command.is_valid(EngineBits.SPEED):
+                    self._speed = command.speed
+                if command.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
+                    if command.is_valid(EngineBits.MOMENTUM):
+                        self._momentum = command.momentum_tmcc
+                    if command.is_valid(EngineBits.RUN_LEVEL):
+                        self._rpm = command.run_level
+                    if command.is_valid(EngineBits.CONTROL_TYPE):
+                        self._control_type = command.control_id
+                        self._is_legacy = command.is_legacy
+                    if command.is_valid(EngineBits.SOUND_TYPE):
+                        self._sound_type = command.sound_id
+                    if command.is_valid(EngineBits.CLASS_TYPE):
+                        self._engine_class = command.loco_class_id
+                    if command.is_valid(EngineBits.LOCO_TYPE):
+                        self._engine_type = command.loco_type_id
+            elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
+                self._prod_year = command.year
+            self.changed.set()
+            self._cv.notify_all()
 
     def as_bytes(self) -> bytes:
         from src.pdi.base_req import BaseReq
@@ -954,54 +974,60 @@ class IrdaState(LcsState):
         from .component_state_store import ComponentStateStore
 
         if command:
-            super().update(command)
-            if isinstance(command, IrdaReq) and command.pdi_command == PdiCommand.IRDA_RX:
-                if command.action == IrdaAction.CONFIG:
-                    self._sequence = command.sequence
-                    self._loco_rl = command.loco_rl
-                    self._loco_lr = command.loco_lr
-                elif command.action == IrdaAction.SEQUENCE:
-                    self._sequence = command.sequence
-                elif command.action == IrdaAction.DATA:
-                    # change engine/train speed, based on direction of travel
-                    if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"IRDA {self.address} Sequence: {self.sequence} Command: {command}")
-                    if (
-                        self.sequence in [IrdaSequence.SLOW_SPEED_NORMAL_SPEED, IrdaSequence.NORMAL_SPEED_SLOW_SPEED]
-                        and CommBuffer.is_server
-                    ):
-                        rr_speed = None
-                        if command.is_right_to_left:
-                            rr_speed = "slow" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "normal"
-                        elif command.is_left_to_right:
-                            rr_speed = "normal" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "slow"
-                        if rr_speed:
-                            address = None
-                            scope = CommandScope.ENGINE
-                            if command.train_id:
-                                address = command.train_id
-                                scope = CommandScope.TRAIN
-                            elif command.engine_id:
-                                address = command.engine_id
-                            state = ComponentStateStore.get_state(scope, address)
-                            if state is not None:
-                                from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
+            with self._cv:
+                super().update(command)
+                if isinstance(command, IrdaReq) and command.pdi_command == PdiCommand.IRDA_RX:
+                    if command.action == IrdaAction.CONFIG:
+                        self._sequence = command.sequence
+                        self._loco_rl = command.loco_rl
+                        self._loco_lr = command.loco_lr
+                    elif command.action == IrdaAction.SEQUENCE:
+                        self._sequence = command.sequence
+                    elif command.action == IrdaAction.DATA:
+                        # change engine/train speed, based on direction of travel
+                        if log.isEnabledFor(logging.DEBUG):
+                            log.debug(f"IRDA {self.address} Sequence: {self.sequence} Command: {command}")
+                        if (
+                            self.sequence
+                            in [
+                                IrdaSequence.SLOW_SPEED_NORMAL_SPEED,
+                                IrdaSequence.NORMAL_SPEED_SLOW_SPEED,
+                            ]
+                            and CommBuffer.is_server
+                        ):
+                            rr_speed = None
+                            if command.is_right_to_left:
+                                rr_speed = "slow" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "normal"
+                            elif command.is_left_to_right:
+                                rr_speed = "normal" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "slow"
+                            if rr_speed:
+                                address = None
+                                scope = CommandScope.ENGINE
+                                if command.train_id:
+                                    address = command.train_id
+                                    scope = CommandScope.TRAIN
+                                elif command.engine_id:
+                                    address = command.engine_id
+                                state = ComponentStateStore.get_state(scope, address)
+                                if state is not None:
+                                    from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
-                                # noinspection PyTypeChecker
-                                RampedSpeedReq(address, rr_speed, scope=scope, is_tmcc=state.is_tmcc).send()
-                        # send update to Train and component engines as well
-                        orig_scope = command.scope
-                        orig_tmcc_id = command.tmcc_id
-                        try:
-                            if command.engine_id:
-                                engine_state = ComponentStateStore.get_state(CommandScope.ENGINE, command.engine_id)
-                                command.scope = CommandScope.ENGINE
-                                command.tmcc_id = command.engine_id
-                                engine_state.update(command)
-                        finally:
-                            command.scope = orig_scope
-                            command.tmcc_id = orig_tmcc_id
-            self.changed.set()
+                                    # noinspection PyTypeChecker
+                                    RampedSpeedReq(address, rr_speed, scope=scope, is_tmcc=state.is_tmcc).send()
+                            # send update to Train and component engines as well
+                            orig_scope = command.scope
+                            orig_tmcc_id = command.tmcc_id
+                            try:
+                                if command.engine_id:
+                                    engine_state = ComponentStateStore.get_state(CommandScope.ENGINE, command.engine_id)
+                                    command.scope = CommandScope.ENGINE
+                                    command.tmcc_id = command.engine_id
+                                    engine_state.update(command)
+                            finally:
+                                command.scope = orig_scope
+                                command.tmcc_id = orig_tmcc_id
+                self.changed.set()
+                self._cv.notify_all()
 
     @property
     def is_known(self) -> bool:

@@ -497,7 +497,7 @@ class EngineCli(CliBaseTMCC):
         engine: int = self._args.engine
         option_data: int = self._args.data if "data" in self._args else 0
         try:
-            option = self._decode_engine_option()  # raise ValueError if can't decode
+            option = self._decode_engine_option()  # raise ValueError if you can't decode
             if option is None:
                 raise ValueError("Must specify an option, use -h for help")
             log.debug(self._args)

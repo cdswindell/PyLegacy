@@ -1,18 +1,15 @@
 from threading import Thread, Lock
 from time import sleep
-from typing import List
+from typing import List, Callable
 
 from .engine_controller import EngineController
 from .keypad import Keypad
 from .lcd import Lcd
-from ..comm.command_listener import CommandDispatcher
-from ..pdi.pdi_req import PdiReq
-from ..protocol.command_req import CommandReq
+from ..db.component_state import ComponentState
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
-from ..utils.expiring_set import ExpiringSet
 
 COMMANDS_OF_INTEREST = {
     TMCC1EngineCommandDef.ABSOLUTE_SPEED,
@@ -62,12 +59,11 @@ class Controller(Thread):
         self._last_listener = None
         self._state_store = ComponentStateStore.build()
         self._state = None
-        self._tmcc_dispatcher = CommandDispatcher.get()
+        self._state_watcher = None
         self._scope = CommandScope.ENGINE
         self._tmcc_id = None
         self._last_scope = None
         self._last_tmcc_id = None
-        self._filter = ExpiringSet(max_age_seconds=0.5)
         if speed_pins or fwd_pin or rev_pin or reset_pin:
             self._engine_controller = EngineController(
                 speed_pin_1=speed_pins[0] if speed_pins and len(speed_pins) > 0 else None,
@@ -98,17 +94,6 @@ class Controller(Thread):
         self._is_running = True
         self.start()
 
-    def __call__(self, cmd: CommandReq | PdiReq) -> None:
-        """
-        Callback specified in the Subscriber protocol used to send events to listeners
-        """
-        if isinstance(cmd, CommandReq):
-            if cmd.command in COMMANDS_OF_INTEREST and cmd.address == self._tmcc_id:
-                print(cmd)
-                if self._state:
-                    self._state.changed.wait()
-                    self.update_display(clear_display=False)
-
     @property
     def engine_controller(self) -> EngineController:
         return self._engine_controller
@@ -131,6 +116,11 @@ class Controller(Thread):
             elif key is not None:
                 self._lcd.print(key)
             sleep(0.1)
+
+    def monitor_state_updates(self):
+        if self._state_watcher:
+            self._state_watcher.shutdown()
+        self._state_watcher = StateWatcher(self._state, self.refresh_display)
 
     def cache_engine(self):
         if self._tmcc_id and self._scope:
@@ -160,9 +150,12 @@ class Controller(Thread):
         self._state = self._state_store.get_state(self._scope, tmcc_id)
         if self._engine_controller:
             self._engine_controller.update(tmcc_id, self._scope)
-        self.listen_for_updates(self._scope, tmcc_id)
+        self.monitor_state_updates()
         self.update_display()
         self._key_queue.reset()
+
+    def refresh_display(self) -> None:
+        self.update_display(clear_display=False)
 
     def update_display(self, clear_display: bool = True) -> None:
         with self._lock:
@@ -199,10 +192,24 @@ class Controller(Thread):
     def close(self) -> None:
         self.reset()
 
-    def listen_for_updates(self, scope, tmcc_id):
-        if self._last_listener == (scope, tmcc_id):
-            return
-        if self._last_listener:
-            self._tmcc_dispatcher.unsubscribe(self, *self._last_listener)
-        self._tmcc_dispatcher.listen_for(self, scope, tmcc_id)
-        self._last_listener = (scope, tmcc_id)
+
+class StateWatcher(Thread):
+    def __init__(self, state: ComponentState, action: Callable) -> None:
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} State Watcher {state.scope.label} {state.address}")
+        self._state = state
+        self._action = action
+        self._is_running = True
+        self.start()
+
+    def shutdown(self) -> None:
+        self._is_running = False
+
+    def predicate(self) -> bool:
+        return self._is_running is False or self._state.changed.is_set
+
+    def run(self) -> None:
+        while self._state and self._is_running:
+            with self._state.syncronizer:
+                self._state.syncronizer.wait_for(self._state.changed.is_set)
+                if self._is_running:
+                    self._action()
