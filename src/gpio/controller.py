@@ -11,6 +11,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ..utils.expiring_set import ExpiringSet
 
 COMMANDS_OF_INTEREST = {
     TMCC2EngineCommandDef.ABSOLUTE_SPEED,
@@ -60,6 +61,7 @@ class Controller(Thread):
         self._tmcc_id = None
         self._last_scope = None
         self._last_tmcc_id = None
+        self._filter = ExpiringSet()
         if speed_pins or fwd_pin or rev_pin or reset_pin:
             self._engine_controller = EngineController(
                 speed_pin_1=speed_pins[0] if speed_pins and len(speed_pins) > 0 else None,
@@ -97,7 +99,9 @@ class Controller(Thread):
         if isinstance(cmd, CommandReq):
             if cmd.command in COMMANDS_OF_INTEREST and cmd.address == self._tmcc_id:
                 print(cmd)
-                self.update_display()
+                if cmd not in self._filter:
+                    self._filter.add(cmd)
+                    self.update_display()
 
     @property
     def engine_controller(self) -> EngineController:
