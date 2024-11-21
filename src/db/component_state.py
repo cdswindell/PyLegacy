@@ -76,7 +76,6 @@ NUMERIC_SET = {
 
 
 TRAIN_BRAKE_SET = {
-    TMCC1EngineCommandDef.TRAIN_BRAKE,
     TMCC2EngineCommandDef.TRAIN_BRAKE,
 }
 
