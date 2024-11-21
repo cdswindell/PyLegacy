@@ -10,10 +10,14 @@ from ..pdi.pdi_req import PdiReq
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..db.component_state_store import ComponentStateStore
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from ..utils.expiring_set import ExpiringSet
 
 COMMANDS_OF_INTEREST = {
+    TMCC1EngineCommandDef.ABSOLUTE_SPEED,
+    TMCC1EngineCommandDef.FORWARD_DIRECTION,
+    TMCC1EngineCommandDef.REVERSE_DIRECTION,
     TMCC2EngineCommandDef.ABSOLUTE_SPEED,
     TMCC2EngineCommandDef.FORWARD_DIRECTION,
     TMCC2EngineCommandDef.REVERSE_DIRECTION,
@@ -98,10 +102,7 @@ class Controller(Thread):
         """
         if isinstance(cmd, CommandReq):
             if cmd.command in COMMANDS_OF_INTEREST and cmd.address == self._tmcc_id:
-                cmd_bytes = cmd.as_bytes
-                if self._filter.contains(cmd_bytes) is False:
-                    self._filter.add(cmd_bytes)
-                    self.update_display()
+                self.update_display(clear=False)
 
     @property
     def engine_controller(self) -> EngineController:
@@ -158,8 +159,11 @@ class Controller(Thread):
         self.update_display()
         self._key_queue.reset()
 
-    def update_display(self):
-        self._lcd.clear()
+    def update_display(self, clear: bool = True) -> None:
+        if clear is True:
+            self._lcd.clear()
+        else:
+            self._lcd.home()
         row = f"{self._scope.friendly}: "
         tmcc_id_pos = len(row)
         if self._tmcc_id is not None:
