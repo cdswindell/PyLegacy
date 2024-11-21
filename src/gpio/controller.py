@@ -5,6 +5,9 @@ from typing import List
 from .engine_controller import EngineController
 from .keypad import Keypad
 from .lcd import Lcd
+from ..comm.command_listener import CommandDispatcher
+from ..pdi.pdi_req import PdiReq
+from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..db.component_state_store import ComponentStateStore
 
@@ -44,6 +47,7 @@ class Controller(Thread):
         self._keypad = Keypad(row_pins, column_pins)
         self._key_queue = self._keypad.key_queue
         self._state = ComponentStateStore.build()
+        self._tmcc_dispatcher = CommandDispatcher.get()
         self._scope = CommandScope.ENGINE
         self._tmcc_id = None
         self._last_scope = None
@@ -77,6 +81,12 @@ class Controller(Thread):
             self._engine_controller = None
         self._is_running = True
         self.start()
+
+    def __call__(self, cmd: CommandReq | PdiReq) -> None:
+        """
+        Callback specified in the Subscriber protocol used to send events to listeners
+        """
+        self.update_display()
 
     @property
     def engine_controller(self) -> EngineController:
@@ -124,9 +134,11 @@ class Controller(Thread):
         self._key_queue.reset()
 
     def update_engine(self, engine_id: str | int):
+        self.cache_engine()
         self._tmcc_id = tmcc_id = int(engine_id)
         if self._engine_controller:
             self._engine_controller.update(tmcc_id, self._scope)
+        self._tmcc_dispatcher.listen_for(self._scope, tmcc_id)
         self.update_display()
         self._key_queue.reset()
 

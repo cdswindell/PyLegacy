@@ -126,7 +126,7 @@ class ComponentStateStore:
             isinstance(topic, tuple) and len(topic) > 1 and isinstance(topic[0], CommandScope)
         )
 
-    def listen_for(self, topics: Topic | List[Topic]) -> None:
+    def listen_for(self, topics: Topic | List[Topic], address: int = None) -> None:
         if isinstance(topics, list):
             for topic in topics:
                 if self.is_valid_topic(topic):
