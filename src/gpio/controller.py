@@ -167,6 +167,7 @@ class Controller(Thread):
                 self._lcd.clear()
             else:
                 self._lcd.home()
+            self._lcd.cursor_pos = (0, 0)
             row = f"{self._scope.friendly}: "
             tmcc_id_pos = len(row)
             if self._tmcc_id is not None:
