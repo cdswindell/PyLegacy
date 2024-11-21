@@ -23,6 +23,8 @@ from .tmcc1.tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
 from .tmcc1.tmcc1_constants import TMCC1RouteCommandDef
 from ..utils.validations import Validations
 
+E = TypeVar("E", bound=CommandDefEnum)
+
 
 class CommandReq:
     @classmethod
@@ -158,8 +160,16 @@ class CommandReq:
         delay = 0 if delay is None else delay
         for _ in range(repeat):
             buffer.enqueue_command(cmd, delay)
-
-    E = TypeVar("E", bound=CommandDefEnum)
+        # does this command cause any other state changes?
+        if request:
+            for effect in cls.results_in(request):
+                if isinstance(effect, CommandDefEnum):
+                    effect_cmd = CommandReq.build(effect, request.address, 0, request.scope)
+                elif isinstance(effect, tuple):
+                    effect_cmd = CommandReq.build(effect[0], request.address, effect[1], request.scope)
+                else:
+                    continue  # we shouldn't ever get here
+                buffer.enqueue_command(effect_cmd.as_bytes, delay)
 
     @staticmethod
     def results_in(command: CommandReq) -> Set[E]:
