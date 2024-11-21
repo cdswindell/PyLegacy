@@ -15,9 +15,12 @@ COMMANDS_OF_INTEREST = {
     TMCC1EngineCommandDef.ABSOLUTE_SPEED,
     TMCC1EngineCommandDef.FORWARD_DIRECTION,
     TMCC1EngineCommandDef.REVERSE_DIRECTION,
+    TMCC1EngineCommandDef.NUMERIC,
     TMCC2EngineCommandDef.ABSOLUTE_SPEED,
     TMCC2EngineCommandDef.FORWARD_DIRECTION,
     TMCC2EngineCommandDef.REVERSE_DIRECTION,
+    TMCC2EngineCommandDef.DIESEL_RPM,
+    TMCC2EngineCommandDef.NUMERIC,
 }
 
 
@@ -180,6 +183,9 @@ class Controller(Thread):
                 if self._lcd.rows > 2:
                     row = f"Speed: {self._state.speed:03} "
                     row += self._state.direction_label
+                    self._lcd.add(row)
+                if self._lcd.rows > 3:
+                    row = f"RPM: {self._state.rpm} "
                     self._lcd.add(row)
             self._lcd.write_frame_buffer(clear_display)
             if self._tmcc_id is None:
