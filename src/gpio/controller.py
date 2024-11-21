@@ -100,7 +100,7 @@ class Controller(Thread):
             if cmd.command in COMMANDS_OF_INTEREST and cmd.address == self._tmcc_id:
                 cmd_bytes = cmd.as_bytes
                 if cmd_bytes not in self._filter:
-                    print(cmd, cmd_bytes in self._filter, len(self._filter))
+                    print(cmd, cmd_bytes in self._filter, self._filter)
                     self._filter.add(cmd_bytes)
                     self.update_display()
 
