@@ -1142,7 +1142,12 @@ class BaseState(ComponentState):
         return True
 
     def as_bytes(self) -> bytes:
-        return bytes()
+        if self.is_known:
+            from ..pdi.base_req import BaseReq
+
+            return BaseReq(self.address, PdiCommand.BASE, state=self).as_bytes
+        else:
+            return bytes()
 
 
 SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {

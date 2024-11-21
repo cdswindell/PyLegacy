@@ -159,6 +159,7 @@ class BaseReq(PdiReq):
         pdi_command: PdiCommand = PdiCommand.BASE,
         flags: int = 2,
         speed: int = None,
+        base_name: str | None = None,
         state: ComponentState = None,
     ) -> None:
         super().__init__(data, pdi_command)
@@ -236,27 +237,32 @@ class BaseReq(PdiReq):
             self._record_no = int(data)
             self._flags = flags
             self._speed_step = speed
+            self._base_name = base_name
             if state:
-                from ..db.component_state import EngineState
+                from ..db.component_state import EngineState, BaseState
 
-                self._name = state.road_name
-                self._number = state.road_number
                 self._status = 0
-                self._valid1 = 0b1100
-                if isinstance(state, EngineState):
-                    self._valid1 = 0b1100011111100
-                    self._valid2 = 0b11000000
-                    self._speed_step = state.speed
-                    self._momentum_tmcc = state.momentum
-                    self._momentum = state.momentum * 16
-                    self._train_brake = round(state.train_brake * 2.143)
-                    self._train_brake_tmcc = state.train_brake
-                    self._run_level = state.rpm
-                    self._scope = state.scope
-                    self._control_type = state.control_type
-                    self._sound_type = state.sound_type
-                    self._loco_type = state.engine_type
-                    self._loco_class = state.engine_class
+                if isinstance(state, BaseState):
+                    self._name = state.base_name
+                    self._valid1 = 0b1000
+                else:
+                    self._name = state.road_name
+                    self._number = state.road_number
+                    self._valid1 = 0b1100
+                    if isinstance(state, EngineState):
+                        self._valid1 = 0b1100011111100
+                        self._valid2 = 0b11000000
+                        self._speed_step = state.speed
+                        self._momentum_tmcc = state.momentum
+                        self._momentum = state.momentum * 16
+                        self._train_brake = round(state.train_brake * 2.143)
+                        self._train_brake_tmcc = state.train_brake
+                        self._run_level = state.rpm
+                        self._scope = state.scope
+                        self._control_type = state.control_type
+                        self._sound_type = state.sound_type
+                        self._loco_type = state.engine_type
+                        self._loco_class = state.engine_class
 
     def is_valid(self, field: EngineBits) -> bool:
         if self._valid1 and field.value <= 15:
@@ -459,21 +465,25 @@ class BaseReq(PdiReq):
             byte_str += self._valid1.to_bytes(2, byteorder="little")
             if self._valid2 is not None:
                 byte_str += self._valid2.to_bytes(2, byteorder="little")
-            byte_str += (101).to_bytes(1, byteorder="little")  # rev link
-            byte_str += (101).to_bytes(1, byteorder="little")  # fwd link
-            byte_str += self.encode_text(self.name, 33)
-            byte_str += self.encode_text(self.number, 5)
-            if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
-                byte_str += self._loco_type.to_bytes(1, byteorder="little")  # loco type
-                byte_str += self._control_type.to_bytes(1, byteorder="little")
-                byte_str += self._sound_type.to_bytes(1, byteorder="little")
-                byte_str += self._loco_class.to_bytes(1, byteorder="little")
-                byte_str += (0).to_bytes(3, byteorder="little")  # 3 misc fields
-                byte_str += self._speed_step.to_bytes(1, byteorder="little")
-                byte_str += self._run_level.to_bytes(1, byteorder="little")
-                byte_str += (0).to_bytes(9, byteorder="little")
-                byte_str += self._train_brake.to_bytes(1, byteorder="little")
-                byte_str += self._momentum.to_bytes(1, byteorder="little")
+            if self.pdi_command == PdiCommand.BASE:
+                byte_str += (0).to_bytes(3, byteorder="little")
+                byte_str += self.encode_text(self.name, 33)
+            else:
+                byte_str += (101).to_bytes(1, byteorder="little")  # rev link
+                byte_str += (101).to_bytes(1, byteorder="little")  # fwd link
+                byte_str += self.encode_text(self.name, 33)
+                byte_str += self.encode_text(self.number, 5)
+                if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
+                    byte_str += self._loco_type.to_bytes(1, byteorder="little")  # loco type
+                    byte_str += self._control_type.to_bytes(1, byteorder="little")
+                    byte_str += self._sound_type.to_bytes(1, byteorder="little")
+                    byte_str += self._loco_class.to_bytes(1, byteorder="little")
+                    byte_str += (0).to_bytes(3, byteorder="little")  # 3 misc fields
+                    byte_str += self._speed_step.to_bytes(1, byteorder="little")
+                    byte_str += self._run_level.to_bytes(1, byteorder="little")
+                    byte_str += (0).to_bytes(9, byteorder="little")
+                    byte_str += self._train_brake.to_bytes(1, byteorder="little")
+                    byte_str += self._momentum.to_bytes(1, byteorder="little")
         else:
             byte_str += self.flags.to_bytes(1, byteorder="big")
         byte_str, checksum = self._calculate_checksum(byte_str)
