@@ -170,6 +170,12 @@ class Controller(Thread):
     def update_display(self, clear_display: bool = True) -> None:
         with self._lock:
             self._lcd.clear_frame_buffer()
+            if self._state is not None:
+                row = self._state.road_name if self._state.road_name else "No Information"
+            else:
+                row = ""
+            self._lcd.add(row)
+
             row = f"{self._scope.friendly}: "
             tmcc_id_pos = len(row)
             if self._tmcc_id is not None:
@@ -181,10 +187,7 @@ class Controller(Thread):
                         rn = f"#{self._state.road_number}"
                         row += rn.rjust(self._lcd.cols - len(row), " ")
             self._lcd.add(row)
-
             if self._state is not None:
-                row = self._state.road_name if self._state.road_name else "No Information"
-                self._lcd.add(row)
                 if self._lcd.rows > 2:
                     row = f"Speed: {self._state.speed:03} "
                     row += self._state.direction_label
@@ -196,7 +199,7 @@ class Controller(Thread):
                     self._lcd.add(row)
             self._lcd.write_frame_buffer(clear_display)
             if self._tmcc_id is None:
-                self._lcd.cursor_pos = (0, tmcc_id_pos)
+                self._lcd.cursor_pos = (1, tmcc_id_pos)
 
     def reset(self) -> None:
         self._is_running = False
