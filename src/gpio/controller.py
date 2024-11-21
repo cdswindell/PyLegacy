@@ -207,6 +207,8 @@ class StateWatcher(Thread):
 
     def shutdown(self) -> None:
         self._is_running = False
+        with self._state.syncronizer:
+            self._state.syncronizer.notify_all()
 
     def run(self) -> None:
         while self._state is not None and self._is_running:
