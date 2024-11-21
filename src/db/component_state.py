@@ -866,6 +866,15 @@ class EngineState(ComponentState):
         return self._direction
 
     @property
+    def direction_label(self) -> str:
+        dr = "N/A"
+        if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
+            dr = "FWD"
+        elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
+            dr = "REV"
+        return dr
+
+    @property
     def stop_start(self) -> CommandDefEnum | None:
         return self._start_stop
 

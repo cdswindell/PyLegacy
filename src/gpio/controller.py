@@ -147,11 +147,13 @@ class Controller(Thread):
             state = None
         self._lcd.add(row)
 
-        if self._tmcc_id is not None:
-            row = state.road_name if state and state.road_name else "No Information"
-        else:
-            row = ""
-        self._lcd.add(row)
+        if state is not None:
+            row = state.road_name if state.road_name else "No Information"
+            self._lcd.add(row)
+            if self._lcd.rows > 2:
+                row += f"Speed: {state.speed}:>3"
+                row += state.direction_label
+                self._lcd.add(row)
         self._lcd.write_frame_buffer()
         if self._tmcc_id is None:
             self._lcd.cursor_pos = (0, tmcc_id_pos)
