@@ -12,8 +12,7 @@ class ExpiringSet:
     def __repr__(self) -> str:
         rep = ""
         for k, v in self.container.items():
-            ttl = max(self.age - time() - self.container[v], 0)
-            rep += f"{k.hex()} TTL: {ttl}\n"
+            rep += f"{k.hex()} TTL: {max(self.age - time() - v, 0)}\n"
         return rep
 
     def __len__(self) -> int:
