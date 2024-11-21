@@ -202,6 +202,7 @@ class ComponentState(ABC):
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
 
+        self.changed.clear()
         if command and command.command != TMCC1HaltCommandDef.HALT:
             if self._address is None and command.address != BROADCAST_ADDRESS:
                 self._address = command.address

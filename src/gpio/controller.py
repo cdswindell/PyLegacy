@@ -60,7 +60,8 @@ class Controller(Thread):
         self._keypad = Keypad(row_pins, column_pins)
         self._key_queue = self._keypad.key_queue
         self._last_listener = None
-        self._state = ComponentStateStore.build()
+        self._state_store = ComponentStateStore.build()
+        self._state = None
         self._tmcc_dispatcher = CommandDispatcher.get()
         self._scope = CommandScope.ENGINE
         self._tmcc_id = None
@@ -104,7 +105,9 @@ class Controller(Thread):
         if isinstance(cmd, CommandReq):
             if cmd.command in COMMANDS_OF_INTEREST and cmd.address == self._tmcc_id:
                 print(cmd)
-                self.update_display(clear_display=False)
+                if self._state:
+                    self._state.changed.wait()
+                    self.update_display(clear_display=False)
 
     @property
     def engine_controller(self) -> EngineController:
@@ -147,17 +150,17 @@ class Controller(Thread):
     def change_scope(self, scope: CommandScope) -> None:
         self.cache_engine()
         self._scope = scope
-        self._tmcc_id = None
+        self._tmcc_id = self._state = None
         self.update_display()
         self._key_queue.reset()
 
     def update_engine(self, engine_id: str | int):
         self.cache_engine()
         self._tmcc_id = tmcc_id = int(engine_id)
+        self._state = self._state_store.get_state(self._scope, tmcc_id)
         if self._engine_controller:
             self._engine_controller.update(tmcc_id, self._scope)
         self.listen_for_updates(self._scope, tmcc_id)
-
         self.update_display()
         self._key_queue.reset()
 
@@ -168,23 +171,20 @@ class Controller(Thread):
             tmcc_id_pos = len(row)
             if self._tmcc_id is not None:
                 row += f"{self._tmcc_id:04}"
-                state = self._state.get_state(self._scope, self._tmcc_id)
-                if state:
-                    if state.control_type is not None and self._lcd.cols > 16:
-                        row += f" {state.control_type_label[0]}"
-                    if state.road_number:
-                        rn = f"#{state.road_number}"
+                if self._state:
+                    if self._state.control_type is not None and self._lcd.cols > 16:
+                        row += f" {self._state:.control_type_label[0]}"
+                    if self._state.road_number:
+                        rn = f"#{self._state.road_number}"
                         row += rn.rjust(self._lcd.cols - len(row), " ")
-            else:
-                state = None
             self._lcd.add(row)
 
-            if state is not None:
-                row = state.road_name if state.road_name else "No Information"
+            if self._state is not None:
+                row = self._state.road_name if self._state.road_name else "No Information"
                 self._lcd.add(row)
                 if self._lcd.rows > 2:
-                    row = f"Speed: {state.speed:03} "
-                    row += state.direction_label
+                    row = f"Speed: {self._state.speed:03} "
+                    row += self._state.direction_label
                     self._lcd.add(row)
             self._lcd.write_frame_buffer(clear_display)
             if self._tmcc_id is None:

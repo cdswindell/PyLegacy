@@ -72,7 +72,7 @@ class Lcd(CharLCD):
         self.clear_frame_buffer()
 
     def clear_frame_buffer(self) -> None:
-        self._frame_buffer = []
+        del self._frame_buffer[:]
 
     def write_frame_buffer(self, clear_display: bool = True) -> None:
         if clear_display is True:
