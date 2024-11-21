@@ -55,6 +55,7 @@ class EnqueueProxyRequests(Thread):
             print(f"Disconnecting: {client}... {client in cls._instance._clients}")
             # noinspection PyProtectedMember
             cls._instance._clients.discard(client)
+            print(f"*** Disconnecting: {client}... {client in cls._instance._clients}")
 
     # noinspection PyPropertyDefinition
     @classmethod
