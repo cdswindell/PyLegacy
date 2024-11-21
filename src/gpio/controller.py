@@ -188,6 +188,8 @@ class Controller(Thread):
         self._key_queue.reset()
         self._lcd.close(True)
         self._keypad.close()
+        if self._state_watcher:
+            self._state_watcher.shutdown()
 
     def close(self) -> None:
         self.reset()
@@ -204,13 +206,10 @@ class StateWatcher(Thread):
     def shutdown(self) -> None:
         self._is_running = False
 
-    def predicate(self) -> bool:
-        return self._is_running is False or self._state.changed.is_set
-
     def run(self) -> None:
         while self._state is not None and self._is_running:
             with self._state.syncronizer:
-                self._state.syncronizer.wait_for(self._state.changed.is_set)
+                self._state.syncronizer.wait()
                 print(self._state)
                 if self._is_running:
                     self._action()
