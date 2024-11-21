@@ -10,13 +10,15 @@ class ExpiringSet:
     def __len__(self) -> int:
         return len(self.container)
 
+    def __contains__(self, value) -> bool:
+        return self.contains(value)
+
     def contains(self, value):
         if value not in self.container:
             return False
         if time() - self.container[value] > self.age:
             del self.container[value]
             return False
-
         return True
 
     def add(self, value):
@@ -33,5 +35,3 @@ class ExpiringSet:
         if value not in self.container:
             raise KeyError(f"{value} not found in set")
         self.discard(value)
-
-
