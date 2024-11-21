@@ -208,8 +208,9 @@ class StateWatcher(Thread):
         return self._is_running is False or self._state.changed.is_set
 
     def run(self) -> None:
-        while self._state and self._is_running:
+        while self._state is not None and self._is_running:
             with self._state.syncronizer:
                 self._state.syncronizer.wait_for(self._state.changed.is_set)
+                print(self._state)
                 if self._is_running:
                     self._action()
