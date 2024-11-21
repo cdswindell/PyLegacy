@@ -389,6 +389,7 @@ class TestComponentState(TestBase):
                 CommandScope.SWITCH,
                 CommandScope.ACC,
                 CommandScope.IRDA,
+                CommandScope.BASE,
             ]:
                 continue
             with pytest.raises(KeyError, match=f"Invalid scope key: {key}"):
@@ -401,6 +402,7 @@ class TestComponentState(TestBase):
         constructed by SystemStateDict as needed, using the defailtdict mechanism.
 
         ComponentStateDict keys themselves are ints between 1 and 99 inclusive.
+        Except for the command base itself, which has an ID of 0
         """
         # test that all four types of ComponentStateDicts are built
         for scope in [
@@ -409,11 +411,12 @@ class TestComponentState(TestBase):
             CommandScope.SWITCH,
             CommandScope.ACC,
             CommandScope.IRDA,
+            CommandScope.BASE,
         ]:
             cs_dict = ComponentStateDict(scope)
             assert isinstance(cs_dict, ComponentStateDict)
             assert cs_dict.scope == scope
-            value = cs_dict[1]
+            value = cs_dict[1] if scope != CommandScope.BASE else cs_dict[0]
             assert value is not None
             assert isinstance(value, ComponentState)
             assert value.scope == scope
@@ -426,6 +429,7 @@ class TestComponentState(TestBase):
                 CommandScope.SWITCH,
                 CommandScope.ACC,
                 CommandScope.IRDA,
+                CommandScope.BASE,
             ]:
                 continue
             with pytest.raises(ValueError, match=f"Invalid scope: {key}"):

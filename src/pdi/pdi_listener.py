@@ -13,7 +13,7 @@ from .constants import PDI_SOP, PDI_STF, PDI_EOP, PdiAction
 from .pdi_req import PdiReq, TmccReq
 from ..comm.command_listener import Topic, Message, Channel, Subscriber, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
-from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE_PORT, BROADCAST_TOPIC
+from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE_PORT, BROADCAST_TOPIC, CommandScope
 
 log = logging.getLogger(__name__)
 
@@ -279,7 +279,7 @@ class PdiDispatcher(Thread):
                     # for TMCC requests, forward to CommandListener
                     if isinstance(cmd, TmccReq):
                         self._tmcc_dispatcher.offer(cmd.tmcc_command)
-                    elif 1 <= cmd.tmcc_id <= 99:
+                    elif (1 <= cmd.tmcc_id <= 99) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
                         if hasattr(cmd, "action"):
                             self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
                         self.publish((cmd.scope, cmd.tmcc_id), cmd)

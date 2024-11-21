@@ -228,6 +228,7 @@ class BaseReq(PdiReq):
                 self._firmware_low = self._data[8] if data_len > 8 else None
                 self._route_throw_rate = self.decode_throw_rate(self._data[9]) if data_len > 9 else None
                 self._name = self.decode_text(self._data[10:]) if data_len > 10 else None
+                self.scope = CommandScope.BASE
             elif self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
                 self._speed = self._data[2] if data_len > 2 else None
                 self._valid1 = (1 << EngineBits.SPEED) if data_len > 2 else 0

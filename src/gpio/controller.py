@@ -72,6 +72,7 @@ class Controller(Thread):
         self._tmcc_id = None
         self._last_scope = None
         self._last_tmcc_id = None
+        self._railroad = None
         if speed_pins or fwd_pin or rev_pin or reset_pin:
             self._engine_controller = EngineController(
                 speed_pin_1=speed_pins[0] if speed_pins and len(speed_pins) > 0 else None,
@@ -175,7 +176,7 @@ class Controller(Thread):
                 if self._state.road_number:
                     row += f" #{self._state.road_number}".rjust(self._lcd.cols - len(row), " ")
             else:
-                row = ""
+                row = self.railroad
             self._lcd.add(row)
 
             row = f"{self._scope.label}: "
@@ -200,6 +201,14 @@ class Controller(Thread):
             self._lcd.write_frame_buffer(clear_display)
             if self._tmcc_id is None:
                 self._lcd.cursor_pos = (1, tmcc_id_pos)
+
+    @property
+    def railroad(self) -> str:
+        if self._railroad is None:
+            base_state = self._state_store.get_state(CommandScope.BASE, 0, False)
+            if base_state and base_state.name:
+                self._railroad = base_state.base_name.capitalize()
+        return self._railroad
 
     def reset(self) -> None:
         self._is_running = False

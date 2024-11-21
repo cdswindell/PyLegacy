@@ -8,6 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Tuple, TypeVar, Set, Any
 
+
 from ..comm.comm_buffer import CommBuffer
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
@@ -1097,12 +1098,60 @@ class IrdaState(LcsState):
             return bytes()
 
 
+class BaseState(ComponentState):
+    """
+    Maintain the state of a Lionel Base
+    """
+
+    def __init__(self, scope: CommandScope = CommandScope.BASE) -> None:
+        if scope != CommandScope.BASE:
+            raise ValueError(f"Invalid scope: {scope}")
+        super().__init__(scope)
+        self._base_name = None
+
+    def __repr__(self) -> str:
+        return f"Lionel Base 3: {self._base_name if self._base_name else 'NA'}"
+
+    def update(self, command: L | P) -> None:
+        from src.pdi.base_req import BaseReq
+
+        if isinstance(command, BaseReq):
+            with self._cv:
+                self._base_name = command.name if command.name else self._base_name
+                self._ev.set()
+                self._cv.notify_all()
+
+    @property
+    def base_name(self) -> str:
+        return self._base_name if self._base_name else "NA"
+
+    @property
+    def is_known(self) -> bool:
+        return self._base_name is not None
+
+    @property
+    def is_tmcc(self) -> bool:
+        return False
+
+    @property
+    def is_legacy(self) -> bool:
+        return True
+
+    @property
+    def is_lcs(self) -> bool:
+        return True
+
+    def as_bytes(self) -> bytes:
+        return bytes()
+
+
 SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
     CommandScope.SWITCH: SwitchState,
     CommandScope.ACC: AccessoryState,
     CommandScope.ENGINE: EngineState,
     CommandScope.TRAIN: TrainState,
     CommandScope.IRDA: IrdaState,
+    CommandScope.BASE: BaseState,
 }
 
 
@@ -1139,7 +1188,11 @@ class ComponentStateDict(defaultdict):
         """
         generate a ComponentState object for the dictionary, based on the key
         """
-        if not isinstance(key, int) or key < 1 or key > 99:
+        if not isinstance(key, int):
+            raise KeyError(f"Invalid ID: {key}")
+        elif self.scope == CommandScope.BASE and key != 0:
+            raise KeyError(f"Invalid ID: {key}")
+        elif self.scope != CommandScope.BASE and (key < 1 or key > 99):
             raise KeyError(f"Invalid ID: {key}")
         value: ComponentState = SCOPE_TO_STATE_MAP[self._scope](self._scope)
         value._address = key
