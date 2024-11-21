@@ -317,6 +317,10 @@ class BaseReq(PdiReq):
         return self._smoke_level
 
     @property
+    def train_brake(self) -> int:
+        return self._train_brake
+
+    @property
     def run_level(self) -> int:
         return self._run_level
 

@@ -6,7 +6,7 @@ import threading
 from abc import ABC
 from collections import defaultdict
 from datetime import datetime
-from typing import Tuple, TypeVar, Set
+from typing import Tuple, TypeVar, Set, Any
 
 from ..comm.comm_buffer import CommBuffer
 from ..pdi.asc2_req import Asc2Req
@@ -74,6 +74,11 @@ NUMERIC_SET = {
     TMCC2EngineCommandDef.NUMERIC,
 }
 
+
+TRAIN_BRAKE_SET = {
+    TMCC1EngineCommandDef.TRAIN_BRAKE,
+    TMCC2EngineCommandDef.TRAIN_BRAKE,
+}
 
 STARTUP_SET = {TMCC2EngineCommandDef.START_UP_IMMEDIATE, TMCC2EngineCommandDef.START_UP_DELAYED}
 
@@ -581,6 +586,7 @@ class EngineState(ComponentState):
         self._direction: CommandDefEnum | None = None
         self._momentum: int | None = None
         self._smoke_level: int | None = None
+        self._train_brake: int | None = None
         self._prod_year: int | None = None
         self._rpm: int | None = None
         self._control_type: int | None = None
@@ -684,6 +690,12 @@ class EngineState(ComponentState):
                     self._direction = command.command
                 elif cmd_effects & DIRECTIONS_SET:
                     self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
+
+                # handle train brake
+                if command.command in TRAIN_BRAKE_SET:
+                    self._train_brake = command.data
+                elif cmd_effects & TRAIN_BRAKE_SET:
+                    self._train_brake = self._harvest_effect(cmd_effects & TRAIN_BRAKE_SET)
 
                 # aux commands
                 for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
@@ -816,6 +828,8 @@ class EngineState(ComponentState):
                         self._engine_type = command.loco_type_id
                     if command.is_valid(EngineBits.SMOKE_LEVEL):
                         self._smoke_level = command.smoke_level
+                    if command.is_valid(EngineBits.TRAIN_BRAKE):
+                        self._train_brake = command.train_brake
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
             self.changed.set()
@@ -863,7 +877,7 @@ class EngineState(ComponentState):
 
     @property
     def momentum_label(self) -> str:
-        return f"{self.momentum if self.momentum is not None else 'NA'}"
+        return self._as_label(self.momentum)
 
     @property
     def rpm(self) -> int:
@@ -871,7 +885,15 @@ class EngineState(ComponentState):
 
     @property
     def rpm_label(self) -> str:
-        return f"{self.rpm if self.rpm is not None else 'NA'}"
+        return self._as_label(self.rpm)
+
+    @property
+    def train_brake(self) -> int:
+        return self._train_brake
+
+    @property
+    def train_brake_label(self) -> str:
+        return self._as_label(self.train_brake)
 
     @property
     def control_type(self) -> int:
@@ -949,6 +971,10 @@ class EngineState(ComponentState):
     @property
     def is_lcs(self) -> bool:
         return False
+
+    @staticmethod
+    def _as_label(prop: Any) -> str:
+        return f"{prop if prop is not None else 'NA'}"
 
 
 class TrainState(EngineState):
