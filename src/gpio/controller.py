@@ -141,20 +141,20 @@ class Controller(Thread):
         self.cache_engine()
         self._scope = scope
         self._tmcc_id = self._state = None
-        self.update_display()
         self._key_queue.reset()
+        self.update_display()
 
     def update_engine(self, engine_id: str | int):
         tmcc_id = int(engine_id)
-        if tmcc_id != self._tmcc_id:
+        if self._tmcc_id is not None and tmcc_id != self._tmcc_id:
             self.cache_engine()
         self._tmcc_id = tmcc_id
         self._state = self._state_store.get_state(self._scope, tmcc_id)
         if self._engine_controller:
             self._engine_controller.update(tmcc_id, self._scope)
         self.monitor_state_updates()
-        self.update_display()
         self._key_queue.reset()
+        self.update_display()
 
     def refresh_display(self) -> None:
         self.update_display(clear_display=False)
