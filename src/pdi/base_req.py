@@ -3,12 +3,12 @@ from __future__ import annotations
 import logging
 from enum import IntEnum, unique
 from math import floor
-from typing import Dict, List
+from typing import Dict, List, TypeVar, Set
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
-from ..db.component_state_store import ComponentStateStore
+from ..db.component_state_store import ComponentStateStore, DependencyCache
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS, Mixins
@@ -116,10 +116,12 @@ class BaseReq(PdiReq):
                         elif data == 3:  # RPM Up
                             cur_rpm = min(cur_rpm + 1, 7)
                         data = cur_rpm
+            print(cls.results_in(state))
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
         else:
             raise ValueError(f"Invalid option: {cmd}")
+
         if state.name in ENGINE_WRITE_MAP:
             cmds = []
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
@@ -155,6 +157,21 @@ class BaseReq(PdiReq):
             cmds.append(cls(address, pdi_cmd))
             return cmds
         return None
+
+    E = TypeVar("E", bound=CommandDefEnum)
+
+    @staticmethod
+    def results_in(command: CommandReq) -> Set[E]:
+        dependencies = DependencyCache.build()
+        effects = dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
+        if command.is_data:
+            # noinspection PyTypeChecker
+            effects.update(
+                dependencies.results_in(
+                    (command.command, command.data), dereference_aliases=True, include_aliases=False
+                )
+            )
+        return effects
 
     def __init__(
         self,
