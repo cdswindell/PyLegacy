@@ -151,6 +151,8 @@ class EnqueueProxyRequests(Thread):
 
 class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
+        from ..comm.command_listener import CommandDispatcher
+
         byte_stream = bytes()
         while True:
             data = self.request.recv(128)
@@ -160,16 +162,15 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             else:
                 break
 
-        EnqueueProxyRequests.note_client_addr(self.client_address[0])
-        if byte_stream == EnqueueProxyRequests.register_request:
+        if byte_stream == EnqueueProxyRequests.disconnect_request:
+            EnqueueProxyRequests.client_disconnect(self.client_address[0])
+            log.info(f"Client at {self.client_address[0]} disconnecting...")
+            return
+        elif byte_stream == EnqueueProxyRequests.register_request:
             if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
                 log.info(f"Client at {self.client_address[0]} connecting...")
         elif byte_stream == EnqueueProxyRequests.sync_state_request:
-            from ..comm.command_listener import CommandDispatcher
-
             CommandDispatcher.build().send_current_state(self.client_address[0])
-        elif byte_stream == EnqueueProxyRequests.disconnect_request:
-            EnqueueProxyRequests.client_disconnect(self.client_address[0])
-            log.info(f"Client at {self.client_address[0]} disconnecting...")
         else:
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
+        EnqueueProxyRequests.note_client_addr(self.client_address[0])
