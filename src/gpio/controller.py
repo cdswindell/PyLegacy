@@ -148,6 +148,7 @@ class Controller(Thread):
         tmcc_id = int(engine_id)
         if tmcc_id != self._tmcc_id:
             self.cache_engine()
+        self._tmcc_id = tmcc_id
         self._state = self._state_store.get_state(self._scope, tmcc_id)
         if self._engine_controller:
             self._engine_controller.update(tmcc_id, self._scope)
