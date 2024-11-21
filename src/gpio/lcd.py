@@ -27,6 +27,7 @@ class Lcd(CharLCD):
         auto_linebreaks=True,
         backlight_enabled=True,
     ):
+        self._frame_buffer = list()  # need to define before super because super calls clear...
         super().__init__(
             i2c_expander=i2c_expander,
             address=address,
@@ -38,7 +39,6 @@ class Lcd(CharLCD):
             auto_linebreaks=auto_linebreaks,
             backlight_enabled=backlight_enabled,
         )
-        self._frame_buffer = list()
         self.create_char(0, SMILEY_CHAR)
         self._rows = rows
         self._cols = cols
