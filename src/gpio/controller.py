@@ -138,7 +138,7 @@ class Controller(Thread):
         self._tmcc_id = tmcc_id = int(engine_id)
         if self._engine_controller:
             self._engine_controller.update(tmcc_id, self._scope)
-        self._tmcc_dispatcher.listen_for(self._scope, tmcc_id)
+        self._tmcc_dispatcher.listen_for(self, self._scope, tmcc_id)
         self.update_display()
         self._key_queue.reset()
 
