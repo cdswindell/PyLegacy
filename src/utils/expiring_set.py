@@ -1,3 +1,4 @@
+from threading import RLock
 from time import time
 
 
@@ -5,7 +6,8 @@ class ExpiringSet:
     def __init__(self, max_age_seconds=1.0):
         assert max_age_seconds > 0
         self.age = max_age_seconds
-        self.container = {}
+        self.container = dict()
+        self._lock = RLock()
 
     def __repr__(self) -> str:
         return f"{self.container}"
@@ -17,24 +19,30 @@ class ExpiringSet:
         return self.contains(value)
 
     def contains(self, value):
-        if value not in self.container:
-            return False
-        if time() - self.container[value] > self.age:
-            del self.container[value]
-            return False
-        return True
+        with self._lock:
+            if value not in self.container:
+                return False
+            if time() - self.container[value] > self.age:
+                del self.container[value]
+                return False
+            return True
 
     def add(self, value):
-        self.container[value] = time()
+        with self._lock:
+            if value not in self.container:
+                self.container[value] = time()
 
     def clear(self):
-        self.container.clear()
+        with self._lock:
+            self.container.clear()
 
     def discard(self, value):
-        if value in self.container:
-            del self.container[value]
+        with self._lock:
+            if value in self.container:
+                del self.container[value]
 
     def remove(self, value):
-        if value not in self.container:
-            raise KeyError(f"{value} not found in set")
-        self.discard(value)
+        with self._lock:
+            if value not in self.container:
+                raise KeyError(f"{value} not found in set")
+            self.discard(value)
