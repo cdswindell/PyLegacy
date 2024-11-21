@@ -43,7 +43,6 @@ class EnqueueProxyRequests(Thread):
         """
         if cls._instance is not None:
             # noinspection PyProtectedMember
-            print(f"Adding {client} to {cls._instance}")
             cls._instance._clients.add(client)
 
     @classmethod
@@ -53,7 +52,6 @@ class EnqueueProxyRequests(Thread):
         """
         if cls._instance is not None:
             # noinspection PyProtectedMember
-            print(f"Removing {client} from {cls._instance}")
             cls._instance._clients.discard(client)
 
     # noinspection PyPropertyDefinition
@@ -161,6 +159,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(str.encode("ack"))
             else:
                 break
+
+        EnqueueProxyRequests.note_client_addr(self.client_address[0])
         if byte_stream == EnqueueProxyRequests.register_request:
             if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
                 log.info(f"Client at {self.client_address[0]} connecting...")
@@ -173,4 +173,3 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             log.info(f"Client at {self.client_address[0]} disconnecting...")
         else:
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
-        EnqueueProxyRequests.note_client_addr(self.client_address[0])
