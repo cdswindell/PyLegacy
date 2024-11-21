@@ -86,7 +86,17 @@ class TestBase:
 # noinspection PyUnusedLocal
 class MockCommandReq:
     @classmethod
-    def _enqueue_command(cls, cmd: bytes, repeat: int, delay: float, baudrate: int, port: str) -> bytes:
+    def _enqueue_command(
+        cls,
+        cmd: bytes,
+        repeat: int,
+        delay: float,
+        baudrate: int,
+        port: str,
+        server: str,
+        buffer,
+        original_req: "MockCommandReq",
+    ) -> bytes:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
         print(f"In MockCommandRequest._enqueue_command: {cmd.hex()} {repeat}, {delay}, {baudrate}")

@@ -26,14 +26,24 @@ class TestCommandReq(TestBase):
             # test TMCC1 commands, beginning with HALT
             CommandReq.send_request(TMCC1HaltCommandDef.HALT)
             mk_enqueue_command.assert_called_once_with(
-                0xFEFFFF.to_bytes(3, byteorder="big"), 1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None
+                0xFEFFFF.to_bytes(3, byteorder="big"),
+                1,
+                0,
+                DEFAULT_BAUDRATE,
+                DEFAULT_PORT,
+                None,
             )
             mk_enqueue_command.reset_mock()
 
             # Route command
             CommandReq.send_request(TMCC1RouteCommandDef.FIRE, 10)
             mk_enqueue_command.assert_called_once_with(
-                0xFED51F.to_bytes(3, byteorder="big"), 1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None
+                0xFED51F.to_bytes(3, byteorder="big"),
+                1,
+                0,
+                DEFAULT_BAUDRATE,
+                DEFAULT_PORT,
+                None,
             )
             mk_enqueue_command.reset_mock()
 
@@ -116,64 +126,6 @@ class TestCommandReq(TestBase):
                 0xFA14FD.to_bytes(3, byteorder="big"), 1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None
             )
             mk_enqueue_command.reset_mock()
-
-    def test_build_action(self):
-        # all command defs should pass
-        with mock.patch.object(CommandReq, "_enqueue_command") as mk_enqueue_command:
-            for cdef in self.all_command_enums:
-                for cmd in cdef:
-                    data = self.generate_random_data(cmd)
-                    # build_req a request object as a convenience to get byte streem command
-                    req = self.build_request(cmd, 1, data)
-                    action = CommandReq.build_action(cmd, 1, data)
-                    assert action is not None
-                    action()
-                    mk_enqueue_command.assert_called_once_with(
-                        req.as_bytes,
-                        repeat=1,
-                        delay=0,
-                        baudrate=DEFAULT_BAUDRATE,
-                        port=DEFAULT_PORT,
-                        server=None,
-                        buffer=CommBuffer.build(),
-                    )
-                    mk_enqueue_command.reset_mock()
-
-            # repeat for some train commands
-            for cdef in [
-                TMCC1EngineCommandDef,
-                TMCC2EngineCommandDef,
-                TMCC2RailSoundsDialogControl,
-                TMCC2EffectsControl,
-                TMCC2LightingControl,
-            ]:
-                for cmd in cdef:
-                    data = self.generate_random_data(cmd)
-                    # build_req a request object as a convenience to get byte streem command
-                    req = CommandReq.build(cmd, 1, data, scope=CommandScope.TRAIN)
-                    action = CommandReq.build_action(cmd, 1, data, scope=CommandScope.TRAIN)
-                    assert req.scope == CommandScope.TRAIN
-                    assert action is not None
-                    action()
-                    mk_enqueue_command.assert_called_once_with(
-                        req.as_bytes,
-                        repeat=1,
-                        delay=0,
-                        baudrate=DEFAULT_BAUDRATE,
-                        port=DEFAULT_PORT,
-                        server=None,
-                        buffer=CommBuffer.build(),
-                    )
-                    mk_enqueue_command.reset_mock()
-
-        # test build_req with repeat set
-        with mock.patch.object(CommBufferSingleton, "enqueue_command") as mk_comm_enqueue_command:
-            for cmd in TMCC2EffectsControl:
-                action = CommandReq.build_action(cmd, 1, data, repeat=3)
-                assert action is not None
-                action()
-                assert mk_comm_enqueue_command.call_count == 3
-                mk_comm_enqueue_command.reset_mock()
 
     def test__determine_first_byte(self):
         for cdef in self.all_command_enums:

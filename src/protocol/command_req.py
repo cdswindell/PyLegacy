@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import sys
-from typing import Callable
+from typing import Callable, TypeVar, Set
+
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -145,6 +146,7 @@ class CommandReq:
         port: str | int,
         server: str | None,
         buffer=None,
+        request: CommandReq | None = None,
     ) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
@@ -156,6 +158,35 @@ class CommandReq:
         delay = 0 if delay is None else delay
         for _ in range(repeat):
             buffer.enqueue_command(cmd, delay)
+
+    E = TypeVar("E", bound=CommandDefEnum)
+
+    @staticmethod
+    def results_in(command: CommandReq) -> Set[E]:
+        from ..db.component_state_store import DependencyCache
+
+        dependencies = DependencyCache.build()
+        effects = dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
+        if command.is_data:
+            # noinspection PyTypeChecker
+            effects.update(
+                dependencies.results_in(
+                    (command.command, command.data), dereference_aliases=True, include_aliases=False
+                )
+            )
+        # remove the triggering command and it's alias, if it exists
+        if effects:
+            if command.command in effects:
+                effects.remove(command.command)
+            if command.is_data and (command.command, command.data) in effects:
+                # noinspection PyTypeChecker
+                effects.remove((command.command, command.data))
+            if command.command.is_alias and command.command.alias in effects:
+                alias = command.command.alias
+                effects.remove(alias)
+                if alias[0] in effects:
+                    effects.remove(alias[0])
+        return effects
 
     @staticmethod
     def _validate_requested_scope(command_def: CommandDef, request: CommandScope) -> CommandScope:
@@ -318,7 +349,7 @@ class CommandReq:
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> None:
-        self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port, server)
+        self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port, server, request=self)
 
     @property
     def as_bytes(self) -> bytes:
@@ -347,7 +378,14 @@ class CommandReq:
                 self.data = new_data
 
             self._enqueue_command(
-                self.as_bytes, repeat=repeat, delay=delay, baudrate=baudrate, port=port, server=server, buffer=buffer
+                self.as_bytes,
+                repeat=repeat,
+                delay=delay,
+                baudrate=baudrate,
+                port=port,
+                server=server,
+                buffer=buffer,
+                request=self,
             )
 
         return send_func

@@ -3,16 +3,15 @@ from __future__ import annotations
 import logging
 from enum import IntEnum, unique
 from math import floor
-from typing import Dict, List, TypeVar, Set
+from typing import Dict, List
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
-from ..db.component_state_store import ComponentStateStore, DependencyCache
+from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS, Mixins
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 log = logging.getLogger(__name__)
@@ -102,11 +101,8 @@ class BaseReq(PdiReq):
             scope = cmd.scope
 
             # special case numeric commands
-            implicit_cmd = cmd
             if state.name == "NUMERIC":
-                if data == 0:
-                    state = TMCC2EngineCommandDef.RESET if state.is_legacy else TMCC1EngineCommandDef.RESET
-                elif data in [3, 6]:  # RPM up/down
+                if data in [3, 6]:  # RPM up/down
                     state = TMCC2EngineCommandDef.DIESEL_RPM
                     cur_state = ComponentStateStore.build().get_state(scope, address, False)
                     if cur_state and cur_state.rpm is not None:
@@ -116,10 +112,6 @@ class BaseReq(PdiReq):
                         elif data == 3:  # RPM Up
                             cur_rpm = min(cur_rpm + 1, 7)
                         data = cur_rpm
-                implicit_cmd = CommandReq(state, address, data, scope)
-            for imp in cls.results_in(implicit_cmd):
-                print(imp)
-
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
         else:
@@ -160,21 +152,6 @@ class BaseReq(PdiReq):
             cmds.append(cls(address, pdi_cmd))
             return cmds
         return None
-
-    E = TypeVar("E", bound=CommandDefEnum)
-
-    @staticmethod
-    def results_in(command: CommandReq) -> Set[E]:
-        dependencies = DependencyCache.build()
-        effects = dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
-        if command.is_data:
-            # noinspection PyTypeChecker
-            effects.update(
-                dependencies.results_in(
-                    (command.command, command.data), dereference_aliases=True, include_aliases=False
-                )
-            )
-        return effects
 
     def __init__(
         self,
