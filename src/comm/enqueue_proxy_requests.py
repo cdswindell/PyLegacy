@@ -163,6 +163,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             else:
                 break
         if byte_stream == EnqueueProxyRequests.register_request:
+            x = EnqueueProxyRequests.is_known_client(self.client_address[0])
+            print(f"Registering request: {self.client_address[0]}: {x}")
             if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
                 log.info(f"Client at {self.client_address[0]} connecting...")
         elif byte_stream == EnqueueProxyRequests.sync_state_request:
