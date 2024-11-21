@@ -173,7 +173,7 @@ class Controller(Thread):
                 row += f"{self._tmcc_id:04}"
                 if self._state:
                     if self._state.control_type is not None and self._lcd.cols > 16:
-                        row += f" {self._state:.control_type_label[0]}"
+                        row += f" {self._state.control_type_label[0]}"
                     if self._state.road_number:
                         rn = f"#{self._state.road_number}"
                         row += rn.rjust(self._lcd.cols - len(row), " ")
