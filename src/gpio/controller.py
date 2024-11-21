@@ -151,7 +151,7 @@ class Controller(Thread):
             row = state.road_name if state.road_name else "No Information"
             self._lcd.add(row)
             if self._lcd.rows > 2:
-                row += f"Speed: {state.speed}:>3"
+                row = f"Speed: {state.speed}:>3"
                 row += state.direction_label
                 self._lcd.add(row)
         self._lcd.write_frame_buffer()
