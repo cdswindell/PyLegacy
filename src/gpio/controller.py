@@ -195,7 +195,7 @@ class Controller(Thread):
                 if self._lcd.rows > 3:
                     row = f"RPM: {self._state.rpm_label} "
                     row += f"Mom: {self._state.momentum_label} "
-                    row += f"Br: {self._state.train_brake_label} "
+                    row += f"TB: {self._state.train_brake_label} "
                     self._lcd.add(row)
             self._lcd.write_frame_buffer(clear_display)
             if self._tmcc_id is None:
