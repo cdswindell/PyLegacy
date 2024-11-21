@@ -104,7 +104,7 @@ class Controller(Thread):
         if isinstance(cmd, CommandReq):
             if cmd.command in COMMANDS_OF_INTEREST and cmd.address == self._tmcc_id:
                 print(cmd)
-                self.update_display(clear=False)
+                self.update_display(clear_display=False)
 
     @property
     def engine_controller(self) -> EngineController:
@@ -161,13 +161,9 @@ class Controller(Thread):
         self.update_display()
         self._key_queue.reset()
 
-    def update_display(self, clear: bool = True) -> None:
+    def update_display(self, clear_display: bool = True) -> None:
         with self._lock:
-            if clear is True:
-                self._lcd.clear()
-            else:
-                self._lcd.home()
-                self._lcd.clear_frame_buffer()
+            self._lcd.clear_frame_buffer()
             row = f"{self._scope.friendly}: "
             tmcc_id_pos = len(row)
             if self._tmcc_id is not None:
@@ -190,7 +186,7 @@ class Controller(Thread):
                     row = f"Speed: {state.speed:03} "
                     row += state.direction_label
                     self._lcd.add(row)
-            self._lcd.write_frame_buffer()
+            self._lcd.write_frame_buffer(clear_display)
             if self._tmcc_id is None:
                 self._lcd.cursor_pos = (0, tmcc_id_pos)
 
