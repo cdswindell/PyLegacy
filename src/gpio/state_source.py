@@ -25,7 +25,7 @@ class StateSource(ABC, Thread):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, scope: CommandScope, address: int, led: LED) -> None:
-        super().__init__(daemon=True, name=f"{scope.friendly} {address} State")
+        super().__init__(daemon=True, name=f"{scope.label} {address} State")
         self._scope = scope
         self._address = address
         self._led = led

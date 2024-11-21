@@ -148,6 +148,7 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.SWITCH)
             self._state_store.listen_for(CommandScope.ACC)
             self._state_store.listen_for(CommandScope.IRDA)
+            self._state_store.listen_for(CommandScope.BASE)
 
         if self._pdi_buffer is not None:
             print(f"Determining initial system state from Lionel Base at {self._base_addr}:{self._base_port}...")

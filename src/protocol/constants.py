@@ -139,10 +139,7 @@ class CommandScope(Mixins, Enum):
     BPC2 = 9
     IRDA = 10
     STM2 = 11
-
-    @property
-    def friendly(self) -> str:
-        return self.name.capitalize()
+    BASE = 12
 
 
 class CommandPrefix(Mixins, IntEnum):

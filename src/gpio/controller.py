@@ -178,7 +178,7 @@ class Controller(Thread):
                 row = ""
             self._lcd.add(row)
 
-            row = f"{self._scope.friendly}: "
+            row = f"{self._scope.label}: "
             tmcc_id_pos = len(row)
             if self._tmcc_id is not None:
                 row += f"{self._tmcc_id:04}"
