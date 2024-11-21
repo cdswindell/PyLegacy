@@ -52,9 +52,9 @@ class EnqueueProxyRequests(Thread):
         """
         if cls._instance is not None:
             # noinspection PyProtectedMember
-            if client in cls._instance._clients:
-                # noinspection PyProtectedMember
-                cls._instance._clients.remove(client)
+            print(f"Disconnecting: {client}... {client in cls._instance._clients}")
+            # noinspection PyProtectedMember
+            cls._instance._clients.discard(client)
 
     # noinspection PyPropertyDefinition
     @classmethod
