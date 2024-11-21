@@ -135,7 +135,7 @@ class Controller(Thread):
         row = f"{self._scope.friendly}: "
         tmcc_id_pos = len(row)
         if self._tmcc_id is not None:
-            row += f"{self._tmcc_id:>4}"
+            row += f"{self._tmcc_id:04}"
             state = self._state.get_state(self._scope, self._tmcc_id)
             if state:
                 if state.control_type is not None and self._lcd.cols > 16:
@@ -151,7 +151,7 @@ class Controller(Thread):
             row = state.road_name if state.road_name else "No Information"
             self._lcd.add(row)
             if self._lcd.rows > 2:
-                row = f"Speed: {state.speed:>3} "
+                row = f"Speed: {state.speed:03} "
                 row += state.direction_label
                 self._lcd.add(row)
         self._lcd.write_frame_buffer()
