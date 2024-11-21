@@ -133,6 +133,9 @@ class CommBuffer(abc.ABC):
     def register(self) -> None: ...
 
     @abc.abstractmethod
+    def disconnect(self) -> None: ...
+
+    @abc.abstractmethod
     def sync_state(self) -> None: ...
 
     @abc.abstractmethod
@@ -212,6 +215,9 @@ class CommBufferSingleton(CommBuffer, Thread):
 
     def register(self) -> None:
         pass  # noop; used to register client
+
+    def disconnect(self) -> None:
+        pass  # noop; used to disconnect client
 
     def sync_state(self) -> None:
         pass  # noop; used by client to request server state

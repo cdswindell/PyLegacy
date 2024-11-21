@@ -197,6 +197,11 @@ class PyTrain:
                     pass
                 except KeyboardInterrupt:
                     try:
+                        if self.is_client:
+                            self._tmcc_buffer.disconnect()
+                    except Exception as e:
+                        log.warning(f"Error disconnecting client, continuing shutdown: {e}")
+                    try:
                         CommBuffer.stop()
                     except Exception as e:
                         log.warning(f"Error closing command buffer, continuing shutdown: {e}")

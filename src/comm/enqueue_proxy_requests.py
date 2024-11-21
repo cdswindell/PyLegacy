@@ -170,6 +170,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             CommandDispatcher.build().send_current_state(self.client_address[0])
         elif byte_stream == EnqueueProxyRequests.disconnect_request:
             EnqueueProxyRequests.client_disconnect(self.client_address[0])
+            log.info(f"Client at {self.client_address[0]} disconnecting...")
         else:
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
         EnqueueProxyRequests.note_client_addr(self.client_address[0])
