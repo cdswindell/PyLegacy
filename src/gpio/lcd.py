@@ -71,7 +71,10 @@ class Lcd(CharLCD):
         super().clear()
         self.home()
         self._row_pos = self._col_pos = 0
-        self._frame_buffer = []
+        self.clear_frame_buffer()
+
+    def clear_frame_buffer(self) -> None:
+        self._frame_buffer.clear()
 
     def write_frame_buffer(self) -> None:
         super().clear()  # call the super, otherwise frame buffer is cleared
