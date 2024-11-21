@@ -61,7 +61,7 @@ class Controller(Thread):
         self._tmcc_id = None
         self._last_scope = None
         self._last_tmcc_id = None
-        self._filter = ExpiringSet(max_age_seconds=1)
+        self._filter = ExpiringSet(max_age_seconds=0.1)
         if speed_pins or fwd_pin or rev_pin or reset_pin:
             self._engine_controller = EngineController(
                 speed_pin_1=speed_pins[0] if speed_pins and len(speed_pins) > 0 else None,
