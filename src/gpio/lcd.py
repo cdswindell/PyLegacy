@@ -46,8 +46,6 @@ class Lcd(CharLCD):
         self._row_pos = self._col_pos = 0
         self._backlight_enabled = backlight_enabled
         self._frame_buffer = []
-        for _ in range(self._rows):
-            self._frame_buffer.append("")
 
     @property
     def rows(self) -> int:
