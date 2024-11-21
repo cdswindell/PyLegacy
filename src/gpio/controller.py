@@ -94,7 +94,7 @@ class Controller(Thread):
         Callback specified in the Subscriber protocol used to send events to listeners
         """
         if isinstance(cmd, CommandReq):
-            if cmd.command in COMMANDS_OF_INTEREST
+            if cmd.command in COMMANDS_OF_INTEREST:
                 self.update_display()
 
     @property
