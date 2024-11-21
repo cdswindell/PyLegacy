@@ -98,9 +98,10 @@ class Controller(Thread):
         """
         if isinstance(cmd, CommandReq):
             if cmd.command in COMMANDS_OF_INTEREST and cmd.address == self._tmcc_id:
-                if cmd not in self._filter:
-                    print(cmd, cmd.as_bytes in self._filter)
-                    self._filter.add(cmd.as_bytes)
+                cmd_bytes = cmd.as_bytes
+                if cmd_bytes not in self._filter:
+                    print(cmd, cmd_bytes in self._filter)
+                    self._filter.add(cmd_bytes)
                     self.update_display()
 
     @property
