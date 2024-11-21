@@ -102,10 +102,10 @@ class BaseReq(PdiReq):
             scope = cmd.scope
 
             # special case numeric commands
+            implicit_cmd = cmd
             if state.name == "NUMERIC":
                 if data == 0:
                     state = TMCC2EngineCommandDef.RESET if state.is_legacy else TMCC1EngineCommandDef.RESET
-                    print("Received Reset command")
                 elif data in [3, 6]:  # RPM up/down
                     state = TMCC2EngineCommandDef.DIESEL_RPM
                     cur_state = ComponentStateStore.build().get_state(scope, address, False)
@@ -116,7 +116,10 @@ class BaseReq(PdiReq):
                         elif data == 3:  # RPM Up
                             cur_rpm = min(cur_rpm + 1, 7)
                         data = cur_rpm
-            print(cls.results_in(state))
+                implicit_cmd = CommandReq(state, address, data, scope)
+            for imp in cls.results_in(implicit_cmd):
+                print(imp)
+
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
         else:
