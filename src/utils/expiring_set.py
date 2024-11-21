@@ -10,7 +10,11 @@ class ExpiringSet:
         self._lock = RLock()
 
     def __repr__(self) -> str:
-        return f"{self.container}"
+        rep = ""
+        for k, v in self.container.items():
+            ttl = max(self.age - time() - self.container[v], 0)
+            rep += f"{k.hex()} TTL: {ttl}\n"
+        return rep
 
     def __len__(self) -> int:
         return len(self.container)
@@ -29,7 +33,7 @@ class ExpiringSet:
 
     def add(self, value):
         with self._lock:
-            if value not in self.container:
+            if self.contains(value) is False:
                 self.container[value] = time()
 
     def clear(self):
