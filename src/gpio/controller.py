@@ -207,7 +207,7 @@ class Controller(Thread):
         if self._railroad is None:
             base_state = self._state_store.get_state(CommandScope.BASE, 0, False)
             if base_state and base_state.name:
-                self._railroad = base_state.base_name.capitalize()
+                self._railroad = base_state.base_name.title()
         return self._railroad if self._railroad is not None else "Lionel Lines"
 
     def reset(self) -> None:
