@@ -38,14 +38,13 @@ class Lcd(CharLCD):
             auto_linebreaks=auto_linebreaks,
             backlight_enabled=backlight_enabled,
         )
-        self.home()
-        self.clear()
+        self._frame_buffer = list()
         self.create_char(0, SMILEY_CHAR)
         self._rows = rows
         self._cols = cols
         self._row_pos = self._col_pos = 0
         self._backlight_enabled = backlight_enabled
-        self._frame_buffer = list()
+        self.clear()
 
     @property
     def rows(self) -> int:
