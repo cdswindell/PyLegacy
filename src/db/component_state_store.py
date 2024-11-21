@@ -126,7 +126,7 @@ class ComponentStateStore:
             isinstance(topic, tuple) and len(topic) > 1 and isinstance(topic[0], CommandScope)
         )
 
-    def listen_for(self, topics: Topic | List[Topic], address: int = None) -> None:
+    def listen_for(self, topics: Topic | List[Topic]) -> None:
         if isinstance(topics, list):
             for topic in topics:
                 if self.is_valid_topic(topic):
@@ -343,7 +343,7 @@ class DependencyCache:
         # Engine commands, starting with Reset (Number 0)
         self.causes(
             Engine2.RESET,
-            Engine2.SPEED_STOP_HOLD,
+            Engine2.STOP_IMMEDIATE,
             Engine2.FORWARD_DIRECTION,
             Engine2.START_UP_IMMEDIATE,
             Engine2.BELL_OFF,
@@ -353,9 +353,9 @@ class DependencyCache:
             Engine2.NUMERIC,
         )
         self.causes(Engine2.STOP_IMMEDIATE, Engine2.SPEED_STOP_HOLD)
-        self.causes(Engine2.FORWARD_DIRECTION, Engine2.SPEED_STOP_HOLD)
-        self.causes(Engine2.REVERSE_DIRECTION, Engine2.SPEED_STOP_HOLD)
-        self.causes(Engine2.TOGGLE_DIRECTION, Engine2.SPEED_STOP_HOLD)
+        self.causes(Engine2.FORWARD_DIRECTION, Engine2.STOP_IMMEDIATE)
+        self.causes(Engine2.REVERSE_DIRECTION, Engine2.STOP_IMMEDIATE)
+        self.causes(Engine2.TOGGLE_DIRECTION, Engine2.STOP_IMMEDIATE)
 
         # TMCC1 Engine Reset
         self.causes(

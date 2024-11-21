@@ -12,6 +12,7 @@ from ..protocol.constants import DEFAULT_SERVER_PORT
 log = logging.getLogger(__name__)
 
 REGISTER_REQUEST: bytes = int(0xFF).to_bytes(1, byteorder="big") * 6
+DISCONNECT_REQUEST: bytes = int(0xFFFC).to_bytes(2, byteorder="big") * 3
 SYNC_STATE_REQUEST: bytes = int(0xFFF0).to_bytes(2, byteorder="big") * 3
 
 
@@ -44,6 +45,17 @@ class EnqueueProxyRequests(Thread):
             # noinspection PyProtectedMember
             cls._instance._clients.add(client)
 
+    @classmethod
+    def client_disconnect(cls, client: str) -> None:
+        """
+        Remove client so we don't send more state updates
+        """
+        if cls._instance is not None:
+            # noinspection PyProtectedMember
+            if client in cls._instance._clients:
+                # noinspection PyProtectedMember
+                cls._instance._clients.remove(client)
+
     # noinspection PyPropertyDefinition
     @classmethod
     def is_known_client(cls, ip_addr: str) -> bool:
@@ -67,6 +79,12 @@ class EnqueueProxyRequests(Thread):
     @property
     def register_request(cls) -> bytes:
         return REGISTER_REQUEST
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def disconnect_request(cls) -> bytes:
+        return DISCONNECT_REQUEST
 
     # noinspection PyPropertyDefinition
     @classmethod
@@ -150,6 +168,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             from ..comm.command_listener import CommandDispatcher
 
             CommandDispatcher.build().send_current_state(self.client_address[0])
+        elif byte_stream == EnqueueProxyRequests.disconnect_request:
+            EnqueueProxyRequests.client_disconnect(self.client_address[0])
         else:
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
         EnqueueProxyRequests.note_client_addr(self.client_address[0])
