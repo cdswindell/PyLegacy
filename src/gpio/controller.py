@@ -53,6 +53,7 @@ class Controller(Thread):
         self._lcd = Lcd(address=lcd_address, rows=lcd_rows, cols=lcd_cols)
         self._keypad = Keypad(row_pins, column_pins)
         self._key_queue = self._keypad.key_queue
+        self._last_listener = None
         self._state = ComponentStateStore.build()
         self._tmcc_dispatcher = CommandDispatcher.get()
         self._scope = CommandScope.ENGINE
@@ -94,7 +95,8 @@ class Controller(Thread):
         Callback specified in the Subscriber protocol used to send events to listeners
         """
         if isinstance(cmd, CommandReq):
-            if cmd.command in COMMANDS_OF_INTEREST:
+            if cmd.command in COMMANDS_OF_INTEREST and cmd.address == self._tmcc_id:
+                print(cmd)
                 self.update_display()
 
     @property
@@ -147,7 +149,8 @@ class Controller(Thread):
         self._tmcc_id = tmcc_id = int(engine_id)
         if self._engine_controller:
             self._engine_controller.update(tmcc_id, self._scope)
-        self._tmcc_dispatcher.listen_for(self, self._scope, tmcc_id)
+        self.listen_for_updates(self._scope, tmcc_id)
+
         self.update_display()
         self._key_queue.reset()
 
@@ -187,3 +190,11 @@ class Controller(Thread):
 
     def close(self) -> None:
         self.reset()
+
+    def listen_for_updates(self, scope, tmcc_id):
+        if self._last_listener == (scope, tmcc_id):
+            return
+        if self._last_listener:
+            self._tmcc_dispatcher.unsubscribe(self, *self._last_listener)
+        self._tmcc_dispatcher.listen_for(self, scope, tmcc_id)
+        self._last_listener = (scope, tmcc_id)
