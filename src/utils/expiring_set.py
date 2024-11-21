@@ -7,6 +7,9 @@ class ExpiringSet:
         self.age = max_age_seconds
         self.container = {}
 
+    def __repr__(self) -> str:
+        return f"{self.container}"
+
     def __len__(self) -> int:
         return len(self.container)
 
