@@ -420,17 +420,18 @@ class CommandDispatcher(Thread):
                 for address in store.addresses(scope):
                     with self._lock:
                         state: ComponentState = store.query(scope, address)
-                        state_as_bytes: bytes = state.as_bytes()
-                        if state_as_bytes:  # we can only send states for tracked conditions
-                            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                                try:
-                                    s.connect((client_ip, self._client_port))
-                                    s.sendall(state_as_bytes)
-                                    _ = s.recv(16)
-                                except Exception as e:
-                                    log.warning(f"Exception sending TMCC state update {state} to {client_ip}")
-                                    log.exception(e)
-                            sleep(0.05)
+                        if state is not None
+                            state_as_bytes: bytes = state.as_bytes()
+                            if state_as_bytes:  # we can only send states for tracked conditions
+                                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                                    try:
+                                        s.connect((client_ip, self._client_port))
+                                        s.sendall(state_as_bytes)
+                                        _ = s.recv(16)
+                                    except Exception as e:
+                                        log.warning(f"Exception sending TMCC state update {state} to {client_ip}")
+                                        log.exception(e)
+                                sleep(0.05)
 
     @property
     def broadcasts_enabled(self) -> bool:
