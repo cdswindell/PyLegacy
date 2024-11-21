@@ -32,7 +32,7 @@ class EngineController:
         smoke_up_pin: int | str = None,
         smoke_down_pin: int | str = None,
         train_brake_chn: int | str = None,
-        repeat: int = 2,
+        repeat: int = 1,
     ) -> None:
         from .gpio_handler import GpioHandler
 
@@ -50,7 +50,7 @@ class EngineController:
         if halt_pin is not None:
             self._halt_btn = GpioHandler.make_button(halt_pin)
             cmd = CommandReq(TMCC1HaltCommandDef.HALT)
-            self._halt_btn.when_pressed = cmd.as_action(repeat=repeat)
+            self._halt_btn.when_pressed = cmd.as_action(repeat=3)
         else:
             self._halt_btn = None
 
