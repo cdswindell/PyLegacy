@@ -169,7 +169,8 @@ class BaseReq(PdiReq):
         self._rev_link = self._fwd_link = None
         self._loco_type = self._control_type = self._sound_type = self._loco_class = None
         self._speed_step = self._speed_limit = self._max_speed = self._labor_bias = None
-        self._fuel_level = self._water_level = self._last_train_id = self._train_pos = self._train_brake = None
+        self._fuel_level = self._water_level = self._last_train_id = self._train_pos = None
+        self._train_brake = self._train_brake_tmcc = None
         self._smoke_level = self._ditch_lights = self._momentum = self._momentum_tmcc = None
         self._state = state
         self._valid1 = self._valid2 = None
@@ -208,6 +209,7 @@ class BaseReq(PdiReq):
                 self._smoke_level = self._data[65] if data_len > 65 else None
                 self._ditch_lights = self._data[66] if data_len > 66 else None
                 self._train_brake = self._data[67] if data_len > 67 else None
+                self._train_brake_tmcc = round(self._data[67] / 2.143) if data_len > 67 else None
                 self._momentum = self._data[68] if data_len > 68 else None
                 self._momentum_tmcc = floor(self._data[68] / 16) if data_len > 68 else None
             elif self.pdi_command in [PdiCommand.BASE_ACC, PdiCommand.BASE_SWITCH, PdiCommand.BASE_ROUTE]:
@@ -242,10 +244,12 @@ class BaseReq(PdiReq):
                 self._valid1 = 0b1100
                 if isinstance(state, EngineState):
                     self._valid1 = 0b1100011111100
-                    self._valid2 = 0b10000000
+                    self._valid2 = 0b11000000
                     self._speed_step = state.speed
                     self._momentum_tmcc = state.momentum
                     self._momentum = state.momentum * 16
+                    self._train_brake = round(state.train_brake * 2.143)
+                    self._train_brake_tmcc = state.train_brake
                     self._run_level = state.rpm
                     self._scope = state.scope
                     self._control_type = state.control_type
@@ -319,6 +323,10 @@ class BaseReq(PdiReq):
     @property
     def train_brake(self) -> int:
         return self._train_brake
+
+    @property
+    def train_brake_tmcc(self) -> int:
+        return self._train_brake_tmcc
 
     @property
     def run_level(self) -> int:
@@ -462,7 +470,8 @@ class BaseReq(PdiReq):
                 byte_str += (0).to_bytes(3, byteorder="little")  # 3 misc fields
                 byte_str += self._speed_step.to_bytes(1, byteorder="little")
                 byte_str += self._run_level.to_bytes(1, byteorder="little")
-                byte_str += (0).to_bytes(10, byteorder="little")  # 5 misc fields
+                byte_str += (0).to_bytes(9, byteorder="little")
+                byte_str += self._train_brake.to_bytes(1, byteorder="little")
                 byte_str += self._momentum.to_bytes(1, byteorder="little")
         else:
             byte_str += self.flags.to_bytes(1, byteorder="big")
