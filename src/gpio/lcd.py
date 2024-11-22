@@ -24,7 +24,7 @@ class Lcd(CharLCD):
         port: int = 1,
         rows: int = 4,
         cols: int = 20,
-        scroll: bool = True,
+        scroll_delay: float = 0.5,
         dotsize: int = 8,
         charmap: str = "A02",
         auto_linebreaks: bool = False,
@@ -47,7 +47,7 @@ class Lcd(CharLCD):
         self._rows = rows
         self._cols = cols
         self._row_pos = self._col_pos = 0
-        self._scroll = scroll
+        self._scroll_delay = scroll_delay
         self._backlight_enabled = backlight_enabled
         self.cursor_mode = "hide"
         self.clear()
@@ -97,12 +97,12 @@ class Lcd(CharLCD):
                 self._row_pos = r
                 self._col_pos = 0
         if (
-            self._scroll is True
+            self._scroll_delay > 0.0
             and len(self._frame_buffer) > 0
             and self._frame_buffer[0]
             and len(self._frame_buffer[0]) > self.cols
         ):
-            self._scroller = Scroller(self, self._frame_buffer[0])
+            self._scroller = Scroller(self, self._frame_buffer[0], self._scroll_delay)
 
     def print(self, c: int | str) -> None:
         if isinstance(c, int) and 0 <= c <= 255:
@@ -116,10 +116,11 @@ class Lcd(CharLCD):
 
 
 class Scroller(Thread):
-    def __init__(self, lcd: Lcd, buffer: str) -> None:
+    def __init__(self, lcd: Lcd, buffer: str, scroll_speed: float = 0.5) -> None:
         super().__init__(daemon=True)
         self._lcd = lcd
         self._buffer = buffer
+        self._scroll_speed = scroll_speed
         self._is_running = True
         self.start()
 
@@ -129,8 +130,8 @@ class Scroller(Thread):
     def run(self) -> None:
         while self._is_running:
             padding = " " * 2
-            s = padding + self._buffer.strip() + padding
+            s = padding + self._buffer.strip() + padding + self._buffer.strip()
             for i in range(len(s) - self._lcd.cols + 1):
                 self._lcd.cursor_pos = (0, 0)
                 self._lcd.print(s[i : i + self._lcd.cols])
-                sleep(0.3)
+                sleep(self._scroll_speed)
