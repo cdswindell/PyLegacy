@@ -77,8 +77,8 @@ class Lcd(CharLCD):
         self.cursor_mode = "hide"
 
     def clear_frame_buffer(self) -> None:
-        del self._frame_buffer[:]
         self.stop_scrolling()
+        self._frame_buffer.clear()
 
     def stop_scrolling(self) -> None:
         if self._scroller is not None:
@@ -126,6 +126,7 @@ class Scroller(Thread):
 
     def shutdown(self) -> None:
         self._exit.set()
+        self._buffer = ""
 
     def run(self) -> None:
         s = self._buffer + " " + self._buffer
