@@ -90,7 +90,7 @@ class Lcd(CharLCD):
             self._scroll is True
             and len(self._frame_buffer) > 0
             and self._frame_buffer[0]
-            and len(self._frame_buffer) > self.cols
+            and len(self._frame_buffer[0]) > self.cols
         ):
             row = self._frame_buffer[0]
             for i in range(len(row) - self.cols + 1):
