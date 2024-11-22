@@ -111,7 +111,7 @@ class PotHandler(Thread):
         self._action = command.as_action() if command else None
         self._data_max = data_max = data_max if data_max is not None else command.data_max
         self._data_min = data_min = data_min if data_min is not None else command.data_min
-        self._interp = self.make_interpolator(data_max, data_min)
+        self._interp = GpioHandler.make_interpolator(data_max, data_min)
         if threshold is not None:
             self._threshold = threshold
         elif command:
@@ -178,27 +178,6 @@ class PotHandler(Thread):
     def reset(self) -> None:
         self._running = False
 
-    @staticmethod
-    def make_interpolator(
-        to_max: int,
-        to_min: int = 0,
-        from_min: float = 0.0,
-        from_max: float = 1.0,
-    ) -> Callable:
-        # Figure out how 'wide' each range is
-        from_span = from_max - from_min
-        to_span = to_max - to_min
-
-        # Compute the scale factor between left and right values
-        scale_factor = float(to_span) / float(from_span)
-
-        # create interpolation function using pre-calculated scaleFactor
-        def interp_fn(value) -> int:
-            scaled_value = int(round(to_min + (value - from_min) * scale_factor))
-            return scaled_value
-
-        return interp_fn
-
 
 class JoyStickHandler(PotHandler):
     def __init__(
@@ -252,6 +231,27 @@ class GpioHandler:
             if state:
                 return state.numeric
         return None
+
+    @staticmethod
+    def make_interpolator(
+        to_max: int,
+        to_min: int = 0,
+        from_min: float = 0.0,
+        from_max: float = 1.0,
+    ) -> Callable:
+        # Figure out how 'wide' each range is
+        from_span = from_max - from_min
+        to_span = to_max - to_min
+
+        # Compute the scale factor between left and right values
+        scale_factor = float(to_span) / float(from_span)
+
+        # create interpolation function using pre-calculated scaleFactor
+        def interp_fn(value) -> int:
+            scaled_value = int(round(to_min + (value - from_min) * scale_factor))
+            return scaled_value
+
+        return interp_fn
 
     @classmethod
     def calibrate_joystick(cls, x_axis_chn: int = 0, y_axis_chn: int = 0, use_12bit: bool = True) -> None:
@@ -1423,5 +1423,22 @@ class PyRotaryEncoder(RotaryEncoder):
         self._scaler = scaler
         self._use_steps = use_steps
 
-    def reset_actions(self, cmd: CommandReq, cur_speed: int, max_speed: int) -> None:
-        pass
+    def reset_actions(self, cmd: CommandReq, cur_step: int, scaler: Callable[[int], int]) -> None:
+        self._scaler = scaler
+        self.steps = cur_step
+        tmcc_command_buffer = CommBuffer.build()
+        last_rotation_at = GpioHandler.current_milli_time()
+
+        def func(re: RotaryEncoder) -> None:
+            nonlocal last_rotation_at
+            nonlocal tmcc_command_buffer
+
+            steps = speed = re.steps
+            if scaler:
+                print(f"Steps: {steps} New speed: {scaler(steps)}")
+                speed = scaler(steps)
+            cmd.data = speed
+            tmcc_command_buffer.enqueue_command(cmd.as_bytes)
+            last_rotation_at = GpioHandler.current_milli_time()
+
+        self.when_rotated = func

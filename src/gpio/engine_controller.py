@@ -1,5 +1,6 @@
 from gpiozero import Button
 
+from .gpio_handler import GpioHandler
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
@@ -313,4 +314,8 @@ class EngineController:
         for re, cmd in when_rotated.items():
             cmd.address = self._tmcc_id
             cmd.scope = scope
-            re.reset_actions(cmd, cur_state.speed, cur_state.max_speed)
+            max_speed = min(cur_state.max_speed, cur_state.speed_limit)
+            steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -100, 100)
+            speed_to_steps = GpioHandler.make_interpolator(100, -100, 0, max_speed)
+            cur_step = speed_to_steps(cur_state.speed)
+            re.reset_actions(cmd, cur_step, steps_to_speed)
