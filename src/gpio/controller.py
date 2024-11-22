@@ -179,6 +179,7 @@ class Controller(Thread):
                 rname = self._state.road_name.title() if self._state.road_name else "No Information"
                 rnum = f"#{self._state.road_number} " if self._state.road_number else ""
                 row = f"{rnum}{rname}"
+
             else:
                 row = self.railroad
             self._lcd.add(row)

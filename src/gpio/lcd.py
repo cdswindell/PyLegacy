@@ -78,13 +78,18 @@ class Lcd(CharLCD):
 
     def clear_frame_buffer(self) -> None:
         del self._frame_buffer[:]
+        self.stop_scrolling()
+
+    def stop_scrolling(self) -> None:
+        if self._scroller:
+            self._scroller.shutdown()
+            self._scroller = None
 
     def write_frame_buffer(self, clear_display: bool = True) -> None:
         if clear_display is True:
             super().clear()  # call the super, otherwise frame buffer is cleared
         self.home()  # reposition cursor
-        if self._scroller:
-            self._scroller.shutdown()
+        self.stop_scrolling()
         for r, row in enumerate(self._frame_buffer):
             if row:
                 self.write_string(row.ljust(self.cols)[: self.cols])
