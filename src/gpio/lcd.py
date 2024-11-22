@@ -83,6 +83,7 @@ class Lcd(CharLCD):
     def stop_scrolling(self) -> None:
         if self._scroller is not None:
             self._scroller.shutdown()
+            self._scroller.join()
             self._scroller = None
 
     def write_frame_buffer(self, clear_display: bool = True) -> None:
@@ -134,6 +135,7 @@ class Scroller(Thread):
             for i in range(len(self._buffer) + 1):
                 self._lcd.cursor_pos = (0, 0)
                 self._lcd.print(s[i : i + self._lcd.cols])
+                self._lcd.cursor_pos = (0, 0)
                 self._exit.wait(self._scroll_speed)
                 if self._exit.is_set():
                     break
