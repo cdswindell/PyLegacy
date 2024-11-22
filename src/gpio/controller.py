@@ -195,7 +195,7 @@ class Controller(Thread):
             self._lcd.add(row)
             if self._state is not None:
                 if self._lcd.rows > 2:
-                    row = f"Speed: {self._state.speed:03} "
+                    row = f"Speed: {self._state.speed if self._state.speed else 'N/A':03} "
                     row += self._state.direction_label
                     self._lcd.add(row)
                 if self._lcd.rows > 3:
