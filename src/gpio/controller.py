@@ -1,11 +1,11 @@
 from threading import Thread, Lock
 from time import sleep
-from typing import List, Callable
+from typing import List
 
 from .engine_controller import EngineController
 from .keypad import Keypad
 from .lcd import Lcd
-from ..db.component_state import ComponentState
+from ..db.state_watcher import StateWatcher
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
@@ -224,24 +224,3 @@ class Controller(Thread):
 
     def close(self) -> None:
         self.reset()
-
-
-class StateWatcher(Thread):
-    def __init__(self, state: ComponentState, action: Callable) -> None:
-        super().__init__(daemon=True, name=f"{PROGRAM_NAME} State Watcher {state.scope.label} {state.address}")
-        self._state = state
-        self._action = action
-        self._is_running = True
-        self.start()
-
-    def shutdown(self) -> None:
-        self._is_running = False
-        with self._state.synchronizer:
-            self._state.synchronizer.notify_all()
-
-    def run(self) -> None:
-        while self._state is not None and self._is_running:
-            with self._state.synchronizer:
-                self._state.synchronizer.wait()
-                if self._is_running:
-                    self._action()

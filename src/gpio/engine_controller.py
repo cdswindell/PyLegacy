@@ -1,6 +1,7 @@
 from gpiozero import Button
 
 from ..db.component_state_store import ComponentStateStore
+from ..db.state_watcher import StateWatcher
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
 from ..protocol.multybyte.multibyte_constants import TMCC2EffectsControl
@@ -42,6 +43,7 @@ class EngineController:
         self._scope = CommandScope.ENGINE
         self._repeat = repeat
         self._state = None
+        self._state_watcher = None
         # save a reference to the ComponentStateStore; it must be built and initialized
         # (or initializing) prior to creating an EngineController instance
         # we will use this info when switching engines to initialize speed
@@ -56,8 +58,8 @@ class EngineController:
             self._halt_btn = None
 
         # construct the commands; make both the TMCC1 and Legacy versions
-        self._tmcc1_when_rotated = {}
-        self._tmcc2_when_rotated = {}
+        self._tmcc1_when_rotated = None
+        self._tmcc2_when_rotated = None
         self._tmcc1_when_pushed = {}
         self._tmcc2_when_pushed = {}
         self._tmcc1_when_held = {}
@@ -75,8 +77,11 @@ class EngineController:
                 500: 1,
             }
             self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False, ramp=ramp)
-            self._tmcc1_when_rotated[self._speed_re] = CommandReq(TMCC1EngineCommandDef.ABSOLUTE_SPEED)
-            self._tmcc2_when_rotated[self._speed_re] = CommandReq(TMCC2EngineCommandDef.ABSOLUTE_SPEED)
+            self._tmcc1_when_rotated = CommandReq(TMCC1EngineCommandDef.ABSOLUTE_SPEED)
+            self._tmcc2_when_rotated = CommandReq(TMCC2EngineCommandDef.ABSOLUTE_SPEED)
+        else:
+            self._speed_re = None
+
         if reset_pin is not None:
             self._reset_btn = GpioHandler.make_button(reset_pin)
             self._tmcc1_when_pushed[self._reset_btn] = CommandReq(TMCC1EngineCommandDef.RESET)
@@ -320,11 +325,15 @@ class EngineController:
         from .gpio_handler import GpioHandler
 
         # reset the rotary encoder handlers
-        for re, cmd in when_rotated.items():
-            cmd.address = self._tmcc_id
-            cmd.scope = scope
+        if self._state_watcher:
+            self._state_watcher.shutdown()
+        if when_rotated:
+            when_rotated.address = self._tmcc_id
+            when_rotated.scope = scope
             max_speed = min(cur_state.max_speed, cur_state.speed_limit)
             steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -100, 100)
             speed_to_steps = GpioHandler.make_interpolator(100, -100, 0, max_speed)
             cur_step = speed_to_steps(cur_state.speed)
-            re.update_action(cmd, cur_step, steps_to_speed)
+
+            self._speed_re.update_action(when_rotated, cur_step, steps_to_speed)
+            self._state_watcher = StateWatcher(cur_state, self._speed_re.update_steps_action(cur_state, speed_to_steps))

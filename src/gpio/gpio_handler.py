@@ -1472,3 +1472,11 @@ class PyRotaryEncoder(RotaryEncoder):
             last_rotation_at = GpioHandler.current_milli_time()
 
         self.when_rotated = func
+
+    def update_steps_action(self, state, speed_to_steps: Callable[[int], int]) -> Callable:
+        def func() -> None:
+            nonlocal self
+            if state.speed is not None:
+                self.steps = speed_to_steps(state.speed)
+
+        return func
