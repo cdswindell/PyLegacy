@@ -81,7 +81,7 @@ class Lcd(CharLCD):
         self.stop_scrolling()
 
     def stop_scrolling(self) -> None:
-        if self._scroller:
+        if self._scroller is not None:
             self._scroller.shutdown()
             self._scroller = None
 
