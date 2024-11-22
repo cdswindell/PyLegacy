@@ -119,7 +119,7 @@ class Scroller(Thread):
     def __init__(self, lcd: Lcd, buffer: str, scroll_speed: float = 0.5) -> None:
         super().__init__(daemon=True)
         self._lcd = lcd
-        self._buffer = buffer
+        self._buffer = buffer.strip()
         self._scroll_speed = scroll_speed
         self._is_running = True
         self.start()
@@ -128,10 +128,9 @@ class Scroller(Thread):
         self._is_running = False
 
     def run(self) -> None:
+        s = self._buffer + " " + self._buffer
         while self._is_running:
-            padding = " " * 2
-            s = padding + self._buffer.strip() + padding + self._buffer.strip()
-            for i in range(len(s) - self._lcd.cols + 1):
+            for i in range(len(self._buffer) - self._lcd.cols + 2):
                 self._lcd.cursor_pos = (0, 0)
                 self._lcd.print(s[i : i + self._lcd.cols])
                 sleep(self._scroll_speed)
