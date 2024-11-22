@@ -127,6 +127,7 @@ class ComponentState(ABC):
         self._road_number = None
         self._number = None
         self._address: int | None = None
+        self._spare_1: int | None = None
         self._ev = threading.Event()
         self._cv = threading.Condition()
 
@@ -208,6 +209,10 @@ class ComponentState(ABC):
         the_name = self.road_name + " " + the_name if self.road_name else "NA"
         return the_name
 
+    @property
+    def spare_1(self) -> int:
+        return self._spare_1
+
     @abc.abstractmethod
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
@@ -235,6 +240,9 @@ class ComponentState(ABC):
                     self._road_name = command.name
                 if hasattr(command, "number") and command.number:
                     self._road_number = command.number
+            if isinstance(command, PdiReq):
+                if hasattr(command, "spare_1"):
+                    self._spare_1 = command.spare_1
             self._last_updated = datetime.now()
             self._last_command = command
 
@@ -691,6 +699,7 @@ class EngineState(ComponentState):
                 if command.command in DIRECTIONS_SET:
                     self._direction = command.command
                 elif cmd_effects & DIRECTIONS_SET:
+                    print(f"{command} {cmd_effects & DIRECTIONS_SET}")
                     self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
                 # handle train brake

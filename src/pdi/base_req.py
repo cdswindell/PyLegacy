@@ -175,12 +175,13 @@ class BaseReq(PdiReq):
         self._smoke_level = self._ditch_lights = self._momentum = self._momentum_tmcc = None
         self._state = state
         self._valid1 = self._valid2 = None
+        self._spare_1 = None
         if isinstance(data, bytes):
             data_len = len(self._data)
             self._record_no = self.tmcc_id = self._data[1] if data_len > 1 else None
             self._flags = self._data[2] if data_len > 2 else None
             self._status = self._data[3] if data_len > 3 else None
-            _ = self._data[4] if data_len > 4 else None
+            self._spare_1 = self._data[4] if data_len > 4 else None
             self._valid1 = int.from_bytes(self._data[5:7], byteorder="little") if data_len > 5 else None
             self._valid2 = None
 
@@ -242,6 +243,7 @@ class BaseReq(PdiReq):
                 from ..db.component_state import EngineState, BaseState
 
                 self._status = 0
+                self._spare_1 = state.spare_1
                 if isinstance(state, BaseState):
                     self._name = state.base_name
                     self._firmware_high = state.firmware_high
@@ -289,6 +291,10 @@ class BaseReq(PdiReq):
     @property
     def status(self) -> int:
         return self._status
+
+    @property
+    def spare_1(self) -> int:
+        return self._spare_1
 
     @property
     def reverse_link(self) -> int:
@@ -474,7 +480,7 @@ class BaseReq(PdiReq):
         elif self._state:
             byte_str += self.flags.to_bytes(1, byteorder="little")
             byte_str += self.status.to_bytes(1, byteorder="little")
-            byte_str += (0).to_bytes(1, byteorder="big")  # spare
+            byte_str += (self.spare_1 if self.spare_1 else 0).to_bytes(1, byteorder="big")  # spare
             byte_str += self._valid1.to_bytes(2, byteorder="little")
             if self._valid2 is not None:
                 byte_str += self._valid2.to_bytes(2, byteorder="little")
