@@ -67,8 +67,9 @@ class EngineController:
             from .gpio_handler import PyRotaryEncoder
 
             ramp = {
-                50: 10,
-                100: 5,
+                20: 6,
+                50: 5,
+                100: 4,
                 200: 3,
                 300: 2,
                 500: 1,
