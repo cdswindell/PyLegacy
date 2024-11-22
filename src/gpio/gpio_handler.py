@@ -1445,7 +1445,9 @@ class PyRotaryEncoder(RotaryEncoder):
 
             step = re.steps
             # did we spin clockwise or counter-clockwise?
-            cc = True if step < last_step else False
+            if step == last_step:
+                return
+            cc = False if step >= last_step else True
             last_step = step
 
             # how fast are we spinning? Work in step space
@@ -1462,7 +1464,7 @@ class PyRotaryEncoder(RotaryEncoder):
                 step = min(max(step, -self._max_steps), self._max_steps)
                 re.steps = step
                 data = self._steps_to_data(step)
-                print(f"orig step: {last_step} new step: {step} new data: {data} {last_rotated}")
+                print(f"orig step: {last_step} new step: {step} new data: {data} {last_rotated} {re.value}")
             else:
                 data = step_mod
             cmd.data = data
