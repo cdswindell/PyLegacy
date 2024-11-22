@@ -355,6 +355,7 @@ class DependencyCache:
             Engine2.START_UP_IMMEDIATE,
             Engine2.BELL_OFF,
             Engine2.DIESEL_RPM,
+            Engine2.ENGINE_LABOR_DEFAULT,
             Engine2.AUX1_OFF,
             Engine2.AUX2_OFF,
             Engine2.NUMERIC,

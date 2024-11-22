@@ -5,7 +5,7 @@ from enum import unique
 from typing import Dict, Tuple
 
 from src.protocol.command_def import CommandDef, CommandDefEnum
-from src.protocol.constants import CommandPrefix, CommandScope, RELATIVE_SPEED_MAP, CommandSyntax
+from src.protocol.constants import CommandPrefix, CommandScope, RELATIVE_SPEED_MAP, CommandSyntax, DEFAULT_ENGINE_LABOR
 from src.protocol.constants import OfficialRRSpeeds, DEFAULT_ADDRESS
 
 LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: int = 0xFA
@@ -267,6 +267,11 @@ class TMCC2EngineCommandDef(TMCC2Enum):
     CYLINDER_HISS = TMCC2CommandDef(TMCC2_ENG_CYLINDER_HISS_SOUND_COMMAND)
     DIESEL_RPM = TMCC2CommandDef(TMCC2_DIESEL_RPM_SOUND_COMMAND, d_max=7)
     ENGINE_LABOR = TMCC2CommandDef(TMCC2_ENGINE_LABOR_COMMAND, d_max=31)
+    ENGINE_LABOR_DEFAULT = TMCC2CommandDef(
+        TMCC2_ENGINE_LABOR_COMMAND | 12,
+        alias="ENGINE_LABOR",
+        data=DEFAULT_ENGINE_LABOR,
+    )
     FORWARD_DIRECTION = TMCC2CommandDef(TMCC2_FORWARD_DIRECTION_COMMAND)
     FRONT_COUPLER = TMCC2CommandDef(TMCC2_OPEN_FRONT_COUPLER_COMMAND)
     LET_OFF = TMCC2CommandDef(TMCC2_ENG_LET_OFF_SOUND_COMMAND)

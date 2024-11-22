@@ -28,6 +28,8 @@ DEFAULT_QUEUE_SIZE: int = 2**11  # 2,048 entries
 
 DEFAULT_THROTTLE_DELAY: int = 50  # milliseconds
 
+DEFAULT_ENGINE_LABOR = 12
+
 # AVAHI Service Constants
 SERVICE_TYPE = f"_{PROGRAM_NAME.lower()}._tcp.local."
 SERVICE_NAME = f"{PROGRAM_NAME}-Server.{SERVICE_TYPE}"
