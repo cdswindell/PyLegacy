@@ -1412,7 +1412,8 @@ class PyRotaryEncoder(RotaryEncoder):
         max_steps: int = 100,
         initial_step: int = 0,
         ramp: Dict[int, int] = None,
-        scaler: Callable[[int], int] = None,
+        steps_to_data: Callable[[int], int] = None,
+        data_to_steps: Callable[[int], int] = None,
         use_steps: bool = False,
     ):
         super().__init__(pin_1, pin_2, wrap=wrap, max_steps=max_steps)
@@ -1420,25 +1421,49 @@ class PyRotaryEncoder(RotaryEncoder):
             self.steps = initial_step
         GpioHandler.cache_device(self)
         self._ramp = ramp
-        self._scaler = scaler
+        self._steps_to_data = steps_to_data
+        self._data_to_steps = data_to_steps
         self._use_steps = use_steps
+        self._tmcc_command_buffer = CommBuffer.build()
 
-    def reset_actions(self, cmd: CommandReq, cur_step: int, scaler: Callable[[int], int]) -> None:
-        self._scaler = scaler
-        self.steps = cur_step
-        tmcc_command_buffer = CommBuffer.build()
+    def update_action(
+        self,
+        cmd: CommandReq,
+        cur_step: int,
+        steps_to_data: Callable[[int], int],
+    ) -> None:
+        self._steps_to_data = steps_to_data
+        self.steps = last_step = cur_step
         last_rotation_at = GpioHandler.current_milli_time()
 
         def func(re: RotaryEncoder) -> None:
+            nonlocal self
+            nonlocal last_step
             nonlocal last_rotation_at
-            nonlocal tmcc_command_buffer
 
-            steps = speed = re.steps
-            if scaler:
-                print(f"Steps: {steps} New speed: {scaler(steps)}")
-                speed = scaler(steps)
-            cmd.data = speed
-            tmcc_command_buffer.enqueue_command(cmd.as_bytes)
+            step = re.steps
+            # did we spin clockwise or counter-clockwise?
+            cc = True if step < last_step else False
+            last_step = step
+
+            # how fast are we spinning? Work in step space
+            step_mod = -1 if cc is False else 1
+            last_rotated = GpioHandler.current_milli_time() - last_rotation_at
+            if self._ramp:
+                for ramp_val, mod in self._ramp.items():
+                    if last_rotated <= ramp_val:
+                        step_mod = mod if cc is False else -mod
+                        break
+            # convert the step to a speed
+            if self._steps_to_data:
+                step += step_mod
+                re.steps = step
+                data = self._steps_to_data(step)
+                print(f"orig step: {last_step} new step: {step} new data: {data} {last_rotated}")
+            else:
+                data = step_mod
+            cmd.data = data
+            self._tmcc_command_buffer.enqueue_command(cmd.as_bytes)
             last_rotation_at = GpioHandler.current_milli_time()
 
         self.when_rotated = func

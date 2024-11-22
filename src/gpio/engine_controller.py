@@ -66,7 +66,14 @@ class EngineController:
         if speed_pin_1 is not None and speed_pin_2 is not None:
             from .gpio_handler import PyRotaryEncoder
 
-            self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False)
+            ramp = {
+                50: 10,
+                100: 5,
+                200: 3,
+                300: 2,
+                500: 1,
+            }
+            self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False, ramp=ramp)
             self._tmcc1_when_rotated[self._speed_re] = CommandReq(TMCC1EngineCommandDef.ABSOLUTE_SPEED)
             self._tmcc2_when_rotated[self._speed_re] = CommandReq(TMCC2EngineCommandDef.ABSOLUTE_SPEED)
         if reset_pin is not None:
@@ -319,4 +326,4 @@ class EngineController:
             steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -100, 100)
             speed_to_steps = GpioHandler.make_interpolator(100, -100, 0, max_speed)
             cur_step = speed_to_steps(cur_state.speed)
-            re.reset_actions(cmd, cur_step, steps_to_speed)
+            re.update_action(cmd, cur_step, steps_to_speed)
