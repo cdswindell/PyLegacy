@@ -82,6 +82,11 @@ class Lcd(CharLCD):
 
     def stop_scrolling(self) -> None:
         if self._scroller is not None:
+            """
+            Shutdown the scrolling thread and wait for it to finish,
+            otherwise, we could have multiple threads trying to
+            output to the screen at the same time.
+            """
             self._scroller.shutdown()
             self._scroller.join()
             self._scroller = None
