@@ -24,7 +24,7 @@ class Lcd(CharLCD):
         port: int = 1,
         rows: int = 4,
         cols: int = 20,
-        scroll_delay: float = 0.5,
+        scroll_speed: float = 0.5,
         dotsize: int = 8,
         charmap: str = "A02",
         auto_linebreaks: bool = False,
@@ -47,7 +47,7 @@ class Lcd(CharLCD):
         self._rows = rows
         self._cols = cols
         self._row_pos = self._col_pos = 0
-        self._scroll_delay = scroll_delay
+        self._scroll_speed = scroll_speed
         self._backlight_enabled = backlight_enabled
         self.cursor_mode = "hide"
         self.clear()
@@ -97,12 +97,12 @@ class Lcd(CharLCD):
                 self._row_pos = r
                 self._col_pos = 0
         if (
-            self._scroll_delay > 0.0
+            self._scroll_speed > 0.0
             and len(self._frame_buffer) > 0
             and self._frame_buffer[0]
             and len(self._frame_buffer[0]) > self.cols
         ):
-            self._scroller = Scroller(self, self._frame_buffer[0], self._scroll_delay)
+            self._scroller = Scroller(self, self._frame_buffer[0], self._scroll_speed)
 
     def print(self, c: int | str) -> None:
         if isinstance(c, int) and 0 <= c <= 255:
