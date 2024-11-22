@@ -47,6 +47,7 @@ class Lcd(CharLCD):
         self._row_pos = self._col_pos = 0
         self._scroll = scroll
         self._backlight_enabled = backlight_enabled
+        self.cursor_mode = "hide"
         self.clear()
 
     @property
