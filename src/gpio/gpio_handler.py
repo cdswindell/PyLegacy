@@ -249,6 +249,8 @@ class GpioHandler:
         # create interpolation function using pre-calculated scaleFactor
         def interp_fn(value) -> int:
             scaled_value = int(round(to_min + (value - from_min) * scale_factor))
+            scaled_value = min(scaled_value, to_max)
+            scaled_value = max(scaled_value, to_min)
             return scaled_value
 
         return interp_fn
