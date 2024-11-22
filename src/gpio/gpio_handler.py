@@ -1477,6 +1477,7 @@ class PyRotaryEncoder(RotaryEncoder):
         def func() -> None:
             nonlocal self
             if state.speed is not None:
+                print(state.speed, self.steps, speed_to_steps(state.speed))
                 self.steps = speed_to_steps(state.speed)
 
         return func
