@@ -176,9 +176,9 @@ class Controller(Thread):
         with self._lock:
             self._lcd.clear_frame_buffer()
             if self._state is not None:
-                row = self._state.road_name.title() if self._state.road_name else "No Information"
-                if self._state.road_number:
-                    row += f" #{self._state.road_number}".rjust(self._lcd.cols - len(row), " ")
+                rname = self._state.road_name.title() if self._state.road_name else "No Information"
+                rnum = f"#{self._state.road_number} " if self._state.road_number else ""
+                row = f"{rnum}{rname}"
             else:
                 row = self.railroad
             self._lcd.add(row)

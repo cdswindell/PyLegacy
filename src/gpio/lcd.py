@@ -1,3 +1,4 @@
+from threading import Thread
 from time import sleep
 from typing import List
 
@@ -46,6 +47,7 @@ class Lcd(CharLCD):
         self._cols = cols
         self._row_pos = self._col_pos = 0
         self._scroll = scroll
+        self._scroller = None
         self._backlight_enabled = backlight_enabled
         self.cursor_mode = "hide"
         self.clear()
@@ -81,6 +83,8 @@ class Lcd(CharLCD):
         if clear_display is True:
             super().clear()  # call the super, otherwise frame buffer is cleared
         self.home()  # reposition cursor
+        if self._scroller:
+            self._scroller.shutdown()
         for r, row in enumerate(self._frame_buffer):
             if row:
                 self.write_string(row.ljust(self.cols)[: self.cols])
@@ -93,11 +97,7 @@ class Lcd(CharLCD):
             and self._frame_buffer[0]
             and len(self._frame_buffer[0]) > self.cols
         ):
-            row = self._frame_buffer[0]
-            for i in range(len(row) - self.cols + 1):
-                self.cursor_pos = (0, 0)
-                self.write_string(row[i : i + self.cols])
-                sleep(0.2)
+            self._scroller = Scroller(self, self._frame_buffer[0])
 
     def print(self, c: int | str) -> None:
         if isinstance(c, int) and 0 <= c <= 255:
@@ -108,3 +108,24 @@ class Lcd(CharLCD):
             self.write_string(c)
         else:
             self.write_string(str(c))
+
+
+class Scroller(Thread):
+    def __init__(self, lcd: Lcd, buffer: str) -> None:
+        super().__init__(daemon=True)
+        self._lcd = lcd
+        self._buffer = buffer
+        self._is_running = True
+        self.start()
+
+    def shutdown(self) -> None:
+        self._is_running = False
+
+    def run(self) -> None:
+        while self._is_running:
+            padding = " " * self._lcd.cols
+            s = padding + self._buffer.strip() + padding
+            for i in range(len(s) - self._lcd.cols + 1):
+                self._lcd.cursor_pos = (0, 0)
+                self._lcd.cursor_mode(s[i : i + self._lcd.cols])
+                sleep(0.3)
