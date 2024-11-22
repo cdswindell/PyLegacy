@@ -199,9 +199,9 @@ class Controller(Thread):
                     row += self._state.direction_label
                     self._lcd.add(row)
                 if self._lcd.rows > 3:
-                    row = f"RPM: {self._state.rpm_label} "
-                    row += f"Mom: {self._state.momentum_label} "
-                    row += f"TB: {self._state.train_brake_label} "
+                    row = f"RPM: {self._state.rpm_label:1} "
+                    row += f"Mom: {self._state.momentum_label:1} "
+                    row += f"TB: {self._state.train_brake_label:1} "
                     self._lcd.add(row)
             self._lcd.write_frame_buffer(clear_display)
             if self._tmcc_id is None:
