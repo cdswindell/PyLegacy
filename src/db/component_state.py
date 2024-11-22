@@ -1114,7 +1114,9 @@ class BaseState(ComponentState):
         self._route_throw_rate = None
 
     def __repr__(self) -> str:
-        return f"Lionel Base 3: {self._base_name if self._base_name else 'NA'}"
+        bn = f"Lionel Base 3: {self._base_name if self._base_name else 'NA'}"
+        fw = f" Firmware: {self._firmware if self._firmware else 'NA'}"
+        return f"{bn}{fw}"
 
     def update(self, command: L | P) -> None:
         from src.pdi.base_req import BaseReq
