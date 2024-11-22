@@ -75,6 +75,7 @@ class Lcd(CharLCD):
         self.home()
         self._row_pos = self._col_pos = 0
         self.clear_frame_buffer()
+        self.cursor_mode = "hide"
 
     def clear_frame_buffer(self) -> None:
         del self._frame_buffer[:]
@@ -134,3 +135,4 @@ class Scroller(Thread):
                 self._lcd.cursor_pos = (0, 0)
                 self._lcd.print(s[i : i + self._lcd.cols])
                 sleep(self._scroll_speed)
+        self._lcd.cursor_pos = (0, 0)
