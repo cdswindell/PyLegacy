@@ -699,7 +699,7 @@ class EngineState(ComponentState):
                 if command.command in DIRECTIONS_SET:
                     self._direction = command.command
                 elif cmd_effects & DIRECTIONS_SET:
-                    print(f"{command} {cmd_effects & DIRECTIONS_SET}")
+                    log.debug(f"{command} {cmd_effects & DIRECTIONS_SET}")
                     self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
                 # handle train brake
