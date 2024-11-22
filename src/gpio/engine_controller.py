@@ -1,6 +1,5 @@
 from gpiozero import Button
 
-from .gpio_handler import GpioHandler
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
@@ -309,6 +308,8 @@ class EngineController:
             cmd.address = self._tmcc_id
             cmd.scope = scope
             btn.when_held = cmd.as_action()
+
+        from .gpio_handler import GpioHandler
 
         # reset the rotary encoder handlers
         for re, cmd in when_rotated.items():
