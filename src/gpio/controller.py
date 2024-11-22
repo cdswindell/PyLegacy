@@ -197,6 +197,7 @@ class Controller(Thread):
                 if self._lcd.rows > 2:
                     row = f"Speed: {self._state.speed if self._state.speed is not None else 'N/A':03} "
                     row += self._state.direction_label
+                    row += f"  {self._state.year if self._state.year else ''}"
                     self._lcd.add(row)
                 if self._lcd.rows > 3:
                     row = f"RPM: {self._state.rpm_label:.1} "
