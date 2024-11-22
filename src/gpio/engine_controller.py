@@ -1,7 +1,6 @@
 from gpiozero import Button
 
 from ..db.component_state_store import ComponentStateStore
-from ..db.state_watcher import StateWatcher
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
 from ..protocol.multybyte.multibyte_constants import TMCC2EffectsControl
@@ -333,7 +332,4 @@ class EngineController:
             max_speed = min(cur_state.max_speed, cur_state.speed_limit)
             steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -100, 100)
             speed_to_steps = GpioHandler.make_interpolator(100, -100, 0, max_speed)
-            cur_step = speed_to_steps(cur_state.speed)
-
-            self._speed_re.update_action(when_rotated, cur_step, steps_to_speed)
-            self._state_watcher = StateWatcher(cur_state, self._speed_re.update_steps_action(cur_state, speed_to_steps))
+            self._speed_re.update_action(when_rotated, cur_state, steps_to_speed, speed_to_steps)

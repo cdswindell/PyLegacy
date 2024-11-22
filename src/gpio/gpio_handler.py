@@ -1431,11 +1431,12 @@ class PyRotaryEncoder(RotaryEncoder):
     def update_action(
         self,
         cmd: CommandReq,
-        cur_step: int,
+        state,
         steps_to_data: Callable[[int], int],
+        speed_to_steps: Callable[[int], int],
     ) -> None:
         self._steps_to_data = steps_to_data
-        self.steps = last_step = cur_step
+        self.steps = last_step = speed_to_steps(state.speed)
         last_rotation_at = GpioHandler.current_milli_time()
 
         def func(re: RotaryEncoder) -> None:
@@ -1472,12 +1473,3 @@ class PyRotaryEncoder(RotaryEncoder):
             last_rotation_at = GpioHandler.current_milli_time()
 
         self.when_rotated = func
-
-    def update_steps_action(self, state, speed_to_steps: Callable[[int], int]) -> Callable:
-        def func() -> None:
-            nonlocal self
-            if state.speed is not None:
-                print(state.speed, self.steps, speed_to_steps(state.speed))
-                self.steps = speed_to_steps(state.speed)
-
-        return func
