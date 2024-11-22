@@ -255,9 +255,11 @@ class BaseReq(PdiReq):
                     self._number = state.road_number
                     self._valid1 = 0b1100
                     if isinstance(state, EngineState):
-                        self._valid1 = 0b1100011111100
+                        self._valid1 = 0b1101100011111100
                         self._valid2 = 0b11000000
                         self._speed_step = state.speed
+                        self._speed_limit = state.speed_limit
+                        self._max_speed = state.max_speed
                         self._momentum_tmcc = state.momentum
                         self._momentum = state.momentum * 16
                         self._train_brake = round(state.train_brake * 2.143)
@@ -327,6 +329,10 @@ class BaseReq(PdiReq):
     @property
     def max_speed(self) -> int:
         return self._max_speed
+
+    @property
+    def speed_limit(self) -> int:
+        return self._speed_limit
 
     @property
     def momentum(self) -> int:
@@ -502,7 +508,10 @@ class BaseReq(PdiReq):
                     byte_str += (0).to_bytes(3, byteorder="little")  # 3 misc fields
                     byte_str += self._speed_step.to_bytes(1, byteorder="little")
                     byte_str += self._run_level.to_bytes(1, byteorder="little")
-                    byte_str += (0).to_bytes(9, byteorder="little")
+                    byte_str += (0).to_bytes(1, byteorder="little")  # labor bias
+                    byte_str += self._speed_limit.to_bytes(1, byteorder="little")
+                    byte_str += self._max_speed.to_bytes(1, byteorder="little")
+                    byte_str += (0).to_bytes(6, byteorder="little")
                     byte_str += self._train_brake.to_bytes(1, byteorder="little")
                     byte_str += self._momentum.to_bytes(1, byteorder="little")
         else:

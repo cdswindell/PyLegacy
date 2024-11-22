@@ -344,13 +344,12 @@ class GpioHandler:
         horn_pin: int | str = None,
         rpm_up_pin: int | str = None,
         rpm_down_pin: int | str = None,
-        momentum_up_pin: int | str = None,
-        momentum_down_pin: int | str = None,
         vol_up_pin: int | str = None,
         vol_down_pin: int | str = None,
-        smoke_up_pin: int | str = None,
-        smoke_down_pin: int | str = None,
+        smoke_on_pin: int | str = None,
+        smoke_off_pin: int | str = None,
         train_brake_chn: int | str = None,
+        quilling_horn_chn: int | str = None,
         lcd_address: int = 0x27,
         lcd_rows: int = 4,
         lcd_cols: int = 20,
@@ -372,19 +371,17 @@ class GpioHandler:
             horn_pin=horn_pin,
             rpm_up_pin=rpm_up_pin,
             rpm_down_pin=rpm_down_pin,
-            momentum_up_pin=momentum_up_pin,
-            momentum_down_pin=momentum_down_pin,
             vol_up_pin=vol_up_pin,
             vol_down_pin=vol_down_pin,
-            smoke_up_pin=smoke_up_pin,
-            smoke_down_pin=smoke_down_pin,
+            smoke_on_pin=smoke_on_pin,
+            smoke_off_pin=smoke_off_pin,
             train_brake_chn=train_brake_chn,
+            quilling_horn_chn=quilling_horn_chn,
             lcd_address=lcd_address,
             lcd_rows=lcd_rows,
             lcd_cols=lcd_cols,
         )
         cls.cache_handler(c)
-
         return c
 
     @classmethod
@@ -1404,3 +1401,27 @@ class GpioHandler:
             last_rotation_at = cls.current_milli_time()
 
         return func
+
+
+class PyRotaryEncoder(RotaryEncoder):
+    def __init__(
+        self,
+        pin_1: int | str,
+        pin_2: int | str,
+        wrap: bool = True,
+        max_steps: int = 100,
+        initial_step: int = 0,
+        ramp: Dict[int, int] = None,
+        scaler: Callable[[int], int] = None,
+        use_steps: bool = False,
+    ):
+        super().__init__(pin_1, pin_2, wrap=wrap, max_steps=max_steps)
+        if initial_step is not None:
+            self.steps = initial_step
+        GpioHandler.cache_device(self)
+        self._ramp = ramp
+        self._scaler = scaler
+        self._use_steps = use_steps
+
+    def reset_actions(self, cmd: CommandReq, cur_speed: int, max_speed: int) -> None:
+        pass

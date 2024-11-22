@@ -3,6 +3,7 @@ from gpiozero import Button
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
+from ..protocol.multybyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1EngineCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
@@ -25,13 +26,12 @@ class EngineController:
         horn_pin: int | str = None,
         rpm_up_pin: int | str = None,
         rpm_down_pin: int | str = None,
-        momentum_up_pin: int | str = None,
-        momentum_down_pin: int | str = None,
         vol_up_pin: int | str = None,
         vol_down_pin: int | str = None,
-        smoke_up_pin: int | str = None,
-        smoke_down_pin: int | str = None,
+        smoke_on_pin: int | str = None,
+        smoke_off_pin: int | str = None,
         train_brake_chn: int | str = None,
+        quilling_horn_chn: int | str = None,
         repeat: int = 1,
     ) -> None:
         from .gpio_handler import GpioHandler
@@ -41,6 +41,7 @@ class EngineController:
         self._control_type = ControlType.LEGACY
         self._scope = CommandScope.ENGINE
         self._repeat = repeat
+        self._state = None
         # save a reference to the ComponentStateStore; it must be built and initialized
         # (or initializing) prior to creating an EngineController instance
         # we will use this info when switching engines to initialize speed
@@ -55,10 +56,19 @@ class EngineController:
             self._halt_btn = None
 
         # construct the commands; make both the TMCC1 and Legacy versions
+        self._tmcc1_when_rotated = {}
+        self._tmcc2_when_rotated = {}
         self._tmcc1_when_pushed = {}
         self._tmcc2_when_pushed = {}
         self._tmcc1_when_held = {}
         self._tmcc2_when_held = {}
+
+        if speed_pin_1 is not None and speed_pin_2 is not None:
+            from .gpio_handler import PyRotaryEncoder
+
+            self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False)
+            self._tmcc1_when_rotated[self._speed_re] = CommandReq(TMCC1EngineCommandDef.ABSOLUTE_SPEED)
+            self._tmcc2_when_rotated[self._speed_re] = CommandReq(TMCC2EngineCommandDef.ABSOLUTE_SPEED)
         if reset_pin is not None:
             self._reset_btn = GpioHandler.make_button(reset_pin)
             self._tmcc1_when_pushed[self._reset_btn] = CommandReq(TMCC1EngineCommandDef.RESET)
@@ -153,6 +163,34 @@ class EngineController:
         else:
             self._rpm_down_btn = None
 
+        if vol_up_pin is not None:
+            self._vol_up_btn = GpioHandler.make_button(vol_up_pin)
+            self._tmcc1_when_pushed[self._vol_up_btn] = CommandReq(TMCC1EngineCommandDef.VOLUME_UP)
+            self._tmcc2_when_pushed[self._vol_up_btn] = CommandReq(TMCC2EngineCommandDef.VOLUME_UP)
+        else:
+            self._vol_up_btn = None
+
+        if vol_down_pin is not None:
+            self._vol_down_btn = GpioHandler.make_button(vol_down_pin)
+            self._tmcc1_when_pushed[self._vol_down_btn] = CommandReq(TMCC1EngineCommandDef.VOLUME_DOWN)
+            self._tmcc2_when_pushed[self._vol_down_btn] = CommandReq(TMCC2EngineCommandDef.VOLUME_DOWN)
+        else:
+            self._vol_down_btn = None
+
+        if smoke_on_pin is not None:
+            self._smoke_on_btn = GpioHandler.make_button(smoke_on_pin)
+            self._tmcc1_when_pushed[self._smoke_on_btn] = CommandReq(TMCC1EngineCommandDef.SMOKE_ON)
+            self._tmcc2_when_pushed[self._smoke_on_btn] = CommandReq(TMCC2EffectsControl.SMOKE_MEDIUM)
+        else:
+            self._smoke_on_btn = None
+
+        if smoke_off_pin is not None:
+            self._smoke_off_btn = GpioHandler.make_button(smoke_off_pin)
+            self._tmcc1_when_pushed[self._smoke_off_btn] = CommandReq(TMCC1EngineCommandDef.SMOKE_OFF)
+            self._tmcc2_when_pushed[self._smoke_off_btn] = CommandReq(TMCC2EffectsControl.SMOKE_OFF)
+        else:
+            self._smoke_off_btn = None
+
     @property
     def tmcc_id(self) -> int:
         return self._tmcc_id
@@ -221,6 +259,22 @@ class EngineController:
     def rpm_down_btn(self) -> Button:
         return self._rpm_down_btn
 
+    @property
+    def volume_up_btn(self) -> Button:
+        return self._vol_up_btn
+
+    @property
+    def volume_down_btn(self) -> Button:
+        return self._vol_down_btn
+
+    @property
+    def smoke_on_btn(self) -> Button:
+        return self._smoke_on_btn
+
+    @property
+    def smoke_off_btn(self) -> Button:
+        return self._smoke_off_btn
+
     def update(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE) -> None:
         """
         When a new engine/train is selected, redo the button bindings to
@@ -228,18 +282,20 @@ class EngineController:
         """
         self._scope = scope
         self._tmcc_id = tmcc_id
-        current_state = self._store.get_state(scope, tmcc_id, create=False)
-        if current_state is None or current_state.control_type is None:
+        cur_state = self._store.get_state(scope, tmcc_id, create=False)
+        if cur_state is None or cur_state.control_type is None:
             self._control_type = ControlType.LEGACY
         else:
-            self._control_type = ControlType.by_value(current_state.control_type)
+            self._control_type = ControlType.by_value(cur_state.control_type)
         # update buttons
         if self.is_legacy:
             when_pushed = self._tmcc2_when_pushed
             when_held = self._tmcc2_when_held
+            when_rotated = self._tmcc2_when_rotated
         else:
             when_pushed = self._tmcc1_when_pushed
             when_held = self._tmcc1_when_held
+            when_rotated = self._tmcc1_when_rotated
 
         # reset the when_pressed button handlers
         for btn, cmd in when_pushed.items():
@@ -252,3 +308,9 @@ class EngineController:
             cmd.address = self._tmcc_id
             cmd.scope = scope
             btn.when_held = cmd.as_action()
+
+        # reset the rotary encoder handlers
+        for re, cmd in when_rotated.items():
+            cmd.address = self._tmcc_id
+            cmd.scope = scope
+            re.reset_actions(cmd, cur_state.speed, cur_state.max_speed)

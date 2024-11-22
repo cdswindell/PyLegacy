@@ -592,6 +592,8 @@ class EngineState(ComponentState):
         super().__init__(scope)
         self._start_stop: CommandDefEnum | None = None
         self._speed: int | None = None
+        self._speed_limit: int | None = None
+        self._max_speed: int | None = None
         self._direction: CommandDefEnum | None = None
         self._momentum: int | None = None
         self._smoke_level: int | None = None
@@ -620,7 +622,12 @@ class EngineState(ComponentState):
 
         if self._speed is not None:
             sp = f" Speed: {self._speed}"
-
+            if self.speed_limit is not None:
+                speed_limit = self.decode_speed_info(self.speed_limit)
+                sp += f"/{speed_limit}"
+            if self.max_speed is not None:
+                max_speed = self.decode_speed_info(self.max_speed)
+                sp += f"/{max_speed}"
         if self._start_stop is not None:
             if self._start_stop in STARTUP_SET:
                 ss = " Started up"
@@ -648,6 +655,14 @@ class EngineState(ComponentState):
         #     cl = f" Class: {LOCO_CLASS.get(self.engine_class, 'NA')}"
         ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
         return f"{self.scope.title} {self._address:02}{sp}{rl}{mom}{tb}{dr}{nu}{aux}{name}{num}{lt}{ct}{yr}{ss}"
+
+    def decode_speed_info(self, speed_info):
+        if speed_info is not None and speed_info == 255:  # not set
+            if self.is_legacy:
+                speed_info = 195
+            else:
+                speed_info = 31
+        return speed_info
 
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
@@ -825,6 +840,10 @@ class EngineState(ComponentState):
                 if self._speed is None and command.is_valid(EngineBits.SPEED):
                     self._speed = command.speed
                 if command.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
+                    if command.is_valid(EngineBits.MAX_SPEED):
+                        self._max_speed = command.max_speed
+                    if command.is_valid(EngineBits.SPEED_LIMIT):
+                        self._speed_limit = command.speed_limit
                     if command.is_valid(EngineBits.MOMENTUM):
                         self._momentum = command.momentum_tmcc
                     if command.is_valid(EngineBits.RUN_LEVEL):
@@ -883,6 +902,14 @@ class EngineState(ComponentState):
     @property
     def speed(self) -> int:
         return self._speed
+
+    @property
+    def speed_limit(self) -> int:
+        return self._speed_limit
+
+    @property
+    def max_speed(self) -> int:
+        return self._max_speed
 
     @property
     def speed_label(self) -> str:
