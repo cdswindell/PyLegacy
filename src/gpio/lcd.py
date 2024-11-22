@@ -1,5 +1,4 @@
-from threading import Thread
-from time import sleep
+from threading import Thread, Event
 from typing import List
 
 from RPLCD.i2c import CharLCD
@@ -122,11 +121,11 @@ class Scroller(Thread):
         self._lcd = lcd
         self._buffer = buffer.strip()
         self._scroll_speed = scroll_speed
-        self._is_running = True
+        self._is_running = Event()
         self.start()
 
     def shutdown(self) -> None:
-        self._is_running = False
+        self._is_running.set()
 
     def run(self) -> None:
         s = self._buffer + " " + self._buffer
@@ -134,5 +133,5 @@ class Scroller(Thread):
             for i in range(len(self._buffer) + 1):
                 self._lcd.cursor_pos = (0, 0)
                 self._lcd.print(s[i : i + self._lcd.cols])
-                sleep(self._scroll_speed)
+                self._is_running.wait(self._scroll_speed)
         self._lcd.cursor_pos = (0, 0)
