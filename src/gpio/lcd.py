@@ -121,17 +121,19 @@ class Scroller(Thread):
         self._lcd = lcd
         self._buffer = buffer.strip()
         self._scroll_speed = scroll_speed
-        self._is_running = Event()
+        self._exit = Event()
         self.start()
 
     def shutdown(self) -> None:
-        self._is_running.set()
+        self._exit.set()
 
     def run(self) -> None:
         s = self._buffer + " " + self._buffer
-        while self._is_running:
+        while not self._exit.is_set():
             for i in range(len(self._buffer) + 1):
                 self._lcd.cursor_pos = (0, 0)
                 self._lcd.print(s[i : i + self._lcd.cols])
-                self._is_running.wait(self._scroll_speed)
+                self._exit.wait(self._scroll_speed)
+                if self._exit.is_set():
+                    break
         self._lcd.cursor_pos = (0, 0)
