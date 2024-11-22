@@ -1,3 +1,4 @@
+from time import sleep
 from typing import List
 
 from RPLCD.i2c import CharLCD
@@ -17,15 +18,16 @@ SMILEY_CHAR = (
 class Lcd(CharLCD):
     def __init__(
         self,
-        i2c_expander="PCF8574",
-        address=0x27,
-        port=1,
-        rows=4,
-        cols=20,
-        dotsize=8,
-        charmap="A02",
-        auto_linebreaks=True,
-        backlight_enabled=True,
+        i2c_expander: str = "PCF8574",
+        address: int = 0x27,
+        port: int = 1,
+        rows: int = 4,
+        cols: int = 20,
+        scroll: bool = True,
+        dotsize: int = 8,
+        charmap: str = "A02",
+        auto_linebreaks: bool = False,
+        backlight_enabled: bool = True,
     ):
         self._frame_buffer = list()  # need to define before super because super calls clear...
         super().__init__(
@@ -43,6 +45,7 @@ class Lcd(CharLCD):
         self._rows = rows
         self._cols = cols
         self._row_pos = self._col_pos = 0
+        self._scroll = scroll
         self._backlight_enabled = backlight_enabled
         self.clear()
 
@@ -78,10 +81,22 @@ class Lcd(CharLCD):
             super().clear()  # call the super, otherwise frame buffer is cleared
         self.home()  # reposition cursor
         for r, row in enumerate(self._frame_buffer):
-            self.write_string(row.ljust(self.cols)[: self.cols])
-            self.write_string("\r\n")
-            self._row_pos = r
-            self._col_pos = 0
+            if row:
+                self.write_string(row.ljust(self.cols)[: self.cols])
+                self.write_string("\r\n")
+                self._row_pos = r
+                self._col_pos = 0
+        if (
+            self._scroll is True
+            and len(self._frame_buffer) > 0
+            and self._frame_buffer[0]
+            and len(self._frame_buffer) > self.cols
+        ):
+            row = self._frame_buffer[0]
+            for i in range(len(row) - self.cols + 1):
+                self.cursor_pos = (0, 0)
+                self.write_string(row[i : i + self.cols])
+                sleep(0.2)
 
     def print(self, c: int | str) -> None:
         if isinstance(c, int) and 0 <= c <= 255:
