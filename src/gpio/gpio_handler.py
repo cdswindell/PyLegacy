@@ -1459,6 +1459,7 @@ class PyRotaryEncoder(RotaryEncoder):
             # convert the step to a speed
             if self._steps_to_data:
                 step += step_mod
+                step = min(max(step, -self._max_steps), self._max_steps)
                 re.steps = step
                 data = self._steps_to_data(step)
                 print(f"orig step: {last_step} new step: {step} new data: {data} {last_rotated}")
