@@ -31,6 +31,7 @@ class Lcd(CharLCD):
         backlight_enabled: bool = True,
     ):
         self._frame_buffer = list()  # need to define before super because super calls clear...
+        self._scroller = None  # same here
         super().__init__(
             i2c_expander=i2c_expander,
             address=address,
@@ -47,7 +48,6 @@ class Lcd(CharLCD):
         self._cols = cols
         self._row_pos = self._col_pos = 0
         self._scroll = scroll
-        self._scroller = None
         self._backlight_enabled = backlight_enabled
         self.cursor_mode = "hide"
         self.clear()
