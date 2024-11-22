@@ -1123,7 +1123,7 @@ class BaseState(ComponentState):
 
         if isinstance(command, BaseReq):
             with self._cv:
-                self._base_name = command.name if command.name else self._base_name
+                self._base_name = command.name.title() if command.name else self._base_name
                 self._firmware = command.firmware if command.firmware else self._firmware
                 if self.firmware:
                     version_info = self.firmware.split(".")
