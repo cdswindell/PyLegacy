@@ -67,12 +67,16 @@ class Controller(Thread):
         self._last_listener = None
         self._state_store = ComponentStateStore.build()
         self._state = None
-        self._state_watcher = None
         self._scope = CommandScope.ENGINE
         self._tmcc_id = None
         self._last_scope = None
         self._last_tmcc_id = None
         self._railroad = None
+        self._base_state = self._state_store.get_state(CommandScope.BASE, 0)
+        if self._base_state:
+            self._state_watcher = StateWatcher(self._base_state, self.refresh_display)
+        else:
+            self._state_watcher = None
         if speed_pins or fwd_pin or rev_pin or reset_pin:
             self._engine_controller = EngineController(
                 speed_pin_1=speed_pins[0] if speed_pins and len(speed_pins) > 0 else None,

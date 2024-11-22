@@ -1196,6 +1196,7 @@ class ComponentStateDict(defaultdict):
         if scope not in SCOPE_TO_STATE_MAP:
             raise ValueError(f"Invalid scope: {scope}")
         self._scope = scope
+        self._lock = threading.Lock()
 
     @property
     def scope(self) -> CommandScope:
@@ -1211,7 +1212,8 @@ class ComponentStateDict(defaultdict):
             raise KeyError(f"Invalid ID: {key}")
         elif self.scope != CommandScope.BASE and (key < 1 or key > 99):
             raise KeyError(f"Invalid ID: {key}")
-        value: ComponentState = SCOPE_TO_STATE_MAP[self._scope](self._scope)
-        value._address = key
-        self[key] = value
-        return self[key]
+        with self._lock:
+            value: ComponentState = SCOPE_TO_STATE_MAP[self._scope](self._scope)
+            value._address = key
+            self[key] = value
+            return self[key]
