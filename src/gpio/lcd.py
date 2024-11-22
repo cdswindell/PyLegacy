@@ -130,7 +130,7 @@ class Scroller(Thread):
     def run(self) -> None:
         s = self._buffer + " " + self._buffer
         while self._is_running:
-            for i in range(len(self._buffer) - self._lcd.cols + 2):
+            for i in range(len(self._buffer) + 1):
                 self._lcd.cursor_pos = (0, 0)
                 self._lcd.print(s[i : i + self._lcd.cols])
                 sleep(self._scroll_speed)
