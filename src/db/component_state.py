@@ -1111,6 +1111,7 @@ class BaseState(ComponentState):
         self._firmware = None
         self._firmware_high = None
         self._firmware_low = None
+        self._route_throw_rate = None
 
     def __repr__(self) -> str:
         return f"Lionel Base 3: {self._base_name if self._base_name else 'NA'}"
@@ -1126,6 +1127,7 @@ class BaseState(ComponentState):
                     version_info = self.firmware.split(".")
                     self._firmware_high = int(version_info[0])
                     self._firmware_low = int(version_info[1])
+                self._route_throw_rate = command.route_throw_rate
                 self._ev.set()
                 self._cv.notify_all()
 
@@ -1136,6 +1138,18 @@ class BaseState(ComponentState):
     @property
     def firmware(self) -> str:
         return self._firmware
+
+    @property
+    def firmware_high(self) -> int:
+        return self._firmware_high
+
+    @property
+    def firmware_low(self) -> int:
+        return self._firmware_low
+
+    @property
+    def route_throw_rate(self) -> float:
+        return self._route_throw_rate
 
     @property
     def is_known(self) -> bool:

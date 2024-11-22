@@ -244,7 +244,10 @@ class BaseReq(PdiReq):
                 self._status = 0
                 if isinstance(state, BaseState):
                     self._name = state.base_name
-                    self._valid1 = 0b1000
+                    self._firmware_high = state.firmware_high
+                    self._firmware_low = state.firmware_low
+                    self._route_throw_rate = state.route_throw_rate
+                    self._valid1 = 0b1111
                 else:
                     self._name = state.road_name
                     self._number = state.road_number
@@ -388,6 +391,10 @@ class BaseReq(PdiReq):
         return self._loco_class
 
     @property
+    def route_throw_rate(self) -> float:
+        return self._route_throw_rate
+
+    @property
     def firmware(self) -> str | None:
         if self._firmware_high and self._firmware_low:
             return f"{self._firmware_high}.{self._firmware_low}"
@@ -472,7 +479,9 @@ class BaseReq(PdiReq):
             if self._valid2 is not None:
                 byte_str += self._valid2.to_bytes(2, byteorder="little")
             if self.pdi_command == PdiCommand.BASE:
-                byte_str += (0).to_bytes(3, byteorder="little")
+                byte_str += self._firmware_high.to_bytes(1, byteorder="little")
+                byte_str += self._firmware_low.to_bytes(1, byteorder="little")
+                byte_str += self.encode_throw_rate(self.route_throw_rate).to_bytes(1, byteorder="little")
                 byte_str += self.encode_text(self.name, 33)
             else:
                 byte_str += (101).to_bytes(1, byteorder="little")  # rev link
@@ -507,7 +516,8 @@ class BaseReq(PdiReq):
 
     @staticmethod
     def encode_throw_rate(data: float) -> int | None:
-        for key, value in ROUTE_THROW_RATE_MAP.items():
-            if value <= data < value + 0.25:
-                return key
+        if data is not None:
+            for key, value in ROUTE_THROW_RATE_MAP.items():
+                if value <= data < value + 0.25:
+                    return key
         return 9

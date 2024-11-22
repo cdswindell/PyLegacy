@@ -151,7 +151,7 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.BASE)
 
         if self._pdi_buffer is not None:
-            print(f"Determining initial system state from Lionel Base at {self._base_addr}:{self._base_port}...")
+            print(f"Loading system state from Lionel Base at {self._base_addr}:{self._base_port}...")
             self._pdi_state_store = PdiStateStore()
             self._get_system_state()
 
