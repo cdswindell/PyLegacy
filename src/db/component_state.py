@@ -1131,7 +1131,7 @@ class BaseState(ComponentState):
 
     @property
     def base_name(self) -> str:
-        return self._base_name if self._base_name else "NA"
+        return self._base_name
 
     @property
     def firmware(self) -> str:
@@ -1139,7 +1139,7 @@ class BaseState(ComponentState):
 
     @property
     def is_known(self) -> bool:
-        return self._base_name is not None
+        return self._base_name is not None or self._firmware is not None
 
     @property
     def is_tmcc(self) -> bool:

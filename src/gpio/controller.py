@@ -74,7 +74,7 @@ class Controller(Thread):
         self._railroad = None
         self._base_state = self._state_store.get_state(CommandScope.BASE, 0)
         if self._base_state:
-            self._state_watcher = StateWatcher(self._base_state, self.refresh_display)
+            self._state_watcher = StateWatcher(self._base_state, self.update_display)
         else:
             self._state_watcher = None
         if speed_pins or fwd_pin or rev_pin or reset_pin:
