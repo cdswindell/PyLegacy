@@ -26,6 +26,7 @@ from ..protocol.constants import (
     LOCO_TRACK_CRANE,
     TRACK_CRANE_STATE_NUMERICS,
     CONTROL_TYPE,
+    LOCO_ACCESSORY,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
@@ -678,7 +679,7 @@ class EngineState(ComponentState):
 
                 # handle last numeric
                 if command.command in NUMERIC_SET:
-                    if self.engine_type == LOCO_TRACK_CRANE:
+                    if self.engine_type in [LOCO_TRACK_CRANE, LOCO_ACCESSORY]:
                         if command.data in TRACK_CRANE_STATE_NUMERICS:
                             self._numeric = command.data
                             self._numeric_cmd = command.command
@@ -863,9 +864,14 @@ class EngineState(ComponentState):
         if self._direction is not None:
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
             byte_str += CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes
-        if self._numeric is not None:
-            # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
-            byte_str += CommandReq.build(self._numeric_cmd, self.address, data=self._numeric, scope=self.scope).as_bytes
+        if self._numeric is not None and self._numeric_cmd is not None:
+            if self.engine_type in [LOCO_TRACK_CRANE, LOCO_ACCESSORY]:
+                byte_str += CommandReq.build(
+                    self._numeric_cmd,
+                    self.address,
+                    data=self._numeric,
+                    scope=self.scope,
+                ).as_bytes
         if self._aux is not None:
             byte_str += CommandReq.build(self._aux, self.address).as_bytes
         if self._aux1 is not None:

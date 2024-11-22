@@ -204,6 +204,7 @@ LOCO_CLASS: Dict[int, str] = {
     255: "Universal",
 }
 
+LOCO_ACCESSORY = 4
 LOCO_TRACK_CRANE: int = 9
 TRACK_CRANE_STATE_NUMERICS: Set[int] = {1, 2, 3}
 
