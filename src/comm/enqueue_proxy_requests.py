@@ -14,6 +14,8 @@ log = logging.getLogger(__name__)
 REGISTER_REQUEST: bytes = int(0xFF).to_bytes(1, byteorder="big") * 6
 DISCONNECT_REQUEST: bytes = int(0xFFFC).to_bytes(2, byteorder="big") * 3
 SYNC_STATE_REQUEST: bytes = int(0xFFF0).to_bytes(2, byteorder="big") * 3
+SYNC_BEGIN_RESPONSE: bytes = int(0xFFF1).to_bytes(2, byteorder="big") * 3
+SYNC_COMPLETE_RESPONSE: bytes = int(0xFFF2).to_bytes(2, byteorder="big") * 3
 
 
 class EnqueueProxyRequests(Thread):
@@ -73,22 +75,34 @@ class EnqueueProxyRequests(Thread):
             cls._instance.shutdown()
 
     # noinspection PyPropertyDefinition
-    @classmethod
+    @staticmethod
     @property
-    def register_request(cls) -> bytes:
+    def register_request() -> bytes:
         return REGISTER_REQUEST
 
     # noinspection PyPropertyDefinition
-    @classmethod
+    @staticmethod
     @property
-    def disconnect_request(cls) -> bytes:
+    def disconnect_request() -> bytes:
         return DISCONNECT_REQUEST
 
     # noinspection PyPropertyDefinition
-    @classmethod
+    @staticmethod
     @property
-    def sync_state_request(cls) -> bytes:
+    def sync_state_request() -> bytes:
         return SYNC_STATE_REQUEST
+
+    # noinspection PyPropertyDefinition
+    @staticmethod
+    @property
+    def sync_begin_response() -> bytes:
+        return SYNC_BEGIN_RESPONSE
+
+    # noinspection PyPropertyDefinition
+    @staticmethod
+    @property
+    def sync_complete_response() -> bytes:
+        return SYNC_COMPLETE_RESPONSE
 
     # noinspection PyPropertyDefinition
     @classmethod

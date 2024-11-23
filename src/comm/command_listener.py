@@ -9,7 +9,7 @@ from threading import Thread
 from time import sleep
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
-from .enqueue_proxy_requests import EnqueueProxyRequests
+from .enqueue_proxy_requests import EnqueueProxyRequests, SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
@@ -199,8 +199,12 @@ class CommandListener(Thread):
             with self._cv:
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(f"TMCC CommandListener offered: {data.hex(' ')}")
-                self._deque.extend(data)
-                self._cv.notify()
+                # check if these are sync start or end commands
+                if data in {SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE}:
+                    print("sync start or end")
+                else:
+                    self._deque.extend(data)
+                    self._cv.notify()
 
     def shutdown(self) -> None:
         # if specified baudrate was invalid, instance won't have most attributes
@@ -423,6 +427,7 @@ class CommandDispatcher(Thread):
                     log.warning(f"Exception while sending TMCC state update {command} to {client}")
                     log.exception(e)
 
+    # noinspection PyTypeChecker
     def send_current_state(self, client_ip: str):
         """
         When a new client attaches to the server, immediately send it all know
@@ -431,23 +436,34 @@ class CommandDispatcher(Thread):
         if self._client_port is not None:
             from ..db.component_state_store import ComponentStateStore
 
+            # send starting state sync message
+            self.send_state_packet(client_ip, EnqueueProxyRequests.sync_begin_response)
             store = ComponentStateStore.build()
             for scope in store.scopes():
                 for address in store.addresses(scope):
                     with self._lock:
                         state: ComponentState = store.query(scope, address)
                         if state is not None:
-                            state_as_bytes: bytes = state.as_bytes()
-                            if state_as_bytes:  # we can only send states for tracked conditions
-                                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                                    try:
-                                        s.connect((client_ip, self._client_port))
-                                        s.sendall(state_as_bytes)
-                                        _ = s.recv(16)
-                                    except Exception as e:
-                                        log.warning(f"Exception sending TMCC state update {state} to {client_ip}")
-                                        log.exception(e)
-                                sleep(0.05)
+                            self.send_state_packet(client_ip, state)
+            # send sync complete message
+            self.send_state_packet(client_ip, EnqueueProxyRequests.sync_complete_response)
+
+    def send_state_packet(self, client_ip: str, state: ComponentState | bytes):
+        packet: bytes | None = None
+        if isinstance(state, bytes):
+            packet = state
+        elif isinstance(state, ComponentState):
+            packet = state.as_bytes()
+        if packet:  # we can only send states for tracked conditions
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.connect((client_ip, self._client_port))
+                    s.sendall(packet)
+                    _ = s.recv(16)
+                except Exception as e:
+                    log.warning(f"Exception sending TMCC state update {state} to {client_ip}")
+                    log.exception(e)
+            sleep(0.05)
 
     @property
     def broadcasts_enabled(self) -> bool:
