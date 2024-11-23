@@ -9,19 +9,23 @@ from threading import Thread
 from time import sleep
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
-from .enqueue_proxy_requests import EnqueueProxyRequests
+from .enqueue_proxy_requests import EnqueueProxyRequests, SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_TOPIC
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
 from ..protocol.multybyte.multibyte_constants import TMCC2_VARIABLE_INDEX
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 
 log = logging.getLogger(__name__)
 
 Message = TypeVar("Message")
 Topic = TypeVar("Topic")
+
+SYNCING = CommandReq(TMCC1SyncCommandDef.SYNCHRONIZING)
+SYNC_COMPLETE = CommandReq(TMCC1SyncCommandDef.SYNCHRONIZED)
 
 
 class CommandListener(Thread):
@@ -200,11 +204,14 @@ class CommandListener(Thread):
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(f"TMCC CommandListener offered: {data.hex(' ')}")
                 # check if these are sync start or end commands
-                # if data in {SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE}:
-                #     print("sync start or end")
-                # else:
-                self._deque.extend(data)
-                self._cv.notify()
+                if data in {SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE}:
+                    if data == SYNC_BEGIN_RESPONSE:
+                        self._dispatcher.offer(SYNCING)
+                    else:
+                        self._dispatcher.offer(SYNC_COMPLETE)
+                else:
+                    self._deque.extend(data)
+                    self._cv.notify()
 
     def shutdown(self) -> None:
         # if specified baudrate was invalid, instance won't have most attributes
