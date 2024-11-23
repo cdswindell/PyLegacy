@@ -10,11 +10,12 @@ import time
 from threading import Condition, Thread
 
 from .base_req import BaseReq
-from .constants import KEEP_ALIVE_CMD, PDI_SOP, PdiCommand
+from .constants import KEEP_ALIVE_CMD, PDI_SOP, PdiCommand, TMCC_TX
 from .pdi_listener import PdiListener
 from .pdi_req import PdiReq, TmccReq
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY, CommandScope
+from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..utils.pollable_queue import PollableQueue
 
 log = logging.getLogger(__name__)
@@ -96,7 +97,20 @@ class Base3Buffer(Thread):
     def send(self, data: bytes) -> None:
         if data:
             with self._send_cv:
-                self._send_queue.put(data)
+                # If we are sending a multibyte TMCC command, we have to break it down
+                # into 3 byte packets; this needs to be done here so sync_state in the
+                # calling layer gets a complete command
+                if len(data) >= 12 and data[1] == TMCC_TX and data[5] == data[8] == LEGACY_MULTIBYTE_COMMAND_PREFIX:
+                    tmcc_cmd = CommandReq.from_bytes(data[2:-2])
+                    print(tmcc_cmd)
+                    # this is a legacy/tmcc2 multibyte parameter command. We have to send it
+                    # as 3 3 byte packets, using PdiCommand.TMCC_RX
+                    for packet in TmccReq.as_packets(tmcc_cmd):
+                        self._send_queue.put(packet)
+                    # do a sync_state on the complete command
+                    self.sync_state(tmcc_cmd.as_bytes)
+                else:
+                    self._send_queue.put(data)
                 self._send_cv.notify_all()
 
     @staticmethod
@@ -129,7 +143,13 @@ class Base3Buffer(Thread):
                                     s.sendall(sending.hex().upper().encode())
                                     self._last_output_at = self._current_milli_time()
                                     # update base3 of new state; required if command is a tmcc_tx
-                                    self.sync_state(sending)
+                                    try:
+                                        self.sync_state(sending)
+                                    except ValueError as ve:
+                                        # TODO: we get exceptions here if we send a multi-byte tmcc command
+                                        # TODO: because they are packatized into 3-byte chunks that sync-state
+                                        # TODO cannot yet handle
+                                        log.debug(ve)
                                 else:
                                     sending = None
                                     # we will always call s.recv, as in either case, there will

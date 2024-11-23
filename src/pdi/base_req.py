@@ -34,19 +34,19 @@ ENGINE_WRITE_MAP = {
     "RESET": (11, 56, lambda t: 0),
     "DIESEL_RPM": (12, 57, None),
     "ENGINE_LABOR": (13, 58, lambda t: t + 12),
-    "TRAIN_BRAKE": (21, 67, lambda t: round(t * 2.143)),
-    "SMOKE_HIGH": (19, 65, lambda t: 3),
-    "SMOKE_MEDIUM": (19, 65, lambda t: 2),
-    "SMOKE_LOW": (19, 65, lambda t: 1),
-    "SMOKE_OFF": (19, 65, lambda t: 0),
-    "MOMENTUM_HIGH": (22, 68, lambda t: 127),
-    "MOMENTUM_MEDIUM": (22, 68, lambda t: 63),
-    "MOMENTUM_LOW": (22, 68, lambda t: 0),
-    "MOMENTUM": (22, 68, lambda t: floor(t * 18.285)),
-    "DITCH_OFF": (20, 66, lambda t: 0),
-    "DITCH_OFF_PULSE_ON_WITH_HORN": (20, 66, lambda t: 1),
-    "DITCH_ON_PULSE_OFF_WITH_HORN": (20, 66, lambda t: 2),
-    "DITCH_ON": (20, 68, lambda t: 3),
+    "SMOKE_HIGH": (20, 65, lambda t: 3),
+    "SMOKE_MEDIUM": (20, 65, lambda t: 2),
+    "SMOKE_LOW": (20, 65, lambda t: 1),
+    "SMOKE_OFF": (20, 65, lambda t: 0),
+    "DITCH_OFF": (21, 66, lambda t: 0),
+    "DITCH_OFF_PULSE_ON_WITH_HORN": (21, 66, lambda t: 1),
+    "DITCH_ON_PULSE_OFF_WITH_HORN": (21, 66, lambda t: 2),
+    "DITCH_ON": (21, 68, lambda t: 3),
+    "TRAIN_BRAKE": (22, 67, lambda t: round(t * 2.143)),
+    "MOMENTUM_HIGH": (23, 68, lambda t: 127),
+    "MOMENTUM_MEDIUM": (23, 68, lambda t: 63),
+    "MOMENTUM_LOW": (23, 68, lambda t: 0),
+    "MOMENTUM": (23, 68, lambda t: floor(t * 18.285)),
 }
 
 
@@ -126,7 +126,7 @@ class BaseReq(PdiReq):
             if bit_pos <= 15:
                 value1 = 1 << bit_pos
             else:
-                value2 = 1 << (bit_pos - 15)
+                value2 = 1 << (bit_pos - 16)
             # build data packet
             if scaler:
                 data = scaler(data)
