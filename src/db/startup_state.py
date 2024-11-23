@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from threading import Thread
 
+from ..comm.command_listener import SYNCING, CommandDispatcher
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PdiCommand
 from ..pdi.pdi_listener import PdiListener
@@ -17,6 +18,7 @@ class StartupState(Thread):
         self.listener = listener
         self.state_store = state_store
         self._processed_configs = set()
+        CommandDispatcher.build().offer(SYNCING)
         self.start()
 
     def __call__(self, cmd: PdiReq) -> None:
@@ -47,9 +49,10 @@ class StartupState(Thread):
         # we request engine/sw/acc roster at startup; do this by asking for
         # Eng/Train/Acc/Sw #100 then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity
-        for tmcc_id in range(1, 98):
+        for tmcc_id in range(1, 99):
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ENGINE))
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_TRAIN))
+        for tmcc_id in range(1, 99):
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ACC))
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_SWITCH))
         total_time = 0

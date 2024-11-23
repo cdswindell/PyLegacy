@@ -72,11 +72,9 @@ class Controller(Thread):
         self._last_tmcc_id = None
         self._railroad = None
         self._last_known_speed = None
-        self._base_state = self._state_store.get_state(CommandScope.BASE, 0)
-        if self._base_state:
-            self._state_watcher = StateWatcher(self._base_state, self.update_display)
-        else:
-            self._state_watcher = None
+        self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+        self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
+        self._state_watcher = None
         if speed_pins or fwd_pin or rev_pin or reset_pin:
             self._engine_controller = EngineController(
                 speed_pin_1=speed_pins[0] if speed_pins and len(speed_pins) > 0 else None,
@@ -104,6 +102,7 @@ class Controller(Thread):
         else:
             self._engine_controller = None
         self._is_running = True
+
         self.start()
 
     @property
@@ -133,6 +132,10 @@ class Controller(Thread):
         if self._state_watcher:
             self._state_watcher.shutdown()
         self._state_watcher = StateWatcher(self._state, self.on_state_update)
+
+    def on_sync(self) -> None:
+        if self._sync_state.is_synchronized:
+            self.update_display()
 
     def on_state_update(self) -> None:
         cur_speed = self._state.speed if self._state else None
@@ -222,7 +225,7 @@ class Controller(Thread):
             base_state = self._state_store.get_state(CommandScope.BASE, 0, False)
             if base_state and base_state.base_name:
                 self._railroad = base_state.base_name.title()
-        return self._railroad if self._railroad is not None else "Lionel Lines"
+        return self._railroad if self._railroad is not None else "Loading Roster..."
 
     def reset(self) -> None:
         self._is_running = False

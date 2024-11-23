@@ -9,9 +9,9 @@ from threading import Thread
 from typing import Tuple
 
 from .base_req import BaseReq
-from .constants import PDI_SOP, PDI_STF, PDI_EOP, PdiAction
+from .constants import PDI_SOP, PDI_STF, PDI_EOP, PdiAction, PdiCommand
 from .pdi_req import PdiReq, TmccReq
-from ..comm.command_listener import Topic, Message, Channel, Subscriber, CommandDispatcher
+from ..comm.command_listener import Topic, Message, Channel, Subscriber, CommandDispatcher, SYNC_COMPLETE
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE_PORT, BROADCAST_TOPIC, CommandScope
 
@@ -274,8 +274,14 @@ class PdiDispatcher(Thread):
                     log.debug(cmd)
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
-                    if isinstance(cmd, BaseReq) and cmd.is_active is False:
-                        continue
+                    if isinstance(cmd, BaseReq):
+                        # on the PyTrain server, we need to know when the initial
+                        # roster sync is complete; we do this by looking for the
+                        # response to the request for info on Train 98...
+                        if cmd.pdi_command == PdiCommand.BASE_TRAIN and cmd.tmcc_id == 98:
+                            CommandDispatcher.get().offer(SYNC_COMPLETE)
+                        if cmd.is_active is False:
+                            continue
                     # for TMCC requests, forward to TMCC Command Dispatcher, but only if
                     # we are not also listening for TMCC commands via an LCS Ser2
                     if isinstance(cmd, TmccReq) and self._tmcc_dispatcher.is_ser2_receiver is False:
