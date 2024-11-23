@@ -1237,18 +1237,20 @@ class SyncState(ComponentState):
         self._state_synchronizing: bool | None = None
 
     def __repr__(self) -> str:
-        return f"{PROGRAM_NAME} synchronized: {self.is_synchronized if self.is_synchronized else 'NA'}"
+        if self._state_synchronized is not None and not self._state_synchronized:
+            msg = "Synchronizing..."
+        else:
+            msg = f"Synchronized: {self._state_synchronized if self._state_synchronized is not None else 'NA'}"
+        return f"{PROGRAM_NAME} {msg}"
 
     def update(self, command: L | P) -> None:
         if isinstance(command, CommandReq):
             with self._cv:
                 # Note: super().update is explicitly not called
                 if command.command == TMCC1SyncCommandDef.SYNCHRONIZING:
-                    print("Synchronizing...")
                     self._state_synchronized = False
                     self._state_synchronizing = True
                 elif command.command == TMCC1SyncCommandDef.SYNCHRONIZED:
-                    print("Synchronized...")
                     self._state_synchronized = True
                     self._state_synchronizing = False
 
