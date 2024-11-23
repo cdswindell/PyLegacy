@@ -1482,5 +1482,6 @@ class PyRotaryEncoder(RotaryEncoder):
 
     def update_data(self, new_data) -> None:
         if self._data_to_steps and new_data != self._last_known_data:
+            print(f"New Data: {new_data} Steps: {self.steps} New: {self._data_to_steps(new_data)}")
             self.steps = self._data_to_steps(new_data)
             self._last_known_data = new_data
