@@ -34,7 +34,7 @@ class CommandListener(Thread):
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         queue_size: int = DEFAULT_QUEUE_SIZE,
-        build_serial_reader: bool = True,
+        ser2_receiver: bool = True,
     ) -> CommandListener:
         """
         Factory method to create a CommandListener instance
@@ -43,7 +43,7 @@ class CommandListener(Thread):
             baudrate=baudrate,
             port=port,
             queue_size=queue_size,
-            build_serial_reader=build_serial_reader,
+            ser2_receiver=ser2_receiver,
         )
 
     @classmethod
@@ -93,7 +93,7 @@ class CommandListener(Thread):
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         queue_size: int = DEFAULT_QUEUE_SIZE,
-        build_serial_reader: bool = True,
+        ser2_receiver: bool = True,
     ) -> None:
         if self._initialized:
             return
@@ -109,7 +109,7 @@ class CommandListener(Thread):
         self._cv = threading.Condition()
         self._deque = deque(maxlen=DEFAULT_QUEUE_SIZE)
         self._is_running = True
-        self._dispatcher = CommandDispatcher.build(queue_size)
+        self._dispatcher = CommandDispatcher.build(queue_size, ser2_receiver)
 
         # get initial state from Base 3 and LCS modules
         self.sync_state()
@@ -118,7 +118,7 @@ class CommandListener(Thread):
         self.start()
 
         # prep our producer
-        if build_serial_reader:
+        if ser2_receiver:
             from .serial_reader import SerialReader
 
             self._serial_reader = SerialReader(baudrate, port, self)
@@ -289,11 +289,11 @@ class CommandDispatcher(Thread):
     _lock = threading.RLock()
 
     @classmethod
-    def build(cls, queue_size: int = DEFAULT_QUEUE_SIZE) -> CommandDispatcher:
+    def build(cls, queue_size: int = DEFAULT_QUEUE_SIZE, ser2_receiver: bool = False) -> CommandDispatcher:
         """
         Factory method to create a CommandDispatcher instance
         """
-        return CommandDispatcher(queue_size)
+        return CommandDispatcher(queue_size, ser2_receiver)
 
     @classmethod
     def get(cls) -> CommandDispatcher:
@@ -336,12 +336,13 @@ class CommandDispatcher(Thread):
                 CommandDispatcher._instance._initialized = False
             return CommandDispatcher._instance
 
-    def __init__(self, queue_size: int = DEFAULT_QUEUE_SIZE) -> None:
+    def __init__(self, queue_size: int = DEFAULT_QUEUE_SIZE, ser2_receiver: bool = False) -> None:
         if self._initialized:
             return
         else:
             self._initialized = True
-        super().__init__(daemon=True, name="PyLegacy Command Dispatcher")
+        super().__init__(daemon=True, name="PyLegacy TMCC Command Dispatcher")
+        self._is_ser2_receiver = ser2_receiver
         self._channels: dict[Topic | Tuple[Topic, int], Channel[Message]] = defaultdict(Channel)
         self._cv = threading.Condition()
         self._is_running = True
@@ -384,6 +385,21 @@ class CommandDispatcher(Thread):
                 log.exception(e)
             finally:
                 self._queue.task_done()
+
+    @property
+    def is_ser2_receiver(self) -> bool:
+        """
+        Returns whether the instance is a Ser2 receiver or not.
+
+        The SER2 receiver is a specific type of receiver characterized by the
+        presence of an LCS Ser2 that is broadcasting TMCC commands.
+
+        Returns
+        -------
+        bool
+            True if the instance has the SER2 receiver capability, else False.
+        """
+        return self._is_ser2_receiver
 
     # noinspection DuplicatedCode
     def update_client_state(self, command: CommandReq):
@@ -439,8 +455,8 @@ class CommandDispatcher(Thread):
 
     def offer(self, cmd: CommandReq) -> None:
         """
-        Receive a command from the listener thread and dispatch it to subscribers.
-        We do this in a separate thread so that the listener thread doesn't fall behind
+        Receive a command from the TMCC listener thread and dispatch it to subscribers.
+        We do this in a separate thread so that the listener thread doesn't fall behind.
         """
         if cmd is not None and isinstance(cmd, CommandReq):
             with self._cv:

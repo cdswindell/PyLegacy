@@ -109,6 +109,12 @@ class CommBuffer(abc.ABC):
     # noinspection PyPropertyDefinition
     @classmethod
     @property
+    def no_ser2(cls) -> bool:
+        return True
+
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
     def is_client(cls) -> bool:
         return isinstance(cls._instance, CommBufferProxy)
 
