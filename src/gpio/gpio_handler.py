@@ -1487,7 +1487,8 @@ class PyRotaryEncoder(RotaryEncoder):
         if (
             new_data != self._last_known_data
             and self._data_to_steps
-            and (not self.is_active or self.last_rotated > 5.0)
+            and not self.is_active
+            and self.last_rotated > 5.0
         ):
             with self._lock:
                 print(f"Data: {new_data} Steps: {self.steps} New: {self._data_to_steps(new_data)} {self.last_rotated}")
