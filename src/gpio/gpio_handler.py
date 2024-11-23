@@ -1447,6 +1447,10 @@ class PyRotaryEncoder(RotaryEncoder):
             step = re.steps
             # did we spin clockwise or counter-clockwise?
             if step == last_step:
+                # Safeguard to make sure we can stop engine
+                if step == -re.max_steps:
+                    cmd.data = 0
+                    self._tmcc_command_buffer.enqueue_command(cmd.as_bytes)
                 return
             cc = False if step >= last_step else True
             last_step = step
