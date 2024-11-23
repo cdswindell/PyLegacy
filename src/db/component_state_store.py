@@ -108,7 +108,7 @@ class ComponentStateStore:
                                 self._state[scope][address].update(command)
                     return
             if command.scope in SCOPE_TO_STATE_MAP:
-                if command.address == BROADCAST_ADDRESS:  # broadcast address
+                if command.address == BROADCAST_ADDRESS and command.scope != CommandScope.SYNC:  # broadcast address
                     for address in self._state[command.scope]:
                         self._state[command.scope][address].update(command)
                 else:  # update the device state (identified by scope/address)

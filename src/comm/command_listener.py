@@ -449,6 +449,8 @@ class CommandDispatcher(Thread):
             self.send_state_packet(client_ip, EnqueueProxyRequests.sync_begin_response)
             store = ComponentStateStore.build()
             for scope in store.scopes():
+                if scope == CommandScope.Sync:
+                    continue
                 for address in store.addresses(scope):
                     with self._lock:
                         state: ComponentState = store.query(scope, address)
