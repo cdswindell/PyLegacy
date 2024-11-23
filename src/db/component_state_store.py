@@ -114,7 +114,7 @@ class ComponentStateStore:
                 else:  # update the device state (identified by scope/address)
                     self._state[command.scope][command.address].update(command)
             else:
-                log.warning(f"Received Unknown State Update: {command}")
+                log.warning(f"Received Unknown State Update: {command.scope} {command}")
 
     @property
     def is_empty(self) -> bool:

@@ -34,7 +34,8 @@ class TMCC1CommandIdentifier(CommandPrefix):
     SWITCH = 0b01000000  # first 2 bits significant
     ACC = 0b10000000  # first 2 bits significant
     ROUTE = 0b11010000  # first 4 bits significant
-    HALT = 0xFFFF  # first 8 bits significant
+    HALT = 0xFFFF  # all 16 bits significant
+    SYNC = 0xF0F0  # first 12 bits significant
 
     @classmethod
     def classify(cls, byte_data) -> CommandScope:
@@ -63,6 +64,7 @@ TMCC1_IDENT_TO_SCOPE_MAP: Dict[TMCC1CommandIdentifier, CommandScope] = {
     TMCC1CommandIdentifier.ACC: CommandScope.ACC,
     TMCC1CommandIdentifier.ROUTE: CommandScope.ROUTE,
     TMCC1CommandIdentifier.HALT: CommandScope.SYSTEM,
+    TMCC1CommandIdentifier.SYNC: CommandScope.SYNC,
 }
 
 
@@ -146,6 +148,16 @@ class TMCC1CommandDef(CommandDef):
             else:
                 raise ValueError(f"Cannot classify command alias: {self._alias} ({type(self._alias)})")
         return None
+
+
+TMCC1_SYNCING_COMMAND: int = 0xF0F0
+TMCC1_SYNCED_COMMAND: int = 0xF0FF
+
+
+@unique
+class TMCC1SyncCommandDef(TMCC1Enum):
+    SYNCHRONIZING = TMCC1CommandDef(TMCC1_SYNCING_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
+    SYNCHRONIZED = TMCC1CommandDef(TMCC1_SYNCED_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
 
 
 TMCC1_HALT_COMMAND: int = 0xFFFF

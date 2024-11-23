@@ -149,6 +149,7 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.ACC)
             self._state_store.listen_for(CommandScope.IRDA)
             self._state_store.listen_for(CommandScope.BASE)
+            self._state_store.listen_for(CommandScope.SYNC)
 
         if self._pdi_buffer is not None:
             print(f"Loading system state from Lionel Base at {self._base_addr}:{self._base_port}...")

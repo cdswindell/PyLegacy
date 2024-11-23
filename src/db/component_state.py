@@ -27,8 +27,9 @@ from ..protocol.constants import (
     TRACK_CRANE_STATE_NUMERICS,
     CONTROL_TYPE,
     LOCO_ACCESSORY,
+    PROGRAM_NAME,
 )
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux, TMCC1SyncCommandDef
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
@@ -1167,6 +1168,7 @@ class BaseState(ComponentState):
 
         if isinstance(command, BaseReq):
             with self._cv:
+                # Note: super().update is explicitly not called
                 self._base_name = command.name.title() if command.name else self._base_name
                 self._firmware = command.firmware if command.firmware else self._firmware
                 if self.firmware:
@@ -1222,6 +1224,62 @@ class BaseState(ComponentState):
             return bytes()
 
 
+class SyncState(ComponentState):
+    """
+    Maintain the state of a Lionel Base
+    """
+
+    def __init__(self, scope: CommandScope = CommandScope.SYNC) -> None:
+        if scope != CommandScope.SYNC:
+            raise ValueError(f"Invalid scope: {scope}")
+        super().__init__(scope)
+        self._state_synchronized: bool | None = None
+        self._state_synchronizing: bool | None = None
+
+    def __repr__(self) -> str:
+        return f"{PROGRAM_NAME} synchronized: {self.is_synchronized if self.is_synchronized else 'NA'}"
+
+    def update(self, command: L | P) -> None:
+        if isinstance(command, CommandReq):
+            with self._cv:
+                # Note: super().update is explicitly not called
+                if command.command == TMCC1SyncCommandDef.SYNCHRONIZING:
+                    print("Synchronizing...")
+                    self._state_synchronized = False
+                    self._state_synchronizing = True
+                elif command.command == TMCC1SyncCommandDef.SYNCHRONIZED:
+                    print("Synchronized...")
+                    self._state_synchronized = True
+                    self._state_synchronizing = False
+
+    @property
+    def is_synchronized(self) -> bool:
+        return self._state_synchronized
+
+    @property
+    def is_synchronizing(self) -> bool:
+        return self._state_synchronizing
+
+    @property
+    def is_known(self) -> bool:
+        return self._state_synchronized is not None
+
+    @property
+    def is_tmcc(self) -> bool:
+        return True
+
+    @property
+    def is_legacy(self) -> bool:
+        return False
+
+    @property
+    def is_lcs(self) -> bool:
+        return False
+
+    def as_bytes(self) -> bytes:
+        return bytes()
+
+
 SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
     CommandScope.SWITCH: SwitchState,
     CommandScope.ACC: AccessoryState,
@@ -1229,6 +1287,7 @@ SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
     CommandScope.TRAIN: TrainState,
     CommandScope.IRDA: IrdaState,
     CommandScope.BASE: BaseState,
+    CommandScope.SYNC: SyncState,
 }
 
 

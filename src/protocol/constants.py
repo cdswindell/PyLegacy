@@ -142,6 +142,7 @@ class CommandScope(Mixins, Enum):
     IRDA = 10
     STM2 = 11
     BASE = 12
+    SYNC = 13
 
 
 class CommandPrefix(Mixins, IntEnum):

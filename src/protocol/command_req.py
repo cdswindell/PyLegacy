@@ -16,7 +16,7 @@ from .tmcc2.tmcc2_constants import TMCC2RouteCommandDef, TMCC2HaltCommandDef, TM
 from .tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX, LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX
 from .tmcc2.tmcc2_constants import TMCC2CommandDef
 from .command_def import CommandDef, CommandDefEnum
-from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum
+from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum, TMCC1SyncCommandDef
 from .tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1SwitchState, TMCC1AuxCommandDef, TMCC1EngineCommandDef
 from .tmcc1.tmcc1_constants import TMCC1CommandIdentifier, TMCC1_TRAIN_COMMAND_PURIFIER
 from .tmcc1.tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
@@ -468,6 +468,7 @@ class CommandReq:
             TMCC1AuxCommandDef,
             TMCC1RouteCommandDef,
             TMCC1EngineCommandDef,
+            TMCC1SyncCommandDef,
         ]:
             scope = None
             cmd_enum = tmcc_enum.by_value(value)
@@ -486,7 +487,7 @@ class CommandReq:
                 data = cmd_enum.value.data_from_bytes(param[1:3])
                 address = cmd_enum.value.address_from_bytes(param[1:3])
                 return CommandReq.build(cmd_enum, address, data, scope)
-        raise ValueError(f"Invalid tmcc1 command: : {param.hex(':')}")
+        raise ValueError(f"Invalid tmcc1 command: {param.hex(':')}")
 
     @classmethod
     def build_tmcc2_command_req(cls, param):

@@ -9,7 +9,7 @@ from threading import Thread
 from time import sleep
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
-from .enqueue_proxy_requests import EnqueueProxyRequests, SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE
+from .enqueue_proxy_requests import EnqueueProxyRequests
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
@@ -200,11 +200,11 @@ class CommandListener(Thread):
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(f"TMCC CommandListener offered: {data.hex(' ')}")
                 # check if these are sync start or end commands
-                if data in {SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE}:
-                    print("sync start or end")
-                else:
-                    self._deque.extend(data)
-                    self._cv.notify()
+                # if data in {SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE}:
+                #     print("sync start or end")
+                # else:
+                self._deque.extend(data)
+                self._cv.notify()
 
     def shutdown(self) -> None:
         # if specified baudrate was invalid, instance won't have most attributes
