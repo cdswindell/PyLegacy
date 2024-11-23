@@ -1245,6 +1245,7 @@ class SyncState(ComponentState):
 
     def update(self, command: L | P) -> None:
         if isinstance(command, CommandReq):
+            self._ev.clear()
             with self._cv:
                 # Note: super().update is explicitly not called
                 if command.command == TMCC1SyncCommandDef.SYNCHRONIZING:
@@ -1253,6 +1254,8 @@ class SyncState(ComponentState):
                 elif command.command == TMCC1SyncCommandDef.SYNCHRONIZED:
                     self._state_synchronized = True
                     self._state_synchronizing = False
+        self._ev.set()
+        self._cv.notify_all()
 
     @property
     def is_synchronized(self) -> bool:
