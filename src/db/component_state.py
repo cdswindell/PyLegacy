@@ -219,6 +219,8 @@ class ComponentState(ABC):
         from ..pdi.base_req import BaseReq
 
         self.changed.clear()
+        if command and self._last_command and command.as_bytes == self._last_command.as_bytes:
+            return
         if command and command.command != TMCC1HaltCommandDef.HALT:
             if self._address is None and command.address != BROADCAST_ADDRESS:
                 self._address = command.address
@@ -670,6 +672,10 @@ class EngineState(ComponentState):
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
 
+        # ignore duplicate state updates
+        if command and self._last_command and command.as_bytes == self._last_command.as_bytes:
+            log.debug(f"Ignoring {command}...")
+            return
         with self._cv:
             super().update(command)
             if isinstance(command, CommandReq):
