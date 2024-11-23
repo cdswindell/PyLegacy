@@ -1474,7 +1474,7 @@ class PyRotaryEncoder(RotaryEncoder):
                         last_step = self.last_steps
                         self._last_steps = self.steps = step
                         data = self._steps_to_data(step)
-                        print(f"orig step: {last_step} new step: {step} new data: {data} {last_rotated} {self.value}")
+                        print(f"os: {last_step} ns: {step} m: {step_mod} nd: {data} {last_rotated} {self.value}")
                     else:
                         data = step_mod
                     self._last_known_data = cmd.data = data
