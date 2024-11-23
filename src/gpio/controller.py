@@ -135,6 +135,7 @@ class Controller(Thread):
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
+            print("sync updated")
             self.update_display()
 
     def on_state_update(self) -> None:
