@@ -672,10 +672,6 @@ class EngineState(ComponentState):
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
 
-        # ignore duplicate state updates
-        if command and self._last_command and command.as_bytes == self._last_command.as_bytes:
-            log.debug(f"Ignoring {command}...")
-            return
         with self._cv:
             super().update(command)
             if isinstance(command, CommandReq):

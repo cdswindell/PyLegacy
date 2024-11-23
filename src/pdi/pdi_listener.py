@@ -279,7 +279,6 @@ class PdiDispatcher(Thread):
                     # for TMCC requests, forward to TMCC Command Dispatcher, but only if
                     # we are not also listening for TMCC commands via an LCS Ser2
                     if isinstance(cmd, TmccReq) and self._tmcc_dispatcher.is_ser2_receiver is False:
-                        print("***", cmd, self._tmcc_dispatcher.is_ser2_receiver)
                         self._tmcc_dispatcher.offer(cmd.tmcc_command)
                     elif (1 <= cmd.tmcc_id <= 99) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
                         if hasattr(cmd, "action"):
@@ -295,7 +294,6 @@ class PdiDispatcher(Thread):
 
                     # update broadcast channels, mostly used for command echoing
                     if self._broadcasts:
-                        print("+++", type(cmd), cmd)
                         self.publish(BROADCAST_TOPIC, cmd)
             except Exception as e:
                 log.error(f"PdiDispatcher: Error publishing {cmd}")
@@ -312,7 +310,6 @@ class PdiDispatcher(Thread):
         if self._client_port is not None:
             # noinspection PyTypeChecker
             for client in EnqueueProxyRequests.clients:
-                print(f"Updating client {client} with {command}")
                 try:
                     with self._lock:
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
