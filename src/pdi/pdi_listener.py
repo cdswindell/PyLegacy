@@ -287,6 +287,7 @@ class PdiDispatcher(Thread):
                         self.publish((cmd.scope, cmd.tmcc_id), cmd)
                         self.publish(cmd.scope, cmd)
                     if self._broadcasts:
+                        print("+++", cmd)
                         self.publish(BROADCAST_TOPIC, cmd)
                     if self._client_port is not None:
                         self.update_client_state(cmd)
