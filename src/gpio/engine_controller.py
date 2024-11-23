@@ -338,6 +338,5 @@ class EngineController:
             self._speed_re.update_action(when_rotated, cur_state, steps_to_speed, speed_to_steps)
 
     def on_speed_changed(self, new_speed: int) -> None:
-        print(f"New Speed: {new_speed}")
         if self._speed_re and new_speed is not None:
             self._speed_re.update_data(new_speed)
