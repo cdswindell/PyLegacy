@@ -1428,6 +1428,9 @@ class PyRotaryEncoder(RotaryEncoder):
         self._use_steps = use_steps
         self._tmcc_command_buffer = CommBuffer.build()
         self._last_known_data = None
+        self._last_rotation_at = GpioHandler.current_milli_time()
+        self._last_steps = self.steps
+        self._lock = threading.RLock()
 
     def update_action(
         self,
@@ -1438,50 +1441,59 @@ class PyRotaryEncoder(RotaryEncoder):
     ) -> None:
         self._steps_to_data = steps_to_data
         self._data_to_steps = data_to_steps
-        self.steps = last_step = data_to_steps(state.speed)
-        last_rotation_at = GpioHandler.current_milli_time()
+        self.steps = self._last_steps = data_to_steps(state.speed)
 
-        def func(re: RotaryEncoder) -> None:
+        def func() -> None:
             nonlocal self
-            nonlocal last_step
-            nonlocal last_rotation_at
 
-            step = re.steps
-            # did we spin clockwise or counter-clockwise?
-            if step == last_step:
-                # Safeguard to make sure we can stop engine
-                if step == -re.max_steps:
-                    cmd.data = 0
+            with self._lock:
+                step = self.steps
+                if step == self.last_steps:
+                    # Safeguard to make sure we can stop engine
+                    if step == -self.max_steps or self.value == -1:
+                        self._last_known_data = cmd.data = 0
+                        self.steps = self._last_steps = -self.max_steps
+                        self._tmcc_command_buffer.enqueue_command(cmd.as_bytes)
+                else:
+                    # did we spin clockwise or counter-clockwise?
+                    cc = False if step >= self.last_steps else True
+                    self._last_steps = step
+
+                    # how fast are we spinning? Work in step space
+                    step_mod = -1 if cc is False else 1
+                    last_rotated = GpioHandler.current_milli_time() - self.last_rotation_at
+                    if self._ramp:
+                        for ramp_val, mod in self._ramp.items():
+                            if last_rotated <= ramp_val:
+                                step_mod = mod if cc is False else -mod
+                                break
+                    # convert the step to a speed
+                    if self._steps_to_data:
+                        step += step_mod
+                        step = min(max(step, -self._max_steps), self._max_steps)
+                        last_step = self.last_steps
+                        self._last_steps = self.steps = step
+                        data = self._steps_to_data(step)
+                        print(f"orig step: {last_step} new step: {step} new data: {data} {last_rotated} {self.value}")
+                    else:
+                        data = step_mod
+                    self._last_known_data = cmd.data = data
                     self._tmcc_command_buffer.enqueue_command(cmd.as_bytes)
-                return
-            cc = False if step >= last_step else True
-            last_step = step
-
-            # how fast are we spinning? Work in step space
-            step_mod = -1 if cc is False else 1
-            last_rotated = GpioHandler.current_milli_time() - last_rotation_at
-            if self._ramp:
-                for ramp_val, mod in self._ramp.items():
-                    if last_rotated <= ramp_val:
-                        step_mod = mod if cc is False else -mod
-                        break
-            # convert the step to a speed
-            if self._steps_to_data:
-                step += step_mod
-                step = min(max(step, -self._max_steps), self._max_steps)
-                re.steps = step
-                data = self._steps_to_data(step)
-                print(f"orig step: {last_step} new step: {step} new data: {data} {last_rotated} {re.value}")
-            else:
-                data = step_mod
-            self._last_known_data = cmd.data = data
-            self._tmcc_command_buffer.enqueue_command(cmd.as_bytes)
-            last_rotation_at = GpioHandler.current_milli_time()
+                    self._last_rotation_at = GpioHandler.current_milli_time()
 
         self.when_rotated = func
 
     def update_data(self, new_data) -> None:
-        if self._data_to_steps and new_data != self._last_known_data:
-            print(f"New Data: {new_data} Steps: {self.steps} New: {self._data_to_steps(new_data)}")
-            self.steps = self._data_to_steps(new_data)
-            self._last_known_data = new_data
+        if new_data != self._last_known_data and self._data_to_steps:
+            with self._lock:
+                print(f"New Data: {new_data} Steps: {self.steps} New: {self._data_to_steps(new_data)}")
+                self.steps = self._data_to_steps(new_data)
+                self._last_known_data = new_data
+
+    @property
+    def last_rotation_at(self) -> int:
+        return self._last_rotation_at
+
+    @property
+    def last_steps(self) -> int:
+        return self._last_steps
