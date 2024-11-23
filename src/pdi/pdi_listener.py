@@ -306,6 +306,7 @@ class PdiDispatcher(Thread):
         if self._client_port is not None:
             # noinspection PyTypeChecker
             for client in EnqueueProxyRequests.clients:
+                print(f"Updating client {client} with {command}")
                 try:
                     with self._lock:
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
