@@ -136,7 +136,7 @@ class Controller(Thread):
 
     def on_state_update(self) -> None:
         cur_speed = self._state.speed if self._state else None
-        if self._last_known_speed != cur_speed:
+        if cur_speed is not None and self._last_known_speed != cur_speed:
             self._last_known_speed = cur_speed
             if self._engine_controller:
                 self._engine_controller.on_speed_changed(cur_speed)
