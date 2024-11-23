@@ -132,7 +132,7 @@ class Controller(Thread):
     def monitor_state_updates(self):
         if self._state_watcher:
             self._state_watcher.shutdown()
-        self._state_watcher = StateWatcher(self._state, self.refresh_display)
+        self._state_watcher = StateWatcher(self._state, self.on_state_update)
 
     def on_state_update(self) -> None:
         cur_speed = self._state.speed if self._state else None
