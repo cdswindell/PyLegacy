@@ -206,9 +206,11 @@ class CommandListener(Thread):
                 # check if these are sync start or end commands
                 if data in {SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE}:
                     if data == SYNC_BEGIN_RESPONSE:
+                        print("Syncing...")
                         self._dispatcher.offer(SYNCING)
                     else:
                         self._dispatcher.offer(SYNC_COMPLETE)
+                        print("Synced...")
                 else:
                     self._deque.extend(data)
                     self._cv.notify()
