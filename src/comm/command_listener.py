@@ -206,11 +206,9 @@ class CommandListener(Thread):
                 # check if these are sync start or end commands
                 if data in {SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE}:
                     if data == SYNC_BEGIN_RESPONSE:
-                        print("Syncing...")
                         self._dispatcher.offer(SYNCING)
                     else:
                         self._dispatcher.offer(SYNC_COMPLETE)
-                        print("Synced...")
                 else:
                     self._deque.extend(data)
                     self._cv.notify()
@@ -449,7 +447,7 @@ class CommandDispatcher(Thread):
             self.send_state_packet(client_ip, EnqueueProxyRequests.sync_begin_response)
             store = ComponentStateStore.build()
             for scope in store.scopes():
-                if scope == CommandScope.Sync:
+                if scope == CommandScope.SYNC:
                     continue
                 for address in store.addresses(scope):
                     with self._lock:
