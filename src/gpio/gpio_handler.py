@@ -1484,7 +1484,11 @@ class PyRotaryEncoder(RotaryEncoder):
         self.when_rotated = func
 
     def update_data(self, new_data) -> None:
-        if new_data != self._last_known_data and self._data_to_steps and self.is_active is False:
+        if (
+            new_data != self._last_known_data
+            and self._data_to_steps
+            and (not self.is_active or self.last_rotated < 1.0)
+        ):
             with self._lock:
                 print(f"New Data: {new_data} Steps: {self.steps} New: {self._data_to_steps(new_data)}")
                 self.steps = self._data_to_steps(new_data)
@@ -1493,6 +1497,13 @@ class PyRotaryEncoder(RotaryEncoder):
     @property
     def last_rotation_at(self) -> int:
         return self._last_rotation_at
+
+    @property
+    def last_rotated(self) -> float:
+        """
+        Seconds since the last rotation.
+        """
+        return (GpioHandler.current_milli_time() - self.last_rotation_at) / 1000.0
 
     @property
     def last_steps(self) -> int:
