@@ -1427,16 +1427,18 @@ class PyRotaryEncoder(RotaryEncoder):
         self._data_to_steps = data_to_steps
         self._use_steps = use_steps
         self._tmcc_command_buffer = CommBuffer.build()
+        self._last_known_data = None
 
     def update_action(
         self,
         cmd: CommandReq,
         state,
         steps_to_data: Callable[[int], int],
-        speed_to_steps: Callable[[int], int],
+        data_to_steps: Callable[[int], int],
     ) -> None:
         self._steps_to_data = steps_to_data
-        self.steps = last_step = speed_to_steps(state.speed)
+        self._data_to_steps = data_to_steps
+        self.steps = last_step = data_to_steps(state.speed)
         last_rotation_at = GpioHandler.current_milli_time()
 
         def func(re: RotaryEncoder) -> None:
@@ -1472,8 +1474,13 @@ class PyRotaryEncoder(RotaryEncoder):
                 print(f"orig step: {last_step} new step: {step} new data: {data} {last_rotated} {re.value}")
             else:
                 data = step_mod
-            cmd.data = data
+            self._last_known_data = cmd.data = data
             self._tmcc_command_buffer.enqueue_command(cmd.as_bytes)
             last_rotation_at = GpioHandler.current_milli_time()
 
         self.when_rotated = func
+
+    def update_data(self, new_data) -> None:
+        if self._data_to_steps and new_data != self._last_known_data:
+            self.steps = self._data_to_steps(new_data)
+            self._last_known_data = new_data

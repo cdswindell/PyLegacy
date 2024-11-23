@@ -71,6 +71,7 @@ class Controller(Thread):
         self._last_scope = None
         self._last_tmcc_id = None
         self._railroad = None
+        self._last_known_speed = None
         self._base_state = self._state_store.get_state(CommandScope.BASE, 0)
         if self._base_state:
             self._state_watcher = StateWatcher(self._base_state, self.update_display)
@@ -133,6 +134,14 @@ class Controller(Thread):
             self._state_watcher.shutdown()
         self._state_watcher = StateWatcher(self._state, self.refresh_display)
 
+    def on_state_update(self) -> None:
+        cur_speed = self._state.speed if self._state else None
+        if self._last_known_speed != cur_speed:
+            self._last_known_speed = cur_speed
+            if self._engine_controller:
+                self._engine_controller.on_speed_changed(cur_speed)
+        self.refresh_display()
+
     def cache_engine(self):
         if self._tmcc_id != self._last_tmcc_id:
             self._last_scope = self._scope
@@ -161,8 +170,9 @@ class Controller(Thread):
             self.cache_engine()
         self._tmcc_id = tmcc_id
         self._state = self._state_store.get_state(self._scope, tmcc_id)
+        self._last_known_speed = self._state.speed if self._state else None
         if self._engine_controller:
-            self._engine_controller.update(tmcc_id, self._scope)
+            self._engine_controller.update(tmcc_id, self._scope, self._state)
         self.monitor_state_updates()
         self._key_queue.reset()
         self.update_display()

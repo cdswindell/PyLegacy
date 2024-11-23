@@ -1,5 +1,6 @@
 from gpiozero import Button
 
+from ..db.component_state import EngineState
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
@@ -42,7 +43,6 @@ class EngineController:
         self._scope = CommandScope.ENGINE
         self._repeat = repeat
         self._state = None
-        self._state_watcher = None
         # save a reference to the ComponentStateStore; it must be built and initialized
         # (or initializing) prior to creating an EngineController instance
         # we will use this info when switching engines to initialize speed
@@ -287,14 +287,19 @@ class EngineController:
     def smoke_off_btn(self) -> Button:
         return self._smoke_off_btn
 
-    def update(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE) -> None:
+    def update(
+        self,
+        tmcc_id: int,
+        scope: CommandScope = CommandScope.ENGINE,
+        state: EngineState = None,
+    ) -> None:
         """
         When a new engine/train is selected, redo the button bindings to
         reflect the new engine/train tmcc_id
         """
         self._scope = scope
         self._tmcc_id = tmcc_id
-        cur_state = self._store.get_state(scope, tmcc_id, create=False)
+        self._state = cur_state = state
         if cur_state is None or cur_state.control_type is None:
             self._control_type = ControlType.LEGACY
         else:
@@ -324,8 +329,6 @@ class EngineController:
         from .gpio_handler import GpioHandler
 
         # reset the rotary encoder handlers
-        if self._state_watcher:
-            self._state_watcher.shutdown()
         if when_rotated:
             when_rotated.address = self._tmcc_id
             when_rotated.scope = scope
@@ -333,3 +336,8 @@ class EngineController:
             steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -100, 100)
             speed_to_steps = GpioHandler.make_interpolator(100, -100, 0, max_speed)
             self._speed_re.update_action(when_rotated, cur_state, steps_to_speed, speed_to_steps)
+
+    def on_speed_changed(self, new_speed: int) -> None:
+        print(f"New Speed: {new_speed}")
+        if self._speed_re and new_speed is not None:
+            self._speed_re.update_data(new_speed)
