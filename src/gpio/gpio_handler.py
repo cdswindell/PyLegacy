@@ -1487,7 +1487,7 @@ class PyRotaryEncoder(RotaryEncoder):
         if (
             new_data != self._last_known_data
             and self._data_to_steps
-            and (not self.is_active or self.last_rotated > 1.0)
+            and (not self.is_active or self.last_rotated > 5.0)
         ):
             with self._lock:
                 print(f"New Data: {new_data} Steps: {self.steps} New: {self._data_to_steps(new_data)}")
@@ -1496,6 +1496,9 @@ class PyRotaryEncoder(RotaryEncoder):
 
     @property
     def last_rotation_at(self) -> int:
+        """
+        Return the time of the last rotation in millisecond resolution
+        """
         return self._last_rotation_at
 
     @property
