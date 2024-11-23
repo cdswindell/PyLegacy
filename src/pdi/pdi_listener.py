@@ -286,11 +286,17 @@ class PdiDispatcher(Thread):
                             self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
                         self.publish((cmd.scope, cmd.tmcc_id), cmd)
                         self.publish(cmd.scope, cmd)
+
+                        # update clients of state change. Note that we DO NOT do this
+                        # if the command is TMCC command broadcast from the Base and
+                        # there is an LCS Ser2 also broadcasting commands
+                        if self._client_port is not None:
+                            self.update_client_state(cmd)
+
+                    # update broadcast channels, mostly used for command echoing
                     if self._broadcasts:
                         print("+++", type(cmd), cmd)
                         self.publish(BROADCAST_TOPIC, cmd)
-                    if self._client_port is not None:
-                        self.update_client_state(cmd)
             except Exception as e:
                 log.error(f"PdiDispatcher: Error publishing {cmd}")
                 log.exception(e)
