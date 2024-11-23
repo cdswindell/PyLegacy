@@ -72,6 +72,7 @@ class Controller(Thread):
         self._last_tmcc_id = None
         self._railroad = None
         self._last_known_speed = None
+        self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
         self._state_watcher = None
@@ -109,6 +110,10 @@ class Controller(Thread):
     def engine_controller(self) -> EngineController:
         return self._engine_controller
 
+    @property
+    def is_synchronized(self) -> bool:
+        return self._synchronized
+
     def run(self) -> None:
         self.update_display()
         while self._is_running:
@@ -135,6 +140,7 @@ class Controller(Thread):
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
+            self._synchronized = True
             self.update_display()
 
     def on_state_update(self) -> None:
@@ -194,6 +200,8 @@ class Controller(Thread):
             else:
                 row = self.railroad
             self._lcd.add(row)
+            if not self.is_synchronized:
+                return
 
             row = f"{self._scope.label}: "
             tmcc_id_pos = len(row)
@@ -225,7 +233,7 @@ class Controller(Thread):
             base_state = self._state_store.get_state(CommandScope.BASE, 0, False)
             if base_state and base_state.base_name:
                 self._railroad = base_state.base_name.title()
-        return self._railroad if self._railroad is not None else "Loading Roster..."
+        return self._railroad if self._railroad is not None else "Loading Engine & Train Roster..."
 
     def reset(self) -> None:
         self._is_running = False
