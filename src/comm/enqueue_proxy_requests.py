@@ -75,33 +75,33 @@ class EnqueueProxyRequests(Thread):
             cls._instance.shutdown()
 
     # noinspection PyPropertyDefinition
-    @staticmethod
+    @classmethod
     @property
-    def register_request() -> bytes:
+    def register_request(cls) -> bytes:
         return REGISTER_REQUEST
 
     # noinspection PyPropertyDefinition
-    @staticmethod
+    @classmethod
     @property
-    def disconnect_request() -> bytes:
+    def disconnect_request(cls) -> bytes:
         return DISCONNECT_REQUEST
 
     # noinspection PyPropertyDefinition
-    @staticmethod
+    @classmethod
     @property
-    def sync_state_request() -> bytes:
+    def sync_state_request(cls) -> bytes:
         return SYNC_STATE_REQUEST
 
     # noinspection PyPropertyDefinition
-    @staticmethod
+    @classmethod
     @property
-    def sync_begin_response() -> bytes:
+    def sync_begin_response(cls) -> bytes:
         return SYNC_BEGIN_RESPONSE
 
     # noinspection PyPropertyDefinition
-    @staticmethod
+    @classmethod
     @property
-    def sync_complete_response() -> bytes:
+    def sync_complete_response(cls) -> bytes:
         return SYNC_COMPLETE_RESPONSE
 
     # noinspection PyPropertyDefinition
