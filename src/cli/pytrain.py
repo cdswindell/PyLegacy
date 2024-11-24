@@ -123,6 +123,13 @@ class PyTrain:
                 print(f"Listening for Lionel Base broadcasts on  {self._base_addr}:{self._base_port}...")
                 self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
                 listeners.append(self._pdi_buffer)
+            # register as server so clients can connect without IP addr
+            self._zeroconf = Zeroconf()
+            self._service_info = self.register_service(
+                self._no_ser2 is False,
+                self._base_addr is not None,
+                self._args.server_port,
+            )
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             print(f"Listening for state updates on {self._args.server_port}...")
@@ -159,16 +166,6 @@ class PyTrain:
                 print(f"Loading roster from Lionel Base at {self._base_addr} ...Done")
             else:
                 print("")
-
-        # register as server so clients can connect without IP addr
-        if isinstance(self.buffer, CommBufferSingleton):
-            # register avahi service
-            self._zeroconf = Zeroconf()
-            self._service_info = self.register_service(
-                self._no_ser2 is False,
-                self._base_addr is not None,
-                self._args.server_port,
-            )
 
         # Start the command line processor
         self.run()
