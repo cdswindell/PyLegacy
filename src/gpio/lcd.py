@@ -102,6 +102,7 @@ class Lcd(CharLCD):
                 self.write_string("\r\n")
                 self._row_pos = r
                 self._col_pos = 0
+                print(row)
         if (
             self._scroll_speed > 0.0
             and len(self._frame_buffer) > 0
