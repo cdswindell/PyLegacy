@@ -140,6 +140,7 @@ class Controller(Thread):
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
             self._synchronized = True
+            self._lcd.clear()
             self.start()
 
     def on_state_update(self) -> None:

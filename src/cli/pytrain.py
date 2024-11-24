@@ -168,6 +168,7 @@ class PyTrain:
             else:
                 print("")
 
+        # register as server so clients can connect without IP addr
         if isinstance(self.buffer, CommBufferSingleton):
             # register avahi service
             self._zeroconf = Zeroconf()

@@ -45,7 +45,6 @@ class Lcd(CharLCD):
         self.create_char(0, SMILEY_CHAR)
         self._rows = rows
         self._cols = cols
-        self._row_pos = self._col_pos = 0
         self._scroll_speed = scroll_speed
         self._backlight_enabled = backlight_enabled
         self._auto_linebreaks = auto_linebreaks
@@ -73,7 +72,6 @@ class Lcd(CharLCD):
     def clear(self) -> None:
         super().clear()
         self.home()
-        self._row_pos = self._col_pos = 0
         self.clear_frame_buffer()
         self.cursor_mode = "hide"
 
@@ -101,8 +99,6 @@ class Lcd(CharLCD):
             if row:
                 self.cursor_pos = (r, 0)
                 self.write_string(row.ljust(self.cols)[: self.cols])
-                self._row_pos = r
-                self._col_pos = 0
         if (
             self._scroll_speed > 0.0
             and len(self._frame_buffer) > 0
