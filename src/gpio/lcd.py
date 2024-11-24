@@ -48,6 +48,7 @@ class Lcd(CharLCD):
         self._row_pos = self._col_pos = 0
         self._scroll_speed = scroll_speed
         self._backlight_enabled = backlight_enabled
+        self._auto_linebreaks = auto_linebreaks
         self.cursor_mode = "hide"
         self.clear()
 
@@ -135,7 +136,7 @@ class Scroller(Thread):
         self._buffer = ""
 
     def run(self) -> None:
-        s = self._buffer + " " + self._buffer
+        s = self._buffer + " " + self._buffer[1:]
         while not self._exit.is_set():
             for i in range(len(self._buffer) + 1):
                 self._lcd.cursor_pos = (0, 0)
