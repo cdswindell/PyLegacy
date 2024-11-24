@@ -140,7 +140,6 @@ class Scroller(Thread):
             for i in range(len(self._buffer) + 1):
                 self._lcd.cursor_pos = (0, 0)
                 self._lcd.print(s[i : i + self._lcd.cols])
-                self._lcd.cursor_pos = (0, 0)
                 self._exit.wait(self._scroll_speed)
                 if self._exit.is_set():
                     break
