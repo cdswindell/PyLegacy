@@ -223,7 +223,7 @@ class Controller(Thread):
 
             self._lcd.write_frame_buffer(clear_display)
             if self._tmcc_id is None:
-                self._lcd.cursor_pos = (1, tmcc_id_pos)
+                self._lcd.cursor_pos = (3, tmcc_id_pos)
 
     @property
     def railroad(self) -> str:

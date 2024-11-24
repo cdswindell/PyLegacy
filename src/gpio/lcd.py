@@ -138,7 +138,7 @@ class Scroller(Thread):
 
     def run(self) -> None:
         s = self._buffer + " " + self._buffer
-        sleep(30)
+        sleep(5)
         while not self._exit.is_set():
             for i in range(len(self._buffer) + 1):
                 self._lcd.cursor_pos = (0, 0)
