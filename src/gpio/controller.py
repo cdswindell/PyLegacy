@@ -196,7 +196,6 @@ class Controller(Thread):
                 rname = self._state.road_name.title() if self._state.road_name else "No Information"
                 rnum = f"#{self._state.road_number} " if self._state.road_number else ""
                 row = f"{rnum}{rname}"
-
             else:
                 row = self.railroad
             self._lcd.add(row)
@@ -221,6 +220,8 @@ class Controller(Thread):
                         row += f"Mom: {self._state.momentum_label:.1} "
                         row += f"TB: {self._state.train_brake_label:.1} "
                         self._lcd.add(row)
+            else:
+                tmcc_id_pos = 0
             self._lcd.write_frame_buffer(clear_display)
             if self._tmcc_id is None:
                 self._lcd.cursor_pos = (1, tmcc_id_pos)
