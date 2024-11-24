@@ -1,4 +1,5 @@
 from threading import Thread, Event
+from time import sleep
 from typing import List
 
 from RPLCD.i2c import CharLCD
@@ -137,11 +138,11 @@ class Scroller(Thread):
 
     def run(self) -> None:
         s = self._buffer + " " + self._buffer
+        sleep(30)
         while not self._exit.is_set():
             for i in range(len(self._buffer) + 1):
                 self._lcd.cursor_pos = (0, 0)
                 self._lcd.write_string(s[i : i + self._lcd.cols])
-                print(s[i : i + self._lcd.cols])
                 self._exit.wait(self._scroll_speed)
                 if self._exit.is_set():
                     break
