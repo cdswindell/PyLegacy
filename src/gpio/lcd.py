@@ -99,8 +99,8 @@ class Lcd(CharLCD):
         for r, row in enumerate(self._frame_buffer):
             print(r, row)
             if row:
+                self.cursor_pos = (r, 0)
                 self.write_string(row.ljust(self.cols)[: self.cols])
-                self.write_string("\r\n")
                 self._row_pos = r
                 self._col_pos = 0
         if (
