@@ -103,6 +103,7 @@ class Controller(Thread):
         else:
             self._engine_controller = None
         self._is_running = True
+        self.update_display()
 
     @property
     def engine_controller(self) -> EngineController:
@@ -140,7 +141,6 @@ class Controller(Thread):
         if self._sync_state.is_synchronized:
             self._synchronized = True
             self.start()
-            self.update_display()
 
     def on_state_update(self) -> None:
         cur_speed = self._state.speed if self._state else None
