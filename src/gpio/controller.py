@@ -139,7 +139,6 @@ class Controller(Thread):
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
-            sleep(20)
             self._synchronized = True
             self.start()
 
