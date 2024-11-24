@@ -1,3 +1,4 @@
+import time
 from threading import Thread, Event
 from typing import List
 
@@ -94,7 +95,6 @@ class Lcd(CharLCD):
     def write_frame_buffer(self, clear_display: bool = True) -> None:
         self.stop_scrolling()
         if clear_display is True:
-            print("clearing screen")
             super().clear()  # call the super, otherwise frame buffer is cleared
         self.home()  # reposition cursor
         for r, row in enumerate(self._frame_buffer):
@@ -104,6 +104,7 @@ class Lcd(CharLCD):
                 self.write_string(row.ljust(self.cols)[: self.cols])
                 self._row_pos = r
                 self._col_pos = 0
+                time.sleep(60)
         if (
             self._scroll_speed > 0.0
             and len(self._frame_buffer) > 0
