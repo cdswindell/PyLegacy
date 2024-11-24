@@ -207,7 +207,6 @@ class Controller(Thread):
                     if self._state:
                         if self._state.control_type is not None:
                             row += f" {self._state.control_type_label}"
-
                 self._lcd.add(row)
                 if self._state is not None:
                     if self._lcd.rows > 2:
@@ -221,7 +220,9 @@ class Controller(Thread):
                         row += f"TB: {self._state.train_brake_label:.1} "
                         self._lcd.add(row)
             else:
+                self._lcd.add("")
                 tmcc_id_pos = 0
+
             self._lcd.write_frame_buffer(clear_display)
             if self._tmcc_id is None:
                 self._lcd.cursor_pos = (1, tmcc_id_pos)
