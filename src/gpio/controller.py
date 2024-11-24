@@ -220,7 +220,6 @@ class Controller(Thread):
                         row += f"TB: {self._state.train_brake_label:.1} "
                         self._lcd.add(row)
             else:
-                self._lcd.add("")
                 tmcc_id_pos = 0
 
             self._lcd.write_frame_buffer(clear_display)
@@ -233,7 +232,7 @@ class Controller(Thread):
             base_state = self._state_store.get_state(CommandScope.BASE, 0, False)
             if base_state and base_state.base_name:
                 self._railroad = base_state.base_name.title()
-        return self._railroad if self._railroad is not None else "Loading Engine & Train Roster..."
+        return self._railroad if self._railroad is not None else "Loading Engine Roster..."
 
     def reset(self) -> None:
         self._is_running = False
