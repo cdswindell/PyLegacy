@@ -81,6 +81,7 @@ class PyTrain:
         self._echo = args.echo
         self._headless = args.headless
         self._no_ser2 = args.no_ser2
+        self._no_wait = args.no_wait
         self._service_info = None
         self._zeroconf = None
         self._pytrain_servers: List[ServiceInfo] = []
@@ -153,20 +154,23 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.SYNC)
 
         if self._pdi_buffer is not None:
-            cycle = 0
-            cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
-            print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle]}", end="\r")
             self._pdi_state_store = PdiStateStore()
             self._get_system_state()
-            sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-            if sync_state is not None:
-                while not sync_state.is_synchronized:
-                    cycle += 1
-                    print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle % 4]}", end="\r")
-                    sleep(0.5)
-                print(f"Loading roster from Lionel Base at {self._base_addr} ...Done")
+            if self._no_wait is False:  # wait for roster download
+                cycle = 0
+                cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
+                print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle]}", end="\r")
+                sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+                if sync_state is not None:
+                    while not sync_state.is_synchronized:
+                        cycle += 1
+                        print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle % 4]}", end="\r")
+                        sleep(0.25)
+                    print(f"Loading roster from Lionel Base at {self._base_addr} ...Done")
+                else:
+                    print("")
             else:
-                print("")
+                print(f"Loading roster from Lionel Base at {self._base_addr}...")
 
         # Start the command line processor
         self.run()
@@ -610,7 +614,8 @@ if __name__ == "__main__":
     parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
     parser.add_argument("-headless", action="store_true", help="Do not prompt for user input (run in the background)")
     parser.add_argument("-no_listeners", action="store_true", help="Do not listen for events")
-    parser.add_argument("-no_ser2", action="store_true", help="Do not send or receive TMCC commands from an LCS SER2")
+    parser.add_argument("-no_ser2", action="store_true", help="Do not send or receive TMCC commands from an LCS Ser2")
+    parser.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
     parser.add_argument("-client", action="store_true", help=f"Connect to an available {PROGRAM_NAME} server")
     parser.add_argument(
         "-server_port",
