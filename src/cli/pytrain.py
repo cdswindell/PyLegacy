@@ -10,6 +10,7 @@ import socket
 import threading
 from datetime import datetime
 from signal import pause
+from time import sleep
 from typing import List, Tuple, Dict, Any
 
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
@@ -152,9 +153,35 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.SYNC)
 
         if self._pdi_buffer is not None:
-            print(f"Loading system state from Lionel Base at {self._base_addr}:{self._base_port}...")
+            cycle = 0
+            cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
+            print(
+                f"Loading roster from Lionel Base at {self._base_addr}:{self._base_port}... {cursor[cycle]}", end="\r"
+            )
             self._pdi_state_store = PdiStateStore()
             self._get_system_state()
+            sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+            if sync_state is not None:
+                while not sync_state.is_synchronized:
+                    cycle += 1
+                    print(
+                        f"Loading roster from Lionel Base at {self._base_addr}:{self._base_port}... "
+                        f"{cursor[cycle % 4]}",
+                        end="\r",
+                    )
+                    sleep(0.5)
+                print(f"Loading roster from Lionel Base at {self._base_addr}:{self._base_port}... Done")
+            else:
+                print("")
+
+        if isinstance(self.buffer, CommBufferSingleton):
+            # register avahi service
+            self._zeroconf = Zeroconf()
+            self._service_info = self.register_service(
+                self._no_ser2 is False,
+                self._base_addr is not None,
+                self._args.server_port,
+            )
 
         # Start the command line processor
         self.run()
