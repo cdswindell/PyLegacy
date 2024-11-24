@@ -1,4 +1,3 @@
-import time
 from threading import Thread, Event
 from typing import List
 
@@ -104,7 +103,6 @@ class Lcd(CharLCD):
                 self.write_string(row.ljust(self.cols)[: self.cols])
                 self._row_pos = r
                 self._col_pos = 0
-                time.sleep(60)
         if (
             self._scroll_speed > 0.0
             and len(self._frame_buffer) > 0
@@ -139,11 +137,11 @@ class Scroller(Thread):
 
     def run(self) -> None:
         s = self._buffer + " " + self._buffer
+        print(s)
         while not self._exit.is_set():
             for i in range(len(self._buffer) + 1):
                 self._lcd.cursor_pos = (0, 0)
                 self._lcd.print(s[i : i + self._lcd.cols])
-                self._lcd.cursor_pos = (0, 0)
                 self._exit.wait(self._scroll_speed)
                 if self._exit.is_set():
                     break
