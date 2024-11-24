@@ -123,6 +123,7 @@ class PyTrain:
                 print(f"Listening for Lionel Base broadcasts on  {self._base_addr}:{self._base_port}...")
                 self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
                 listeners.append(self._pdi_buffer)
+
             # register as server so clients can connect without IP addr
             self._zeroconf = Zeroconf()
             self._service_info = self.register_service(
