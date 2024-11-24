@@ -110,14 +110,6 @@ class PyTrain:
         )
         listeners = []
         if isinstance(self.buffer, CommBufferSingleton):
-            # register avahi service
-            self._zeroconf = Zeroconf()
-            self._service_info = self.register_service(
-                self._no_ser2 is False,
-                self._base_addr is not None,
-                self._args.server_port,
-            )
-
             if self._no_ser2:
                 print(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
             else:
