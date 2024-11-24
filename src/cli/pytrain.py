@@ -155,22 +155,16 @@ class PyTrain:
         if self._pdi_buffer is not None:
             cycle = 0
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
-            print(
-                f"Loading roster from Lionel Base at {self._base_addr}:{self._base_port}... {cursor[cycle]}", end="\r"
-            )
+            print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle]}", end="\r")
             self._pdi_state_store = PdiStateStore()
             self._get_system_state()
             sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
             if sync_state is not None:
                 while not sync_state.is_synchronized:
                     cycle += 1
-                    print(
-                        f"Loading roster from Lionel Base at {self._base_addr}:{self._base_port}... "
-                        f"{cursor[cycle % 4]}",
-                        end="\r",
-                    )
+                    print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle % 4]}", end="\r")
                     sleep(0.5)
-                print(f"Loading roster from Lionel Base at {self._base_addr}:{self._base_port}... Done")
+                print(f"Loading roster from Lionel Base at {self._base_addr} ...Done")
             else:
                 print("")
 
