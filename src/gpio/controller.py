@@ -223,8 +223,8 @@ class Controller(Thread):
                 tmcc_id_pos = 0
 
             self._lcd.write_frame_buffer(clear_display)
-            if self._tmcc_id is None:
-                self._lcd.cursor_pos = (3, tmcc_id_pos)
+            if self.is_synchronized and self._tmcc_id is None:
+                self._lcd.cursor_pos = (1, tmcc_id_pos)
 
     @property
     def railroad(self) -> str:
