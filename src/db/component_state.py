@@ -330,7 +330,7 @@ class TmccState(ComponentState, ABC):
 
     @property
     def is_lcs(self) -> bool:
-        return True
+        return False
 
 
 class LcsState(ComponentState, ABC):
