@@ -221,6 +221,7 @@ class ComponentState(ABC):
 
         self.changed.clear()
         if command and self._last_command and command.as_bytes == self._last_command.as_bytes:
+            # TODO: should this be removed, now that we send fewer commands?
             return
         if command and command.command != TMCC1HaltCommandDef.HALT:
             if self._address is None and command.address != BROADCAST_ADDRESS:
