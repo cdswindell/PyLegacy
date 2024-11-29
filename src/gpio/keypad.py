@@ -286,8 +286,6 @@ class KeyPadI2C:
                     self._last_keypress = self._keypress
                     self._keypress = key
                     self._keypress_handler(self)
-                    print("Key pressed:", key)
-                time.sleep(0.1)
 
     def read_keypad(self, bus):
         """Reads the state of the matrix keypad."""
@@ -296,7 +294,10 @@ class KeyPadI2C:
             time.sleep(0.001)
             for c, col_pin in enumerate(self._col_pins):
                 if bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
+                    while bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
+                        time.sleep(0.05)
                     return self._keys[r][c]
+        time.sleep(0.05)
         return None
 
 

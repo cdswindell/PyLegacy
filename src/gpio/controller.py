@@ -3,7 +3,7 @@ from time import sleep
 from typing import List
 
 from .engine_controller import EngineController
-from .keypad import Keypad
+from .keypad import Keypad, KeyPadI2C, PCF8574_ADDRESS
 from .lcd import Lcd
 from ..db.state_watcher import StateWatcher
 from ..protocol.constants import PROGRAM_NAME, CommandScope
@@ -32,8 +32,8 @@ COMMANDS_OF_INTEREST = {
 class Controller(Thread):
     def __init__(
         self,
-        row_pins: List[int | str],
-        column_pins: List[int | str],
+        row_pins: List[int | str] = None,
+        column_pins: List[int | str] = None,
         speed_pins: List[int | str] = None,
         halt_pin: int | str = None,
         reset_pin: int | str = None,
@@ -57,11 +57,15 @@ class Controller(Thread):
         lcd_address: int = 0x27,
         lcd_rows: int = 4,
         lcd_cols: int = 20,
+        keypad: Keypad | KeyPadI2C = None,
     ):
         super().__init__(name=f"{PROGRAM_NAME} Controller", daemon=True)
         self._lock = Lock()
         self._lcd = Lcd(address=lcd_address, rows=lcd_rows, cols=lcd_cols)
-        self._keypad = Keypad(row_pins, column_pins)
+        if row_pins and column_pins:
+            self._keypad = Keypad(row_pins, column_pins)
+        else:
+            self._keypad = keypad
         self._key_queue = self._keypad.key_queue
         self._last_listener = None
         self._state_store = ComponentStateStore.build()
@@ -250,3 +254,60 @@ class Controller(Thread):
 
     def close(self) -> None:
         self.reset()
+
+
+class ControllerI2C(Controller):
+    def __init__(
+        self,
+        i2c_address: int = PCF8574_ADDRESS,
+        speed_pins: List[int | str] = None,
+        halt_pin: int | str = None,
+        reset_pin: int | str = None,
+        fwd_pin: int | str = None,
+        rev_pin: int | str = None,
+        toggle_pin: int | str = None,
+        start_up_pin: int | str = None,
+        shutdown_pin: int | str = None,
+        boost_pin: int | str = None,
+        brake_pin: int | str = None,
+        bell_pin: int | str = None,
+        horn_pin: int | str = None,
+        rpm_up_pin: int | str = None,
+        rpm_down_pin: int | str = None,
+        vol_up_pin: int | str = None,
+        vol_down_pin: int | str = None,
+        smoke_on_pin: int | str = None,
+        smoke_off_pin: int | str = None,
+        train_brake_chn: int | str = None,
+        quilling_horn_chn: int | str = None,
+        lcd_address: int = 0x27,
+        lcd_rows: int = 4,
+        lcd_cols: int = 20,
+    ):
+        keypad = KeyPadI2C(i2c_address)
+        super().__init__(
+            speed_pins=speed_pins,
+            halt_pin=halt_pin,
+            reset_pin=reset_pin,
+            fwd_pin=fwd_pin,
+            rev_pin=rev_pin,
+            toggle_pin=toggle_pin,
+            start_up_pin=start_up_pin,
+            shutdown_pin=shutdown_pin,
+            boost_pin=boost_pin,
+            brake_pin=brake_pin,
+            bell_pin=bell_pin,
+            horn_pin=horn_pin,
+            rpm_up_pin=rpm_up_pin,
+            rpm_down_pin=rpm_down_pin,
+            vol_up_pin=vol_up_pin,
+            vol_down_pin=vol_down_pin,
+            smoke_on_pin=smoke_on_pin,
+            smoke_off_pin=smoke_off_pin,
+            train_brake_chn=train_brake_chn,
+            quilling_horn_chn=quilling_horn_chn,
+            lcd_address=lcd_address,
+            lcd_rows=lcd_rows,
+            lcd_cols=lcd_cols,
+            keypad=keypad,
+        )

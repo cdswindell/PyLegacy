@@ -32,14 +32,21 @@ from src.gpio.gpio_handler import GpioHandler
 # GpioHandler.base_watcher("192.168.3.124", 5, 6)
 
 # GpioHandler.crane_car(91, 20, 21, 0, 16, bh_pin=25, bo_led_pin=23, bh_led_pin=24)
+# GpioHandler.controller(
+#     row_pins=[18, 23, 24, 25],
+#     column_pins=[12, 16, 20, 21],
+#     speed_pins=[19, 26],
+#     rpm_up_pin=4,
+#     lcd_address=0x27,
+#     lcd_rows=4,
+#     lcd_cols=20,
+# )
+
 GpioHandler.controller(
-    row_pins=[18, 23, 24, 25],
-    column_pins=[12, 16, 20, 21],
     speed_pins=[19, 26],
     rpm_up_pin=4,
     lcd_address=0x27,
     lcd_rows=4,
     lcd_cols=20,
 )
-
 print("Buttons registered...")

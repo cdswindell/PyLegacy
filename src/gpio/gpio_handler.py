@@ -8,7 +8,7 @@ from typing import Tuple, Callable, Dict, TypeVar, List
 
 from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice, PingServer
 
-from .controller import Controller
+from .controller import Controller, ControllerI2C
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache, ComponentStateStore
@@ -330,6 +330,7 @@ class GpioHandler:
     @classmethod
     def controller(
         cls,
+        i2c_address: int | None = None,
         row_pins: List[int | str] = None,
         column_pins: List[int | str] = None,
         speed_pins: List[int | str] = None,
@@ -356,33 +357,61 @@ class GpioHandler:
         lcd_rows: int = 4,
         lcd_cols: int = 20,
     ) -> Controller:
-        c = Controller(
-            row_pins=row_pins,
-            column_pins=column_pins,
-            speed_pins=speed_pins,
-            halt_pin=halt_pin,
-            reset_pin=reset_pin,
-            fwd_pin=fwd_pin,
-            rev_pin=rev_pin,
-            toggle_pin=toggle_pin,
-            start_up_pin=start_up_pin,
-            shutdown_pin=shutdown_pin,
-            boost_pin=boost_pin,
-            brake_pin=brake_pin,
-            bell_pin=bell_pin,
-            horn_pin=horn_pin,
-            rpm_up_pin=rpm_up_pin,
-            rpm_down_pin=rpm_down_pin,
-            vol_up_pin=vol_up_pin,
-            vol_down_pin=vol_down_pin,
-            smoke_on_pin=smoke_on_pin,
-            smoke_off_pin=smoke_off_pin,
-            train_brake_chn=train_brake_chn,
-            quilling_horn_chn=quilling_horn_chn,
-            lcd_address=lcd_address,
-            lcd_rows=lcd_rows,
-            lcd_cols=lcd_cols,
-        )
+        if row_pins and column_pins:
+            c = Controller(
+                row_pins=row_pins,
+                column_pins=column_pins,
+                speed_pins=speed_pins,
+                halt_pin=halt_pin,
+                reset_pin=reset_pin,
+                fwd_pin=fwd_pin,
+                rev_pin=rev_pin,
+                toggle_pin=toggle_pin,
+                start_up_pin=start_up_pin,
+                shutdown_pin=shutdown_pin,
+                boost_pin=boost_pin,
+                brake_pin=brake_pin,
+                bell_pin=bell_pin,
+                horn_pin=horn_pin,
+                rpm_up_pin=rpm_up_pin,
+                rpm_down_pin=rpm_down_pin,
+                vol_up_pin=vol_up_pin,
+                vol_down_pin=vol_down_pin,
+                smoke_on_pin=smoke_on_pin,
+                smoke_off_pin=smoke_off_pin,
+                train_brake_chn=train_brake_chn,
+                quilling_horn_chn=quilling_horn_chn,
+                lcd_address=lcd_address,
+                lcd_rows=lcd_rows,
+                lcd_cols=lcd_cols,
+            )
+        else:
+            c = ControllerI2C(
+                i2c_address=i2c_address,
+                speed_pins=speed_pins,
+                halt_pin=halt_pin,
+                reset_pin=reset_pin,
+                fwd_pin=fwd_pin,
+                rev_pin=rev_pin,
+                toggle_pin=toggle_pin,
+                start_up_pin=start_up_pin,
+                shutdown_pin=shutdown_pin,
+                boost_pin=boost_pin,
+                brake_pin=brake_pin,
+                bell_pin=bell_pin,
+                horn_pin=horn_pin,
+                rpm_up_pin=rpm_up_pin,
+                rpm_down_pin=rpm_down_pin,
+                vol_up_pin=vol_up_pin,
+                vol_down_pin=vol_down_pin,
+                smoke_on_pin=smoke_on_pin,
+                smoke_off_pin=smoke_off_pin,
+                train_brake_chn=train_brake_chn,
+                quilling_horn_chn=quilling_horn_chn,
+                lcd_address=lcd_address,
+                lcd_rows=lcd_rows,
+                lcd_cols=lcd_cols,
+            )
         cls.cache_handler(c)
         return c
 
