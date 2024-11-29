@@ -7,6 +7,7 @@ from typing import List, Callable
 
 from gpiozero import Button, CompositeDevice, GPIOPinMissing, DigitalOutputDevice, event, EventsMixin
 from gpiozero.threads import GPIOThread
+from smbus2 import SMBus
 
 DEFAULT_4X4_KEYS = (
     ("1", "2", "3", "A"),
@@ -209,6 +210,96 @@ Keypad.wait_for_press = Keypad.wait_for_active
 Keypad.wait_for_release = Keypad.wait_for_inactive
 
 
+# PCF8574T address
+PCF8574_ADDRESS = 0x20
+
+# Row pins on the PCF8574T
+ROW_PINS = (0, 1, 2, 3)
+
+# Column pins on the PCF8574T
+COL_PINS = (4, 5, 6, 7)
+
+
+class KeyPadI2C:
+    def __init__(
+        self,
+        i2c_address: int = PCF8574_ADDRESS,
+        row_pins: List[int] = ROW_PINS,
+        col_pins: List[int] = COL_PINS,
+        keys: List[List[str]] = DEFAULT_4X4_KEYS,
+        key_queue: KeyQueue = None,
+    ):
+        self._i2c_address = i2c_address
+        self._row_pins = row_pins
+        self._col_pins = col_pins
+        self._is_running = True
+        self._last_value = None
+        self._keypress = self._last_keypress = None
+        self._keys = keys
+        if key_queue is None:
+            self._key_queue = KeyQueue()
+        elif isinstance(key_queue, KeyQueue):
+            self._key_queue = key_queue
+        else:
+            raise ValueError(f"{key_queue} is not a KeyQueue")
+        self._keypress_handler = self._key_queue.keypress_handler()
+
+        # create the background thread to continually scan the matrix
+        self._scan_thread = GPIOThread(self._scan_keyboard)
+        self._is_running = True
+        self._scan_thread.start()
+
+    def close(self) -> None:
+        self._is_running = False
+        if self._key_queue:
+            self._key_queue.reset()
+
+    @property
+    def keypress(self) -> str | None:
+        return self._keypress
+
+    @property
+    def last_keypress(self) -> str | None:
+        return self._last_keypress
+
+    @property
+    def key_queue(self) -> KeyQueue:
+        return self._key_queue
+
+    def _scan_keyboard(self) -> None:
+        """
+        Scan the keys and handle keypress events in a loop that runs in a
+        background thread.
+
+        This method continuously scans the keys of a matrix keypad until
+        the _is_running flag is set to False. For each row, it checks each
+        column to detect if a key is pressed and handles keypress events
+        accordingly.
+
+        The method ensures a rest period to avoid excessive CPU usage
+        when no key is pressed.
+        """
+        with SMBus(1) as bus:  # Use the appropriate I2C bus number
+            while self._is_running:
+                key = self.read_keypad(bus)
+                if key is not None:
+                    self._last_keypress = self._keypress
+                    self._keypress = key
+                    self._keypress_handler(self)
+                    print("Key pressed:", key)
+                time.sleep(0.1)
+
+    def read_keypad(self, bus):
+        """Reads the state of the matrix keypad."""
+        for r, row_pin in enumerate(self._row_pins):
+            bus.write_byte(self._i2c_address, 0xFF & ~(1 << row_pin))
+            time.sleep(0.001)
+            for c, col_pin in enumerate(self._col_pins):
+                if bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
+                    return self._keys[r][c]
+        return None
+
+
 class KeyQueue:
     def __init__(
         self,
@@ -289,17 +380,3 @@ class KeyQueue:
                 self._eol_ev.clear()
                 return self.keypresses
         return None
-
-
-# Initialize the columns
-# col1 = Button(12, pull_up=False)
-# col2 = Button(16, pull_up=False)
-# col3 = Button(20, pull_up=False)
-# col4 = Button(21, pull_up=False)
-# columns = [col1, col2, col3, col4]
-#
-# row1 = LED(18)
-# row2 = LED(23)
-# row3 = LED(24)
-# row4 = LED(25)
-# rows = [row1, row2, row3, row4]
