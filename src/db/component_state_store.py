@@ -55,6 +55,12 @@ class ComponentStateStore:
             return cls._instance.query(scope, address)
 
     @classmethod
+    def set_state(cls, scope: CommandScope, address: int, state: T) -> None:
+        if cls._instance is None:
+            raise AttributeError("ComponentStateStore not built")
+        cls._instance._state[scope][address] = state
+
+    @classmethod
     def reset(cls) -> None:
         with cls._lock:
             if cls._instance:

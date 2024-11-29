@@ -206,7 +206,7 @@ class ComponentState(ABC):
         return self._road_number
 
     @property
-    def name(self):
+    def name(self) -> str:
         the_name = "#" + self.road_number if self.road_number else ""
         the_name = self.road_name + " " + the_name if self.road_name else "NA"
         return the_name
@@ -245,6 +245,16 @@ class ComponentState(ABC):
                     self._road_name = command.name
                 if hasattr(command, "number") and command.number:
                     self._road_number = command.number
+                    # support lookup by road number
+                    if self.road_number:
+                        try:
+                            from .component_state_store import ComponentStateStore
+
+                            rn = int(self.road_number)
+                            if rn > 99 and ComponentStateStore.get_state(self.scope, rn, False) is None:
+                                ComponentStateStore.set_state(self.scope, rn, self)
+                        except ValueError:
+                            pass
             if isinstance(command, PdiReq):
                 if hasattr(command, "spare_1"):
                     self._spare_1 = command.spare_1
