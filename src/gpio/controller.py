@@ -175,6 +175,12 @@ class Controller(Thread):
 
     def update_engine(self, engine_id: str | int):
         tmcc_id = int(engine_id)
+        # allow use of road numbers; unless an engine supports 4 digit addressing,
+        # road numbers are >= 100
+        if tmcc_id > 99:
+            state = ComponentStateStore.get_state(self._scope, tmcc_id, False)
+            if state:
+                tmcc_id = state.tmcc_id
         if self._tmcc_id is not None and tmcc_id != self._tmcc_id:
             self.cache_engine()
         self._tmcc_id = tmcc_id
