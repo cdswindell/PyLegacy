@@ -1474,8 +1474,11 @@ class PyRotaryEncoder(RotaryEncoder):
                         last_step = self.last_steps
                         self._last_steps = self.steps = step
                         data = self._steps_to_data(step)
-                        v = self.value
-                        log.info(f"os: {last_step:>4} ns: {step:>4} m: {step_mod:>3} nd: {data} {v} {last_rotated}")
+                        if log.isEnabledFor(logging.DEBUG):
+                            v = self.value
+                            log.debug(
+                                f"os: {last_step:>4} ns: {step:>4} m: {step_mod:>3} nd: {data} {v} {last_rotated}"
+                            )
                     else:
                         data = step_mod
                     self._last_known_data = cmd.data = data
