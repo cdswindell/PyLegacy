@@ -280,13 +280,13 @@ class PdiDispatcher(Thread):
                         # response to the request for info on Train 98...
                         if cmd.pdi_command == PdiCommand.BASE_TRAIN and cmd.tmcc_id == 98:
                             CommandDispatcher.get().offer(SYNC_COMPLETE)
-                        if cmd.is_active is False:
+                        if cmd.is_ack is True or cmd.is_active is False:
                             continue
                     # for TMCC requests, forward to TMCC Command Dispatcher, but only if
                     # we are not also listening for TMCC commands via an LCS Ser2
                     if isinstance(cmd, TmccReq) and self._tmcc_dispatcher.is_ser2_receiver is False:
                         self._tmcc_dispatcher.offer(cmd.tmcc_command)
-                    elif (1 <= cmd.tmcc_id <= 99) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
+                    elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
                         if hasattr(cmd, "action"):
                             self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
                         self.publish((cmd.scope, cmd.tmcc_id), cmd)

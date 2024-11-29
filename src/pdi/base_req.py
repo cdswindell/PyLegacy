@@ -413,6 +413,10 @@ class BaseReq(PdiReq):
         return None
 
     @property
+    def is_ack(self) -> bool:
+        return self._valid1 is None and self._valid2 is None
+
+    @property
     def is_active(self) -> bool:
         if self.pdi_command in [
             PdiCommand.BASE_ENGINE,
