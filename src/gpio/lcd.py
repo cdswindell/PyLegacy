@@ -95,6 +95,7 @@ class Lcd(CharLCD):
         if clear_display is True:
             super().clear()  # call the super, otherwise frame buffer is cleared
         self.home()  # reposition cursor
+        self.cursor_mode = "hide"
         for r, row in enumerate(self._frame_buffer):
             if row:
                 self.cursor_pos = (r, 0)
@@ -141,3 +142,4 @@ class Scroller(Thread):
                 if self._exit.is_set():
                     break
         self._lcd.cursor_pos = (0, 0)
+        self._lcd.cursor_mode = "hide"
