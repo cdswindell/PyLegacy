@@ -330,7 +330,7 @@ class GpioHandler:
     @classmethod
     def controller(
         cls,
-        i2c_address: int | None = None,
+        keypad_address: int | None = None,
         row_pins: List[int | str] = None,
         column_pins: List[int | str] = None,
         speed_pins: List[int | str] = None,
@@ -387,7 +387,7 @@ class GpioHandler:
             )
         else:
             c = ControllerI2C(
-                i2c_address=i2c_address,
+                keypad_address=keypad_address,
                 speed_pins=speed_pins,
                 halt_pin=halt_pin,
                 reset_pin=reset_pin,
