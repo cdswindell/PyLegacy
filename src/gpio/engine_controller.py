@@ -68,11 +68,11 @@ class EngineController:
             from .gpio_handler import PyRotaryEncoder
 
             ramp = {
-                20: 6,
-                50: 5,
-                100: 4,
-                200: 3,
-                300: 2,
+                20: 3,
+                50: 3,
+                100: 2,
+                200: 1,
+                300: 1,
                 500: 1,
             }
             self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False, ramp=ramp, max_steps=200)
