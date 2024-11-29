@@ -259,7 +259,7 @@ class Controller(Thread):
 class ControllerI2C(Controller):
     def __init__(
         self,
-        i2c_address: int = PCF8574_ADDRESS,
+        keypad_address: int = PCF8574_ADDRESS,
         speed_pins: List[int | str] = None,
         halt_pin: int | str = None,
         reset_pin: int | str = None,
@@ -284,7 +284,7 @@ class ControllerI2C(Controller):
         lcd_rows: int = 4,
         lcd_cols: int = 20,
     ):
-        keypad = KeyPadI2C(i2c_address)
+        keypad = KeyPadI2C(keypad_address)
         super().__init__(
             speed_pins=speed_pins,
             halt_pin=halt_pin,
