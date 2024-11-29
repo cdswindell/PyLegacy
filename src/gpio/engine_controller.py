@@ -75,7 +75,7 @@ class EngineController:
                 300: 2,
                 500: 1,
             }
-            self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False, ramp=ramp)
+            self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False, ramp=ramp, max_steps=200)
             self._tmcc1_when_rotated = CommandReq(TMCC1EngineCommandDef.ABSOLUTE_SPEED)
             self._tmcc2_when_rotated = CommandReq(TMCC2EngineCommandDef.ABSOLUTE_SPEED)
         else:
@@ -333,8 +333,8 @@ class EngineController:
             when_rotated.address = self._tmcc_id
             when_rotated.scope = scope
             max_speed = min(cur_state.max_speed, cur_state.speed_limit)
-            steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -100, 100)
-            speed_to_steps = GpioHandler.make_interpolator(100, -100, 0, max_speed)
+            steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -200, 200)
+            speed_to_steps = GpioHandler.make_interpolator(200, -200, 0, max_speed)
             self._speed_re.update_action(when_rotated, cur_state, steps_to_speed, speed_to_steps)
 
     def on_speed_changed(self, new_speed: int) -> None:
