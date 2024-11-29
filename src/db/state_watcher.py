@@ -1,8 +1,11 @@
+import logging
 from threading import Thread
 from typing import Callable
 
 from src.db.component_state import ComponentState
 from src.protocol.constants import PROGRAM_NAME
+
+log = logging.getLogger(__name__)
 
 
 class StateWatcher(Thread):
@@ -22,5 +25,6 @@ class StateWatcher(Thread):
         while self._state is not None and self._is_running:
             with self._state.synchronizer:
                 self._state.synchronizer.wait()
+                log.info(self._state.last_command)
                 if self._is_running:
                     self._action()
