@@ -180,7 +180,7 @@ class Controller(Thread):
         if tmcc_id > 99:
             state = ComponentStateStore.get_state(self._scope, tmcc_id, False)
             if state:
-                tmcc_id = state.tmcc_id
+                tmcc_id = state.address
         if self._tmcc_id is not None and tmcc_id != self._tmcc_id:
             self.cache_engine()
         self._tmcc_id = tmcc_id

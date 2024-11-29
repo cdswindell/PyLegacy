@@ -182,6 +182,10 @@ class ComponentState(ABC):
         return self._address
 
     @property
+    def tmcc_id(self) -> int:
+        return self.address
+
+    @property
     def last_command(self) -> CommandReq:
         return self._last_command
 
