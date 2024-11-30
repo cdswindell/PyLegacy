@@ -355,6 +355,10 @@ class BaseReq(PdiReq):
         return self._run_level
 
     @property
+    def labor_bias(self) -> int:
+        return self._labor_bias
+
+    @property
     def momentum_tmcc(self) -> int:
         return self._momentum_tmcc
 
