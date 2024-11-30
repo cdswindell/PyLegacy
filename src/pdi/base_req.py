@@ -522,7 +522,7 @@ class BaseReq(PdiReq):
                     byte_str += (0).to_bytes(3, byteorder="little")  # 3 misc fields
                     byte_str += self._speed_step.to_bytes(1, byteorder="little")
                     byte_str += self._run_level.to_bytes(1, byteorder="little")
-                    byte_str += (0).to_bytes(1, byteorder="little")  # labor bias
+                    byte_str += self._labor_bias.to_bytes(1, byteorder="little")  # labor bias
                     byte_str += self._speed_limit.to_bytes(1, byteorder="little")
                     byte_str += self._max_speed.to_bytes(1, byteorder="little")
                     byte_str += (0).to_bytes(6, byteorder="little")
