@@ -33,7 +33,7 @@ ENGINE_WRITE_MAP = {
     "STOP_IMMEDIATE": (11, 56, lambda t: 0),
     "RESET": (11, 56, lambda t: 0),
     "DIESEL_RPM": (12, 57, None),
-    "ENGINE_LABOR": (13, 58, lambda t: t + 12),
+    "ENGINE_LABOR": (13, 58, lambda t: t - 12 if t >= 12 else 20 + t),
     "SMOKE_HIGH": (20, 65, lambda t: 3),
     "SMOKE_MEDIUM": (20, 65, lambda t: 2),
     "SMOKE_LOW": (20, 65, lambda t: 1),
@@ -255,7 +255,8 @@ class BaseReq(PdiReq):
                     self._number = state.road_number
                     self._valid1 = 0b1100
                     if isinstance(state, EngineState):
-                        self._valid1 = 0b1101100011111100
+                        lb = state.labor
+                        self._valid1 = 0b1111100011111100
                         self._valid2 = 0b11000000
                         self._speed_step = state.speed
                         self._speed_limit = state.speed_limit
@@ -265,6 +266,7 @@ class BaseReq(PdiReq):
                         self._train_brake = round(state.train_brake * 2.143)
                         self._train_brake_tmcc = state.train_brake
                         self._run_level = state.rpm
+                        self._labor_bias = lb - 12 if lb >= 12 else 20 + lb
                         self._scope = state.scope
                         self._control_type = state.control_type
                         self._sound_type = state.sound_type
@@ -357,6 +359,10 @@ class BaseReq(PdiReq):
     @property
     def labor_bias(self) -> int:
         return self._labor_bias
+
+    @property
+    def labor_bias_tmcc(self) -> int:
+        return self._labor_bias + 12 if self._labor_bias <= 19 else self._labor_bias - 20
 
     @property
     def momentum_tmcc(self) -> int:
