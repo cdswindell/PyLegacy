@@ -222,12 +222,13 @@ class Controller(Thread):
                     if self._lcd.rows > 2:
                         row = f"Speed: {self._state.speed if self._state.speed is not None else 'N/A':03} "
                         row += self._state.direction_label
-                        row += f"  {self._state.year if self._state.year else ''}"
+                        row += f" Lbr: {self._state.labor_label:.2} "
+                        # row += f"  {self._state.year if self._state.year else ''}"
                         self._lcd.add(row)
                     if self._lcd.rows > 3:
-                        row = f"RPM: {self._state.rpm_label:.1} "
                         row += f"Mom: {self._state.momentum_label:.1} "
                         row += f"TB: {self._state.train_brake_label:.1} "
+                        row = f"RPM: {self._state.rpm_label:.1}"
                         self._lcd.add(row)
             else:
                 tmcc_id_pos = 0
