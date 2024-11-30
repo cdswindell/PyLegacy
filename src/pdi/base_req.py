@@ -266,7 +266,6 @@ class BaseReq(PdiReq):
                         self._train_brake_tmcc = state.train_brake
                         self._run_level = state.rpm
                         self._labor_bias = state.labor - 12 if state.labor >= 12 else 20 + state.labor
-                        print(f"TMCC: {state.labor}  PDI: {self._labor_bias}")
                         self._scope = state.scope
                         self._control_type = state.control_type
                         self._sound_type = state.sound_type

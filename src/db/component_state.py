@@ -887,7 +887,6 @@ class EngineState(ComponentState):
                         self._rpm = command.run_level
                     if command.is_valid(EngineBits.LABOR_BIAS):
                         self._labor = command.labor_bias_tmcc
-                        print(f"TMCC: {command.labor_bias_tmcc} PDI: {command.labor_bias}")
                     if command.is_valid(EngineBits.CONTROL_TYPE):
                         self._control_type = command.control_id
                         self._is_legacy = command.is_legacy
