@@ -72,6 +72,10 @@ RPM_SET = {
     TMCC2EngineCommandDef.DIESEL_RPM,
 }
 
+LABOR_SET = {
+    TMCC2EngineCommandDef.ENGINE_LABOR,
+}
+
 NUMERIC_SET = {
     TMCC1EngineCommandDef.NUMERIC,
     TMCC2EngineCommandDef.NUMERIC,
@@ -618,6 +622,7 @@ class EngineState(ComponentState):
         self._train_brake: int | None = None
         self._prod_year: int | None = None
         self._rpm: int | None = None
+        self._labor: int | None = None
         self._control_type: int | None = None
         self._sound_type: int | None = None
         self._engine_type: int | None = None
@@ -632,7 +637,7 @@ class EngineState(ComponentState):
         self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
-        sp = dr = ss = name = num = mom = rl = yr = nu = lt = tb = aux = ""
+        sp = dr = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = ""
         if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
             dr = " FWD"
         elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
@@ -657,6 +662,8 @@ class EngineState(ComponentState):
             tb = f" TB: {self.train_brake_label}"
         if self._rpm is not None:
             rl = f" RPM: {self._rpm}"
+        if self._labor is not None:
+            lb = f" Labor: {self._labor}"
         if self._numeric is not None:
             nu = f" Num: {self._numeric}"
         if self.road_name is not None:
@@ -672,7 +679,7 @@ class EngineState(ComponentState):
         # if self.engine_class is not None:
         #     cl = f" Class: {LOCO_CLASS.get(self.engine_class, 'NA')}"
         ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
-        return f"{self.scope.title} {self._address:02}{sp}{rl}{mom}{tb}{dr}{nu}{aux}{name}{num}{lt}{ct}{yr}{ss}"
+        return f"{self.scope.title} {self._address:02}{sp}{rl}{lb}{mom}{tb}{dr}{nu}{aux}{name}{num}{lt}{ct}{yr}{ss}"
 
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
@@ -795,6 +802,18 @@ class EngineState(ComponentState):
                             log.debug(f"{command} {rpm} {type(rpm)} {cmd_effects}")
                         self._rpm = 0
 
+                # handle labor
+                if command.command in LABOR_SET:
+                    self._labor = command.data
+                elif cmd_effects & LABOR_SET:
+                    labor = self._harvest_effect(cmd_effects & LABOR_SET)
+                    if isinstance(labor, tuple) and len(labor) == 2:
+                        self._labor = labor[1]
+                    else:
+                        if log.isEnabledFor(logging.DEBUG):
+                            log.debug(f"{command} {labor} {type(labor)} {cmd_effects}")
+                        self._speed = 0
+
                 # handle speed
                 if command.command in SPEED_SET:
                     self._speed = command.data
@@ -866,6 +885,9 @@ class EngineState(ComponentState):
                         self._momentum = command.momentum_tmcc
                     if command.is_valid(EngineBits.RUN_LEVEL):
                         self._rpm = command.run_level
+                    if command.is_valid(EngineBits.LABOR_BIAS):
+                        print(f"Labor Bias: {command.labor_bias} ({self.labor})")
+                        # self._rpm = command.run_level
                     if command.is_valid(EngineBits.CONTROL_TYPE):
                         self._control_type = command.control_id
                         self._is_legacy = command.is_legacy
@@ -952,6 +974,14 @@ class EngineState(ComponentState):
     @property
     def rpm_label(self) -> str:
         return self._as_label(self.rpm)
+
+    @property
+    def labor(self) -> int:
+        return self._labor
+
+    @property
+    def labor_label(self) -> str:
+        return self._as_label(self.labor)
 
     @property
     def train_brake(self) -> int:
