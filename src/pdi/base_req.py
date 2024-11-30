@@ -33,7 +33,7 @@ ENGINE_WRITE_MAP = {
     "STOP_IMMEDIATE": (11, 56, lambda t: 0),
     "RESET": (11, 56, lambda t: 0),
     "DIESEL_RPM": (12, 57, None),
-    "ENGINE_LABOR": (13, 58, lambda t: t - 12 if t <= 19 else 20 + t),
+    "ENGINE_LABOR": (13, 58, lambda t: t - 12 if t >= 12 else 20 + t),
     "SMOKE_HIGH": (20, 65, lambda t: 3),
     "SMOKE_MEDIUM": (20, 65, lambda t: 2),
     "SMOKE_LOW": (20, 65, lambda t: 1),
