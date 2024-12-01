@@ -104,6 +104,18 @@ export PYTHONPATH=.
 
 You may wish to create a macro or alias to issue these commands for you.
 
+## Raspberry Pi Configuration
+
+```
+Console autologin
+
+Enable SPI
+Enable I2C
+Disable Serial Port
+Disable Camera Auto detect
+Disable Audio
+```
+
 ## Licensing
 
 This software and its use are governed by the GNU Lesser General Public License.
