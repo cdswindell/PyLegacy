@@ -3,8 +3,8 @@ from time import sleep
 from typing import List
 
 from .engine_controller import EngineController
-from .keypad import Keypad, KeyPadI2C, PCF8574_ADDRESS
-from .lcd import Lcd
+from .keypad import Keypad, KeyPadI2C, KEYPAD_PCF8574_ADDRESS
+from .lcd import Lcd, LCD_PCF8574_ADDRESS
 from ..db.state_watcher import StateWatcher
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..db.component_state_store import ComponentStateStore
@@ -39,7 +39,6 @@ class Controller(Thread):
         reset_pin: int | str = None,
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
-        toggle_pin: int | str = None,
         start_up_pin: int | str = None,
         shutdown_pin: int | str = None,
         boost_pin: int | str = None,
@@ -48,13 +47,15 @@ class Controller(Thread):
         horn_pin: int | str = None,
         rpm_up_pin: int | str = None,
         rpm_down_pin: int | str = None,
+        labor_up_pin: int | str = None,
+        labor_down_pin: int | str = None,
         vol_up_pin: int | str = None,
         vol_down_pin: int | str = None,
         smoke_on_pin: int | str = None,
         smoke_off_pin: int | str = None,
         train_brake_chn: int | str = None,
         quilling_horn_chn: int | str = None,
-        lcd_address: int = 0x27,
+        lcd_address: int = LCD_PCF8574_ADDRESS,
         lcd_rows: int = 4,
         lcd_cols: int = 20,
         keypad: Keypad | KeyPadI2C = None,
@@ -88,7 +89,6 @@ class Controller(Thread):
                 halt_pin=halt_pin,
                 fwd_pin=fwd_pin,
                 rev_pin=rev_pin,
-                toggle_pin=toggle_pin,
                 start_up_pin=start_up_pin,
                 shutdown_pin=shutdown_pin,
                 boost_pin=boost_pin,
@@ -97,6 +97,8 @@ class Controller(Thread):
                 horn_pin=horn_pin,
                 rpm_up_pin=rpm_up_pin,
                 rpm_down_pin=rpm_down_pin,
+                labor_up_pin=labor_up_pin,
+                labor_down_pin=labor_down_pin,
                 vol_up_pin=vol_up_pin,
                 vol_down_pin=vol_down_pin,
                 smoke_on_pin=smoke_on_pin,
@@ -260,13 +262,12 @@ class Controller(Thread):
 class ControllerI2C(Controller):
     def __init__(
         self,
-        keypad_address: int = PCF8574_ADDRESS,
+        keypad_address: int = KEYPAD_PCF8574_ADDRESS,
         speed_pins: List[int | str] = None,
         halt_pin: int | str = None,
         reset_pin: int | str = None,
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
-        toggle_pin: int | str = None,
         start_up_pin: int | str = None,
         shutdown_pin: int | str = None,
         boost_pin: int | str = None,
@@ -275,6 +276,8 @@ class ControllerI2C(Controller):
         horn_pin: int | str = None,
         rpm_up_pin: int | str = None,
         rpm_down_pin: int | str = None,
+        labor_up_pin: int | str = None,
+        labor_down_pin: int | str = None,
         vol_up_pin: int | str = None,
         vol_down_pin: int | str = None,
         smoke_on_pin: int | str = None,
@@ -292,7 +295,6 @@ class ControllerI2C(Controller):
             reset_pin=reset_pin,
             fwd_pin=fwd_pin,
             rev_pin=rev_pin,
-            toggle_pin=toggle_pin,
             start_up_pin=start_up_pin,
             shutdown_pin=shutdown_pin,
             boost_pin=boost_pin,
@@ -301,6 +303,8 @@ class ControllerI2C(Controller):
             horn_pin=horn_pin,
             rpm_up_pin=rpm_up_pin,
             rpm_down_pin=rpm_down_pin,
+            labor_up_pin=labor_up_pin,
+            labor_down_pin=labor_down_pin,
             vol_up_pin=vol_up_pin,
             vol_down_pin=vol_down_pin,
             smoke_on_pin=smoke_on_pin,

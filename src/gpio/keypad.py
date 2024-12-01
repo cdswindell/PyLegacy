@@ -211,7 +211,7 @@ Keypad.wait_for_release = Keypad.wait_for_inactive
 
 
 # PCF8574T address
-PCF8574_ADDRESS = 0x20
+KEYPAD_PCF8574_ADDRESS = 0x20
 
 # Row pins on the PCF8574T
 ROW_PINS = (0, 1, 2, 3)
@@ -223,7 +223,7 @@ COL_PINS = (4, 5, 6, 7)
 class KeyPadI2C:
     def __init__(
         self,
-        i2c_address: int = PCF8574_ADDRESS,
+        i2c_address: int = KEYPAD_PCF8574_ADDRESS,
         row_pins: List[int] = ROW_PINS,
         col_pins: List[int] = COL_PINS,
         keys: List[List[str]] = DEFAULT_4X4_KEYS,

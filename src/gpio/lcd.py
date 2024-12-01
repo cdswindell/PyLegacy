@@ -15,11 +15,14 @@ SMILEY_CHAR = (
 )
 
 
+LCD_PCF8574_ADDRESS = 0x27
+
+
 class Lcd(CharLCD):
     def __init__(
         self,
         i2c_expander: str = "PCF8574",
-        address: int = 0x27,
+        address: int = LCD_PCF8574_ADDRESS,
         port: int = 1,
         rows: int = 4,
         cols: int = 20,

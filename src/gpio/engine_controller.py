@@ -18,7 +18,6 @@ class EngineController:
         reset_pin: int | str = None,
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
-        toggle_pin: int | str = None,
         start_up_pin: int | str = None,
         shutdown_pin: int | str = None,
         boost_pin: int | str = None,
@@ -27,6 +26,8 @@ class EngineController:
         horn_pin: int | str = None,
         rpm_up_pin: int | str = None,
         rpm_down_pin: int | str = None,
+        labor_up_pin: int | str = None,
+        labor_down_pin: int | str = None,
         vol_up_pin: int | str = None,
         vol_down_pin: int | str = None,
         smoke_on_pin: int | str = None,
@@ -101,13 +102,6 @@ class EngineController:
             self._tmcc2_when_pushed[self._rev_btn] = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION)
         else:
             self._rev_btn = None
-
-        if toggle_pin is not None:
-            self._toggle_btn = GpioHandler.make_button(toggle_pin)
-            self._tmcc1_when_pushed[self._toggle_btn] = CommandReq(TMCC1EngineCommandDef.REVERSE_DIRECTION)
-            self._tmcc2_when_pushed[self._toggle_btn] = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION)
-        else:
-            self._toggle_btn = None
 
         if start_up_pin is not None:
             self._start_up_btn = GpioHandler.make_button(start_up_pin)
@@ -234,10 +228,6 @@ class EngineController:
     @property
     def rev_btn(self) -> Button:
         return self._rev_btn
-
-    @property
-    def toggle_btn(self) -> Button:
-        return self._toggle_btn
 
     @property
     def start_up_btn(self) -> Button:
