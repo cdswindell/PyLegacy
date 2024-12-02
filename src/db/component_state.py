@@ -819,7 +819,7 @@ class EngineState(ComponentState):
                     self._speed = command.data
                 elif cmd_effects & SPEED_SET:
                     speed = self._harvest_effect(cmd_effects & SPEED_SET)
-                    if isinstance(speed, tuple) and len(speed) == 2:
+                    if isinstance(speed, tuple) and len(speed) > 1:
                         self._speed = speed[1]
                     else:
                         if log.isEnabledFor(logging.DEBUG):

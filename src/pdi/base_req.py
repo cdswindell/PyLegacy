@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from enum import IntEnum, unique
 from math import floor
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
@@ -26,27 +26,6 @@ ROUTE_THROW_RATE_MAP: Dict[int, float] = {
     7: 1.50,
     8: 1.75,
     9: 2.00,
-}
-
-ENGINE_WRITE_MAP = {
-    "ABSOLUTE_SPEED": (11, 56, None),
-    "STOP_IMMEDIATE": (11, 56, lambda t: 0),
-    "RESET": (11, 56, lambda t: 0),
-    "DIESEL_RPM": (12, 57, None),
-    "ENGINE_LABOR": (13, 58, lambda t: t - 12 if t >= 12 else 20 + t),
-    "SMOKE_HIGH": (20, 65, lambda t: 3),
-    "SMOKE_MEDIUM": (20, 65, lambda t: 2),
-    "SMOKE_LOW": (20, 65, lambda t: 1),
-    "SMOKE_OFF": (20, 65, lambda t: 0),
-    "DITCH_OFF": (21, 66, lambda t: 0),
-    "DITCH_OFF_PULSE_ON_WITH_HORN": (21, 66, lambda t: 1),
-    "DITCH_ON_PULSE_OFF_WITH_HORN": (21, 66, lambda t: 2),
-    "DITCH_ON": (21, 68, lambda t: 3),
-    "TRAIN_BRAKE": (22, 67, lambda t: round(t * 2.143)),
-    "MOMENTUM_HIGH": (23, 68, lambda t: 127),
-    "MOMENTUM_MEDIUM": (23, 68, lambda t: 63),
-    "MOMENTUM_LOW": (23, 68, lambda t: 0),
-    "MOMENTUM": (23, 68, lambda t: floor(t * 18.285)),
 }
 
 
@@ -76,6 +55,75 @@ class EngineBits(Mixins, IntEnum):
     DITCH_LIGHT = 21
     TRAIN_BRAKE = 22
     MOMENTUM = 23
+
+
+ENGINE_WRITE_MAP = {
+    "ABSOLUTE_SPEED": (11, 56, None),
+    "STOP_IMMEDIATE": (11, 56, lambda t: 0),
+    "RESET": (11, 56, lambda t: 0),
+    "DIESEL_RPM": (12, 57, None),
+    "ENGINE_LABOR": (13, 58, lambda t: t - 12 if t >= 12 else 20 + t),
+    "SMOKE_HIGH": (20, 65, lambda t: 3),
+    "SMOKE_MEDIUM": (20, 65, lambda t: 2),
+    "SMOKE_LOW": (20, 65, lambda t: 1),
+    "SMOKE_OFF": (20, 65, lambda t: 0),
+    "DITCH_OFF": (21, 66, lambda t: 0),
+    "DITCH_OFF_PULSE_ON_WITH_HORN": (21, 66, lambda t: 1),
+    "DITCH_ON_PULSE_OFF_WITH_HORN": (21, 66, lambda t: 2),
+    "DITCH_ON": (21, 68, lambda t: 3),
+    "TRAIN_BRAKE": (22, 67, lambda t: round(t * 2.143)),
+    "MOMENTUM_HIGH": (23, 68, lambda t: 127),
+    "MOMENTUM_MEDIUM": (23, 68, lambda t: 63),
+    "MOMENTUM_LOW": (23, 68, lambda t: 0),
+    "MOMENTUM": (23, 68, lambda t: floor(t * 18.285)),
+}
+
+
+def encode_labor_rpm(s) -> int:
+    return s.rpm | (s.labor - 12 if s.labor >= 12 else 20 + s.labor)
+
+
+def decode_labor_rpm(s: int) -> Tuple[int, int]:
+    rpm = s & 0b111
+    labor = s >> 3
+    labor = labor + 12 if labor <= 19 else labor - 20
+    return rpm, labor
+
+
+BASE_MEMORY_WRITE_MAP = {
+    "ABSOLUTE_SPEED": (0x07, 2, None),
+    "STOP_IMMEDIATE": (0x07, 2, lambda t: 0),
+    "RESET": (0x07, 2, lambda t: 0),
+    # "DIESEL_RPM": (0x0C, 1, encode_labor_rpm),
+    # "ENGINE_LABOR": (0x0C, 1, encode_labor_rpm),
+    "SMOKE_HIGH": (0x69, 1, lambda t: 3),
+    "SMOKE_MEDIUM": (0x69, 1, lambda t: 2),
+    "SMOKE_LOW": (0x69, 1, lambda t: 1),
+    "SMOKE_OFF": (0x69, 1, lambda t: 0),
+    "TRAIN_BRAKE": (0x09, 1, lambda t: round(t * 2.143)),
+    "MOMENTUM_HIGH": (0x18, 1, lambda t: 127),
+    "MOMENTUM_MEDIUM": (0x18, 1, lambda t: 63),
+    "MOMENTUM_LOW": (0x18, 1, lambda t: 0),
+    "MOMENTUM": (0x18, 1, lambda t: floor(t * 18.285)),
+}
+
+
+BASE_MEMORY_READ_MAP = {
+    0x07: ("_speed_step", EngineBits.SPEED.value),
+    0x09: ("_train_brake", EngineBits.TRAIN_BRAKE.value),
+    0x0C: (("_run_level", "_labor_bias"), (EngineBits.RUN_LEVEL.value, EngineBits.LABOR_BIAS.value), decode_labor_rpm),
+    0x18: ("_momentum", EngineBits.MOMENTUM.value),
+    0x69: ("_smoke_level", EngineBits.SMOKE_LEVEL.value),
+}
+
+RECORD_TYPE_MAP = {
+    1: CommandScope.ENGINE,
+    2: CommandScope.TRAIN,
+    3: CommandScope.ACC,
+    6: CommandScope.SWITCH,
+}
+
+SCOPE_TO_RECORD_TYPE_MAP = {s: p for p, s in RECORD_TYPE_MAP.items()}
 
 
 class BaseReq(PdiReq):
@@ -117,8 +165,28 @@ class BaseReq(PdiReq):
         else:
             raise ValueError(f"Invalid option: {cmd}")
 
-        if state.name in ENGINE_WRITE_MAP:
-            cmds = []
+        cmds = []
+        if state.name in BASE_MEMORY_WRITE_MAP:
+            offset, data_len, scaler = BASE_MEMORY_WRITE_MAP[state.name]
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(f"State: {state} Offset: {offset} Len: {data_len} {data} {scaler(data) if scaler else data}")
+            if scaler:
+                data = scaler(data)
+            data_bytes = data.to_bytes(1, "little")
+            if data_len > 1:
+                data_bytes = data_bytes * data_len  # speed value is repeated twice, so we just replicate first byte
+            cmds.append(
+                BaseReq(
+                    address,
+                    pdi_command=PdiCommand.BASE_MEMORY,
+                    flags=0xC2,
+                    scope=state.scope,
+                    start=offset,
+                    data_length=data_len,
+                    data_bytes=data_bytes,
+                )
+            )
+        elif state.name in ENGINE_WRITE_MAP:
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
             if log.isEnabledFor(logging.DEBUG):
                 log.debug(f"State: {state} {data} {bit_pos} {offset} {scaler(data) if scaler else data}")
@@ -148,19 +216,20 @@ class BaseReq(PdiReq):
             byte_str += checksum
             byte_str += PDI_EOP.to_bytes(1, byteorder="big")
             cmds.append(cls(byte_str))
-            # send a command to refresh all state
-            # cmds.append(cls(address, pdi_cmd))
-            return cmds
-        return None
+        return cmds
 
     def __init__(
         self,
         data: bytes | int = 0,
         pdi_command: PdiCommand = PdiCommand.BASE,
         flags: int = 2,
+        scope: CommandScope = None,
         speed: int = None,
         base_name: str | None = None,
         state: ComponentState = None,
+        start: int | None = None,
+        data_length: int | None = None,
+        data_bytes: bytes | None = None,
     ) -> None:
         super().__init__(data, pdi_command)
         if self.pdi_command.is_base is False:
@@ -176,6 +245,7 @@ class BaseReq(PdiReq):
         self._state = state
         self._valid1 = self._valid2 = None
         self._spare_1 = None
+        self._data_length = self._data_bytes = self._start = None
         if isinstance(data, bytes):
             data_len = len(self._data)
             self._record_no = self.tmcc_id = self._data[1] if data_len > 1 else None
@@ -231,6 +301,13 @@ class BaseReq(PdiReq):
                 self._route_throw_rate = self.decode_throw_rate(self._data[9]) if data_len > 9 else None
                 self._name = self.decode_text(self._data[10:]) if data_len > 10 else None
                 self.scope = CommandScope.BASE
+            elif self.pdi_command == PdiCommand.BASE_MEMORY:
+                record_type = self._data[4] if data_len > 4 else None
+                self._scope = RECORD_TYPE_MAP.get(record_type, CommandScope.SYSTEM)
+                _ = self._data[5] if data_len > 5 else None  # we assume port is always 2; Database EEProm
+                self._start = int.from_bytes(self._data[6:10], byteorder="little") if data_len > 9 else None
+                self._data_length = self._data[10] if data_len > 10 else None
+                self._data_bytes = self._data[11 : 11 + data_len] if data_len > 10 + data_len else None
             elif self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
                 self._speed = self._data[2] if data_len > 2 else None
                 self._valid1 = (1 << EngineBits.SPEED) if data_len > 2 else 0
@@ -239,7 +316,12 @@ class BaseReq(PdiReq):
             self._flags = flags
             self._speed_step = speed
             self._base_name = base_name
-            if state:
+            if self.pdi_command == PdiCommand.BASE_MEMORY:
+                self.scope = scope if scope else CommandScope.ENGINE
+                self._start = start
+                self._data_length = data_length
+                self._data_bytes = data_bytes
+            elif state:
                 from ..db.component_state import EngineState, BaseState
 
                 self._status = 0
@@ -250,10 +332,12 @@ class BaseReq(PdiReq):
                     self._firmware_low = state.firmware_low
                     self._route_throw_rate = state.route_throw_rate
                     self._valid1 = 0b1111
+                    self.scope = CommandScope.BASE
                 else:
                     self._name = state.road_name
                     self._number = state.road_number
                     self._valid1 = 0b1100
+                    self.scope = state.scope
                     if isinstance(state, EngineState):
                         self._valid1 = 0b1111100011111100
                         self._valid2 = 0b11000000
@@ -445,6 +529,11 @@ class BaseReq(PdiReq):
         if self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
             scope = "Engine" if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else "Train"
             return f"{scope} #{self.tmcc_id} New Speed: {self.speed}"
+        elif self.pdi_command == PdiCommand.BASE_MEMORY and self._start is not None:
+            sc = f"Scope: {self.scope}"
+            st = f"Start: {hex(self._start)} Len: {self._data_length}"
+            dt = f"Data: {self._data_bytes.hex()}"
+            return f"Rec # {self.record_no} {sc} flags: {f} {st} {dt} status: {s} ({self.packet})"
         elif self._valid1 is None and self._valid2 is None:  # ACK received
             return f"Rec # {self.record_no} flags: {f} status: {s} ACK ({self.packet})"
         else:
@@ -496,6 +585,14 @@ class BaseReq(PdiReq):
         byte_str += self.record_no.to_bytes(1, byteorder="big")
         if self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
             byte_str += self.speed.to_bytes(1, byteorder="little")
+        elif self.pdi_command == PdiCommand.BASE_MEMORY:
+            byte_str += self.flags.to_bytes(1, byteorder="little")
+            byte_str += (0).to_bytes(1, byteorder="little")  # Status
+            byte_str += SCOPE_TO_RECORD_TYPE_MAP.get(self.scope, 1).to_bytes(1, byteorder="little")
+            byte_str += self._start.to_bytes(4, byteorder="little")
+            byte_str += (2).to_bytes(1, byteorder="little")  # database EEProm
+            byte_str += self._data_length.to_bytes(1, byteorder="little")
+            byte_str += self._data_bytes
         elif self._state:
             byte_str += self.flags.to_bytes(1, byteorder="little")
             byte_str += self.status.to_bytes(1, byteorder="little")

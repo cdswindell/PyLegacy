@@ -366,10 +366,33 @@ class DependencyCache:
             Engine2.AUX2_OFF,
             Engine2.NUMERIC,
         )
-        self.causes(Engine2.STOP_IMMEDIATE, Engine2.SPEED_STOP_HOLD)
-        self.causes(Engine2.FORWARD_DIRECTION, Engine2.STOP_IMMEDIATE)
-        self.causes(Engine2.REVERSE_DIRECTION, Engine2.STOP_IMMEDIATE)
-        self.causes(Engine2.TOGGLE_DIRECTION, Engine2.STOP_IMMEDIATE)
+        self.causes(
+            Engine2.STOP_IMMEDIATE,
+            Engine2.SPEED_STOP_HOLD,
+            Engine2.DIESEL_RPM,
+            Engine2.ENGINE_LABOR_DEFAULT,
+        )
+        self.causes(
+            Engine2.FORWARD_DIRECTION,
+            Engine2.STOP_IMMEDIATE,
+            Engine2.SPEED_STOP_HOLD,
+            Engine2.DIESEL_RPM,
+            Engine2.ENGINE_LABOR_DEFAULT,
+        )
+        self.causes(
+            Engine2.REVERSE_DIRECTION,
+            Engine2.STOP_IMMEDIATE,
+            Engine2.SPEED_STOP_HOLD,
+            Engine2.DIESEL_RPM,
+            Engine2.ENGINE_LABOR_DEFAULT,
+        )
+        self.causes(
+            Engine2.TOGGLE_DIRECTION,
+            Engine2.STOP_IMMEDIATE,
+            Engine2.SPEED_STOP_HOLD,
+            Engine2.DIESEL_RPM,
+            Engine2.ENGINE_LABOR_DEFAULT,
+        )
 
         # TMCC1 Engine Reset
         self.causes(
