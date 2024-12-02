@@ -25,7 +25,6 @@ class LaborEffect(SequenceReq, ABC):
         self._data = data
         self._state = None
         self.add(TMCC2EngineCommandDef.ENGINE_LABOR, scope=CommandScope.ENGINE)
-        print(self._requests[0])
 
     @property
     def scope(self) -> CommandScope | None:
