@@ -284,8 +284,8 @@ class PdiDispatcher(Thread):
                             continue
                     # for TMCC requests, forward to TMCC Command Dispatcher, but only if
                     # we are not also listening for TMCC commands via an LCS Ser2
-                    if isinstance(cmd, TmccReq):
-                        # if isinstance(cmd, TmccReq) and self._tmcc_dispatcher.is_ser2_receiver is False:
+                    # if isinstance(cmd, TmccReq):
+                    if isinstance(cmd, TmccReq) and self._tmcc_dispatcher.is_ser2_receiver is False:
                         self._tmcc_dispatcher.offer(cmd.tmcc_command)
                     elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
                         if hasattr(cmd, "action"):
