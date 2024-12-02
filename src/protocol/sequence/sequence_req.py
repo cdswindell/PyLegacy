@@ -59,7 +59,8 @@ class SequenceReq(CommandReq, Sequence):
     def as_bytes(self) -> bytes:
         self._recalculate()
         cmd_bytes = bytes()
-        for req in self._requests:
+        for req_wrapper in self._requests:
+            req = req_wrapper.request
             cmd_bytes += req.as_bytes
         return cmd_bytes
 
@@ -71,12 +72,9 @@ class SequenceReq(CommandReq, Sequence):
         return len(self._requests)
 
     def _apply_address(self, new_address: int = None) -> int:
-        print(f"SequenceReq: Applying address: {self.address}")
         for req_wrapper in self._requests:
             req = req_wrapper.request
-            print("<<<", req, req.address, type(req))
             req.address = self.address
-            print(">>>", req, req.address)
         return 0
 
     def _apply_data(self, new_data: int = None) -> int:

@@ -44,12 +44,10 @@ class LaborEffect(SequenceReq, ABC):
     def _recalculate(self):
         self._state = ComponentStateStore.get_state(self.scope, self.address, False)
         labor = self._state.labor + self._inc
-        print(f"ID: {self.address} Recalculating labor: {self._state.labor} +/- {self._inc} -> {labor}")
         labor = min(max(labor, 0), 31)
-        print(f"After Min/Max: {labor}")
-        for req in self._requests:
+        for req_wrapper in self._requests:
+            req = req_wrapper.request
             req.data = labor
-            print(req)
 
 
 class LaborEffectUpReq(LaborEffect):
