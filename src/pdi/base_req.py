@@ -79,8 +79,8 @@ ENGINE_WRITE_MAP = {
 }
 
 
-def encode_labor_rpm(s) -> int:
-    return s.rpm | (s.labor - 12 if s.labor >= 12 else 20 + s.labor)
+def encode_labor_rpm(rpm: int, labor: int) -> int:
+    return rpm | ((labor - 12 if labor >= 12 else 20 + labor) << 3)
 
 
 def decode_labor_rpm(s: int) -> Tuple[int, int]:
@@ -94,8 +94,8 @@ BASE_MEMORY_WRITE_MAP = {
     "ABSOLUTE_SPEED": (0x07, 2, None),
     "STOP_IMMEDIATE": (0x07, 2, lambda t: 0),
     "RESET": (0x07, 2, lambda t: 0),
-    # "DIESEL_RPM": (0x0C, 1, encode_labor_rpm),
-    # "ENGINE_LABOR": (0x0C, 1, encode_labor_rpm),
+    "DIESEL_RPM": (0x0C, 1, encode_labor_rpm),
+    "ENGINE_LABOR": (0x0C, 1, encode_labor_rpm),
     "SMOKE_HIGH": (0x69, 1, lambda t: 3),
     "SMOKE_MEDIUM": (0x69, 1, lambda t: 2),
     "SMOKE_LOW": (0x69, 1, lambda t: 1),
@@ -141,6 +141,7 @@ class BaseReq(PdiReq):
         address: int = None,
         data: int | None = None,
         scope: CommandScope = CommandScope.ENGINE,
+        use_0x26: bool = True,
     ) -> List[BaseReq] | None:
         if isinstance(cmd, CommandReq):
             state = cmd.command
@@ -166,12 +167,27 @@ class BaseReq(PdiReq):
             raise ValueError(f"Invalid option: {cmd}")
 
         cmds = []
-        if state.name in BASE_MEMORY_WRITE_MAP:
+        if state.name in BASE_MEMORY_WRITE_MAP and use_0x26 is True:
             offset, data_len, scaler = BASE_MEMORY_WRITE_MAP[state.name]
-            if log.isEnabledFor(logging.DEBUG):
-                log.debug(f"State: {state} Offset: {offset} Len: {data_len} {data} {scaler(data) if scaler else data}")
-            if scaler:
-                data = scaler(data)
+            if state.name in {"DIESEL_RPM", "ENGINE_LABOR"}:
+                comp_state = ComponentStateStore.get_state(scope, address, False)
+                if comp_state:
+                    if state.name == "DIESEL_RPM":
+                        rpm = data
+                        labor = comp_state.labor
+                    else:
+                        rpm = comp_state.rpm
+                        labor = data
+                    data = scaler(rpm, labor)
+                else:
+                    cls.update_eng(cmd, address, data, scope, use_0x26=False)
+            else:
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(
+                        f"State: {state} Offset: {offset} Len: {data_len} {data} {scaler(data) if scaler else data}"
+                    )
+                if scaler:
+                    data = scaler(data)
             data_bytes = data.to_bytes(1, "little")
             if data_len > 1:
                 data_bytes = data_bytes * data_len  # speed value is repeated twice, so we just replicate first byte
