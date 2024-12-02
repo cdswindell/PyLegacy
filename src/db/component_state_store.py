@@ -93,6 +93,9 @@ class ComponentStateStore:
                 else:
                     raise TypeError(f"Topic {topic} is not valid")
 
+    def __repr__(self) -> str:
+        return "<ComponentStateStore>"
+
     def __contains__(self, scope: CommandScope) -> bool:
         return scope in self._state
 

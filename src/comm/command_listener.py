@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import socket
 import threading
+import traceback
 from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
@@ -285,7 +286,7 @@ class Channel(Generic[Topic]):
         for subscriber in self.subscribers:
             try:
                 subscriber(message)
-                print(f"Published {message} to {subscriber}")
+                log.info(f"Published {message} to {subscriber}\n{traceback.format_exc()}")
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {message}; see log for details")
                 log.exception(e)
