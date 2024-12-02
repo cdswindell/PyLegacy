@@ -262,7 +262,9 @@ class CommandReq:
 
     @address.setter
     def address(self, new_address: int) -> None:
+        print(f"CommandReq._apply_address, new: {new_address} ({self.address} {self.command_def.is_addressable})")
         if self.command_def.is_addressable and new_address != self._address:
+            print(f"CommandReq: applying {new_address} to {self.command_def}...")
             self._address = new_address
             self._apply_address()
 
@@ -401,7 +403,7 @@ class CommandReq:
         return send_func
 
     def _apply_address(self, new_address: int = None) -> int:
-        print("Applying address:", new_address)
+        print("CommandReq Applying address:", new_address)
         if not self.command_def.is_addressable:  # HALT command
             return self._command_bits
         # reset existing address bits, if any

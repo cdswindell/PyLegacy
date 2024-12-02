@@ -75,7 +75,7 @@ class SequenceReq(CommandReq, Sequence):
         for req in self._requests:
             print(req, self.address)
             req.address = self.address
-            print("***", req)
+            print("***", req, req.address)
         return 0
 
     def _apply_data(self, new_data: int = None) -> int:
