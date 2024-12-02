@@ -72,7 +72,8 @@ class SequenceReq(CommandReq, Sequence):
 
     def _apply_address(self, new_address: int = None) -> int:
         print(f"SequenceReq: Applying address: {self.address}")
-        for req in self._requests:
+        for req_wrapper in self._requests:
+            req = req_wrapper.request
             print("<<<", req, req.address, type(req))
             req.address = self.address
             print(">>>", req, req.address)
