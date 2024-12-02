@@ -77,9 +77,6 @@ class Controller(Thread):
         self._last_tmcc_id = None
         self._railroad = None
         self._last_known_speed = None
-        self._synchronized = False
-        self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
         self._state_watcher = None
         if speed_pins or fwd_pin or rev_pin or reset_pin:
             self._engine_controller = EngineController(
@@ -109,7 +106,15 @@ class Controller(Thread):
         else:
             self._engine_controller = None
         self._is_running = True
-        self.update_display()
+        # check for state synchronization
+        self._synchronized = False
+        self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+        if self._sync_state and self._sync_state.is_synchronized:
+            self._sync_watcher = None
+            self.on_sync()
+        else:
+            self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
+            self.update_display()
 
     @property
     def engine_controller(self) -> EngineController:
@@ -147,6 +152,8 @@ class Controller(Thread):
         if self._sync_state.is_synchronized:
             self._synchronized = True
             self._lcd.clear()
+            if self._sync_watcher:
+                self._sync_watcher.shutdown()
             self.start()
 
     def on_state_update(self) -> None:
