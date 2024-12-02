@@ -28,6 +28,17 @@ class LaborEffect(SequenceReq, ABC):
     def scope(self) -> CommandScope | None:
         return self._scope
 
+    @scope.setter
+    def scope(self, new_scope: CommandScope) -> None:
+        if new_scope != self._scope:
+            # can only change scope for Engine and Train commands, and then, just from the one to the other
+            if self._scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                if new_scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                    self._scope = new_scope
+                    self._apply_scope()
+                    return
+            raise AttributeError(f"Scope {new_scope} not supported for {self}")
+
     def _recalculate(self):
         labor = self._state.labor + self._inc
         labor = min(max(labor, 0), 31)
