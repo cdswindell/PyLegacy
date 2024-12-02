@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import logging
 import socket
 import threading
@@ -286,7 +287,9 @@ class Channel(Generic[Topic]):
         for subscriber in self.subscribers:
             try:
                 subscriber(message)
-                log.info(f"Published {message} to {subscriber}\n{traceback.format_exc()}")
+                frame = inspect.currentframe()
+                stack_trace = traceback.format_stack(frame)
+                log.info(f"Published {message} to {subscriber}\n{stack_trace[:-1]}")
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {message}; see log for details")
                 log.exception(e)
