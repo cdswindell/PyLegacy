@@ -102,7 +102,6 @@ class Base3Buffer(Thread):
                 # calling layer gets a complete command
                 if len(data) >= 12 and data[1] == TMCC_TX and data[5] == data[8] == LEGACY_MULTIBYTE_COMMAND_PREFIX:
                     tmcc_cmd = CommandReq.from_bytes(data[2:-2])
-                    print(tmcc_cmd)
                     # this is a legacy/tmcc2 multibyte parameter command. We have to send it
                     # as 3 3 byte packets, using PdiCommand.TMCC_RX
                     for packet in TmccReq.as_packets(tmcc_cmd):
