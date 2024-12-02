@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from abc import abstractmethod
 from collections.abc import Sequence
 from typing import List, Callable, TypeVar, Tuple
 
@@ -57,6 +58,7 @@ class SequenceReq(CommandReq, Sequence):
 
     @property
     def as_bytes(self) -> bytes:
+        self._recalculate()
         cmd_bytes = bytes()
         for req in self._requests:
             cmd_bytes += req.as_bytes
@@ -70,6 +72,8 @@ class SequenceReq(CommandReq, Sequence):
         return len(self._requests)
 
     def _apply_address(self, **kwargs) -> int:
+        for req in self._requests:
+            req.address = self.address
         return 0
 
     def _apply_data(self, **kwargs) -> int:
@@ -141,7 +145,7 @@ class SequenceReq(CommandReq, Sequence):
         return send_func
 
     @staticmethod
-    def _speed_parser(is_tmcc: bool = False) -> ArgumentParser:
+    def speed_parser(is_tmcc: bool = False) -> ArgumentParser:
         """
         Parse the first token of the user's input
         """
@@ -188,7 +192,7 @@ class SequenceReq(CommandReq, Sequence):
                         break
         elif isinstance(speed, str):
             try:
-                args = self._speed_parser().parse_args(["-" + speed.strip()])
+                args = self.speed_parser().parse_args(["-" + speed.strip()])
                 speed_enum = args.command
                 base = speed_enum.name
                 _, speed_int = speed_enum.value.alias
@@ -199,6 +203,12 @@ class SequenceReq(CommandReq, Sequence):
             tower = TMCC2RailSoundsDialogControl.by_name(f"TOWER_{base}")
             engr = TMCC2RailSoundsDialogControl.by_name(f"ENGINEER_{base}")
         return tower, speed_enum, speed_int, engr
+
+    def _recalculate(self) -> None:
+        """
+        Recalculate command state, prior to sending bytes
+        """
+        pass
 
 
 class SequencedReq:

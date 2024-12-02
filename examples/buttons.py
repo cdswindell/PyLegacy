@@ -45,7 +45,7 @@ from src.gpio.gpio_handler import GpioHandler
 GpioHandler.controller(
     keypad_address=0x20,
     speed_pins=[19, 26],
-    rpm_up_pin=4,
+    labor_up_pin=14,
     lcd_address=0x27,
     lcd_rows=4,
     lcd_cols=20,

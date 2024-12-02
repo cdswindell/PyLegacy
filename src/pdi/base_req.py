@@ -181,6 +181,7 @@ class BaseReq(PdiReq):
                     data = scaler(rpm, labor)
                 else:
                     cls.update_eng(cmd, address, data, scope, use_0x26=False)
+                    return
             else:
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(

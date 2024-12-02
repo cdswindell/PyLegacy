@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Dict, Type
 
 from .grade_crossing_req import GradeCrossingReq
+from .labor_effect import LaborEffectUpReq, LaborEffectDownReq
 from .ramped_speed_req import RampedSpeedReq, RampedSpeedDialogReq
 from .speed_req import SpeedReq
 
@@ -57,7 +58,9 @@ class SequenceDef(TMCC2CommandDef):
 
 class SequenceCommandEnum(CommandDefEnum):
     SYSTEM = SequenceDef(0x00)
-    ABSOLUTE_SPEED_SEQ = SequenceDef(0, d_max=199, cmd_class=SpeedReq)
-    RAMPED_SPEED_SEQ = SequenceDef(1, d_max=199, cmd_class=RampedSpeedReq)
-    RAMPED_SPEED_DIALOG_SEQ = SequenceDef(1, d_max=199, cmd_class=RampedSpeedDialogReq)
-    GRADE_CROSSING_SEQ = SequenceDef(1, cmd_class=GradeCrossingReq)
+    ABSOLUTE_SPEED_SEQ = SequenceDef(1, d_max=199, cmd_class=SpeedReq)
+    RAMPED_SPEED_SEQ = SequenceDef(2, d_max=199, cmd_class=RampedSpeedReq)
+    RAMPED_SPEED_DIALOG_SEQ = SequenceDef(3, d_max=199, cmd_class=RampedSpeedDialogReq)
+    GRADE_CROSSING_SEQ = SequenceDef(4, cmd_class=GradeCrossingReq)
+    LABOR_EFFECT_DOWN_SEQ = SequenceDef(5, cmd_class=LaborEffectDownReq)
+    LABOR_EFFECT_UP_SEQ = SequenceDef(5, cmd_class=LaborEffectUpReq)

@@ -5,6 +5,7 @@ from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
 from ..protocol.multybyte.multibyte_constants import TMCC2EffectsControl
+from ..protocol.sequence.labor_effect import LaborEffectUpReq, LaborEffectDownReq
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1EngineCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
@@ -168,6 +169,18 @@ class EngineController:
             self._tmcc2_when_pushed[self._rpm_down_btn] = CommandReq(TMCC2EngineCommandDef.RPM_DOWN)
         else:
             self._rpm_down_btn = None
+
+        if labor_up_pin is not None:
+            self._labor_up_btn = GpioHandler.make_button(labor_up_pin)
+            self._tmcc2_when_pushed[self._labor_up_btn] = LaborEffectUpReq()
+        else:
+            self._labor_up_btn = None
+
+        if labor_down_pin is not None:
+            self._labor_down_btn = GpioHandler.make_button(labor_down_pin)
+            self._tmcc2_when_pushed[self._labor_down_btn] = LaborEffectDownReq()
+        else:
+            self._labor_down_btn = None
 
         if vol_up_pin is not None:
             self._vol_up_btn = GpioHandler.make_button(vol_up_pin)
