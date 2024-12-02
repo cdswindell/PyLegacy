@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import inspect
 import logging
 import socket
 import threading
+import traceback
 from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
@@ -371,7 +373,6 @@ class CommandDispatcher(Thread):
             if self._queue.empty():  # we need to do a second check in the event we're being shutdown
                 continue
             cmd = self._queue.get()
-            log.info(cmd)
             try:
                 # publish dispatched commands to listeners on the command scope,
                 if isinstance(cmd, CommandReq):
@@ -489,6 +490,9 @@ class CommandDispatcher(Thread):
             with self._cv:
                 self._queue.put(cmd)
                 self._cv.notify()  # wake up receiving thread
+                frame = inspect.currentframe()
+                stack_trace = traceback.format_stack(frame)
+                print(stack_trace[:-1])
 
     def shutdown(self) -> None:
         with self._cv:
