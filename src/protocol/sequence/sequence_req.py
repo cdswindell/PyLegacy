@@ -77,7 +77,7 @@ class SequenceReq(CommandReq, Sequence):
             print("***", req)
         return 0
 
-    def _apply_data(self, **kwargs) -> int:
+    def _apply_data(self, new_data: int = None) -> int:
         return 0
 
     def add(
