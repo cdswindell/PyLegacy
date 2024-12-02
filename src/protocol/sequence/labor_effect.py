@@ -21,7 +21,7 @@ class LaborEffect(SequenceReq, ABC):
         super().__init__(address, scope)
         self._inc = inc
         self._scope = scope
-        self._state = ComponentStateStore.get_state(self.scope, self.address, False)
+        self._state = None
         self.add(TMCC2EngineCommandDef.ENGINE_LABOR, address, scope=scope)
 
     @property
@@ -40,6 +40,7 @@ class LaborEffect(SequenceReq, ABC):
             raise AttributeError(f"Scope {new_scope} not supported for {self}")
 
     def _recalculate(self):
+        self._state = ComponentStateStore.get_state(self.scope, self.address, False)
         labor = self._state.labor + self._inc
         labor = min(max(labor, 0), 31)
         for req in self._requests:
