@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import inspect
 import logging
 import socket
 import threading
-import traceback
 from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
@@ -481,7 +479,7 @@ class CommandDispatcher(Thread):
     def broadcasts_enabled(self) -> bool:
         return self._broadcasts
 
-    def offer(self, cmd: CommandReq) -> None:
+    def offer(self, cmd: CommandReq, from_pdi: bool = False) -> None:
         """
         Receive a command from the TMCC listener thread and dispatch it to subscribers.
         We do this in a separate thread so that the listener thread doesn't fall behind.
@@ -490,9 +488,8 @@ class CommandDispatcher(Thread):
             with self._cv:
                 self._queue.put(cmd)
                 self._cv.notify()  # wake up receiving thread
-                frame = inspect.currentframe()
-                stack_trace = traceback.format_stack(frame)
-                print(stack_trace[:-1])
+                if from_pdi is True:
+                    pass  # TODO: prevent receiving same command from ser2 stream
 
     def shutdown(self) -> None:
         with self._cv:
