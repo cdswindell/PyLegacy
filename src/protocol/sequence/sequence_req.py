@@ -71,6 +71,7 @@ class SequenceReq(CommandReq, Sequence):
         return len(self._requests)
 
     def _apply_address(self, new_address: int = None) -> int:
+        print(f"SequenceReq: Applying address: {self.address}")
         for req in self._requests:
             print(req, self.address)
             req.address = self.address
