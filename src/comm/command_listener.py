@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import inspect
 import logging
 import socket
 import threading
-import traceback
 from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
@@ -287,9 +285,7 @@ class Channel(Generic[Topic]):
         for subscriber in self.subscribers:
             try:
                 subscriber(message)
-                frame = inspect.currentframe()
-                stack_trace = traceback.format_stack(frame)
-                log.info(f"Published {message} to {subscriber}\n{stack_trace[:-1]}")
+                log.info(f"Published {message} to {subscriber}")
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {message}; see log for details")
                 log.exception(e)
@@ -375,6 +371,7 @@ class CommandDispatcher(Thread):
             if self._queue.empty():  # we need to do a second check in the event we're being shutdown
                 continue
             cmd = self._queue.get()
+            log.info(cmd)
             try:
                 # publish dispatched commands to listeners on the command scope,
                 if isinstance(cmd, CommandReq):
