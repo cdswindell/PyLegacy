@@ -274,6 +274,7 @@ class CommBufferSingleton(CommBuffer, Thread):
                 from ..pdi.base3_buffer import Base3Buffer
 
                 Base3Buffer.sync_state(data)
+                print(f"Sent {data.hex()} via Ser2...")
         except SerialException as se:
             # TODO: handle serial errors
             log.exception(se)
@@ -293,6 +294,7 @@ class CommBufferSingleton(CommBuffer, Thread):
             raise AttributeError(f"Base3Buffer is not built, failed to send {tmcc_cmd}")
         pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
+        print(f"Sent {tmcc_cmd} via Base 3...")
         # also inform CommandDispatcher to update system state
         if self.no_ser2 is True:
             CommandDispatcher.get().offer(tmcc_cmd)

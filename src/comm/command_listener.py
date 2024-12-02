@@ -285,6 +285,7 @@ class Channel(Generic[Topic]):
         for subscriber in self.subscribers:
             try:
                 subscriber(message)
+                print(f"Published {message}")
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {message}; see log for details")
                 log.exception(e)
@@ -381,7 +382,7 @@ class CommandDispatcher(Thread):
                         self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
                     # otherwise, just send to the interested parties
                     else:
-                        if cmd.is_data is not None:
+                        if cmd.is_data is True:
                             self.publish((cmd.scope, cmd.address, cmd.command, cmd.data), cmd)
                         self.publish((cmd.scope, cmd.address, cmd.command), cmd)
                         self.publish((cmd.scope, cmd.address), cmd)
