@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-from abc import abstractmethod
 from collections.abc import Sequence
 from typing import List, Callable, TypeVar, Tuple
 
@@ -45,13 +44,13 @@ class SequenceReq(CommandReq, Sequence):
     ) -> None:
         from .sequence_constants import SequenceCommandEnum
 
-        super().__init__(SequenceCommandEnum.SYSTEM, address, 0, scope)
-        self._repeat = repeat
-        self._delay = delay
-        self._requests: List[SequencedReq] = []
+        self._requests: List[SequencedReq] = list()  # need to define prior to calling super()
         if requests:
             for request in requests:
                 self._requests.append(SequencedReq(request, repeat, delay))
+        super().__init__(SequenceCommandEnum.SYSTEM, address, 0, scope)
+        self._repeat = repeat
+        self._delay = delay
 
     def __getitem__(self, index) -> SequencedReq:
         return self._requests[index]
