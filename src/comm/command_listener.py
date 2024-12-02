@@ -285,7 +285,6 @@ class Channel(Generic[Topic]):
         for subscriber in self.subscribers:
             try:
                 subscriber(message)
-                log.info(f"Published {message} to {subscriber}")
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {message}; see log for details")
                 log.exception(e)
