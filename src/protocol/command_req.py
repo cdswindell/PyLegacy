@@ -266,7 +266,6 @@ class CommandReq:
         if self.command_def.is_addressable and new_address != self._address:
             print("*******")
             self._address = new_address
-            print(self, self._address)
             self._apply_address()
 
     @property
