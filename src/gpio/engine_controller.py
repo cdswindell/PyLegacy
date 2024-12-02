@@ -275,6 +275,14 @@ class EngineController:
         return self._rpm_down_btn
 
     @property
+    def labor_up_btn(self) -> Button:
+        return self._labor_up_btn
+
+    @property
+    def labor_down_btn(self) -> Button:
+        return self._labor_down_btn
+
+    @property
     def volume_up_btn(self) -> Button:
         return self._vol_up_btn
 

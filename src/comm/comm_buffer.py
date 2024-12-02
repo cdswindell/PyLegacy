@@ -178,6 +178,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._base3: Base3Buffer | None = None
         # start the consumer threads
         self._scheduler = DelayHandler(self)
+        self._use_base3 = False
         self.start()
 
     @staticmethod
@@ -198,6 +199,20 @@ class CommBufferSingleton(CommBuffer, Thread):
     @property
     def no_ser2(self) -> bool:
         return self._no_ser2
+
+    @property
+    def is_use_base3(self) -> bool:
+        return self._use_base3
+
+    @is_use_base3.setter
+    def is_use_base3(self, value: bool) -> None:
+        self._use_base3 = value
+        if value is True and self._base3 is None:
+            with self._lock:
+                if self._base3 is None:
+                    from ..pdi.base3_buffer import Base3Buffer
+
+                    self._base3 = Base3Buffer.get
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if command:
@@ -233,7 +248,7 @@ class CommBufferSingleton(CommBuffer, Thread):
             data = None
             try:
                 data = self._queue.get(block=True, timeout=0.25)
-                if self.no_ser2:
+                if self.is_use_base3 is True or self.no_ser2 is True:
                     self.base3_send(data)
                 else:
                     self.ser2_send(data)
@@ -279,7 +294,8 @@ class CommBufferSingleton(CommBuffer, Thread):
         pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
         # also inform CommandDispatcher to update system state
-        CommandDispatcher.get().offer(tmcc_cmd)
+        if self.no_ser2 is True:
+            CommandDispatcher.get().offer(tmcc_cmd)
 
 
 class CommBufferProxy(CommBuffer):
