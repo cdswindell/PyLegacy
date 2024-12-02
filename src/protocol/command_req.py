@@ -403,6 +403,7 @@ class CommandReq:
         return send_func
 
     def _apply_address(self, new_address: int = None) -> int:
+        print("Applying address:", new_address)
         if not self.command_def.is_addressable:  # HALT command
             return self._command_bits
         # reset existing address bits, if any
