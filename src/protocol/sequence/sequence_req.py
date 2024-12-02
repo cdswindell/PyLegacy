@@ -72,7 +72,9 @@ class SequenceReq(CommandReq, Sequence):
 
     def _apply_address(self, **kwargs) -> int:
         for req in self._requests:
+            print(req)
             req.address = self.address
+            print("***", req)
         return 0
 
     def _apply_data(self, **kwargs) -> int:

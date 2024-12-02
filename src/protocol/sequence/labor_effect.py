@@ -16,11 +16,13 @@ class LaborEffect(SequenceReq, ABC):
         self,
         address: int,
         scope: CommandScope = CommandScope.ENGINE,
+        data: int = 0,
         inc: int = 0,
     ) -> None:
         super().__init__(address, scope)
         self._inc = inc
         self._scope = scope
+        self._data = data
         self._state = None
         self.add(TMCC2EngineCommandDef.ENGINE_LABOR, address, scope=scope)
 
@@ -42,7 +44,7 @@ class LaborEffect(SequenceReq, ABC):
     def _recalculate(self):
         self._state = ComponentStateStore.get_state(self.scope, self.address, False)
         labor = self._state.labor + self._inc
-        print(f"Recalculating labor: {self._state.labor} +/- {self._inc} -> {labor}")
+        print(f"ID: {self.address} Recalculating labor: {self._state.labor} +/- {self._inc} -> {labor}")
         labor = min(max(labor, 0), 31)
         print(f"After Min/Max: {labor}")
         for req in self._requests:
@@ -54,15 +56,17 @@ class LaborEffectUpReq(LaborEffect):
     def __init__(
         self,
         address: int = DEFAULT_ADDRESS,
+        data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
-        super().__init__(address, scope, 1)
+        super().__init__(address, scope, data, 1)
 
 
 class LaborEffectDownReq(LaborEffect):
     def __init__(
         self,
         address: int = DEFAULT_ADDRESS,
+        data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
-        super().__init__(address, scope, -1)
+        super().__init__(address, scope, data, -1)
