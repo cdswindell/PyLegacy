@@ -262,9 +262,10 @@ class CommandReq:
 
     @address.setter
     def address(self, new_address: int) -> None:
-        print(self.address, self.command_def.is_addressable, new_address)
+        print(self._address, self.command_def.is_addressable, new_address)
         self._address = new_address
         if self.command_def.is_addressable and new_address != self._address:
+            print("*******")
             self._address = new_address
             print(self, self._address)
             self._apply_address()
