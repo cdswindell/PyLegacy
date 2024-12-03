@@ -136,7 +136,7 @@ class Base3Buffer(Thread):
                                 if sock == self._send_queue:
                                     received = None
                                     if self._send_queue.empty():
-                                        print("Base 3 is empty, get will block...")
+                                        log.info("Base 3 is empty, get will block...")
                                     sending = sock.get()
                                     millis_since_last_output = self._current_milli_time() - self._last_output_at
                                     if millis_since_last_output < DEFAULT_BASE_THROTTLE_DELAY:
@@ -157,18 +157,13 @@ class Base3Buffer(Thread):
                                     # be a response, either because we received an 'ack' from
                                     # our send or because the select was triggered on the socket
                                     # being able to be read.
-                                    hex_data = s.recv(512).decode()
-                                    try:
-                                        received = bytes.fromhex(hex_data)
-                                    except ValueError as ve:
-                                        print(f"Error decoding {hex_data}: {ve}")
-
+                                    received = bytes.fromhex(s.recv(512).decode(errors="ignore"))
                                     # but there is more trickiness; The Base3 sends ascii characters
                                     # so when we receive: 'D12729DF', this actually is sent as eight
                                     # characters; D, 1, 2, 7, 2, 9, D, F, so we must decode the 8
                                     # received bytes into 8 ASCII characters, then interpret that
                                     # ASCII string as Hex representation to arrive at 0xd12729df...
-                                if self._listener is not None and received:
+                                if self._listener and received:
                                     self._listener.offer(received)
                             keep_trying = 10
                         except BrokenPipeError as bpe:
