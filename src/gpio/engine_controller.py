@@ -132,7 +132,7 @@ class EngineController:
             self._tmcc2_when_pushed[self._horn_btn] = CommandReq(TMCC2EngineCommandDef.BLOW_HORN_ONE)
 
             self._horn_btn.hold_repeat = True
-            self._horn_btn.hold_time = 0.5
+            self._horn_btn.hold_time = 0.25
             self._tmcc1_when_held[self._horn_btn] = CommandReq(TMCC1EngineCommandDef.BLOW_HORN_ONE)
             self._tmcc2_when_held[self._horn_btn] = CommandReq(TMCC2EngineCommandDef.QUILLING_HORN_INTENSITY, data=7)
         else:
