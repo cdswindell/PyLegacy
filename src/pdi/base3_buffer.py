@@ -157,7 +157,12 @@ class Base3Buffer(Thread):
                                     # be a response, either because we received an 'ack' from
                                     # our send or because the select was triggered on the socket
                                     # being able to be read.
-                                    received = bytes.fromhex(s.recv(512).decode())
+                                    hex_data = s.recv(512).decode()
+                                    try:
+                                        received = bytes.fromhex(hex_data)
+                                    except ValueError as ve:
+                                        print(f"Error decoding {hex_data}: {ve}")
+
                                     # but there is more trickiness; The Base3 sends ascii characters
                                     # so when we receive: 'D12729DF', this actually is sent as eight
                                     # characters; D, 1, 2, 7, 2, 9, D, F, so we must decode the 8
