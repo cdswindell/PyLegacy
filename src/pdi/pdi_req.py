@@ -180,6 +180,10 @@ class PdiReq(ABC):
     def is_lcs(self) -> bool:
         return False
 
+    @property
+    def is_tmcc_rx(self) -> bool:
+        return False
+
     @staticmethod
     def decode_text(data: bytes) -> str | None:
         name = ""
@@ -251,6 +255,10 @@ class TmccReq(PdiReq):
     @property
     def tmcc_command(self) -> CommandReq:
         return self._tmcc_command
+
+    @property
+    def is_tmcc_rx(self) -> bool:
+        return self._pdi_command == PdiCommand.TMCC_RX
 
     @property
     def as_bytes(self) -> bytes:
