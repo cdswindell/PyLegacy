@@ -298,7 +298,6 @@ class PdiDispatcher(Thread):
                         # there is an LCS Ser2 also broadcasting commands
                         if self._client_port is not None:
                             self.update_client_state(cmd)
-
                     # update broadcast channels, mostly used for command echoing
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)

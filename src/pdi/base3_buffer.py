@@ -135,6 +135,8 @@ class Base3Buffer(Thread):
                             for sock in readable:
                                 if sock == self._send_queue:
                                     received = None
+                                    if self._send_queue.empty():
+                                        print("Base 3 is empty, get will block...")
                                     sending = sock.get()
                                     millis_since_last_output = self._current_milli_time() - self._last_output_at
                                     if millis_since_last_output < DEFAULT_THROTTLE_DELAY:

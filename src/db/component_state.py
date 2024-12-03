@@ -128,6 +128,7 @@ class ComponentState(ABC):
     def __init__(self, scope: CommandScope = None) -> None:
         self._scope = scope
         self._last_command: CommandReq | None = None
+        self._last_command_bytes = None
         self._last_updated: datetime | None = None
         self._road_name = None
         self._road_number = None
@@ -228,8 +229,8 @@ class ComponentState(ABC):
         from ..pdi.base_req import BaseReq
 
         self.changed.clear()
-        if command and self._last_command and command.as_bytes == self._last_command.as_bytes:
-            # TODO: should this be removed, now that we send fewer commands?
+        self._last_updated = datetime.now()
+        if command and self._last_command and command.as_bytes == self._last_command_bytes:
             return
         if command and command.command != TMCC1HaltCommandDef.HALT:
             if self._address is None and command.address != BROADCAST_ADDRESS:
@@ -266,8 +267,8 @@ class ComponentState(ABC):
             if isinstance(command, PdiReq):
                 if hasattr(command, "spare_1"):
                     self._spare_1 = command.spare_1
-            self._last_updated = datetime.now()
             self._last_command = command
+            self._last_command_bytes = command.as_bytes
 
     @staticmethod
     def time_delta(last_updated: datetime, recv_time: datetime) -> float:
