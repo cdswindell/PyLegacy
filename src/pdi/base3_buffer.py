@@ -14,7 +14,7 @@ from .constants import KEEP_ALIVE_CMD, PDI_SOP, PdiCommand, TMCC_TX
 from .pdi_listener import PdiListener
 from .pdi_req import PdiReq, TmccReq
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_THROTTLE_DELAY, CommandScope
+from ..protocol.constants import DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, CommandScope, DEFAULT_BASE_THROTTLE_DELAY
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..utils.pollable_queue import PollableQueue
 
@@ -139,8 +139,8 @@ class Base3Buffer(Thread):
                                         print("Base 3 is empty, get will block...")
                                     sending = sock.get()
                                     millis_since_last_output = self._current_milli_time() - self._last_output_at
-                                    if millis_since_last_output < DEFAULT_THROTTLE_DELAY:
-                                        time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
+                                    if millis_since_last_output < DEFAULT_BASE_THROTTLE_DELAY:
+                                        time.sleep((DEFAULT_BASE_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
                                     s.sendall(sending.hex().upper().encode())
                                     self._last_output_at = self._current_milli_time()
                                     # update base3 of new state; required if command is a tmcc_tx

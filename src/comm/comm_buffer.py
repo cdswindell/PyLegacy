@@ -28,7 +28,7 @@ from ..protocol.constants import (
     DEFAULT_VALID_BAUDRATES,
     PROGRAM_NAME,
 )
-from ..protocol.constants import DEFAULT_THROTTLE_DELAY, DEFAULT_SERVER_PORT
+from ..protocol.constants import DEFAULT_SER2_THROTTLE_DELAY, DEFAULT_SERVER_PORT
 
 log = logging.getLogger(__name__)
 
@@ -265,8 +265,8 @@ class CommBufferSingleton(CommBuffer, Thread):
         try:
             with serial.Serial(self.port, self.baudrate) as ser:
                 millis_since_last_output = self._current_milli_time() - self._last_output_at
-                if millis_since_last_output < DEFAULT_THROTTLE_DELAY:
-                    time.sleep((DEFAULT_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
+                if millis_since_last_output < DEFAULT_SER2_THROTTLE_DELAY:
+                    time.sleep((DEFAULT_SER2_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
                 # Write the command byte sequence
                 ser.write(data)
                 self._last_output_at = self._current_milli_time()
