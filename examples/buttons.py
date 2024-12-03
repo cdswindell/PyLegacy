@@ -50,6 +50,8 @@ GpioHandler.controller(
     horn_pin=14,
     start_up_pin=20,
     shutdown_pin=23,
+    rpm_up_pin=15,
+    rpm_down_pin=25,
     lcd_address=0x27,
     lcd_rows=4,
     lcd_cols=20,
