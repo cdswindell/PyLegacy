@@ -143,7 +143,13 @@ class PyTrain:
             self._tmcc_listener = ClientStateListener.build()
             listeners.append(self._tmcc_listener)
         # register listeners
-        self._state_store: ComponentStateStore = ComponentStateStore(listeners=tuple(listeners))
+        self._is_ser2 = args.no_ser2 is False
+        self._is_base = self._base_addr is not None
+        self._state_store: ComponentStateStore = ComponentStateStore(
+            listeners=tuple(listeners),
+            is_base=self._is_base,
+            is_ser2=self._is_ser2,
+        )
         if self._args.echo:
             self.enable_echo()
         if self._args.no_listeners is True:

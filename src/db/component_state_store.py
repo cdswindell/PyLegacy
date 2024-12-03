@@ -33,11 +33,17 @@ class ComponentStateStore:
     _lock = threading.RLock()
 
     @classmethod
-    def build(cls, topics: List[str | CommandScope] = None, listeners: Tuple = None) -> ComponentStateStore:
+    def build(
+        cls,
+        topics: List[str | CommandScope] = None,
+        listeners: Tuple = None,
+        is_base: bool = False,
+        is_ser2: bool = False,
+    ) -> ComponentStateStore:
         """
         Factory method to create a ComponentStateStore instance
         """
-        return ComponentStateStore(topics, listeners)
+        return ComponentStateStore(topics, listeners, is_base=is_base, is_ser2=is_ser2)
 
     # noinspection PyPropertyDefinition
     @classmethod
@@ -77,7 +83,13 @@ class ComponentStateStore:
                 ComponentStateStore._instance._initialized = False
             return ComponentStateStore._instance
 
-    def __init__(self, topics: List[str | CommandScope] = None, listeners: Tuple = None) -> None:
+    def __init__(
+        self,
+        topics: List[str | CommandScope] = None,
+        listeners: Tuple = None,
+        is_base: bool = False,
+        is_ser2: bool = False,
+    ) -> None:
         if self._initialized:
             return
         else:
@@ -85,6 +97,9 @@ class ComponentStateStore:
         self._dependencies = DependencyCache.build()
         self._listeners = listeners
         self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
+        self._is_base = is_base
+        self._is_ser2 = is_ser2
+        self._filter_updates = is_base is True and is_ser2 is True
         if topics:
             for topic in topics:
                 if self.is_valid_topic(topic):
@@ -92,9 +107,10 @@ class ComponentStateStore:
                         listener.listen_for(self, topic)
                 else:
                     raise TypeError(f"Topic {topic} is not valid")
+        print(self)
 
     def __repr__(self) -> str:
-        return "<ComponentStateStore>"
+        return f"<ComponentStateStore Base: {self._is_base} Ser2: {self._is_ser2} Filtering: {self._filter_updates}>"
 
     def __contains__(self, scope: CommandScope) -> bool:
         return scope in self._state
