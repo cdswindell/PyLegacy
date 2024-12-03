@@ -208,6 +208,7 @@ class CommandListener(Thread):
                     if data == SYNC_BEGIN_RESPONSE:
                         self._dispatcher.offer(SYNCING)
                     else:
+                        print("Sending Sync Complete...")
                         self._dispatcher.offer(SYNC_COMPLETE)
                 else:
                     self._deque.extend(data)
