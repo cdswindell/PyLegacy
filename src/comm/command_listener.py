@@ -442,6 +442,7 @@ class CommandDispatcher(Thread):
         When a new client attaches to the server, immediately send it all know
         component states. They will be updated as needed (see update_client_state).
         """
+        print(f"Sending current state: {client_ip} {self._client_port}")
         if self._client_port is not None:
             from ..db.component_state_store import ComponentStateStore
 
