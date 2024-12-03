@@ -237,9 +237,12 @@ class TmccReq(PdiReq):
                 raise ValueError(f"Invalid PDI TMCC Request: {self.pdi_command}")
             self._tmcc_command: CommandReq = data
         else:
-            if PdiCommand(data[1]) not in [PdiCommand.TMCC_TX, PdiCommand.TMCC_RX]:
+            pdi_command = PdiCommand(data[1])
+            if pdi_command not in [PdiCommand.TMCC_TX, PdiCommand.TMCC_RX]:
                 raise ValueError(f"Invalid PDI TMCC Request: {data}")
-            self._tmcc_command: CommandReq = CommandReq.from_bytes(self._data[1:])
+            self._tmcc_command: CommandReq = CommandReq.from_bytes(
+                self._data[1:], from_tmcc_rx=True if pdi_command == PdiCommand.TMCC_RX else False
+            )
 
     def __repr__(self) -> str:
         data = f" (0x{self._data.hex()})" if self._data else ""

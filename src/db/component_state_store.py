@@ -107,7 +107,7 @@ class ComponentStateStore:
                         listener.listen_for(self, topic)
                 else:
                     raise TypeError(f"Topic {topic} is not valid")
-        print(self)
+        log.debug(self)
 
     def __repr__(self) -> str:
         return f"<ComponentStateStore Base: {self._is_base} Ser2: {self._is_ser2} Filtering: {self._filter_updates}>"
@@ -144,6 +144,18 @@ class ComponentStateStore:
     @property
     def is_empty(self) -> bool:
         return len(self._state) == 0
+
+    @property
+    def is_base(self) -> bool:
+        return self._is_base
+
+    @property
+    def is_ser2(self) -> bool:
+        return self._is_ser2
+
+    @property
+    def is_filter_updates(self) -> bool:
+        return self._filter_updates
 
     @staticmethod
     def is_valid_topic(topic: Topic) -> bool:
@@ -187,7 +199,7 @@ class ComponentStateStore:
                 CommandScope.SWITCH,
                 CommandScope.IRDA,
             ]
-            and 1 <= address <= 99
+            and 1 <= address <= 9999
         ) or (scope == CommandScope.BASE and address == 0):
             return self._state[scope][address]
         raise ValueError(f"Invalid scope/address: {scope} {address}")

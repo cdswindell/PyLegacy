@@ -49,14 +49,17 @@ class CommandReq:
         return CommandReq(command, address, data, scope)
 
     @classmethod
-    def from_bytes(cls, param: bytes) -> Self:
+    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False) -> Self:
         if not param:
             raise ValueError("Command requires at least 3 bytes")
         if len(param) < 3:
             raise ValueError(f"Command requires at least 3 bytes {param.hex(':')}")
         first_byte = int(param[0])
         if first_byte in TMCC_FIRST_BYTE_TO_INTERPRETER:
-            return TMCC_FIRST_BYTE_TO_INTERPRETER[first_byte](param)
+            cmd_req = TMCC_FIRST_BYTE_TO_INTERPRETER[first_byte](param)
+            if from_tmcc_rx is True:
+                cmd_req._is_tmcc_rx = True
+            return cmd_req
         raise ValueError(f"Command bytes not understood {param.hex(':')}")
 
     @classmethod
@@ -230,6 +233,7 @@ class CommandReq:
 
         self._buffer: CommBuffer | None = None
         self._message_processor = None
+        self._is_tmcc_rx = False
 
         # save the command bits from the def, as we will be modifying them
         self._command_bits: int = self._command_def.bits
@@ -248,10 +252,11 @@ class CommandReq:
 
     def __repr__(self) -> str:
         if self.is_data:
-            data = f"{self.data} "
+            data = f" {self.data} "
         else:
             data = ""
-        return f"[{self.scope.name} {self.address} {self.command_name} {data}(0x{self.as_bytes.hex()})]"
+        rx = " (RX) " if self.is_tmcc_rx else ""
+        return f"[{self.scope.name} {self.address} {self.command_name}{data}{rx}(0x{self.as_bytes.hex()})]"
 
     @property
     def address(self) -> int:
@@ -350,6 +355,10 @@ class CommandReq:
     @property
     def identifier(self) -> int | None:
         return self.command_def.identifier
+
+    @property
+    def is_tmcc_rx(self) -> bool:
+        return self._is_tmcc_rx
 
     def send(
         self,
