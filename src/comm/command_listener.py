@@ -205,11 +205,9 @@ class CommandListener(Thread):
                     log.debug(f"TMCC CommandListener offered: {data.hex(' ')}")
                 # check if these are sync start or end commands
                 if data in {SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE}:
-                    print(f"TMCC CommandListener offered: {data.hex(' ')}")
                     if data == SYNC_BEGIN_RESPONSE:
                         self._dispatcher.offer(SYNCING)
                     else:
-                        print("Sending Sync Complete...")
                         self._dispatcher.offer(SYNC_COMPLETE)
                 else:
                     self._deque.extend(data)
@@ -442,7 +440,6 @@ class CommandDispatcher(Thread):
         When a new client attaches to the server, immediately send it all know
         component states. They will be updated as needed (see update_client_state).
         """
-        print(f"Sending current state: {client_ip} {self._client_port}")
         if self._client_port is not None:
             from ..db.component_state_store import ComponentStateStore
 
@@ -458,7 +455,6 @@ class CommandDispatcher(Thread):
                         if state is not None:
                             self.send_state_packet(client_ip, state)
             # send sync complete message
-            print("sending sync complete...)")
             self.send_state_packet(client_ip, EnqueueProxyRequests.sync_complete_response)
 
     def send_state_packet(self, client_ip: str, state: ComponentState | bytes):
