@@ -360,6 +360,10 @@ class CommandReq:
     def is_tmcc_rx(self) -> bool:
         return self._is_tmcc_rx
 
+    @property
+    def is_filtered(self) -> bool:
+        return self.command_def.is_filtered
+
     def send(
         self,
         repeat: int = 1,

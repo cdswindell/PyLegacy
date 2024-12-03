@@ -115,7 +115,10 @@ class PyTrain:
             print(f"Listening for client requests on port {self._args.server_port}...")
             self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
 
-            self._tmcc_listener = CommandListener.build(ser2_receiver=not self._no_ser2)
+            self._tmcc_listener = CommandListener.build(
+                ser2_receiver=not self._no_ser2,
+                base3_receiver=self._base_addr is not None,
+            )
             listeners.append(self._tmcc_listener)
             if self._no_ser2 is False:
                 print("Listening for Lionel LCS Ser2 broadcasts...")

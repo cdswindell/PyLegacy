@@ -39,6 +39,7 @@ class CommandListener(Thread):
         port: str = DEFAULT_PORT,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         ser2_receiver: bool = True,
+        base3_receiver: bool = False,
     ) -> CommandListener:
         """
         Factory method to create a CommandListener instance
@@ -48,6 +49,7 @@ class CommandListener(Thread):
             port=port,
             queue_size=queue_size,
             ser2_receiver=ser2_receiver,
+            base3_receiver=base3_receiver,
         )
 
     @classmethod
@@ -98,6 +100,7 @@ class CommandListener(Thread):
         port: str = DEFAULT_PORT,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         ser2_receiver: bool = True,
+        base3_receiver: bool = False,
     ) -> None:
         if self._initialized:
             return
@@ -113,7 +116,7 @@ class CommandListener(Thread):
         self._cv = threading.Condition()
         self._deque = deque(maxlen=DEFAULT_QUEUE_SIZE)
         self._is_running = True
-        self._dispatcher = CommandDispatcher.build(queue_size, ser2_receiver)
+        self._dispatcher = CommandDispatcher.build(queue_size, ser2_receiver, base3_receiver)
 
         # get initial state from Base 3 and LCS modules
         self.sync_state()
@@ -128,6 +131,9 @@ class CommandListener(Thread):
             self._serial_reader = SerialReader(baudrate, port, self)
         else:
             self._serial_reader = None
+        self._ser2_receiver = ser2_receiver
+        self._base3_receiver = base3_receiver
+        self._filter_updates = base3_receiver is True and ser2_receiver is True
 
     def sync_state(self) -> None:
         """
@@ -300,11 +306,16 @@ class CommandDispatcher(Thread):
     _lock = threading.RLock()
 
     @classmethod
-    def build(cls, queue_size: int = DEFAULT_QUEUE_SIZE, ser2_receiver: bool = False) -> CommandDispatcher:
+    def build(
+        cls,
+        queue_size: int = DEFAULT_QUEUE_SIZE,
+        ser2_receiver: bool = False,
+        base3_receiver: bool = False,
+    ) -> CommandDispatcher:
         """
         Factory method to create a CommandDispatcher instance
         """
-        return CommandDispatcher(queue_size, ser2_receiver)
+        return CommandDispatcher(queue_size, ser2_receiver, base3_receiver)
 
     @classmethod
     def get(cls) -> CommandDispatcher:
@@ -347,13 +358,20 @@ class CommandDispatcher(Thread):
                 CommandDispatcher._instance._initialized = False
             return CommandDispatcher._instance
 
-    def __init__(self, queue_size: int = DEFAULT_QUEUE_SIZE, ser2_receiver: bool = False) -> None:
+    def __init__(
+        self,
+        queue_size: int = DEFAULT_QUEUE_SIZE,
+        ser2_receiver: bool = False,
+        base3_receiver: bool = False,
+    ) -> None:
         if self._initialized:
             return
         else:
             self._initialized = True
         super().__init__(daemon=True, name="PyLegacy TMCC Command Dispatcher")
         self._is_ser2_receiver = ser2_receiver
+        self._is_base3_receiver = base3_receiver
+        self._filter_updates = base3_receiver is True and ser2_receiver is True
         self._channels: dict[Topic | Tuple[Topic, int], Channel[Message]] = defaultdict(Channel)
         self._cv = threading.Condition()
         self._is_running = True
@@ -390,7 +408,10 @@ class CommandDispatcher(Thread):
                         self.publish(BROADCAST_TOPIC, cmd)
                     # update state on all clients
                     if self._client_port is not None:
-                        self.update_client_state(cmd)
+                        if self._filter_updates is False and cmd.is_filtered is False:
+                            self.update_client_state(cmd)
+                        else:
+                            log.info(f"Suppressing client update: {cmd}")
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {cmd}; see log for details")
                 log.exception(e)
@@ -411,6 +432,14 @@ class CommandDispatcher(Thread):
             True if the instance has the SER2 receiver capability, else False.
         """
         return self._is_ser2_receiver
+
+    @property
+    def is_base3_receiver(self) -> bool:
+        return self._is_base3_receiver
+
+    @property
+    def is_filter_updates(self) -> bool:
+        return self._filter_updates
 
     # noinspection DuplicatedCode
     def update_client_state(self, command: CommandReq):

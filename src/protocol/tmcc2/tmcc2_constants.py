@@ -65,8 +65,18 @@ class TMCC2CommandDef(CommandDef):
         d_map: Dict[int, int] = None,
         alias: str = None,
         data: int = None,
+        filtered=False,
     ) -> None:
-        super().__init__(command_bits, is_addressable, d_min=d_min, d_max=d_max, d_map=d_map, alias=alias, data=data)
+        super().__init__(
+            command_bits,
+            is_addressable,
+            d_min=d_min,
+            d_max=d_max,
+            d_map=d_map,
+            alias=alias,
+            data=data,
+            filtered=filtered,
+        )
         self._scope = scope
 
     @property
@@ -241,7 +251,7 @@ class TMCC2RRSpeeds(OfficialRRSpeeds):
 
 @unique
 class TMCC2EngineCommandDef(TMCC2Enum):
-    ABSOLUTE_SPEED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199)
+    ABSOLUTE_SPEED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199, filtered=True)
     AUGER = TMCC2CommandDef(TMCC2_ENG_AUGER_SOUND_COMMAND)
     AUX1_OFF = TMCC2CommandDef(TMCC2_AUX1_OFF_COMMAND)
     AUX1_ON = TMCC2CommandDef(TMCC2_AUX1_ON_COMMAND)
@@ -265,14 +275,12 @@ class TMCC2EngineCommandDef(TMCC2Enum):
     BRAKE_SPEED = TMCC2CommandDef(TMCC2_BRAKE_SPEED_COMMAND)
     BRAKE_SQUEAL = TMCC2CommandDef(TMCC2_ENG_BRAKE_SQUEAL_SOUND_COMMAND)
     CYLINDER_HISS = TMCC2CommandDef(TMCC2_ENG_CYLINDER_HISS_SOUND_COMMAND)
-    DIESEL_RPM = TMCC2CommandDef(TMCC2_DIESEL_RPM_SOUND_COMMAND, d_max=7)
-    ENGINE_LABOR = TMCC2CommandDef(TMCC2_ENGINE_LABOR_COMMAND, d_max=31)
+    DIESEL_RPM = TMCC2CommandDef(TMCC2_DIESEL_RPM_SOUND_COMMAND, d_max=7, filtered=True)
+    ENGINE_LABOR = TMCC2CommandDef(TMCC2_ENGINE_LABOR_COMMAND, d_max=31, filtered=True)
     ENGINE_LABOR_DEFAULT = TMCC2CommandDef(
-        TMCC2_ENGINE_LABOR_COMMAND | 12,
-        alias="ENGINE_LABOR",
-        data=DEFAULT_ENGINE_LABOR,
+        TMCC2_ENGINE_LABOR_COMMAND | 12, alias="ENGINE_LABOR", data=DEFAULT_ENGINE_LABOR, filtered=True
     )
-    FORWARD_DIRECTION = TMCC2CommandDef(TMCC2_FORWARD_DIRECTION_COMMAND)
+    FORWARD_DIRECTION = TMCC2CommandDef(TMCC2_FORWARD_DIRECTION_COMMAND, filtered=True)
     FRONT_COUPLER = TMCC2CommandDef(TMCC2_OPEN_FRONT_COUPLER_COMMAND)
     LET_OFF = TMCC2CommandDef(TMCC2_ENG_LET_OFF_SOUND_COMMAND)
     LET_OFF_LONG = TMCC2CommandDef(TMCC2_ENG_LET_OFF_LONG_SOUND_COMMAND)
@@ -288,7 +296,7 @@ class TMCC2EngineCommandDef(TMCC2Enum):
     REAR_COUPLER = TMCC2CommandDef(TMCC2_OPEN_REAR_COUPLER_COMMAND)
     REFUELLING = TMCC2CommandDef(TMCC2_ENG_REFUELLING_SOUND_COMMAND)
     RELATIVE_SPEED = TMCC2CommandDef(TMCC2_SET_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
-    REVERSE_DIRECTION = TMCC2CommandDef(TMCC2_REVERSE_DIRECTION_COMMAND)
+    REVERSE_DIRECTION = TMCC2CommandDef(TMCC2_REVERSE_DIRECTION_COMMAND, filtered=True)
     RING_BELL = TMCC2CommandDef(TMCC2_RING_BELL_COMMAND)
     RPM_DOWN = TMCC2CommandDef(TMCC2_ENG_RPM_DOWN_COMMAND, alias="NUMERIC", data=6)
     RPM_UP = TMCC2CommandDef(TMCC2_ENG_RPM_UP_COMMAND, alias="NUMERIC", data=3)
@@ -324,10 +332,10 @@ class TMCC2EngineCommandDef(TMCC2Enum):
     STALL = TMCC2CommandDef(TMCC2_STALL_COMMAND)
     START_UP_DELAYED = TMCC2CommandDef(TMCC2_START_UP_SEQ_ONE_COMMAND)
     START_UP_IMMEDIATE = TMCC2CommandDef(TMCC2_START_UP_SEQ_TWO_COMMAND)
-    STOP_IMMEDIATE = TMCC2CommandDef(TMCC2_STOP_IMMEDIATE_COMMAND)
+    STOP_IMMEDIATE = TMCC2CommandDef(TMCC2_STOP_IMMEDIATE_COMMAND, filtered=True)
     SYSTEM_HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND)
     TOGGLE_DIRECTION = TMCC2CommandDef(TMCC2_TOGGLE_DIRECTION_COMMAND)
-    TRAIN_BRAKE = TMCC2CommandDef(TMCC2_SET_TRAIN_BRAKE_COMMAND, d_max=7)
+    TRAIN_BRAKE = TMCC2CommandDef(TMCC2_SET_TRAIN_BRAKE_COMMAND, d_max=7, filtered=True)
     WATER_INJECTOR = TMCC2CommandDef(TMCC2_WATER_INJECTOR_SOUND_COMMAND)
     VOLUME_UP = TMCC2CommandDef(TMCC2_VOLUME_UP_COMMAND_HACK, alias="NUMERIC", data=1)
     VOLUME_DOWN = TMCC2CommandDef(TMCC2_VOLUME_DOWN_COMMAND_HACK, alias="NUMERIC", data=4)
