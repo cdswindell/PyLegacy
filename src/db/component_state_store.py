@@ -429,6 +429,14 @@ class DependencyCache:
             Engine2.ENGINE_LABOR_DEFAULT,
         )
 
+        self.causes(
+            Engine2.SHUTDOWN_IMMEDIATE,
+            Engine2.SPEED_STOP_HOLD,
+            Engine2.STOP_IMMEDIATE,
+            Engine2.DIESEL_RPM,
+            Engine2.ENGINE_LABOR_DEFAULT,
+        )
+
         # TMCC1 Engine Reset
         self.causes(
             Engine1.RESET,
