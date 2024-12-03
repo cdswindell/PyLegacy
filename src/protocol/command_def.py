@@ -36,6 +36,7 @@ class CommandDef(ABC):
         do_reverse_lookup: bool = True,
         alias: str = None,
         data: int = None,
+        filtered: bool = False,
     ) -> None:
         self._command_bits: int = command_bits
         self._is_addressable = is_addressable
@@ -51,6 +52,7 @@ class CommandDef(ABC):
             self._d_bits = math.ceil(math.log2(d_max))
         elif d_map is not None:
             self._d_bits = math.ceil(math.log2(max(d_map.values())))
+        self._filtered = filtered
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__} 0x{self.bits:04x}: {self.num_data_bits} data bits"
@@ -70,6 +72,10 @@ class CommandDef(ABC):
     @property
     def is_data(self) -> bool:
         return self.num_data_bits != 0
+
+    @property
+    def is_filtered(self) -> bool:
+        return self._filtered
 
     def is_valid_data(self, candidate: int, from_bytes: bool = False) -> bool:
         """
@@ -245,6 +251,10 @@ class CommandDefEnum(CommandDefMixins, Enum):
     @property
     def is_alias(self) -> bool:
         return self.command_def.is_alias
+
+    @property
+    def is_filtered(self) -> bool:
+        return self.command_def.is_filtered
 
     @property
     def alias(self) -> E | Tuple[E, int]:
