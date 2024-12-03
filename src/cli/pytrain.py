@@ -116,7 +116,7 @@ class PyTrain:
             if self._no_ser2 is False:
                 print("Listening for Lionel LCS Ser2 broadcasts...")
             if self._base_addr is not None:
-                print(f"Listening for Lionel Base broadcasts on  {self._base_addr}:{self._base_port}...")
+                print(f"Listening for Lionel Base broadcasts on {self._base_addr}:{self._base_port}...")
                 self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
                 listeners.append(self._pdi_buffer)
                 self.buffer.is_use_base3 = True
