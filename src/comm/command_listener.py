@@ -205,6 +205,7 @@ class CommandListener(Thread):
                     log.debug(f"TMCC CommandListener offered: {data.hex(' ')}")
                 # check if these are sync start or end commands
                 if data in {SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE}:
+                    print(f"TMCC CommandListener offered: {data.hex(' ')}")
                     if data == SYNC_BEGIN_RESPONSE:
                         self._dispatcher.offer(SYNCING)
                     else:
@@ -456,6 +457,7 @@ class CommandDispatcher(Thread):
                         if state is not None:
                             self.send_state_packet(client_ip, state)
             # send sync complete message
+            print("sending sync complete...)")
             self.send_state_packet(client_ip, EnqueueProxyRequests.sync_complete_response)
 
     def send_state_packet(self, client_ip: str, state: ComponentState | bytes):
