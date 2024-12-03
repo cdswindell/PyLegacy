@@ -282,9 +282,7 @@ class PdiDispatcher(Thread):
                             CommandDispatcher.get().offer(SYNC_COMPLETE)
                         if cmd.is_ack is True or cmd.is_active is False:
                             continue
-                    # for TMCC requests, forward to TMCC Command Dispatcher, but only if
-                    # we are not also listening for TMCC commands via an LCS Ser2
-                    # if isinstance(cmd, TmccReq):
+                    # for TMCC requests, forward to TMCC Command Dispatcher
                     if isinstance(cmd, TmccReq):
                         self._tmcc_dispatcher.offer(cmd.tmcc_command, from_pdi=True)
                     elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
@@ -294,8 +292,8 @@ class PdiDispatcher(Thread):
                         self.publish(cmd.scope, cmd)
 
                         # update clients of state change. Note that we DO NOT do this
-                        # if the command is TMCC command broadcast from the Base and
-                        # there is an LCS Ser2 also broadcasting commands
+                        # if the command is TMCC command received from the Base, as it
+                        # has been handled via the call to tmcc_dispatcher.offer above
                         if self._client_port is not None:
                             self.update_client_state(cmd)
                     # update broadcast channels, mostly used for command echoing

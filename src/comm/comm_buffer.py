@@ -286,12 +286,12 @@ class CommBufferSingleton(CommBuffer, Thread):
         from ..pdi.base3_buffer import Base3Buffer
         from .command_listener import CommandDispatcher
 
+        tmcc_cmd = CommandReq.from_bytes(data)
         with self._lock:
             if self._base3 is None:
                 self._base3 = Base3Buffer.get
-        tmcc_cmd = CommandReq.from_bytes(data)
-        if self._base3 is None:
-            raise AttributeError(f"Base3Buffer is not built, failed to send {tmcc_cmd}")
+                if self._base3 is None:
+                    raise AttributeError(f"Base3Buffer is not built, failed to send {tmcc_cmd}")
         pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
         print(f"Sent {tmcc_cmd} via Base 3...")
