@@ -408,8 +408,25 @@ class CommandDispatcher(Thread):
                         self.publish(BROADCAST_TOPIC, cmd)
                     # update state on all clients
                     if self._client_port is not None:
+                        """
+                        When we are listening to broadcasts from both the Base 3 and a Ser2, the
+                        TMCC commands broadcast from the Base 3 are also sent out via the Ser2.
+                        However, the command stream on the Ser2 lags the base. This can result in
+                        command conflicts. For example, when sending speed change commands to the
+                        Base 3 to go to speed 10, then 20, then 30, then 40, these directives
+                        are echoed back almost instantly via the Base 3 and used to update the
+                        LCD display. But, when the Ser2 echos the same commands a few seconds later,
+                        the display can look like 10, 20, 30, 10, 40, 30, 40, because the received
+                        commands from the Ser2 arrive out of sync.
+
+                        The fix is to filter out the propagation of the Ser2 commands if an equivalent
+                        command is broadcast from the Base 3, and if we are listening to both the
+                        Base 3 and Ser2. Only a subset of the TMCC commands are sent out via the Base 3.
+                        These commands are all marked as "filtered", and are excluded here as well as
+                        in ComponentStateStore.
+                        """
                         if self._filter_updates is True and cmd.is_filtered is True:
-                            log.debug(f"Suppressing client update: {cmd}")
+                            log.debug(f"Filtering client update: {cmd}")
                         else:
                             self.update_client_state(cmd)
             except Exception as e:
