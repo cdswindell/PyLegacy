@@ -107,6 +107,7 @@ class EngineController:
         if start_up_pin is not None:
             self._start_up_btn = GpioHandler.make_button(start_up_pin)
             self._tmcc2_when_pushed[self._start_up_btn] = CommandReq(TMCC2EngineCommandDef.START_UP_IMMEDIATE)
+            self._tmcc2_when_held[self._start_up_btn] = CommandReq(TMCC2EngineCommandDef.START_UP_DELAYED)
         else:
             self._start_up_btn = None
 
@@ -114,6 +115,7 @@ class EngineController:
             self._shutdown_btn = GpioHandler.make_button(shutdown_pin)
             self._tmcc1_when_pushed[self._shutdown_btn] = CommandReq(TMCC1EngineCommandDef.SHUTDOWN_DELAYED)
             self._tmcc2_when_pushed[self._shutdown_btn] = CommandReq(TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE)
+            self._tmcc2_when_held[self._shutdown_btn] = CommandReq(TMCC2EngineCommandDef.SHUTDOWN_DELAYED)
         else:
             self._shutdown_btn = None
 
