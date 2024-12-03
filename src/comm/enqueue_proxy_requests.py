@@ -184,6 +184,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
                 log.info(f"Client at {self.client_address[0]} connecting...")
         elif byte_stream == EnqueueProxyRequests.sync_state_request:
+            log.info(f"Client at {self.client_address[0]} syncing...")
             CommandDispatcher.build().send_current_state(self.client_address[0])
         else:
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
