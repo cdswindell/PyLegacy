@@ -113,6 +113,8 @@ class PyTrain:
         if isinstance(self.buffer, CommBufferSingleton):
             self._tmcc_listener = CommandListener.build(ser2_receiver=not self._no_ser2)
             listeners.append(self._tmcc_listener)
+            if self._no_ser2 is False:
+                print("Listening for Lionel LCS Ser2 broadcasts...")
             if self._base_addr is not None:
                 print(f"Listening for Lionel Base broadcasts on  {self._base_addr}:{self._base_port}...")
                 self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
