@@ -252,11 +252,11 @@ class CommandReq:
 
     def __repr__(self) -> str:
         if self.is_data:
-            data = f" {self.data} "
+            data = f" {self.data}"
         else:
             data = ""
-        rx = " (RX) " if self.is_tmcc_rx else ""
-        return f"[{self.scope.name} {self.address} {self.command_name}{data}{rx}(0x{self.as_bytes.hex()})]"
+        rx = " (RX)" if self.is_tmcc_rx else ""
+        return f"[{self.scope.name} {self.address} {self.command_name}{data}{rx} (0x{self.as_bytes.hex()})]"
 
     @property
     def address(self) -> int:

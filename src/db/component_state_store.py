@@ -27,6 +27,17 @@ T = TypeVar("T", bound=ComponentState)
 C = TypeVar("C", bound=CommandDefEnum)
 E = TypeVar("E", bound=CommandDefEnum)
 
+SUPPRESSED_COMMANDS = {
+    "ABSOLUTE_SPEED",
+    "DIESEL_LEVEL",
+    "ENGINE_LABOR",
+    "TRAIN_BRAKE",
+    "TOGGLE_DIRECTION",
+    "FORWARD_DIRECTION",
+    "REVERSE_DIRECTION",
+    "STOP_IMMEDIATE",
+}
+
 
 class ComponentStateStore:
     _instance: ComponentStateStore = None
@@ -133,13 +144,24 @@ class ComponentStateStore:
                                 self._state[scope][address].update(command)
                     return
             if command.scope in SCOPE_TO_STATE_MAP:
-                if command.address == BROADCAST_ADDRESS and command.scope != CommandScope.SYNC:  # broadcast address
-                    for address in self._state[command.scope]:
-                        self._state[command.scope][address].update(command)
-                else:  # update the device state (identified by scope/address)
-                    self._state[command.scope][command.address].update(command)
+                if self._filter_updates and self.is_suppressed_command(command):
+                    log.info(f"Command {command} is suppressed")
+                else:
+                    if command.address == BROADCAST_ADDRESS and command.scope != CommandScope.SYNC:  # broadcast address
+                        for address in self._state[command.scope]:
+                            self._state[command.scope][address].update(command)
+                    else:  # update the device state (identified by scope/address)
+                        self._state[command.scope][command.address].update(command)
             else:
                 log.warning(f"Received Unknown State Update: {command.scope} {command}")
+
+    @staticmethod
+    def is_suppressed_command(command: CommandReq) -> bool:
+        if command.is_tmcc_rx is False:
+            if command.scope in [CommandScope.ENGINE, CommandScope.TRAIN]:
+                if command.command.name in SUPPRESSED_COMMANDS:
+                    return True
+        return False
 
     @property
     def is_empty(self) -> bool:
