@@ -409,7 +409,7 @@ class CommandDispatcher(Thread):
                     # update state on all clients
                     if self._client_port is not None:
                         if self._filter_updates is True and cmd.is_filtered is True:
-                            log.info(f"Suppressing client update: {cmd}")
+                            log.debug(f"Suppressing client update: {cmd}")
                         else:
                             self.update_client_state(cmd)
             except Exception as e:
