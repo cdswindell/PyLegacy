@@ -47,7 +47,7 @@ GpioHandler.controller(
     speed_pins=[19, 26],
     fwd_pin=13,
     rev_pin=4,
-    bell_pin=14,
+    horn_pin=14,
     start_up_pin=20,
     shutdown_pin=23,
     lcd_address=0x27,

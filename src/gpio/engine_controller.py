@@ -133,6 +133,7 @@ class EngineController:
             self._tmcc1_when_pushed[self._horn_btn] = CommandReq(TMCC1EngineCommandDef.BLOW_HORN_ONE)
             self._tmcc2_when_pushed[self._horn_btn] = CommandReq(TMCC2EngineCommandDef.BLOW_HORN_ONE)
 
+            self._horn_btn.hold_repeat = True
             self._tmcc1_when_held[self._horn_btn] = CommandReq(TMCC1EngineCommandDef.BLOW_HORN_ONE)
             self._tmcc2_when_held[self._horn_btn] = CommandReq(TMCC2EngineCommandDef.QUILLING_HORN_INTENSITY, data=7)
         else:
@@ -162,6 +163,10 @@ class EngineController:
             self._rpm_up_btn = GpioHandler.make_button(rpm_up_pin)
             self._tmcc1_when_pushed[self._rpm_up_btn] = CommandReq(TMCC1EngineCommandDef.RPM_UP)
             self._tmcc2_when_pushed[self._rpm_up_btn] = CommandReq(TMCC2EngineCommandDef.RPM_UP)
+
+            self._rpm_up_btn.hold_repeat = True
+            self._tmcc1_when_held[self._rpm_up_btn] = CommandReq(TMCC1EngineCommandDef.RPM_UP)
+            self._tmcc2_when_held[self._rpm_up_btn] = CommandReq(TMCC2EngineCommandDef.RPM_UP)
         else:
             self._rpm_up_btn = None
 
@@ -169,18 +174,26 @@ class EngineController:
             self._rpm_down_btn = GpioHandler.make_button(rpm_down_pin)
             self._tmcc1_when_pushed[self._rpm_down_btn] = CommandReq(TMCC1EngineCommandDef.RPM_DOWN)
             self._tmcc2_when_pushed[self._rpm_down_btn] = CommandReq(TMCC2EngineCommandDef.RPM_DOWN)
+
+            self._rpm_down_btn.hold_repeat = True
+            self._tmcc1_when_held[self._rpm_down_btn] = CommandReq(TMCC1EngineCommandDef.RPM_DOWN)
+            self._tmcc2_when_held[self._rpm_down_btn] = CommandReq(TMCC2EngineCommandDef.RPM_DOWN)
         else:
             self._rpm_down_btn = None
 
         if labor_up_pin is not None:
             self._labor_up_btn = GpioHandler.make_button(labor_up_pin)
             self._tmcc2_when_pushed[self._labor_up_btn] = LaborEffectUpReq()
+            self._labor_up_btn.hold_repeat = True
+            self._tmcc2_when_held[self._labor_up_btn] = LaborEffectUpReq()
         else:
             self._labor_up_btn = None
 
         if labor_down_pin is not None:
             self._labor_down_btn = GpioHandler.make_button(labor_down_pin)
             self._tmcc2_when_pushed[self._labor_down_btn] = LaborEffectDownReq()
+            self._labor_down_btn.hold_repeat = True
+            self._tmcc2_when_held[self._labor_down_btn] = LaborEffectDownReq()
         else:
             self._labor_down_btn = None
 
