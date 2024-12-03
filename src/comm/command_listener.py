@@ -408,7 +408,7 @@ class CommandDispatcher(Thread):
                         self.publish(BROADCAST_TOPIC, cmd)
                     # update state on all clients
                     if self._client_port is not None:
-                        if self._filter_updates is False and cmd.is_filtered is False:
+                        if self._filter_updates is True and cmd.is_filtered is True:
                             self.update_client_state(cmd)
                         else:
                             log.info(f"Suppressing client update: {cmd}")

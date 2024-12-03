@@ -27,17 +27,6 @@ T = TypeVar("T", bound=ComponentState)
 C = TypeVar("C", bound=CommandDefEnum)
 E = TypeVar("E", bound=CommandDefEnum)
 
-SUPPRESSED_COMMANDS = {
-    "ABSOLUTE_SPEED",
-    "DIESEL_LEVEL",
-    "ENGINE_LABOR",
-    "TRAIN_BRAKE",
-    "TOGGLE_DIRECTION",
-    "FORWARD_DIRECTION",
-    "REVERSE_DIRECTION",
-    "STOP_IMMEDIATE",
-}
-
 
 class ComponentStateStore:
     _instance: ComponentStateStore = None
@@ -144,7 +133,7 @@ class ComponentStateStore:
                                 self._state[scope][address].update(command)
                     return
             if command.scope in SCOPE_TO_STATE_MAP:
-                if self._filter_updates and self.is_suppressed_command(command):
+                if self._filter_updates and self.is_filtered_command(command):
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"Command {command} is suppressed")
                 else:
@@ -157,11 +146,9 @@ class ComponentStateStore:
                 log.warning(f"Received Unknown State Update: {command.scope} {command}")
 
     @staticmethod
-    def is_suppressed_command(command: CommandReq) -> bool:
+    def is_filtered_command(command: CommandReq) -> bool:
         if command.is_tmcc_rx is False:
-            if command.scope in [CommandScope.ENGINE, CommandScope.TRAIN]:
-                if command.command.name in SUPPRESSED_COMMANDS:
-                    return True
+            return command.is_filtered
         return False
 
     @property
