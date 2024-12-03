@@ -115,7 +115,7 @@ class PyTrain:
                 print(f"Listening for Lionel Base broadcasts on  {self._base_addr}:{self._base_port}...")
                 self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
                 listeners.append(self._pdi_buffer)
-                # self.buffer.is_use_base3 = True
+                self.buffer.is_use_base3 = True
 
             if self._pdi_buffer or self._no_ser2 is True:
                 print(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
