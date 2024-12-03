@@ -145,7 +145,8 @@ class ComponentStateStore:
                     return
             if command.scope in SCOPE_TO_STATE_MAP:
                 if self._filter_updates and self.is_suppressed_command(command):
-                    log.info(f"Command {command} is suppressed")
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug(f"Command {command} is suppressed")
                 else:
                     if command.address == BROADCAST_ADDRESS and command.scope != CommandScope.SYNC:  # broadcast address
                         for address in self._state[command.scope]:
