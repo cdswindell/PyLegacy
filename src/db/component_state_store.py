@@ -133,7 +133,7 @@ class ComponentStateStore:
                                 self._state[scope][address].update(command)
                     return
             if command.scope in SCOPE_TO_STATE_MAP:
-                if self._filter_updates and self.is_filtered_command(command):
+                if self._filter_updates and command.is_filtered:
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"Command {command} is suppressed")
                 else:
@@ -144,12 +144,6 @@ class ComponentStateStore:
                         self._state[command.scope][command.address].update(command)
             else:
                 log.warning(f"Received Unknown State Update: {command.scope} {command}")
-
-    @staticmethod
-    def is_filtered_command(command: CommandReq) -> bool:
-        if command.is_tmcc_rx is False:
-            return command.is_filtered
-        return False
 
     @property
     def is_empty(self) -> bool:

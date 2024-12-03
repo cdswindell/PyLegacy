@@ -362,7 +362,7 @@ class CommandReq:
 
     @property
     def is_filtered(self) -> bool:
-        return self.command_def.is_filtered
+        return self.command_def.is_filtered is True and self.is_tmcc_rx is False
 
     def send(
         self,
