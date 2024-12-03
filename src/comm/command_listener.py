@@ -490,14 +490,6 @@ class CommandDispatcher(Thread):
                 if from_pdi is True:
                     pass  # TODO: prevent receiving same command from ser2 stream
 
-    def expect_req(self, data: bytes) -> None:
-        """
-        When TMCC commands are dispatched via the Base 3, we expect it to be
-        echoed from both the Base 3 and the Ser2. But as the Ser2 is slower to
-        post the responses, they can screw up state we've already applied
-        """
-        print(f"Expecting {data.hex()}")
-
     def shutdown(self) -> None:
         with self._cv:
             self._is_running = False

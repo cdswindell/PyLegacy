@@ -286,10 +286,6 @@ class CommBufferSingleton(CommBuffer, Thread):
         from ..pdi.constants import PdiCommand
         from ..pdi.pdi_req import TmccReq
 
-        if self.no_ser2 is False:
-            # tell the command dispatcher we could receive this request echoed
-            # from both the Base 3 and the Ser2
-            self._tmcc_dispatcher.expect_req(data)
         tmcc_cmd = CommandReq.from_bytes(data)
         pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
