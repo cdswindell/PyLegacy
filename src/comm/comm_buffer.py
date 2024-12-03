@@ -12,7 +12,6 @@ from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
 from threading import Thread
 
-
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
@@ -176,9 +175,10 @@ class CommBufferSingleton(CommBuffer, Thread):
         from ..pdi.base3_buffer import Base3Buffer
 
         self._base3: Base3Buffer | None = None
+        self._use_base3 = False
+        self._tmcc_dispatcher = None
         # start the consumer threads
         self._scheduler = DelayHandler(self)
-        self._use_base3 = False
         self.start()
 
     @staticmethod
@@ -206,13 +206,16 @@ class CommBufferSingleton(CommBuffer, Thread):
 
     @is_use_base3.setter
     def is_use_base3(self, value: bool) -> None:
+        from ..pdi.base3_buffer import Base3Buffer
+        from .command_listener import CommandDispatcher
+
         self._use_base3 = value
         if value is True and self._base3 is None:
             with self._lock:
                 if self._base3 is None:
-                    from ..pdi.base3_buffer import Base3Buffer
-
                     self._base3 = Base3Buffer.get
+                if self._tmcc_dispatcher is None:
+                    self._tmcc_dispatcher = CommandDispatcher.get()
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if command:
@@ -274,7 +277,6 @@ class CommBufferSingleton(CommBuffer, Thread):
                 from ..pdi.base3_buffer import Base3Buffer
 
                 Base3Buffer.sync_state(data)
-                print(f"Sent {data.hex()} via Ser2...")
         except SerialException as se:
             # TODO: handle serial errors
             log.exception(se)
@@ -283,21 +285,17 @@ class CommBufferSingleton(CommBuffer, Thread):
         from ..protocol.command_req import CommandReq
         from ..pdi.constants import PdiCommand
         from ..pdi.pdi_req import TmccReq
-        from ..pdi.base3_buffer import Base3Buffer
-        from .command_listener import CommandDispatcher
 
+        if self.no_ser2 is False:
+            # tell the command dispatcher we could receive this request echoed
+            # from both the Base 3 and the Ser2
+            self._tmcc_dispatcher.expect_req(data)
         tmcc_cmd = CommandReq.from_bytes(data)
-        with self._lock:
-            if self._base3 is None:
-                self._base3 = Base3Buffer.get
-                if self._base3 is None:
-                    raise AttributeError(f"Base3Buffer is not built, failed to send {tmcc_cmd}")
         pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
-        print(f"Sent {tmcc_cmd} via Base 3...")
         # also inform CommandDispatcher to update system state
         if self.no_ser2 is True:
-            CommandDispatcher.get().offer(tmcc_cmd)
+            self._tmcc_dispatcher.offer(tmcc_cmd)
 
 
 class CommBufferProxy(CommBuffer):

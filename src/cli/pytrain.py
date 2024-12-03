@@ -111,6 +111,8 @@ class PyTrain:
         )
         listeners = []
         if isinstance(self.buffer, CommBufferSingleton):
+            self._tmcc_listener = CommandListener.build(ser2_receiver=not self._no_ser2)
+            listeners.append(self._tmcc_listener)
             if self._base_addr is not None:
                 print(f"Listening for Lionel Base broadcasts on  {self._base_addr}:{self._base_port}...")
                 self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
@@ -125,8 +127,6 @@ class PyTrain:
             # listen for client connections
             print(f"Listening for client requests on port {self._args.server_port}...")
             self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
-            self._tmcc_listener = CommandListener.build(ser2_receiver=not self._no_ser2)
-            listeners.append(self._tmcc_listener)
 
             # register as server so clients can connect without IP addr
             self._zeroconf = Zeroconf()

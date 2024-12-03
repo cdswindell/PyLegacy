@@ -96,21 +96,22 @@ class Base3Buffer(Thread):
 
     def send(self, data: bytes) -> None:
         if data:
-            with self._send_cv:
-                # If we are sending a multibyte TMCC command, we have to break it down
-                # into 3 byte packets; this needs to be done here so sync_state in the
-                # calling layer gets a complete command
-                if len(data) >= 12 and data[1] == TMCC_TX and data[5] == data[8] == LEGACY_MULTIBYTE_COMMAND_PREFIX:
-                    tmcc_cmd = CommandReq.from_bytes(data[2:-2])
-                    # this is a legacy/tmcc2 multibyte parameter command. We have to send it
-                    # as 3 3 byte packets, using PdiCommand.TMCC_RX
-                    for packet in TmccReq.as_packets(tmcc_cmd):
-                        self._send_queue.put(packet)
-                    # do a sync_state on the complete command
-                    self.sync_state(tmcc_cmd.as_bytes)
-                else:
+            # If we are sending a multibyte TMCC command, we have to break it down
+            # into 3 byte packets; this needs to be done here so sync_state in the
+            # calling layer gets a complete command
+            if len(data) >= 12 and data[1] == TMCC_TX and data[5] == data[8] == LEGACY_MULTIBYTE_COMMAND_PREFIX:
+                tmcc_cmd = CommandReq.from_bytes(data[2:-2])
+                # this is a legacy/tmcc2 multibyte parameter command. We have to send it
+                # as 3 3 byte packets, using PdiCommand.TMCC_RX
+                for packet in TmccReq.as_packets(tmcc_cmd):
+                    self.send(packet)  # recursive call
+                    time.sleep(0.01)
+                # do a sync_state on the complete command
+                self.sync_state(tmcc_cmd.as_bytes)
+            else:
+                with self._send_cv:
                     self._send_queue.put(data)
-                self._send_cv.notify_all()
+                    self._send_cv.notify_all()
 
     @staticmethod
     def _current_milli_time() -> int:
@@ -231,10 +232,6 @@ class Base3Buffer(Thread):
                     command_seq += b.to_bytes(1, byteorder="big")
                 if command_seq:
                     tmcc_cmds.append(CommandReq.from_bytes(command_seq))
-
-            if not tmcc_cmds:
-                return
-
             for tmcc_cmd in tmcc_cmds:
                 # is it a command that requires a state sync?
                 sync_reqs = BaseReq.update_eng(tmcc_cmd)
