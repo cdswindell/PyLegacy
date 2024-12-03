@@ -184,6 +184,10 @@ class PdiReq(ABC):
     def is_tmcc_rx(self) -> bool:
         return False
 
+    @property
+    def is_filtered(self) -> bool:
+        return False
+
     @staticmethod
     def decode_text(data: bytes) -> str | None:
         name = ""
