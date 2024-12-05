@@ -737,11 +737,14 @@ class EngineState(ComponentState):
                     numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
                     log.info(f"What to do? {command}: {numeric} {type(numeric)}")
 
-                # handle direction
+                # Direction changes trigger several other changes; we want to avoid resettling
+                # rpm, labor, and speed if direction really didn't change
                 if command.command in DIRECTIONS_SET:
-                    self._direction = command.command
+                    if self._direction != command.command:
+                        self._direction = command.command
+                    else:
+                        return
                 elif cmd_effects & DIRECTIONS_SET:
-                    log.debug(f"{command} {cmd_effects & DIRECTIONS_SET}")
                     self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
                 # handle train brake
