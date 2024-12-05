@@ -45,9 +45,10 @@ from src.gpio.gpio_handler import GpioHandler
 GpioHandler.controller(
     keypad_address=0x20,
     speed_pins=[19, 26],
+    halt_pin=10,
     start_up_pin=4,
     shutdown_pin=22,
-    fwd_pin=10,
+    fwd_pin=11,
     rev_pin=9,
     horn_pin=14,
     rpm_up_pin=6,
