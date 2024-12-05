@@ -167,7 +167,7 @@ TMCC1_HALT_COMMAND: int = 0xFFFF
 
 @unique
 class TMCC1HaltCommandDef(TMCC1Enum):
-    HALT = TMCC1CommandDef(TMCC1_HALT_COMMAND, TMCC1CommandIdentifier.HALT, is_addressable=False)
+    HALT = TMCC1CommandDef(TMCC1_HALT_COMMAND, TMCC1CommandIdentifier.HALT, is_addressable=False, filtered=True)
 
 
 TMCC1_ROUTE_COMMAND: int = 0xD01F
