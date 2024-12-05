@@ -51,9 +51,12 @@ class StartupState(Thread):
         # we find one out of range; make a request for each discovered entity
         for tmcc_id in range(1, 99):
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ENGINE))
+            time.sleep(0.05)
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_TRAIN))
+        time.sleep(0.05)
         for tmcc_id in range(1, 99):
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ACC))
+            time.sleep(0.05)
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_SWITCH))
         total_time = 0
         while total_time < 120:  # only listen for 2 minutes
