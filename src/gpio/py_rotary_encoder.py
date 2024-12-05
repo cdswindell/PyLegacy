@@ -16,6 +16,7 @@ class PyRotaryEncoder(RotaryEncoder):
         self,
         pin_1: int | str,
         pin_2: int | str,
+        command: CommandReq = None,
         wrap: bool = True,
         max_steps: int = 100,
         initial_step: int = 0,
@@ -27,7 +28,8 @@ class PyRotaryEncoder(RotaryEncoder):
         super().__init__(pin_1, pin_2, wrap=wrap, max_steps=max_steps)
         if initial_step is not None:
             self.steps = initial_step
-
+        self._command = command
+        self._action = command.as_action() if command else None
         self._ramp = ramp
         self._steps_to_data = steps_to_data
         self._data_to_steps = data_to_steps
@@ -40,6 +42,8 @@ class PyRotaryEncoder(RotaryEncoder):
         self._pins = (pin_1, pin_2)
         self._handler = PyRotaryEncoderHandler(self)
         GpioHandler.cache_handler(self._handler)
+        if command:
+            self._handler.start()
 
     @property
     def pins(self) -> tuple[int, int]:
@@ -103,7 +107,7 @@ class PyRotaryEncoder(RotaryEncoder):
 
     def update_action(
         self,
-        cmd: CommandReq,
+        command: CommandReq,
         state,
         steps_to_data: Callable[[int], int],
         data_to_steps: Callable[[int], int],
@@ -112,7 +116,9 @@ class PyRotaryEncoder(RotaryEncoder):
         self._data_to_steps = data_to_steps
         cur_speed = state.speed if state and state.speed is not None else 0
         self.steps = self._last_steps = data_to_steps(cur_speed)
-        self._handler.update_command(cmd)
+        self._command = command
+        self._action = command.as_action() if command else None
+        self._handler.start()
 
     def update_data(self, new_data) -> None:
         if new_data != self._last_known_data and self._data_to_steps and not self.is_active and self.last_rotated > 5.0:
@@ -120,8 +126,15 @@ class PyRotaryEncoder(RotaryEncoder):
                 self.steps = self._data_to_steps(new_data)
                 self._last_known_data = new_data
 
-    def update_command(self, cnd: CommandReq) -> None:
-        pass
+    def fire_action(self, cur_step: int = None) -> None:
+        if self._action:
+            if cur_step is None:
+                cur_step = self.steps
+            if self._steps_to_data:
+                data = self._steps_to_data(cur_step)
+            else:
+                data = 0
+            self._action(data=data)
 
     @property
     def last_rotation_at(self) -> int:
@@ -153,21 +166,24 @@ class PyRotaryEncoderHandler(Thread):
         self._command = None
         self._is_running = True
         self._is_started = False
+        self._lock = RLock()
         GpioHandler.cache_handler(self)
 
-    def update_command(self, cmd: CommandReq) -> None:
-        self._command = cmd
-        if cmd and self._is_started is False:
-            self.start()
+    def start(self) -> None:
+        with self._lock:
+            if self._is_started is False:
+                super().start()
 
     def run(self) -> None:
-        self._is_started = True
+        with self._lock:
+            self._is_started = True
         last_step = float("-inf")
         while self._is_running:
-            if last_step != self._re.steps:
+            cur_step = self._re.steps
+            if cur_step == 0 or last_step != cur_step:
+                self._re.fire_action(cur_step)
                 last_step = self._re.steps
-                print(f"Step: {self._re.steps} Value: {self._re.value}")
-            sleep(0.1)
+            sleep(0.05)
 
     def shutdown(self) -> None:
         self._is_running = False
