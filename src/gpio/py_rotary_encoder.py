@@ -78,9 +78,8 @@ class PyRotaryEncoder(RotaryEncoder):
                 cur_step = self.steps
             if self._steps_to_data:
                 self._last_known_data = data = self._steps_to_data(cur_step)
-                print(f"{cur_step} -> {data}")
             else:
-                data = 0
+                data = 0  # TODO: handle this case
             self._action(new_data=data)
 
     @property
@@ -126,16 +125,18 @@ class PyRotaryEncoderHandler(Thread):
         with self._lock:
             self._is_started = True
         self._last_step = float("-inf")
-        xxx = 5
+        # in general, Rotary Encoder is used to control speed. When the encoder steps is
+        # -max_steps, this usually corresponds with speed 0; make sure speed zero cmds
+        # are sent
+        num_consec_neg_max_steps = 5
         while self._is_running:
             with self._lock:
                 cur_step = self._re.steps
-            if cur_step != self._last_step or (xxx > 0 and cur_step == -self._re.max_steps):
+            if cur_step != self._last_step or (num_consec_neg_max_steps > 0 and cur_step == -self._re.max_steps):
                 if cur_step == -self._re.max_steps:
-                    xxx -= 1
+                    num_consec_neg_max_steps -= 1
                 else:
-                    xxx = 5
-                print(cur_step, xxx)
+                    num_consec_neg_max_steps = 5
                 self._re.fire_action(cur_step)
                 self._last_step = self._re.steps
             sleep(0.05)
