@@ -154,7 +154,7 @@ class PyRotaryEncoder(RotaryEncoder):
     def last_steps(self) -> int:
         return self._last_steps
 
-    def shutdown(self) -> None:
+    def reset(self) -> None:
         if self._handler:
             self._handler.shutdown()
 
