@@ -67,8 +67,7 @@ class EngineController:
         # the Halt command only exists in TMCC1 form, and it doesn't take an engine address modifier
         if halt_pin is not None:
             self._halt_btn = GpioHandler.make_button(halt_pin)
-            cmd = CommandReq(TMCC1HaltCommandDef.HALT)
-            self._halt_btn.when_pressed = cmd.as_action(repeat=3)
+            self._halt_btn.when_pressed = CommandReq(TMCC1HaltCommandDef.HALT).as_action(repeat=2)
         else:
             self._halt_btn = None
 
