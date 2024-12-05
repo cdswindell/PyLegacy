@@ -790,17 +790,21 @@ class EngineState(ComponentState):
                 # handle run level/rpm
                 if command.command in RPM_SET:
                     self._rpm = command.data
+                    print(command)
                 elif cmd_effects & RPM_SET:
                     rpm = self._harvest_effect(cmd_effects & RPM_SET)
                     if isinstance(rpm, tuple) and len(rpm) == 2:
                         self._rpm = rpm[1]
+                        print(command, rpm)
                     elif isinstance(rpm, CommandDefEnum):
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
+                        print(f"*** {command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
                         self._rpm = 0
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {rpm} {type(rpm)} {cmd_effects}")
+                        print(f"+++ {command} {rpm} {type(rpm)} {cmd_effects}")
                         self._rpm = 0
 
                 # handle labor
