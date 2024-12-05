@@ -162,8 +162,11 @@ class PyRotaryEncoderHandler(Thread):
 
     def run(self) -> None:
         self._is_started = True
+        last_step = float("-inf")
         while self._is_running:
-            print(f"Step: {self._re.steps} Value: {self._re.value}")
+            if last_step != self._re.steps:
+                last_step = self._re.steps
+                print(f"Step: {self._re.steps} Value: {self._re.value}")
             sleep(0.1)
 
     def shutdown(self) -> None:

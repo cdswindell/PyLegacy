@@ -90,7 +90,7 @@ class EngineController:
                 300: 1,
                 500: 1,
             }
-            self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False, ramp=ramp, max_steps=200)
+            self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False, ramp=ramp, max_steps=100)
             self._tmcc1_speed_cmd = CommandReq(TMCC1EngineCommandDef.ABSOLUTE_SPEED)
             self._tmcc2_speed_cmd = CommandReq(TMCC2EngineCommandDef.ABSOLUTE_SPEED)
         else:
