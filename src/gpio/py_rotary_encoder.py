@@ -135,7 +135,7 @@ class PyRotaryEncoderHandler(Thread):
                     xxx -= 1
                 else:
                     xxx = 5
-                print(cur_step)
+                print(cur_step, xxx)
                 self._re.fire_action(cur_step)
                 self._last_step = self._re.steps
             sleep(0.05)

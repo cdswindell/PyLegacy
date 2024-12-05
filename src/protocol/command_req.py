@@ -397,7 +397,7 @@ class CommandReq:
         def send_func(new_address: int = None, new_data: int = None) -> None:
             if new_address and new_address != self.address:
                 self.address = new_address
-            if self.num_data_bits and new_data and new_data != self.data:
+            if self.num_data_bits and new_data is not None and new_data != self.data:
                 self.data = new_data
 
             self._enqueue_command(

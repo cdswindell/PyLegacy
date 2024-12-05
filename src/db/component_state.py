@@ -740,6 +740,7 @@ class EngineState(ComponentState):
                 # Direction changes trigger several other changes; we want to avoid resettling
                 # rpm, labor, and speed if direction really didn't change
                 if command.command in DIRECTIONS_SET:
+                    print(f"Current: {self._direction} New: {command.command}")
                     if self._direction != command.command:
                         self._direction = command.command
                     else:
