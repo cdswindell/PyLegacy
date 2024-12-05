@@ -170,7 +170,6 @@ class BaseReq(PdiReq):
         if state.name in BASE_MEMORY_WRITE_MAP and use_0x26 is True:
             offset, data_len, scaler = BASE_MEMORY_WRITE_MAP[state.name]
             if state.name in {"DIESEL_RPM", "ENGINE_LABOR"}:
-                print("***", cmd)
                 comp_state = ComponentStateStore.get_state(scope, address, False)
                 if comp_state:
                     if state.name == "DIESEL_RPM":
