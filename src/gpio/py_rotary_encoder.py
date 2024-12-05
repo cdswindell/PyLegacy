@@ -125,12 +125,18 @@ class PyRotaryEncoderHandler(Thread):
         with self._lock:
             self._is_started = True
         self._last_step = float("-inf")
+        self._xxx = 5
         while self._is_running:
             with self._lock:
                 cur_step = self._re.steps
-                if cur_step == -self._re.max_steps or self._last_step != cur_step:
-                    self._re.fire_action(cur_step)
-                    self._last_step = self._re.steps
+            if cur_step != self._last_step or (self._xxx > 0 and cur_step == -self._re.max_steps):
+                if cur_step == -self._re.max_steps:
+                    self._xxx -= 1
+                else:
+                    self._xxx = 5
+                print(cur_step)
+                self._re.fire_action(cur_step)
+                self._last_step = self._re.steps
             sleep(0.05)
 
     def reset(self) -> None:
