@@ -13,6 +13,7 @@ from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache, ComponentStateStore
 from ..gpio.state_source import SwitchStateSource, AccessoryStateSource, EngineStateSource
+from ..pdi.base3_buffer import Base3Buffer
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
@@ -354,6 +355,10 @@ class GpioHandler:
         smoke_off_pin: int | str = None,
         train_brake_chn: int | str = None,
         quilling_horn_chn: int | str = None,
+        base_online_pin: int | str = None,
+        base_offline_pin: int | str = None,
+        base_cathode: bool = True,
+        base_ping_freq: int = 5,
         lcd_address: int = 0x27,
         lcd_rows: int = 4,
         lcd_cols: int = 20,
@@ -383,6 +388,10 @@ class GpioHandler:
                 smoke_off_pin=smoke_off_pin,
                 train_brake_chn=train_brake_chn,
                 quilling_horn_chn=quilling_horn_chn,
+                base_online_pin=base_online_pin,
+                base_offline_pin=base_offline_pin,
+                base_cathode=base_cathode,
+                base_ping_freq=base_ping_freq,
                 lcd_address=lcd_address,
                 lcd_rows=lcd_rows,
                 lcd_cols=lcd_cols,
@@ -411,6 +420,10 @@ class GpioHandler:
                 smoke_off_pin=smoke_off_pin,
                 train_brake_chn=train_brake_chn,
                 quilling_horn_chn=quilling_horn_chn,
+                base_online_pin=base_online_pin,
+                base_offline_pin=base_offline_pin,
+                base_cathode=base_cathode,
+                base_ping_freq=base_ping_freq,
                 lcd_address=lcd_address,
                 lcd_rows=lcd_rows,
                 lcd_cols=lcd_cols,
@@ -421,12 +434,16 @@ class GpioHandler:
     @classmethod
     def base_watcher(
         cls,
-        server: str,
+        server: str = None,
         active_pin: int | str = None,
         inactive_pin: int | str = None,
         cathode: bool = True,
         delay: float = 5,
     ) -> Tuple[PingServer, LED, LED]:
+        # if server isn't specified, try to figure it out
+        if server is None:
+            server = Base3Buffer.base_address
+
         # set up a ping server, treat it as a device
         ping_server = PingServer(server, event_delay=delay)
         cls.cache_device(ping_server)

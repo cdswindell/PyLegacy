@@ -52,6 +52,8 @@ GpioHandler.controller(
     shutdown_pin=23,
     rpm_up_pin=6,
     rpm_down_pin=15,
+    base_online_pin=27,
+    base_offline_pin=17,
     lcd_address=0x27,
     lcd_rows=4,
     lcd_cols=20,

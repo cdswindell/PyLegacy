@@ -33,9 +33,15 @@ class EngineController:
         vol_down_pin: int | str = None,
         smoke_on_pin: int | str = None,
         smoke_off_pin: int | str = None,
+        tower_dialog_pin: int | str = None,
+        engr_dialog_pin: int | str = None,
         train_brake_chn: int | str = None,
         quilling_horn_chn: int | str = None,
-        repeat: int = 1,
+        cmd_repeat: int = 1,
+        base_online_pin: int | str = None,
+        base_offline_pin: int | str = None,
+        base_cathode: bool = True,
+        base_ping_freq: int = 5,
     ) -> None:
         from .gpio_handler import GpioHandler
 
@@ -43,8 +49,16 @@ class EngineController:
         self._tmcc_id = 1
         self._control_type = ControlType.LEGACY
         self._scope = CommandScope.ENGINE
-        self._repeat = repeat
+        self._repeat = cmd_repeat
         self._state = None
+        # define a base watcher, if requested
+        if base_online_pin is not None or base_offline_pin:
+            self._base_watcher = GpioHandler.base_watcher(
+                active_pin=base_online_pin,
+                inactive_pin=base_offline_pin,
+                cathode=base_cathode,
+                delay=base_ping_freq,
+            )
         # save a reference to the ComponentStateStore; it must be built and initialized
         # (or initializing) prior to creating an EngineController instance
         # we will use this info when switching engines to initialize speed

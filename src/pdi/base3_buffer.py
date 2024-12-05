@@ -44,6 +44,15 @@ class Base3Buffer(Thread):
             raise AttributeError("Base3Buffer has not been initialized")
         return cls._instance
 
+    # noinspection PyPropertyDefinition
+    @classmethod
+    @property
+    def base_address(cls) -> str:
+        if cls._instance is None:
+            raise AttributeError("Base3Buffer has not been initialized")
+        # noinspection PyProtectedMember
+        return cls._instance._base3_addr
+
     @classmethod
     def request_state_update(cls, tmcc_id: int, scope: CommandScope) -> None:
         if cls._instance is not None:
