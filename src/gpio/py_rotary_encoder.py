@@ -134,7 +134,7 @@ class PyRotaryEncoder(RotaryEncoder):
                 data = self._steps_to_data(cur_step)
             else:
                 data = 0
-            self._action(data=data)
+            self._action(new_data=data)
 
     @property
     def last_rotation_at(self) -> int:
