@@ -72,8 +72,8 @@ class EngineController:
             self._halt_btn = None
 
         # construct the commands; make both the TMCC1 and Legacy versions
-        self._tmcc1_when_rotated = None
-        self._tmcc2_when_rotated = None
+        self._tmcc1_speed_cmd = None
+        self._tmcc2_speed_cmd = None
         self._tmcc1_when_pushed = {}
         self._tmcc2_when_pushed = {}
         self._tmcc1_when_held = {}
@@ -91,8 +91,8 @@ class EngineController:
                 500: 1,
             }
             self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False, ramp=ramp, max_steps=200)
-            self._tmcc1_when_rotated = CommandReq(TMCC1EngineCommandDef.ABSOLUTE_SPEED)
-            self._tmcc2_when_rotated = CommandReq(TMCC2EngineCommandDef.ABSOLUTE_SPEED)
+            self._tmcc1_speed_cmd = CommandReq(TMCC1EngineCommandDef.ABSOLUTE_SPEED)
+            self._tmcc2_speed_cmd = CommandReq(TMCC2EngineCommandDef.ABSOLUTE_SPEED)
         else:
             self._speed_re = None
 
@@ -358,13 +358,13 @@ class EngineController:
             speed_limit = 195
             when_pushed = self._tmcc2_when_pushed
             when_held = self._tmcc2_when_held
-            when_rotated = self._tmcc2_when_rotated
+            speed_cmd = self._tmcc2_speed_cmd
         else:
             max_speed = 31
             speed_limit = 27
             when_pushed = self._tmcc1_when_pushed
             when_held = self._tmcc1_when_held
-            when_rotated = self._tmcc1_when_rotated
+            speed_cmd = self._tmcc1_speed_cmd
 
         # reset the when_pressed button handlers
         for btn, cmd in when_pushed.items():
@@ -381,15 +381,15 @@ class EngineController:
         from .gpio_handler import GpioHandler
 
         # reset the rotary encoder handlers
-        if when_rotated:
-            when_rotated.address = self._tmcc_id
-            when_rotated.scope = scope
+        if speed_cmd:
+            speed_cmd.address = self._tmcc_id
+            speed_cmd.scope = scope
             max_speed = cur_state.max_speed if cur_state.max_speed else max_speed
             speed_limit = cur_state.speed_limit if cur_state.speed_limit else speed_limit
             max_speed = min(max_speed, speed_limit)
             steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -200, 200)
             speed_to_steps = GpioHandler.make_interpolator(200, -200, 0, max_speed)
-            self._speed_re.update_action(when_rotated, cur_state, steps_to_speed, speed_to_steps)
+            self._speed_re.update_action(speed_cmd, cur_state, steps_to_speed, speed_to_steps)
 
     def on_speed_changed(self, new_speed: int) -> None:
         if self._speed_re and new_speed is not None:
