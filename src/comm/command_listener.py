@@ -374,6 +374,7 @@ class CommandDispatcher(Thread):
         self._filter_updates = base3_receiver is True and ser2_receiver is True
         self._channels: dict[Topic | Tuple[Topic, int], Channel[Message]] = defaultdict(Channel)
         self._cv = threading.Condition()
+        self._chanel_lock = threading.RLock()
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
@@ -563,18 +564,20 @@ class CommandDispatcher(Thread):
             raise TypeError("Command must be Topic or CommandReq")
 
     def publish_all(self, message: Message, channels: List[CommandScope] = None) -> None:
-        if channels is None:  # send to everyone!
-            for channel in self._channels:
-                self._channels[channel].publish(message)
-        else:
-            # send only to select channels and tuples with that channel
-            for channel in self._channels.keys():
-                if channel in channels or (isinstance(channel, tuple) and channel[0] in channels):
+        with self._chanel_lock:
+            if channels is None:  # send to everyone!
+                for channel in self._channels:
                     self._channels[channel].publish(message)
+            else:
+                # send only to select channels and tuples with that channel
+                for channel in self._channels.keys():
+                    if channel in channels or (isinstance(channel, tuple) and channel[0] in channels):
+                        self._channels[channel].publish(message)
 
     def publish(self, channel: Topic, message: Message) -> None:
-        if channel in self._channels:  # otherwise, we would create a channel simply by referencing i
-            self._channels[channel].publish(message)
+        with self._chanel_lock:
+            if channel in self._channels:  # otherwise, we would create a channel simply by referencing i
+                self._channels[channel].publish(message)
 
     def subscribe(
         self,
@@ -584,10 +587,11 @@ class CommandDispatcher(Thread):
         command: CommandDefEnum = None,
         data: int = None,
     ) -> None:
-        if channel == BROADCAST_TOPIC:
-            self.subscribe_any(subscriber)
-        else:
-            self._channels[self._make_channel(channel, address, command, data)].subscribe(subscriber)
+        with self._chanel_lock:
+            if channel == BROADCAST_TOPIC:
+                self.subscribe_any(subscriber)
+            else:
+                self._channels[self._make_channel(channel, address, command, data)].subscribe(subscriber)
 
     def unsubscribe(
         self,
@@ -607,11 +611,13 @@ class CommandDispatcher(Thread):
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
         # receive broadcasts
-        self._channels[BROADCAST_TOPIC].subscribe(subscriber)
-        self._broadcasts = True
+        with self._chanel_lock:
+            self._channels[BROADCAST_TOPIC].subscribe(subscriber)
+            self._broadcasts = True
 
     def unsubscribe_any(self, subscriber: Subscriber) -> None:
         # receive broadcasts
-        self._channels[BROADCAST_TOPIC].unsubscribe(subscriber)
-        if not self._channels[BROADCAST_TOPIC].subscribers:
-            self._broadcasts = False
+        with self._chanel_lock:
+            self._channels[BROADCAST_TOPIC].unsubscribe(subscriber)
+            if not self._channels[BROADCAST_TOPIC].subscribers:
+                self._broadcasts = False
