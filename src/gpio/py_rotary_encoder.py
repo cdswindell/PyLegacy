@@ -139,7 +139,7 @@ class PyRotaryEncoderHandler(Thread):
                     num_consec_neg_max_steps = 5
                 self._re.fire_action(cur_step)
                 self._last_step = self._re.steps
-            sleep(0.05)
+            sleep(0.25)
 
     def reset(self) -> None:
         self._is_running = False
