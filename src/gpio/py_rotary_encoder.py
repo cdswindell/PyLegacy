@@ -156,7 +156,7 @@ class PyRotaryEncoder(RotaryEncoder):
 
     def reset(self) -> None:
         if self._handler:
-            self._handler.shutdown()
+            self._handler.reset()
 
 
 class PyRotaryEncoderHandler(Thread):
@@ -185,5 +185,5 @@ class PyRotaryEncoderHandler(Thread):
                 last_step = self._re.steps
             sleep(0.05)
 
-    def shutdown(self) -> None:
+    def reset(self) -> None:
         self._is_running = False
