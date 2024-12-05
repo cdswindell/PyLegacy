@@ -130,7 +130,7 @@ class PyRotaryEncoderHandler(Thread):
         while self._is_running:
             with self._lock:
                 cur_step = self._re.steps
-            if cur_step != self._last_step or (self._xxx > 0 and cur_step == -self._re.max_steps):
+            if cur_step != self._last_step or (xxx > 0 and cur_step == -self._re.max_steps):
                 if cur_step == -self._re.max_steps:
                     xxx -= 1
                 else:
