@@ -81,7 +81,7 @@ class EngineController:
         self._tmcc2_when_held = {}
 
         if speed_pin_1 is not None and speed_pin_2 is not None:
-            from .gpio_handler import PyRotaryEncoder
+            from .py_rotary_encoder import PyRotaryEncoder
 
             ramp = {
                 20: 3,
@@ -355,10 +355,14 @@ class EngineController:
             self._control_type = ControlType.by_value(cur_state.control_type)
         # update buttons
         if self.is_legacy:
+            max_speed = 200
+            speed_limit = 195
             when_pushed = self._tmcc2_when_pushed
             when_held = self._tmcc2_when_held
             when_rotated = self._tmcc2_when_rotated
         else:
+            max_speed = 31
+            speed_limit = 27
             when_pushed = self._tmcc1_when_pushed
             when_held = self._tmcc1_when_held
             when_rotated = self._tmcc1_when_rotated
@@ -381,7 +385,9 @@ class EngineController:
         if when_rotated:
             when_rotated.address = self._tmcc_id
             when_rotated.scope = scope
-            max_speed = min(cur_state.max_speed, cur_state.speed_limit)
+            max_speed = cur_state.max_speed if cur_state.max_speed else max_speed
+            speed_limit = cur_state.speed_limit if cur_state.speed_limit else speed_limit
+            max_speed = min(max_speed, speed_limit)
             steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -200, 200)
             speed_to_steps = GpioHandler.make_interpolator(200, -200, 0, max_speed)
             self._speed_re.update_action(when_rotated, cur_state, steps_to_speed, speed_to_steps)
