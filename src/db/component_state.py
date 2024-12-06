@@ -715,7 +715,6 @@ class EngineState(ComponentState):
                     self._speed = 0
                     self._rpm = 0
                     self._labor = 12
-                    print(self.address, self.scope, command)
                     self._numeric = None
 
                 # get the downstream effects of this command, as they also impact state
