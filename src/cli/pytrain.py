@@ -26,7 +26,7 @@ from src.cli.route import RouteCli
 from src.cli.sounds import SoundEffectsCli
 from src.cli.switch import SwitchCli
 from src.comm.comm_buffer import CommBuffer, CommBufferSingleton
-from src.comm.command_listener import CommandListener
+from src.comm.command_listener import CommandListener, CommandDispatcher
 from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
 from src.db.client_state_listener import ClientStateListener
 from src.db.component_state_store import ComponentStateStore
@@ -179,7 +179,7 @@ class PyTrain:
                     while not sync_state.is_synchronized:
                         cycle += 1
                         print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle % 4]}", end="\r")
-                        sleep(0.25)
+                        sleep(0.10)
                     print(f"Loading roster from Lionel Base at {self._base_addr} ...Done")
                 else:
                     print("")
@@ -280,6 +280,9 @@ class PyTrain:
                     # is set to the corresponding CLI command class, or the verb 'quit'
                     args = self._command_parser().parse_args(["-" + ui_parts[0]])
                     if args.command == "quit":
+                        # if server, signal clients to disconnect
+                        if self.is_server:
+                            CommandDispatcher.get().signal_client_quit()
                         raise KeyboardInterrupt()
                     elif args.command == "help":
                         self._command_parser().parse_args(["-help"])

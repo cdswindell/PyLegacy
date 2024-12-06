@@ -153,6 +153,8 @@ class TMCC1CommandDef(CommandDef):
 
 
 TMCC1_SYNCING_COMMAND: int = 0xF0F0
+TMCC1_QUIT_COMMAND: int = 0xF0F7
+TMCC1_REBOOT_COMMAND: int = 0xF0F8
 TMCC1_SYNCED_COMMAND: int = 0xF0FF
 
 
@@ -160,6 +162,8 @@ TMCC1_SYNCED_COMMAND: int = 0xF0FF
 class TMCC1SyncCommandDef(TMCC1Enum):
     SYNCHRONIZING = TMCC1CommandDef(TMCC1_SYNCING_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     SYNCHRONIZED = TMCC1CommandDef(TMCC1_SYNCED_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
+    REBOOT = TMCC1CommandDef(TMCC1_REBOOT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
+    QUIT = TMCC1CommandDef(TMCC1_QUIT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
 
 
 TMCC1_HALT_COMMAND: int = 0xFFFF

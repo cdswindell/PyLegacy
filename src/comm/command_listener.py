@@ -6,7 +6,6 @@ import threading
 from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
-from time import sleep
 from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
 
 from .enqueue_proxy_requests import EnqueueProxyRequests, SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE
@@ -462,6 +461,9 @@ class CommandDispatcher(Thread):
     def is_filter_updates(self) -> bool:
         return self._filter_updates
 
+    def signal_client_quit(self) -> None:
+        self.update_client_state(CommandReq(TMCC1SyncCommandDef.QUIT))
+
     # noinspection DuplicatedCode
     def update_client_state(self, command: CommandReq):
         """
@@ -522,7 +524,6 @@ class CommandDispatcher(Thread):
                 except Exception as e:
                     log.warning(f"Exception sending TMCC state update {state} to {client_ip}")
                     log.exception(e)
-            sleep(0.05)
 
     @property
     def broadcasts_enabled(self) -> bool:
