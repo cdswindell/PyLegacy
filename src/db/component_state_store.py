@@ -16,10 +16,8 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as Engine1
-from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef as Halt1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as Engine2
-from ..protocol.tmcc2.tmcc2_constants import TMCC2HaltCommandDef as Halt2
 
 log = logging.getLogger(__name__)
 
@@ -384,8 +382,8 @@ class DependencyCache:
         self._caused_bys.clear()
 
         # define command relationships
-        self.causes(Halt1.HALT, Engine1.SPEED_STOP_HOLD, Engine2.SPEED_STOP_HOLD, Aux.AUX2_OFF, Aux.AUX1_OFF)
-        self.causes(Halt2.HALT, Engine2.SPEED_STOP_HOLD)
+        # self.causes(Halt1.HALT, Engine1.SPEED_STOP_HOLD, Engine2.SPEED_STOP_HOLD, Aux.AUX2_OFF, Aux.AUX1_OFF)
+        # self.causes(Halt2.HALT, Engine2.SPEED_STOP_HOLD)
         self.causes(Engine2.SYSTEM_HALT, Engine2.SPEED_STOP_HOLD)
 
         # Engine commands, starting with Reset (Number 0)

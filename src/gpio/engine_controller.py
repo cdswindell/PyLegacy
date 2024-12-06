@@ -2,6 +2,7 @@ from gpiozero import Button
 
 from ..db.component_state import EngineState
 from ..db.component_state_store import ComponentStateStore
+from ..pdi.base_req import BaseReq
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
 from ..protocol.multybyte.multibyte_constants import TMCC2EffectsControl
@@ -247,6 +248,20 @@ class EngineController:
         else:
             self._smoke_off_btn = None
 
+        if tower_dialog_pin is not None:
+            self.tower_dialog_btn = GpioHandler.make_button(tower_dialog_pin)
+            self._tmcc1_when_pushed[self.tower_dialog_btn] = CommandReq(TMCC1EngineCommandDef.NUMERIC, data=7)
+            self._tmcc2_when_pushed[self.tower_dialog_btn] = CommandReq(TMCC2EffectsControl.NUMERIC, data=7)
+        else:
+            self.tower_dialog_btn = None
+
+        if engr_dialog_pin is not None:
+            self._engr_dialog_btn = GpioHandler.make_button(engr_dialog_pin)
+            self._tmcc1_when_pushed[self._engr_dialog_btn] = CommandReq(TMCC1EngineCommandDef.NUMERIC, data=2)
+            self._tmcc2_when_pushed[self._engr_dialog_btn] = CommandReq(TMCC2EffectsControl.NUMERIC, data=2)
+        else:
+            self._engr_dialog_btn = None
+
     @property
     def tmcc_id(self) -> int:
         return self._tmcc_id
@@ -352,6 +367,8 @@ class EngineController:
             self._control_type = ControlType.LEGACY
         else:
             self._control_type = ControlType.by_value(cur_state.control_type)
+        # request state update from Base, if present
+        BaseReq.request_update(tmcc_id, scope)
         # update buttons
         if self.is_legacy:
             max_speed = 200

@@ -22,7 +22,7 @@ class PyRotaryEncoder(RotaryEncoder):
         ramp: Dict[int, int] = None,
         steps_to_data: Callable[[int], int] = None,
         data_to_steps: Callable[[int], int] = None,
-        use_steps: bool = False,
+        pause_for: float = 0.25,
     ):
         super().__init__(pin_1, pin_2, wrap=wrap, max_steps=max_steps)
         if initial_step is not None:
@@ -32,14 +32,13 @@ class PyRotaryEncoder(RotaryEncoder):
         self._ramp = ramp
         self._steps_to_data = steps_to_data
         self._data_to_steps = data_to_steps
-        self._use_steps = use_steps
         self._tmcc_command_buffer = CommBuffer.build()
         self._last_known_data = None
         self._last_rotation_at = GpioHandler.current_milli_time()
         self._last_steps = self.steps
         self._lock = RLock()
         self._pins = (pin_1, pin_2)
-        self._handler = PyRotaryEncoderHandler(self)
+        self._handler = PyRotaryEncoderHandler(self, pause_for=pause_for)
         GpioHandler.cache_handler(self._handler)
         if command:
             self._handler.start()
@@ -102,13 +101,14 @@ class PyRotaryEncoder(RotaryEncoder):
 
 
 class PyRotaryEncoderHandler(Thread):
-    def __init__(self, re: PyRotaryEncoder) -> None:
+    def __init__(self, re: PyRotaryEncoder, pause_for: float = 0.25) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Rotary Encoder Handler pins: {re.pins}")
         self._re = re
         self._command = None
         self._is_running = True
         self._is_started = False
         self._last_step = None
+        self._pause_for = pause_for
         self._lock = RLock()
         GpioHandler.cache_handler(self)
 
@@ -128,7 +128,7 @@ class PyRotaryEncoderHandler(Thread):
         # in general, Rotary Encoder is used to control speed. When the encoder steps is
         # -max_steps, this usually corresponds with speed 0; make sure speed zero cmds
         # are sent
-        num_consec_neg_max_steps = 5
+        num_consec_neg_max_steps = 3
         while self._is_running:
             with self._lock:
                 cur_step = self._re.steps
@@ -136,10 +136,10 @@ class PyRotaryEncoderHandler(Thread):
                 if cur_step == -self._re.max_steps:
                     num_consec_neg_max_steps -= 1
                 else:
-                    num_consec_neg_max_steps = 5
+                    num_consec_neg_max_steps = 3
                 self._re.fire_action(cur_step)
                 self._last_step = self._re.steps
-            sleep(0.25)
+            sleep(self._pause_for)
 
     def reset(self) -> None:
         self._is_running = False

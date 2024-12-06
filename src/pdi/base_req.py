@@ -6,6 +6,7 @@ from math import floor
 from typing import Dict, List, Tuple
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
+
 from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
@@ -234,6 +235,18 @@ class BaseReq(PdiReq):
             byte_str += PDI_EOP.to_bytes(1, byteorder="big")
             cmds.append(cls(byte_str))
         return cmds
+
+    @classmethod
+    def request_update(
+        cls,
+        address: int,
+        scope: CommandScope = CommandScope.ENGINE,
+    ) -> None:
+        from .pdi_listener import PdiListener
+
+        if PdiListener.is_built:
+            pdi_cmd = PdiCommand.BASE_ENGINE if scope == CommandScope.ENGINE else PdiCommand.BASE_TRAIN
+            PdiListener.enqueue_command(BaseReq(address, pdi_cmd))
 
     def __init__(
         self,
