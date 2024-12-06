@@ -698,7 +698,6 @@ class EngineState(ComponentState):
 
         with self._cv:
             super().update(command)
-            print(f"Last: {self._last_command} Current: {command}  {command == self._last_command}")
             if self._last_command and command == self._last_command:
                 return  # reduce command spamming
             if isinstance(command, CommandReq):
@@ -719,6 +718,7 @@ class EngineState(ComponentState):
                     self._rpm = 0
                     self._labor = 12
                     self._numeric = None
+                    print(self.address, self.scope, command)
 
                 # get the downstream effects of this command, as they also impact state
                 cmd_effects = self.results_in(command)
