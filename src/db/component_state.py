@@ -225,13 +225,13 @@ class ComponentState(ABC):
         return self._spare_1
 
     @abc.abstractmethod
-    def update(self, command: L | P) -> None:
+    def update(self, command: L | P) -> bool:
         from ..pdi.base_req import BaseReq
 
         self.changed.clear()
         self._last_updated = datetime.now()
-        if self._last_command is not None and command == self._last_command:
-            return
+        if command is None or command == self._last_command:
+            return False
         if command and command.command != TMCC1HaltCommandDef.HALT:
             if self._address is None and command.address != BROADCAST_ADDRESS:
                 self._address = command.address
@@ -269,6 +269,7 @@ class ComponentState(ABC):
                     self._spare_1 = command.spare_1
         if command is not None:
             self._last_command = command
+        return True
 
     @staticmethod
     def time_delta(last_updated: datetime, recv_time: datetime) -> float:
@@ -392,14 +393,14 @@ class SwitchState(TmccState):
             f"{self.scope.title} {self.address}: {self._state.name if self._state is not None else 'Unknown'}{nm}{nu}"
         )
 
-    def update(self, command: L | P) -> None:
+    def update(self, command: L | P) -> bool:
         from ..pdi.base_req import BaseReq
 
         if command:
             with self._cv:
                 super().update(command)
                 if command.command == TMCC1HaltCommandDef.HALT:
-                    return  # do nothing on halt
+                    return False
                 if isinstance(command, CommandReq):
                     if command.command != Switch.SET_ADDRESS:
                         self._state = command.command
@@ -411,6 +412,8 @@ class SwitchState(TmccState):
                     log.warning(f"Unhandled Switch State Update received: {command}")
                 self.changed.set()
                 self._cv.notify_all()
+                return True
+        return False
 
     @property
     def state(self) -> Switch:
@@ -477,7 +480,7 @@ class AccessoryState(TmccState):
         return f"{self.scope.title} {self.address}: {aux}{aux1}{aux2}{aux_num}{name}{num}"
 
     # noinspection DuplicatedCode
-    def update(self, command: L | P) -> None:
+    def update(self, command: L | P) -> bool:
         if command:
             with self._cv:
                 if log.isEnabledFor(logging.DEBUG):
@@ -543,6 +546,8 @@ class AccessoryState(TmccState):
                     self._sensor_track = True
                 self.changed.set()
                 self._cv.notify_all()
+                return True
+        return False
 
     @property
     def is_known(self) -> bool:
@@ -693,14 +698,12 @@ class EngineState(ComponentState):
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
 
-    def update(self, command: L | P) -> None:
+    def update(self, command: L | P) -> bool:
         from ..pdi.base_req import BaseReq
 
         with self._cv:
-            super().update(command)
-            if self._last_command and command == self._last_command:
-                print(self._last_command, command)
-                return  # reduce command spamming
+            if super().update(command) is False:
+                return False
             if isinstance(command, CommandReq):
                 if self.is_legacy is None:
                     self._is_legacy = command.is_tmcc2
@@ -750,7 +753,7 @@ class EngineState(ComponentState):
                     if self._direction != command.command:
                         self._direction = command.command
                     else:
-                        return
+                        return False
                 elif cmd_effects & DIRECTIONS_SET:
                     self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
@@ -915,6 +918,7 @@ class EngineState(ComponentState):
                 self._prod_year = command.year
             self.changed.set()
             self._cv.notify_all()
+            return True
 
     def as_bytes(self) -> bytes:
         from src.pdi.base_req import BaseReq
@@ -1113,7 +1117,7 @@ class IrdaState(LcsState):
         lr = f" When Engine ID (L -> R): {lre}"
         return f"Sensor Track {self.address}: Sequence: {self.sequence_str}{rl}{lr}"
 
-    def update(self, command: P) -> None:
+    def update(self, command: P) -> bool:
         from .component_state_store import ComponentStateStore
 
         if command:
@@ -1171,6 +1175,8 @@ class IrdaState(LcsState):
                                 command.tmcc_id = orig_tmcc_id
                 self.changed.set()
                 self._cv.notify_all()
+            return True
+        return False
 
     @property
     def is_known(self) -> bool:
@@ -1218,7 +1224,7 @@ class BaseState(ComponentState):
         fw = f" Firmware: {self._firmware if self._firmware else 'NA'}"
         return f"{bn}{fw}"
 
-    def update(self, command: L | P) -> None:
+    def update(self, command: L | P) -> bool:
         from src.pdi.base_req import BaseReq
 
         if isinstance(command, BaseReq):
@@ -1233,6 +1239,8 @@ class BaseState(ComponentState):
                 self._route_throw_rate = command.route_throw_rate
                 self._ev.set()
                 self._cv.notify_all()
+                return True
+        return False
 
     @property
     def base_name(self) -> str:
@@ -1298,7 +1306,7 @@ class SyncState(ComponentState):
             msg = f"Synchronized: {self._state_synchronized if self._state_synchronized is not None else 'NA'}"
         return f"{PROGRAM_NAME} {msg}"
 
-    def update(self, command: L | P) -> None:
+    def update(self, command: L | P) -> bool:
         if isinstance(command, CommandReq):
             self._ev.clear()
             with self._cv:
@@ -1311,6 +1319,8 @@ class SyncState(ComponentState):
                     self._state_synchronizing = False
                 self._ev.set()
                 self._cv.notify_all()
+                return True
+        return False
 
     @property
     def is_synchronized(self) -> bool:

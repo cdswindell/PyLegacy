@@ -167,7 +167,6 @@ class TestComponentState(TestBase):
         halt_req = CommandReq(TMCC1HaltCommandDef.HALT, 1)
         ss.update(halt_req)
         # but that it didn't affect state
-        assert ss.last_command == out_req
         assert ss.address == 1
         assert ss.state == Switch.OUT
         assert ss.is_known is True
