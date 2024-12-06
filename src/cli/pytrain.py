@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 import logging.config
-import os
 import readline
 import socket
-import sys
+import os
+import signal
+import subprocess
 import threading
 from datetime import datetime
 from signal import pause
@@ -90,6 +91,7 @@ class PyTrain:
         self._server_discovered = threading.Event()
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
+        self._force_reboot = False
         if self._server is None and args.client is True:
             # use avahi/zeroconf to locate a PyTrain server on the local network
             # raise exception and exit if none found
@@ -201,11 +203,19 @@ class PyTrain:
             log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
         if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
             log.info("Server exiting...")
-            sys.exit(0)
+            # send keyboard interrupt to main process to shut ii down
+            os.kill(os.getpid(), signal.SIGINT)
+        elif self.is_client and cmd.command == TMCC1SyncCommandDef.REBOOT:
+            self._force_reboot = True
+            os.kill(os.getpid(), signal.SIGINT)
 
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
         return f"{PROGRAM_NAME} {sc} {dir(self)}>"
+
+    @staticmethod
+    def reboot() -> None:
+        subprocess.call(["shutdown", "-r", "-t", "0"])
 
     @property
     def is_server(self) -> bool:
@@ -235,7 +245,6 @@ class PyTrain:
                         readline.add_history(ui)  # provides limited command line recall and editing
                         self._handle_command(ui)
                 except SystemExit:
-                    print("Goodbye")
                     pass
                 except argparse.ArgumentError:
                     pass
@@ -246,6 +255,8 @@ class PyTrain:
             if self._service_info and self._zeroconf:
                 self._zeroconf.unregister_service(self._service_info)
                 self._zeroconf.close()
+            if self._force_reboot is True:
+                self.reboot()
 
     def shutdown(self):
         try:
@@ -298,6 +309,12 @@ class PyTrain:
                         # if server, signal clients to disconnect
                         if self.is_server:
                             CommandDispatcher.get().signal_client_quit()
+                        raise KeyboardInterrupt()
+                    elif args.command == "reboot":
+                        # if server, signal clients to disconnect
+                        if self.is_server:
+                            CommandDispatcher.get().signal_client_quit(reboot=True)
+                            self._force_reboot = True
                         raise KeyboardInterrupt()
                     elif args.command == "help":
                         self._command_parser().parse_args(["-help"])
