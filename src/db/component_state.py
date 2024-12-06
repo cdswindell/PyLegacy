@@ -698,6 +698,9 @@ class EngineState(ComponentState):
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
 
+        # suppress duplicate commands that are received within 1 second; dups are common
+        # in the lionel ecosystem, as commands are frequently sent twice or even 3 times
+        # consecutively.
         if command is None or (command == self._last_command and self.last_updated_ago < 1):
             return
         with self._cv:
@@ -721,7 +724,6 @@ class EngineState(ComponentState):
                     self._labor = 12
                     self._numeric = None
                     self._last_command = command
-                    print(self.address, self.scope, command)
 
                 # get the downstream effects of this command, as they also impact state
                 cmd_effects = self.results_in(command)
