@@ -64,6 +64,12 @@ class PdiReq(ABC):
     def __repr__(self) -> str:
         return f"[PDI {self._pdi_command.friendly} {self.payload}]"
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
     @staticmethod
     def _calculate_checksum(data: bytes, add_stf=True) -> Tuple[bytes, bytes]:
         """

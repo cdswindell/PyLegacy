@@ -230,7 +230,7 @@ class ComponentState(ABC):
 
         self.changed.clear()
         self._last_updated = datetime.now()
-        if command and self._last_command and command.as_bytes == self._last_command_bytes:
+        if self._last_command is not None and command == self._last_command:
             return
         if command and command.command != TMCC1HaltCommandDef.HALT:
             if self._address is None and command.address != BROADCAST_ADDRESS:
@@ -268,7 +268,6 @@ class ComponentState(ABC):
                 if hasattr(command, "spare_1"):
                     self._spare_1 = command.spare_1
             self._last_command = command
-            self._last_command_bytes = command.as_bytes.decode()
 
     @staticmethod
     def time_delta(last_updated: datetime, recv_time: datetime) -> float:
@@ -698,7 +697,7 @@ class EngineState(ComponentState):
 
         with self._cv:
             super().update(command)
-            if self._last_command_bytes and command and command.as_bytes.decode() == self._last_command_bytes:
+            if self._last_command and command == self._last_command:
                 return  # reduce command spamming
             if isinstance(command, CommandReq):
                 if self.is_legacy is None:

@@ -242,6 +242,12 @@ class CommandReq:
         self._apply_address()
         self._apply_data()
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
     def __call__(self, message: CommandReq) -> None:
         """
         Allows CommandReqs to receive messages from channels
