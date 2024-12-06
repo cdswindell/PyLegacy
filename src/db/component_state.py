@@ -267,6 +267,7 @@ class ComponentState(ABC):
             if isinstance(command, PdiReq):
                 if hasattr(command, "spare_1"):
                     self._spare_1 = command.spare_1
+        if command is not None:
             self._last_command = command
 
     @staticmethod
