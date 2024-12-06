@@ -699,6 +699,7 @@ class EngineState(ComponentState):
         with self._cv:
             super().update(command)
             if command and self._last_command_bytes and command.as_bytes == self._last_command_bytes:
+                print("SPAM: ", command)
                 return  # reduce command spamming
             if isinstance(command, CommandReq):
                 if self.is_legacy is None:
