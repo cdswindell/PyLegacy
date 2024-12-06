@@ -1277,7 +1277,7 @@ class GpioHandler:
     def reset_all(cls) -> None:
         for handler in cls.GPIO_HANDLER_CACHE:
             handler.reset()
-            if isinstance(handler, Thread):
+            if isinstance(handler, Thread) and handler.is_alive():
                 handler.join()  # wait for thread to shut down
         cls.GPIO_HANDLER_CACHE = set()
 
