@@ -642,6 +642,13 @@ class PyTrain:
         )
         group.add_argument("-switch", action="store_const", const=SwitchCli, dest="command", help="Throw switches")
         group.add_argument("-quit", action="store_const", const="quit", dest="command", help=f"Quit {PROGRAM_NAME}")
+        group.add_argument(
+            "-reboot",
+            action="store_const",
+            const="reboot",
+            dest="command",
+            help=f"Quit " f"{PROGRAM_NAME} and reboot (must be run as sudo),",
+        )
         return command_parser
 
 
