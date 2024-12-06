@@ -70,7 +70,7 @@ class ServiceListener:
         pass
 
 
-E = TypeVar("E", bound=Exception)
+E = TypeVar("E", bound=BaseException)
 
 
 def ctype_async_raise(target_tid: int, exception: E) -> None:
@@ -217,7 +217,7 @@ class PyTrain:
         if self._echo:
             log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
         if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
-            print("received quit command from server")
+            print(f"Received QUIT command for thread {self._thread_id} from {threading.get_native_id()}")
             ctype_async_raise(self._thread_id, KeyboardInterrupt())
 
     @property
@@ -233,7 +233,8 @@ class PyTrain:
         return self._tmcc_buffer
 
     def run(self) -> None:
-        self._thread_id = threading.get_ident()
+        self._thread_id = threading.get_native_id()
+        print(f"Started {self._thread_id} {self}...")
         # process startup script
         self._process_startup_scripts()
         # print opening line
