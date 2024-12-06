@@ -39,7 +39,6 @@ class PyRotaryEncoder(RotaryEncoder):
         self._lock = RLock()
         self._pins = (pin_1, pin_2)
         self._handler = PyRotaryEncoderHandler(self, pause_for=pause_for)
-        GpioHandler.cache_handler(self._handler)
         if command:
             self._handler.start()
 
@@ -115,6 +114,7 @@ class PyRotaryEncoderHandler(Thread):
     def start(self) -> None:
         with self._lock:
             if self._is_started is False:
+                GpioHandler.cache_handler(self)
                 super().start()
 
     def reset_last_known(self) -> None:
