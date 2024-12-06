@@ -5,7 +5,7 @@ import logging
 import threading
 from abc import ABC
 from collections import defaultdict
-from datetime import datetime
+from time import time
 from typing import Tuple, TypeVar, Set, Any
 
 
@@ -129,7 +129,7 @@ class ComponentState(ABC):
         self._scope = scope
         self._last_command: CommandReq | None = None
         self._last_command_bytes = None
-        self._last_updated: datetime | None = None
+        self._last_updated: float | None = None
         self._road_name = None
         self._road_number = None
         self._number = None
@@ -195,7 +195,7 @@ class ComponentState(ABC):
         return self._last_command
 
     @property
-    def last_updated(self) -> datetime:
+    def last_updated(self) -> float:
         return self._last_updated
 
     @property
@@ -225,13 +225,10 @@ class ComponentState(ABC):
         return self._spare_1
 
     @abc.abstractmethod
-    def update(self, command: L | P) -> bool:
+    def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
 
         self.changed.clear()
-        self._last_updated = datetime.now()
-        if command is None or command == self._last_command:
-            return False
         if command and command.command != TMCC1HaltCommandDef.HALT:
             if self._address is None and command.address != BROADCAST_ADDRESS:
                 self._address = command.address
@@ -267,15 +264,19 @@ class ComponentState(ABC):
             if isinstance(command, PdiReq):
                 if hasattr(command, "spare_1"):
                     self._spare_1 = command.spare_1
-        if command is not None:
-            self._last_command = command
-        return True
+        self._last_updated = time()
+        self._last_command = command
+
+    @property
+    def last_updated_ago(self) -> float:
+        if self._last_updated:
+            return time() - self._last_updated
 
     @staticmethod
-    def time_delta(last_updated: datetime, recv_time: datetime) -> float:
+    def time_delta(last_updated: float, recv_time: float) -> float:
         if last_updated is None or recv_time is None:
             return BIG_NUMBER
-        return (last_updated - recv_time).total_seconds()
+        return last_updated - recv_time
 
     @staticmethod
     def update_aux_state(
@@ -393,14 +394,14 @@ class SwitchState(TmccState):
             f"{self.scope.title} {self.address}: {self._state.name if self._state is not None else 'Unknown'}{nm}{nu}"
         )
 
-    def update(self, command: L | P) -> bool:
+    def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
 
         if command:
             with self._cv:
                 super().update(command)
                 if command.command == TMCC1HaltCommandDef.HALT:
-                    return False
+                    return
                 if isinstance(command, CommandReq):
                     if command.command != Switch.SET_ADDRESS:
                         self._state = command.command
@@ -412,8 +413,6 @@ class SwitchState(TmccState):
                     log.warning(f"Unhandled Switch State Update received: {command}")
                 self.changed.set()
                 self._cv.notify_all()
-                return True
-        return False
 
     @property
     def state(self) -> Switch:
@@ -480,7 +479,7 @@ class AccessoryState(TmccState):
         return f"{self.scope.title} {self.address}: {aux}{aux1}{aux2}{aux_num}{name}{num}"
 
     # noinspection DuplicatedCode
-    def update(self, command: L | P) -> bool:
+    def update(self, command: L | P) -> None:
         if command:
             with self._cv:
                 if log.isEnabledFor(logging.DEBUG):
@@ -546,8 +545,6 @@ class AccessoryState(TmccState):
                     self._sensor_track = True
                 self.changed.set()
                 self._cv.notify_all()
-                return True
-        return False
 
     @property
     def is_known(self) -> bool:
@@ -698,12 +695,13 @@ class EngineState(ComponentState):
     def is_known(self) -> bool:
         return self._direction is not None or self._start_stop is not None or self._speed is not None
 
-    def update(self, command: L | P) -> bool:
+    def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
 
+        if command is None or (command == self._last_command and self.last_updated_ago < 1):
+            return
         with self._cv:
-            if super().update(command) is False:
-                return False
+            super().update(command)
             if isinstance(command, CommandReq):
                 if self.is_legacy is None:
                     self._is_legacy = command.is_tmcc2
@@ -722,6 +720,7 @@ class EngineState(ComponentState):
                     self._rpm = 0
                     self._labor = 12
                     self._numeric = None
+                    self._last_command = command
                     print(self.address, self.scope, command)
 
                 # get the downstream effects of this command, as they also impact state
@@ -753,7 +752,7 @@ class EngineState(ComponentState):
                     if self._direction != command.command:
                         self._direction = command.command
                     else:
-                        return False
+                        return
                 elif cmd_effects & DIRECTIONS_SET:
                     self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
 
@@ -918,7 +917,6 @@ class EngineState(ComponentState):
                 self._prod_year = command.year
             self.changed.set()
             self._cv.notify_all()
-            return True
 
     def as_bytes(self) -> bytes:
         from src.pdi.base_req import BaseReq
@@ -1117,7 +1115,7 @@ class IrdaState(LcsState):
         lr = f" When Engine ID (L -> R): {lre}"
         return f"Sensor Track {self.address}: Sequence: {self.sequence_str}{rl}{lr}"
 
-    def update(self, command: P) -> bool:
+    def update(self, command: P) -> None:
         from .component_state_store import ComponentStateStore
 
         if command:
@@ -1175,8 +1173,6 @@ class IrdaState(LcsState):
                                 command.tmcc_id = orig_tmcc_id
                 self.changed.set()
                 self._cv.notify_all()
-            return True
-        return False
 
     @property
     def is_known(self) -> bool:
@@ -1224,7 +1220,7 @@ class BaseState(ComponentState):
         fw = f" Firmware: {self._firmware if self._firmware else 'NA'}"
         return f"{bn}{fw}"
 
-    def update(self, command: L | P) -> bool:
+    def update(self, command: L | P) -> None:
         from src.pdi.base_req import BaseReq
 
         if isinstance(command, BaseReq):
@@ -1239,8 +1235,6 @@ class BaseState(ComponentState):
                 self._route_throw_rate = command.route_throw_rate
                 self._ev.set()
                 self._cv.notify_all()
-                return True
-        return False
 
     @property
     def base_name(self) -> str:
@@ -1306,7 +1300,7 @@ class SyncState(ComponentState):
             msg = f"Synchronized: {self._state_synchronized if self._state_synchronized is not None else 'NA'}"
         return f"{PROGRAM_NAME} {msg}"
 
-    def update(self, command: L | P) -> bool:
+    def update(self, command: L | P) -> None:
         if isinstance(command, CommandReq):
             self._ev.clear()
             with self._cv:
@@ -1319,8 +1313,6 @@ class SyncState(ComponentState):
                     self._state_synchronizing = False
                 self._ev.set()
                 self._cv.notify_all()
-                return True
-        return False
 
     @property
     def is_synchronized(self) -> bool:
