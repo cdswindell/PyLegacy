@@ -2,8 +2,8 @@
 #
 from __future__ import annotations
 
+import _thread
 import argparse
-import ctypes
 import logging.config
 import os
 import readline
@@ -12,7 +12,7 @@ import threading
 from datetime import datetime
 from signal import pause
 from time import sleep
-from typing import List, Tuple, Dict, Any, TypeVar
+from typing import List, Tuple, Dict, Any
 
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
@@ -70,22 +70,6 @@ class ServiceListener:
         pass
 
 
-E = TypeVar("E", bound=BaseException)
-
-
-def ctype_async_raise(target_tid: int, exception: E) -> None:
-    ret = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.py_object(exception))
-    # ref: http://docs.python.org/c-api/init.html#PyThreadState_SetAsyncExc
-    if ret == 0:
-        raise ValueError("Invalid thread ID")
-    elif ret > 1:
-        # Huh? Why would we notify more than one threads?
-        # Because we punch a hole into C level interpreter.
-        # So it is better to clean up the mess.
-        ctypes.pythonapi.PyThreadState_SetAsyncExc(target_tid, None)
-        raise SystemError("PyThreadState_SetAsyncExc failed")
-
-
 class PyTrain:
     def __init__(self, args: argparse.Namespace) -> None:
         self._args = args
@@ -106,7 +90,6 @@ class PyTrain:
         self._server_discovered = threading.Event()
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
-        self._thread_id = None
         if self._server is None and args.client is True:
             # use avahi/zeroconf to locate a PyTrain server on the local network
             # raise exception and exit if none found
@@ -217,8 +200,12 @@ class PyTrain:
         if self._echo:
             log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
         if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
-            print(f"Received QUIT command for thread {self._thread_id} from {threading.get_native_id()}")
-            ctype_async_raise(self._thread_id, KeyboardInterrupt())
+            log.info("Server exiting...")
+            _thread.interrupt_main()
+
+    def __repr__(self) -> str:
+        sc = "Server" if self.is_server else "Client"
+        return f"{PROGRAM_NAME} {sc} {dir(self)}>"
 
     @property
     def is_server(self) -> bool:
@@ -233,8 +220,6 @@ class PyTrain:
         return self._tmcc_buffer
 
     def run(self) -> None:
-        self._thread_id = threading.get_native_id()
-        print(f"Started {self._thread_id} {self}...")
         # process startup script
         self._process_startup_scripts()
         # print opening line
