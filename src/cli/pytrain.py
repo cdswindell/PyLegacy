@@ -215,7 +215,7 @@ class PyTrain:
 
     @staticmethod
     def reboot() -> None:
-        subprocess.call(["shutdown", "-r", "-t", "0"])
+        subprocess.call(["shutdown", "-r", "now"])
 
     @property
     def is_server(self) -> bool:
