@@ -313,7 +313,7 @@ class PyTrain:
                         # if server, signal clients to disconnect
                         if self.is_server:
                             CommandDispatcher.get().signal_client_quit(reboot=True)
-                            self._force_reboot = True
+                        self._force_reboot = True
                         raise KeyboardInterrupt()
                     elif args.command == "help":
                         self._command_parser().parse_args(["-help"])
