@@ -8,7 +8,6 @@ import readline
 import socket
 import os
 import signal
-import subprocess
 import threading
 from datetime import datetime
 from signal import pause
@@ -215,7 +214,7 @@ class PyTrain:
 
     @staticmethod
     def reboot() -> None:
-        subprocess.call(["shutdown", "-r", "now"])
+        os.system("sudo shutdown -r now")
 
     @property
     def is_server(self) -> bool:
