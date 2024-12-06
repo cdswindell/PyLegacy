@@ -2,7 +2,7 @@
 #
 from __future__ import annotations
 
-import _thread
+import signal
 import argparse
 import logging.config
 import os
@@ -68,6 +68,10 @@ class ServiceListener:
     @staticmethod
     def add_service(zeroconf, type_, name):
         pass
+
+
+def signal_handler(signum, frame):
+    raise KeyboardInterrupt("Interrupted by signal")
 
 
 class PyTrain:
@@ -201,7 +205,7 @@ class PyTrain:
             log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
         if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
             log.info("Server exiting...")
-            _thread.interrupt_main()
+            raise Exception("Server exited")
 
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
@@ -220,6 +224,7 @@ class PyTrain:
         return self._tmcc_buffer
 
     def run(self) -> None:
+        signal.signal(signal.SIGINT, signal_handler)
         # process startup script
         self._process_startup_scripts()
         # print opening line
