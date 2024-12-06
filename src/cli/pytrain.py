@@ -2,12 +2,12 @@
 #
 from __future__ import annotations
 
-import signal
 import argparse
 import logging.config
 import os
 import readline
 import socket
+import sys
 import threading
 from datetime import datetime
 from signal import pause
@@ -68,10 +68,6 @@ class ServiceListener:
     @staticmethod
     def add_service(zeroconf, type_, name):
         pass
-
-
-def signal_handler(signum, frame):
-    raise KeyboardInterrupt("Interrupted by signal")
 
 
 class PyTrain:
@@ -205,7 +201,7 @@ class PyTrain:
             log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
         if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
             log.info("Server exiting...")
-            raise Exception("Server exited")
+            sys.exit(0)
 
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
@@ -224,7 +220,6 @@ class PyTrain:
         return self._tmcc_buffer
 
     def run(self) -> None:
-        signal.signal(signal.SIGINT, signal_handler)
         # process startup script
         self._process_startup_scripts()
         # print opening line
@@ -240,40 +235,44 @@ class PyTrain:
                         readline.add_history(ui)  # provides limited command line recall and editing
                         self._handle_command(ui)
                 except SystemExit:
+                    print("Goodbye")
                     pass
                 except argparse.ArgumentError:
                     pass
                 except KeyboardInterrupt:
-                    try:
-                        if self.is_client:
-                            self._tmcc_buffer.disconnect()
-                    except Exception as e:
-                        log.warning(f"Error disconnecting client, continuing shutdown: {e}")
-                    try:
-                        CommBuffer.stop()
-                    except Exception as e:
-                        log.warning(f"Error closing command buffer, continuing shutdown: {e}")
-                    try:
-                        CommandListener.stop()
-                    except Exception as e:
-                        log.warning(f"Error closing TMCC listener, continuing shutdown: {e}")
-                    try:
-                        PdiListener.stop()
-                    except Exception as e:
-                        log.warning(f"Error closing PDI listener, continuing shutdown: {e}")
-                    try:
-                        ComponentStateStore.reset()
-                    except Exception as e:
-                        log.warning(f"Error closing state store, continuing shutdown: {e}")
-                    try:
-                        GpioHandler.reset_all()
-                    except Exception as e:
-                        log.warning(f"Error closing GPIO, continuing shutdown: {e}")
+                    self.shutdown()
                     break
         finally:
             if self._service_info and self._zeroconf:
                 self._zeroconf.unregister_service(self._service_info)
                 self._zeroconf.close()
+
+    def shutdown(self):
+        try:
+            if self.is_client:
+                self._tmcc_buffer.disconnect()
+        except Exception as e:
+            log.warning(f"Error disconnecting client, continuing shutdown: {e}")
+        try:
+            CommBuffer.stop()
+        except Exception as e:
+            log.warning(f"Error closing command buffer, continuing shutdown: {e}")
+        try:
+            CommandListener.stop()
+        except Exception as e:
+            log.warning(f"Error closing TMCC listener, continuing shutdown: {e}")
+        try:
+            PdiListener.stop()
+        except Exception as e:
+            log.warning(f"Error closing PDI listener, continuing shutdown: {e}")
+        try:
+            ComponentStateStore.reset()
+        except Exception as e:
+            log.warning(f"Error closing state store, continuing shutdown: {e}")
+        try:
+            GpioHandler.reset_all()
+        except Exception as e:
+            log.warning(f"Error closing GPIO, continuing shutdown: {e}")
 
     def _handle_command(self, ui: str) -> None:
         """
