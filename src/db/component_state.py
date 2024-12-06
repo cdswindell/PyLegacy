@@ -712,6 +712,9 @@ class EngineState(ComponentState):
                         self._aux1 = TMCC1.AUX1_OFF
                         self._aux2 = TMCC1.AUX2_OFF
                         self._aux = TMCC1.AUX2_OPTION_ONE
+                    self._speed = 0
+                    self._rpm = 0
+                    self._labor = 12
                     self._numeric = None
 
                 # get the downstream effects of this command, as they also impact state

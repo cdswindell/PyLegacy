@@ -2,7 +2,7 @@ from gpiozero import Button
 
 from ..db.component_state import EngineState
 from ..db.component_state_store import ComponentStateStore
-from ..pdi.base_req import BaseReq
+from ..pdi.base3_buffer import Base3Buffer
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
 from ..protocol.multybyte.multibyte_constants import TMCC2EffectsControl
@@ -368,7 +368,7 @@ class EngineController:
         else:
             self._control_type = ControlType.by_value(cur_state.control_type)
         # request state update from Base, if present
-        BaseReq.request_update(tmcc_id, scope)
+        Base3Buffer.request_state_update(tmcc_id, scope)
         # update buttons
         if self.is_legacy:
             max_speed = 200
