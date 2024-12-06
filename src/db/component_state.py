@@ -698,7 +698,7 @@ class EngineState(ComponentState):
 
         with self._cv:
             super().update(command)
-            if command and self._last_command and command.as_bytes == self._last_command_bytes:
+            if command and self._last_command_bytes and command.as_bytes == self._last_command_bytes:
                 return  # reduce command spamming
             if isinstance(command, CommandReq):
                 if self.is_legacy is None:
