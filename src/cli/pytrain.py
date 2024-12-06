@@ -47,6 +47,7 @@ from src.protocol.constants import (
     SERVICE_TYPE,
     SERVICE_NAME,
 )
+from src.protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 from src.utils.dual_logging import set_up_logging
 from src.utils.ip_tools import get_ip_address
@@ -166,6 +167,8 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.IRDA)
             self._state_store.listen_for(CommandScope.BASE)
             self._state_store.listen_for(CommandScope.SYNC)
+            if self.is_client:
+                self._tmcc_listener.subscribe(self, CommandScope.SYNC)
 
         if self._pdi_buffer is not None:
             self._pdi_state_store = PdiStateStore()
@@ -195,6 +198,8 @@ class PyTrain:
         """
         if self._echo:
             log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
+        if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
+            print("received quit command from server")
 
     @property
     def is_server(self) -> bool:
