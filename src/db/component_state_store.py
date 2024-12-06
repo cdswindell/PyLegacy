@@ -120,10 +120,14 @@ class ComponentStateStore:
         if command:
             if isinstance(command, CommandReq):
                 if command.is_halt:  # send to all known devices
-                    for scope in self._state:
-                        for address in self._state[scope]:
-                            self._state[scope][address].update(command)
-                    return
+                    if self._filter_updates and command.is_filtered:
+                        if log.isEnabledFor(logging.DEBUG):
+                            log.debug(f"Command {command} is suppressed")
+                    else:
+                        for scope in self._state:
+                            for address in self._state[scope]:
+                                self._state[scope][address].update(command)
+                        return
                 elif command.is_system_halt:  # send to all known engines and trains
                     for scope in self._state:
                         if scope in [CommandScope.ENGINE, CommandScope.TRAIN]:

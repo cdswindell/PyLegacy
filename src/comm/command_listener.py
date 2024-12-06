@@ -394,7 +394,10 @@ class CommandDispatcher(Thread):
                 if isinstance(cmd, CommandReq):
                     # if command is a TMCC1 Halt, send to everyone
                     if cmd.is_halt:
-                        self.publish_all(cmd)
+                        if self._filter_updates is True and cmd.is_filtered is True:
+                            log.debug(f"Filtering client update: {cmd}")
+                        else:
+                            self.publish_all(cmd)
                     # if command is a legacy-style halt, just send to engines and trains
                     elif cmd.is_system_halt:
                         self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
