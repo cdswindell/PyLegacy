@@ -53,33 +53,49 @@ ADS1115_REG_CONFIG_CQUE_NONE = 0x03  # Disable the comparator and put ALERT/RDY 
 
 class Ads1115:
     def __init__(self, channel: int = 0, i2c_addr: int = ADS1115_IIC_ADDRESS0, gain: int = 0x02):
+        self.bus = SMBus(1)
+        self._channel = None
+        self._gain = None
+        self._coefficient = None
+        self._i2c_addr = i2c_addr
+
         self.channel = channel
         self.gain = gain
-        self.coefficient = 0.125
-        self.i2c_addr = i2c_addr
-        self.bus = SMBus(1)
+        self.set_single()
 
-    def set_gain(self, gain):
-        self.gain = gain
+    @property
+    def i2c_address(self) -> int:
+        return self._i2c_addr
+
+    @property
+    def gain(self) -> int:
+        return self._gain
+
+    @gain.setter
+    def gain(self, gain: int):
         if gain == ADS1115_REG_CONFIG_PGA_6_144V:
-            self.coefficient = 0.1875
+            self._coefficient = 0.1875
         elif gain == ADS1115_REG_CONFIG_PGA_4_096V:
-            self.coefficient = 0.125
+            self._coefficient = 0.125
         elif gain == ADS1115_REG_CONFIG_PGA_2_048V:
-            self.coefficient = 0.0625
+            self._coefficient = 0.0625
         elif gain == ADS1115_REG_CONFIG_PGA_1_024V:
-            self.coefficient = 0.03125
+            self._coefficient = 0.03125
         elif gain == ADS1115_REG_CONFIG_PGA_0_512V:
-            self.coefficient = 0.015625
+            self._coefficient = 0.015625
         elif gain == ADS1115_REG_CONFIG_PGA_0_256V:
-            self.coefficient = 0.0078125
+            self._coefficient = 0.0078125
         else:
-            self.coefficient = 0.125
+            raise ValueError(f"Invalid Gain: {gain}")
 
-    def set_addr(self, addr) -> None:
-        self.i2c_addr = addr
+        self._gain = gain
 
-    def set_channel(self, channel) -> int:
+    @property
+    def channel(self) -> int:
+        return self._channel
+
+    @channel.setter
+    def channel(self, channel) -> None:
         """
         Select Channel user want to use from 0-3
         For Single-ended Output
@@ -94,11 +110,9 @@ class Ads1115:
         2 : AINP = AIN1 and AINN = AIN3
         3 : AINP = AIN2 and AINN = AIN3
         """
-        self.channel = channel
-        if self.channel > 3:
-            self.channel = 0
-
-        return self.channel
+        if channel > 3:
+            channel = 0
+        self._channel = channel
 
     def set_single(self) -> None:
         if self.channel == 0:
@@ -136,7 +150,7 @@ class Ads1115:
         else:
             raise AttributeError(f"Invalid ADC Channel: {self.channel}")
 
-        self.bus.write_i2c_block_data(self.i2c_addr, ADS1115_REG_POINTER_CONFIG, config_reg)
+        self.bus.write_i2c_block_data(self.i2c_address, ADS1115_REG_POINTER_CONFIG, config_reg)
 
     def set_differential(self) -> None:
         if self.channel == 0:
@@ -174,29 +188,31 @@ class Ads1115:
         else:
             raise AttributeError(f"Invalid A2D Channel: {self.channel}")
 
-        self.bus.write_i2c_block_data(self.i2c_addr, ADS1115_REG_POINTER_CONFIG, config_reg)
+        self.bus.write_i2c_block_data(self.i2c_address, ADS1115_REG_POINTER_CONFIG, config_reg)
 
     def read_value(self) -> float:
         """Read data back from ADS1115_REG_POINTER_CONVERT(0x00), 2 bytes
         raw_adc MSB, raw_adc LSB"""
-        data = self.bus.read_i2c_block_data(self.i2c_addr, ADS1115_REG_POINTER_CONVERT, 2)
+        data = self.bus.read_i2c_block_data(self.i2c_address, ADS1115_REG_POINTER_CONVERT, 2)
 
         # Convert the data
         raw_adc = data[0] * 256 + data[1]
 
         if raw_adc > 32767:
             raw_adc -= 65535
-        raw_adc = (float(raw_adc) * self.coefficient) / 1000.0
+        raw_adc = (float(raw_adc) * self._coefficient) / 1000.0
         return raw_adc
 
-    def read_voltage(self, channel):
-        self.set_channel(channel)
-        self.set_single()
-        time.sleep(0.05)
+    def read_voltage(self, channel: int = None):
+        if channel is not None:
+            self.channel = channel
+            self.set_single()
+            time.sleep(0.05)
         return self.read_value()
 
-    def comparator_voltage(self, channel):
-        self.set_channel(channel)
-        self.set_differential()
-        time.sleep(0.05)
+    def comparator_voltage(self, channel: int = None):
+        if channel is not None:
+            self.channel = channel
+            self.set_differential()
+            time.sleep(0.05)
         return self.read_value()
