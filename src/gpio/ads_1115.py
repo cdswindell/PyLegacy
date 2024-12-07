@@ -147,6 +147,7 @@ class Ads1115:
         else:
             raise AttributeError(f"Invalid ADS1115 Mode: {mode}")
 
+    @property
     def value(self) -> float:
         """
         Read data back from ADS1115_REG_POINTER_CONVERT(0x00),
@@ -162,19 +163,19 @@ class Ads1115:
         raw_adc = (float(raw_adc) * self._coefficient) / 1000.0
         return raw_adc
 
-    def voltage(self, channel: int = None):
-        if channel is not None:
-            self.channel = channel
+    @property
+    def voltage(self):
+        if self.mode != Ads1115Mode.SINGLE:
             self._set_single()
             time.sleep(0.05)
-        return self.value()
+        return self.value
 
-    def differential(self, channel: int = None):
-        if channel is not None:
-            self.channel = channel
+    @property
+    def differential(self):
+        if self.mode != Ads1115Mode.DIFFERENTIAL:
             self._set_differential()
             time.sleep(0.05)
-        return self.value()
+        return self.value
 
     def _set_single(self) -> None:
         if self.channel == 0:
