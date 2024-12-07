@@ -184,7 +184,7 @@ class Ads1115:
                 | ADS1115_REG_CONFIG_MUX_SINGLE_0
                 | self.gain
                 | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
             ]
         elif self.channel == 1:
             config_reg = [
@@ -192,7 +192,7 @@ class Ads1115:
                 | ADS1115_REG_CONFIG_MUX_SINGLE_1
                 | self.gain
                 | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
             ]
         elif self.channel == 2:
             config_reg = [
@@ -200,7 +200,7 @@ class Ads1115:
                 | ADS1115_REG_CONFIG_MUX_SINGLE_2
                 | self.gain
                 | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
             ]
         elif self.channel == 3:
             config_reg = [
@@ -208,7 +208,7 @@ class Ads1115:
                 | ADS1115_REG_CONFIG_MUX_SINGLE_3
                 | self.gain
                 | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
             ]
         else:
             raise AttributeError(f"Invalid ADC Channel: {self.channel}")
@@ -223,7 +223,7 @@ class Ads1115:
                 | ADS1115_REG_CONFIG_MUX_DIFF_0_1
                 | self.gain
                 | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
             ]
         elif self.channel == 1:
             config_reg = [
@@ -231,7 +231,7 @@ class Ads1115:
                 | ADS1115_REG_CONFIG_MUX_DIFF_0_3
                 | self.gain
                 | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
             ]
         elif self.channel == 2:
             config_reg = [
@@ -239,7 +239,7 @@ class Ads1115:
                 | ADS1115_REG_CONFIG_MUX_DIFF_1_3
                 | self.gain
                 | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
             ]
         elif self.channel == 3:
             config_reg = [
@@ -247,7 +247,7 @@ class Ads1115:
                 | ADS1115_REG_CONFIG_MUX_DIFF_2_3
                 | self.gain
                 | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
             ]
         else:
             raise AttributeError(f"Invalid A2D Channel: {self.channel}")
