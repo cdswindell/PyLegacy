@@ -1,4 +1,6 @@
 import time
+from enum import Enum, unique
+
 from smbus2 import SMBus
 
 
@@ -51,17 +53,35 @@ ADS1115_REG_CONFIG_CQUE_4CONV = 0x02  # Assert ALERT/RDY after four conversions
 ADS1115_REG_CONFIG_CQUE_NONE = 0x03  # Disable the comparator and put ALERT/RDY in high state (default)
 
 
+@unique
+class Ads1115Mode(Enum):
+    SINGLE = 1
+    DIFFERENTIAL = 2
+
+
 class Ads1115:
-    def __init__(self, channel: int = 0, i2c_addr: int = ADS1115_IIC_ADDRESS0, gain: int = 0x02):
-        self.bus = SMBus(1)
+    def __init__(
+        self,
+        channel: int = 0,
+        i2c_addr: int = ADS1115_IIC_ADDRESS0,
+        gain: int = 0x02,
+        bus_no: int = 1,
+        mode: Ads1115Mode = Ads1115Mode.SINGLE,
+    ):
+        self._bus = SMBus(bus_no)
         self._channel = None
         self._gain = None
         self._coefficient = None
+        self._mode = None
         self._i2c_addr = i2c_addr
 
         self.channel = channel
         self.gain = gain
-        self.set_single()
+        self.mode = mode
+
+    @property
+    def bus(self) -> SMBus:
+        return self._bus
 
     @property
     def i2c_address(self) -> int:
@@ -95,7 +115,7 @@ class Ads1115:
         return self._channel
 
     @channel.setter
-    def channel(self, channel) -> None:
+    def channel(self, channel: int) -> None:
         """
         Select Channel user want to use from 0-3
         For Single-ended Output
@@ -110,89 +130,28 @@ class Ads1115:
         2 : AINP = AIN1 and AINN = AIN3
         3 : AINP = AIN2 and AINN = AIN3
         """
-        if channel > 3:
+        if channel < 0 or channel > 3:
             channel = 0
         self._channel = channel
 
-    def set_single(self) -> None:
-        if self.channel == 0:
-            config_reg = [
-                ADS1115_REG_CONFIG_OS_SINGLE
-                | ADS1115_REG_CONFIG_MUX_SINGLE_0
-                | self.gain
-                | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
-            ]
-        elif self.channel == 1:
-            config_reg = [
-                ADS1115_REG_CONFIG_OS_SINGLE
-                | ADS1115_REG_CONFIG_MUX_SINGLE_1
-                | self.gain
-                | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
-            ]
-        elif self.channel == 2:
-            config_reg = [
-                ADS1115_REG_CONFIG_OS_SINGLE
-                | ADS1115_REG_CONFIG_MUX_SINGLE_2
-                | self.gain
-                | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
-            ]
-        elif self.channel == 3:
-            config_reg = [
-                ADS1115_REG_CONFIG_OS_SINGLE
-                | ADS1115_REG_CONFIG_MUX_SINGLE_3
-                | self.gain
-                | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
-            ]
+    @property
+    def mode(self) -> Ads1115Mode:
+        return self._mode
+
+    @mode.setter
+    def mode(self, mode: Ads1115Mode):
+        if mode == Ads1115Mode.SINGLE:
+            self._set_single()
+        elif mode == Ads1115Mode.DIFFERENTIAL:
+            self._set_differential()
         else:
-            raise AttributeError(f"Invalid ADC Channel: {self.channel}")
+            raise AttributeError(f"Invalid ADS1115 Mode: {mode}")
 
-        self.bus.write_i2c_block_data(self.i2c_address, ADS1115_REG_POINTER_CONFIG, config_reg)
-
-    def set_differential(self) -> None:
-        if self.channel == 0:
-            config_reg = [
-                ADS1115_REG_CONFIG_OS_SINGLE
-                | ADS1115_REG_CONFIG_MUX_DIFF_0_1
-                | self.gain
-                | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
-            ]
-        elif self.channel == 1:
-            config_reg = [
-                ADS1115_REG_CONFIG_OS_SINGLE
-                | ADS1115_REG_CONFIG_MUX_DIFF_0_3
-                | self.gain
-                | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
-            ]
-        elif self.channel == 2:
-            config_reg = [
-                ADS1115_REG_CONFIG_OS_SINGLE
-                | ADS1115_REG_CONFIG_MUX_DIFF_1_3
-                | self.gain
-                | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
-            ]
-        elif self.channel == 3:
-            config_reg = [
-                ADS1115_REG_CONFIG_OS_SINGLE
-                | ADS1115_REG_CONFIG_MUX_DIFF_2_3
-                | self.gain
-                | ADS1115_REG_CONFIG_MODE_CONTIN,
-                ADS1115_REG_CONFIG_DR_128SPS | ADS1115_REG_CONFIG_CQUE_NONE,
-            ]
-        else:
-            raise AttributeError(f"Invalid A2D Channel: {self.channel}")
-
-        self.bus.write_i2c_block_data(self.i2c_address, ADS1115_REG_POINTER_CONFIG, config_reg)
-
-    def read_value(self) -> float:
-        """Read data back from ADS1115_REG_POINTER_CONVERT(0x00), 2 bytes
-        raw_adc MSB, raw_adc LSB"""
+    def value(self) -> float:
+        """
+        Read data back from ADS1115_REG_POINTER_CONVERT(0x00),
+        2 bytes raw_adc MSB, raw_adc LSB
+        """
         data = self.bus.read_i2c_block_data(self.i2c_address, ADS1115_REG_POINTER_CONVERT, 2)
 
         # Convert the data
@@ -203,16 +162,94 @@ class Ads1115:
         raw_adc = (float(raw_adc) * self._coefficient) / 1000.0
         return raw_adc
 
-    def read_voltage(self, channel: int = None):
+    def voltage(self, channel: int = None):
         if channel is not None:
             self.channel = channel
-            self.set_single()
+            self._set_single()
             time.sleep(0.05)
-        return self.read_value()
+        return self.value()
 
-    def comparator_voltage(self, channel: int = None):
+    def differential(self, channel: int = None):
         if channel is not None:
             self.channel = channel
-            self.set_differential()
+            self._set_differential()
             time.sleep(0.05)
-        return self.read_value()
+        return self.value()
+
+    def _set_single(self) -> None:
+        if self.channel == 0:
+            config_reg = [
+                ADS1115_REG_CONFIG_OS_SINGLE
+                | ADS1115_REG_CONFIG_MUX_SINGLE_0
+                | self.gain
+                | ADS1115_REG_CONFIG_MODE_CONTIN,
+                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+            ]
+        elif self.channel == 1:
+            config_reg = [
+                ADS1115_REG_CONFIG_OS_SINGLE
+                | ADS1115_REG_CONFIG_MUX_SINGLE_1
+                | self.gain
+                | ADS1115_REG_CONFIG_MODE_CONTIN,
+                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+            ]
+        elif self.channel == 2:
+            config_reg = [
+                ADS1115_REG_CONFIG_OS_SINGLE
+                | ADS1115_REG_CONFIG_MUX_SINGLE_2
+                | self.gain
+                | ADS1115_REG_CONFIG_MODE_CONTIN,
+                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+            ]
+        elif self.channel == 3:
+            config_reg = [
+                ADS1115_REG_CONFIG_OS_SINGLE
+                | ADS1115_REG_CONFIG_MUX_SINGLE_3
+                | self.gain
+                | ADS1115_REG_CONFIG_MODE_CONTIN,
+                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+            ]
+        else:
+            raise AttributeError(f"Invalid ADC Channel: {self.channel}")
+        self._mode = Ads1115Mode.SINGLE
+
+        self.bus.write_i2c_block_data(self.i2c_address, ADS1115_REG_POINTER_CONFIG, config_reg)
+
+    def _set_differential(self) -> None:
+        if self.channel == 0:
+            config_reg = [
+                ADS1115_REG_CONFIG_OS_SINGLE
+                | ADS1115_REG_CONFIG_MUX_DIFF_0_1
+                | self.gain
+                | ADS1115_REG_CONFIG_MODE_CONTIN,
+                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+            ]
+        elif self.channel == 1:
+            config_reg = [
+                ADS1115_REG_CONFIG_OS_SINGLE
+                | ADS1115_REG_CONFIG_MUX_DIFF_0_3
+                | self.gain
+                | ADS1115_REG_CONFIG_MODE_CONTIN,
+                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+            ]
+        elif self.channel == 2:
+            config_reg = [
+                ADS1115_REG_CONFIG_OS_SINGLE
+                | ADS1115_REG_CONFIG_MUX_DIFF_1_3
+                | self.gain
+                | ADS1115_REG_CONFIG_MODE_CONTIN,
+                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+            ]
+        elif self.channel == 3:
+            config_reg = [
+                ADS1115_REG_CONFIG_OS_SINGLE
+                | ADS1115_REG_CONFIG_MUX_DIFF_2_3
+                | self.gain
+                | ADS1115_REG_CONFIG_MODE_CONTIN,
+                ADS1115_REG_CONFIG_DR_250SPS | ADS1115_REG_CONFIG_CQUE_NONE,
+            ]
+        else:
+            raise AttributeError(f"Invalid A2D Channel: {self.channel}")
+
+        self._mode = Ads1115Mode.DIFFERENTIAL
+        self.bus.write_i2c_block_data(self.i2c_address, ADS1115_REG_POINTER_CONFIG, config_reg)
