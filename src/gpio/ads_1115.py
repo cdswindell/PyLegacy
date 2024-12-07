@@ -176,7 +176,7 @@ class Ads1115:
 
         self.bus.write_i2c_block_data(self.i2c_addr, ADS1115_REG_POINTER_CONFIG, config_reg)
 
-    def read_value(self):
+    def read_value(self) -> float:
         """Read data back from ADS1115_REG_POINTER_CONVERT(0x00), 2 bytes
         raw_adc MSB, raw_adc LSB"""
         data = self.bus.read_i2c_block_data(self.i2c_addr, ADS1115_REG_POINTER_CONVERT, 2)
@@ -186,17 +186,17 @@ class Ads1115:
 
         if raw_adc > 32767:
             raw_adc -= 65535
-        raw_adc = int(float(raw_adc) * self.coefficient)
-        return {"r": raw_adc}
+        raw_adc = (float(raw_adc) * self.coefficient) / 1000.0
+        return raw_adc
 
     def read_voltage(self, channel):
         self.set_channel(channel)
         self.set_single()
-        time.sleep(0.1)
+        time.sleep(0.05)
         return self.read_value()
 
     def comparator_voltage(self, channel):
         self.set_channel(channel)
         self.set_differential()
-        time.sleep(0.1)
+        time.sleep(0.05)
         return self.read_value()
