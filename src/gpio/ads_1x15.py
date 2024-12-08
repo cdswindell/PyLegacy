@@ -501,10 +501,19 @@ class ADS1115(ADS1x15):
     ADS1115 class derived from general ADS1x15 class
     """
 
-    def __init__(self, bus_id: int, address: int = I2C_address, gain: int = ADS1x15.PGA_6_144V):
+    def __init__(
+        self,
+        channel: int = 0,
+        bus_id: int = 1,
+        address: int = I2C_address,
+        gain: int = ADS1x15.PGA_6_144V,
+    ):
         """Initialize ADS1115 with SMBus ID and I2C address configuration"""
         super().__init__(bus_id, address, 8, 4, 16)
         self.gain = gain
+        self.mode = self.MODE_CONTINUOUS
+        self.data_rate = self.DR_ADS111X_128
+        self.request_adc(channel)
 
     def request_adc_differential_0_3(self):
         """
