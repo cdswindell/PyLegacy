@@ -144,7 +144,7 @@ class Ads1x15(ABC):
         """
         Get input multiplexer configuration
         """
-        return (self._config & 0x7000) >> 12
+        return ((self._config & 0x7000) >> 12) - 4
 
     @channel.setter
     def channel(self, channel: int) -> None:
@@ -152,13 +152,46 @@ class Ads1x15(ABC):
         Set input multiplexer configuration
         """
         # Filter input argument
-        if channel < 0 or channel > 7:
-            input_register = 0x0000
-        else:
-            input_register = channel << 12
+        if channel < 0 or channel > self._ports:
+            raise ValueError(f"Channel number out of range (0 - {self._ports})")
+        self._set_input_register(channel + 4)
+
+    def _set_input_register(self, input_reg: int) -> None:
+        input_register = input_reg << 12
+
         # Masking input argument bits (bit 12-14) to config register
         self._config = (self._config & 0x8FFF) | input_register
         self.write_register(self.CONFIG_REG, self._config)
+
+    def request_adc(self, channel: int) -> None:
+        """Request single-shot conversion of a pin to ground"""
+        if channel >= self._ports or channel < 0:
+            raise ValueError(f"Channel number out of range (0 - {self._ports})")
+        self.channel = channel
+
+    def _request_adc(self, channel: int) -> None:
+        """Private method for starting a single-shot conversion"""
+        self._set_input_register(channel)
+        # Set single-shot conversion start (bit 15)
+        if self._config & 0x0100:
+            self.write_register(self.CONFIG_REG, self._config | 0x8000)
+
+    def read_adc(self, channel: int):
+        """Get ADC raw_value of a pin"""
+        if channel >= self._ports or channel < 0:
+            raise ValueError(f"Channel number out of range (0 - {self._ports})")
+        self.request_adc(channel)
+        return self._get_adc()
+
+    def _get_adc(self) -> int:
+        """Get ADC raw_value with current configuration"""
+        t = time.time()
+        is_continuous = not (self._config & 0x0100)
+        # Wait conversion process finish or reach conversion time for continuous mode
+        while not self.is_ready:
+            if ((time.time() - t) * 1000) > self._conversion_delay and is_continuous:
+                break
+        return self.raw_value
 
     @property
     def gain(self):
@@ -354,23 +387,6 @@ class Ads1x15(ABC):
         """
         return not self.is_ready
 
-    def _request_adc(self, channel: int):
-        """Private method for starting a single-shot conversion"""
-        self.channel = channel
-        # Set single-shot conversion start (bit 15)
-        if self._config & 0x0100:
-            self.write_register(self.CONFIG_REG, self._config | 0x8000)
-
-    def _get_adc(self) -> int:
-        """Get ADC raw_value with current configuration"""
-        t = time.time()
-        is_continuous = not (self._config & 0x0100)
-        # Wait conversion process finish or reach conversion time for continuous mode
-        while not self.is_ready:
-            if ((time.time() - t) * 1000) > self._conversion_delay and is_continuous:
-                break
-        return self.raw_value
-
     @property
     def raw_value(self) -> int:
         """Get ADC raw_value"""
@@ -380,19 +396,6 @@ class Ads1x15(ABC):
         if value >= (2 ** (self._bits - 1)):
             value = value - (2**self._bits)
         return value
-
-    def request_adc(self, pin: int):
-        """Request single-shot conversion of a pin to ground"""
-        if pin >= self._ports or pin < 0:
-            return
-        self._request_adc(pin + 4)
-
-    def read_adc(self, pin: int):
-        """Get ADC raw_value of a pin"""
-        if pin >= self._ports or pin < 0:
-            return 0
-        self.request_adc(pin)
-        return self._get_adc()
 
     def request_adc_differential_0_1(self):
         """Request single-shot conversion between pin 0 and pin 1"""
