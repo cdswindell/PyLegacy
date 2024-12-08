@@ -435,21 +435,18 @@ class Ads1x15(ABC):
         return volts / ((2 ** (self._bits - 1)) - 1)
 
 
-class ADS1013(Ads1x15):
+class Ads1013(Ads1x15):
     def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
-        """Initialize ADS1013 with SMBus ID and I2C address configuration"""
         super().__init__(channel, bus_id, address, 2, 1, 12)
 
 
-class ADS1014(Ads1x15):
+class Ads1014(Ads1x15):
     def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
-        """Initialize ADS1014 with SMBus ID and I2C address configuration"""
         super().__init__(channel, bus_id, address, 2, 1, 12)
 
 
-class ADS1015(Ads1x15):
+class Ads1015(Ads1x15):
     def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
-        """Initialize ADS1015 with SMBus ID and I2C address configuration"""
         super().__init__(channel, bus_id, address, 2, 4, 12)
 
     def request_adc_differential_0_3(self):
@@ -490,7 +487,7 @@ class Ads1114(Ads1x15):
         super().__init__(channel, bus_id, address, 8, 1, 16)
 
 
-class ADS1115(Ads1x15):
+class Ads1115(Ads1x15):
     def __init__(
         self,
         channel: int = 0,
@@ -499,7 +496,6 @@ class ADS1115(Ads1x15):
         gain: int = Ads1x15.PGA_6_144V,
         data_rate: int = Ads1x15.DR_ADS111X_128,
     ):
-        """Initialize Ads1115 with SMBus ID and I2C address configuration"""
         super().__init__(channel, bus_id, address, 8, 4, 16)
         self.gain = gain
         self.mode = self.MODE_CONTINUOUS
