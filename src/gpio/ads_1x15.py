@@ -7,7 +7,7 @@ import time
 I2C_address = 0x48
 
 
-class ADS1x15(ABC):
+class Ads1x15(ABC):
     """
     General ADS1x15 family ADC class
     """
@@ -76,7 +76,7 @@ class ADS1x15(ABC):
     _config = 0x8583
 
     # Default conversion delay
-    _conversionDelay = 8
+    # _conversionDelay = 8
 
     # Maximum input port
     # _maxPorts = 4
@@ -86,6 +86,7 @@ class ADS1x15(ABC):
 
     def __init__(
         self,
+        channel: int,
         bus_id: int,
         address: int,
         conversion_delay: int,
@@ -102,6 +103,8 @@ class ADS1x15(ABC):
         self._bits = bits
         # Store initial config register to config property
         self._config = self.read_register(self.CONFIG_REG)
+        # set channel
+        self.request_adc(channel)
 
     @property
     def i2c(self) -> SMBus:
@@ -125,7 +128,7 @@ class ADS1x15(ABC):
 
     def read_register(self, address: int) -> int:
         """
-        Read 16-bit integer value from an address pointer register
+        Read 16-bit integer raw_value from an address pointer register
         """
         register_value = self._i2c.read_i2c_block_data(self._address, address, 2)
         return (register_value[0] << 8) + register_value[1]
@@ -137,13 +140,15 @@ class ADS1x15(ABC):
         register_value = [(value >> 8) & 0xFF, value & 0xFF]
         self._i2c.write_i2c_block_data(self._address, address, register_value)
 
-    def get_input(self):
+    @property
+    def channel(self):
         """
         Get input multiplexer configuration
         """
         return (self._config & 0x7000) >> 12
 
-    def set_input(self, inp: int) -> None:
+    @channel.setter
+    def channel(self, inp: int) -> None:
         """
         Set input multiplexer configuration
         """
@@ -350,41 +355,41 @@ class ADS1x15(ABC):
         """
         return not self.is_ready
 
-    def _request_adc(self, inp):
-        """Private method for starting a single-shot conversion"""
-        self.set_input(inp)
-        # Set single-shot conversion start (bit 15)
-        if self._config & 0x0100:
-            self.write_register(self.CONFIG_REG, self._config | 0x8000)
-
-    def _get_adc(self) -> int:
-        """Get ADC value with current configuration"""
-        t = time.time()
-        is_continuous = not (self._config & 0x0100)
-        # Wait conversion process finish or reach conversion time for continuous mode
-        while not self.is_ready:
-            if ((time.time() - t) * 1000) > self._conversionDelay and is_continuous:
-                break
-        return self.value
-
-    @property
-    def value(self) -> int:
-        """Get ADC value"""
-        value = self.read_register(self.CONVERSION_REG)
-        # Shift bit based on ADC bits and change 2'complement negative value to negative integer
-        value = value >> (16 - self._bits)
-        if value >= (2 ** (self._bits - 1)):
-            value = value - (2**self._bits)
-        return value
-
     def request_adc(self, pin: int):
         """Request single-shot conversion of a pin to ground"""
         if pin >= self._ports or pin < 0:
             return
         self._request_adc(pin + 4)
 
+    def _request_adc(self, channel: int):
+        """Private method for starting a single-shot conversion"""
+        self.channel = channel
+        # Set single-shot conversion start (bit 15)
+        if self._config & 0x0100:
+            self.write_register(self.CONFIG_REG, self._config | 0x8000)
+
+    def _get_adc(self) -> int:
+        """Get ADC raw_value with current configuration"""
+        t = time.time()
+        is_continuous = not (self._config & 0x0100)
+        # Wait conversion process finish or reach conversion time for continuous mode
+        while not self.is_ready:
+            if ((time.time() - t) * 1000) > self._conversion_delay and is_continuous:
+                break
+        return self.raw_value
+
+    @property
+    def raw_value(self) -> int:
+        """Get ADC raw_value"""
+        value = self.read_register(self.CONVERSION_REG)
+        # Shift bit based on ADC bits and change 2'complement negative raw_value to negative integer
+        value = value >> (16 - self._bits)
+        if value >= (2 ** (self._bits - 1)):
+            value = value - (2**self._bits)
+        return value
+
     def read_adc(self, pin: int):
-        """Get ADC value of a pin"""
+        """Get ADC raw_value of a pin"""
         if pin >= self._ports or pin < 0:
             return 0
         self.request_adc(pin)
@@ -395,7 +400,7 @@ class ADS1x15(ABC):
         self._request_adc(0)
 
     def read_adc_differential_0_1(self):
-        """Get ADC value between pin 0 and pin 1"""
+        """Get ADC raw_value between pin 0 and pin 1"""
         self.request_adc_differential_0_1()
         return self._get_adc()
 
@@ -416,48 +421,44 @@ class ADS1x15(ABC):
             return 0.256
 
     @property
+    def value(self) -> float:
+        return self.to_voltage(self.raw_value)
+
+    @property
     def voltage(self) -> float:
-        return self.to_voltage(self.value)
+        return self.to_voltage(self.raw_value)
 
     def to_voltage(self, value: int = 1) -> float:
         """
-        Transform an ADC value to nominal voltage
+        Transform an ADC raw_value to nominal voltage
         """
         volts = self.max_voltage * value
         return volts / ((2 ** (self._bits - 1)) - 1)
 
 
-class ADS1013(ADS1x15):
-    """
-    ADS1013 class derived from general ADS1x15 class
-    """
-
-    def __init__(self, bus_id: int, address: int = I2C_address):
+class ADS1013(Ads1x15):
+    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
         """Initialize ADS1013 with SMBus ID and I2C address configuration"""
-        super().__init__(bus_id, address, 2, 1, 12)
+        super().__init__(channel, bus_id, address, 2, 1, 12)
 
 
-class ADS1014(ADS1x15):
-    """ADS1014 class derived from general ADS1x15 class"""
-
-    def __init__(self, bus_id: int = 1, address: int = I2C_address):
+class ADS1014(Ads1x15):
+    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
         """Initialize ADS1014 with SMBus ID and I2C address configuration"""
-        super().__init__(bus_id, address, 2, 1, 12)
+        super().__init__(channel, bus_id, address, 2, 1, 12)
 
 
-class ADS1015(ADS1x15):
-    """ADS1015 class derived from general ADS1x15 class"""
-
-    def __init__(self, bus_id: int, address: int = I2C_address):
+class ADS1015(Ads1x15):
+    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
         """Initialize ADS1015 with SMBus ID and I2C address configuration"""
-        super().__init__(bus_id, address, 2, 4, 12)
+        super().__init__(channel, bus_id, address, 2, 4, 12)
 
     def request_adc_differential_0_3(self):
         """Request single-shot conversion between pin 0 and pin 3"""
         self._request_adc(1)
 
     def read_adc_differential_0_3(self):
-        """Get ADC value between pin 0 and pin 3"""
+        """Get ADC raw_value between pin 0 and pin 3"""
         self.request_adc_differential_0_3()
         return self._get_adc()
 
@@ -466,7 +467,7 @@ class ADS1015(ADS1x15):
         self._request_adc(2)
 
     def read_adc_differential_1_3(self):
-        """Get ADC value between pin 1 and pin 3"""
+        """Get ADC raw_value between pin 1 and pin 3"""
         self.request_adc_differential_1_3()
         return self._get_adc()
 
@@ -475,45 +476,37 @@ class ADS1015(ADS1x15):
         self._request_adc(3)
 
     def read_adc_differential_2_3(self):
-        """Get ADC value between pin 2 and pin 3"""
+        """Get ADC raw_value between pin 2 and pin 3"""
         self.request_adc_differential_2_3()
         return self._get_adc()
 
 
-class ADS1113(ADS1x15):
-    """ADS1113 class derived from general ADS1x15 class"""
-
-    def __init__(self, bus_id: int, address: int = I2C_address):
+class ADS1113(Ads1x15):
+    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
         """Initialize ADS1113 with SMBus ID and I2C address configuration"""
-        super().__init__(bus_id, address, 8, 1, 16)
+        super().__init__(channel, bus_id, address, 8, 1, 16)
 
 
-class ADS1114(ADS1x15):
-    """ADS1114 class derived from general ADS1x15 class"""
-
-    def __init__(self, bus_id: int, address: int = I2C_address):
+class ADS1114(Ads1x15):
+    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
         """Initialize ADS1114 with SMBus ID and I2C address configuration"""
-        super().__init__(bus_id, address, 8, 1, 16)
+        super().__init__(channel, bus_id, address, 8, 1, 16)
 
 
-class ADS1115(ADS1x15):
-    """
-    ADS1115 class derived from general ADS1x15 class
-    """
-
+class ADS1115(Ads1x15):
     def __init__(
         self,
         channel: int = 0,
         bus_id: int = 1,
         address: int = I2C_address,
-        gain: int = ADS1x15.PGA_6_144V,
+        gain: int = Ads1x15.PGA_6_144V,
+        data_rate: int = Ads1x15.DR_ADS111X_128,
     ):
         """Initialize ADS1115 with SMBus ID and I2C address configuration"""
-        super().__init__(bus_id, address, 8, 4, 16)
+        super().__init__(channel, bus_id, address, 8, 4, 16)
         self.gain = gain
         self.mode = self.MODE_CONTINUOUS
-        self.data_rate = self.DR_ADS111X_128
-        self.request_adc(channel)
+        self.data_rate = data_rate
 
     def request_adc_differential_0_3(self):
         """
@@ -523,7 +516,7 @@ class ADS1115(ADS1x15):
 
     def read_adc_differential_0_3(self):
         """
-        Get ADC value between pin 0 and pin 3
+        Get ADC raw_value between pin 0 and pin 3
         """
         self.request_adc_differential_0_3()
         return self._get_adc()
@@ -536,7 +529,7 @@ class ADS1115(ADS1x15):
 
     def read_adc_differential_1_3(self):
         """
-        Get ADC value between pin 1 and pin 3
+        Get ADC raw_value between pin 1 and pin 3
         """
         self.request_adc_differential_1_3()
         return self._get_adc()
@@ -549,7 +542,7 @@ class ADS1115(ADS1x15):
 
     def read_adc_differential_2_3(self):
         """
-        Get ADC value between pin 2 and pin 3
+        Get ADC raw_value between pin 2 and pin 3
         """
         self.request_adc_differential_2_3()
         return self._get_adc()

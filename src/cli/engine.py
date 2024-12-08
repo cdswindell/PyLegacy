@@ -120,7 +120,7 @@ class EngineCli(CliBaseTMCC):
             nargs="?",
             default=7,  # random radio chatter
             const="NUMERIC",
-            help="Send numeric value",
+            help="Send numeric raw_value",
         )
         ops.add_argument(
             "-pm", "--prime_mover", choices=["on", "off"], nargs="?", type=str, help="Prime mover sound on/off"
@@ -533,11 +533,11 @@ class EngineCli(CliBaseTMCC):
             return None
 
         # if option is None, check if an aux command was specified via
-        # the aux1/aux2 arguments; only one should have a value
+        # the aux1/aux2 arguments; only one should have a raw_value
         option = self._args.option
         if not option or not option.strip():
             # construct the EngineOptionEnum by prepending the aux choice
-            # (AUX1/AUX2) to the suffix based on the argument value
+            # (AUX1/AUX2) to the suffix based on the argument raw_value
             # (on, off, opt1, opt2)
             if "aux1" in self._args and self._args.aux1 is not None:
                 option = f"AUX1{AUX_COMMAND_MAP[self._args.aux1.lower()]}"

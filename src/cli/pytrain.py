@@ -528,7 +528,7 @@ class PyTrain:
             tmcc_id = int(param[1])
             ca = CommonAction.by_prefix(param[2])
             if ca is None:
-                ca = dev.value.enums.by_prefix(param[2])
+                ca = dev.raw_value.enums.by_prefix(param[2])
                 if ca is None:
                     raise AttributeError(f"Action '{param[2]}' not valid")
             if ca == CommonAction.FIRMWARE:

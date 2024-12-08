@@ -452,14 +452,14 @@ class CommandReq:
             if data in self.command_def.data_map:
                 data = self.command_def.data_map[data]
             else:
-                raise ValueError(f"Invalid data value: {data} (not in map)")
+                raise ValueError(f"Invalid data raw_value: {data} (not in map)")
         elif data < self.command_def.data_min or data > self.command_def.data_max:
             raise ValueError(f"Invalid: {data} not in range {self.command_def.data_min}-{self.command_def.data_max}")
         # sanitize data so we don't set bits we shouldn't
         data_bits = 2**self.num_data_bits - 1
         filtered_data = data & data_bits
         if data != filtered_data:
-            raise ValueError(f"Invalid data value: {data} (not in range)")
+            raise ValueError(f"Invalid data raw_value: {data} (not in range)")
         # clear out old data
         self._command_bits &= 0xFFFF & ~data_bits
         # set new data
@@ -503,8 +503,8 @@ class CommandReq:
                     scope = CommandScope.TRAIN
             if cmd_enum:
                 # build_req the request and return
-                data = cmd_enum.value.data_from_bytes(param[1:3])
-                address = cmd_enum.value.address_from_bytes(param[1:3])
+                data = cmd_enum.raw_value.data_from_bytes(param[1:3])
+                address = cmd_enum.raw_value.address_from_bytes(param[1:3])
                 return CommandReq.build(cmd_enum, address, data, scope)
         raise ValueError(f"Invalid tmcc1 command: {param.hex(':')}")
 
@@ -519,8 +519,8 @@ class CommandReq:
                     if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
                         scope = CommandScope.TRAIN
                     # build_req the request and return
-                    data = cmd_enum.value.data_from_bytes(param[1:3])
-                    address = cmd_enum.value.address_from_bytes(param[1:3])
+                    data = cmd_enum.raw_value.data_from_bytes(param[1:3])
+                    address = cmd_enum.raw_value.address_from_bytes(param[1:3])
                     return CommandReq.build(cmd_enum, address, data, scope)
             raise ValueError(f"Invalid tmcc2 command: {param.hex(':')}")
         else:

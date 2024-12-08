@@ -192,7 +192,7 @@ class BaseReq(PdiReq):
                     data = scaler(data)
             data_bytes = data.to_bytes(1, "little")
             if data_len > 1:
-                data_bytes = data_bytes * data_len  # speed value is repeated twice, so we just replicate first byte
+                data_bytes = data_bytes * data_len  # speed raw_value is repeated twice, so we just replicate first byte
             cmds.append(
                 BaseReq(
                     address,

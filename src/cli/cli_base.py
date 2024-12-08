@@ -225,15 +225,15 @@ class CliBaseTMCC(CliBase):
 class DataAction(argparse.Action):
     """
     Custom action that sets both the command_def and data fields
-    with the command_def value specified by 'const', and the data value
+    with the command_def raw_value specified by 'const', and the data raw_value
     specified by the user-provided argument or 'default'
     """
 
     def __init__(self, option_strings, dest, **kwargs):
         """
         We need to capture both the values of const and default, as we use the
-        'const' value to specify the command_op to execute if this action is taken.
-        Once saved, we reset its value to the default value.
+        'const' raw_value to specify the command_op to execute if this action is taken.
+        Once saved, we reset its raw_value to the default raw_value.
         """
         self._default = kwargs.get("default")
         self._command_op = kwargs.get("const")
