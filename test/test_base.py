@@ -26,7 +26,7 @@ class TestBase:
     def custom_excepthook(self, args):
         new_exception = {
             "thread": args.thread,
-            "exception": {"type": args.exc_type, "raw_value": args.exc_value, "traceback": args.exc_traceback},
+            "exception": {"type": args.exc_type, "value": args.exc_value, "traceback": args.exc_traceback},
         }
         thread_name = args.thread.name
         if thread_name in self.thread_exceptions:
@@ -38,7 +38,7 @@ class TestBase:
         if address is None:
             address = self.generate_random_address(cmd, scope=scope)
         if data is None:
-            if cmd.raw_value.is_data > 0:
+            if cmd.value.is_data > 0:
                 data = self.generate_random_data(cmd)
             else:
                 data = 0

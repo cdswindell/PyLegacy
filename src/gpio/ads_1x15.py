@@ -86,7 +86,6 @@ class Ads1x15(ABC):
 
     def __init__(
         self,
-        channel: int,
         bus_id: int,
         address: int,
         conversion_delay: int,
@@ -103,8 +102,6 @@ class Ads1x15(ABC):
         self._bits = bits
         # Store initial config register to config property
         self._config = self.read_register(self.CONFIG_REG)
-        # set channel
-        self.request_adc(channel)
 
     @property
     def i2c(self) -> SMBus:
@@ -140,15 +137,13 @@ class Ads1x15(ABC):
         register_value = [(value >> 8) & 0xFF, value & 0xFF]
         self._i2c.write_i2c_block_data(self._address, address, register_value)
 
-    @property
-    def channel(self):
+    def get_input(self):
         """
         Get input multiplexer configuration
         """
         return (self._config & 0x7000) >> 12
 
-    @channel.setter
-    def channel(self, inp: int) -> None:
+    def set_input(self, inp: int) -> None:
         """
         Set input multiplexer configuration
         """
@@ -355,15 +350,9 @@ class Ads1x15(ABC):
         """
         return not self.is_ready
 
-    def request_adc(self, pin: int):
-        """Request single-shot conversion of a pin to ground"""
-        if pin >= self._ports or pin < 0:
-            return
-        self._request_adc(pin + 4)
-
-    def _request_adc(self, channel: int):
+    def _request_adc(self, inp):
         """Private method for starting a single-shot conversion"""
-        self.channel = channel
+        self.set_input(inp)
         # Set single-shot conversion start (bit 15)
         if self._config & 0x0100:
             self.write_register(self.CONFIG_REG, self._config | 0x8000)
@@ -387,6 +376,12 @@ class Ads1x15(ABC):
         if value >= (2 ** (self._bits - 1)):
             value = value - (2**self._bits)
         return value
+
+    def request_adc(self, pin: int):
+        """Request single-shot conversion of a pin to ground"""
+        if pin >= self._ports or pin < 0:
+            return
+        self._request_adc(pin + 4)
 
     def read_adc(self, pin: int):
         """Get ADC raw_value of a pin"""
@@ -437,21 +432,21 @@ class Ads1x15(ABC):
 
 
 class ADS1013(Ads1x15):
-    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
+    def __init__(self, bus_id: int, address: int = I2C_address):
         """Initialize ADS1013 with SMBus ID and I2C address configuration"""
-        super().__init__(channel, bus_id, address, 2, 1, 12)
+        super().__init__(bus_id, address, 2, 1, 12)
 
 
 class ADS1014(Ads1x15):
-    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
+    def __init__(self, bus_id: int = 1, address: int = I2C_address):
         """Initialize ADS1014 with SMBus ID and I2C address configuration"""
-        super().__init__(channel, bus_id, address, 2, 1, 12)
+        super().__init__(bus_id, address, 2, 1, 12)
 
 
 class ADS1015(Ads1x15):
-    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
+    def __init__(self, bus_id: int, address: int = I2C_address):
         """Initialize ADS1015 with SMBus ID and I2C address configuration"""
-        super().__init__(channel, bus_id, address, 2, 4, 12)
+        super().__init__(bus_id, address, 2, 4, 12)
 
     def request_adc_differential_0_3(self):
         """Request single-shot conversion between pin 0 and pin 3"""
@@ -482,15 +477,15 @@ class ADS1015(Ads1x15):
 
 
 class ADS1113(Ads1x15):
-    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
+    def __init__(self, bus_id: int, address: int = I2C_address):
         """Initialize ADS1113 with SMBus ID and I2C address configuration"""
-        super().__init__(channel, bus_id, address, 8, 1, 16)
+        super().__init__(bus_id, address, 8, 1, 16)
 
 
 class ADS1114(Ads1x15):
-    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
+    def __init__(self, bus_id: int, address: int = I2C_address):
         """Initialize ADS1114 with SMBus ID and I2C address configuration"""
-        super().__init__(channel, bus_id, address, 8, 1, 16)
+        super().__init__(bus_id, address, 8, 1, 16)
 
 
 class ADS1115(Ads1x15):
@@ -503,10 +498,11 @@ class ADS1115(Ads1x15):
         data_rate: int = Ads1x15.DR_ADS111X_128,
     ):
         """Initialize ADS1115 with SMBus ID and I2C address configuration"""
-        super().__init__(channel, bus_id, address, 8, 4, 16)
+        super().__init__(bus_id, address, 8, 4, 16)
         self.gain = gain
         self.mode = self.MODE_CONTINUOUS
         self.data_rate = data_rate
+        self.request_adc(channel)
 
     def request_adc_differential_0_3(self):
         """

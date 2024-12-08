@@ -29,12 +29,12 @@ class TestValidations(TestBase):
         with pytest.raises(TypeError, match="'None' is not an integer"):
             assert Validations.validate_int(v) == 10  # type: ignore
 
-        # test minimum raw_value
+        # test minimum value
         v = 5
         with pytest.raises(ValueError, match=f"'{v}' must be equal to or greater than {10}"):
             assert Validations.validate_int(5, min_value=10) == 10
 
-        # test maximum raw_value
+        # test maximum value
         v = 15
         with pytest.raises(ValueError, match=f"'{v}' must be less than or equal to {10}"):
             assert Validations.validate_int(15, max_value=10) == 10

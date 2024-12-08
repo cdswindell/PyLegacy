@@ -51,7 +51,7 @@ class AccCli(CliBase):
             nargs="?",
             default=1,
             const=TMCC1AuxCommandDef.NUMERIC,
-            help="Numeric raw_value",
+            help="Numeric value",
         )
         aux_group.add_argument(
             "-address",

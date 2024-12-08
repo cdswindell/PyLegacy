@@ -79,9 +79,9 @@ class CommandDef(ABC):
 
     def is_valid_data(self, candidate: int, from_bytes: bool = False) -> bool:
         """
-        Determine if a candidate raw_value is valid, given the constraints on this
-        CommandDef. If from_bytes is True, the candidate raw_value will be treated
-        as coming from a bytes raw_value, and the values (not keys) in data_map are
+        Determine if a candidate value is valid, given the constraints on this
+        CommandDef. If from_bytes is True, the candidate value will be treated
+        as coming from a bytes value, and the values (not keys) in data_map are
         used to validate.
         """
         if self.is_data is True:
@@ -192,9 +192,9 @@ class CommandDefMixins(Mixins):
         We redefine by_value to allow handling of command defs
         """
         for _, member in cls.__members__.items():
-            if member.raw_value == value:
+            if member.value == value:
                 return member
-            if hasattr(member.raw_value, "bits") and member.raw_value.bits == value:
+            if hasattr(member.value, "bits") and member.value.bits == value:
                 return member
             if isinstance(member, CommandDef) and CommandDef(value).bits == value:
                 return member

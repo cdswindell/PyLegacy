@@ -130,8 +130,8 @@ class TestCommandReq(TestBase):
     def test__determine_first_byte(self):
         for cdef in self.all_command_enums:
             for cmd in cdef:
-                assert isinstance(cmd.raw_value, CommandDef)
-                assert cmd.raw_value.first_byte == CommandReq._determine_first_byte(cmd.raw_value, cmd.raw_value.scope)
+                assert isinstance(cmd.value, CommandDef)
+                assert cmd.value.first_byte == CommandReq._determine_first_byte(cmd.value, cmd.value.scope)
 
         # retest for Trains
         for cdef in self.all_command_enums:
@@ -139,7 +139,7 @@ class TestCommandReq(TestBase):
                 req = self.build_request(cmd, 1, 2, CommandScope.TRAIN)
                 cmd_bytes = req.as_bytes
                 fb = cmd_bytes[0].to_bytes(1, byteorder="big")
-                assert fb == CommandReq._determine_first_byte(cmd.raw_value, CommandScope.TRAIN)
+                assert fb == CommandReq._determine_first_byte(cmd.value, CommandScope.TRAIN)
 
     def test__vet_request(self):
         # all command defs should pass
@@ -212,7 +212,7 @@ class TestCommandReq(TestBase):
                 else:
                     # make sure all bits in the definition are also in the request
                     # the other bits in the request are the address and data values
-                    assert req.bits & cmd.raw_value.bits == cmd.raw_value.bits
+                    assert req.bits & cmd.value.bits == cmd.value.bits
 
     def test_num_data_bits(self):
         for cdef in self.all_command_enums:
@@ -230,7 +230,7 @@ class TestCommandReq(TestBase):
         for cdef in self.all_command_enums:
             for cmd in cdef:
                 req = self.build_request(cmd)
-                assert req.identifier == cmd.raw_value.identifier
+                assert req.identifier == cmd.value.identifier
 
     # noinspection DuplicatedCode
     def test_build_tmcc1_command_req(self):

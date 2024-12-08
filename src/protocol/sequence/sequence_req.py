@@ -179,15 +179,15 @@ class SequenceReq(CommandReq, Sequence):
         elif isinstance(speed, int):
             if is_tmcc:
                 for rr_speed in TMCC1RRSpeeds:
-                    if speed in rr_speed.raw_value:
-                        speed_int = rr_speed.raw_value[0]
+                    if speed in rr_speed.value:
+                        speed_int = rr_speed.value[0]
                         base = f"SPEED_{rr_speed.name}"
                         speed_enum = TMCC1EngineCommandDef.by_name(base)
                         break
             else:
                 for rr_speed in TMCC2RRSpeeds:
-                    if speed in rr_speed.raw_value:
-                        speed_int = rr_speed.raw_value[0]
+                    if speed in rr_speed.value:
+                        speed_int = rr_speed.value[0]
                         base = f"SPEED_{rr_speed.name}"
                         speed_enum = TMCC2EngineCommandDef.by_name(base)
                         break
@@ -196,7 +196,7 @@ class SequenceReq(CommandReq, Sequence):
                 args = self.speed_parser().parse_args(["-" + speed.strip()])
                 speed_enum = args.command
                 base = speed_enum.name
-                _, speed_int = speed_enum.raw_value.alias
+                _, speed_int = speed_enum.value.alias
             except argparse.ArgumentError:
                 pass
 

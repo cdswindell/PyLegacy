@@ -89,9 +89,9 @@ class Mixins(Enum):
     @classmethod
     def by_value(cls, value: Any, raise_exception: bool = False) -> Self | None:
         for _, member in cls.__members__.items():
-            if member.raw_value == value:
+            if member.value == value:
                 return member
-            if hasattr(member.raw_value, "bits") and member.raw_value.bits == value:
+            if hasattr(member.value, "bits") and member.value.bits == value:
                 return member
         if raise_exception:
             raise ValueError(f"'{value}' is not a valid {cls.__name__}")
