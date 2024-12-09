@@ -105,7 +105,7 @@ class ComponentStateStore:
                         listener.listen_for(self, topic)
                 else:
                     raise TypeError(f"Topic {topic} is not valid")
-        log.info(self)
+        log.debug(self)
 
     def __repr__(self) -> str:
         return f"<ComponentStateStore Base: {self._is_base} Ser2: {self._is_ser2} Filtering: {self._filter_updates}>"
