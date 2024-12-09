@@ -225,7 +225,7 @@ class PyTrain:
     @staticmethod
     def update() -> None:
         os.system("git pull")
-        print(__file__, sys.argv)
+        os.execv(__file__, sys.argv)
 
     @property
     def is_server(self) -> bool:
