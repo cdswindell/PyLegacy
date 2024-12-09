@@ -167,6 +167,7 @@ class PyTrain:
             if self.is_client:
                 self._tmcc_listener.subscribe(self, CommandScope.SYNC)
 
+        # load roster
         if self._pdi_buffer is not None:
             self._pdi_state_store = PdiStateStore()
             self._get_system_state()
