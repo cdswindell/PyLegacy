@@ -42,8 +42,8 @@ def find_base_address() -> str | None:
             possible_ips.append(network + str(i))
 
     with Pool(num_cpus) as p:
-        results = p.map(is_base_address, possible_ips)
-    for result in results:
-        if result is not None:
-            return result
+        for result in p.imap_unordered(is_base_address, possible_ips):
+            if result is not None:
+                p.terminate()
+                return result
     return None
