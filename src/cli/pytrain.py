@@ -53,11 +53,7 @@ from src.protocol.constants import (
 from src.protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
 from src.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 from src.utils.dual_logging import set_up_logging
-from src.utils.ip_tools import get_ip_address
-
-set_up_logging()
-log = logging.getLogger(__name__)
-# logging.config.fileConfig("logging.ini", disable_existing_loggers=False)
+from src.utils.ip_tools import get_ip_address, find_base_address
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 
@@ -94,6 +90,26 @@ class PyTrain:
         self._client = args.client
         self._force_reboot = False
         self._force_update = False
+
+        if args.base is not None:
+            if len(args.base):
+                base = args.base[0]
+            else:
+                print("Looking for Lionel Base on local network...")
+                base = find_base_address()
+                if base is None:
+                    raise AttributeError(f"{PROGRAM_NAME} could not find a Lionel Base on the local network")
+            base_pieces = base.split(":")
+            self._base_addr = args.base = base_pieces[0]
+            self._base_port = base_pieces[1] if len(base_pieces) > 1 else DEFAULT_BASE_PORT
+        else:
+            if self._no_ser2:
+                raise AttributeError(f"{PROGRAM_NAME} requires either an LCS SER2 and/or Base 2/3 connection")
+            self._base_addr = self._base_port = None
+
+        # we need to do this call here, otherwise, the multiprocessor code used in find_base_address
+        # above gets called multiple times...
+
         if self._server is None and args.client is True:
             # use avahi/zeroconf to locate a PyTrain server on the local network
             # raise exception and exit if none found
@@ -102,19 +118,13 @@ class PyTrain:
                 log.warning(f"No {PROGRAM_NAME} servers found on the local network, exiting")
                 return
             self._server, self._port = info
-        if args.base is not None:
-            base_pieces = args.base.split(":")
-            self._base_addr = args.base = base_pieces[0]
-            self._base_port = base_pieces[1] if len(base_pieces) > 1 else DEFAULT_BASE_PORT
-        else:
-            if self._no_ser2:
-                raise AttributeError(f"{PROGRAM_NAME} requires either an LCS SER2 and/or Base 2/3 connection")
-            self._base_addr = self._base_port = None
+
         self._pdi_buffer = None
         # Based on the arguments, we are either connecting to n LCS Ser 2 or a named PyTrain server
         self._tmcc_buffer = CommBuffer.build(
             baudrate=self._baudrate, port=self._port, server=self._server, no_ser2=self._no_ser2
         )
+
         listeners = []
         if isinstance(self.buffer, CommBufferSingleton):
             # listen for client connections
@@ -680,6 +690,9 @@ class PyTrain:
 
 
 if __name__ == "__main__":
+    set_up_logging()
+    log = logging.getLogger(__name__)
+
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
         "-startup_script",
@@ -693,7 +706,7 @@ if __name__ == "__main__":
         description="Send TMCC and Legacy-formatted commands to a Lionel Base 3 and/or LCS Ser2",
         parents=[parser, CliBase.cli_parser()],
     )
-    parser.add_argument("-base", type=str, help="IP Address of Lionel Base 2/3")
+    parser.add_argument("-base", nargs="*", type=str, help="IP Address of Lionel Base 2/3")
     parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
     parser.add_argument("-headless", action="store_true", help="Do not prompt for user input (run in the background)")
     parser.add_argument("-no_listeners", action="store_true", help="Do not listen for events")
