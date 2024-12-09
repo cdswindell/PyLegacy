@@ -460,8 +460,11 @@ class Ads1015(Ads1x15):
     ):
         super().__init__(channel, bus_id, address, 2, 4, 12)
         self.gain = gain
-        self.mode = self.MODE_CONTINUOUS if continuous is True else self.MODE_SINGLE
-        self.data_rate = data_rate
+        if continuous is True:
+            self.mode = self.MODE_CONTINUOUS
+            self.data_rate = data_rate
+        else:
+            self.mode = self.MODE_SINGLE
 
     def request_adc_differential_0_3(self):
         """Request single-shot conversion between pin 0 and pin 3"""
@@ -513,8 +516,11 @@ class Ads1115(Ads1x15):
     ):
         super().__init__(channel, bus_id, address, 8, 4, 16)
         self.gain = gain
-        self.mode = self.MODE_CONTINUOUS if continuous is True else self.MODE_SINGLE
-        self.data_rate = data_rate
+        if continuous is True:
+            self.mode = self.MODE_CONTINUOUS
+            self.data_rate = data_rate
+        else:
+            self.mode = self.MODE_SINGLE
 
     def request_adc_differential_0_3(self):
         """
