@@ -103,6 +103,7 @@ class Ads1x15(ABC):
         self._bits = bits
         # Store initial config register to config property
         self._config = self.read_register(self.CONFIG_REG)
+        self._mux_channel = None
         self.channel = channel
 
     @property
@@ -156,16 +157,23 @@ class Ads1x15(ABC):
             raise ValueError(f"Channel number out of range (0 - {self._ports})")
         self._set_input_register(channel + 4)
 
-    def _set_input_register(self, input_reg: int) -> None:
-        input_register = input_reg << 12
+    def _set_input_register(self, mux_chn: int) -> None:
+        self._mux_channel = mux_chn
+        input_register = mux_chn << 12
 
         # Masking input argument bits (bit 12-14) to config register
         self._config = (self._config & 0x8FFF) | input_register
         self.write_register(self.CONFIG_REG, self._config)
 
-    def _request_adc(self, channel: int) -> None:
+    def request(self, channel: int = None) -> None:
+        if channel is not None:
+            self.channel = channel
+        self._request_adc()
+
+    def _request_adc(self, mux_chn: int = None) -> None:
         """Private method for starting a single-shot conversion"""
-        self._set_input_register(channel)
+        if mux_chn is not None:
+            self._set_input_register(mux_chn)
         # Set single-shot conversion start (bit 15)
         if self._config & 0x0100:
             self.write_register(self.CONFIG_REG, self._config | 0x8000)
@@ -424,11 +432,11 @@ class Ads1x15(ABC):
         """
         Synonym for voltage, for compatibility with gpiozero library
         """
-        return self.to_voltage(self.raw_value)
+        return self.to_voltage(self._get_adc())
 
     @property
     def voltage(self) -> float:
-        return self.to_voltage(self.raw_value)
+        return self.to_voltage(self._get_adc())
 
     def to_voltage(self, value: int = 1) -> float:
         """
