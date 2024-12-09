@@ -92,7 +92,7 @@ class PyTrain:
         self._force_update = False
 
         if args.base is not None:
-            if len(args.base):
+            if isinstance(args.base, list) and len(args.base):
                 base = args.base[0]
             else:
                 print("Looking for Lionel Base on local network...")
@@ -107,25 +107,21 @@ class PyTrain:
                 raise AttributeError(f"{PROGRAM_NAME} requires either an LCS SER2 and/or Base 2/3 connection")
             self._base_addr = self._base_port = None
 
-        # we need to do this call here, otherwise, the multiprocessor code used in find_base_address
-        # above gets called multiple times...
-
         if self._server is None and args.client is True:
             # use avahi/zeroconf to locate a PyTrain server on the local network
             # raise exception and exit if none found
             info = self.get_service_info()
             if info is None:
-                log.warning(f"No {PROGRAM_NAME} servers found on the local network, exiting")
-                return
+                raise AttributeError(f"No {PROGRAM_NAME} servers found on the local network, exiting")
             self._server, self._port = info
 
-        self._pdi_buffer = None
         # Based on the arguments, we are either connecting to n LCS Ser 2 or a named PyTrain server
         self._tmcc_buffer = CommBuffer.build(
             baudrate=self._baudrate, port=self._port, server=self._server, no_ser2=self._no_ser2
         )
 
         listeners = []
+        self._pdi_buffer = None
         if isinstance(self.buffer, CommBufferSingleton):
             # listen for client connections
             print(f"Listening for client requests on port {self._args.server_port}...")
