@@ -497,7 +497,7 @@ class Ads1115(Ads1x15):
         bus_id: int = 1,
         address: int = I2C_address,
         gain: int = Ads1x15.PGA_6_144V,
-        data_rate: int = Ads1x15.DR_ADS111X_128,
+        data_rate: int = Ads1x15.DR_ADS111X_860,
     ):
         super().__init__(channel, bus_id, address, 8, 4, 16)
         self.gain = gain
