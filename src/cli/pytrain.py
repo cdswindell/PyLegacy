@@ -154,7 +154,6 @@ class PyTrain:
         # register listeners
         self._is_ser2 = args.no_ser2 is False
         self._is_base = self._base_addr is not None
-        print(f"Listeners: {listeners}")
         self._state_store: ComponentStateStore = ComponentStateStore(
             listeners=tuple(listeners),
             is_base=self._is_base,
