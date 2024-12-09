@@ -461,8 +461,10 @@ class CommandDispatcher(Thread):
     def is_filter_updates(self) -> bool:
         return self._filter_updates
 
-    def signal_client_quit(self, reboot: bool = False) -> None:
-        if reboot is True:
+    def signal_client_quit(self, update: bool = False, reboot: bool = False) -> None:
+        if update is True:
+            self.update_client_state(CommandReq(TMCC1SyncCommandDef.UPDATE))
+        elif reboot is True:
             self.update_client_state(CommandReq(TMCC1SyncCommandDef.REBOOT))
         else:
             self.update_client_state(CommandReq(TMCC1SyncCommandDef.QUIT))

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import logging.config
+import sys
+
 import readline
 import socket
 import os
@@ -91,6 +93,7 @@ class PyTrain:
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
         self._force_reboot = False
+        self._force_update = False
         if self._server is None and args.client is True:
             # use avahi/zeroconf to locate a PyTrain server on the local network
             # raise exception and exit if none found
@@ -207,6 +210,9 @@ class PyTrain:
         elif self.is_client and cmd.command == TMCC1SyncCommandDef.REBOOT:
             self._force_reboot = True
             os.kill(os.getpid(), signal.SIGINT)
+        elif self.is_client and cmd.command == TMCC1SyncCommandDef.UPDATE:
+            self._force_update = True
+            os.kill(os.getpid(), signal.SIGINT)
 
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
@@ -215,6 +221,11 @@ class PyTrain:
     @staticmethod
     def reboot() -> None:
         os.system("sudo shutdown -r now")
+
+    @staticmethod
+    def update() -> None:
+        os.system("git pull")
+        print(__file__, sys.argv)
 
     @property
     def is_server(self) -> bool:
@@ -254,6 +265,8 @@ class PyTrain:
             if self._service_info and self._zeroconf:
                 self._zeroconf.unregister_service(self._service_info)
                 self._zeroconf.close()
+            if self._force_update is True:
+                self.update()
             if self._force_reboot is True:
                 self.reboot()
 
@@ -308,6 +321,12 @@ class PyTrain:
                         # if server, signal clients to disconnect
                         if self.is_server:
                             CommandDispatcher.get().signal_client_quit()
+                        raise KeyboardInterrupt()
+                    elif args.command == "update":
+                        # if server, signal clients to disconnect
+                        if self.is_server:
+                            CommandDispatcher.get().signal_client_quit(update=True)
+                        self._force_update = True
                         raise KeyboardInterrupt()
                     elif args.command == "reboot":
                         # if server, signal clients to disconnect
@@ -646,7 +665,14 @@ class PyTrain:
             action="store_const",
             const="reboot",
             dest="command",
-            help=f"Quit " f"{PROGRAM_NAME} and reboot (must be run as sudo),",
+            help=f"Quit {PROGRAM_NAME} and reboot),",
+        )
+        group.add_argument(
+            "-update",
+            action="store_const",
+            const="update",
+            dest="command",
+            help=f"Quit {PROGRAM_NAME} and update to newest release),",
         )
         return command_parser
 

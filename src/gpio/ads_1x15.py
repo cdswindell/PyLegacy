@@ -101,6 +101,8 @@ class Ads1x15(ABC):
         self._conversion_delay = conversion_delay
         self._ports = ports
         self._bits = bits
+        self._gain = None
+        self._data_rate = None
         # Store initial config register to config property
         self._config = self.read_register(self.CONFIG_REG)
         self._mux_channel = None
@@ -173,6 +175,7 @@ class Ads1x15(ABC):
     def _request_adc(self, mux_chn: int = None) -> None:
         """Private method for starting a single-shot conversion"""
         if mux_chn is not None:
+            # set the mux channel to read
             self._set_input_register(mux_chn)
         # Set single-shot conversion start (bit 15)
         if self._config & 0x0100:
@@ -520,7 +523,7 @@ class Ads1115(Ads1x15):
         address: int = I2C_address,
         gain: int = Ads1x15.PGA_6_144V,
         data_rate: int = Ads1x15.DR_ADS111X_860,
-        continuous: bool = False,
+        continuous: bool = True,
     ):
         super().__init__(channel, bus_id, address, 8, 4, 16)
         self.gain = gain
