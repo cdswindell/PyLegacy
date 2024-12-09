@@ -73,7 +73,7 @@ class Ads1x15(ABC):
     COMP_QUE_NONE = 3
 
     # Default config register
-    _config = 0x8583
+    # _config = 0x8583
 
     # Default conversion delay
     # _conversionDelay = 8
@@ -142,14 +142,14 @@ class Ads1x15(ABC):
     @property
     def channel(self):
         """
-        Get input multiplexer configuration
+        Get input multiplexer configuration, 0 - 3 for single-ended
         """
         return ((self._config & 0x7000) >> 12) - 4
 
     @channel.setter
     def channel(self, channel: int) -> None:
         """
-        Set input multiplexer configuration
+        Set input multiplexer configuration, 0 - 3 for single-ended
         """
         # Filter input argument
         if channel < 0 or channel > self._ports:
@@ -163,12 +163,6 @@ class Ads1x15(ABC):
         self._config = (self._config & 0x8FFF) | input_register
         self.write_register(self.CONFIG_REG, self._config)
 
-    def request_adc(self, channel: int) -> None:
-        """Request single-shot conversion of a pin to ground"""
-        if channel >= self._ports or channel < 0:
-            raise ValueError(f"Channel number out of range (0 - {self._ports})")
-        self.channel = channel
-
     def _request_adc(self, channel: int) -> None:
         """Private method for starting a single-shot conversion"""
         self._set_input_register(channel)
@@ -177,20 +171,23 @@ class Ads1x15(ABC):
             self.write_register(self.CONFIG_REG, self._config | 0x8000)
 
     def read_adc(self, channel: int):
-        """Get ADC raw_value of a pin"""
+        """Request single-shot conversion of a pin to ground"""
         if channel >= self._ports or channel < 0:
             raise ValueError(f"Channel number out of range (0 - {self._ports})")
-        self.request_adc(channel)
+        self.channel = channel
         return self._get_adc()
 
     def _get_adc(self) -> int:
         """Get ADC raw_value with current configuration"""
         t = time.time()
-        is_continuous = not (self._config & 0x0100)
+        is_continuous = (self._config & 0x0100) == 0
         # Wait conversion process finish or reach conversion time for continuous mode
         while not self.is_ready:
-            if ((time.time() - t) * 1000) > self._conversion_delay and is_continuous:
+            if is_continuous and (((time.time() - t) * 1000) >= self._conversion_delay):
                 break
+            else:
+                time.sleep(0.001)
+        print(f"Continuous: {is_continuous} raw value: {self.raw_value}")
         return self.raw_value
 
     @property
@@ -235,14 +232,14 @@ class Ads1x15(ABC):
     @property
     def mode(self):
         """
-        Get device operating mode configuration
+        Continuous or Single shot
         """
         return (self._config & 0x0100) >> 8
 
     @mode.setter
     def mode(self, mode: int):
         """
-        Set device operating mode configuration
+        Continuous or Single shot
         """
         # Filter mode argument
         if mode == 0:
@@ -424,6 +421,9 @@ class Ads1x15(ABC):
 
     @property
     def value(self) -> float:
+        """
+        Synonym for voltage, for compatibility with gpiozero library
+        """
         return self.to_voltage(self.raw_value)
 
     @property
@@ -449,8 +449,19 @@ class Ads1014(Ads1x15):
 
 
 class Ads1015(Ads1x15):
-    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
+    def __init__(
+        self,
+        channel: int = 0,
+        bus_id: int = 1,
+        address: int = I2C_address,
+        gain: int = Ads1x15.PGA_6_144V,
+        data_rate: int = Ads1x15.DR_ADS101X_920,
+        continuous: bool = False,
+    ):
         super().__init__(channel, bus_id, address, 2, 4, 12)
+        self.gain = gain
+        self.mode = self.MODE_CONTINUOUS if continuous is True else self.MODE_SINGLE
+        self.data_rate = data_rate
 
     def request_adc_differential_0_3(self):
         """Request single-shot conversion between pin 0 and pin 3"""
@@ -498,10 +509,11 @@ class Ads1115(Ads1x15):
         address: int = I2C_address,
         gain: int = Ads1x15.PGA_6_144V,
         data_rate: int = Ads1x15.DR_ADS111X_860,
+        continuous: bool = False,
     ):
         super().__init__(channel, bus_id, address, 8, 4, 16)
         self.gain = gain
-        self.mode = self.MODE_CONTINUOUS
+        self.mode = self.MODE_CONTINUOUS if continuous is True else self.MODE_SINGLE
         self.data_rate = data_rate
 
     def request_adc_differential_0_3(self):
