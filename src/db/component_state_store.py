@@ -177,7 +177,6 @@ class ComponentStateStore:
                         listener.listen_for(self, topic)
         else:
             if self.is_valid_topic(topics):
-                print(f"In CSS, listeners: {self._listeners}")
                 for listener in self._listeners:
                     listener.listen_for(self, topics)
 

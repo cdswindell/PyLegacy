@@ -138,14 +138,6 @@ class PyTrain:
                 print(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
             else:
                 print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
-
-            # register as server so clients can connect without IP addr
-            self._zeroconf = Zeroconf()
-            self._service_info = self.register_service(
-                self._no_ser2 is False,
-                self._base_addr is not None,
-                self._args.server_port,
-            )
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             print(f"Listening for state updates on {self._args.server_port}...")
@@ -193,6 +185,15 @@ class PyTrain:
                     print("")
             else:
                 print(f"Loading roster from Lionel Base at {self._base_addr}...")
+
+        # register as server so clients can connect without IP addr
+        if self.is_server:
+            self._zeroconf = Zeroconf()
+            self._service_info = self.register_service(
+                self._no_ser2 is False,
+                self._base_addr is not None,
+                self._args.server_port,
+            )
 
         # Start the command line processor
         self.run()
