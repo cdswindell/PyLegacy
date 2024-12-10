@@ -49,7 +49,7 @@ GpioHandler.controller(
     start_up_pin=20,
     shutdown_pin=21,
     boost_pin=15,
-    brake_pin=214,
+    brake_pin=14,
     fwd_pin=16,
     rev_pin=8,
     rpm_up_pin=12,
