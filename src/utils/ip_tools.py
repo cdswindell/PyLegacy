@@ -21,7 +21,7 @@ def get_ip_address() -> List[str]:
 def is_base_address(address, base3_port: int = DEFAULT_BASE_PORT) -> str | None:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(0.2)
+            s.settimeout(0.15)
             s.connect((address, base3_port))
             return address
     except socket.error:
