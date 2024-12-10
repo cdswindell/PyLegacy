@@ -251,14 +251,14 @@ class EngineController:
         if tower_dialog_pin is not None:
             self.tower_dialog_btn = GpioHandler.make_button(tower_dialog_pin)
             self._tmcc1_when_pushed[self.tower_dialog_btn] = CommandReq(TMCC1EngineCommandDef.NUMERIC, data=7)
-            self._tmcc2_when_pushed[self.tower_dialog_btn] = CommandReq(TMCC2EffectsControl.NUMERIC, data=7)
+            self._tmcc2_when_pushed[self.tower_dialog_btn] = CommandReq(TMCC2EngineCommandDef.NUMERIC, data=7)
         else:
             self.tower_dialog_btn = None
 
         if engr_dialog_pin is not None:
             self._engr_dialog_btn = GpioHandler.make_button(engr_dialog_pin)
             self._tmcc1_when_pushed[self._engr_dialog_btn] = CommandReq(TMCC1EngineCommandDef.NUMERIC, data=2)
-            self._tmcc2_when_pushed[self._engr_dialog_btn] = CommandReq(TMCC2EffectsControl.NUMERIC, data=2)
+            self._tmcc2_when_pushed[self._engr_dialog_btn] = CommandReq(TMCC2EngineCommandDef.NUMERIC, data=2)
         else:
             self._engr_dialog_btn = None
 
