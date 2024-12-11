@@ -17,6 +17,7 @@ from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_S
 from ..protocol.multybyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
+from ..utils.ip_tools import get_ip_address
 
 log = logging.getLogger(__name__)
 
@@ -378,6 +379,7 @@ class CommandDispatcher(Thread):
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
         self._client_port = EnqueueProxyRequests.port if EnqueueProxyRequests.is_built else None
+        self._server_ips = get_ip_address()
         self.start()
 
     def run(self) -> None:
@@ -478,6 +480,8 @@ class CommandDispatcher(Thread):
         if self._client_port is not None:
             # noinspection PyTypeChecker
             for client in EnqueueProxyRequests.clients:
+                if client in self._server_ips:
+                    continue
                 try:
                     with self._lock:
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

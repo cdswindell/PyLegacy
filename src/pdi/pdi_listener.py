@@ -14,6 +14,7 @@ from .pdi_req import PdiReq, TmccReq
 from ..comm.command_listener import Topic, Message, Channel, Subscriber, CommandDispatcher, SYNC_COMPLETE
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE_PORT, BROADCAST_TOPIC, CommandScope
+from ..utils.ip_tools import get_ip_address
 
 log = logging.getLogger(__name__)
 
@@ -255,6 +256,7 @@ class PdiDispatcher(Thread):
         self._queue = Queue[PdiReq](queue_size)
         self._tmcc_dispatcher = CommandDispatcher.build(queue_size)
         self._client_port = EnqueueProxyRequests.port if EnqueueProxyRequests.is_built else None
+        self._server_ips = get_ip_address()
         self.start()
 
     @property
@@ -314,6 +316,8 @@ class PdiDispatcher(Thread):
         if self._client_port is not None:
             # noinspection PyTypeChecker
             for client in EnqueueProxyRequests.clients:
+                if client in self._server_ips:
+                    continue
                 try:
                     with self._lock:
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
