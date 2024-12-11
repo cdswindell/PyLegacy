@@ -156,7 +156,7 @@ class Ads1x15(ABC):
         """
         # Filter input argument
         if channel < 0 or channel > self._ports:
-            raise ValueError(f"Channel number out of range (0 - {self._ports})")
+            raise ValueError(f"Channel number out of range (0 - {self._ports - 1})")
         self._set_input_register(channel + 4)
 
     def _set_input_register(self, mux_chn: int) -> None:
@@ -180,12 +180,13 @@ class Ads1x15(ABC):
             self._set_input_register(mux_chn)
         # Set single-shot conversion start (bit 15)
         if self._config & 0x0100:
+            print("Signalling request...")
             self.write_register(self.CONFIG_REG, self._config | 0x8000)
 
     def read_adc(self, channel: int):
         """Request single-shot conversion of a pin to ground"""
         if channel >= self._ports or channel < 0:
-            raise ValueError(f"Channel number out of range (0 - {self._ports})")
+            raise ValueError(f"Channel number out of range (0 - {self._ports - 1})")
         self.channel = channel
         return self._get_adc()
 
@@ -253,10 +254,12 @@ class Ads1x15(ABC):
         Continuous or Single shot
         """
         # Filter mode argument
-        if mode == 0:
+        if mode == self.MODE_CONTINUOUS:
             mode_register = 0x0000
-        else:
+        elif mode == self.MODE_SINGLE:
             mode_register = 0x0100
+        else:
+            raise ValueError(f"Invalid mode argument: {mode}")
         # Masking mode argument bit (bit 8) to config register
         self._config = (self._config & 0xFEFF) | mode_register
         self.write_register(self.CONFIG_REG, self._config)
