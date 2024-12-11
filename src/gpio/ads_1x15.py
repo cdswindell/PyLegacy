@@ -184,7 +184,6 @@ class Ads1x15(ABC):
             self._set_input_register(mux_chn)
         # Set single-shot conversion start (bit 15)
         if self._config & 0x0100:
-            print("Signalling request...")
             self.write_register(self.CONFIG_REG, self._config | 0x8000)
 
     def read_adc(self, channel: int):
