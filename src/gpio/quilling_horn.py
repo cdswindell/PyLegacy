@@ -46,15 +46,16 @@ class QuillingHorn(Thread):
         return self._scope
 
     def update_action(self, address: int, scope: CommandScope = CommandScope.ENGINE) -> None:
-        self._address = address if address and address > 0 else DEFAULT_ADDRESS
-        self._scope = scope if scope and scope in {CommandScope.ENGINE, CommandScope.TRAIN} else CommandScope.ENGINE
-        self._cmd.address = address
-        self._cmd.scope = scope
-        self._action = self._cmd.as_action(repeat=self._repeat)
-        if address != 99:
-            self.resume()
-        else:
-            self.pause()
+        if self._is_running:
+            self._address = address if address and address > 0 else DEFAULT_ADDRESS
+            self._scope = scope if scope and scope in {CommandScope.ENGINE, CommandScope.TRAIN} else CommandScope.ENGINE
+            self._cmd.address = address
+            self._cmd.scope = scope
+            self._action = self._cmd.as_action(repeat=self._repeat)
+            if address != 99:
+                self.resume()
+            else:
+                self.pause()
 
     def pause(self) -> None:
         self._ev.clear()

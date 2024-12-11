@@ -160,7 +160,7 @@ class CommBufferSingleton(CommBuffer, Thread):
             self._initialized = True
         if baudrate not in DEFAULT_VALID_BAUDRATES:
             raise ValueError(f"Invalid baudrate: {baudrate}")
-        super().__init__(daemon=False, name="PyLegacy Comm Buffer")
+        super().__init__(daemon=True, name="PyLegacy Comm Buffer")
         self._baudrate = baudrate
         self._port = port
         self._queue_size = queue_size
