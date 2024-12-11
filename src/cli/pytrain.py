@@ -482,9 +482,10 @@ class PyTrain:
         try:
             # listens for services on a background thread
             ServiceBrowser(z, [SERVICE_TYPE], handlers=[self.on_service_state_change])
-            waiting = 30
+            waiting = 32
+            cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
             while waiting > 0:
-                print(f"Looking for {PROGRAM_NAME} servers{'.' * ((30 - waiting) + 1)}", end="\r")
+                print(f"Looking for {PROGRAM_NAME} servers {cursor[waiting % 4]}", end="\r")
                 waiting -= 1
                 if self._server_discovered.wait(1) is True:
                     for info in self._pytrain_servers:
@@ -506,6 +507,7 @@ class PyTrain:
             log.warning(e)
         finally:
             z.close()
+            print()
         if an_info:
             return an_info.parsed_addresses()[0], an_info.port
         else:
