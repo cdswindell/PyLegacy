@@ -65,6 +65,8 @@ class ClientStateListener(threading.Thread):
             except OSError as oe:
                 if oe.errno == 98:
                     port += 1
+                else:
+                    raise oe
 
     def offer(self, data: bytes) -> None:
         # look at first byte to determine handler
