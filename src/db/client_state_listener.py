@@ -38,6 +38,7 @@ class ClientStateListener(threading.Thread):
         self._pdi_listener = PdiListener.build(build_base3_reader=False)
         self._tmcc_buffer = CommBuffer.build()
         self._port = self._tmcc_buffer.server_port
+        self._is_running = True
         self.start()
         self._tmcc_buffer.register()  # register this client with server to receive updates
         self._tmcc_buffer.sync_state()  # request initial state from server
@@ -54,9 +55,16 @@ class ClientStateListener(threading.Thread):
             return ClientStateListener._instance
 
     def run(self) -> None:
-        # noinspection PyTypeChecker
-        with socketserver.TCPServer(("", self._port), ClientStateHandler) as server:
-            server.serve_forever()
+        port = self._port
+        while self._is_running:
+            try:
+                print(f"Port: {port}")
+                # noinspection PyTypeChecker
+                with socketserver.TCPServer(("", port), ClientStateHandler) as server:
+                    server.serve_forever()
+            except OSError as oe:
+                if oe.errno == 98:
+                    port += 1
 
     def offer(self, data: bytes) -> None:
         # look at first byte to determine handler
