@@ -167,10 +167,11 @@ class Ads1x15(ABC):
         self._config = (self._config & 0x8FFF) | input_register
         self.write_register(self.CONFIG_REG, self._config)
 
-    def request(self, channel: int = None) -> None:
-        if channel is not None:
-            self.channel = channel
+    def request(self) -> float:
+        if self.mode != self.MODE_SINGLE:
+            self.mode = self.MODE_SINGLE
         self._request_adc()
+        return self.voltage
 
     def _request_adc(self, mux_chn: int = None) -> None:
         """Private method for starting a single-shot conversion"""
@@ -198,7 +199,6 @@ class Ads1x15(ABC):
                 break
             else:
                 time.sleep(0.001)
-        print(f"Continuous: {is_continuous} raw value: {self.raw_value}")
         return self.raw_value
 
     @property
