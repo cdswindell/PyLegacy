@@ -496,16 +496,17 @@ class CommandDispatcher(Thread):
                     log.exception(e)
 
     # noinspection PyTypeChecker
-    def send_current_state(self, client_ip: str):
+    def send_current_state(self, client_ip: str, client_port: int = None):
         """
         When a new client attaches to the server, immediately send it all know
         component states. They will be updated as needed (see update_client_state).
         """
-        if self._client_port is not None:
+        client_port = client_port if client_port else self._client_port
+        if client_port is not None:
             from ..db.component_state_store import ComponentStateStore
 
             # send starting state sync message
-            self.send_state_packet(client_ip, EnqueueProxyRequests.sync_begin_response)
+            self.send_state_packet(client_ip, EnqueueProxyRequests.sync_begin_response, client_port)
             store = ComponentStateStore.build()
             for scope in store.scopes():
                 if scope == CommandScope.SYNC:
@@ -518,7 +519,8 @@ class CommandDispatcher(Thread):
             # send sync complete message
             self.send_state_packet(client_ip, EnqueueProxyRequests.sync_complete_response)
 
-    def send_state_packet(self, client_ip: str, state: ComponentState | bytes):
+    def send_state_packet(self, client_ip: str, state: ComponentState | bytes, client_port: int = None):
+        client_port = client_port if client_port else self._client_port
         packet: bytes | None = None
         if isinstance(state, bytes):
             packet = state
@@ -527,7 +529,7 @@ class CommandDispatcher(Thread):
         if packet:  # we can only send states for tracked conditions
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 try:
-                    s.connect((client_ip, self._client_port))
+                    s.connect((client_ip, client_port))
                     s.sendall(packet)
                     _ = s.recv(16)
                 except Exception as e:
