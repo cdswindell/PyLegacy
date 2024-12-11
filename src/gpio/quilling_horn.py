@@ -33,9 +33,9 @@ class QuillingHorn(Thread):
         self._ev = Event()
         self._interp = GpioHandler.make_interpolator(17, 0, 0.0, 3.3)
         self.start()
+        GpioHandler.cache_handler(self)
         if address != 99:
             self.resume()
-        GpioHandler.cache_handler(self)
 
     @property
     def address(self) -> int:
@@ -63,6 +63,14 @@ class QuillingHorn(Thread):
         if self.address and self.address > 0 and self._address != DEFAULT_ADDRESS:
             self._ev.set()
 
+    @property
+    def is_active(self) -> bool:
+        return self._is_running
+
+    @property
+    def is_paused(self) -> bool:
+        return not self._ev.is_set()
+
     def run(self) -> None:
         while self._is_running:
             self._ev.wait()
@@ -76,6 +84,5 @@ class QuillingHorn(Thread):
 
     def reset(self) -> None:
         self._is_running = False
-        self._ev.set()
-        self.join()
-        self._ev.clear()
+        if self.is_paused:
+            self._ev.set()
