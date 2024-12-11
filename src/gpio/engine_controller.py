@@ -1,5 +1,6 @@
 from gpiozero import Button
 
+from .quilling_horn import QuillingHorn
 from ..db.component_state import EngineState
 from ..db.component_state_store import ComponentStateStore
 from ..pdi.base3_buffer import Base3Buffer
@@ -36,8 +37,9 @@ class EngineController:
         smoke_off_pin: int | str = None,
         tower_dialog_pin: int | str = None,
         engr_dialog_pin: int | str = None,
-        train_brake_chn: int | str = None,
-        quilling_horn_chn: int | str = None,
+        i2c_adc_address: int = 0x48,
+        train_brake_chn: int = None,
+        quilling_horn_chn: int = None,
         cmd_repeat: int = 1,
         base_online_pin: int | str = None,
         base_offline_pin: int | str = None,
@@ -262,6 +264,11 @@ class EngineController:
         else:
             self._engr_dialog_btn = None
 
+        if quilling_horn_chn is not None:
+            self._quilling_horn_cmd = QuillingHorn(channel=quilling_horn_chn, i2c_address=i2c_adc_address)
+        else:
+            self._quilling_horn_cmd = None
+
     @property
     def tmcc_id(self) -> int:
         return self._tmcc_id
@@ -407,6 +414,10 @@ class EngineController:
             steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -100, 100)
             speed_to_steps = GpioHandler.make_interpolator(100, -100, 0, max_speed)
             self._speed_re.update_action(speed_cmd, cur_state, steps_to_speed, speed_to_steps)
+
+        # reset the quilling horn
+        if self._quilling_horn_cmd:
+            self._quilling_horn_cmd.update_action(self._tmcc_id, scope)
 
     def on_speed_changed(self, new_speed: int) -> None:
         if self._speed_re and new_speed is not None:
