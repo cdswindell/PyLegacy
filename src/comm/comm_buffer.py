@@ -347,7 +347,7 @@ class CommBufferProxy(CommBuffer):
         while True:
             try:
                 # noinspection PyTypeChecker
-                self.enqueue_command(EnqueueProxyRequests.register_request())
+                self.enqueue_command(EnqueueProxyRequests.register_request(port))
                 return
             except ConnectionError as ce:
                 # give server time to boot up:

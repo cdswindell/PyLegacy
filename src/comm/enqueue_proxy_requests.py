@@ -75,7 +75,9 @@ class EnqueueProxyRequests(Thread):
             cls._instance.shutdown()
 
     @classmethod
-    def register_request(cls) -> bytes:
+    def register_request(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
+        if port and port != DEFAULT_SERVER_PORT:
+            return REGISTER_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
         return REGISTER_REQUEST
 
     @classmethod
@@ -173,9 +175,12 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         elif byte_stream.startswith(EnqueueProxyRequests.register_request()):
             if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
                 log.info(f"Client at {self.client_address[0]} connecting...")
+            if len(byte_stream) > len(REGISTER_REQUEST):
+                client_port = int.from_bytes(byte_stream[len(REGISTER_REQUEST) :], "big")
+                print(f"{self.client_address[0]} {client_port}")
+            EnqueueProxyRequests.note_client_addr(self.client_address[0])
         elif byte_stream == EnqueueProxyRequests.sync_state_request():
             log.info(f"Client at {self.client_address[0]} syncing...")
             CommandDispatcher.build().send_current_state(self.client_address[0])
         else:
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
-        EnqueueProxyRequests.note_client_addr(self.client_address[0])
