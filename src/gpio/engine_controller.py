@@ -384,12 +384,14 @@ class EngineController:
             when_pushed = self._tmcc2_when_pushed
             when_held = self._tmcc2_when_held
             speed_cmd = self._tmcc2_speed_cmd
+            quilling_horn_cmd = self._quilling_horn_cmd
         else:
             max_speed = 31
             speed_limit = 27
             when_pushed = self._tmcc1_when_pushed
             when_held = self._tmcc1_when_held
             speed_cmd = self._tmcc1_speed_cmd
+            quilling_horn_cmd = None
 
         # reset the when_pressed button handlers
         for btn, cmd in when_pushed.items():
@@ -417,8 +419,8 @@ class EngineController:
             self._speed_re.update_action(speed_cmd, cur_state, steps_to_speed, speed_to_steps)
 
         # reset the quilling horn
-        if self._quilling_horn_cmd:
-            self._quilling_horn_cmd.update_action(self._tmcc_id, scope)
+        if quilling_horn_cmd:
+            quilling_horn_cmd.update_action(self._tmcc_id, scope)
 
     def on_speed_changed(self, new_speed: int) -> None:
         if self._speed_re and new_speed is not None:
