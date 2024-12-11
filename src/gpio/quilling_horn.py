@@ -1,4 +1,4 @@
-from threading import Thread, Event, Condition
+from threading import Thread, Event
 from time import sleep
 
 from src.gpio.ads_1x15 import Ads1115
@@ -31,7 +31,6 @@ class QuillingHorn(Thread):
         self._action = self._cmd.as_action(repeat=self._repeat)
         self._is_running = True
         self._ev = Event()
-        self._cv = Condition()
         self._interp = GpioHandler.make_interpolator(17, 0, 0.0, 3.3)
         self.start()
         if address != 99:
@@ -74,9 +73,9 @@ class QuillingHorn(Thread):
                     print(f"Data: {data}  Value: {value}")
                     self._action(new_data=data - 2)
                 sleep(0.1)
-        print("Exiting ", self)
 
     def reset(self) -> None:
         self._is_running = False
         self._ev.set()
-        self._adc.close()
+        self.join()
+        self._ev.clear()
