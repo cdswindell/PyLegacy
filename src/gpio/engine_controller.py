@@ -1,6 +1,5 @@
 from gpiozero import Button
 
-from .quilling_horn import QuillingHorn
 from ..db.component_state import EngineState
 from ..db.component_state_store import ComponentStateStore
 from ..pdi.base3_buffer import Base3Buffer
@@ -265,6 +264,8 @@ class EngineController:
             self._engr_dialog_btn = None
 
         if quilling_horn_chn is not None:
+            from .quilling_horn import QuillingHorn
+
             self._quilling_horn_cmd = QuillingHorn(channel=quilling_horn_chn, i2c_address=i2c_adc_address)
         else:
             self._quilling_horn_cmd = None
