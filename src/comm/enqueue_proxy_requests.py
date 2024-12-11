@@ -4,7 +4,7 @@ import logging
 import socketserver
 import threading
 from threading import Thread
-from typing import List
+from typing import Dict
 
 from ..comm.comm_buffer import CommBuffer
 from ..protocol.constants import DEFAULT_SERVER_PORT
@@ -39,13 +39,13 @@ class EnqueueProxyRequests(Thread):
         EnqueueProxyRequests.get_comm_buffer().enqueue_command(data)
 
     @classmethod
-    def note_client_addr(cls, client: str) -> None:
+    def record_client(cls, client: str, port: int = DEFAULT_SERVER_PORT) -> None:
         """
         Take note of client IPs, so we can update them of component state changes
         """
         if cls._instance is not None:
             # noinspection PyProtectedMember
-            cls._instance._clients.add(client)
+            cls._instance._clients[client] = port
 
     @classmethod
     def client_disconnect(cls, client: str) -> None:
@@ -54,7 +54,7 @@ class EnqueueProxyRequests(Thread):
         """
         if cls._instance is not None:
             # noinspection PyProtectedMember
-            cls._instance._clients.discard(client)
+            cls._instance._clients.pop(client, None)
 
     # noinspection PyPropertyDefinition
     @classmethod
@@ -63,6 +63,11 @@ class EnqueueProxyRequests(Thread):
         if cls._instance and (ip_addr in cls._instance._clients):
             return True
         return False
+
+    @classmethod
+    def clients(cls) -> Dict[str, int]:
+        # noinspection PyProtectedMember
+        return cls._instance._clients.copy()
 
     @classmethod
     def get_comm_buffer(cls) -> CommBuffer:
@@ -105,13 +110,6 @@ class EnqueueProxyRequests(Thread):
     # noinspection PyPropertyDefinition
     @classmethod
     @property
-    def clients(cls) -> List[str]:
-        # noinspection PyProtectedMember
-        return list(cls._instance._clients)
-
-    # noinspection PyPropertyDefinition
-    @classmethod
-    @property
     def port(cls) -> int:
         if cls._instance is not None:
             # noinspection PyProtectedMember
@@ -126,7 +124,7 @@ class EnqueueProxyRequests(Thread):
         super().__init__(daemon=True, name="PyLegacy Enqueue Receiver")
         self._tmcc_buffer: CommBuffer = tmcc_buffer
         self._port = port
-        self._clients: set[str] = set()
+        self._clients: Dict[str, int] = dict()
         self.start()
 
     def __new__(cls, *args, **kwargs):
@@ -175,10 +173,11 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         elif byte_stream.startswith(EnqueueProxyRequests.register_request()):
             if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
                 log.info(f"Client at {self.client_address[0]} connecting...")
+            client_port = DEFAULT_SERVER_PORT
             if len(byte_stream) > len(REGISTER_REQUEST):
                 client_port = int.from_bytes(byte_stream[len(REGISTER_REQUEST) :], "big")
                 print(f"{self.client_address[0]} {client_port}")
-            EnqueueProxyRequests.note_client_addr(self.client_address[0])
+            EnqueueProxyRequests.record_client(self.client_address[0], client_port)
         elif byte_stream == EnqueueProxyRequests.sync_state_request():
             log.info(f"Client at {self.client_address[0]} syncing...")
             CommandDispatcher.build().send_current_state(self.client_address[0])

@@ -315,13 +315,13 @@ class PdiDispatcher(Thread):
         """
         if self._client_port is not None:
             # noinspection PyTypeChecker
-            for client in EnqueueProxyRequests.clients:
-                if client in self._server_ips:
+            for client, port in EnqueueProxyRequests.clients().items:
+                if client in self._server_ips and port == self._client_port:
                     continue
                 try:
                     with self._lock:
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                            s.connect((client, self._client_port))
+                            s.connect((client, port))
                             s.sendall(command.as_bytes)
                             _ = s.recv(16)
                 except ConnectionRefusedError:
