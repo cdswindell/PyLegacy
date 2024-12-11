@@ -44,7 +44,7 @@ class QuillingHorn(Thread):
     def scope(self) -> CommandScope:
         return self._scope
 
-    def update_action(self, address: int, scope: CommandScope) -> None:
+    def update_action(self, address: int, scope: CommandScope = CommandScope.ENGINE) -> None:
         self._address = address
         self._scope = scope
         self._cmd.address = address
