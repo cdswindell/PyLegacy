@@ -315,7 +315,7 @@ class PdiDispatcher(Thread):
         """
         if self._client_port is not None:
             # noinspection PyTypeChecker
-            for client, port in EnqueueProxyRequests.clients().items:
+            for client, port in EnqueueProxyRequests.clients().items():
                 if client in self._server_ips and port == self._client_port:
                     continue
                 try:

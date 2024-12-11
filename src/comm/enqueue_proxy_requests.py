@@ -161,6 +161,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         while True:
             data = self.request.recv(128)
             if data:
+                print(f"Received {data.hex()} from {self.client_address[0]}")
                 byte_stream += data
                 self.request.sendall(str.encode("ack"))
             else:
@@ -180,6 +181,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             EnqueueProxyRequests.record_client(self.client_address[0], client_port)
         elif byte_stream == EnqueueProxyRequests.sync_state_request():
             log.info(f"Client at {self.client_address[0]} syncing...")
-            CommandDispatcher.build().send_current_state(self.client_address[0])
+            port = EnqueueProxyRequests.clients().get(self.client_address[0], DEFAULT_SERVER_PORT)
+            CommandDispatcher.build().send_current_state(self.client_address[0], port)
         else:
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)

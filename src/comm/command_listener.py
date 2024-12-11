@@ -479,7 +479,7 @@ class CommandDispatcher(Thread):
         """
         if self._client_port is not None:
             # noinspection PyTypeChecker
-            for client, port in EnqueueProxyRequests.clients().items:
+            for client, port in EnqueueProxyRequests.clients().items():
                 if client in self._server_ips and port == self._client_port:
                     continue
                 try:
@@ -515,7 +515,7 @@ class CommandDispatcher(Thread):
                     with self._lock:
                         state: ComponentState = store.query(scope, address)
                         if state is not None:
-                            self.send_state_packet(client_ip, state)
+                            self.send_state_packet(client_ip, state, client_port)
             # send sync complete message
             self.send_state_packet(client_ip, EnqueueProxyRequests.sync_complete_response())
 

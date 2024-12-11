@@ -66,13 +66,14 @@ class ClientStateListener(threading.Thread):
     def run(self) -> None:
         while self._is_running:
             try:
+                print(f"Trying port {self.port}...")
                 # noinspection PyTypeChecker
                 with socketserver.TCPServer(("", self._port), ClientStateHandler) as server:
                     # inform main thread server is running on a valid port
                     self._ev.set()
                     server.serve_forever()
             except OSError as oe:
-                if oe.errno == 98:
+                if oe.errno in [48, 98]:
                     self._port += 1
                 else:
                     raise oe
