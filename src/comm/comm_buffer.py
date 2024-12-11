@@ -134,7 +134,7 @@ class CommBuffer(abc.ABC):
     def shutdown(self, immediate: bool = False) -> None: ...
 
     @abc.abstractmethod
-    def register(self) -> None: ...
+    def register(self, port: int = DEFAULT_SERVER_PORT) -> None: ...
 
     @abc.abstractmethod
     def disconnect(self) -> None: ...
@@ -236,7 +236,7 @@ class CommBufferSingleton(CommBuffer, Thread):
     def join(self) -> None:
         super().join()
 
-    def register(self) -> None:
+    def register(self, port: int = DEFAULT_SERVER_PORT) -> None:
         pass  # noop; used to register client
 
     def disconnect(self) -> None:
@@ -340,14 +340,14 @@ class CommBufferProxy(CommBuffer):
                             continue
                     raise oe
 
-    def register(self) -> None:
+    def register(self, port: int = DEFAULT_SERVER_PORT) -> None:
         from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
 
         retries = 0
         while True:
             try:
                 # noinspection PyTypeChecker
-                self.enqueue_command(EnqueueProxyRequests.register_request)
+                self.enqueue_command(EnqueueProxyRequests.register_request())
                 return
             except ConnectionError as ce:
                 # give server time to boot up:
@@ -364,7 +364,7 @@ class CommBufferProxy(CommBuffer):
             from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
 
             # noinspection PyTypeChecker
-            self.enqueue_command(EnqueueProxyRequests.disconnect_request)
+            self.enqueue_command(EnqueueProxyRequests.disconnect_request())
             return
         except ConnectionError as ce:
             raise ce
@@ -374,7 +374,7 @@ class CommBufferProxy(CommBuffer):
 
         try:
             # noinspection PyTypeChecker
-            self.enqueue_command(EnqueueProxyRequests.sync_state_request)
+            self.enqueue_command(EnqueueProxyRequests.sync_state_request())
         except ConnectionError as ce:
             raise ce
 

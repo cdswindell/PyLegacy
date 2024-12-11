@@ -4,6 +4,8 @@ import logging
 import socketserver
 import threading
 
+from threading import Event
+
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Subscriber, Topic
 from ..pdi.constants import PDI_SOP, PDI_EOP
@@ -39,8 +41,11 @@ class ClientStateListener(threading.Thread):
         self._tmcc_buffer = CommBuffer.build()
         self._port = self._tmcc_buffer.server_port
         self._is_running = True
+        self._ev = Event()
         self.start()
-        self._tmcc_buffer.register()  # register this client with server to receive updates
+        # wait for socket server to be up and running
+        self._ev.wait()
+        self._tmcc_buffer.register(self.port)  # register this client with server to receive updates
         self._tmcc_buffer.sync_state()  # request initial state from server
 
     def __new__(cls, *args, **kwargs):
@@ -61,9 +66,10 @@ class ClientStateListener(threading.Thread):
     def run(self) -> None:
         while self._is_running:
             try:
-                print(f"Port: {self._port}")
                 # noinspection PyTypeChecker
                 with socketserver.TCPServer(("", self._port), ClientStateHandler) as server:
+                    # inform main thread server is running on a valid port
+                    self._ev.set()
                     server.serve_forever()
             except OSError as oe:
                 if oe.errno == 98:

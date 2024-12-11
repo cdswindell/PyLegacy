@@ -74,33 +74,23 @@ class EnqueueProxyRequests(Thread):
         if cls._instance is not None:
             cls._instance.shutdown()
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def register_request(cls) -> bytes:
         return REGISTER_REQUEST
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def disconnect_request(cls) -> bytes:
         return DISCONNECT_REQUEST
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def sync_state_request(cls) -> bytes:
         return SYNC_STATE_REQUEST
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def sync_begin_response(cls) -> bytes:
         return SYNC_BEGIN_RESPONSE
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def sync_complete_response(cls) -> bytes:
         return SYNC_COMPLETE_RESPONSE
 
@@ -176,14 +166,14 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             else:
                 break
 
-        if byte_stream == EnqueueProxyRequests.disconnect_request:
+        if byte_stream == EnqueueProxyRequests.disconnect_request():
             EnqueueProxyRequests.client_disconnect(self.client_address[0])
             log.info(f"Client at {self.client_address[0]} disconnecting...")
             return
-        elif byte_stream == EnqueueProxyRequests.register_request:
+        elif byte_stream.startswith(EnqueueProxyRequests.register_request()):
             if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
                 log.info(f"Client at {self.client_address[0]} connecting...")
-        elif byte_stream == EnqueueProxyRequests.sync_state_request:
+        elif byte_stream == EnqueueProxyRequests.sync_state_request():
             log.info(f"Client at {self.client_address[0]} syncing...")
             CommandDispatcher.build().send_current_state(self.client_address[0])
         else:
