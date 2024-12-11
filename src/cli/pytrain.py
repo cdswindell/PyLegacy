@@ -115,7 +115,7 @@ class PyTrain:
                 raise AttributeError(f"No {PROGRAM_NAME} servers found on the local network, exiting")
             self._server, self._port = info
 
-        # Based on the arguments, we are either connecting to n LCS Ser 2 or a named PyTrain server
+        # Based on the arguments, we are either connecting to an LCS Ser 2 or a named PyTrain server
         self._tmcc_buffer = CommBuffer.build(
             baudrate=self._baudrate, port=self._port, server=self._server, no_ser2=self._no_ser2
         )
@@ -282,6 +282,7 @@ class PyTrain:
         try:
             if self.is_client:
                 self._tmcc_buffer.disconnect()
+                self._tmcc_listener.shutdown()
         except Exception as e:
             log.warning(f"Error disconnecting client, continuing shutdown: {e}")
         try:

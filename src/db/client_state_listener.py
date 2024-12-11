@@ -54,19 +54,28 @@ class ClientStateListener(threading.Thread):
                 ClientStateListener._instance._initialized = False
             return ClientStateListener._instance
 
+    @property
+    def port(self) -> int:
+        return self._port
+
     def run(self) -> None:
-        port = self._port
         while self._is_running:
             try:
-                print(f"Port: {port}")
+                print(f"Port: {self._port}")
                 # noinspection PyTypeChecker
-                with socketserver.TCPServer(("", port), ClientStateHandler) as server:
+                with socketserver.TCPServer(("", self._port), ClientStateHandler) as server:
                     server.serve_forever()
             except OSError as oe:
                 if oe.errno == 98:
-                    port += 1
+                    self._port += 1
                 else:
                     raise oe
+
+    def shutdown(self) -> None:
+        self._is_running = False
+        # noinspection PyTypeChecker
+        with socketserver.TCPServer(("", self._port), ClientStateHandler) as server:
+            server.shutdown()
 
     def offer(self, data: bytes) -> None:
         # look at first byte to determine handler
