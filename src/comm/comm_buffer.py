@@ -323,7 +323,6 @@ class CommBufferProxy(CommBuffer):
         if delay > 0:
             self._scheduler.schedule(delay, command)
         else:
-            print(f"Sending cmd to {self._server} {self._port} {self.server_port}")
             retries = 0
             while True:
                 try:

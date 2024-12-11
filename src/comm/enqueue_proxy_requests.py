@@ -161,7 +161,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         while True:
             data = self.request.recv(128)
             if data:
-                print(f"Received {data.hex()} from {self.client_address[0]}")
                 byte_stream += data
                 self.request.sendall(str.encode("ack"))
             else:
