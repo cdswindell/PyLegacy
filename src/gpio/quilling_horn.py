@@ -75,6 +75,7 @@ class QuillingHorn(Thread):
                     print(f"Data: {data}  Value: {value}")
                     self._action(new_data=data - 2)
                 sleep(0.1)
+        print("Exiting ", self)
 
     def reset(self) -> None:
         self._is_running = False
