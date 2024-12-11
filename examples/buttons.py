@@ -60,6 +60,7 @@ GpioHandler.controller(
     vol_down_pin=19,
     tower_dialog_pin=13,
     engr_dialog_pin=6,
+    quilling_horn_chn=0,
     base_online_pin=23,
     base_offline_pin=4,
     lcd_address=0x27,
