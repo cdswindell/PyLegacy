@@ -128,6 +128,10 @@ class Ads1x15(ABC):
     def bits(self) -> int:
         return self._bits
 
+    def close(self) -> None:
+        if self._i2c:
+            self._i2c.close()
+
     def read_register(self, address: int) -> int:
         """
         Read 16-bit integer raw_value from an address pointer register
