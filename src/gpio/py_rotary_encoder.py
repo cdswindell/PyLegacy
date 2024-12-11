@@ -109,7 +109,6 @@ class PyRotaryEncoderHandler(Thread):
         self._last_step = None
         self._pause_for = pause_for
         self._lock = RLock()
-        GpioHandler.cache_handler(self)
 
     def start(self) -> None:
         with self._lock:
