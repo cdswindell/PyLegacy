@@ -104,6 +104,7 @@ class ClientStateListener(threading.Thread):
 
 class ClientStateHandler(socketserver.BaseRequestHandler):
     def handle(self):
+        print("Client", self.client_address)
         byte_stream = bytes()
         while True:
             data = self.request.recv(128)
