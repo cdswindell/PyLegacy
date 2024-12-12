@@ -189,10 +189,9 @@ class ComponentStateStore:
 
     def get_all(self, scope: CommandScope) -> List[T]:
         if scope in self._state:
-            states = list(self._state[scope].values())
-            print(len(states))
+            # ignore dups where we store an entry for the items road number
+            states = [v for k, v in self._state[scope].items() if str(k) != v.road_number]
             states.sort(key=lambda x: x.address)
-            print(len(states))
             return states
         else:
             return []
