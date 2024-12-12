@@ -190,7 +190,9 @@ class ComponentStateStore:
     def get_all(self, scope: CommandScope) -> List[T]:
         if scope in self._state:
             states = list(self._state[scope].values())
+            print(len(states))
             states.sort(key=lambda x: x.address)
+            print(len(states))
             return states
         else:
             return []
