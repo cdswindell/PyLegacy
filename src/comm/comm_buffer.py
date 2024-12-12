@@ -117,9 +117,7 @@ class CommBuffer(abc.ABC):
     def is_client(cls) -> bool:
         return isinstance(cls._instance, CommBufferProxy)
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def server_port(cls) -> int | None:
         return None
 
@@ -299,9 +297,7 @@ class CommBufferProxy(CommBuffer):
     Allows a Raspberry Pi to "slave" to another so only one serial connection is needed
     """
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def server_port(cls) -> int | None:
         # noinspection PyProtectedMember
         if cls.is_built is True and cls.is_client is True:

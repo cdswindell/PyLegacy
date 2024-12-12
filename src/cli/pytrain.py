@@ -146,9 +146,9 @@ class PyTrain:
                 print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
-            print(f"Listening for state updates on {self._args.server_port}...")
             self._tmcc_listener = ClientStateListener.build()
             listeners.append(self._tmcc_listener)
+            print(f"Listening for state updates on port {self._tmcc_listener.port}...")
         # register listeners
         self._is_ser2 = args.no_ser2 is False
         self._is_base = self._base_addr is not None
@@ -483,7 +483,7 @@ class PyTrain:
             # listens for services on a background thread
             ServiceBrowser(z, [SERVICE_TYPE], handlers=[self.on_service_state_change])
             waiting = 128
-            cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
+            cursor = {0: "|", 1: "\\", 2: "-", 3: "/"}
             while waiting > 0:
                 print(f"Looking for {PROGRAM_NAME} servers {cursor[waiting % 4]}", end="\r")
                 waiting -= 1

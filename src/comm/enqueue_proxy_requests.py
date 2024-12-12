@@ -147,6 +147,7 @@ class EnqueueProxyRequests(Thread):
         with socketserver.TCPServer(("", self._port), EnqueueHandler) as server:
             server.serve_forever()
 
+
     def shutdown(self) -> None:
         # noinspection PyTypeChecker
         with socketserver.TCPServer(("", self._port), EnqueueHandler) as server:
@@ -176,7 +177,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             client_port = DEFAULT_SERVER_PORT
             if len(byte_stream) > len(REGISTER_REQUEST):
                 client_port = int.from_bytes(byte_stream[len(REGISTER_REQUEST) :], "big")
-                print(f"{self.client_address[0]} {client_port}")
             EnqueueProxyRequests.record_client(self.client_address[0], client_port)
         elif byte_stream == EnqueueProxyRequests.sync_state_request():
             log.info(f"Client at {self.client_address[0]} syncing...")

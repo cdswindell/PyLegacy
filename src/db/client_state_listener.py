@@ -39,10 +39,11 @@ class ClientStateListener(threading.Thread):
 
         self._pdi_listener = PdiListener.build(build_base3_reader=False)
         self._tmcc_buffer = CommBuffer.build()
-        self._port = self._tmcc_buffer.server_port
+        self._port = self._tmcc_buffer.server_port()
         self._is_running = True
         self._ev = Event()
         self.start()
+
         # wait for socket server to be up and running
         self._ev.wait()
         self._tmcc_buffer.register(self.port)  # register this client with server to receive updates
@@ -66,14 +67,13 @@ class ClientStateListener(threading.Thread):
     def run(self) -> None:
         while self._is_running:
             try:
-                print(f"Trying port {self.port}...")
                 # noinspection PyTypeChecker
                 with socketserver.TCPServer(("", self._port), ClientStateHandler) as server:
                     # inform main thread server is running on a valid port
                     self._ev.set()
                     server.serve_forever()
             except OSError as oe:
-                if oe.errno in [48, 98]:
+                if oe.errno in {48, 98}:
                     self._port += 1
                 else:
                     raise oe
