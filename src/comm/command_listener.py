@@ -475,7 +475,6 @@ class CommandDispatcher(Thread):
         option: CommandReq | TMCC1SyncCommandDef = TMCC1SyncCommandDef.QUIT,
         client_ip: str = None,
     ) -> None:
-        print(f"Signaling client quit: {option}")
         if isinstance(option, TMCC1SyncCommandDef):
             option = CommandReq(option)
         self.update_client_state(option, client_ip)
