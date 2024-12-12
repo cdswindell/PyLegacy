@@ -21,8 +21,8 @@ def title(text: str):
                         part = part + "ACe"
                         part = part.replace("SD-", "SD")
                         parts[i + 1] = ""
-
                 elif U33C_PATTERN.match(part):
+                    print(part)
                     pass
                 else:
                     part = part.capitalize()
