@@ -105,6 +105,7 @@ class SequenceReq(CommandReq, Sequence):
             request = sqr.request
             req_repeat = sqr.repeat if sqr.repeat is not None else repeat
             req_delay = sqr.delay if sqr.delay is not None else delay
+            print(f"Sending: {request}  Delay: {req_delay}  Repeat: {req_repeat}")
             request.send(req_repeat, req_delay, baudrate, port, server)
 
     def fire(
@@ -133,7 +134,6 @@ class SequenceReq(CommandReq, Sequence):
                 request = sq_request.request
                 if new_address and new_address != request.address:
                     request.address = new_address
-                print(f"Sending: {request}  Delay: {delay}  Repeat: {repeat}")
                 request._enqueue_command(
                     self.as_bytes,
                     repeat=sq_request.repeat,
