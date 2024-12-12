@@ -11,10 +11,10 @@ def title(text: str):
                         part = part.replace("AC", "ACe")
                 elif part.startswith("FA-") or part.startswith("GP"):
                     pass
-                elif part in {"NEW", "OLD", "CAR", "RIO", "PAD"}:
-                    part = part.capitalize()
                 else:
                     part = part.capitalize()
-                parts[i] = part
-            text = " ".join(parts)
+            elif part in {"NEW", "OLD", "CAR", "RIO", "PAD"}:
+                part = part.capitalize()
+            parts[i] = part
+        text = " ".join(parts)
     return text
