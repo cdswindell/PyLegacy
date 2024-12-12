@@ -133,6 +133,7 @@ class SequenceReq(CommandReq, Sequence):
                 request = sq_request.request
                 if new_address and new_address != request.address:
                     request.address = new_address
+                print(f"Sending: {request}  Delay: {delay}  Repeat: {repeat}")
                 request._enqueue_command(
                     self.as_bytes,
                     repeat=sq_request.repeat,
