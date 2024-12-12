@@ -3,21 +3,27 @@ from __future__ import annotations
 import logging
 import socket
 import threading
-from collections import deque, defaultdict
+from collections import defaultdict, deque
 from queue import Queue
 from threading import Thread
-from typing import Protocol, TypeVar, runtime_checkable, Tuple, Generic, List
+from typing import Generic, List, Protocol, Tuple, TypeVar, runtime_checkable
 
-from .enqueue_proxy_requests import EnqueueProxyRequests, SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
-from ..protocol.constants import CommandScope, BROADCAST_TOPIC
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE, DEFAULT_VALID_BAUDRATES
+from ..protocol.constants import (
+    BROADCAST_TOPIC,
+    DEFAULT_BAUDRATE,
+    DEFAULT_PORT,
+    DEFAULT_QUEUE_SIZE,
+    DEFAULT_VALID_BAUDRATES,
+    CommandScope,
+)
 from ..protocol.multybyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..utils.ip_tools import get_ip_address
+from .enqueue_proxy_requests import SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE, EnqueueProxyRequests
 
 log = logging.getLogger(__name__)
 
@@ -83,17 +89,6 @@ class CommandListener(Thread):
             if cls._instance:
                 cls._instance.shutdown()
 
-    def __new__(cls, *args, **kwargs):
-        """
-        Provides singleton functionality. We only want one instance
-        of this class in a process
-        """
-        with cls._lock:
-            if CommandListener._instance is None:
-                CommandListener._instance = super(CommandListener, cls).__new__(cls)
-                CommandListener._instance._initialized = False
-            return CommandListener._instance
-
     def __init__(
         self,
         baudrate: int = DEFAULT_BAUDRATE,
@@ -134,6 +129,18 @@ class CommandListener(Thread):
         self._ser2_receiver = ser2_receiver
         self._base3_receiver = base3_receiver
         self._filter_updates = base3_receiver is True and ser2_receiver is True
+
+    def __new__(cls, *args, **kwargs):
+        """
+        Provides singleton functionality. We only want one instance
+        of this class in a process
+        """
+        with cls._lock:
+            if CommandListener._instance is None:
+                # noinspection PyTypeChecker
+                CommandListener._instance = super(CommandListener, cls).__new__(cls)
+                CommandListener._instance._initialized = False
+            return CommandListener._instance
 
     def sync_state(self) -> None:
         """
