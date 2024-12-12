@@ -172,8 +172,8 @@ class EngineController:
 
             self._brake_btn.hold_repeat = True
             self._brake_btn.hold_time = 0.5
-            self._tmcc1_when_held[self._brake_btn] = self._tmcc1_when_pushed[self._boost_btn]
-            self._tmcc2_when_held[self._brake_btn] = self._tmcc2_when_pushed[self._boost_btn]
+            self._tmcc1_when_held[self._brake_btn] = self._tmcc1_when_pushed[self._brake_btn]
+            self._tmcc2_when_held[self._brake_btn] = self._tmcc2_when_pushed[self._brake_btn]
         else:
             self._brake_btn = None
 
