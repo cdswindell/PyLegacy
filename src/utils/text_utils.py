@@ -1,3 +1,8 @@
+import re
+
+U33C_PATTERN = re.compile(r"[A-Z]\d{2}[A-Z]")
+
+
 def title(text: str):
     if text:
         parts = text.strip().split(" ")
@@ -16,6 +21,9 @@ def title(text: str):
                         part = part + "ACe"
                         part = part.replace("SD-", "SD")
                         parts[i + 1] = ""
+
+                elif U33C_PATTERN.match(part):
+                    pass
                 else:
                     part = part.capitalize()
             elif part in {"NEW", "OLD", "CAR", "RIO", "PAD"}:
