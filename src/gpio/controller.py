@@ -69,7 +69,10 @@ class Controller(Thread):
     ):
         super().__init__(name=f"{PROGRAM_NAME} Controller", daemon=True)
         self._lock = Lock()
-        self._lcd = Lcd(address=lcd_address, rows=lcd_rows, cols=lcd_cols)
+        if lcd_address:
+            self._lcd = Lcd(address=lcd_address, rows=lcd_rows, cols=lcd_cols)
+        else:
+            self._lcd = None
         if row_pins and column_pins:
             self._keypad = Keypad(row_pins, column_pins)
         else:
@@ -164,11 +167,12 @@ class Controller(Thread):
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
-            self._synchronized = True
-            self._lcd.clear()
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
+            print("Controller State Synchronized...")
+            self._synchronized = True
             self.start()
+            self.update_display()
 
     def on_state_update(self) -> None:
         cur_speed = self._state.speed if self._state else None
