@@ -516,7 +516,6 @@ class CommandDispatcher(Thread):
 
             # send starting state sync message
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_begin_response())
-            print(f"Sent sync start to {client_ip}:{client_port}")
             store = ComponentStateStore.build()
             for scope in store.scopes():
                 if scope == CommandScope.SYNC:
@@ -528,7 +527,6 @@ class CommandDispatcher(Thread):
                             self.send_state_packet(client_ip, client_port, state)
             # send sync complete message
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_complete_response())
-            print(f"Sending sync complete to {client_ip}:{client_port}")
 
     def send_state_packet(self, client_ip: str, client_port: int, state: ComponentState | bytes):
         client_port = client_port if client_port else self._client_port
