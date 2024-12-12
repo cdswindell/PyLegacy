@@ -35,6 +35,7 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2_COMMAND_TO_ALIAS_MAP
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as TMCC2
+from ..utils.text_utils import title
 
 log = logging.getLogger(__name__)
 
@@ -248,7 +249,7 @@ class ComponentState(ABC):
                 raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
             if (isinstance(command, BaseReq) and command.status == 0) or isinstance(command, IrdaReq):
                 if hasattr(command, "name") and command.name:
-                    self._road_name = command.name
+                    self._road_name = title(command.name)
                 if hasattr(command, "number") and command.number:
                     self._road_number = command.number
                     # support lookup by road number
