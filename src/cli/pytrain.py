@@ -90,6 +90,7 @@ class PyTrain:
         self._client = args.client
         self._force_reboot = False
         self._force_update = False
+        self._force_upgrade = False
 
         if args.base is not None:
             if isinstance(args.base, list) and len(args.base):
@@ -224,6 +225,10 @@ class PyTrain:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
             self._force_update = True
             os.kill(os.getpid(), signal.SIGINT)
+        elif cmd.command == TMCC1SyncCommandDef.UPGRADE:
+            log.info(f"{'Server' if self.is_server else 'Client'} upgrading...")
+            self._force_upgrade = True
+            os.kill(os.getpid(), signal.SIGINT)
 
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
@@ -239,6 +244,11 @@ class PyTrain:
             sleep(10)
         os.system("git pull")
         os.execv(__file__, sys.argv)
+
+    def upgrade(self) -> None:
+        if sys.platform == "linux":
+            os.system("sudo apt update; sudo apt upgrade -y")
+        self.update()
 
     @property
     def is_server(self) -> bool:
@@ -278,9 +288,11 @@ class PyTrain:
             if self._service_info and self._zeroconf:
                 self._zeroconf.unregister_service(self._service_info)
                 self._zeroconf.close()
-            if self._force_update is True:
+            if self._force_upgrade is True:
+                self.upgrade()
+            elif self._force_update is True:
                 self.update()
-            if self._force_reboot is True:
+            elif self._force_reboot is True:
                 self.reboot()
 
     def shutdown(self):
@@ -338,16 +350,25 @@ class PyTrain:
                     elif args.command == "update":
                         # if server, signal clients to disconnect
                         if self.is_server:
-                            CommandDispatcher.get().signal_client_quit(update=True)
+                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.UPDATE)
                         else:
                             # if client, send command to server
                             self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.UPDATE).as_bytes)
                         self._force_update = True
                         raise KeyboardInterrupt()
+                    elif args.command == "upgrade":
+                        # if server, signal clients to disconnect
+                        if self.is_server:
+                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.UPGRADE)
+                        else:
+                            # if client, send command to server
+                            self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.UPGRADE).as_bytes)
+                        self._force_update = True
+                        raise KeyboardInterrupt()
                     elif args.command == "reboot":
                         # if server, signal clients to disconnect
                         if self.is_server:
-                            CommandDispatcher.get().signal_client_quit(reboot=True)
+                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.REBOOT)
                         self._force_reboot = True
                         raise KeyboardInterrupt()
                     elif args.command == "help":
@@ -690,7 +711,14 @@ class PyTrain:
             action="store_const",
             const="update",
             dest="command",
-            help=f"Quit {PROGRAM_NAME} and update to newest release),",
+            help=f"Quit {PROGRAM_NAME} and update to latest release),",
+        )
+        group.add_argument(
+            "-upgrade",
+            action="store_const",
+            const="upgrade",
+            dest="command",
+            help=f"Quit {PROGRAM_NAME}, upgrade the OS, and update to latest release),",
         )
         return command_parser
 

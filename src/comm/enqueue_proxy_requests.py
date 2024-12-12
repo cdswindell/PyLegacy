@@ -19,6 +19,7 @@ SYNC_STATE_REQUEST: bytes = int(0xFFF0).to_bytes(2, byteorder="big") * 3
 SYNC_BEGIN_RESPONSE: bytes = int(0xFFF1).to_bytes(2, byteorder="big") * 3
 SYNC_COMPLETE_RESPONSE: bytes = int(0xFFF2).to_bytes(2, byteorder="big") * 3
 UPDATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.UPDATE).as_bytes
+UPGRADE_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.UPGRADE).as_bytes
 REBOOT_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.REBOOT).as_bytes
 
 
@@ -184,8 +185,13 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 port = EnqueueProxyRequests.clients().get(self.client_address[0], DEFAULT_SERVER_PORT)
                 CommandDispatcher.get().send_current_state(self.client_address[0], port)
                 return
-            elif byte_stream == UPDATE_REQUEST:
-                CommandDispatcher.get().signal_client_quit(update=True, client_ip=self.client_address[0])
-                CommandDispatcher.get().publish(CommandScope.SYNC, CommandReq.from_bytes(byte_stream))
+            elif byte_stream in {
+                UPDATE_REQUEST,
+                UPGRADE_REQUEST,
+                REBOOT_REQUEST,
+            } and EnqueueProxyRequests.is_known_client(self.client_address[0]):
+                cmd = CommandReq.from_bytes(byte_stream)
+                CommandDispatcher.get().signal_client_quit(cmd, client_ip=self.client_address[0])
+                CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
                 return
         EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)

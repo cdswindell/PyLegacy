@@ -472,16 +472,13 @@ class CommandDispatcher(Thread):
 
     def signal_client_quit(
         self,
-        update: bool = False,
-        reboot: bool = False,
+        option: TMCC1SyncCommandDef = TMCC1SyncCommandDef.QUIT,
         client_ip: str = None,
     ) -> None:
-        if update is True:
-            self.update_client_state(CommandReq(TMCC1SyncCommandDef.UPDATE), client_ip)
-        elif reboot is True:
-            self.update_client_state(CommandReq(TMCC1SyncCommandDef.REBOOT), client_ip)
-        else:
-            self.update_client_state(CommandReq(TMCC1SyncCommandDef.QUIT), client_ip)
+        print(f"Signaling client quit: {option}")
+        if isinstance(option, TMCC1SyncCommandDef):
+            option = CommandReq(option)
+        self.update_client_state(option, client_ip)
 
     # noinspection DuplicatedCode
     def update_client_state(self, command: CommandReq, client_ip: str = None):

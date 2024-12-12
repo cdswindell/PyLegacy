@@ -196,8 +196,9 @@ class CommandReq:
                 effects.remove((command.command, command.data))
             if command.command.is_alias and command.command.alias in effects:
                 alias = command.command.alias
+                # noinspection PyTypeChecker
                 effects.remove(alias)
-                if alias[0] in effects:
+                if isinstance(alias, tuple) and alias[0] in effects:
                     effects.remove(alias[0])
         return effects
 
@@ -311,7 +312,7 @@ class CommandReq:
         return self.command in [TMCC2HaltCommandDef.HALT, TMCC2EngineCommandDef.SYSTEM_HALT]
 
     @property
-    def command(self) -> CommandDefEnum:
+    def command(self) -> E:
         return self._command_def_enum
 
     @property
