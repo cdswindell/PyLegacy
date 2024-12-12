@@ -130,15 +130,15 @@ class PyRotaryEncoderHandler(Thread):
         # in general, Rotary Encoder is used to control speed. When the encoder steps is
         # -max_steps, this usually corresponds with speed 0; make sure speed zero cmds
         # are sent
-        num_consec_neg_max_steps = 3
+        num_neg_max_steps = 3
         while self._is_running:
             with self._re.lock:
                 cur_step = self._re.steps
-            if cur_step != self._last_step or (num_consec_neg_max_steps > 0 and cur_step == -self._re.max_steps):
+            if cur_step != self._last_step or (num_neg_max_steps > 0 and cur_step == -self._re.max_steps):
                 if cur_step == -self._re.max_steps:
-                    num_consec_neg_max_steps -= 1
+                    num_neg_max_steps -= 1
                 else:
-                    num_consec_neg_max_steps = 3
+                    num_neg_max_steps = 3
                 self._re.fire_action(cur_step)
                 self._last_step = cur_step
             sleep(self._pause_for)
