@@ -82,7 +82,6 @@ class PyRotaryEncoder(RotaryEncoder):
                 self._last_known_data = data = self._steps_to_data(cur_step)
             else:
                 data = 0  # TODO: handle this case
-            print(f"New Speed: {data}")
             self._action(new_data=data)
 
     @property

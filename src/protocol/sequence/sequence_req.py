@@ -105,7 +105,6 @@ class SequenceReq(CommandReq, Sequence):
             request = sqr.request
             req_repeat = sqr.repeat if sqr.repeat is not None else repeat
             req_delay = sqr.delay if sqr.delay is not None else delay
-            print(f"Sending: {request}  Delay: {req_delay}  Repeat: {req_repeat}")
             request.send(req_repeat, req_delay, baudrate, port, server)
 
     def fire(

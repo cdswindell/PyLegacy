@@ -270,7 +270,6 @@ class CommBufferSingleton(CommBuffer, Thread):
                     time.sleep((DEFAULT_SER2_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
                 # Write the command byte sequence
                 ser.write(data)
-                print(f"**** 0x{data.hex()} ****")
                 self._last_output_at = self._current_milli_time()
                 # inform Base 3 of state change, if available
                 from ..pdi.base3_buffer import Base3Buffer
@@ -288,7 +287,6 @@ class CommBufferSingleton(CommBuffer, Thread):
         tmcc_cmd = CommandReq.from_bytes(data)
         pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
-        print(f">>>> {pdi_cmd} <<<<")
         # also inform CommandDispatcher to update system state
         if self.no_ser2 is True:
             self._tmcc_dispatcher.offer(tmcc_cmd)
