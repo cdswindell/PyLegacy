@@ -525,7 +525,7 @@ class CommandDispatcher(Thread):
                     with self._lock:
                         state: ComponentState = store.query(scope, address)
                         if state is not None:
-                            self.send_state_packet(client_ip, state, client_port)
+                            self.send_state_packet(client_ip, client_port, state)
             # send sync complete message
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_complete_response())
             print(f"Sending sync complete to {client_ip}:{client_port}")
