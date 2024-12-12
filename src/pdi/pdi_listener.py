@@ -79,6 +79,7 @@ class PdiListener(Thread):
         """
         with cls._lock:
             if PdiListener._instance is None:
+                # noinspection PyTypeChecker
                 PdiListener._instance = super(PdiListener, cls).__new__(cls)
                 PdiListener._instance._initialized = False
             return PdiListener._instance
@@ -255,7 +256,7 @@ class PdiDispatcher(Thread):
         self._broadcasts = False
         self._queue = Queue[PdiReq](queue_size)
         self._tmcc_dispatcher = CommandDispatcher.build(queue_size)
-        self._client_port = EnqueueProxyRequests.port if EnqueueProxyRequests.is_built else None
+        self._server_port = EnqueueProxyRequests.server_port() if EnqueueProxyRequests.is_built else None
         self._server_ips = get_ip_address()
         self.start()
 
@@ -296,7 +297,7 @@ class PdiDispatcher(Thread):
                         # update clients of state change. Note that we DO NOT do this
                         # if the command is TMCC command received from the Base, as it
                         # has been handled via the call to tmcc_dispatcher.offer above
-                        if self._client_port is not None:
+                        if self._server_port is not None:
                             self.update_client_state(cmd)
                     # update broadcast channels, mostly used for command echoing
                     if self._broadcasts:
@@ -311,25 +312,23 @@ class PdiDispatcher(Thread):
     def update_client_state(self, command: PdiReq):
         """
         Update all PyTrain clients with the dispatched command. Used to keep
-        client states in sync with server
+        client states in sync with serve
         """
-        if self._client_port is not None:
-            # noinspection PyTypeChecker
-            for client, port in EnqueueProxyRequests.clients().items():
-                if client in self._server_ips and port == self._client_port:
-                    continue
-                try:
-                    with self._lock:
-                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                            s.connect((client, port))
-                            s.sendall(command.as_bytes)
-                            _ = s.recv(16)
-                except ConnectionRefusedError:
-                    # ignore disconnects; client will receive state update on reconnect
-                    pass
-                except Exception as e:
-                    log.warning(f"Exception while sending PDI state update {command} to {client}")
-                    log.exception(e)
+        for client, port in EnqueueProxyRequests.clients().items():
+            if client in self._server_ips and port == self._server_port:
+                continue
+            try:
+                with self._lock:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.connect((client, port))
+                        s.sendall(command.as_bytes)
+                        _ = s.recv(16)
+            except ConnectionRefusedError:
+                # ignore disconnects; client will receive state update on reconnect
+                pass
+            except Exception as e:
+                log.warning(f"Exception while sending PDI state update {command} to {client}")
+                log.exception(e)
 
     def offer(self, pdi_req: PdiReq) -> None:
         """

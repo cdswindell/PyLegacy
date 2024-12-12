@@ -169,7 +169,6 @@ class Controller(Thread):
         if self._sync_state.is_synchronized:
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
-            print("Controller State Synchronized...")
             self._synchronized = True
             self.start()
             self.update_display()

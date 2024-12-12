@@ -385,7 +385,7 @@ class CommandDispatcher(Thread):
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
-        self._client_port = EnqueueProxyRequests.port if EnqueueProxyRequests.is_built else None
+        self._server_port = EnqueueProxyRequests.server_port() if EnqueueProxyRequests.is_built else None
         self._server_ips = get_ip_address()
         self.start()
 
@@ -419,7 +419,7 @@ class CommandDispatcher(Thread):
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)
                     # update state on all clients
-                    if self._client_port is not None:
+                    if self._server_port is not None:
                         """
                         When we are listening to broadcasts from both the Base 3 and a Ser2, the
                         TMCC commands broadcast from the Base 3 are also sent out via the Ser2.
@@ -486,23 +486,22 @@ class CommandDispatcher(Thread):
         Update all PyTrain clients with the dispatched command. Used to keep
         client states in sync with server
         """
-        if self._client_port is not None:
-            # noinspection PyTypeChecker
-            for client, port in EnqueueProxyRequests.clients().items():
-                if (client in self._server_ips and port == self._client_port) or client == client_ip:
-                    continue
-                try:
-                    with self._lock:
-                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                            s.connect((client, port))
-                            s.sendall(command.as_bytes)
-                            _ = s.recv(16)
-                except ConnectionRefusedError:
-                    # ignore disconnects; client will receive state update on reconnect
-                    pass
-                except Exception as e:
-                    log.warning(f"Exception while sending TMCC state update {command} to {client}")
-                    log.exception(e)
+        # noinspection PyTypeChecker
+        for client, port in EnqueueProxyRequests.clients().items():
+            if (client in self._server_ips and port == self._server_port) or client == client_ip:
+                continue
+            try:
+                with self._lock:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.connect((client, port))
+                        s.sendall(command.as_bytes)
+                        _ = s.recv(16)
+            except ConnectionRefusedError:
+                # ignore disconnects; client will receive state update on reconnect
+                pass
+            except Exception as e:
+                log.warning(f"Exception while sending TMCC state update {command} to {client}")
+                log.exception(e)
 
     # noinspection PyTypeChecker
     def send_current_state(self, client_ip: str, client_port: int = None):
@@ -510,7 +509,7 @@ class CommandDispatcher(Thread):
         When a new client attaches to the server, immediately send it all know
         component states. They will be updated as needed (see update_client_state).
         """
-        client_port = client_port if client_port else self._client_port
+        client_port = client_port if client_port else self._server_port
         if client_port is not None:
             from ..db.component_state_store import ComponentStateStore
 
@@ -529,7 +528,7 @@ class CommandDispatcher(Thread):
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_complete_response())
 
     def send_state_packet(self, client_ip: str, client_port: int, state: ComponentState | bytes):
-        client_port = client_port if client_port else self._client_port
+        client_port = client_port if client_port else self._server_port
         packet: bytes | None = None
         if isinstance(state, bytes):
             packet = state

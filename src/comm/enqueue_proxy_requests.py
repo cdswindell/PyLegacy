@@ -112,23 +112,21 @@ class EnqueueProxyRequests(Thread):
     def is_built(cls) -> bool:
         return cls._instance is not None
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
-    def port(cls) -> int:
+    def server_port(cls) -> int:
         if cls._instance is not None:
             # noinspection PyProtectedMember
-            return cls._instance._port
+            return cls._instance._server_port
         raise AttributeError("EnqueueProxyRequests is not built yet.")
 
-    def __init__(self, tmcc_buffer: CommBuffer, port: int = DEFAULT_SERVER_PORT) -> None:
+    def __init__(self, tmcc_buffer: CommBuffer, server_port: int = DEFAULT_SERVER_PORT) -> None:
         if self._initialized:
             return
         else:
             self._initialized = True
         super().__init__(daemon=True, name="PyLegacy Enqueue Receiver")
         self._tmcc_buffer: CommBuffer = tmcc_buffer
-        self._port = port
+        self._server_port = server_port
         self._clients: Dict[str, int] = dict()
         self.start()
 
@@ -149,7 +147,7 @@ class EnqueueProxyRequests(Thread):
         on the PyTrain server.
         """
         # noinspection PyTypeChecker
-        with socketserver.TCPServer(("", self._port), EnqueueHandler) as server:
+        with socketserver.TCPServer(("", self._server_port), EnqueueHandler) as server:
             server.serve_forever()
 
 

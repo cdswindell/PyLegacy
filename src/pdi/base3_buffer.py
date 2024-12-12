@@ -99,6 +99,7 @@ class Base3Buffer(Thread):
         """
         with cls._lock:
             if Base3Buffer._instance is None:
+                # noinspection PyTypeChecker
                 Base3Buffer._instance = super(Base3Buffer, cls).__new__(cls)
                 Base3Buffer._instance._initialized = False
             return Base3Buffer._instance
@@ -156,7 +157,7 @@ class Base3Buffer(Thread):
                                         self.sync_state(sending)
                                     except ValueError as ve:
                                         # TODO: we get exceptions here if we send a multi-byte tmcc command
-                                        # TODO: because they are packatized into 3-byte chunks that sync-state
+                                        # TODO: because they are packet-ized into 3-byte chunks that sync-state
                                         # TODO cannot yet handle
                                         log.debug(ve)
                                 else:

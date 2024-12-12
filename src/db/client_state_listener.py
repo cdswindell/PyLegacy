@@ -135,7 +135,6 @@ class ClientStateHandler(socketserver.BaseRequestHandler):
             command_bytes = byte_stream
             if byte_stream[0] == PDI_SOP:
                 if PDI_EOP in byte_stream:
-                    print(f"Received PDI Cmd: 0x{byte_stream.hex()}")
                     eop_index = byte_stream.index(PDI_EOP)
                     command_bytes = byte_stream[0 : eop_index + 1]
                     byte_stream = byte_stream[eop_index + 1 :]
