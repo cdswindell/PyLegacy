@@ -703,6 +703,8 @@ class EngineState(ComponentState):
         # consecutively.
         if command is None or (command == self._last_command and self.last_updated_ago < 1):
             return
+        if command.address == 71:
+            print(command)
         with self._cv:
             super().update(command)
             if isinstance(command, CommandReq):
