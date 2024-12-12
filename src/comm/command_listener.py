@@ -463,16 +463,21 @@ class CommandDispatcher(Thread):
     def is_filter_updates(self) -> bool:
         return self._filter_updates
 
-    def signal_client_quit(self, update: bool = False, reboot: bool = False) -> None:
+    def signal_client_quit(
+        self,
+        update: bool = False,
+        reboot: bool = False,
+        client_ip: str = None,
+    ) -> None:
         if update is True:
-            self.update_client_state(CommandReq(TMCC1SyncCommandDef.UPDATE))
+            self.update_client_state(CommandReq(TMCC1SyncCommandDef.UPDATE), client_ip)
         elif reboot is True:
-            self.update_client_state(CommandReq(TMCC1SyncCommandDef.REBOOT))
+            self.update_client_state(CommandReq(TMCC1SyncCommandDef.REBOOT), client_ip)
         else:
-            self.update_client_state(CommandReq(TMCC1SyncCommandDef.QUIT))
+            self.update_client_state(CommandReq(TMCC1SyncCommandDef.QUIT), client_ip)
 
     # noinspection DuplicatedCode
-    def update_client_state(self, command: CommandReq):
+    def update_client_state(self, command: CommandReq, client_ip: str = None):
         """
         Update all PyTrain clients with the dispatched command. Used to keep
         client states in sync with server
@@ -480,7 +485,7 @@ class CommandDispatcher(Thread):
         if self._client_port is not None:
             # noinspection PyTypeChecker
             for client, port in EnqueueProxyRequests.clients().items():
-                if client in self._server_ips and port == self._client_port:
+                if (client in self._server_ips and port == self._client_port) or client == client_ip:
                     continue
                 try:
                     with self._lock:

@@ -170,8 +170,9 @@ class PyTrain:
             self._state_store.listen_for(CommandScope.IRDA)
             self._state_store.listen_for(CommandScope.BASE)
             self._state_store.listen_for(CommandScope.SYNC)
-            if self.is_client:
-                self._tmcc_listener.subscribe(self, CommandScope.SYNC)
+            # Subscribe this instance of PyTrain to sync updates so we can receive
+            # Update and Reboot command directives from clients
+            self._tmcc_listener.subscribe(self, CommandScope.SYNC)
 
         # load roster
         if self._pdi_buffer is not None:
@@ -215,10 +216,12 @@ class PyTrain:
             log.info("Server exiting...")
             # send keyboard interrupt to main process to shut ii down
             os.kill(os.getpid(), signal.SIGINT)
-        elif self.is_client and cmd.command == TMCC1SyncCommandDef.REBOOT:
+        elif cmd.command == TMCC1SyncCommandDef.REBOOT:
+            log.info(f"{'Server' if self.is_server else 'Client'} rebooting...")
             self._force_reboot = True
             os.kill(os.getpid(), signal.SIGINT)
-        elif self.is_client and cmd.command == TMCC1SyncCommandDef.UPDATE:
+        elif cmd.command == TMCC1SyncCommandDef.UPDATE:
+            log.info(f"{'Server' if self.is_server else 'Client'} updating...")
             self._force_update = True
             os.kill(os.getpid(), signal.SIGINT)
 
@@ -230,8 +233,10 @@ class PyTrain:
     def reboot() -> None:
         os.system("sudo shutdown -r now")
 
-    @staticmethod
-    def update() -> None:
+    def update(self) -> None:
+        if self.is_client:
+            # sleep for a few seconds to give the server time to catch up and restart
+            sleep(10)
         os.system("git pull")
         os.execv(__file__, sys.argv)
 
@@ -334,6 +339,9 @@ class PyTrain:
                         # if server, signal clients to disconnect
                         if self.is_server:
                             CommandDispatcher.get().signal_client_quit(update=True)
+                        else:
+                            # if client, send command to server
+                            self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.UPDATE).as_bytes)
                         self._force_update = True
                         raise KeyboardInterrupt()
                     elif args.command == "reboot":
