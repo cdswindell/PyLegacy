@@ -39,13 +39,6 @@ class PdiListener(Thread):
         return PdiListener(base3, base3_port, queue_size, build_base3_reader)
 
     @classmethod
-    def listen_for(cls, listener: Subscriber, channel: Topic, address: int = None, action: PdiAction = None):
-        if cls._instance is not None:
-            cls._instance.dispatcher.subscribe(listener, channel, address, action)
-        else:
-            raise AttributeError("Pdi Listener not initialized")
-
-    @classmethod
     def is_built(cls) -> bool:
         return cls._instance is not None
 
@@ -53,6 +46,12 @@ class PdiListener(Thread):
     def is_running(cls) -> bool:
         # noinspection PyProtectedMember
         return cls._instance is not None and cls._instance._is_running is True
+
+    @classmethod
+    def stop(cls) -> None:
+        with cls._lock:
+            if cls._instance:
+                cls._instance.shutdown()
 
     @classmethod
     def enqueue_command(cls, data: bytes | PdiReq) -> None:
@@ -63,10 +62,11 @@ class PdiListener(Thread):
             cls._instance._base3.send(data)
 
     @classmethod
-    def stop(cls) -> None:
-        with cls._lock:
-            if cls._instance:
-                cls._instance.shutdown()
+    def listen_for(cls, listener: Subscriber, channel: Topic, address: int = None, action: PdiAction = None):
+        if cls._instance is not None:
+            cls._instance.dispatcher.subscribe(listener, channel, address, action)
+        else:
+            raise AttributeError("Pdi Listener not initialized")
 
     def __new__(cls, *args, **kwargs):
         """
@@ -93,7 +93,7 @@ class PdiListener(Thread):
             self._initialized = True
         self._base3_addr = base3_addr
         self._base3_port = base3_port
-        super().__init__(daemon=True, name="PyLegacy PDI Listener")
+        super().__init__(daemon=True, name=f"PyLegacy PDI Listener {base3_addr}:{base3_port}")
 
         # open a connection to our Base 3
         if build_base3_reader is True:
@@ -102,8 +102,6 @@ class PdiListener(Thread):
             self._base3 = Base3Buffer(base3_addr, base3_port, queue_size, self)
         else:
             self._base3 = None
-
-        # create the thread
 
         # prep our consumer(s)
         self._cv = threading.Condition()
@@ -127,7 +125,7 @@ class PdiListener(Thread):
                     self._cv.wait()  # wait to be notified
             # check if the first bite is in the list of allowable command prefixes
             dq_len = len(self._deque)
-            while dq_len > 0:  # may indicate thread is exiting
+            while dq_len > 0 and self._is_running:  # may indicate thread is exiting
                 # we now begin a state machine where we look for an SOP/EOP pair. Throw away
                 # bytes until we see an SOP
                 if self._deque[0] == PDI_SOP:
@@ -253,7 +251,7 @@ class PdiDispatcher(Thread):
         self.start()
 
     @property
-    def broadcasts_enabled(self) -> bool:
+    def is_broadcasts_enabled(self) -> bool:
         return self._broadcasts
 
     def run(self) -> None:
@@ -308,7 +306,7 @@ class PdiDispatcher(Thread):
         """
         for client, port in EnqueueProxyRequests.clients().items():
             if client in self._server_ips and port == self._server_port:
-                continue
+                continue  # don't notify ourself
             try:
                 with self._lock:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -327,7 +325,7 @@ class PdiDispatcher(Thread):
         Receive a command from the listener thread and dispatch it to subscribers.
         We do this in a separate thread so that the listener thread doesn't fall behind
         """
-        if pdi_req is not None and isinstance(pdi_req, PdiReq) and not pdi_req.is_ping:
+        if isinstance(pdi_req, PdiReq) and not pdi_req.is_ping:
             with self._cv:
                 self._queue.put(pdi_req)
                 self._cv.notify()  # wake up receiving thread
