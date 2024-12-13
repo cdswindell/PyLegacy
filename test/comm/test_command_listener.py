@@ -38,7 +38,7 @@ class TestCommandListener(TestBase):
         assert CommandListener.is_built() is False
         listener = CommandListener()
         assert listener.is_built() is True
-        assert listener.is_running is True
+        assert listener.is_running() is True
         assert isinstance(listener, CommandListener)
         assert listener is CommandListener()
         assert listener.baudrate == DEFAULT_BAUDRATE
@@ -57,7 +57,7 @@ class TestCommandListener(TestBase):
         listener.shutdown()
         assert CommandListener._instance is None
         assert listener.is_built() is False
-        assert listener.is_running is False
+        assert listener.is_running() is False
         assert CommandListener.is_built() is False
         assert listener != CommandListener()
 
@@ -65,9 +65,9 @@ class TestCommandListener(TestBase):
         listener = CommandListener.build(baudrate=57600)
         assert listener
         assert listener.is_built() is True
-        assert listener.is_running is True
+        assert listener.is_running() is True
         assert CommandListener.is_built() is True
-        assert CommandListener.is_running is True
+        assert CommandListener.is_running() is True
         assert listener.baudrate == 57600
         assert listener == CommandListener()
         assert CommandListener(baudrate=9600).baudrate == 57600  # original instance returned

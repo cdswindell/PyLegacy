@@ -74,12 +74,10 @@ class CommandListener(Thread):
     def is_built(cls) -> bool:
         return cls._instance is not None
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_running(cls) -> bool:
         # noinspection PyProtectedMember
-        return cls._instance is not None and cls._instance._is_running
+        return cls._instance is not None and cls._instance._is_running is True
 
     @classmethod
     def stop(cls) -> None:
@@ -339,12 +337,10 @@ class CommandDispatcher(Thread):
     ):
         cls.build().subscribe(listener, channel, address, command, data)
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_running(cls) -> bool:
         # noinspection PyProtectedMember
-        return cls._instance is not None and cls._instance._is_running
+        return cls._instance is not None and cls._instance._is_running is True
 
     @classmethod
     def is_built(cls) -> bool:

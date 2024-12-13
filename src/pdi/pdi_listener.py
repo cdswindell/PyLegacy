@@ -45,18 +45,14 @@ class PdiListener(Thread):
         else:
             raise AttributeError("Pdi Listener not initialized")
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_built(cls) -> bool:
         return cls._instance is not None
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_running(cls) -> bool:
         # noinspection PyProtectedMember
-        return cls._instance is not None and cls._instance._is_running
+        return cls._instance is not None and cls._instance._is_running is True
 
     @classmethod
     def enqueue_command(cls, data: bytes | PdiReq) -> None:
@@ -220,16 +216,12 @@ class PdiDispatcher(Thread):
         """
         return PdiDispatcher(queue_size)
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_running(cls) -> bool:
         # noinspection PyProtectedMember
-        return cls._instance is not None and cls._instance._is_running
+        return cls._instance is not None and cls._instance._is_running is True
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_built(cls) -> bool:
         return cls._instance is not None
 

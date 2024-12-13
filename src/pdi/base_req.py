@@ -244,7 +244,7 @@ class BaseReq(PdiReq):
     ) -> None:
         from .pdi_listener import PdiListener
 
-        if PdiListener.is_built:
+        if PdiListener.is_built():
             pdi_cmd = PdiCommand.BASE_ENGINE if scope == CommandScope.ENGINE else PdiCommand.BASE_TRAIN
             PdiListener.enqueue_command(BaseReq(address, pdi_cmd))
 
