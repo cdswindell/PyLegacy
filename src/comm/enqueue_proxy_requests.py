@@ -153,13 +153,14 @@ class EnqueueProxyRequests(Thread):
         # noinspection PyTypeChecker
         with ProxyServer(("", self._server_port), EnqueueHandler) as server:
             server.base3_addr = self._tmcc_buffer.base3_address
+            print(server.base3_addr)
             server.serve_forever()
 
 
 class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
         byte_stream = bytes()
-        print(self.server.base3_addr)
+        print(self.server.base3_addr, type(self.server))
         while True:
             data = self.request.recv(128)
             if data:
