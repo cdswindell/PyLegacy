@@ -76,14 +76,17 @@ class CommBuffer(abc.ABC):
         server: str = None,
         no_ser2=False,
     ) -> Self:
-        """
-        We only want one or the other of these buffers per process
-        """
-        server, port = cls.parse_server(server, port)
-        if server is None:
-            return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port, no_ser2=no_ser2)
-        else:
-            return CommBufferProxy(server, int(port))
+        with cls._lock:
+            if cls._instance:
+                return cls._instance
+            """
+            We only want one or the other of these buffers per process
+            """
+            server, port = cls.parse_server(server, port)
+            if server is None:
+                return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port, no_ser2=no_ser2)
+            else:
+                return CommBufferProxy(server, int(port))
 
     @classmethod
     def stop(cls) -> None:
@@ -314,7 +317,7 @@ class CommBufferProxy(CommBuffer):
             return cls._instance._port
         raise AttributeError("CommBufferProxy must be built first")
 
-    def __init__(self, server: IPv4Address | IPv6Address, port: int = DEFAULT_SERVER_PORT) -> None:
+    def __init__(self, server: IPv4Address | IPv6Address = None, port: int = DEFAULT_SERVER_PORT) -> None:
         if self._initialized:
             return
         else:
