@@ -124,6 +124,9 @@ class PyTrain:
         listeners = []
         self._pdi_buffer = None
         if isinstance(self.buffer, CommBufferSingleton):
+            # Remember Base 3 address on the comm buffer; it is an object that both
+            # clients and servers both have
+            self._tmcc_buffer.base3_address = self._base_addr
             # listen for client connections
             print(f"Listening for client requests on port {self._args.server_port}...")
             self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
@@ -133,14 +136,15 @@ class PyTrain:
                 base3_receiver=self._base_addr is not None,
             )
             listeners.append(self._tmcc_listener)
-            if self._no_ser2 is False:
-                print("Listening for Lionel LCS Ser2 broadcasts...")
+
             if self._base_addr is not None:
                 print(f"Listening for Lionel Base broadcasts on {self._base_addr}:{self._base_port}...")
                 self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
                 listeners.append(self._pdi_buffer)
                 self.buffer.is_use_base3 = True
-                self._tmcc_buffer.base3_address = self._base_addr
+
+            if self._no_ser2 is False:
+                print("Listening for Lionel LCS Ser2 broadcasts...")
 
             if self._pdi_buffer or self._no_ser2 is True:
                 print(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
