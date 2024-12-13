@@ -41,7 +41,7 @@ class ParameterCommandReq(MultiByteReq):
         return ParameterCommandReq(command, address, data, scope)
 
     @classmethod
-    def from_bytes(cls, param: bytes) -> Self:
+    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False) -> Self:
         if not param:
             raise ValueError("Command requires at least 9 bytes")
         if len(param) < 9:
@@ -67,7 +67,10 @@ class ParameterCommandReq(MultiByteReq):
                     # build_req the request and return
                     data = 0
                     address = cmd_enum.value.address_from_bytes(param[1:3])
-                    return ParameterCommandReq.build(cmd_enum, address, data, scope)
+                    cmd_req = ParameterCommandReq.build(cmd_enum, address, data, scope)
+                    if from_tmcc_rx is True:
+                        cmd_req._is_tmcc_rx = True
+                    return cmd_req
         raise ValueError(f"Invalid parameter command: : {param.hex(':')}")
 
     def __init__(

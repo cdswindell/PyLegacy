@@ -148,8 +148,8 @@ class Controller(Thread):
             if self._key_queue.is_clear:
                 self.change_scope(self._scope)
             elif self._key_queue.is_eol:
-                if self._key_queue.keypresses:
-                    self.update_engine(self._key_queue.keypresses)
+                if self._key_queue.key_presses:
+                    self.update_engine(self._key_queue.key_presses)
             elif key == "A":
                 self.change_scope(CommandScope.ENGINE)
             elif key == "B":

@@ -28,7 +28,7 @@ class R4LCCommandReq(MultiByteReq):
         return R4LCCommandReq(command, address, data, scope)
 
     @classmethod
-    def from_bytes(cls, param: bytes) -> Self:
+    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False) -> Self:
         if not param:
             raise ValueError("Command requires at least 9 bytes")
         if len(param) < 9:
@@ -50,7 +50,10 @@ class R4LCCommandReq(MultiByteReq):
                 scope = CommandScope.TRAIN
             # build_req the request and return
             address = cmd_enum.value.address_from_bytes(param[1:3])
-            return R4LCCommandReq.build(cmd_enum, address, data, scope)
+            cmd_req = R4LCCommandReq.build(cmd_enum, address, data, scope)
+            if from_tmcc_rx is True:
+                cmd_req._is_tmcc_rx = True
+            return cmd_req
         raise ValueError(f"Invalid R4LC command: : {param.hex(':')}")
 
     def __init__(

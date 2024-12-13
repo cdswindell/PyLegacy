@@ -27,8 +27,8 @@ class Lcd(CharLCD):
         rows: int = 4,
         cols: int = 20,
         scroll_speed: float = 0.5,
-        dotsize: int = 8,
-        charmap: str = "A02",
+        dot_size: int = 8,
+        char_map: str = "A02",
         auto_linebreaks: bool = False,
         backlight_enabled: bool = True,
     ):
@@ -40,8 +40,8 @@ class Lcd(CharLCD):
             port=port,
             cols=cols,
             rows=rows,
-            dotsize=dotsize,
-            charmap=charmap,
+            dotsize=dot_size,
+            charmap=char_map,
             auto_linebreaks=auto_linebreaks,
             backlight_enabled=backlight_enabled,
         )

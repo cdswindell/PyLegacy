@@ -34,7 +34,7 @@ class VariableCommandReq(MultiByteReq):
         return VariableCommandReq(command, address, data_bytes, scope)
 
     @classmethod
-    def from_bytes(cls, param: bytes) -> Self:
+    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False) -> Self:
         if not param or len(param) < 18:
             raise ValueError(f"Variable byte command requires at least 18 bytes {param.hex(':')}")
         if (
@@ -65,7 +65,10 @@ class VariableCommandReq(MultiByteReq):
                         f"Invalid Variable byte checksum: {param.hex(':')} != {cls.checksum(param[:-1]).hex()}"
                     )
                 # build_req the request and return
-                return VariableCommandReq.build(cmd_enum, address, data_bytes, scope)
+                cmd_req = VariableCommandReq.build(cmd_enum, address, data_bytes, scope)
+                if from_tmcc_rx is True:
+                    cmd_req._is_tmcc_rx = True
+                return cmd_req
         raise ValueError(f"Invalid Variable byte command: {param.hex(':')}")
 
     def __init__(

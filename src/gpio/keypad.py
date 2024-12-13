@@ -127,7 +127,7 @@ class Keypad(EventsMixin, CompositeDevice):
     repeated here for convenience
     """
 
-    def reset_keypresses(self) -> None:
+    def reset_key_presses(self) -> None:
         self._key_queue.reset()
         self._keypress = self._last_keypress = None
 
@@ -135,8 +135,8 @@ class Keypad(EventsMixin, CompositeDevice):
         return self._key_queue.wait_for_eol(timeout)
 
     @property
-    def keypresses(self) -> str:
-        return self._key_queue.keypresses
+    def key_presses(self) -> str:
+        return self._key_queue.key_presses
 
     @property
     def is_eol(self) -> bool:
@@ -343,7 +343,7 @@ class KeyQueue:
     __call__ = keypress_handler
 
     @property
-    def keypresses(self) -> str:
+    def key_presses(self) -> str:
         with self._cv:
             return "".join(self._deque)
 
@@ -379,5 +379,5 @@ class KeyQueue:
             self._eol_ev.wait(timeout)
             if self._eol_ev.is_set():
                 self._eol_ev.clear()
-                return self.keypresses
+                return self.key_presses
         return None

@@ -35,7 +35,7 @@ class MultiByteReq(CommandReq, ABC):
             return ParameterCommandReq.build(command, address, data, scope)
 
     @classmethod
-    def from_bytes(cls, param: bytes) -> Self:
+    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False) -> Self:
         if not param:
             raise ValueError("Command requires at least 9 bytes")
         if len(param) < 9:
@@ -50,15 +50,15 @@ class MultiByteReq(CommandReq, ABC):
             if prefix == TMCCPrefixEnum.PARAMETER:
                 from .param_command_req import ParameterCommandReq  # noqa: E402
 
-                return ParameterCommandReq.from_bytes(param)
+                return ParameterCommandReq.from_bytes(param, from_tmcc_rx)
             elif prefix == TMCCPrefixEnum.R4LC:
                 from .r4lc_command_req import R4LCCommandReq  # noqa: E402
 
-                return R4LCCommandReq.from_bytes(param)
+                return R4LCCommandReq.from_bytes(param, from_tmcc_rx)
             elif prefix == TMCCPrefixEnum.VARIABLE:
                 from src.protocol.multybyte.dcds_command_req import VariableCommandReq
 
-                return VariableCommandReq.from_bytes(param)
+                return VariableCommandReq.from_bytes(param, from_tmcc_rx)
         raise ValueError(f"Invalid multibyte command: : {param.hex(':')}")
 
     def __init__(
