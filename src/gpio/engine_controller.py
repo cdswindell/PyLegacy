@@ -154,24 +154,24 @@ class EngineController:
             self._horn_btn = None
 
         if boost_pin is not None:
-            self._boost_btn = GpioHandler.make_button(boost_pin, hold_repeat=True, hold_time=0.1)
+            self._boost_btn = GpioHandler.make_button(boost_pin, hold_repeat=True, hold_time=0.2)
             self._tmcc1_when_pushed[self._boost_btn] = CommandReq(TMCC1EngineCommandDef.BOOST_SPEED)
             self._tmcc2_when_pushed[self._boost_btn] = CommandReq(TMCC2EngineCommandDef.BOOST_SPEED)
 
             self._boost_btn.hold_repeat = True
-            self._boost_btn.hold_time = 0.1
+            self._boost_btn.hold_time = 0.2
             self._tmcc1_when_held[self._boost_btn] = self._tmcc1_when_pushed[self._boost_btn]
             self._tmcc2_when_held[self._boost_btn] = self._tmcc2_when_pushed[self._boost_btn]
         else:
             self._boost_btn = None
 
         if brake_pin is not None:
-            self._brake_btn = GpioHandler.make_button(brake_pin, hold_repeat=True, hold_time=0.1)
+            self._brake_btn = GpioHandler.make_button(brake_pin, hold_repeat=True, hold_time=0.2)
             self._tmcc1_when_pushed[self._brake_btn] = CommandReq(TMCC1EngineCommandDef.BRAKE_SPEED)
             self._tmcc2_when_pushed[self._brake_btn] = CommandReq(TMCC2EngineCommandDef.BRAKE_SPEED)
 
             self._brake_btn.hold_repeat = True
-            self._brake_btn.hold_time = 0.1
+            self._brake_btn.hold_time = 0.2
             self._tmcc1_when_held[self._brake_btn] = self._tmcc1_when_pushed[self._brake_btn]
             self._tmcc2_when_held[self._brake_btn] = self._tmcc2_when_pushed[self._brake_btn]
         else:
@@ -269,6 +269,11 @@ class EngineController:
             self._quilling_horn_cmd = QuillingHorn(channel=quilling_horn_chn, i2c_address=i2c_adc_address)
         else:
             self._quilling_horn_cmd = None
+
+        if train_brake_chn is not None:
+            self._train_brake_cmd = CommandReq(TMCC2EngineCommandDef.TRAIN_BRAKE)
+        else:
+            self._train_brake_cmd = None
 
     @property
     def tmcc_id(self) -> int:
