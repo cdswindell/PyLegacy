@@ -452,7 +452,6 @@ class GpioHandler:
         # if server isn't specified, try to figure it out
         if server is None:
             server = CommBuffer().base3_address
-            print("***", server)
         if server is None:
             print("Looking for Base 3 on local network...")
             server = find_base_address()
