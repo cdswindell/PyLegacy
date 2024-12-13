@@ -4,7 +4,7 @@ import logging
 import socketserver
 import threading
 from threading import Thread
-from typing import Dict
+from typing import Dict, cast
 
 from ..comm.comm_buffer import CommBuffer
 from ..protocol.command_req import CommandReq
@@ -24,7 +24,7 @@ REBOOT_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.REBOOT).as_bytes
 
 
 class ProxyServer(socketserver.ThreadingTCPServer):
-    __slots__ = "base3_addr"
+    __slots__ = "base3_addr", "ack"
 
 
 class EnqueueProxyRequests(Thread):
@@ -152,19 +152,23 @@ class EnqueueProxyRequests(Thread):
         """
         # noinspection PyTypeChecker
         with ProxyServer(("", self._server_port), EnqueueHandler) as server:
-            server.base3_addr = self._tmcc_buffer.base3_address
+            if self._tmcc_buffer.base3_address:
+                server.base3_addr = self._tmcc_buffer.base3_address
+                server.ack = str.encode(server.base3_addr)
+            else:
+                server.ack = str.encode("ack")
             server.serve_forever()
 
 
 class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
         byte_stream = bytes()
-        print(self.server.base3_addr, type(self.server))
+        ack = cast(ProxyServer, self.server).ack
         while True:
             data = self.request.recv(128)
             if data:
                 byte_stream += data
-                self.request.sendall(str.encode("ack"))
+                self.request.sendall(ack)
             else:
                 break
         if byte_stream[0] in {0xFF, 0xFE}:

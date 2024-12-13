@@ -344,6 +344,7 @@ class CommBufferProxy(CommBuffer):
                         s.connect((str(self._server), self._port))
                         s.sendall(command)
                         _ = s.recv(16)  # we don't care about the response
+                        print(_.decode("utf-8"))
                     return
                 except OSError as oe:
                     if oe.errno == 113:  # no route to host
