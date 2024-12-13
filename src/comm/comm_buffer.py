@@ -139,6 +139,10 @@ class CommBuffer(abc.ABC):
     @abc.abstractmethod
     def base3_address(self) -> str: ...
 
+    @base3_address.setter
+    @abc.abstractmethod
+    def base3_address(self, value: str) -> None: ...
+
 
 class CommBufferSingleton(CommBuffer, Thread):
     def __init__(

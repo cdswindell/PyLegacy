@@ -140,7 +140,7 @@ class PyTrain:
                 self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
                 listeners.append(self._pdi_buffer)
                 self.buffer.is_use_base3 = True
-                self._tmcc_buffer.base3_addr = self._base_addr
+                self._tmcc_buffer.base3_address = self._base_addr
 
             if self._pdi_buffer or self._no_ser2 is True:
                 print(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
