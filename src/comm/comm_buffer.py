@@ -76,17 +76,16 @@ class CommBuffer(abc.ABC):
         server: str = None,
         no_ser2=False,
     ) -> Self:
-        with cls._lock:
-            if cls._instance:
-                return cls._instance
-            """
-            We only want one or the other of these buffers per process
-            """
-            server, port = cls.parse_server(server, port)
-            if server is None:
-                return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port, no_ser2=no_ser2)
-            else:
-                return CommBufferProxy(server, int(port))
+        if cls._instance:
+            return cls._instance
+        """
+        We only want one or the other of these buffers per process
+        """
+        server, port = cls.parse_server(server, port)
+        if server is None:
+            return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port, no_ser2=no_ser2)
+        else:
+            return CommBufferProxy(server, int(port))
 
     @classmethod
     def stop(cls) -> None:
