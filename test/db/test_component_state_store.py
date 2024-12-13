@@ -23,13 +23,13 @@ def run_before_and_after_tests(tmpdir) -> None:
     yield  # this is where the testing happens
 
     # Teardown : fill with any logic you want
-    if CommandListener.is_built:
+    if CommandListener.is_built():
         CommandListener().shutdown()
-    assert CommandListener.is_built is False
+    assert CommandListener.is_built() is False
 
-    if CommandDispatcher.is_built:
+    if CommandDispatcher.is_built():
         CommandDispatcher().shutdown()
-    assert CommandDispatcher.is_built is False
+    assert CommandDispatcher.is_built() is False
 
 
 # noinspection PyMethodMayBeStatic

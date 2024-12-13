@@ -65,7 +65,6 @@ class EnqueueProxyRequests(Thread):
             # noinspection PyProtectedMember
             cls._instance._clients.pop(client, None)
 
-    # noinspection PyPropertyDefinition
     @classmethod
     def is_known_client(cls, ip_addr: str) -> bool:
         # noinspection PyProtectedMember
@@ -110,9 +109,7 @@ class EnqueueProxyRequests(Thread):
     def sync_complete_response(cls) -> bytes:
         return SYNC_COMPLETE_RESPONSE
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_built(cls) -> bool:
         return cls._instance is not None
 

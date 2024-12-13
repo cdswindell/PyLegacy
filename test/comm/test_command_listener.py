@@ -24,20 +24,20 @@ def run_before_and_after_tests(tmpdir) -> None:
     yield  # this is where the testing happens
 
     # Teardown : fill with any logic you want
-    if CommandListener.is_built:
+    if CommandListener.is_built():
         CommandListener().shutdown()
-    assert CommandListener.is_built is False
+    assert CommandListener.is_built() is False
 
-    if CommandDispatcher.is_built:
+    if CommandDispatcher.is_built():
         CommandDispatcher().shutdown()
-    assert CommandDispatcher.is_built is False
+    assert CommandDispatcher.is_built() is False
 
 
 class TestCommandListener(TestBase):
     def test_command_listener_singleton(self) -> None:
-        assert CommandListener.is_built is False
+        assert CommandListener.is_built() is False
         listener = CommandListener()
-        assert listener.is_built is True
+        assert listener.is_built() is True
         assert listener.is_running is True
         assert isinstance(listener, CommandListener)
         assert listener is CommandListener()
@@ -56,17 +56,17 @@ class TestCommandListener(TestBase):
         assert CommandListener._instance is not None
         listener.shutdown()
         assert CommandListener._instance is None
-        assert listener.is_built is False
+        assert listener.is_built() is False
         assert listener.is_running is False
-        assert CommandListener.is_built is False
+        assert CommandListener.is_built() is False
         assert listener != CommandListener()
 
     def test_command_listener_build(self) -> None:
         listener = CommandListener.build(baudrate=57600)
         assert listener
-        assert listener.is_built is True
+        assert listener.is_built() is True
         assert listener.is_running is True
-        assert CommandListener.is_built is True
+        assert CommandListener.is_built() is True
         assert CommandListener.is_running is True
         assert listener.baudrate == 57600
         assert listener == CommandListener()

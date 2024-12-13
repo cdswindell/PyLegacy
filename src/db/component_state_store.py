@@ -43,9 +43,7 @@ class ComponentStateStore:
         """
         return ComponentStateStore(topics, listeners, is_base=is_base, is_ser2=is_ser2)
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_built(cls) -> bool:
         return cls._instance is not None
 

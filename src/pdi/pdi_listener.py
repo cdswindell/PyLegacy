@@ -256,7 +256,7 @@ class PdiDispatcher(Thread):
         self._broadcasts = False
         self._queue = Queue[PdiReq](queue_size)
         self._tmcc_dispatcher = CommandDispatcher.build(queue_size)
-        self._server_port = EnqueueProxyRequests.server_port() if EnqueueProxyRequests.is_built else None
+        self._server_port = EnqueueProxyRequests.server_port() if EnqueueProxyRequests.is_built() else None
         self._server_ips = get_ip_address()
         self.start()
 

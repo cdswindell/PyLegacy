@@ -70,9 +70,7 @@ class CommandListener(Thread):
     ):
         cls.build().subscribe(listener, channel, address, command, data)
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_built(cls) -> bool:
         return cls._instance is not None
 
@@ -348,9 +346,7 @@ class CommandDispatcher(Thread):
         # noinspection PyProtectedMember
         return cls._instance is not None and cls._instance._is_running
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_built(cls) -> bool:
         return cls._instance is not None
 
@@ -385,7 +381,7 @@ class CommandDispatcher(Thread):
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
-        self._server_port = EnqueueProxyRequests.server_port() if EnqueueProxyRequests.is_built else None
+        self._server_port = EnqueueProxyRequests.server_port() if EnqueueProxyRequests.is_built() else None
         self._server_ips = get_ip_address()
         self.start()
 

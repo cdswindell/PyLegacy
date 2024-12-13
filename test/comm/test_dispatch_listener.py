@@ -29,13 +29,13 @@ def run_before_and_after_tests(tmpdir) -> None:
 
     # Teardown : fill with any logic you want
     CALLBACK_DICT.clear()
-    if CommandListener.is_built:
+    if CommandListener.is_built():
         CommandListener().shutdown()
-    assert CommandListener.is_built is False
+    assert CommandListener.is_built() is False
 
-    if CommandDispatcher.is_built:
+    if CommandDispatcher.is_built():
         CommandDispatcher().shutdown()
-    assert CommandDispatcher.is_built is False
+    assert CommandDispatcher.is_built() is False
 
 
 class TestCommandDispatcher(TestBase):
@@ -65,7 +65,7 @@ class TestCommandDispatcher(TestBase):
         super().teardown_method(test_method)
 
     def test_command_dispatcher_singleton(self) -> None:
-        assert CommandDispatcher.is_built is False
+        assert CommandDispatcher.is_built() is False
         dispatcher = CommandDispatcher()
         assert dispatcher.is_built
         assert dispatcher.is_running
@@ -88,9 +88,9 @@ class TestCommandDispatcher(TestBase):
         dispatcher.shutdown()
         assert dispatcher._instance is None
         assert CommandDispatcher._instance is None
-        assert dispatcher.is_built is False
+        assert dispatcher.is_built() is False
         assert dispatcher.is_running is False
-        assert CommandDispatcher.is_built is False
+        assert CommandDispatcher.is_built() is False
         assert dispatcher != CommandDispatcher()
         CommandDispatcher().shutdown()
         assert CommandDispatcher._instance is None
