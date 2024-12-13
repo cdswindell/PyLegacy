@@ -331,7 +331,7 @@ class CommBufferProxy(CommBuffer):
 
     @base3_address.setter
     def base3_address(self, value: str) -> None:
-        self._base3_address = value
+        pass
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if delay > 0:
@@ -343,8 +343,9 @@ class CommBufferProxy(CommBuffer):
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((str(self._server), self._port))
                         s.sendall(command)
-                        _ = s.recv(16)  # we don't care about the response
-                        print(_.decode("utf-8", "ignore"))
+                        resp = s.recv(16)  # we don't care about the response
+                        if self._base3_address is None:
+                            self._base3_address = resp.decode("utf-8", "ignore")
                     return
                 except OSError as oe:
                     if oe.errno == 113:  # no route to host

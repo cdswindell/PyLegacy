@@ -13,7 +13,6 @@ from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache, ComponentStateStore
 from ..gpio.state_source import SwitchStateSource, AccessoryStateSource, EngineStateSource
-from ..pdi.base3_buffer import Base3Buffer
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
@@ -452,10 +451,11 @@ class GpioHandler:
     ) -> Tuple[PingServer, LED, LED]:
         # if server isn't specified, try to figure it out
         if server is None:
-            try:
-                server = Base3Buffer.base_address()
-            except AttributeError:
-                server = find_base_address()
+            server = CommBuffer.base3_address
+            print("***", server)
+        if server is None:
+            print("Looking for Base 3 on local network...")
+            server = find_base_address()
             if server is None:
                 raise ValueError("Could not determine base address")
 
