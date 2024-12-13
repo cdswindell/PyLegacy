@@ -217,13 +217,13 @@ class PdiDispatcher(Thread):
         return PdiDispatcher(queue_size)
 
     @classmethod
+    def is_built(cls) -> bool:
+        return cls._instance is not None
+
+    @classmethod
     def is_running(cls) -> bool:
         # noinspection PyProtectedMember
         return cls._instance is not None and cls._instance._is_running is True
-
-    @classmethod
-    def is_built(cls) -> bool:
-        return cls._instance is not None
 
     def __new__(cls, *args, **kwargs):
         """
