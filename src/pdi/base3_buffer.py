@@ -36,17 +36,13 @@ class Base3Buffer(Thread):
             cls._instance.shutdown()
             cls._instance = None
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def get(cls) -> Base3Buffer:
         if cls._instance is None:
             raise AttributeError("Base3Buffer has not been initialized")
         return cls._instance
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def base_address(cls) -> str:
         if cls._instance is None:
             raise AttributeError("Base3Buffer has not been initialized")

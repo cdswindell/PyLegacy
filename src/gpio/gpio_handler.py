@@ -453,7 +453,7 @@ class GpioHandler:
         # if server isn't specified, try to figure it out
         if server is None:
             try:
-                server = Base3Buffer.base_address
+                server = Base3Buffer.base_address()
             except AttributeError:
                 server = find_base_address()
             if server is None:

@@ -91,31 +91,23 @@ class CommBuffer(abc.ABC):
             if cls._instance is not None:
                 cls._instance.shutdown()
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_built(cls) -> bool:
         return cls._instance is not None
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
     def is_server(cls) -> bool:
-        if cls.is_built is False:
+        if cls.is_built() is False:
             raise ValueError("CommBuffer is not built")
         return isinstance(cls._instance, CommBufferSingleton)
 
-    # noinspection PyPropertyDefinition
     @classmethod
-    @property
-    def no_ser2(cls) -> bool:
-        return True
-
-    # noinspection PyPropertyDefinition
-    @classmethod
-    @property
     def is_client(cls) -> bool:
         return isinstance(cls._instance, CommBufferProxy)
+
+    @classmethod
+    def no_ser2(cls) -> bool:
+        return True
 
     @classmethod
     def server_port(cls) -> int | None:
@@ -143,6 +135,10 @@ class CommBuffer(abc.ABC):
     @abc.abstractmethod
     def join(self) -> None: ...
 
+    @property
+    @abc.abstractmethod
+    def base3_address(self) -> str: ...
+
 
 class CommBufferSingleton(CommBuffer, Thread):
     def __init__(
@@ -167,6 +163,7 @@ class CommBufferSingleton(CommBuffer, Thread):
             self._queue = Queue(queue_size)
         else:
             self._queue = None
+        self._base3_address = None
         self._shutdown_signalled = False
         self._last_output_at = 0  # used to throttle writes to LCS SER2
         # if there is no Ser2, send commands via Base 3
@@ -178,6 +175,14 @@ class CommBufferSingleton(CommBuffer, Thread):
         # start the consumer threads
         self._scheduler = DelayHandler(self)
         self.start()
+
+    @property
+    def base3_address(self) -> str:
+        return self._base3_address
+
+    @base3_address.setter
+    def base3_address(self, value: str) -> None:
+        self._base3_address = value
 
     @staticmethod
     def _current_milli_time() -> int:
@@ -211,7 +216,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         if value is True and self._base3 is None:
             with self._lock:
                 if self._base3 is None:
-                    self._base3 = Base3Buffer.get
+                    self._base3 = Base3Buffer.get()
                 if self._tmcc_dispatcher is None:
                     self._tmcc_dispatcher = CommandDispatcher.get()
 
@@ -300,7 +305,7 @@ class CommBufferProxy(CommBuffer):
     @classmethod
     def server_port(cls) -> int | None:
         # noinspection PyProtectedMember
-        if cls.is_built is True and cls.is_client is True:
+        if cls.is_built() is True and cls.is_client() is True:
             # noinspection PyProtectedMember
             return cls._instance._port
         raise AttributeError("CommBufferProxy must be built first")
@@ -314,6 +319,15 @@ class CommBufferProxy(CommBuffer):
         self._scheduler = DelayHandler(self)
         self._server = server
         self._port = port
+        self._base3_address = None
+
+    @property
+    def base3_address(self) -> str:
+        return self._base3_address
+
+    @base3_address.setter
+    def base3_address(self, value: str) -> None:
+        self._base3_address = value
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if delay > 0:

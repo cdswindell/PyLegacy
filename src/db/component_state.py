@@ -1141,7 +1141,7 @@ class IrdaState(LcsState):
                                 IrdaSequence.SLOW_SPEED_NORMAL_SPEED,
                                 IrdaSequence.NORMAL_SPEED_SLOW_SPEED,
                             ]
-                            and CommBuffer.is_server
+                            and CommBuffer.is_server()
                         ):
                             rr_speed = None
                             if command.is_right_to_left:

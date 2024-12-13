@@ -248,9 +248,9 @@ class DependencyCache:
     def listen_for_enablers(cls, request: CommandReq, callback: Subscriber) -> List[E | Tuple[E, int]] | None:
         enablers = None
         if cls._instance is not None:
-            if CommBuffer.is_server:
+            if CommBuffer.is_server():
                 listener = CommandListener.build()
-            elif CommBuffer.is_client:
+            elif CommBuffer.is_client():
                 listener = ClientStateListener.build()
             else:
                 raise AttributeError("CommBuffer must be server or client")
@@ -268,9 +268,9 @@ class DependencyCache:
     def listen_for_disablers(cls, request: CommandReq, callback: Subscriber) -> List[E | Tuple[E, int]] | None:
         disablers = None
         if cls._instance is not None:
-            if CommBuffer.is_server:
+            if CommBuffer.is_server():
                 listener = CommandListener.build()
-            elif CommBuffer.is_client:
+            elif CommBuffer.is_client():
                 listener = ClientStateListener.build()
             else:
                 raise AttributeError("CommBuffer must be server or client")

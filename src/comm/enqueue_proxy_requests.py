@@ -23,6 +23,10 @@ UPGRADE_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.UPGRADE).as_bytes
 REBOOT_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.REBOOT).as_bytes
 
 
+class ProxyServer(socketserver.ThreadingTCPServer):
+    __slots__ = "base3_addr"
+
+
 class EnqueueProxyRequests(Thread):
     """
     Receives requests from PyTrain clients over TCP/IP and queues them for
@@ -147,13 +151,15 @@ class EnqueueProxyRequests(Thread):
         on the PyTrain server.
         """
         # noinspection PyTypeChecker
-        with socketserver.TCPServer(("", self._server_port), EnqueueHandler) as server:
+        with ProxyServer(("", self._server_port), EnqueueHandler) as server:
+            server.base3_addr = self._tmcc_buffer.base3_address
             server.serve_forever()
 
 
 class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
         byte_stream = bytes()
+        print(self.server.base3_addr)
         while True:
             data = self.request.recv(128)
             if data:
