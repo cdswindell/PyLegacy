@@ -1086,6 +1086,7 @@ class GpioHandler:
             # sleep for hold threshold, if button still active, do held_action
             # otherwise do pressed_action
             time.sleep(held_threshold)
+            print(btn)
             if btn.is_active:
                 held_action()
             else:
