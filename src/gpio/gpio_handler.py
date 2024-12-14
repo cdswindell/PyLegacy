@@ -1081,15 +1081,15 @@ class GpioHandler:
         return button
 
     @classmethod
-    def when_button_pushed_or_held_action(cls, pushed_action, held_action, held_threshold) -> Callable:
+    def when_button_pressed_or_held_action(cls, pressed_action, held_action, held_threshold) -> Callable:
         def func(btn: Button) -> None:
             # sleep for hold threshold, if button still active, do held_action
-            # otherwise do pushed_action
+            # otherwise do pressed_action
             time.sleep(held_threshold)
             if btn.is_active:
                 held_action()
             else:
-                pushed_action()
+                pressed_action()
 
         return func
 
