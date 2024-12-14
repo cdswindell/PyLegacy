@@ -440,7 +440,11 @@ class EngineController:
             for cmd in cmds:
                 cmd.address = self._tmcc_id
                 cmd.scope = scope
-            btn.when_pressed = GpioHandler.when_button_pressed_or_held_action(cmds[0].as_action, cmds[1].as_action, 0.2)
+            btn.when_pressed = GpioHandler.when_button_pressed_or_held_action(
+                cmds[0].as_action(),
+                cmds[1].as_action(),
+                0.2,
+            )
 
         # reset the rotary encoder handlers
         if speed_cmd:
