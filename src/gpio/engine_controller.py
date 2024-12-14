@@ -149,7 +149,10 @@ class EngineController:
         if shutdown_pin is not None:
             self._shutdown_btn = GpioHandler.make_button(shutdown_pin)
             self._tmcc1_when_pushed[self._shutdown_btn] = CommandReq(TMCC1EngineCommandDef.SHUTDOWN_DELAYED)
-            self._tmcc2_when_pushed[self._shutdown_btn] = CommandReq(TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE)
+            self._tmcc2_when_pushed_or_held[self._shutdown_btn] = (
+                CommandReq(TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE),
+                CommandReq(TMCC2EngineCommandDef.SHUTDOWN_DELAYED),
+            )
         else:
             self._shutdown_btn = None
 
