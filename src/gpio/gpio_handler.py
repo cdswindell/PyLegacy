@@ -9,6 +9,7 @@ from typing import Tuple, Callable, Dict, TypeVar, List
 from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice, PingServer
 
 from .controller import Controller, ControllerI2C
+from .keypad import KEYPAD_PCF8574_ADDRESS
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache, ComponentStateStore
@@ -331,7 +332,7 @@ class GpioHandler:
     @classmethod
     def controller(
         cls,
-        keypad_address: int | None = None,
+        keypad_address: int | None = KEYPAD_PCF8574_ADDRESS,
         row_pins: List[int | str] = None,
         column_pins: List[int | str] = None,
         speed_pins: List[int | str] = None,
