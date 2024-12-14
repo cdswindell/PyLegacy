@@ -20,6 +20,8 @@ class EngineController:
         reset_pin: int | str = None,
         fwd_pin: int | str = None,
         rev_pin: int | str = None,
+        front_coupler_pin: int | str = None,
+        rear_coupler_pin: int | str = None,
         start_up_pin: int | str = None,
         shutdown_pin: int | str = None,
         boost_pin: int | str = None,
@@ -118,6 +120,20 @@ class EngineController:
             self._tmcc2_when_pushed[self._rev_btn] = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION)
         else:
             self._rev_btn = None
+
+        if front_coupler_pin is not None:
+            self._fwd_cplr_btn = GpioHandler.make_button(front_coupler_pin)
+            self._tmcc1_when_pushed[self._fwd_cplr_btn] = CommandReq(TMCC1EngineCommandDef.FRONT_COUPLER)
+            self._tmcc2_when_pushed[self._fwd_cplr_btn] = CommandReq(TMCC2EngineCommandDef.FRONT_COUPLER)
+        else:
+            self._fwd_cplr_btn = None
+
+        if rear_coupler_pin is not None:
+            self._rev_cplr_btn = GpioHandler.make_button(rear_coupler_pin)
+            self._tmcc1_when_pushed[self._rev_cplr_btn] = CommandReq(TMCC1EngineCommandDef.REAR_COUPLER)
+            self._tmcc2_when_pushed[self._rev_cplr_btn] = CommandReq(TMCC2EngineCommandDef.REAR_COUPLER)
+        else:
+            self._rev_cplr_btn = None
 
         if start_up_pin is not None:
             self._start_up_btn = GpioHandler.make_button(start_up_pin)
