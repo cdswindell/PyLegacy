@@ -82,6 +82,8 @@ class EngineController:
         self._tmcc2_when_pushed = {}
         self._tmcc1_when_held = {}
         self._tmcc2_when_held = {}
+        self._tmcc1_when_pushed_or_held = {}
+        self._tmcc2_when_pushed_or_held = {}
 
         if speed_pin_1 is not None and speed_pin_2 is not None:
             from .py_rotary_encoder import PyRotaryEncoder
@@ -137,7 +139,10 @@ class EngineController:
 
         if start_up_pin is not None:
             self._start_up_btn = GpioHandler.make_button(start_up_pin)
-            self._tmcc2_when_pushed[self._start_up_btn] = CommandReq(TMCC2EngineCommandDef.START_UP_IMMEDIATE)
+            self._tmcc2_when_pushed_or_held[self._start_up_btn] = (
+                CommandReq(TMCC2EngineCommandDef.START_UP_IMMEDIATE),
+                CommandReq(TMCC2EngineCommandDef.START_UP_DELAYED),
+            )
         else:
             self._start_up_btn = None
 
@@ -385,6 +390,8 @@ class EngineController:
         scope: CommandScope = CommandScope.ENGINE,
         state: EngineState = None,
     ) -> None:
+        from .gpio_handler import GpioHandler
+
         """
         When a new engine/train is selected, redo the button bindings to
         reflect the new engine/train tmcc_id
@@ -404,6 +411,7 @@ class EngineController:
             speed_limit = 195
             when_pushed = self._tmcc2_when_pushed
             when_held = self._tmcc2_when_held
+            when_pushed_or_held = self._tmcc2_when_pushed_or_held
             speed_cmd = self._tmcc2_speed_cmd
             quilling_horn_cmd = self._quilling_horn_cmd
         else:
@@ -411,6 +419,7 @@ class EngineController:
             speed_limit = 27
             when_pushed = self._tmcc1_when_pushed
             when_held = self._tmcc1_when_held
+            when_pushed_or_held = self._tmcc1_when_pushed_or_held
             speed_cmd = self._tmcc1_speed_cmd
             quilling_horn_cmd = None
 
@@ -426,7 +435,12 @@ class EngineController:
             cmd.scope = scope
             btn.when_held = cmd.as_action()
 
-        from .gpio_handler import GpioHandler
+        # reset the when_pushed_or_held button handlers
+        for btn, cmds in when_pushed_or_held.items():
+            for cmd in cmds:
+                cmd.address = self._tmcc_id
+                cmd.scope = scope
+            btn.when_pushed = GpioHandler.when_button_pushed_or_held_action(cmds[0].as_action, cmds[1].as_action, 0.2)
 
         # reset the rotary encoder handlers
         if speed_cmd:
