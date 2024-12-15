@@ -212,6 +212,9 @@ LOCO_ACCESSORY = 4
 LOCO_TRACK_CRANE: int = 9
 TRACK_CRANE_STATE_NUMERICS: Set[int] = {1, 2, 3}
 
+RPM_TYPE = {0, 10, 13}
+STEAM_TYPE = {1, 11, 14}
+
 
 # Turn some of these into enums
 class ControlTypeDef:

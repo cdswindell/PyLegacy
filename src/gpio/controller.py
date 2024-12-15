@@ -258,7 +258,8 @@ class Controller(Thread):
                     if self._lcd.rows > 3:
                         row = f"Mom: {self._state.momentum_label:.1} "
                         row += f"TB: {self._state.train_brake_label:.1} "
-                        row += f"RPM: {self._state.rpm_label:.1}"
+                        if self._state.is_rpm:
+                            row += f"RPM: {self._state.rpm_label:.1}"
                         self._lcd.add(row)
             else:
                 tmcc_id_pos = 0

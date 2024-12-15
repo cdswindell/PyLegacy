@@ -28,6 +28,8 @@ from ..protocol.constants import (
     CONTROL_TYPE,
     LOCO_ACCESSORY,
     PROGRAM_NAME,
+    RPM_TYPE,
+    STEAM_TYPE,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux, TMCC1SyncCommandDef
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
@@ -953,6 +955,14 @@ class EngineState(ComponentState):
         if self._aux2 is not None:
             byte_str += CommandReq.build(self.aux2, self.address).as_bytes
         return byte_str
+
+    @property
+    def is_rpm(self) -> bool:
+        return self.engine_type in RPM_TYPE
+
+    @property
+    def is_steam(self) -> bool:
+        return self.engine_type in STEAM_TYPE
 
     @property
     def speed(self) -> int:

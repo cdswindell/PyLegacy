@@ -182,6 +182,8 @@ class Base3Buffer(Thread):
                                 log.exception(bpe)
                             keep_trying -= 1
                             break  # continues to outer loop
+                        except ValueError as ve:
+                            log.debug(ve)
                 except OSError as oe:
                     log.info(
                         f"No response from Lionel Base 3 at {self._base3_addr}; is the Base 3 turned on? Retrying..."
