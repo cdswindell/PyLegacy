@@ -64,6 +64,7 @@ class RampedSpeedReq(SequenceReq):
                     if cur_state.is_legacy and cur_state.is_rpm:
                         rpm = tmcc2_speed_to_rpm(speed)
                         if rpm != c_rpm:
+                            print(f"Setting RPM to: {rpm}")
                             self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
                             c_rpm = rpm
                     delay += delay_inc
@@ -73,6 +74,7 @@ class RampedSpeedReq(SequenceReq):
                     if cur_state.is_legacy and cur_state.is_rpm:
                         rpm = tmcc2_speed_to_rpm(speed)
                         if rpm != c_rpm:
+                            print(f"Setting RPM to: {rpm}")
                             self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
             else:
                 self.add(speed_enum, address, speed_req, scope)
