@@ -6,8 +6,8 @@ from ..pdi.base3_buffer import Base3Buffer
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
 from ..protocol.multybyte.multibyte_constants import TMCC2EffectsControl
+from ..protocol.sequence.abs_speed_rpm import AbsoluteSpeedRpm
 from ..protocol.sequence.labor_effect import LaborEffectUpReq, LaborEffectDownReq
-from ..protocol.sequence.sequence_constants import SequenceCommandEnum
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1EngineCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
@@ -99,7 +99,7 @@ class EngineController:
             }
             self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False, ramp=ramp, max_steps=100)
             self._tmcc1_speed_cmd = CommandReq(TMCC1EngineCommandDef.ABSOLUTE_SPEED)
-            self._tmcc2_speed_cmd = CommandReq(SequenceCommandEnum.ABSOLUTE_SPEED_RPM)
+            self._tmcc2_speed_cmd = AbsoluteSpeedRpm()
         else:
             self._speed_re = None
 

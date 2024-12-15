@@ -2,20 +2,18 @@ from __future__ import annotations
 
 
 from .sequence_req import SequenceReq
-from ..constants import CommandScope
+from ..constants import CommandScope, DEFAULT_ADDRESS
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, tmcc2_speed_to_rpm
 
 
 class AbsoluteSpeedRpm(SequenceReq):
     def __init__(
         self,
-        address: int,
+        address: int = DEFAULT_ADDRESS,
         scope: CommandScope = CommandScope.ENGINE,
         data: int = 0,
-        inc: int = 0,
     ) -> None:
         super().__init__(address, scope)
-        self._inc = inc
         self._scope = scope
         self._data = data
         self._state = None
