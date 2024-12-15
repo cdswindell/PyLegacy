@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
-from time import sleep
 from typing import List, Callable, TypeVar, Tuple
 
 import sys
@@ -139,9 +138,9 @@ class SequenceReq(CommandReq, Sequence):
                 if new_address and new_address != request.address:
                     request.address = new_address
                 if new_data != self.data:
-                    self.data = new_data
+                    request.data = new_data
                 request._enqueue_command(
-                    self.as_bytes,
+                    request.as_bytes,
                     repeat=sq_request.repeat,
                     delay=sq_request.delay,
                     baudrate=baudrate,
@@ -149,7 +148,6 @@ class SequenceReq(CommandReq, Sequence):
                     server=server,
                     buffer=buffer,
                 )
-                sleep(0.01)
 
         return send_func
 
