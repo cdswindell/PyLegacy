@@ -80,7 +80,8 @@ class SequenceReq(CommandReq, Sequence):
     def _apply_data(self, new_data: int = None) -> int:
         for req_wrapper in self._requests:
             req = req_wrapper.request
-            req.data = self.data
+            if req.is_data:
+                req.data = self.data
         return 0
 
     def add(
@@ -131,11 +132,13 @@ class SequenceReq(CommandReq, Sequence):
     ) -> Callable:
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
 
-        def send_func(new_address: int = None) -> None:
+        def send_func(new_address: int = None, new_data: int = None) -> None:
             for sq_request in self._requests:
                 request = sq_request.request
                 if new_address and new_address != request.address:
                     request.address = new_address
+                if new_data != self.data:
+                    self.data = new_data
                 request._enqueue_command(
                     self.as_bytes,
                     repeat=sq_request.repeat,
