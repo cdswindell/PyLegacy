@@ -78,6 +78,9 @@ class SequenceReq(CommandReq, Sequence):
         return 0
 
     def _apply_data(self, new_data: int = None) -> int:
+        for req_wrapper in self._requests:
+            req = req_wrapper.request
+            req.data = self.data
         return 0
 
     def add(

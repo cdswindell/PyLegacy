@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, Type
 
+from .abs_speed_rpm import AbsoluteSpeedRpm
 from .grade_crossing_req import GradeCrossingReq
 from .labor_effect import LaborEffectUpReq, LaborEffectDownReq
 from .ramped_speed_req import RampedSpeedReq, RampedSpeedDialogReq
@@ -64,3 +65,4 @@ class SequenceCommandEnum(CommandDefEnum):
     GRADE_CROSSING_SEQ = SequenceDef(4, cmd_class=GradeCrossingReq)
     LABOR_EFFECT_DOWN_SEQ = SequenceDef(5, cmd_class=LaborEffectDownReq)
     LABOR_EFFECT_UP_SEQ = SequenceDef(5, cmd_class=LaborEffectUpReq)
+    ABSOLUTE_SPEED_RPM = SequenceDef(6, d_max=199, cmd_class=AbsoluteSpeedRpm)
