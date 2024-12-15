@@ -362,14 +362,14 @@ for tmcc2_enum in [TMCC2EngineCommandDef, TMCC2HaltCommandDef, TMCC2RouteCommand
 # Speed to RPM Map
 TMCC2_SPEED_TO_RPM = RangeKeyDict(
     {
-        (0, 3): 0,
-        (4, 28): 1,
-        (29, 56): 2,
-        (57, 85): 3,
-        (86, 113): 4,
-        (114, 142): 5,
-        (143, 170): 6,
-        (171, 199): 7,
+        (0, 4): 0,
+        (4, 29): 1,
+        (29, 57): 2,
+        (57, 86): 3,
+        (86, 114): 4,
+        (114, 143): 5,
+        (143, 171): 6,
+        (171, 201): 7,
     }
 )
 
