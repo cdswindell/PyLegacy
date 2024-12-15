@@ -36,6 +36,7 @@ class AbsoluteSpeedRpm(SequenceReq):
             raise AttributeError(f"Scope {new_scope} not supported for {self}")
 
     def _apply_data(self, new_data: int = None) -> int:
+        print(f"In AbsoluteSpeedRpm._apply_data: {new_data}")
         for req_wrapper in self._requests:
             req = req_wrapper.request
             if req.command == TMCC2EngineCommandDef.ABSOLUTE_SPEED:

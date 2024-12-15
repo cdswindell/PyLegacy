@@ -133,7 +133,7 @@ class SequenceReq(CommandReq, Sequence):
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
 
         def send_func(new_address: int = None, new_data: int = None) -> None:
-            print(f"New Data: {new_data}")
+            print(f"New Data: {new_data} {self.data} {self}")
             if new_address and new_address != self.address:
                 self.address = new_address
             if new_data != self.data:
