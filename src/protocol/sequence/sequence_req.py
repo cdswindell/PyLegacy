@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from time import sleep
 from typing import List, Callable, TypeVar, Tuple
 
 import sys
@@ -148,6 +149,7 @@ class SequenceReq(CommandReq, Sequence):
                     server=server,
                     buffer=buffer,
                 )
+                sleep(0.01)
 
         return send_func
 
