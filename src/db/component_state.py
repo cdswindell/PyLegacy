@@ -994,7 +994,7 @@ class EngineState(ComponentState):
 
     @property
     def rpm(self) -> int:
-        return self._rpm
+        return self._rpm if self.is_rpm else 0
 
     @property
     def rpm_label(self) -> str:

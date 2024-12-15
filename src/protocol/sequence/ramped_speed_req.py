@@ -3,7 +3,7 @@ from __future__ import annotations
 from .sequence_req import SequenceReq, T
 from ..constants import CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandDef
-from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, tmcc2_speed_to_rpm
 from ...db.component_state_store import ComponentStateStore
 
 
@@ -35,6 +35,9 @@ class RampedSpeedReq(SequenceReq):
             else:
                 speed_enum = TMCC1EngineCommandDef.ABSOLUTE_SPEED if is_tmcc else TMCC2EngineCommandDef.ABSOLUTE_SPEED
                 self.add(speed_enum, address, speed_req, scope)
+                if is_tmcc is False:
+                    rpm = tmcc2_speed_to_rpm(speed_req)
+                    self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=4)
         else:
             speed_enum = (
                 TMCC2EngineCommandDef.ABSOLUTE_SPEED if cur_state.is_legacy else TMCC1EngineCommandDef.ABSOLUTE_SPEED
@@ -46,6 +49,7 @@ class RampedSpeedReq(SequenceReq):
             cs = cur_state.speed
             delay = 0.0
             inc = 3
+            c_rpm = cur_state.rpm
             if cur_state.momentum is not None:
                 delay_inc = 0.200 + (cur_state.momentum * 0.010)
                 inc = 2 if cur_state.momentum >= 6 else inc
@@ -57,10 +61,19 @@ class RampedSpeedReq(SequenceReq):
             if ramp:
                 for speed in ramp:
                     self.add(speed_enum, address, speed, scope, delay=delay)
+                    if cur_state.is_legacy and cur_state.is_rpm:
+                        rpm = tmcc2_speed_to_rpm(speed)
+                        if rpm != c_rpm:
+                            self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
+                            c_rpm = rpm
                     delay += delay_inc
                 # make sure the final speed is requested
                 if ramp[-1] != speed_req:
                     self.add(speed_enum, address, speed_req, scope, delay=delay)
+                    if cur_state.is_legacy and cur_state.is_rpm:
+                        rpm = tmcc2_speed_to_rpm(speed)
+                        if rpm != c_rpm:
+                            self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
             else:
                 self.add(speed_enum, address, speed_req, scope)
             # issue engineer dialog, if requested

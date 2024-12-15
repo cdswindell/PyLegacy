@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .sequence_req import SequenceReq, T
 from ..constants import CommandScope
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, tmcc2_speed_to_rpm
 
 
 class SpeedReq(SequenceReq):
@@ -13,7 +14,10 @@ class SpeedReq(SequenceReq):
         is_tmcc: bool = False,
     ) -> None:
         super().__init__(address, scope)
-        t, s, _, e = self.decode_rr_speed(speed, is_tmcc)
+        t, s, sp, e = self.decode_rr_speed(speed, is_tmcc)
         self.add(t, address, scope=scope)
         self.add(s, address, scope=scope, delay=3)
+        if is_tmcc is False:
+            rpm = tmcc2_speed_to_rpm(sp)
+            self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=4)
         self.add(e, address, scope=scope, delay=6)

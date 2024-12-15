@@ -248,6 +248,7 @@ class PyTrain:
             # sleep for a few seconds to give the server time to catch up and restart
             sleep(10)
         os.system("git pull")
+        os.system("pip install -r requirements.txt")
         os.execv(__file__, sys.argv)
 
     def upgrade(self) -> None:

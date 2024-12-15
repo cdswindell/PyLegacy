@@ -4,6 +4,8 @@ import abc
 from enum import unique
 from typing import Dict, Tuple
 
+from range_key_dict import RangeKeyDict
+
 from src.protocol.command_def import CommandDef, CommandDefEnum
 from src.protocol.constants import CommandPrefix, CommandScope, RELATIVE_SPEED_MAP, CommandSyntax, DEFAULT_ENGINE_LABOR
 from src.protocol.constants import OfficialRRSpeeds, DEFAULT_ADDRESS
@@ -356,3 +358,21 @@ for tmcc2_enum in [TMCC2EngineCommandDef, TMCC2HaltCommandDef, TMCC2RouteCommand
     for enum in tmcc2_enum:
         if enum.is_alias:
             TMCC2_COMMAND_TO_ALIAS_MAP[enum.alias] = enum
+
+# Speed to RPM Map
+TMCC2_SPEED_TO_RPM = RangeKeyDict(
+    {
+        (0, 3): 0,
+        (4, 28): 1,
+        (29, 56): 2,
+        (57, 85): 3,
+        (86, 113): 4,
+        (114, 142): 5,
+        (143, 170): 6,
+        (171, 199): 7,
+    }
+)
+
+
+def tmcc2_speed_to_rpm(speed: int) -> int:
+    return TMCC2_SPEED_TO_RPM[speed]
