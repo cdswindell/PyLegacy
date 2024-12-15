@@ -133,12 +133,12 @@ class SequenceReq(CommandReq, Sequence):
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
 
         def send_func(new_address: int = None, new_data: int = None) -> None:
+            if new_address and new_address != self.address:
+                self.address = new_address
+            if new_data != self.data:
+                self.data = new_data
             for sq_request in self._requests:
                 request = sq_request.request
-                if new_address and new_address != request.address:
-                    request.address = new_address
-                if new_data != self.data:
-                    request.data = new_data
                 request._enqueue_command(
                     request.as_bytes,
                     repeat=sq_request.repeat,
