@@ -268,7 +268,6 @@ class ComponentState(ABC):
                 if hasattr(command, "spare_1"):
                     self._spare_1 = command.spare_1
         self._last_updated = time()
-        print(f"Last_command: {self._last_command} --> {command}")
         self._last_command = command
 
     @property
@@ -807,7 +806,6 @@ class EngineState(ComponentState):
 
                 # handle run level/rpm
                 if command.command in RPM_SET:
-                    print(f"Setting RPM to: {command.data}")
                     self._rpm = command.data
                 elif cmd_effects & RPM_SET:
                     rpm = self._harvest_effect(cmd_effects & RPM_SET)
@@ -923,6 +921,7 @@ class EngineState(ComponentState):
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
             self.changed.set()
+            print(f"Notifying all of:{command}")
             self._cv.notify_all()
 
     def as_bytes(self) -> bytes:
