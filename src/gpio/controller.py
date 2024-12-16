@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from queue import Queue
 from threading import Thread, Lock
 from time import sleep
 from typing import List
@@ -139,7 +138,6 @@ class Controller(Thread):
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
             self.update_display()
-        self._refresh_notifier = RefreshNotifier(self)
 
     @property
     def engine_controller(self) -> EngineController:
@@ -171,7 +169,7 @@ class Controller(Thread):
     def monitor_state_updates(self):
         if self._state_watcher:
             self._state_watcher.shutdown()
-        self._state_watcher = StateWatcher(self._state, self.state_updated)
+        self._state_watcher = StateWatcher(self._state, self.on_state_update)
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
@@ -180,9 +178,6 @@ class Controller(Thread):
             self._synchronized = True
             self.start()
             self.update_display()
-
-    def state_updated(self) -> None:
-        self._refresh_notifier.refresh_request()
 
     def on_state_update(self) -> None:
         cur_speed = self._state.speed if self._state else None
@@ -370,25 +365,3 @@ class ControllerI2C(Controller):
             lcd_cols=lcd_cols,
             keypad=keypad,
         )
-
-
-class RefreshNotifier(Thread):
-    def __init__(self, controller: Controller) -> None:
-        super().__init__(daemon=True)
-        self._controller = controller
-        self._is_running = True
-        self._queue = Queue(32)
-        self.start()
-
-    def run(self) -> None:
-        while self._is_running:
-            data = None
-            try:
-                data = self._queue.get(block=True)
-                self._controller.on_state_update()
-            finally:
-                if data is not None:
-                    self._queue.task_done()
-
-    def refresh_request(self):
-        self._queue.put(True)

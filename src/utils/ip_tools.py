@@ -21,6 +21,10 @@ def get_ip_address() -> List[str]:
             attempts += 1
             if attempts >= 10:
                 raise ge
+        except socket.herror as he:
+            attempts += 1
+            if attempts >= 10:
+                raise he
 
     filtered_ips = [ip for ip in ip_addresses if not ip.startswith("127.")]
     return filtered_ips
