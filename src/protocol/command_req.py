@@ -284,7 +284,7 @@ class CommandReq:
 
     @data.setter
     def data(self, new_data: int) -> None:
-        print(f"CommandReq.data_setter: {new_data} {self.data} {self.is_data} {self.command_def.bits} {self}")
+        print(f"CommandReq.data_setter: {new_data} {self.data} {self.is_data} {self.command.name} {self}")
         if self.is_data and new_data != self._data:
             self._data = new_data
             self._apply_data()
