@@ -26,7 +26,14 @@ class SequenceDef(TMCC2CommandDef):
         d_map: Dict[int, int] = None,
         cmd_class: Type[SequenceReq] = None,
     ) -> None:
-        super().__init__(command_bits, scope, is_addressable, d_min, d_max, d_map)
+        super().__init__(
+            command_bits,
+            scope=scope,
+            is_addressable=is_addressable,
+            d_min=d_min,
+            d_max=d_max,
+            d_map=d_map,
+        )
         self._cmd_class = cmd_class
 
     def cmd_class(self) -> Type[SequenceReq]:
