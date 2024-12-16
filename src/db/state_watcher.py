@@ -23,7 +23,9 @@ class StateWatcher(Thread):
 
     def run(self) -> None:
         while self._state is not None and self._is_running:
+            print("Waiting for synchronizer lock...")
             with self._state.synchronizer:
+                print("Waiting for change notification (releasing lock)...")
                 self._state.synchronizer.wait()
                 print(f"Received change notification: {self._state.last_command}")
                 if self._is_running:

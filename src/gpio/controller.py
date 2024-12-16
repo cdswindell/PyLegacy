@@ -183,7 +183,8 @@ class Controller(Thread):
             self._last_known_speed = cur_speed
             if self._engine_controller:
                 self._engine_controller.on_speed_changed(cur_speed)
-        self.refresh_display()
+        with self._state.synchronizer:
+            self.refresh_display()
 
     def cache_engine(self):
         if self._tmcc_id != self._last_tmcc_id:
