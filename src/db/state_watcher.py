@@ -29,4 +29,4 @@ class StateWatcher(Thread):
                 self._state.synchronizer.wait()
                 print(f"*** Received change notification: {self._state.last_command}")
                 if self._is_running:
-                    self._action()
+                    pass  # self._action()
