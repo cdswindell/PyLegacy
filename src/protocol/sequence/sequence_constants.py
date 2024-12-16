@@ -1,21 +1,15 @@
 from __future__ import annotations
 
-from typing import Dict, Type
-
-from .abs_speed_rpm import AbsoluteSpeedRpm
-from .grade_crossing_req import GradeCrossingReq
-from .labor_effect import LaborEffectUpReq, LaborEffectDownReq
-from .ramped_speed_req import RampedSpeedReq, RampedSpeedDialogReq
-from .speed_req import SpeedReq
+from typing import Dict, TypeVar
 
 from ..command_def import CommandDefEnum
 from ..constants import CommandScope, CommandSyntax
 from ..tmcc2.tmcc2_constants import TMCC2CommandDef
 
+S = TypeVar("S", bound="SequenceDef")
+
 
 class SequenceDef(TMCC2CommandDef):
-    from .sequence_req import SequenceReq
-
     def __init__(
         self,
         command_bits: int,
@@ -24,7 +18,7 @@ class SequenceDef(TMCC2CommandDef):
         d_min: int = 0,
         d_max: int = 0,
         d_map: Dict[int, int] = None,
-        cmd_class: Type[SequenceReq] = None,
+        cmd_class: S = None,
     ) -> None:
         super().__init__(
             command_bits,
@@ -36,8 +30,12 @@ class SequenceDef(TMCC2CommandDef):
         )
         self._cmd_class = cmd_class
 
-    def cmd_class(self) -> Type[SequenceReq]:
+    def cmd_class(self) -> S:
         return self._cmd_class
+
+    def register_cmd_class(self, cmd_class: S) -> None:
+        if self._cmd_class is None:
+            self._cmd_class = cmd_class
 
     @property
     def scope(self) -> CommandScope | None:
@@ -65,11 +63,10 @@ class SequenceDef(TMCC2CommandDef):
 
 
 class SequenceCommandEnum(CommandDefEnum):
-    SYSTEM = SequenceDef(0x00)
-    ABSOLUTE_SPEED_SEQ = SequenceDef(1, d_max=199, cmd_class=SpeedReq)
-    RAMPED_SPEED_SEQ = SequenceDef(2, d_max=199, cmd_class=RampedSpeedReq)
-    RAMPED_SPEED_DIALOG_SEQ = SequenceDef(3, d_max=199, cmd_class=RampedSpeedDialogReq)
-    GRADE_CROSSING_SEQ = SequenceDef(4, cmd_class=GradeCrossingReq)
-    LABOR_EFFECT_DOWN_SEQ = SequenceDef(5, cmd_class=LaborEffectDownReq)
-    LABOR_EFFECT_UP_SEQ = SequenceDef(5, cmd_class=LaborEffectUpReq)
-    ABSOLUTE_SPEED_RPM = SequenceDef(6, d_max=199, cmd_class=AbsoluteSpeedRpm)
+    ABSOLUTE_SPEED_SEQ = SequenceDef(1, d_max=199)
+    RAMPED_SPEED_SEQ = SequenceDef(2, d_max=199)
+    RAMPED_SPEED_DIALOG_SEQ = SequenceDef(3, d_max=199)
+    GRADE_CROSSING_SEQ = SequenceDef(4)
+    LABOR_EFFECT_DOWN_SEQ = SequenceDef(5)
+    LABOR_EFFECT_UP_SEQ = SequenceDef(6)
+    ABSOLUTE_SPEED_RPM = SequenceDef(7, d_max=199)

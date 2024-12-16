@@ -11,8 +11,16 @@ def get_ip_address() -> List[str]:
     hostname = socket.gethostname()
     hostname = hostname if hostname.endswith(".local") else hostname + ".local"
 
-    # Step 2: Get a list of IP addresses associated with the hostname.
-    ip_addresses = socket.gethostbyname_ex(hostname)[2]
+    # Step 2: Get a list of IP addresses associated with the hostname
+    ip_addresses = []
+    attempts = 0
+    while len(ip_addresses) == 0 and attempts < 10:
+        try:
+            ip_addresses = socket.gethostbyname_ex(hostname)[2]
+        except socket.gaierror as ge:
+            attempts += 1
+            if attempts >= 10:
+                raise ge
 
     filtered_ips = [ip for ip in ip_addresses if not ip.startswith("127.")]
     return filtered_ips

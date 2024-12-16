@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from abc import ABC, ABCMeta
+
+from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq, T
 from ..constants import CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandDef
@@ -7,16 +10,19 @@ from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, tmcc2_speed_to_rpm
 from ...db.component_state_store import ComponentStateStore
 
 
-class RampedSpeedReq(SequenceReq):
+class RampedSpeedReqBase(SequenceReq, ABC):
+    __metaclass__ = ABCMeta
+
     def __init__(
         self,
+        command: SequenceCommandEnum,
         address: int,
         speed: int | str | T = None,
         scope: CommandScope = CommandScope.ENGINE,
         dialog: bool = False,
         is_tmcc: bool = False,
     ) -> None:
-        super().__init__(address, scope)
+        super().__init__(command, address, scope)
         tower, s, speed_req, engr = self.decode_rr_speed(speed, is_tmcc)
         # if an integer speed was provided, use it, otherwise, rely on rr speed
         # # provided by decode call; only do this if dialogs are NOT requested
@@ -83,7 +89,20 @@ class RampedSpeedReq(SequenceReq):
                 self.add(engr, address, scope=scope, delay=delay)
 
 
-class RampedSpeedDialogReq(RampedSpeedReq):
+class RampedSpeedReq(RampedSpeedReqBase):
+    def __init__(
+        self,
+        address: int,
+        speed: int | str | T = None,
+        scope: CommandScope = CommandScope.ENGINE,
+    ) -> None:
+        super().__init__(SequenceCommandEnum.RAMPED_SPEED_SEQ, address, speed, scope)
+
+
+SequenceCommandEnum.RAMPED_SPEED_SEQ.value.register_cmd_class(RampedSpeedReq)
+
+
+class RampedSpeedDialogReq(RampedSpeedReqBase):
     def __init__(
         self,
         address: int,
@@ -91,4 +110,14 @@ class RampedSpeedDialogReq(RampedSpeedReq):
         scope: CommandScope = CommandScope.ENGINE,
         is_tmcc: bool = False,
     ) -> None:
-        super().__init__(address, speed, scope, dialog=True, is_tmcc=is_tmcc)
+        super().__init__(
+            SequenceCommandEnum.RAMPED_SPEED_DIALOG_SEQ,
+            address,
+            speed,
+            scope,
+            dialog=True,
+            is_tmcc=is_tmcc,
+        )
+
+
+SequenceCommandEnum.RAMPED_SPEED_DIALOG_SEQ.value.register_cmd_class(RampedSpeedDialogReq)

@@ -3,23 +3,25 @@ from __future__ import annotations
 import abc
 from abc import ABC
 
+from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq
 from ..constants import CommandScope, DEFAULT_ADDRESS
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from ...db.component_state_store import ComponentStateStore
 
 
-class LaborEffect(SequenceReq, ABC):
+class LaborEffectBase(SequenceReq, ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(
         self,
+        command: SequenceCommandEnum,
         address: int,
         scope: CommandScope = CommandScope.ENGINE,
         data: int = 0,
         inc: int = 0,
     ) -> None:
-        super().__init__(address, scope)
+        super().__init__(command, address, scope)
         self._inc = inc
         self._scope = scope
         self._data = data
@@ -51,21 +53,27 @@ class LaborEffect(SequenceReq, ABC):
                 req.data = labor
 
 
-class LaborEffectUpReq(LaborEffect):
+class LaborEffectUpReq(LaborEffectBase):
     def __init__(
         self,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
-        super().__init__(address, scope, data, 1)
+        super().__init__(SequenceCommandEnum.LABOR_EFFECT_UP_SEQ, address, scope, data, 1)
 
 
-class LaborEffectDownReq(LaborEffect):
+SequenceCommandEnum.LABOR_EFFECT_UP_SEQ.value.register_cmd_class(LaborEffectUpReq)
+
+
+class LaborEffectDownReq(LaborEffectBase):
     def __init__(
         self,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
-        super().__init__(address, scope, data, -1)
+        super().__init__(SequenceCommandEnum.LABOR_EFFECT_DOWN_SEQ, address, scope, data, -1)
+
+
+SequenceCommandEnum.LABOR_EFFECT_DOWN_SEQ.value.register_cmd_class(LaborEffectDownReq)

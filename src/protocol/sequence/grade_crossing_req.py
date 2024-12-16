@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import CommandScope
+from src.protocol.sequence.sequence_constants import SequenceCommandEnum
 from src.protocol.sequence.sequence_req import SequenceReq
 from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 
 class GradeCrossingReq(SequenceReq):
     def __init__(self, address: int, data: int, scope: CommandScope = CommandScope.ENGINE) -> None:
-        super().__init__(address, scope)
+        super().__init__(SequenceCommandEnum.GRADE_CROSSING_SEQ, address, scope)
         self._data = data
         req15 = CommandReq(TMCC2EngineCommandDef.QUILLING_HORN_INTENSITY, address, 15, scope)
         req8 = CommandReq(TMCC2EngineCommandDef.QUILLING_HORN_INTENSITY, address, 8, scope)
@@ -42,3 +43,6 @@ class GradeCrossingReq(SequenceReq):
         for _ in range(3):
             self.add(req4, delay=delay)
         self.add(req0, delay=delay)
+
+
+SequenceCommandEnum.GRADE_CROSSING_SEQ.value.register_cmd_class(GradeCrossingReq)

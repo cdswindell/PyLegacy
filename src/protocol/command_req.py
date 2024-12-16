@@ -29,7 +29,7 @@ E = TypeVar("E", bound=CommandDefEnum)
 class CommandReq:
     @classmethod
     def build(
-        cls, command: CommandDefEnum | bytes, address: int = DEFAULT_ADDRESS, data: int = 0, scope: CommandScope = None
+        cls, command: E | bytes, address: int = DEFAULT_ADDRESS, data: int = 0, scope: CommandScope = None
     ) -> Self:
         if isinstance(command, bytes):
             return cls.from_bytes(bytes(command))
@@ -46,7 +46,10 @@ class CommandReq:
             from src.protocol.multybyte.param_command_req import MultiByteReq
 
             return MultiByteReq.build(command, address, data, scope)
-        return CommandReq(command, address, data, scope)
+        elif isinstance(command, CommandDefEnum):
+            return CommandReq(command, address, data, scope)
+        else:
+            raise TypeError(f"Command type not recognized {command}")
 
     @classmethod
     def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False) -> Self:
@@ -82,7 +85,7 @@ class CommandReq:
     @classmethod
     def build_action(
         cls,
-        command: CommandDefEnum | None,
+        command: E | None,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
         scope: CommandScope = None,
@@ -212,13 +215,14 @@ class CommandReq:
 
     def __init__(
         self,
-        command_def_enum: CommandDefEnum,
+        command_def_enum: E,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
         scope: CommandScope = None,
     ) -> None:
-        self._command_def_enum = command_def_enum
+        self._command_def_enum: E = command_def_enum
         self._command_name = self._command_def_enum.name
+        # noinspection PyTypeChecker
         self._command_def: TMCC2CommandDef = command_def_enum.value  # read only; do not modify
         if self._command_def.is_addressable:
             self._address = address

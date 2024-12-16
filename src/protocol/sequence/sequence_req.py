@@ -27,28 +27,33 @@ T = TypeVar("T", TMCC1RRSpeeds, TMCC2RRSpeeds)
 
 
 class SequenceReq(CommandReq, Sequence):
+    from .sequence_constants import SequenceCommandEnum
+
     @classmethod
     def build(
-        cls, command: CommandDefEnum | None, address: int = DEFAULT_ADDRESS, data: int = 0, scope: CommandScope = None
+        cls,
+        command: SequenceCommandEnum,
+        address: int = DEFAULT_ADDRESS,
+        data: int = 0,
+        scope: CommandScope = None,
     ) -> Self:
         cmd_class = command.value.cmd_class()
         return cmd_class(address, data, scope)
 
     def __init__(
         self,
+        command: SequenceCommandEnum,
         address: int = DEFAULT_ADDRESS,
         scope: CommandScope = None,
         repeat: int = 1,
         delay: float = 0,
         requests: List[CommandReq] = None,
     ) -> None:
-        from .sequence_constants import SequenceCommandEnum
-
         self._requests: List[SequencedReq] = list()  # need to define prior to calling super()
         if requests:
             for request in requests:
                 self._requests.append(SequencedReq(request, repeat, delay))
-        super().__init__(SequenceCommandEnum.SYSTEM, address, 0, scope)
+        super().__init__(command, address, 0, scope)
         self._repeat = repeat
         self._delay = delay
 
