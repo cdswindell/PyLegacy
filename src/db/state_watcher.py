@@ -25,6 +25,6 @@ class StateWatcher(Thread):
         while self._state is not None and self._is_running:
             with self._state.synchronizer:
                 self._state.synchronizer.wait()
-                log.debug(self._state.last_command)
+                log.info(self._state.last_command)
                 if self._is_running:
                     self._action()
