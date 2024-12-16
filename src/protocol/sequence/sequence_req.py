@@ -114,7 +114,6 @@ class SequenceReq(CommandReq, Sequence):
         return 0
 
     def _apply_data(self, new_data: int = None) -> int:
-        print(f"SequenceReq._apply_data New Data: {new_data} {self.data} {self}")
         for req_wrapper in self._requests:
             req = req_wrapper.request
             if req.is_data:
@@ -170,7 +169,6 @@ class SequenceReq(CommandReq, Sequence):
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
 
         def send_func(new_address: int = None, new_data: int = None) -> None:
-            print(f"as_action.send_func: New Data: {new_data} {self.data} {self}")
             if new_address and new_address != self.address:
                 self.address = new_address
             if new_data != self.data:

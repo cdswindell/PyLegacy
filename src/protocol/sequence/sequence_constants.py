@@ -39,10 +39,6 @@ class SequenceDef(TMCC2CommandDef):
             self._cmd_class = cmd_class
 
     @property
-    def scope(self) -> CommandScope | None:
-        return CommandScope.SYSTEM
-
-    @property
     def syntax(self) -> CommandSyntax:
         return CommandSyntax.LEGACY
 
