@@ -921,6 +921,7 @@ class EngineState(ComponentState):
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
             self.changed.set()
+            print(f"Notifying waiters of: {command}")
             self._cv.notify_all()
 
     def as_bytes(self) -> bytes:
