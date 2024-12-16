@@ -30,6 +30,7 @@ class SequenceDef(TMCC2CommandDef):
         )
         self._cmd_class = cmd_class
 
+    @property
     def cmd_class(self) -> S:
         return self._cmd_class
 

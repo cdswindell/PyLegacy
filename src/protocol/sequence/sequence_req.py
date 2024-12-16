@@ -37,8 +37,39 @@ class SequenceReq(CommandReq, Sequence):
         data: int = 0,
         scope: CommandScope = None,
     ) -> Self:
-        cmd_class = command.value.cmd_class()
+        if command.value.cmd_class is None:
+            cls._register_command_class(command)
+        cmd_class = command.value.cmd_class
         return cmd_class(address, data, scope)
+
+    @classmethod
+    def _register_command_class(cls, command):
+        """
+        We need this function to avoid Python circular dependencies
+        """
+        from .sequence_constants import SequenceCommandEnum
+        from src.protocol.sequence.speed_req import SpeedReq
+        from .abs_speed_rpm import AbsoluteSpeedRpm
+        from src.protocol.sequence.grade_crossing_req import GradeCrossingReq
+        from src.protocol.sequence.ramped_speed_req import RampedSpeedReq
+        from src.protocol.sequence.ramped_speed_req import RampedSpeedDialogReq
+        from src.protocol.sequence.labor_effect import LaborEffectUpReq
+        from src.protocol.sequence.labor_effect import LaborEffectDownReq
+
+        if command == SequenceCommandEnum.ABSOLUTE_SPEED_SEQ:
+            SequenceCommandEnum.ABSOLUTE_SPEED_SEQ.value.register_cmd_class(SpeedReq)
+        elif command == SequenceCommandEnum.ABSOLUTE_SPEED_RPM:
+            SequenceCommandEnum.ABSOLUTE_SPEED_RPM.value.register_cmd_class(AbsoluteSpeedRpm)
+        elif command == SequenceCommandEnum.GRADE_CROSSING_SEQ:
+            SequenceCommandEnum.GRADE_CROSSING_SEQ.value.register_cmd_class(GradeCrossingReq)
+        elif command == SequenceCommandEnum.RAMPED_SPEED_SEQ:
+            SequenceCommandEnum.RAMPED_SPEED_SEQ.value.register_cmd_class(RampedSpeedReq)
+        elif command == SequenceCommandEnum.RAMPED_SPEED_DIALOG_SEQ:
+            SequenceCommandEnum.RAMPED_SPEED_DIALOG_SEQ.value.register_cmd_class(RampedSpeedDialogReq)
+        elif command == SequenceCommandEnum.LABOR_EFFECT_UP_SEQ:
+            SequenceCommandEnum.LABOR_EFFECT_UP_SEQ.value.register_cmd_class(LaborEffectUpReq)
+        elif command == SequenceCommandEnum.LABOR_EFFECT_DOWN_SEQ:
+            SequenceCommandEnum.LABOR_EFFECT_DOWN_SEQ.value.register_cmd_class(LaborEffectDownReq)
 
     def __init__(
         self,

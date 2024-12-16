@@ -43,6 +43,3 @@ class GradeCrossingReq(SequenceReq):
         for _ in range(3):
             self.add(req4, delay=delay)
         self.add(req0, delay=delay)
-
-
-SequenceCommandEnum.GRADE_CROSSING_SEQ.value.register_cmd_class(GradeCrossingReq)

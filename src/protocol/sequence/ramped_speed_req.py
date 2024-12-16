@@ -95,11 +95,9 @@ class RampedSpeedReq(RampedSpeedReqBase):
         address: int,
         speed: int | str | T = None,
         scope: CommandScope = CommandScope.ENGINE,
+        is_tmcc: bool = False,
     ) -> None:
-        super().__init__(SequenceCommandEnum.RAMPED_SPEED_SEQ, address, speed, scope)
-
-
-SequenceCommandEnum.RAMPED_SPEED_SEQ.value.register_cmd_class(RampedSpeedReq)
+        super().__init__(SequenceCommandEnum.RAMPED_SPEED_SEQ, address, speed, scope, is_tmcc=is_tmcc)
 
 
 class RampedSpeedDialogReq(RampedSpeedReqBase):
@@ -118,6 +116,3 @@ class RampedSpeedDialogReq(RampedSpeedReqBase):
             dialog=True,
             is_tmcc=is_tmcc,
         )
-
-
-SequenceCommandEnum.RAMPED_SPEED_DIALOG_SEQ.value.register_cmd_class(RampedSpeedDialogReq)
