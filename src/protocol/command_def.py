@@ -112,7 +112,6 @@ class CommandDef(ABC):
 
     @property
     def num_data_bits(self) -> int:
-        print(f"{hex(self._command_bits)} {self._d_bits}")
         return self._d_bits
 
     @property
