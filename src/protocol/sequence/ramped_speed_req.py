@@ -65,9 +65,14 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             # are we speeding up or down?
             ramp = range(cs + inc, speed_req + 1, inc) if cs < speed_req else range(cs - inc, speed_req + 1, -inc)
             if ramp:
+                # if we're decelerating, kill RPM up front
+                if cur_state.is_legacy and cur_state.is_rpm and cs > speed_req:
+                    rpm = tmcc2_speed_to_rpm(speed_req)
+                    self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
+                    c_rpm = rpm
                 for speed in ramp:
                     self.add(speed_enum, address, speed, scope, delay=delay)
-                    if cur_state.is_legacy and cur_state.is_rpm:
+                    if cur_state.is_legacy and cur_state.is_rpm and cs < speed_req:
                         rpm = tmcc2_speed_to_rpm(speed)
                         if rpm != c_rpm:
                             self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
@@ -100,6 +105,9 @@ class RampedSpeedReq(RampedSpeedReqBase):
         super().__init__(SequenceCommandEnum.RAMPED_SPEED_SEQ, address, speed, scope, is_tmcc=is_tmcc)
 
 
+SequenceCommandEnum.RAMPED_SPEED_SEQ.value.register_cmd_class(RampedSpeedReq)
+
+
 class RampedSpeedDialogReq(RampedSpeedReqBase):
     def __init__(
         self,
@@ -116,3 +124,6 @@ class RampedSpeedDialogReq(RampedSpeedReqBase):
             dialog=True,
             is_tmcc=is_tmcc,
         )
+
+
+SequenceCommandEnum.RAMPED_SPEED_DIALOG_SEQ.value.register_cmd_class(RampedSpeedDialogReq)

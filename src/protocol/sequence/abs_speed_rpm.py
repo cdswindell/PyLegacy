@@ -38,10 +38,10 @@ class AbsoluteSpeedRpm(SequenceReq):
     def _apply_data(self, new_data: int = None) -> int:
         for req_wrapper in self._requests:
             req = req_wrapper.request
-            if req.command == TMCC2EngineCommandDef.ABSOLUTE_SPEED:
-                req.data = self.data
-            elif req.command == TMCC2EngineCommandDef.DIESEL_RPM:
+            if req.command == TMCC2EngineCommandDef.DIESEL_RPM:
                 req.data = tmcc2_speed_to_rpm(self.data)
+            elif req.command == TMCC2EngineCommandDef.ABSOLUTE_SPEED:
+                req.data = self.data
         return 0
 
 
