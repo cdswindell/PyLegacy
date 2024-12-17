@@ -49,6 +49,7 @@ class UpdateNotifier(Thread):
             data = None
             try:
                 data = self._queue.get(block=True)
+                print(f"Queue Len: {self._queue.qsize()}")
                 if self._is_running and data is True:
                     self._watcher.action()
             finally:
