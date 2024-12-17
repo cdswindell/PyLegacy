@@ -405,6 +405,7 @@ class Ads1x15(ABC):
     def raw_value(self) -> int:
         """Get ADC raw_value"""
         value = self.read_register(self.CONVERSION_REG)
+        print(f"ADC raw_value: {value}")
         # Shift bit based on ADC bits and change 2'complement negative raw_value to negative integer
         value = value >> (16 - self._bits)
         if value >= (2 ** (self._bits - 1)):
