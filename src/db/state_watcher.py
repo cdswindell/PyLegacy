@@ -50,10 +50,9 @@ class UpdateNotifier(Thread):
             try:
                 if self._queue.empty():
                     data = self._queue.get(block=True)
-                else:
-                    while not self._queue.empty():
-                        self._queue.get(block=False)
-                        self._queue.task_done()
+                while not self._queue.empty():
+                    self._queue.get(block=True)
+                    self._queue.task_done()
                 if self._is_running and data is True:
                     self._watcher.action()
             finally:
