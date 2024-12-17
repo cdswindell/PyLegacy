@@ -66,7 +66,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             delay = 0.0
             inc = 3
             c_rpm = cur_state.rpm
-            init_labor = c_labor = cur_state.labor
+            init_labor = cur_state.labor
             if cur_state.momentum is not None:
                 delay_inc = 0.200 + (cur_state.momentum * 0.010)
                 inc = 2 if cur_state.momentum >= 6 else inc
@@ -75,10 +75,9 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 delay_inc = 0.200
             # are we speeding up or down?
             ramp = range(cs + inc, speed_req + 1, inc) if cs < speed_req else range(cs - inc, speed_req + 1, -inc)
-            c_speed = cs
             if ramp:
                 # increase or decrease labor
-                c_labor = labor_delta(cs, speed_req, c_labor)
+                c_labor = labor_delta(cs, speed_req, init_labor)
                 self.add(TMCC2EngineCommandDef.ENGINE_LABOR, address, data=c_labor, scope=scope, delay=delay)
                 # if we're decelerating, kill RPM and labor up front
                 if cur_state.is_legacy and cs > speed_req:
@@ -89,7 +88,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 for speed in ramp:
                     self.add(speed_enum, address, speed, scope, delay=delay)
                     if cur_state.is_legacy:
-                        labor = labor_delta(c_speed, speed, c_labor)
+                        labor = labor_delta(speed, speed_req, c_labor)
                         if labor != c_labor:
                             self.add(TMCC2EngineCommandDef.ENGINE_LABOR, address, data=labor, scope=scope, delay=delay)
                             c_labor = labor
@@ -98,7 +97,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                             if rpm != c_rpm:
                                 self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
                                 c_rpm = rpm
-                    c_speed = speed
                     delay += delay_inc
                 # make sure the final speed is requested
                 if ramp[-1] != speed_req:
