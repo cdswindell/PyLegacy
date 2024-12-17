@@ -26,7 +26,7 @@ class QuillingHorn(Thread):
         self._scope = scope if scope and scope in {CommandScope.ENGINE, CommandScope.TRAIN} else CommandScope.ENGINE
         self._repeat = repeat if repeat >= 1 else 1
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Quilling Horn Handler {self.scope.label} {self.address}")
-        self._adc = Ads1115(channel=channel, address=i2c_address, continuous=False)
+        self._adc = Ads1115(channel=channel, address=i2c_address, gain=Ads1115.PGA_4_096V, continuous=False)
         self._cmd = CommandReq(TMCC2EngineCommandDef.QUILLING_HORN, address=address, scope=scope)
         self._action = self._cmd.as_action(repeat=self._repeat)
         self._is_running = True
@@ -78,6 +78,7 @@ class QuillingHorn(Thread):
             if self._is_running:
                 value = self._adc.request()
                 data = self._interp(value)
+                print(self._adc.raw_value, value, data)
                 if data > 2:
                     self._action(new_data=data - 2)
                 sleep(0.2)
