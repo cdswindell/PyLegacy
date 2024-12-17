@@ -409,7 +409,7 @@ class Ads1x15(ABC):
         # Shift bit based on ADC bits and change 2'complement negative raw_value to negative integer
         value = value >> (16 - self._bits)
         if value >= (2 ** (self._bits - 1)):
-            value = value - (2**self._bits)
+            value -= (2**self._bits) - 1
         return value
 
     def request_adc_differential_0_1(self):
