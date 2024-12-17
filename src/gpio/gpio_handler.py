@@ -266,7 +266,7 @@ class GpioHandler:
     def calibrate_joystick(
         cls,
         x_axis_chn: int = 0,
-        y_axis_chn: int = 0,
+        y_axis_chn: int = 1,
         i2c_addr=None,
         use_12bit: bool = True,
     ) -> None:
