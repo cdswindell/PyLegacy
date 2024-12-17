@@ -175,6 +175,7 @@ class Ads1x15(ABC):
         if self.mode != self.MODE_SINGLE:
             self.mode = self.MODE_SINGLE
         self._request_adc()
+        print(self.raw_value, self.voltage)
         return self.voltage
 
     def _request_adc(self, mux_chn: int = None) -> None:
