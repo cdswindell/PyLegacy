@@ -49,7 +49,7 @@ class UpdateNotifier(Thread):
             data = None
             try:
                 data = self._queue.get(block=True)
-                if self._is_running:
+                if self._is_running and data is True:
                     self._watcher.action()
             finally:
                 if data is not None:
@@ -60,4 +60,4 @@ class UpdateNotifier(Thread):
         self.update_request()
 
     def update_request(self):
-        self._queue.put(True)
+        self._queue.put(False)
