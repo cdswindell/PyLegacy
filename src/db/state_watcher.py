@@ -48,10 +48,16 @@ class UpdateNotifier(Thread):
         while self._is_running:
             data = None
             try:
-                data = self._queue.get(block=True)
-                print(f"Queue Len: {self._queue.qsize()}")
+                if self._queue.empty():
+                    data = self._queue.get(block=True)
+                else:
+                    while not self._queue.empty():
+                        self._queue.get(block=False)
+                        self._queue.task_done()
                 if self._is_running and data is True:
+                    print("updating display...", end="")
                     self._watcher.action()
+                    print("updating display...done")
             finally:
                 if data is not None:
                     self._queue.task_done()
