@@ -88,7 +88,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 for speed in ramp:
                     self.add(speed_enum, address, speed, scope, delay=delay)
                     if cur_state.is_legacy:
-                        labor = labor_delta(speed, speed_req, c_labor)
+                        labor = labor_delta(speed, speed_req, init_labor)
                         print(f"Speed: {speed} Labor {labor} C_Labor {c_labor}")
                         if labor != c_labor:
                             print(f"Speed: {speed} Labor {labor}")
