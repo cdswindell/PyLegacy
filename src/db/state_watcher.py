@@ -41,7 +41,7 @@ class UpdateNotifier(Thread):
         super().__init__(daemon=True)
         self._watcher = watcher
         self._is_running = True
-        self._queue = Queue(32)
+        self._queue = Queue(64)
         self.start()
 
     def run(self) -> None:
