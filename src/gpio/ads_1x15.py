@@ -452,7 +452,7 @@ class Ads1x15(ABC):
         Transform an ADC raw_value to nominal voltage
         """
         volts = self.max_voltage * value
-        return volts / ((2 ** (self._bits - 1)) - 1)
+        return max(volts / ((2 ** (self._bits - 1)) - 1), 0.0)
 
 
 class Ads1013(Ads1x15):
