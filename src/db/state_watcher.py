@@ -57,7 +57,7 @@ class UpdateNotifier(Thread):
 
     def shutdown(self) -> None:
         self._is_running = False
-        self.update_request()
+        self.update_request(False)
 
-    def update_request(self):
-        self._queue.put(False)
+    def update_request(self, request: bool = True):
+        self._queue.put(request)
