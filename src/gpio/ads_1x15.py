@@ -3,6 +3,8 @@ from abc import ABC, ABCMeta
 from smbus2 import SMBus
 import time
 
+from src.gpio.gpio_handler import GpioHandler
+
 # ADS1x15 default i2c address
 I2C_address = 0x48
 
@@ -89,6 +91,7 @@ class Ads1x15(ABC):
         channel: int,
         bus_id: int,
         address: int,
+        input_voltage: float,
         conversion_delay: int,
         ports: int,
         bits: int,
@@ -103,6 +106,7 @@ class Ads1x15(ABC):
         self._bits = bits
         self._gain = None
         self._data_rate = None
+        self._interp = GpioHandler.make_interpolator(input_voltage, 0.0, 2**bits, 0)
         # Store initial config register to config property
         self._config = self.read_register(self.CONFIG_REG)
         self._mux_channel = None
@@ -406,10 +410,6 @@ class Ads1x15(ABC):
         """Get ADC raw_value"""
         value = self.read_register(self.CONVERSION_REG)
         print(f"ADC raw_value: {value}")
-        # Shift bit based on ADC bits and change 2'complement negative raw_value to negative integer
-        value = value >> (16 - self._bits)
-        if value >= (2 ** (self._bits - 1)):
-            value -= (2**self._bits) - 1
         return value
 
     def request_adc_differential_0_1(self):
@@ -452,18 +452,19 @@ class Ads1x15(ABC):
         """
         Transform an ADC raw_value to nominal voltage
         """
-        volts = self.max_voltage * value
-        return max(volts / ((2 ** (self._bits - 1)) - 1), 0.0)
+        # volts = self.max_voltage * value
+        # return max(volts / ((2 ** (self._bits - 1)) - 1), 0.0)
+        return self._interp(value)
 
 
 class Ads1013(Ads1x15):
-    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
-        super().__init__(channel, bus_id, address, 2, 1, 12)
+    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address, input_voltage: float = 5.0):
+        super().__init__(channel, bus_id, address, input_voltage, 2, 1, 12)
 
 
 class Ads1014(Ads1x15):
-    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
-        super().__init__(channel, bus_id, address, 2, 1, 12)
+    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address, input_voltage: float = 5.0):
+        super().__init__(channel, bus_id, address, input_voltage, 2, 1, 12)
 
 
 class Ads1015(Ads1x15):
@@ -472,12 +473,12 @@ class Ads1015(Ads1x15):
         channel: int = 0,
         bus_id: int = 1,
         address: int = I2C_address,
-        gain: int = Ads1x15.PGA_6_144V,
+        input_voltage: float = 5.0,
         data_rate: int = Ads1x15.DR_ADS101X_920,
         continuous: bool = False,
     ):
-        super().__init__(channel, bus_id, address, 2, 4, 12)
-        self.gain = gain
+        super().__init__(channel, bus_id, address, input_voltage, 2, 4, 12)
+        self.gain = Ads1x15.PGA_6_144V
         if continuous is True:
             self.mode = self.MODE_CONTINUOUS
             self.data_rate = data_rate
@@ -513,13 +514,25 @@ class Ads1015(Ads1x15):
 
 
 class Ads1113(Ads1x15):
-    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
-        super().__init__(channel, bus_id, address, 8, 1, 16)
+    def __init__(
+        self,
+        channel: int = 0,
+        bus_id: int = 1,
+        address: int = I2C_address,
+        input_voltage: float = 5.0,
+    ):
+        super().__init__(channel, bus_id, address, input_voltage, 8, 1, 16)
 
 
 class Ads1114(Ads1x15):
-    def __init__(self, channel: int = 0, bus_id: int = 1, address: int = I2C_address):
-        super().__init__(channel, bus_id, address, 8, 1, 16)
+    def __init__(
+        self,
+        channel: int = 0,
+        bus_id: int = 1,
+        address: int = I2C_address,
+        input_voltage: float = 5.0,
+    ):
+        super().__init__(channel, bus_id, address, input_voltage, 8, 1, 16)
 
 
 class Ads1115(Ads1x15):
@@ -528,12 +541,12 @@ class Ads1115(Ads1x15):
         channel: int = 0,
         bus_id: int = 1,
         address: int = I2C_address,
-        gain: int = Ads1x15.PGA_6_144V,
+        input_voltage: float = 5.0,
         data_rate: int = Ads1x15.DR_ADS111X_860,
         continuous: bool = True,
     ):
-        super().__init__(channel, bus_id, address, 8, 4, 16)
-        self.gain = gain
+        super().__init__(channel, bus_id, address, input_voltage, 8, 4, 16)
+        self.gain = self.PGA_6_144V
         if continuous is True:
             self.mode = self.MODE_CONTINUOUS
             self.data_rate = data_rate

@@ -236,10 +236,11 @@ class GpioHandler:
 
     @staticmethod
     def make_interpolator(
-        to_max: int,
-        to_min: int = 0,
-        from_min: float = 0.0,
-        from_max: float = 1.0,
+        to_max: int | float,
+        to_min: int | float = 0,
+        from_min: int | float = 0.0,
+        from_max: int | float = 1.0,
+        as_float: bool = False,
     ) -> Callable:
         # Figure out how 'wide' each range is
         from_span = from_max - from_min
@@ -249,8 +250,11 @@ class GpioHandler:
         scale_factor = float(to_span) / float(from_span)
 
         # create interpolation function using pre-calculated scaleFactor
-        def interp_fn(value) -> int:
-            scaled_value = int(round(to_min + (value - from_min) * scale_factor))
+        def interp_fn(value) -> int | float:
+            if as_float:
+                scaled_value = float((to_min + (value - from_min) * scale_factor))
+            else:
+                scaled_value = int(round(to_min + (value - from_min) * scale_factor))
             scaled_value = min(scaled_value, to_max)
             scaled_value = max(scaled_value, to_min)
             return scaled_value
