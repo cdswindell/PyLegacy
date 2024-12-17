@@ -78,7 +78,6 @@ class QuillingHorn(Thread):
             if self._is_running:
                 value = self._adc.request()
                 data = self._interp(value)
-                print(self._adc.raw_value, value, data)
                 if data > 2:
                     self._action(new_data=data - 2)
                 sleep(0.2)
