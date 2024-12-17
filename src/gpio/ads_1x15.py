@@ -527,7 +527,7 @@ class Ads1115(Ads1x15):
         channel: int = 0,
         bus_id: int = 1,
         address: int = I2C_address,
-        gain: int = Ads1x15.PGA_6_144V,
+        gain: int = Ads1x15.PGA_4_096V,
         data_rate: int = Ads1x15.DR_ADS111X_860,
         continuous: bool = True,
     ):

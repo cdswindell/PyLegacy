@@ -8,6 +8,7 @@ from typing import Tuple, Callable, Dict, TypeVar, List
 
 from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice, PingServer
 
+from .ads_1x15 import Ads1115
 from .controller import Controller, ControllerI2C
 from .keypad import KEYPAD_PCF8574_ADDRESS
 from ..comm.comm_buffer import CommBuffer
@@ -262,8 +263,17 @@ class GpioHandler:
         return interp_fn
 
     @classmethod
-    def calibrate_joystick(cls, x_axis_chn: int = 0, y_axis_chn: int = 0, use_12bit: bool = True) -> None:
-        if use_12bit is True:
+    def calibrate_joystick(
+        cls,
+        x_axis_chn: int = 0,
+        y_axis_chn: int = 0,
+        i2c_addr=None,
+        use_12bit: bool = True,
+    ) -> None:
+        if i2c_addr:
+            x_axis = Ads1115(channel=x_axis_chn, address=i2c_addr)
+            y_axis = Ads1115(channel=y_axis_chn, address=i2c_addr)
+        elif use_12bit is True:
             x_axis = MCP3208(channel=x_axis_chn, differential=False)
             y_axis = MCP3208(channel=y_axis_chn, differential=False)
         else:
