@@ -55,9 +55,7 @@ class UpdateNotifier(Thread):
                         self._queue.get(block=False)
                         self._queue.task_done()
                 if self._is_running and data is True:
-                    print("updating display...", end="")
                     self._watcher.action()
-                    print("updating display...done")
             finally:
                 if data is not None:
                     self._queue.task_done()
