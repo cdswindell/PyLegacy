@@ -89,8 +89,9 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     self.add(speed_enum, address, speed, scope, delay=delay)
                     if cur_state.is_legacy:
                         labor = labor_delta(speed, speed_req, c_labor)
+                        print(f"Speed: {speed} Labor {labor} C_Labor {c_labor}")
                         if labor != c_labor:
-                            print(f"Speed: {speed} {labor}")
+                            print(f"Speed: {speed} Labor {labor}")
                             self.add(TMCC2EngineCommandDef.ENGINE_LABOR, address, data=labor, scope=scope, delay=delay)
                             c_labor = labor
                         if cur_state.is_rpm and cs < speed_req:
