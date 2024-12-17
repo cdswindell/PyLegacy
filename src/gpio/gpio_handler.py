@@ -282,7 +282,7 @@ class GpioHandler:
 
         min_x = min_y = float("inf")
         max_x = max_y = float("-inf")
-        print("Rotate Joystick clockwise, making sure to blah...")
+        print("Rotate Joystick clockwise, making sure to fully exercise its range...")
         time.sleep(5)
         is_running = True
         start_at = cls.current_milli_time()
