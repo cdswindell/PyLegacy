@@ -106,8 +106,8 @@ class Ads1x15(ABC):
         self._bits = bits
         self._gain = None
         self._data_rate = None
-        range = 2 ** (bits - 1) - 1
-        self._interp = GpioHandler.make_interpolator(input_voltage, 0.0, -range, range, as_float=True)
+        rng = 2 ** (bits - 1) - 1
+        self._interp = GpioHandler.make_interpolator(input_voltage, 0.0, -rng, rng, as_float=True)
         # Store initial config register to config property
         self._config = self.read_register(self.CONFIG_REG)
         self._mux_channel = None
