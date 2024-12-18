@@ -1,3 +1,5 @@
+import os
+import threading
 import time
 from threading import Thread, Event
 from typing import List
@@ -113,6 +115,7 @@ class Lcd(CharLCD):
         ):
             self._scroller = Scroller(self, self._frame_buffer[0], self._scroll_speed)
         self.cursor_mode = "hide"
+        print(f"Thread {threading.current_thread().name} is running on CPU {os.getpid()}")
         print(f"write_frame_buffer took {time.time() - started:.3f} seconds")
 
     def print(self, c: int | str) -> None:
