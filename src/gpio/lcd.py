@@ -83,7 +83,6 @@ class Lcd(CharLCD):
         self._frame_buffer.clear()
 
     def stop_scrolling(self) -> None:
-        started = time.time()
         if self._scroller is not None:
             """
             Shutdown the scrolling thread and wait for it to finish,
@@ -93,7 +92,6 @@ class Lcd(CharLCD):
             self._scroller.shutdown()
             self._scroller.join()
             self._scroller = None
-        print(f"stop_scrolling took {time.time() - started:.3f} seconds")
 
     def write_frame_buffer(self, clear_display: bool = True) -> None:
         started = time.time()
@@ -108,7 +106,11 @@ class Lcd(CharLCD):
             if row:
                 self.cursor_pos = (r, 0)
                 print(f"After cursor_pos  ({r + 1}, 0) {time.time() - started:.3f} seconds")
-                self.write_string(row.ljust(self.cols)[: self.cols])
+                r_text = row.ljust(self.cols)[: self.cols]
+                print(f"After r_text  ({r + 1}, 0) {time.time() - started:.3f} seconds")
+                for c in r_text:
+                    self.write(c)
+                # self.write_string(r_text)
                 print(f"After row {r + 1} {time.time() - started:.3f} seconds")
         if (
             self._scroll_speed > 0.0
