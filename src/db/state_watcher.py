@@ -24,17 +24,15 @@ class StateWatcher(Thread):
 
     def shutdown(self) -> None:
         self._is_running = False
-        with self._state.synchronizer:
-            self._state.synchronizer.notify_all()
         if self._notifier:
             self._notifier.shutdown()
+        with self._state.synchronizer:
+            self._state.synchronizer.notify_all()
 
     def run(self) -> None:
         while self._state is not None and self._is_running:
-            print("waiting for state change")
             with self._state.synchronizer:
                 self._state.synchronizer.wait()
-                print("State change triggered")
             if self._is_running:
                 self._notifier.update_request()
 
@@ -52,7 +50,7 @@ class UpdateNotifier(Thread):
             # wait for a state change notification, if queue is empty
             if self._queue.empty():
                 self._queue.get(block=True)
-                print(f"received update request {self._queue.qsize()}")
+                print(f"***** received update request {self._queue.qsize()}")
             # clear out queue, the redisplay we're about to trigger covers them
             with self._queue.mutex:
                 self._queue.queue.clear()
