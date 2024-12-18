@@ -97,15 +97,19 @@ class Lcd(CharLCD):
         print(f"stop_scrolling took {time.time() - started:.3f} seconds")
 
     def write_frame_buffer(self, clear_display: bool = True) -> None:
+        started = time.time()
         self.stop_scrolling()
+        print(f"After stop_scrolling {time.time() - started:.3f} seconds")
         if clear_display is True:
             super().clear()  # call the super, otherwise frame buffer is cleared
+        print(f"After super().clear {time.time() - started:.3f} seconds")
         self.home()  # reposition cursor
-        self.cursor_mode = "hide"
+        print(f"After home {time.time() - started:.3f} seconds")
         for r, row in enumerate(self._frame_buffer):
             if row:
                 self.cursor_pos = (r, 0)
                 self.write_string(row.ljust(self.cols)[: self.cols])
+                print(f"After row {r + 1} {time.time() - started:.3f} seconds")
         if (
             self._scroll_speed > 0.0
             and len(self._frame_buffer) > 0
@@ -113,6 +117,8 @@ class Lcd(CharLCD):
             and len(self._frame_buffer[0]) > self.cols
         ):
             self._scroller = Scroller(self, self._frame_buffer[0], self._scroll_speed)
+        self.cursor_mode = "hide"
+        print(f"write_frame_buffer took {time.time() - started:.3f} seconds")
 
     def print(self, c: int | str) -> None:
         if isinstance(c, int) and 0 <= c <= 255:
