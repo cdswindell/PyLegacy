@@ -30,7 +30,9 @@ class StateWatcher(Thread):
 
     def run(self) -> None:
         while self._state is not None and self._is_running:
+            print("waiting for state change")
             self._state.changed.wait()
+            print("State change triggered")
             if self._is_running:
                 self._notifier.update_request()
 
