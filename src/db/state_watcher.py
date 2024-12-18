@@ -1,4 +1,5 @@
 import logging
+import time
 from queue import Queue
 from threading import Thread
 from typing import Callable
@@ -52,11 +53,13 @@ class UpdateNotifier(Thread):
                 self._queue.get(block=True)
                 print(f"***** received update request {self._queue.qsize()}")
             # clear out queue, the redisplay we're about to trigger covers them
+            started = time.time()
             with self._queue.mutex:
                 self._queue.queue.clear()
                 self._queue.all_tasks_done.notify_all()
                 self._queue.unfinished_tasks = 0
             if self._is_running:
+                print(f"***** triggering action: {time.time() - started:.3f} seconds")
                 self._watcher.action()
 
     def shutdown(self) -> None:
@@ -64,4 +67,5 @@ class UpdateNotifier(Thread):
         self.update_request()
 
     def update_request(self):
-        self._queue.put(True)
+        with self._queue.mutex:
+            self._queue.put(True)
