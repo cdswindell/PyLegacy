@@ -101,6 +101,7 @@ class Base3Buffer(Thread):
             return Base3Buffer._instance
 
     def send(self, data: bytes) -> None:
+        started = time.time()
         if data:
             # If we are sending a multibyte TMCC command, we have to break it down
             # into 3 byte packets; this needs to be done here so sync_state in the
@@ -118,6 +119,7 @@ class Base3Buffer(Thread):
                 with self._send_cv:
                     self._send_queue.put(data)
                     self._send_cv.notify_all()
+        print(f"Base3Buffer.send took {time.time() - started:.3f} seconds")
 
     @staticmethod
     def _current_milli_time() -> int:

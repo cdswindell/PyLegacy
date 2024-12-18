@@ -1,3 +1,5 @@
+import os
+import threading
 import time
 from threading import Thread, Event
 from typing import List
@@ -96,6 +98,7 @@ class Lcd(CharLCD):
             self._scroller = None
 
     def write_frame_buffer(self, clear_display: bool = True) -> None:
+        print(f"Thread {threading.current_thread().name} is running on CPU {os.getpid()}")
         started = time.time()
         self.stop_scrolling()
         if clear_display is True:
