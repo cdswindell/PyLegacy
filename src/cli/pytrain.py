@@ -269,6 +269,7 @@ class PyTrain:
         return self._tmcc_buffer
 
     def run(self) -> None:
+        print(f"Thread {threading.current_thread().name} is running on CPU {os.getpid()}")
         # process startup script
         self._process_startup_scripts()
         # print opening line
@@ -429,6 +430,7 @@ class PyTrain:
                     code = script.read()
                     try:
                         exec(code)
+                        print("Buttons registered...")
                     except Exception as e:
                         log.error(f"Error loading startup script {self._startup_script} (see logs)")
                         log.exception(e)
