@@ -131,8 +131,8 @@ class Base3Buffer(Thread):
         keep_trying = 10  # when we can't send a packet, retry 10 times
         while self._is_running and keep_trying:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                started = time.time()
                 try:
+                    started = time.time()
                     s.connect((str(self._base3_addr), self._base3_port))
                     # we want to wait on either data being available to send to the Base3 of
                     # data available from the Base 3 to process
@@ -185,6 +185,7 @@ class Base3Buffer(Thread):
                             break  # continues to outer loop
                         except ValueError as ve:
                             log.debug(ve)
+                    print(f"Base3Buffer.run iteration took {time.time() - started:.3f} seconds")
                 except OSError as oe:
                     log.info(
                         f"No response from Lionel Base 3 at {self._base3_addr}; is the Base 3 turned on? Retrying..."
@@ -195,7 +196,6 @@ class Base3Buffer(Thread):
                         raise oe
                     else:
                         time.sleep(30 if oe.errno == 113 else 1)
-                print(f"Base3Buffer.run iteration took {time.time() - started:.3f} seconds")
 
     def shutdown(self) -> None:
         with self._lock:
