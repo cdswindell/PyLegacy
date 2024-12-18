@@ -392,15 +392,11 @@ class CommandReq:
 
     @property
     def as_bytes(self) -> bytes:
-        started = time.time()
-        try:
-            if self.scope is None:
-                first_byte = self.command_def.first_byte
-            else:
-                first_byte = self._determine_first_byte(self.command_def, self.scope)
-            return first_byte + self._command_bits.to_bytes(2, byteorder="big")
-        finally:
-            print(f"CommandReq.as_bytes took {time.time() - started:.3f} seconds")
+        if self.scope is None:
+            first_byte = self.command_def.first_byte
+        else:
+            first_byte = self._determine_first_byte(self.command_def, self.scope)
+        return first_byte + self._command_bits.to_bytes(2, byteorder="big")
 
     def as_action(
         self,
