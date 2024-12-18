@@ -175,7 +175,6 @@ class Controller(Thread):
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
             self._synchronized = True
-            print("Calling update display from On Sync")
             self.update_display()
             self.start()
 
@@ -185,7 +184,6 @@ class Controller(Thread):
             self._last_known_speed = cur_speed
             if self._engine_controller:
                 self._engine_controller.on_speed_changed(cur_speed)
-        print("Calling update display from On State Updated...")
         self.update_display(clear_display=False)
 
     def cache_engine(self):
@@ -208,7 +206,6 @@ class Controller(Thread):
         self._scope = scope
         self._tmcc_id = self._state = None
         self._key_queue.reset()
-        print(f"Calling update display from update_scope Scope {self._scope}")
         self.update_display()
 
     def update_engine(self, engine_id: str | int):
@@ -228,7 +225,6 @@ class Controller(Thread):
             self._engine_controller.update(tmcc_id, self._scope, self._state)
         self.monitor_state_updates()
         self._key_queue.reset()
-        print(f"Calling update display from update_engine Engine {tmcc_id} updated")
         self.update_display()
 
     def update_display(self, clear_display: bool = True) -> None:
