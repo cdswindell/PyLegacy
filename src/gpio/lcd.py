@@ -108,6 +108,7 @@ class Lcd(CharLCD):
         for r, row in enumerate(self._frame_buffer):
             if row:
                 self.cursor_pos = (r, 0)
+                print(f"After cursor_pos  ({r + 1}, 0) {time.time() - started:.3f} seconds")
                 self.write_string(row.ljust(self.cols)[: self.cols])
                 print(f"After row {r + 1} {time.time() - started:.3f} seconds")
         if (
