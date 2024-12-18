@@ -109,7 +109,8 @@ class Lcd(CharLCD):
             if row:
                 self.cursor_pos = (r, 0)
                 print(f"After cursor_pos  ({r + 1}, 0) {time.time() - started:.3f} seconds")
-                self.write_string(row.ljust(self.cols)[: self.cols])
+                # self.write_string(row.ljust(self.cols)[: self.cols])
+                self.write_string(row)
                 print(f"After row {r + 1} {time.time() - started:.3f} seconds")
         if (
             self._scroll_speed > 0.0
