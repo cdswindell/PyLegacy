@@ -733,6 +733,16 @@ class PyTrain:
         return command_parser
 
 
+class StartupScriptLoader(threading.Thread):
+    def __init__(self, main_proc: PyTrain) -> None:
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup Script Loader")
+        self._main_proc = main_proc
+        self.start()
+
+    def run(self) -> None:
+        self._main_proc.process_startup_script()
+
+
 if __name__ == "__main__":
     set_up_logging()
     log = logging.getLogger(__name__)
@@ -767,13 +777,3 @@ if __name__ == "__main__":
         PyTrain(parser.parse_args())
     except Exception as ex:
         log.exception(ex)
-
-
-class StartupScriptLoader(threading.Thread):
-    def __init__(self, main_proc: PyTrain) -> None:
-        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup Script Loader")
-        self._main_proc = main_proc
-        self.start()
-
-    def run(self) -> None:
-        self._main_proc.process_startup_script()
