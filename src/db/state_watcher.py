@@ -67,5 +67,4 @@ class UpdateNotifier(Thread):
         self.update_request()
 
     def update_request(self):
-        with self._queue.mutex:
-            self._queue.put(True)
+        self._queue.put(True)
