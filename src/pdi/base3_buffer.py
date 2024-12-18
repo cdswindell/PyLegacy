@@ -101,7 +101,6 @@ class Base3Buffer(Thread):
             return Base3Buffer._instance
 
     def send(self, data: bytes) -> None:
-        started = time.time()
         if data:
             # If we are sending a multibyte TMCC command, we have to break it down
             # into 3 byte packets; this needs to be done here so sync_state in the
@@ -119,7 +118,6 @@ class Base3Buffer(Thread):
                 with self._send_cv:
                     self._send_queue.put(data)
                     self._send_cv.notify_all()
-        print(f"Base3Buffer.send took {time.time() - started:.3f} seconds")
 
     @staticmethod
     def _current_milli_time() -> int:
@@ -133,6 +131,7 @@ class Base3Buffer(Thread):
         keep_trying = 10  # when we can't send a packet, retry 10 times
         while self._is_running and keep_trying:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                started = time.time()
                 try:
                     s.connect((str(self._base3_addr), self._base3_port))
                     # we want to wait on either data being available to send to the Base3 of
@@ -196,6 +195,7 @@ class Base3Buffer(Thread):
                         raise oe
                     else:
                         time.sleep(30 if oe.errno == 113 else 1)
+                print(f"Base3Buffer.run iteration took {time.time() - started:.3f} seconds")
 
     def shutdown(self) -> None:
         with self._lock:
