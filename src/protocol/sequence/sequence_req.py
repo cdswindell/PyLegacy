@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from time import sleep
 from typing import List, Callable, TypeVar, Tuple
 
 import sys
@@ -146,6 +147,7 @@ class SequenceReq(CommandReq, Sequence):
             req_repeat = sqr.repeat if sqr.repeat is not None else repeat
             req_delay = sqr.delay if sqr.delay is not None else delay
             request.send(req_repeat, req_delay, baudrate, port, server)
+            sleep(0.002)
 
     def fire(
         self,
