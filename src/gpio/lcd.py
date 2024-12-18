@@ -5,7 +5,7 @@ from typing import List
 from RPLCD.i2c import CharLCD
 import sys
 
-sys.setswitchinterval(0.001)
+sys.setswitchinterval(0.002)
 
 SMILEY_CHAR = (
     0b00000,

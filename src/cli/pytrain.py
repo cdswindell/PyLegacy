@@ -91,6 +91,7 @@ class PyTrain:
         self._force_reboot = False
         self._force_update = False
         self._force_upgrade = False
+        self._script_loader = None
 
         if args.base is not None:
             if isinstance(args.base, list) and len(args.base):
@@ -269,9 +270,9 @@ class PyTrain:
         return self._tmcc_buffer
 
     def run(self) -> None:
-        print(f"Thread {threading.current_thread().name} is running on CPU {os.getpid()}")
         # process startup script
-        self._process_startup_scripts()
+        if self._startup_script:
+            self._script_loader = StartupScriptLoader(self)
         # print opening line
         print(f"{PROGRAM_NAME}, Ver 0.1")
         try:
@@ -422,7 +423,8 @@ class PyTrain:
     def _get_system_state(self):
         self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
 
-    def _process_startup_scripts(self) -> None:
+    def process_startup_script(self) -> None:
+        print(f"Thread {threading.current_thread().name} is running on CPU {os.getpid()}")
         if self._startup_script is not None:
             if os.path.isfile(self._startup_script):
                 print(f"Loading startup script: {self._startup_script}...")
@@ -432,7 +434,7 @@ class PyTrain:
                         exec(code)
                         print("Buttons registered...")
                     except Exception as e:
-                        log.error(f"Error loading startup script {self._startup_script} (see logs)")
+                        log.error(f"Problem loading startup script {self._startup_script} (see logs)")
                         log.exception(e)
             elif self._startup_script != DEFAULT_SCRIPT_FILE:
                 log.warning(f"Startup script file {self._startup_script} not found, continuing...")
@@ -765,3 +767,13 @@ if __name__ == "__main__":
         PyTrain(parser.parse_args())
     except Exception as ex:
         log.exception(ex)
+
+
+class StartupScriptLoader(threading.Thread):
+    def __init__(self, main_proc: PyTrain) -> None:
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup Script Loader")
+        self._main_proc = main_proc
+        self.start()
+
+    def run(self) -> None:
+        self._main_proc.process_startup_script()
