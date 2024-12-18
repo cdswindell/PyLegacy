@@ -109,7 +109,7 @@ class Lcd(CharLCD):
                 r_text = row.ljust(self.cols)[: self.cols]
                 print(f"After r_text  ({r + 1}, 0) {time.time() - started:.3f} seconds")
                 for c in r_text:
-                    self.write(c)
+                    self.write(ord(c))
                 # self.write_string(r_text)
                 print(f"After row {r + 1} {time.time() - started:.3f} seconds")
         if (
