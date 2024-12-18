@@ -17,8 +17,9 @@ class AbsoluteSpeedRpm(SequenceReq):
         self._scope = scope
         self._data = data
         self._state = None
-        self.add(TMCC2EngineCommandDef.ABSOLUTE_SPEED, scope=CommandScope.ENGINE)
-        self.add(TMCC2EngineCommandDef.DIESEL_RPM, scope=CommandScope.ENGINE)
+        self.add(TMCC2EngineCommandDef.ABSOLUTE_SPEED, data=data, scope=CommandScope.ENGINE)
+        rpm = tmcc2_speed_to_rpm(data)
+        self.add(TMCC2EngineCommandDef.DIESEL_RPM, data=rpm, scope=CommandScope.ENGINE)
 
     @property
     def scope(self) -> CommandScope | None:
