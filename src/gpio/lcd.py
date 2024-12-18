@@ -3,6 +3,9 @@ from threading import Thread, Event
 from typing import List
 
 from RPLCD.i2c import CharLCD
+import sys
+
+sys.setswitchinterval(0.001)
 
 SMILEY_CHAR = (
     0b00000,
@@ -14,7 +17,6 @@ SMILEY_CHAR = (
     0b01110,
     0b00000,
 )
-
 
 LCD_PCF8574_ADDRESS = 0x27
 
