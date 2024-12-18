@@ -45,16 +45,15 @@ class UpdateNotifier(Thread):
 
     def run(self) -> None:
         while self._is_running:
+            # wait for a state change notification, if queue is empty
             if self._queue.empty():
-                # wait for a state change
                 self._queue.get(block=True)
-                self._queue.task_done()
-            # clear out any other state update requests
+                print(f"received update request {self._queue.qsize()}")
+            # clear out queue, the redisplay we're about to trigger covers them
             with self._queue.mutex:
                 self._queue.queue.clear()
                 self._queue.all_tasks_done.notify_all()
                 self._queue.unfinished_tasks = 0
-
             if self._is_running:
                 self._watcher.action()
 
