@@ -157,6 +157,7 @@ class CommandReq:
         buffer=None,
         request: CommandReq | None = None,
     ) -> None:
+        started = time.time()
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
         # send command to comm buffer
@@ -164,9 +165,11 @@ class CommandReq:
             from ..comm.comm_buffer import CommBuffer
 
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
+        print(f"After Build buffer {time.time() - started:.3f} seconds")
         delay = 0 if delay is None else delay
         for _ in range(repeat):
             buffer.enqueue_command(cmd, delay)
+        print(f"After buffer.enqueue_command {time.time() - started:.3f} seconds")
         # does this command cause any other state changes?
         if request:
             for effect in cls.results_in(request):
@@ -177,6 +180,7 @@ class CommandReq:
                 else:
                     continue  # we shouldn't ever get here
                 buffer.enqueue_command(effect_cmd.as_bytes, delay)
+        print(f"CommandBase._enqueue_command took {time.time() - started:.3f} seconds")
 
     @staticmethod
     def results_in(command: CommandReq) -> Set[E]:
