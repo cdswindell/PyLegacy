@@ -424,7 +424,6 @@ class PyTrain:
         self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
 
     def process_startup_script(self) -> None:
-        print(f"Thread {threading.current_thread().name} is running on CPU {os.getpid()}")
         if self._startup_script is not None:
             if os.path.isfile(self._startup_script):
                 print(f"Loading startup script: {self._startup_script}...")
