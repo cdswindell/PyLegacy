@@ -1,3 +1,4 @@
+import time
 from threading import Thread, Event
 from typing import List
 
@@ -83,6 +84,7 @@ class Lcd(CharLCD):
         self._frame_buffer.clear()
 
     def stop_scrolling(self) -> None:
+        started = time.time()
         if self._scroller is not None:
             """
             Shutdown the scrolling thread and wait for it to finish,
@@ -92,6 +94,7 @@ class Lcd(CharLCD):
             self._scroller.shutdown()
             self._scroller.join()
             self._scroller = None
+        print(f"stop_scrolling took {time.time() - started:.3f} seconds")
 
     def write_frame_buffer(self, clear_display: bool = True) -> None:
         self.stop_scrolling()
@@ -133,16 +136,17 @@ class Scroller(Thread):
 
     def shutdown(self) -> None:
         self._exit.set()
-        self._buffer = ""
 
     def run(self) -> None:
         s = self._buffer + " " + self._buffer
-        while not self._exit.is_set():
-            for i in range(len(self._buffer) + 1):
-                self._lcd.cursor_pos = (0, 0)
-                self._lcd.write_string(s[i : i + self._lcd.cols])
-                self._exit.wait(self._scroll_speed)
-                if self._exit.is_set():
-                    break
-        self._lcd.cursor_pos = (0, 0)
-        self._lcd.cursor_mode = "hide"
+        try:
+            while not self._exit.is_set():
+                for i in range(len(self._buffer) + 1):
+                    self._lcd.cursor_pos = (0, 0)
+                    self._lcd.write_string(s[i : i + self._lcd.cols])
+                    self._exit.wait(self._scroll_speed)
+                    if self._exit.is_set():
+                        return
+        finally:
+            self._lcd.cursor_pos = (0, 0)
+            self._lcd.cursor_mode = "hide"
