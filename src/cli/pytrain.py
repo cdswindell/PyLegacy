@@ -91,7 +91,7 @@ class PyTrain:
         self._force_reboot = False
         self._force_update = False
         self._force_upgrade = False
-        self._script_loader = None
+        self._script_loader: StartupScriptLoader | None = None
 
         if args.base is not None:
             if isinstance(args.base, list) and len(args.base):
