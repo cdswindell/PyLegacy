@@ -977,6 +977,15 @@ class EngineState(ComponentState):
         return self._max_speed
 
     @property
+    def speed_max(self) -> int:
+        if self.max_speed and self.speed_limit:
+            return min(self.max_speed, self.speed_limit)
+        elif self._speed_limit and self.speed_limit != 255:
+            return self._speed_limit
+        elif self.max_speed and self.max_speed != 255:
+            return 199 if self.is_legacy else 31
+
+    @property
     def speed_label(self) -> str:
         return self._as_label(self._speed)
 

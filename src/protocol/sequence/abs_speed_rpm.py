@@ -36,12 +36,21 @@ class AbsoluteSpeedRpm(SequenceReq):
             raise AttributeError(f"Scope {new_scope} not supported for {self}")
 
     def _apply_data(self, new_data: int = None) -> int:
+        from src.db.component_state_store import ComponentStateStore
+
+        state = ComponentStateStore.get_state(self.scope, self.address, create=False)
+        if state:
+            new_speed = min(state.speed_max, self.data)
+            self._data = new_speed
+        else:
+            new_speed = self.data
+
         for req_wrapper in self._requests:
             req = req_wrapper.request
             if req.command == TMCC2EngineCommandDef.DIESEL_RPM:
-                req.data = tmcc2_speed_to_rpm(self.data)
+                req.data = tmcc2_speed_to_rpm(new_speed)
             elif req.command == TMCC2EngineCommandDef.ABSOLUTE_SPEED:
-                req.data = self.data
+                req.data = new_speed
         return 0
 
 

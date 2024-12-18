@@ -467,7 +467,7 @@ class EngineCli(CliBaseTMCC):
         speed_group.add_argument(
             "-immediate",
             action="store_const",
-            const="ABSOLUTE_SPEED",
+            const="ABSOLUTE_SPEED_RPM",
             dest="option",
             help="Set absolute speed (immediate)",
         )
