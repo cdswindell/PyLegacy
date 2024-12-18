@@ -1,5 +1,4 @@
 import abc
-import time
 from abc import ABC
 from ipaddress import IPv4Address, IPv6Address
 
@@ -95,18 +94,13 @@ class CommandBase(ABC):
         """
         Send the command to the LCS SER2 and keep comm buffer alive.
         """
-        started = time.time()
         Validations.validate_int(repeat, min_value=1)
-        print(f"After validate int {time.time() - started:.3f} seconds")
         Validations.validate_float(delay, min_value=0)
-        print(f"After validate float {time.time() - started:.3f} seconds")
         self.command_req.send(repeat, delay, baudrate, port, server)
-        print(f"After command_req.send {time.time() - started:.3f} seconds")
         if shutdown:
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
             buffer.shutdown()
             buffer.join()
-        print(f"CommandBase.send took {time.time() - started:.3f} seconds")
 
     def fire(self, repeat: int = 1, delay: float = 0) -> None:
         """
