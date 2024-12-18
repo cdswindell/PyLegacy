@@ -72,7 +72,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 inc = 2 if cur_state.momentum >= 6 else inc
                 inc = 1 if cur_state.momentum >= 7 else inc
             else:
-                delay_inc = 0.9900
+                delay_inc = 5.200
             speed_req = min(speed_req, cur_state.speed_max)
             # are we speeding up or down?
             ramp = range(cs + inc, speed_req + 1, inc) if cs < speed_req else range(cs - inc, speed_req + 1, -inc)
