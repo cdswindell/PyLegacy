@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from threading import Thread, Lock
-from time import sleep
+from time import sleep, time
 from typing import List
 
 from .engine_controller import EngineController
@@ -232,6 +232,7 @@ class Controller(Thread):
         self.update_display(clear_display=False)
 
     def update_display(self, clear_display: bool = True) -> None:
+        started = time()
         with self._lock:
             self._lcd.clear_frame_buffer()
             if self._state is not None:
@@ -269,6 +270,7 @@ class Controller(Thread):
             self._lcd.write_frame_buffer(clear_display)
             if self.is_synchronized and self._tmcc_id is None:
                 self._lcd.cursor_pos = (1, tmcc_id_pos)
+            print(f"Display update took {time() - started:.3f} seconds")
 
     @property
     def railroad(self) -> str:

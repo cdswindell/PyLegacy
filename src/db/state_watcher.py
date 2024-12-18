@@ -30,10 +30,9 @@ class StateWatcher(Thread):
 
     def run(self) -> None:
         while self._state is not None and self._is_running:
-            with self._state.synchronizer:
-                self._state.synchronizer.wait()
-                if self._is_running:
-                    self._notifier.update_request()
+            self._state.changed.wait()
+            if self._is_running:
+                self._notifier.update_request()
 
 
 class UpdateNotifier(Thread):
@@ -46,22 +45,22 @@ class UpdateNotifier(Thread):
 
     def run(self) -> None:
         while self._is_running:
-            data = None
-            try:
-                if self._queue.empty():
-                    data = self._queue.get(block=True)
-                while not self._queue.empty():
-                    self._queue.get(block=True)
-                    self._queue.task_done()
-                if self._is_running and data is True:
-                    self._watcher.action()
-            finally:
-                if data is not None:
-                    self._queue.task_done()
+            if self._queue.empty():
+                # wait for a state change
+                self._queue.get(block=True)
+                self._queue.task_done()
+            # clear out any other state update requests
+            with self._queue.mutex:
+                self._queue.queue.clear()
+                self._queue.all_tasks_done.notify_all()
+                self._queue.unfinished_tasks = 0
+
+            if self._is_running:
+                self._watcher.action()
 
     def shutdown(self) -> None:
         self._is_running = False
-        self.update_request(False)
+        self.update_request()
 
-    def update_request(self, request: bool = True):
-        self._queue.put(request)
+    def update_request(self):
+        self._queue.put(True)
