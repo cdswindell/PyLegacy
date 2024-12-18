@@ -46,7 +46,6 @@ class Lcd(CharLCD):
             auto_linebreaks=auto_linebreaks,
             backlight_enabled=backlight_enabled,
         )
-        self.create_char(0, SMILEY_CHAR)
         self._rows = rows
         self._cols = cols
         self._scroll_speed = scroll_speed
@@ -109,8 +108,7 @@ class Lcd(CharLCD):
             if row:
                 self.cursor_pos = (r, 0)
                 print(f"After cursor_pos  ({r + 1}, 0) {time.time() - started:.3f} seconds")
-                # self.write_string(row.ljust(self.cols)[: self.cols])
-                self.write_string(row)
+                self.write_string(row.ljust(self.cols)[: self.cols])
                 print(f"After row {r + 1} {time.time() - started:.3f} seconds")
         if (
             self._scroll_speed > 0.0
