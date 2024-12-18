@@ -233,7 +233,9 @@ class Controller(Thread):
 
     def update_display(self, clear_display: bool = True) -> None:
         started = time()
+        print("Started update...")
         with self._lock:
+            print(f"After lock {time() - started:.3f} seconds")
             self._lcd.clear_frame_buffer()
             if self._state is not None:
                 rname = self._state.road_name if self._state.road_name else "No Information"
@@ -242,6 +244,7 @@ class Controller(Thread):
             else:
                 row = self.railroad
             self._lcd.add(row)
+            print(f"After Row 1 {time() - started:.3f} seconds")
             if self.is_synchronized:
                 row = f"{self._scope.label}: "
                 tmcc_id_pos = len(row)
@@ -251,6 +254,7 @@ class Controller(Thread):
                         if self._state.control_type is not None:
                             row += f" {self._state.control_type_label}"
                 self._lcd.add(row)
+                print(f"After Row 2 {time() - started:.3f} seconds")
                 if self._state is not None:
                     if self._lcd.rows > 2:
                         row = f"Speed: {self._state.speed if self._state.speed is not None else 'N/A':03} "
@@ -258,16 +262,19 @@ class Controller(Thread):
                         row += f" Ef: {self._state.labor_label:.2} "
                         # row += f"  {self._state.year if self._state.year else ''}"
                         self._lcd.add(row)
+                        print(f"After Row 3 {time() - started:.3f} seconds")
                     if self._lcd.rows > 3:
                         row = f"Mom: {self._state.momentum_label:.1} "
                         row += f"TB: {self._state.train_brake_label:.1} "
                         if self._state.is_rpm:
                             row += f"RPM: {self._state.rpm_label:.1}"
                         self._lcd.add(row)
+                        print(f"After Row 4 {time() - started:.3f} seconds")
             else:
                 tmcc_id_pos = 0
 
             self._lcd.write_frame_buffer(clear_display)
+            print(f"After write frame buffer {time() - started:.3f} seconds")
             if self.is_synchronized and self._tmcc_id is None:
                 self._lcd.cursor_pos = (1, tmcc_id_pos)
             print(f"Display update took {time() - started:.3f} seconds")
