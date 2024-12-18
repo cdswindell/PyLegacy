@@ -136,8 +136,8 @@ class Controller(Thread):
             self._sync_watcher = None
             self.on_sync()
         else:
-            self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
             self.update_display()
+            self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
 
     @property
     def engine_controller(self) -> EngineController:
@@ -148,7 +148,6 @@ class Controller(Thread):
         return self._synchronized
 
     def run(self) -> None:
-        self.update_display()
         while self._is_running:
             key = self._key_queue.wait_for_keypress(60)
             if self._key_queue.is_clear:
@@ -176,8 +175,9 @@ class Controller(Thread):
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
             self._synchronized = True
-            self.start()
+            print("Calling update display from On Sync")
             self.update_display()
+            self.start()
 
     def on_state_update(self) -> None:
         cur_speed = self._state.speed if self._state else None
@@ -185,7 +185,8 @@ class Controller(Thread):
             self._last_known_speed = cur_speed
             if self._engine_controller:
                 self._engine_controller.on_speed_changed(cur_speed)
-        self.refresh_display()
+        print("Calling update display from On State Updated...")
+        self.update_display(clear_display=False)
 
     def cache_engine(self):
         if self._tmcc_id != self._last_tmcc_id:
@@ -207,6 +208,7 @@ class Controller(Thread):
         self._scope = scope
         self._tmcc_id = self._state = None
         self._key_queue.reset()
+        print(f"Calling update display from update_scope Scope {self._scope}")
         self.update_display()
 
     def update_engine(self, engine_id: str | int):
@@ -226,14 +228,12 @@ class Controller(Thread):
             self._engine_controller.update(tmcc_id, self._scope, self._state)
         self.monitor_state_updates()
         self._key_queue.reset()
+        print(f"Calling update display from update_engine Engine {tmcc_id} updated")
         self.update_display()
-
-    def refresh_display(self) -> None:
-        self.update_display(clear_display=False)
 
     def update_display(self, clear_display: bool = True) -> None:
         started = time()
-        print("Started update...")
+        print("Started display update...")
         with self._lock:
             print(f"After lock {time() - started:.3f} seconds")
             self._lcd.clear_frame_buffer()
