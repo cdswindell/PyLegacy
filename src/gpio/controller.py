@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from threading import Thread, Lock
+from threading import Thread, RLock
 from time import sleep, time
 from typing import List
 
@@ -72,7 +72,7 @@ class Controller(Thread):
         keypad: Keypad | KeyPadI2C = None,
     ):
         super().__init__(name=f"{PROGRAM_NAME} Controller", daemon=True)
-        self._lock = Lock()
+        self._lock = RLock()
         if lcd_address:
             self._lcd = Lcd(address=lcd_address, rows=lcd_rows, cols=lcd_cols)
         else:

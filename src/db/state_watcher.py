@@ -17,7 +17,6 @@ class StateWatcher(Thread):
         self._action = action
         self._notifier = UpdateNotifier(self)
         self._is_running = True
-        print(f"starting state watcher: {state}")
         self.start()
 
     def action(self) -> None:
