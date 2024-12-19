@@ -1,10 +1,15 @@
+import sys
 from typing import List
 
 from smbus2 import SMBus
 
+if sys.platform == "linux":
+    DEFAULT_SMBUS = SMBus(1)
+else:
+    DEFAULT_SMBUS = None
 
 class I2C:
-    def __init__(self, smbus: SMBus):
+    def __init__(self, smbus: SMBus = DEFAULT_SMBUS):
         """
         Wrapper class for a smbus
         :param smbus: the smbus to send and receive data from smbus.SMBus(1)

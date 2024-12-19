@@ -1,7 +1,5 @@
-import sys
 from typing import List, Tuple
 
-from smbus2 import SMBus
 
 from src.gpio.i2c import I2C
 
@@ -81,13 +79,8 @@ LOW = 0x00
 INPUT = 0xFF
 OUTPUT = 0x00
 
-if sys.platform == "linux":
-    DEFAULT_SMBUS = SMBus(1)
-else:
-    DEFAULT_SMBUS = None
 
-
-class MCP23017:
+class Mcp23017:
     """
     MCP23017 class to handle ICs register setup
 
@@ -111,9 +104,9 @@ class MCP23017:
 
     """
 
-    def __init__(self, address: int = 0x23, i2c: I2C = DEFAULT_SMBUS) -> None:
+    def __init__(self, address: int = 0x23, i2c: I2C = None) -> None:
         self.address = address
-        self.i2c = i2c
+        self.i2c = i2c if i2c else I2C()
 
     def set_all_output(self) -> None:
         """sets all GPIOs as OUTPUT"""
