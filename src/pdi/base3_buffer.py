@@ -138,6 +138,7 @@ class Base3Buffer(Thread):
                     socket_list = [s, self._send_queue]
                     while self._is_running and keep_trying:
                         started = time.time()
+                        flg = None
                         try:
                             readable, _, _ = select.select(socket_list, [], [])
                             for sock in readable:
@@ -149,6 +150,7 @@ class Base3Buffer(Thread):
                                         time.sleep((DEFAULT_BASE_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
                                     s.sendall(sending.hex().upper().encode())
                                     self._last_output_at = self._current_milli_time()
+                                    flg = f"Sent: 0x{sending.hex(':').upper()};"
                                     # update base3 of new state; required if command is a tmcc_tx
                                     try:
                                         self.sync_state(sending)
@@ -159,16 +161,13 @@ class Base3Buffer(Thread):
                                         log.debug(ve)
                                 else:
                                     sending = None
-                                    # we will always call s.recv, as in either case, there will
-                                    # be a response, either because we received an 'ack' from
-                                    # our send or because the select was triggered on the socket
-                                    # being able to be read.
                                     received = bytes.fromhex(s.recv(512).decode(errors="ignore"))
                                     # but there is more trickiness; The Base3 sends ascii characters
                                     # so when we receive: 'D12729DF', this actually is sent as eight
                                     # characters; D, 1, 2, 7, 2, 9, D, F, so we must decode the 8
                                     # received bytes into 8 ASCII characters, then interpret that
                                     # ASCII string as Hex representation to arrive at 0xd12729df...
+                                    flg = f"Received: 0x{received.hex(':').upper()};"
                                 if self._listener and received:
                                     self._listener.offer(received)
                             keep_trying = 10
@@ -185,7 +184,7 @@ class Base3Buffer(Thread):
                             break  # continues to outer loop
                         except ValueError as ve:
                             log.debug(ve)
-                        print(f"Base3Buffer.run iteration took {time.time() - started:.3f} seconds")
+                        print(f"Base3Buffer.run {flg} iteration took {time.time() - started:.3f} seconds")
                 except OSError as oe:
                     log.info(
                         f"No response from Lionel Base 3 at {self._base3_addr}; is the Base 3 turned on? Retrying..."
