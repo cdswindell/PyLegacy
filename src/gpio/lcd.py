@@ -1,4 +1,3 @@
-import time
 from threading import Thread, Event
 from typing import List
 
@@ -96,7 +95,6 @@ class Lcd(CharLCD):
             self._scroller = None
 
     def write_frame_buffer(self, clear_display: bool = True) -> None:
-        started = time.time()
         self.stop_scrolling()
         if clear_display is True:
             super().clear()  # call the super, otherwise frame buffer is cleared
@@ -113,7 +111,6 @@ class Lcd(CharLCD):
         ):
             self._scroller = Scroller(self, self._frame_buffer[0], self._scroll_speed)
         self.cursor_mode = "hide"
-        print(f"write_frame_buffer took {time.time() - started:.3f} seconds")
 
     def print(self, c: int | str) -> None:
         if isinstance(c, int) and 0 <= c <= 255:
