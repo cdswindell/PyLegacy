@@ -137,8 +137,6 @@ class Base3Buffer(Thread):
                     # data available from the Base 3 to process
                     socket_list = [s, self._send_queue]
                     while self._is_running and keep_trying:
-                        started = time.time()
-                        flg = None
                         try:
                             readable, _, _ = select.select(socket_list, [], [])
                             for sock in readable:
@@ -150,7 +148,6 @@ class Base3Buffer(Thread):
                                         time.sleep((DEFAULT_BASE_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
                                     s.sendall(sending.hex().upper().encode())
                                     self._last_output_at = self._current_milli_time()
-                                    flg = f"Sent: 0x{sending.hex(':').upper()};"
                                     # update base3 of new state; required if command is a tmcc_tx
                                     try:
                                         self.sync_state(sending)
@@ -167,7 +164,6 @@ class Base3Buffer(Thread):
                                     # characters; D, 1, 2, 7, 2, 9, D, F, so we must decode the 8
                                     # received bytes into 8 ASCII characters, then interpret that
                                     # ASCII string as Hex representation to arrive at 0xd12729df...
-                                    flg = f"Received: 0x{received.hex(':').upper()};"
                                 if self._listener and received:
                                     self._listener.offer(received)
                             keep_trying = 10
@@ -184,7 +180,6 @@ class Base3Buffer(Thread):
                             break  # continues to outer loop
                         except ValueError as ve:
                             log.debug(ve)
-                        print(f"Base3Buffer.run {flg} iteration took {time.time() - started:.3f} seconds")
                 except OSError as oe:
                     log.info(
                         f"No response from Lionel Base 3 at {self._base3_addr}; is the Base 3 turned on? Retrying..."
@@ -202,6 +197,7 @@ class Base3Buffer(Thread):
 
     @classmethod
     def sync_state(cls, data: bytes) -> None:
+        started = time.time()
         """
         Send State Update to Base 3, if it is available and if this
         command packet is relevant
@@ -245,6 +241,7 @@ class Base3Buffer(Thread):
                 if sync_reqs:
                     for sync_req in sync_reqs:
                         cls._instance.send(sync_req.as_bytes)
+        print(f"Base3Buffer.sync_state took {time.time() - started:.3f} seconds")
 
 
 class KeepAlive(Thread):
