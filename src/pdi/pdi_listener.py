@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import socket
 import threading
+import time
 from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
@@ -262,6 +263,7 @@ class PdiDispatcher(Thread):
             if self._queue.empty():  # we need to do a second check in the event we're being shutdown
                 continue
             cmd: PdiReq = self._queue.get()
+            started = time.time()
             try:
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(cmd)
@@ -297,6 +299,7 @@ class PdiDispatcher(Thread):
                 log.exception(e)
             finally:
                 self._queue.task_done()
+                print(f"PdiListener iteration {time.time() - started:.3f} seconds")
 
     # noinspection DuplicatedCode
     def update_client_state(self, command: PdiReq):
