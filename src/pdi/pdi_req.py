@@ -179,6 +179,10 @@ class PdiReq(ABC):
         return self._pdi_command == PdiCommand.PING
 
     @property
+    def is_ack(self) -> bool:
+        return False
+
+    @property
     def is_tmcc(self) -> bool:
         return self._pdi_command.is_tmcc
 

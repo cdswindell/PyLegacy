@@ -197,12 +197,11 @@ class Base3Buffer(Thread):
 
     @classmethod
     def sync_state(cls, data: bytes) -> None:
-        started = time.time()
         """
         Send State Update to Base 3, if it is available and if this
         command packet is relevant
         """
-        if cls._instance is None:  # if no base 3, nothing to do
+        if cls._instance is None or data == KEEP_ALIVE_CMD:  # if no base 3 or ping, nothing to do
             return
         if data:
             tmcc_cmds = []
@@ -241,7 +240,6 @@ class Base3Buffer(Thread):
                 if sync_reqs:
                     for sync_req in sync_reqs:
                         cls._instance.send(sync_req.as_bytes)
-        print(f"Base3Buffer.sync_state took {time.time() - started:.3f} seconds")
 
 
 class KeepAlive(Thread):

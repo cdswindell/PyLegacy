@@ -325,7 +325,7 @@ class PdiDispatcher(Thread):
         Receive a command from the listener thread and dispatch it to subscribers.
         We do this in a separate thread so that the listener thread doesn't fall behind
         """
-        if isinstance(pdi_req, PdiReq) and not pdi_req.is_ping:
+        if isinstance(pdi_req, PdiReq) and not pdi_req.is_ping and not pdi_req.is_ack:
             with self._cv:
                 self._queue.put(pdi_req)
                 self._cv.notify()  # wake up receiving thread
