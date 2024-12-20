@@ -149,10 +149,24 @@ class Mcp23017:
         self.i2c.write_to(self.address, REGISTER_MAP["GPPUA"], HIGH)
         self.i2c.write_to(self.address, REGISTER_MAP["GPPUB"], HIGH)
 
+    def unset_all_pull_up(self) -> None:
+        """turn on all pull-up resistors"""
+        self.i2c.write_to(self.address, REGISTER_MAP["GPPUA"], LOW)
+        self.i2c.write_to(self.address, REGISTER_MAP["GPPUB"], LOW)
+
     def pin_mode(self, gpio, mode) -> None:
         """
         Sets the given GPIO to the given mode INPUT or OUTPUT
         :param gpio: the GPIO to set the mode to
+        :param mode: one of INPUT or OUTPUT
+        """
+        pair = self.get_offset_gpio_tuple([IODIRA, IODIRB], gpio)
+        self.set_bit_enabled(pair[0], pair[1], True if mode is INPUT else False)
+
+    def get_pin_mode(self, gpio, mode) -> int:
+        """
+        Gets the mode of the given GPIO (INPUT or OUTPUT)
+        :param gpio: the GPIO to get the mode to
         :param mode: one of INPUT or OUTPUT
         """
         pair = self.get_offset_gpio_tuple([IODIRA, IODIRB], gpio)
@@ -192,7 +206,7 @@ class Mcp23017:
         :param enabled: enable or disable the interrupt
         """
         pair = self.get_offset_gpio_tuple([GPINTENA, GPINTENB], gpio)
-        self.set_bit_enabled(pair[0], pair[1], enabled)
+        return self.get_bit_enabled(pair[0], pair[1])
 
     def set_all_interrupt(self, enabled: bool = True) -> None:
         """
@@ -264,6 +278,11 @@ class Mcp23017:
         state_before = self.i2c.read_from(self.address, offset)
         value = (state_before | self.bitmask(gpio)) if enable else (state_before & ~self.bitmask(gpio))
         self.i2c.write_to(self.address, offset, value)
+
+    def get_bit_enabled(self, offset: int, gpio: int, enable: bool = True) -> int:
+        state = self.i2c.read_from(self.address, offset)
+        value = state & self.bitmask(gpio)
+        return value
 
     @staticmethod
     def bitmask(gpio) -> int:
