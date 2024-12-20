@@ -144,6 +144,11 @@ class Mcp23017:
         self.i2c.write_to(self.address, IODIRA, INPUT)
         self.i2c.write_to(self.address, IODIRB, INPUT)
 
+    def set_all_pull_up(self) -> None:
+        """turn on all pull-up resistors"""
+        self.i2c.write_to(self.address, REGISTER_MAP["GPPUA"], HIGH)
+        self.i2c.write_to(self.address, REGISTER_MAP["GPPUB"], HIGH)
+
     def pin_mode(self, gpio, mode) -> None:
         """
         Sets the given GPIO to the given mode INPUT or OUTPUT
