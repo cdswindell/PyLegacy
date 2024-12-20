@@ -2,4 +2,5 @@
 .tox/
 __pycache__
  *.pyc
- *.log*
+pytrain.log*
+.DS_Store
