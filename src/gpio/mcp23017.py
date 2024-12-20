@@ -149,10 +149,28 @@ class Mcp23017:
         self.i2c.write_to(self.address, REGISTER_MAP["GPPUA"], HIGH)
         self.i2c.write_to(self.address, REGISTER_MAP["GPPUB"], HIGH)
 
+    def get_all_pull_up(self) -> List[int]:
+        """get all pull-up resistors state"""
+        return [
+            self.i2c.read_from(self.address, REGISTER_MAP["GPPUA"]),
+            self.i2c.read_from(self.address, REGISTER_MAP["GPPUB"]),
+        ]
+
     def unset_all_pull_up(self) -> None:
         """turn on all pull-up resistors"""
         self.i2c.write_to(self.address, REGISTER_MAP["GPPUA"], LOW)
         self.i2c.write_to(self.address, REGISTER_MAP["GPPUB"], LOW)
+
+    def set_pull_up(self, gpio: int, mode: int | bool = True) -> None:
+        """
+        Sets the given GPIO to the given mode INPUT or OUTPUT
+        :param gpio: the GPIO to set the mode to
+        :param mode: one of INPUT or OUTPUT
+        """
+        pair = self.get_offset_gpio_tuple([GPPUA, GPPUA], gpio)
+        if isinstance(mode, bool):
+            mode = HIGH if mode is True else LOW
+        self.set_bit_enabled(pair[0], pair[1], True if mode is HIGH else False)
 
     def set_pin_mode(self, gpio, mode) -> None:
         """
