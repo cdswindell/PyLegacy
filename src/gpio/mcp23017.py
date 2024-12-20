@@ -82,7 +82,7 @@ OUTPUT = 0x00
 
 class Mcp23017:
     """
-    MCP23017 class to handle ICs register setup
+    Mcp23017 class to handle ICs register setup
 
     RegName  |ADR | bit7    | bit6   | bit5   | bit4   | bit3   | bit2   | bit1   | bit0   | POR/RST
     --------------------------------------------------------------------------------------------------

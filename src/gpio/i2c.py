@@ -8,6 +8,7 @@ if sys.platform == "linux":
 else:
     DEFAULT_SMBUS = None
 
+
 class I2C:
     def __init__(self, smbus: SMBus = DEFAULT_SMBUS):
         """
