@@ -52,15 +52,15 @@ class TestMCP23017(unittest.TestCase):
     def test_pin_mode(self):
         mcp = Mcp23017(self.mockAddress, self.i2c)
         mcp.set_all_output()
-        mcp.pin_mode(GPA0, INPUT)
+        mcp.set_pin_mode(GPA0, INPUT)
         self.assertEqual(mcp.read(IODIRA), 0b00000001)
-        mcp.pin_mode(GPA7, INPUT)
+        mcp.set_pin_mode(GPA7, INPUT)
         self.assertEqual(mcp.read(IODIRA), 0b10000001)
-        mcp.pin_mode(GPB7, INPUT)
+        mcp.set_pin_mode(GPB7, INPUT)
         self.assertEqual(mcp.read(IODIRA), 0b10000001)
         self.assertEqual(mcp.read(IODIRB), 0b10000000)
-        mcp.pin_mode(GPA0, OUTPUT)
-        mcp.pin_mode(GPA7, OUTPUT)
+        mcp.set_pin_mode(GPA0, OUTPUT)
+        mcp.set_pin_mode(GPA7, OUTPUT)
         self.assertEqual(mcp.read(IODIRA), 0b00000000)
 
     def test_digital_write(self):
