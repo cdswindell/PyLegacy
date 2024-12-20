@@ -4,7 +4,10 @@ from typing import List
 from smbus2 import SMBus
 
 if sys.platform == "linux":
-    DEFAULT_SMBUS = SMBus(1)
+    try:
+        DEFAULT_SMBUS = SMBus(1)
+    except FileNotFoundError:
+        DEFAULT_SMBUS = None
 else:
     DEFAULT_SMBUS = None
 

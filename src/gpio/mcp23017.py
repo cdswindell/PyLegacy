@@ -79,6 +79,32 @@ LOW = 0x00
 INPUT = 0xFF
 OUTPUT = 0x00
 
+ADDRESS_MAP = {
+    0x00: "IODIRA",
+    0x01: "IODIRB",
+    0x02: "IPOLA",
+    0x03: "IPOLB",
+    0x04: "GPINTENA",
+    0x05: "GPINTENB",
+    0x06: "DEFVALA",
+    0x07: "DEVFALB",
+    0x08: "INTCONA",
+    0x09: "INTCONB",
+    0x0A: "IOCON",
+    0x0B: "IOCON",
+    0x0C: "GPPUA",
+    0x0D: "GPPUB",
+    0x0E: "INTFA",
+    0x0F: "INTFB",
+    0x10: "INTCAPA",
+    0x11: "INTCAPB",
+    0x12: "GPIOA",
+    0x13: "GPIOB",
+    0x14: "OLATA",
+    0x15: "OLATB",
+}
+REGISTER_MAP = {value: key for key, value in ADDRESS_MAP.items()}
+
 
 class Mcp23017:
     """
@@ -110,13 +136,13 @@ class Mcp23017:
 
     def set_all_output(self) -> None:
         """sets all GPIOs as OUTPUT"""
-        self.i2c.write_to(self.address, IODIRA, 0x00)
-        self.i2c.write_to(self.address, IODIRB, 0x00)
+        self.i2c.write_to(self.address, IODIRA, OUTPUT)
+        self.i2c.write_to(self.address, IODIRB, OUTPUT)
 
     def set_all_input(self) -> None:
         """sets all GPIOs as INPUT"""
-        self.i2c.write_to(self.address, IODIRA, 0xFF)
-        self.i2c.write_to(self.address, IODIRB, 0xFF)
+        self.i2c.write_to(self.address, IODIRA, INPUT)
+        self.i2c.write_to(self.address, IODIRB, INPUT)
 
     def pin_mode(self, gpio, mode) -> None:
         """
