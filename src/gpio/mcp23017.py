@@ -396,6 +396,7 @@ class Mcp23017Factory:
                     import lgpio
 
                     pi = lgpio.gpiochip_open(0)
+                    print(f"Setting pin {interrupt_pin} on board {pi} low")
                     lgpio.gpio_write(pi, interrupt_pin, 0)
                     lgpio.gpio_free(pi, interrupt_pin)
                     lgpio.gpiochip_close(pi)
