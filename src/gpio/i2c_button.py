@@ -1,9 +1,9 @@
-from gpiozero import Device, EventsMixin, GPIODeviceClosed, HoldMixin
+from gpiozero import Device, GPIODeviceClosed, HoldMixin
 
 from src.gpio.mcp23017 import Mcp23017, INPUT, HIGH
 
 
-class I2CButton(Device, EventsMixin, HoldMixin):
+class I2CButton(Device, HoldMixin):
     def __init__(self, pin, i2c_address: int = 0x23, pull_up: bool = True, pin_factory=None):
         self._dio_pin = pin
         # i2c buttons use the MCP 23017 i2c dio board, which supports 16 pins and interrupts
