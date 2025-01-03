@@ -53,5 +53,17 @@ class I2CButton(Device, HoldMixin):
         return self.value == 1
 
     @property
+    def pin(self) -> int:
+        if self._mcp_23017 is None:
+            raise GPIODeviceClosed("I2C Button is closed or uninitialized")
+        return self._dio_pin
+
+    @property
+    def pull_up(self) -> bool:
+        if self._mcp_23017 is None:
+            raise GPIODeviceClosed("I2C Button is closed or uninitialized")
+        return self._mcp_23017.get_pull_up(self._dio_pin)
+
+    @property
     def closed(self) -> bool:
         return self._mcp_23017 is None

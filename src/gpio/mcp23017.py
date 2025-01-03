@@ -155,6 +155,10 @@ class Mcp23017:
             mode = HIGH if mode is True else LOW
         self.set_bit_enabled(pair[0], pair[1], True if mode is HIGH else False)
 
+    def get_pull_up(self, gpio: int) -> bool:
+        pair = self.get_offset_gpio_tuple([GPPUA, GPPUA], gpio)
+        return self.get_bit_enabled(pair[0], pair[1]) != 0
+
     def set_pin_mode(self, gpio, mode) -> None:
         """
         Sets the given GPIO to the given mode INPUT or OUTPUT
