@@ -1,5 +1,7 @@
-from typing import List, Tuple
+import threading
+from typing import List, Tuple, Dict, Set
 
+from gpiozero import GPIOPinInUse
 
 from src.gpio.i2c import I2C
 
@@ -109,25 +111,6 @@ REGISTER_MAP = {value: key for key, value in ADDRESS_MAP.items()}
 class Mcp23017:
     """
     Mcp23017 class to handle ICs register setup
-
-    RegName  |ADR | bit7    | bit6   | bit5   | bit4   | bit3   | bit2   | bit1   | bit0   | POR/RST
-    --------------------------------------------------------------------------------------------------
-    IODIRA   | 00 | IO7     | IO6    | IO5    | IO4    | IO3    | IO2    | IO1    | IO0    | 1111 1111
-    IODIRB   | 01 | IO7     | IO6    | IO5    | IO4    | IO3    | IO2    | IO1    | IO0    | 1111 1111
-    IPOLA    | 02 | IP7     | IP6    | IP5    | IP4    | IP3    | IP2    | IP1    | IP0    | 0000 0000
-    IPOLB    | 03 | IP7     | IP6    | IP5    | IP4    | IP3    | IP2    | IP1    | IP0    | 0000 0000
-    GPINTENA | 04 | GPINT7  | GPINT6 | GPINT5 | GPINT4 | GPINT3 | GPINT2 | GPINT1 | GPINT0 | 0000 0000
-    GPINTENB | 05 | GPINT7  | GPINT6 | GPINT5 | GPINT4 | GPINT3 | GPINT2 | GPINT1 | GPINT0 | 0000 0000
-    DEFVALA  | 06 | DEF7    | DEF6   | DEF5   | DEF4   | DEF3   | DEF2   | DEF1   | DEF0   | 0000 0000
-    DEFVALB  | 07 | DEF7    | DEF6   | DEF5   | DEF4   | DEF3   | DEF2   | DEF1   | DEF0   | 0000 0000
-    INTCONA  | 08 | IOC7    | IOC6   | IOC5   | IOC4   | IOC3   | IOC2   | IOC1   | IOC0   | 0000 0000
-    INTCONB  | 09 | IOC7    | IOC6   | IOC5   | IOC4   | IOC3   | IOC2   | IOC1   | IOC0   | 0000 0000
-    IOCON    | 0A | BANK    | MIRROR | SEQOP  | DISSLW | HAEN   | ODR    | INTPOL | -      | 0000 0000
-    IOCON    | 0B | BANK    | MIRROR | SEQOP  | DISSLW | HAEN   | ODR    | INTPOL | -      | 0000 0000
-    GPPUA    | 0C | PU7     | PU6    | PU5    | PU4    | PU3    | PU2    | PU1    | PU0    | 0000 0000
-    GPPUB    | 0D | PU7     | PU6    | PU5    | PU4    | PU3    | PU2    | PU1    | PU0    | 0000 0000
-
-
     """
 
     def __init__(self, address: int = 0x23, i2c: I2C = None) -> None:
@@ -304,3 +287,56 @@ class Mcp23017:
     @staticmethod
     def bitmask(gpio) -> int:
         return 1 << (gpio % 8)
+
+
+class Mcp23017Factory:
+    _instance = None
+    _lock = threading.RLock()
+
+    @classmethod
+    def build(cls, address: int = 0x23, pin: int = 0) -> Mcp23017:
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = Mcp23017Factory()
+            mcp23017 = cls._instance._mcp23017s.get(address, None)
+            if mcp23017 is None:
+                mcp23017 = Mcp23017(address)
+                cls._instance._mcp23017s[address] = mcp23017
+                cls._instance._pins_in_use[address] = set()
+            if pin not in cls._instance._pins_in_use[address]:
+                cls._instance._pins_in_use[address].add(pin)
+            else:
+                raise GPIOPinInUse(f"Pin {pin} is already in use by Mcp23017 at address {hex(address)}")
+            return mcp23017
+
+    # noinspection PyProtectedMember
+    @classmethod
+    def close(cls, mcp23017: Mcp23017, pin: int) -> None:
+        with cls._lock:
+            if cls._instance is None:
+                return  # really this is an invalid state...
+            if mcp23017.address in cls._instance._mcp23017s:
+                cls._instance._pins_in_use[mcp23017.address].discard(pin)
+                if len(cls._instance._pins_in_use[mcp23017.address]) == 0:
+                    cls._instance._mcp23017s.pop(mcp23017.address)
+                    cls._instance._pins_in_use.pop(mcp23017.address)
+
+    def __init__(self) -> None:
+        if self._initialized:
+            return
+        else:
+            self._initialized = True
+        self._mcp23017s: Dict[int, Mcp23017] = dict()
+        self._pins_in_use: Dict[int, Set[int]] = dict()
+
+    def __new__(cls, *args, **kwargs):
+        """
+        Provides singleton functionality. We only want one instance
+        of this class in a process
+        """
+        with cls._lock:
+            if Mcp23017Factory._instance is None:
+                # noinspection PyTypeChecker
+                Mcp23017Factory._instance = super(Mcp23017Factory, cls).__new__(cls)
+                Mcp23017Factory._instance._initialized = False
+            return Mcp23017Factory._instance
