@@ -32,6 +32,17 @@ class I2CButton(Device, HoldMixin):
         self._handlers = (get_new_handler(self), self)
         self.when_changed = self._handlers[0]
 
+    def __repr__(self):
+        # noinspection PyBroadException
+        try:
+            return (
+                f"<{self.__class__.__name__} object on pin "
+                f"{self.pin!r}, pull_up={self.pull_up}, "
+                f"is_active={self.is_active}>"
+            )
+        except Exception:
+            return super().__repr__()
+
     def close(self) -> None:
         if self._mcp_23017 is not None:
             Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
