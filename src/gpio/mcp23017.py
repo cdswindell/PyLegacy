@@ -325,11 +325,11 @@ class Mcp23017:
         btn = Button(interrupt_pin, pin_factory=pin_factory)
         btn.when_pressed = lambda b: print(b, self.read_interrupt_flags(), self.digital_read_all())
         if 0 <= pin <= 7:
-            self._gpintena_pin = pin
-            self._gpintenb_pin = btn
+            self._gpintena_pin = interrupt_pin
+            self._gpintena_btn = btn
         elif 8 <= pin <= 15:
-            self._gpintena_pin = None
-            self._gpintenb_pin = btn
+            self._gpintenb_pin = interrupt_pin
+            self._gpintenb_btn = btn
         else:
             raise TypeError("pin must be one of GPAn or GPBn. See description for help")
 
@@ -402,6 +402,7 @@ class Mcp23017Factory:
             if mcp23017.address in cls._instance._mcp23017s:
                 cls._instance._pins_in_use[mcp23017.address].discard(pin)
                 if len(cls._instance._pins_in_use[mcp23017.address]) == 0:
+                    # TODO: close interrupt handler buttons
                     cls._instance._mcp23017s.pop(mcp23017.address)
                     cls._instance._pins_in_use.pop(mcp23017.address)
 
