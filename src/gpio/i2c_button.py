@@ -33,8 +33,9 @@ class I2CButton(Device, HoldMixin):
         self.when_changed = self._handlers[0]
 
     def close(self) -> None:
-        super().close()
+        Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
         self._mcp_23017 = None
+        super().close()
 
     @property
     def i2c_address(self) -> int:
