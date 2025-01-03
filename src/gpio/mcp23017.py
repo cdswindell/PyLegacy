@@ -323,7 +323,10 @@ class Mcp23017:
 
     def create_interrupt_handler(self, pin, interrupt_pin, pin_factory) -> None:
         btn = Button(interrupt_pin, pin_factory=pin_factory)
-        btn.when_pressed = lambda b: print(b, self.read_interrupt_flags(), self.digital_read_all())
+        btn.when_pressed = lambda b: print("pressed", b, self.read_interrupt_flags())
+        btn.when_activated = lambda b: print("activated", b, self.read_interrupt_flags())
+        btn.when_released = lambda b: print("released", b, self.read_interrupt_flags())
+        btn.when_deactivated = lambda b: print("deactivated", b, self.read_interrupt_flags())
         if 0 <= pin <= 7:
             self._gpintena_pin = interrupt_pin
             self._gpintena_btn = btn
@@ -332,6 +335,14 @@ class Mcp23017:
             self._gpintenb_btn = btn
         else:
             raise TypeError("pin must be one of GPAn or GPBn. See description for help")
+
+    def close(self) -> None:
+        if self._gpintenb_btn:
+            self._gpintenb_btn.close()
+        if self._gpintena_btn:
+            self._gpintena_btn.close()
+        self._gpintenb_btn = self._gpintena_btn = None
+        self._gpintena_pin = self._gpintenb_pin = None
 
 
 class Mcp23017Factory:
@@ -402,7 +413,11 @@ class Mcp23017Factory:
             if mcp23017.address in cls._instance._mcp23017s:
                 cls._instance._pins_in_use[mcp23017.address].discard(pin)
                 if len(cls._instance._pins_in_use[mcp23017.address]) == 0:
-                    # TODO: close interrupt handler buttons
+                    if mcp23017.gpintena_pin is not None:
+                        cls._instance._interrupt_pins.pop(mcp23017.gpintena_pin)
+                    if mcp23017.gpintenb_pin is not None:
+                        cls._instance._interrupt_pins.pop(mcp23017.gpintenb_pin)
+                    mcp23017.close()
                     cls._instance._mcp23017s.pop(mcp23017.address)
                     cls._instance._pins_in_use.pop(mcp23017.address)
 
