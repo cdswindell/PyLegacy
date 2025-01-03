@@ -1,7 +1,8 @@
+import sys
 import threading
 from typing import List, Tuple, Dict, Set
 
-from gpiozero import GPIOPinInUse
+from gpiozero import GPIOPinInUse, PinInvalidPin, Button
 
 from src.gpio.i2c import I2C
 
@@ -116,6 +117,34 @@ class Mcp23017:
     def __init__(self, address: int = 0x23, i2c: I2C = None) -> None:
         self.address = address
         self.i2c = i2c if i2c else I2C()
+        self._gpintena_pin = self._gpintenb_pin = None
+        self._gpintena_btn = self._gpintenb_btn = None
+
+    @property
+    def gpintena_pin(self) -> int:
+        return self._gpintena_pin
+
+    @property
+    def gpintenb_pin(self) -> int:
+        return self._gpintenb_pin
+
+    def interrupt_pin_range(self, pin: int) -> range | None:
+        """
+        Returns the range of DGPIO pins this interrupt pin services
+        """
+        if pin == self._gpintena_pin:
+            return range(0, 8)
+        elif pin == self._gpintenb_pin:
+            return range(8, 16)
+        return None
+
+    def get_interrupt_pin(self, gpio) -> int:
+        if 0 <= gpio <= 7:
+            return self._gpintena_pin
+        elif 8 <= gpio <= 15:
+            return self._gpintenb_pin
+        else:
+            raise TypeError("pin must be one of GPAn or GPBn. See description for help")
 
     def set_all_output(self) -> None:
         """sets all GPIOs as OUTPUT"""
@@ -292,13 +321,33 @@ class Mcp23017:
     def bitmask(gpio) -> int:
         return 1 << (gpio % 8)
 
+    def create_interrupt_handler(self, pin, interrupt_pin, pin_factory) -> None:
+        btn = Button(interrupt_pin, pin_factory=pin_factory)
+        btn.when_pressed = lambda b: print(b, self.read_interrupt_flags(), self.digital_read_all())
+        if 0 <= pin <= 7:
+            self._gpintena_pin = pin
+            self._gpintenb_pin = btn
+        elif 8 <= pin <= 15:
+            self._gpintena_pin = None
+            self._gpintenb_pin = btn
+        else:
+            raise TypeError("pin must be one of GPAn or GPBn. See description for help")
+
 
 class Mcp23017Factory:
     _instance = None
     _lock = threading.RLock()
 
     @classmethod
-    def build(cls, address: int = 0x23, pin: int = 0) -> Mcp23017:
+    def build(
+        cls,
+        address: int = 0x23,
+        pin: int = 0,
+        interrupt_pin: int | str = None,
+        pin_factory=None,
+    ) -> Mcp23017:
+        if pin is None or pin < 0 or pin > 15:
+            raise PinInvalidPin(f"{pin} is not a valid pin")
         with cls._lock:
             if cls._instance is None:
                 cls._instance = Mcp23017Factory()
@@ -311,6 +360,37 @@ class Mcp23017Factory:
                 cls._instance._pins_in_use[address].add(pin)
             else:
                 raise GPIOPinInUse(f"Pin {pin} is already in use by Mcp23017 at address {hex(address)}")
+            if interrupt_pin is not None:
+                # the CQRobot Ocean board supports 2 interrupt lines, one for DGPIO ports 0-7 (A),
+                # and another for DGPIO ports 8-15 (B). We hve to make sure the given interrupt port
+                # hasn't been assigned to a different I2C board or that it hasn't been assigned to
+                # a different bank on this board
+                assigned = cls._instance._interrupt_pins.get(interrupt_pin, None)
+                if assigned is not None:
+                    if assigned != mcp23017:
+                        raise GPIOPinInUse(
+                            f"Pin {interrupt_pin} is already in use by Mcp23017 at address {hex(assigned.address)}"
+                        )
+                    associated_pins = mcp23017.interrupt_pin_range(interrupt_pin)
+                    if associated_pins:
+                        if pin not in associated_pins:
+                            raise GPIOPinInUse(
+                                f"Pin {interrupt_pin} is already in use by Mcp23017 for pins {associated_pins}"
+                            )
+                        # one more check, has the interrupt machinery been created? If so, we're done
+                        if pin in associated_pins:
+                            return mcp23017
+                # set the interrupt pin state to low
+                if sys.platform == "linux":
+                    import lgpio
+
+                    pi = lgpio.gpiochip_open(0)
+                    lgpio.gpio_write(pi, interrupt_pin, 0)
+                    lgpio.gpio_free(pi, 26)
+                    lgpio.gpiochip_close(pi)
+                cls._instance._interrupt_pins[interrupt_pin] = mcp23017
+                mcp23017.create_interrupt_handler(pin, interrupt_pin, pin_factory)
+
             return mcp23017
 
     # noinspection PyProtectedMember
@@ -332,6 +412,7 @@ class Mcp23017Factory:
             self._initialized = True
         self._mcp23017s: Dict[int, Mcp23017] = dict()
         self._pins_in_use: Dict[int, Set[int]] = dict()
+        self._interrupt_pins: Dict[int, Mcp23017] = dict()
 
     def __new__(cls, *args, **kwargs):
         """

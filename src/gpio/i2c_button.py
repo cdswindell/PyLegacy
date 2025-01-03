@@ -9,28 +9,23 @@ class I2CButton(Device, HoldMixin):
         pin,
         i2c_address: int = 0x23,
         pull_up: bool = True,
+        interrupt_pin: int | str = None,
         pin_factory=None,
     ):
         self._dio_pin = pin
         # i2c buttons use the MCP 23017 i2c dio board, which supports 16 pins and interrupts
-        self._mcp_23017 = Mcp23017Factory.build(address=i2c_address, pin=pin)
+        self._mcp_23017 = Mcp23017Factory.build(
+            address=i2c_address,
+            pin=pin,
+            interrupt_pin=interrupt_pin,
+            pin_factory=pin_factory,
+        )
         self._mcp_23017.set_pin_mode(pin, INPUT)
         self._mcp_23017.set_pull_up(pin, pull_up)
+        if interrupt_pin is not None:
+            self._mcp_23017.set_interrupt(pin, True)
+        self._interrupt_pin = interrupt_pin
         super().__init__(pin_factory=pin_factory)
-
-        # _handlers only exists to ensure that we keep a reference to the
-        # generated fire_both_events handler for each Button (remember that
-        # pin.when_changed only keeps a weak reference to handlers)
-        def get_new_handler(device):
-            def fire_both_events(ticks, state):
-                # noinspection PyProtectedMember
-                device._fire_events(ticks, device._state_to_value(state))
-                self._fire_events(ticks, self.is_active)
-
-            return fire_both_events
-
-        self._handlers = (get_new_handler(self), self)
-        self.when_changed = self._handlers[0]
 
     def __repr__(self):
         # noinspection PyBroadException
@@ -45,6 +40,7 @@ class I2CButton(Device, HoldMixin):
 
     def close(self) -> None:
         if self._mcp_23017 is not None:
+            self._mcp_23017.set_interrupt(self._dio_pin, True)
             Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
         self._mcp_23017 = None
         super().close()
