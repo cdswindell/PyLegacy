@@ -128,6 +128,14 @@ class Mcp23017:
     def gpintenb_pin(self) -> int:
         return self._gpintenb_pin
 
+    @property
+    def gpintena_btn(self) -> Button:
+        return self._gpintena_btn
+
+    @property
+    def gpintenb_btn(self) -> Button:
+        return self._gpintenb_btn
+
     def interrupt_pin_range(self, pin: int) -> range | None:
         """
         Returns the range of DGPIO pins this interrupt pin services
