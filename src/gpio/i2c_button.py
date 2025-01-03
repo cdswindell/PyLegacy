@@ -1,9 +1,9 @@
-from gpiozero import Device, EventsMixin
+from gpiozero import Device, EventsMixin, GPIODeviceClosed
 
 from src.gpio.mcp23017 import Mcp23017, INPUT, HIGH
 
 
-class I2cButton(Device, EventsMixin):
+class I2CButton(Device, EventsMixin):
     def __init__(self, pin, i2c_address: int = 0x23, pull_up: bool = True, pin_factory=None):
         self._dio_pin = pin
         # i2c buttons use the MCP 23017 i2c dio board, which supports 16 pins and interrupts
@@ -14,6 +14,7 @@ class I2cButton(Device, EventsMixin):
 
     def close(self) -> None:
         super().close()
+        self._mcp_23017 = None
 
     @property
     def i2c_address(self) -> int:
@@ -21,4 +22,14 @@ class I2cButton(Device, EventsMixin):
 
     @property
     def value(self) -> int:
-        return 1 if self._mcp_23017.digital_read(self._dio_pin) == HIGH else 0
+        if self._mcp_23017 is None:
+            raise GPIODeviceClosed("I2C Button is closed or uninitialized")
+        return 0 if self._mcp_23017.digital_read(self._dio_pin) == HIGH else 1
+
+    @property
+    def is_active(self) -> bool:
+        return self.value == 1
+
+    @property
+    def closed(self) -> bool:
+        return self._mcp_23017 is None
