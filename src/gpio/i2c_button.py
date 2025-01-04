@@ -20,12 +20,13 @@ class I2CButton(Device, HoldMixin):
             interrupt_pin=interrupt_pin,
             client=self,
         )
+        super().__init__(pin_factory=pin_factory)
         self._mcp_23017.set_pin_mode(pin, INPUT)
         self._mcp_23017.set_pull_up(pin, pull_up)
         if interrupt_pin is not None:
             self._mcp_23017.set_interrupt(pin, True)
         self._interrupt_pin = interrupt_pin
-        super().__init__(pin_factory=pin_factory)
+        self._fire_events(self.pin_factory.ticks(), self.is_active)
 
     def __repr__(self):
         # noinspection PyBroadException

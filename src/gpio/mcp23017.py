@@ -394,7 +394,7 @@ class Mcp23017:
         btn.when_pressed = self.process_interrupts("pressed")
         btn.when_activated = self.process_interrupts("activated")
         btn.when_released = self.process_interrupts("released")
-        btn.when_deactivated = self.process_interrupts("activated")
+        btn.when_deactivated = self.process_interrupts("deactivated")
         if 0 <= pin <= 7:
             self._int_a_pin = interrupt_pin
             self._int_a_btn = btn
