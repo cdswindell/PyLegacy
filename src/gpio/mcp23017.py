@@ -384,7 +384,7 @@ class Mcp23017:
 
     def process_interrupts(self, text: str = None) -> Callable:
         def _process_interrupts(btn):
-            print(f"{btn} {text}")
+            print(f"{btn} {text} {self.read_interrupt_flags()}")
             self.clear_all_interrupts()
 
         return _process_interrupts
@@ -392,9 +392,9 @@ class Mcp23017:
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
         btn = Button(interrupt_pin)
         btn.when_pressed = self.process_interrupts("pressed")
-        # btn.when_activated = lambda b: print("activated", b, self.read_interrupt_flags())
+        btn.when_activated = self.process_interrupts("activated")
         btn.when_released = self.process_interrupts("released")
-        # btn.when_deactivated = lambda b: print("deactivated", b, self.read_interrupt_flags())
+        btn.when_deactivated = self.process_interrupts("activated")
         if 0 <= pin <= 7:
             self._int_a_pin = interrupt_pin
             self._int_a_btn = btn
