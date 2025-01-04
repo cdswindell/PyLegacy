@@ -1,6 +1,6 @@
 import sys
 import threading
-from typing import List, Tuple, Dict, Set
+from typing import List, Tuple, Dict, Set, Callable
 
 from gpiozero import GPIOPinInUse, PinInvalidPin, Button, Device
 
@@ -121,6 +121,7 @@ class Mcp23017:
         self.set_all_input()
         self.set_all_pull_up()
         self.set_all_interrupt_config()
+        self.io_control = 0x44
         self.clear_all_interrupts()
         self._int_a_pin = self._int_b_pin = None
         self._int_a_btn = self._int_b_btn = None
@@ -260,6 +261,14 @@ class Mcp23017:
     def clear_int_b(self) -> None:
         self.i2c.read_from(self.address, INTCAPB)
 
+    @property
+    def io_control(self) -> int:
+        return self.i2c.read_from(self.address, IOCONA)
+
+    @io_control.setter
+    def io_control(self, value: int) -> None:
+        self.i2c.write_to(self.address, IOCONA, value)
+
     def get_all_interrupt_config(self) -> List:
         """
         Return interrupt comparison criteria
@@ -373,11 +382,18 @@ class Mcp23017:
     def bitmask(gpio) -> int:
         return 1 << (gpio % 8)
 
+    def process_interrupts(self, text: str = None) -> Callable:
+        def _process_interrupts(btn):
+            print(f"{btn} {text}")
+            self.clear_all_interrupts()
+
+        return _process_interrupts
+
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
         btn = Button(interrupt_pin)
-        btn.when_pressed = lambda x: print("pressed", self.read_interrupt_flags())
+        btn.when_pressed = self.process_interrupts("pressed")
         # btn.when_activated = lambda b: print("activated", b, self.read_interrupt_flags())
-        btn.when_released = lambda x: print("released", self.read_interrupt_flags())
+        btn.when_released = self.process_interrupts("released")
         # btn.when_deactivated = lambda b: print("deactivated", b, self.read_interrupt_flags())
         if 0 <= pin <= 7:
             self._int_a_pin = interrupt_pin
