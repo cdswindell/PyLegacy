@@ -123,43 +123,17 @@ class Mcp23017:
         self.set_all_interrupt_config()
         self.io_control = 0x44
         self.clear_all_interrupts()
-        self._int_a_pin = self._int_b_pin = None
-        self._int_a_btn = self._int_b_btn = None
+        self._int_pin = None
+        self._int_btn = None
         self._clients: Dict[int, Device] = dict()
 
     @property
-    def int_a_pin(self) -> int:
-        return self._int_a_pin
+    def interrupt_pin(self) -> int:
+        return self._int_pin
 
     @property
-    def int_b_pin(self) -> int:
-        return self._int_b_pin
-
-    @property
-    def int_a_btn(self) -> Button:
-        return self._int_a_btn
-
-    @property
-    def int_b_btn(self) -> Button:
-        return self._int_b_btn
-
-    def interrupt_pin_range(self, pin: int) -> range | None:
-        """
-        Returns the range of DGPIO pins this interrupt pin services
-        """
-        if pin == self._int_a_pin:
-            return range(0, 8)
-        elif pin == self._int_b_pin:
-            return range(8, 16)
-        return None
-
-    def get_interrupt_pin(self, gpio) -> int:
-        if 0 <= gpio <= 7:
-            return self._int_a_pin
-        elif 8 <= gpio <= 15:
-            return self._int_b_pin
-        else:
-            raise TypeError("pin must be one of GPAn or GPBn. See description for help")
+    def interrupt_btn(self) -> Button:
+        return self._int_btn
 
     def set_all_normal(self) -> None:
         """sets all GPIOs normal polarity"""
@@ -390,27 +364,20 @@ class Mcp23017:
         return _process_interrupts
 
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
-        btn = Button(interrupt_pin)
-        btn.when_pressed = self.process_interrupts("pressed")
-        btn.when_released = self.process_interrupts("released")
-        if 0 <= pin <= 7:
-            self._int_a_pin = interrupt_pin
-            self._int_a_btn = btn
-        elif 8 <= pin <= 15:
-            self._int_b_pin = interrupt_pin
-            self._int_b_btn = btn
+        if 0 <= pin <= 15:
+            self._int_pin = interrupt_pin
+            self._int_btn = Button(interrupt_pin)
+            self._int_btn.when_pressed = self.process_interrupts("pressed")
+            self._int_btn.when_released = self.process_interrupts("released")
+            self.read_interrupt_captures()
         else:
             raise TypeError("pin must be one of GPAn or GPBn. See description for help")
-        self.read_interrupt_captures()
 
     def close(self) -> None:
-        if self._int_b_btn:
-            self._int_b_btn.close()
-        if self._int_a_btn:
-            print(f"closing button {self._int_a_btn}")
-            self._int_a_btn.close()
-        self._int_b_btn = self._int_a_btn = None
-        self._int_a_pin = self._int_b_pin = None
+        if self._int_btn is not None:
+            print(f"closing button {self._int_btn}")
+            self._int_btn.close()
+        self._int_pin = self._int_btn = None
 
     def register_client(self, pin: int, client: Device):
         if hasattr(client, "pin") and getattr(client, "pin") != pin:
@@ -459,25 +426,26 @@ class Mcp23017Factory:
                         raise GPIOPinInUse(
                             f"Pin {interrupt_pin} is already in use by Mcp23017 at address {hex(assigned.address)}"
                         )
-                    associated_pins = mcp23017.interrupt_pin_range(interrupt_pin)
-                    if associated_pins:
-                        if pin not in associated_pins:
-                            raise GPIOPinInUse(
-                                f"Pin {interrupt_pin} is already in use by Mcp23017 for pins {associated_pins}"
-                            )
-                        # one more check, has the interrupt machinery been created? If so, we're done
-                        if pin in associated_pins:
-                            mcp23017.register_client(pin, client)
-                            return mcp23017
+                    if mcp23017.interrupt_pin is not None and mcp23017.interrupt_pin != interrupt_pin:
+                        raise PinInvalidPin(
+                            f"Interrupt pin {mcp23017.interrupt_pin} already assigned "
+                            f"to Mcp23017 at {hex(mcp23017.address)}"
+                        )
+                    # one more check, has the interrupt machinery been created? If so, we're done
+                    if mcp23017.interrupt_pin == interrupt_pin:
+                        mcp23017.register_client(pin, client)
+                        return mcp23017
                 # set the interrupt pin state to low
                 if sys.platform == "linux":
                     import lgpio
 
                     pi = lgpio.gpiochip_open(0)
-                    print(f"Bord ID: {pi}")
-                    lgpio.gpio_claim_output(pi, interrupt_pin, 0)
-                    lgpio.gpio_free(pi, interrupt_pin)
-                    lgpio.gpiochip_close(pi)
+                    print(f"Board ID: {pi}")
+                    try:
+                        lgpio.gpio_claim_output(pi, interrupt_pin, 0)
+                        lgpio.gpio_free(pi, interrupt_pin)
+                    finally:
+                        lgpio.gpiochip_close(pi)
                 cls._instance._interrupt_pins[interrupt_pin] = mcp23017
                 mcp23017.create_interrupt_handler(pin, interrupt_pin)
                 mcp23017.register_client(pin, client)
@@ -493,10 +461,6 @@ class Mcp23017Factory:
             if mcp23017.address in cls._instance._mcp23017s:
                 cls._instance._pins_in_use[mcp23017.address].discard(pin)
                 if len(cls._instance._pins_in_use[mcp23017.address]) == 0:
-                    if mcp23017.int_a_pin is not None:
-                        cls._instance._interrupt_pins.pop(mcp23017.int_a_pin)
-                    if mcp23017.int_b_pin is not None:
-                        cls._instance._interrupt_pins.pop(mcp23017.int_b_pin)
                     mcp23017.close()
                     cls._instance._mcp23017s.pop(mcp23017.address)
                     cls._instance._pins_in_use.pop(mcp23017.address)
