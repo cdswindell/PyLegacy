@@ -343,6 +343,7 @@ class Mcp23017:
             self._gpintenb_btn = btn
         else:
             raise TypeError("pin must be one of GPAn or GPBn. See description for help")
+        self.read_interrupt_captures()
 
     def close(self) -> None:
         if self._gpintenb_btn:
