@@ -12,20 +12,23 @@ class I2CButton(Device, HoldMixin):
         interrupt_pin: int | str = None,
         pin_factory=None,
     ):
-        self._dio_pin = pin
         # i2c buttons use the MCP 23017 i2c dio board, which supports 16 pins and interrupts
+        self._dio_pin = pin
         self._mcp_23017 = Mcp23017Factory.build(
             address=i2c_address,
             pin=pin,
             interrupt_pin=interrupt_pin,
             client=self,
         )
+        # initialize the gpiozero device
         super().__init__(pin_factory=pin_factory)
         self._mcp_23017.set_pin_mode(pin, INPUT)
         self._mcp_23017.set_pull_up(pin, pull_up)
         if interrupt_pin is not None:
             self._mcp_23017.set_interrupt(pin, True)
         self._interrupt_pin = interrupt_pin
+
+        # initialize button event subsystem
         self._fire_events(self.pin_factory.ticks(), self.is_active)
 
     def __repr__(self):
