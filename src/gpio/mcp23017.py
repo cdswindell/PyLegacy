@@ -120,7 +120,7 @@ class Mcp23017:
         self.set_all_input()
         self.set_all_pull_up()
         self.set_all_interrupt_config()
-        self.io_control = 0x44
+        self.io_control = 0x40
         self.clear_all_interrupts()
         self._int_pin = None
         self._int_btn = None
