@@ -405,9 +405,9 @@ class Mcp23017Factory:
 
                     pi = lgpio.gpiochip_open(0)
                     print(f"Setting pin {interrupt_pin} on board {pi} low")
-                    lgpio.gpio_write(pi, interrupt_pin, 0)
-                    lgpio.gpio_free(pi, interrupt_pin)
-                    lgpio.gpiochip_close(pi)
+                    print(lgpio.gpio_write(pi, interrupt_pin, 0))
+                    print(lgpio.gpio_free(pi, interrupt_pin))
+                    print(lgpio.gpiochip_close(pi))
                     print(f"Set pin {interrupt_pin} low")
                 cls._instance._interrupt_pins[interrupt_pin] = mcp23017
                 mcp23017.create_interrupt_handler(pin, interrupt_pin, pin_factory)
