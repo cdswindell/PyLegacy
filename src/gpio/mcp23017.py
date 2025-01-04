@@ -364,14 +364,14 @@ class Mcp23017:
 
     def process_interrupt_rising(self) -> None:
         print("Rising...")
-        print(self.read_interrupt_captures())
         print(self.read_interrupt_flags())
+        print(self.read_interrupt_captures())
         self.clear_all_interrupts()
 
     def process_interrupt_falling(self) -> None:
         print("Falling...")
-        print(self.read_interrupt_captures())
         print(self.read_interrupt_flags())
+        print(self.read_interrupt_captures())
         self.clear_all_interrupts()
 
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
