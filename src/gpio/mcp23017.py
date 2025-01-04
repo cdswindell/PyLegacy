@@ -331,9 +331,9 @@ class Mcp23017:
 
     def create_interrupt_handler(self, pin, interrupt_pin, pin_factory) -> None:
         btn = Button(interrupt_pin, pin_factory=pin_factory)
-        btn.when_pressed = lambda b: print("pressed", b, self.read_interrupt_flags())
+        btn.when_pressed = lambda x: print("pressed", x, self.read_interrupt_flags(), self.digital_read(pin))
         # btn.when_activated = lambda b: print("activated", b, self.read_interrupt_flags())
-        btn.when_released = lambda b: print("released", b, self.read_interrupt_flags())
+        btn.when_released = lambda x: print("released", x, self.read_interrupt_flags(), self.digital_read(pin))
         # btn.when_deactivated = lambda b: print("deactivated", b, self.read_interrupt_flags())
         if 0 <= pin <= 7:
             self._gpintena_pin = interrupt_pin
@@ -409,6 +409,7 @@ class Mcp23017Factory:
                     print(lgpio.gpio_free(pi, interrupt_pin))
                     print(lgpio.gpiochip_close(pi))
                     print(f"Set pin {interrupt_pin} low")
+                mcp23017.digital_read(pin)
                 cls._instance._interrupt_pins[interrupt_pin] = mcp23017
                 mcp23017.create_interrupt_handler(pin, interrupt_pin, pin_factory)
 
