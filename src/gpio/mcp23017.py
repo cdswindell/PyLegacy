@@ -362,12 +362,24 @@ class Mcp23017:
 
         return _process_interrupts
 
+    def process_interrupt_rising(self) -> None:
+        print("Rising...")
+        print(self.read_interrupt_captures())
+        print(self.read_interrupt_flags())
+        self.clear_all_interrupts()
+
+    def process_interrupt_falling(self) -> None:
+        print("Falling...")
+        print(self.read_interrupt_captures())
+        print(self.read_interrupt_flags())
+        self.clear_all_interrupts()
+
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
         if 0 <= pin <= 15:
             self._int_pin = interrupt_pin
             self._int_btn = Button(interrupt_pin)
-            self._int_btn.when_pressed = self.process_interrupts("pressed")
-            self._int_btn.when_released = self.process_interrupts("released")
+            self._int_btn.when_pressed = self.process_interrupt_rising
+            self._int_btn.when_released = self.process_interrupt_falling
             self.read_interrupt_captures()
         else:
             raise TypeError("pin must be one of GPAn or GPBn. See description for help")
@@ -434,18 +446,6 @@ class Mcp23017Factory:
                     if mcp23017.interrupt_pin == interrupt_pin:
                         mcp23017.register_client(pin, client)
                         return mcp23017
-                # # set the interrupt pin state to low
-                # if sys.platform == "linux":
-                #     import lgpio
-                #
-                #     pi = lgpio.gpiochip_open(0)
-                #     print(f"Board ID: {pi}")
-                #     try:
-                #         if pi == 0:
-                #             lgpio.gpio_claim_output(pi, interrupt_pin, 0)
-                #             lgpio.gpio_free(pi, interrupt_pin)
-                #     finally:
-                #         lgpio.gpiochip_close(pi)
                 cls._instance._interrupt_pins[interrupt_pin] = mcp23017
                 mcp23017.create_interrupt_handler(pin, interrupt_pin)
                 mcp23017.register_client(pin, client)
