@@ -286,6 +286,10 @@ class Mcp23017:
         pair = self.get_offset_gpio_tuple([GPINTENA, GPINTENB], gpio)
         self.set_bit_enabled(pair[0], pair[1], enabled)
 
+    def get_interrupt(self, gpio) -> int:
+        pair = self.get_offset_gpio_tuple([GPINTENA, GPINTENB], gpio)
+        return self.get_bit_enabled(pair[0], pair[1])
+
     def set_all_interrupt(self, enabled: bool = True) -> None:
         """
         Enables or disables the interrupt of all GPIOs
@@ -293,6 +297,9 @@ class Mcp23017:
         """
         self.i2c.write_to(self.address, GPINTENA, 0xFF if enabled else 0x00)
         self.i2c.write_to(self.address, GPINTENB, 0xFF if enabled else 0x00)
+
+    def get_all_interrupt(self) -> List:
+        return [self.i2c.read_from(self.address, GPINTENA), self.i2c.read_from(self.address, GPINTENB)]
 
     def set_interrupt_mirror(self, enable: bool = True) -> None:
         """
