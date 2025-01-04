@@ -18,6 +18,7 @@ class I2CButton(Device, HoldMixin):
             address=i2c_address,
             pin=pin,
             interrupt_pin=interrupt_pin,
+            client=self,
         )
         self._mcp_23017.set_pin_mode(pin, INPUT)
         self._mcp_23017.set_pull_up(pin, pull_up)
@@ -39,7 +40,8 @@ class I2CButton(Device, HoldMixin):
 
     def close(self) -> None:
         if self._mcp_23017 is not None:
-            self._mcp_23017.set_interrupt(self._dio_pin, True)
+            self._mcp_23017.set_interrupt(self._dio_pin, False)
+            self._mcp_23017.deregister_client(self)
             Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
         self._mcp_23017 = None
         super().close()
