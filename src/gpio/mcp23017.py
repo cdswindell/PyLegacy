@@ -117,6 +117,11 @@ class Mcp23017:
     def __init__(self, address: int = 0x23, i2c: I2C = None) -> None:
         self.address = address
         self.i2c = i2c if i2c else I2C()
+        self.set_all_normal()
+        self.set_all_input()
+        self.set_all_pull_up()
+        self.set_all_interrupt_config()
+        self.clear_all_interrupts()
         self._gpintena_pin = self._gpintenb_pin = None
         self._gpintena_btn = self._gpintenb_btn = None
 
@@ -153,6 +158,11 @@ class Mcp23017:
             return self._gpintenb_pin
         else:
             raise TypeError("pin must be one of GPAn or GPBn. See description for help")
+
+    def set_all_normal(self) -> None:
+        """sets all GPIOs normal polarity"""
+        self.i2c.write_to(self.address, IPOLA, 0x00)
+        self.i2c.write_to(self.address, IPOLB, 0x00)
 
     def set_all_output(self) -> None:
         """sets all GPIOs as OUTPUT"""
@@ -239,6 +249,33 @@ class Mcp23017:
         """
         return [self.i2c.read_from(self.address, GPIOA), self.i2c.read_from(self.address, GPIOB)]
 
+    def clear_all_interrupts(self) -> None:
+        self.i2c.read_from(self.address, INTCAPA)
+        self.i2c.read_from(self.address, INTCAPB)
+
+    def clear_int_a(self) -> None:
+        self.i2c.read_from(self.address, INTCAPA)
+
+    def clear_int_b(self) -> None:
+        self.i2c.read_from(self.address, INTCAPB)
+
+    def get_all_interrupt_config(self) -> List:
+        """
+        Return interrupt comparison criteria
+        """
+        return [
+            self.i2c.read_from(self.address, INTCONA),
+            self.i2c.read_from(self.address, INTCONB),
+        ]
+
+    def set_all_interrupt_config(self, prev_val: bool = True) -> None:
+        """
+        Configure interrupt comparison criteria
+        :param prev_val: True to compare to previous value, False to compare to def value
+        """
+        self.i2c.write_to(self.address, INTCONA, 0x00 if prev_val else 0xFF)
+        self.i2c.write_to(self.address, INTCONB, 0x00 if prev_val else 0xFF)
+
     def set_interrupt(self, gpio, enabled: bool = True) -> None:
         """
         Enables or disables the interrupt of a given GPIO
@@ -279,7 +316,6 @@ class Mcp23017:
         bits = "{0:08b}".format(interrupted)
         for i in reversed(range(8)):
             li.append(bits[i])
-
         return li
 
     def read_interrupt_flags(self) -> Tuple[List[str], List[str]]:
