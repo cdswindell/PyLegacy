@@ -407,6 +407,7 @@ class Mcp23017:
         if self._int_b_btn:
             self._int_b_btn.close()
         if self._int_a_btn:
+            print(f"closing button {self._int_a_btn}")
             self._int_a_btn.close()
         self._int_b_btn = self._int_a_btn = None
         self._int_a_pin = self._int_b_pin = None
