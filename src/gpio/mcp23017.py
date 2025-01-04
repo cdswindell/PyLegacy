@@ -461,6 +461,8 @@ class Mcp23017Factory:
             if mcp23017.address in cls._instance._mcp23017s:
                 cls._instance._pins_in_use[mcp23017.address].discard(pin)
                 if len(cls._instance._pins_in_use[mcp23017.address]) == 0:
+                    if mcp23017.interrupt_pin is not None:
+                        cls._instance._interrupt_pins.pop(mcp23017.interrupt_pin)
                     mcp23017.close()
                     cls._instance._mcp23017s.pop(mcp23017.address)
                     cls._instance._pins_in_use.pop(mcp23017.address)
