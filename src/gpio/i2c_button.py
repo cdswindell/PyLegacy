@@ -43,7 +43,8 @@ class I2CButton(Device, HoldMixin):
             return super().__repr__()
 
     def close(self) -> None:
-        if self._mcp_23017 is not None:
+        # in edge cases where constructor fails, _mcp_23017 property may not exist
+        if hasattr(self, "_mcp_23017") and self._mcp_23017 is not None:
             self._mcp_23017.set_interrupt(self._dio_pin, False)
             self._mcp_23017.deregister_client(self)
             Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
