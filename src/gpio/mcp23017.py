@@ -367,9 +367,9 @@ class Mcp23017:
 
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
         btn = Button(interrupt_pin)
-        btn.when_pressed = lambda x: print(x, "pressed", self.read_interrupt_flags())
+        btn.when_pressed = lambda x: print(x, "pressed")
         # btn.when_activated = lambda b: print("activated", b, self.read_interrupt_flags())
-        btn.when_released = lambda x: print(x, "released", self.read_interrupt_flags())
+        btn.when_released = lambda x: print(x, "released")
         # btn.when_deactivated = lambda b: print("deactivated", b, self.read_interrupt_flags())
         if 0 <= pin <= 7:
             self._gpintena_pin = interrupt_pin
