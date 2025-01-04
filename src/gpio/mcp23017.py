@@ -1,4 +1,3 @@
-import sys
 import threading
 from typing import List, Tuple, Dict, Set, Callable
 
@@ -435,18 +434,18 @@ class Mcp23017Factory:
                     if mcp23017.interrupt_pin == interrupt_pin:
                         mcp23017.register_client(pin, client)
                         return mcp23017
-                # set the interrupt pin state to low
-                if sys.platform == "linux":
-                    import lgpio
-
-                    pi = lgpio.gpiochip_open(0)
-                    print(f"Board ID: {pi}")
-                    try:
-                        if pi == 0:
-                            lgpio.gpio_claim_output(pi, interrupt_pin, 0)
-                            lgpio.gpio_free(pi, interrupt_pin)
-                    finally:
-                        lgpio.gpiochip_close(pi)
+                # # set the interrupt pin state to low
+                # if sys.platform == "linux":
+                #     import lgpio
+                #
+                #     pi = lgpio.gpiochip_open(0)
+                #     print(f"Board ID: {pi}")
+                #     try:
+                #         if pi == 0:
+                #             lgpio.gpio_claim_output(pi, interrupt_pin, 0)
+                #             lgpio.gpio_free(pi, interrupt_pin)
+                #     finally:
+                #         lgpio.gpiochip_close(pi)
                 cls._instance._interrupt_pins[interrupt_pin] = mcp23017
                 mcp23017.create_interrupt_handler(pin, interrupt_pin)
                 mcp23017.register_client(pin, client)
