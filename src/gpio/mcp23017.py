@@ -329,8 +329,8 @@ class Mcp23017:
     def bitmask(gpio) -> int:
         return 1 << (gpio % 8)
 
-    def create_interrupt_handler(self, pin, interrupt_pin, pin_factory) -> None:
-        btn = Button(interrupt_pin, pin_factory=pin_factory)
+    def create_interrupt_handler(self, pin, interrupt_pin) -> None:
+        btn = Button(interrupt_pin)
         btn.when_pressed = lambda x: print("pressed", x, self.read_interrupt_flags(), self.digital_read(pin))
         # btn.when_activated = lambda b: print("activated", b, self.read_interrupt_flags())
         btn.when_released = lambda x: print("released", x, self.read_interrupt_flags(), self.digital_read(pin))
@@ -363,7 +363,6 @@ class Mcp23017Factory:
         address: int = 0x23,
         pin: int = 0,
         interrupt_pin: int | str = None,
-        pin_factory=None,
     ) -> Mcp23017:
         if pin is None or pin < 0 or pin > 15:
             raise PinInvalidPin(f"{pin} is not a valid pin")
@@ -404,14 +403,13 @@ class Mcp23017Factory:
                     import lgpio
 
                     pi = lgpio.gpiochip_open(0)
-                    print(f"Setting pin {interrupt_pin} on board {pi} low")
-                    print(lgpio.gpio_write(pi, interrupt_pin, 0))
-                    print(lgpio.gpio_free(pi, interrupt_pin))
-                    print(lgpio.gpiochip_close(pi))
+                    lgpio.gpio_write(pi, interrupt_pin, 0)
+                    lgpio.gpio_free(pi, interrupt_pin)
+                    lgpio.gpiochip_close(pi)
                     print(f"Set pin {interrupt_pin} low")
                 mcp23017.digital_read(pin)
                 cls._instance._interrupt_pins[interrupt_pin] = mcp23017
-                mcp23017.create_interrupt_handler(pin, interrupt_pin, pin_factory)
+                mcp23017.create_interrupt_handler(pin, interrupt_pin)
 
             return mcp23017
 

@@ -18,7 +18,6 @@ class I2CButton(Device, HoldMixin):
             address=i2c_address,
             pin=pin,
             interrupt_pin=interrupt_pin,
-            pin_factory=pin_factory,
         )
         self._mcp_23017.set_pin_mode(pin, INPUT)
         self._mcp_23017.set_pull_up(pin, pull_up)
