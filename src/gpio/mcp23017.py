@@ -442,8 +442,9 @@ class Mcp23017Factory:
                     pi = lgpio.gpiochip_open(0)
                     print(f"Board ID: {pi}")
                     try:
-                        lgpio.gpio_claim_output(pi, interrupt_pin, 0)
-                        lgpio.gpio_free(pi, interrupt_pin)
+                        if pi == 0:
+                            lgpio.gpio_claim_output(pi, interrupt_pin, 0)
+                            lgpio.gpio_free(pi, interrupt_pin)
                     finally:
                         lgpio.gpiochip_close(pi)
                 cls._instance._interrupt_pins[interrupt_pin] = mcp23017
