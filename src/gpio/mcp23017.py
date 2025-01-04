@@ -292,6 +292,25 @@ class Mcp23017:
         self.set_bit_enabled(IOCONA, MIRROR_BIT, enable)
         self.set_bit_enabled(IOCONB, MIRROR_BIT, enable)
 
+    def get_interrupt_captures(self) -> int:
+        """
+        Reads the interrupt captured register. It captures the GPIO port value at the time
+        the interrupt occurred.
+        :return: an int representing the state of all GPIOs at the time of interrupt
+        """
+        ret = self.i2c.read_from(self.address, INTCAPA)
+        ret |= self.i2c.read_from(self.address, INTCAPB) << 8
+        return ret
+
+    def get_interrupt_flags(self) -> int:
+        """
+        Reads the interrupt registers.
+        :return: an int representing the pin(s) that caused the interrupt
+        """
+        ret = self.i2c.read_from(self.address, INTFA)
+        ret |= self.i2c.read_from(self.address, INTFB) << 8
+        return ret
+
     def read_interrupt_captures(self) -> Tuple[List[str], List[str]]:
         """
         Reads the interrupt captured register. It captures the GPIO port value at the time
@@ -364,8 +383,8 @@ class Mcp23017:
 
     def process_interrupt_rising(self) -> None:
         print("Rising...")
-        print(self.read_interrupt_flags())
-        print(self.read_interrupt_captures())
+        print(bin(self.get_interrupt_flags()))
+        print(bin(self.get_interrupt_captures()))
         self.clear_all_interrupts()
 
     def process_interrupt_falling(self) -> None:
