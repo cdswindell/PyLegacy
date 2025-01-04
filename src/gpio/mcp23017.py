@@ -392,9 +392,7 @@ class Mcp23017:
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
         btn = Button(interrupt_pin)
         btn.when_pressed = self.process_interrupts("pressed")
-        btn.when_activated = self.process_interrupts("activated")
         btn.when_released = self.process_interrupts("released")
-        btn.when_deactivated = self.process_interrupts("deactivated")
         if 0 <= pin <= 7:
             self._int_a_pin = interrupt_pin
             self._int_a_btn = btn
