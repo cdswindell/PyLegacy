@@ -22,13 +22,14 @@ class I2CButton(Device, HoldMixin):
         )
         # initialize the gpiozero device
         super().__init__(pin_factory=pin_factory)
+        super().__init__()
         self._mcp_23017.set_pin_mode(pin, INPUT)
         self._mcp_23017.set_pull_up(pin, pull_up)
         if interrupt_pin is not None:
             self._mcp_23017.set_interrupt(pin, True)
         self._interrupt_pin = interrupt_pin
 
-        # initialize button event subsystem
+        # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
 
     def __repr__(self):
@@ -82,3 +83,11 @@ class I2CButton(Device, HoldMixin):
     @property
     def closed(self) -> bool:
         return self._mcp_23017 is None
+
+
+I2CButton.is_pressed = I2CButton.is_active
+I2CButton.pressed_time = I2CButton.active_time
+I2CButton.when_pressed = I2CButton.when_activated
+I2CButton.when_released = I2CButton.when_deactivated
+I2CButton.wait_for_press = I2CButton.wait_for_active
+I2CButton.wait_for_release = I2CButton.wait_for_inactive
