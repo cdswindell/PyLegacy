@@ -150,49 +150,6 @@ class Mcp23017:
         self.i2c.write_to(self.address, IODIRA, INPUT)
         self.i2c.write_to(self.address, IODIRB, INPUT)
 
-    @property
-    def pull_up(self) -> int:
-        ret = self.i2c.read_from(self.address, GPPUA)
-        ret |= self.i2c.read_from(self.address, GPPUB) << 8
-        return ret
-
-    @pull_up.setter
-    def pull_up(self, value: int) -> None:
-        self.i2c.write_to(self.address, GPPUA, value & 0xFF)
-        self.i2c.write_to(self.address, GPPUB, (value >> 8) & 0xFF)
-
-    def set_all_pull_up(self) -> None:
-        """turn on all pull-up resistors"""
-        self.i2c.write_to(self.address, REGISTER_MAP["GPPUA"], HIGH)
-        self.i2c.write_to(self.address, REGISTER_MAP["GPPUB"], HIGH)
-
-    def get_all_pull_up(self) -> List[int]:
-        """get all pull-up resistors state"""
-        return [
-            self.i2c.read_from(self.address, REGISTER_MAP["GPPUA"]),
-            self.i2c.read_from(self.address, REGISTER_MAP["GPPUB"]),
-        ]
-
-    def unset_all_pull_up(self) -> None:
-        """turn on all pull-up resistors"""
-        self.i2c.write_to(self.address, REGISTER_MAP["GPPUA"], LOW)
-        self.i2c.write_to(self.address, REGISTER_MAP["GPPUB"], LOW)
-
-    def set_pull_up(self, gpio: int, mode: int | bool = True) -> None:
-        """
-        Sets the given GPIO to the given mode INPUT or OUTPUT
-        :param gpio: the GPIO to set the mode to
-        :param mode: one of INPUT or OUTPUT
-        """
-        pair = self.get_offset_gpio_tuple([GPPUA, GPPUA], gpio)
-        if isinstance(mode, bool):
-            mode = HIGH if mode is True else LOW
-        self.set_bit_enabled(pair[0], pair[1], True if mode is HIGH else False)
-
-    def get_pull_up(self, gpio: int) -> bool:
-        pair = self.get_offset_gpio_tuple([GPPUA, GPPUA], gpio)
-        return self.get_bit_enabled(pair[0], pair[1]) != 0
-
     def set_pin_mode(self, gpio, mode) -> None:
         """
         Sets the given GPIO to the given mode INPUT or OUTPUT
@@ -211,15 +168,53 @@ class Mcp23017:
         return self.get_bit_enabled(pair[0], pair[1])
 
     @property
-    def pin_mode(self) -> int:
+    def pin_modes(self) -> int:
         ret = self.i2c.read_from(self.address, IODIRA)
         ret |= self.i2c.read_from(self.address, IODIRB) << 8
         return ret
 
-    @pin_mode.setter
-    def pin_mode(self, value: int) -> None:
+    @pin_modes.setter
+    def pin_modes(self, value: int) -> None:
         self.i2c.write_to(self.address, IODIRA, value & 0xFF)
         self.i2c.write_to(self.address, IODIRB, (value >> 8) & 0xFF)
+
+    @property
+    def pull_ups(self) -> int:
+        ret = self.i2c.read_from(self.address, GPPUA)
+        ret |= self.i2c.read_from(self.address, GPPUB) << 8
+        return ret
+
+    @pull_ups.setter
+    def pull_ups(self, value: int) -> None:
+        self.i2c.write_to(self.address, GPPUA, value & 0xFF)
+        self.i2c.write_to(self.address, GPPUB, (value >> 8) & 0xFF)
+
+    def set_all_pull_up(self) -> None:
+        """turn on all pull-up resistors"""
+        self.i2c.write_to(self.address, REGISTER_MAP["GPPUA"], HIGH)
+        self.i2c.write_to(self.address, REGISTER_MAP["GPPUB"], HIGH)
+
+    def get_all_pull_up(self) -> List[int]:
+        """get all pull-up resistors state"""
+        return [
+            self.i2c.read_from(self.address, REGISTER_MAP["GPPUA"]),
+            self.i2c.read_from(self.address, REGISTER_MAP["GPPUB"]),
+        ]
+
+    def set_pull_up(self, gpio: int, mode: int | bool = True) -> None:
+        """
+        Sets the given GPIO to the given mode INPUT or OUTPUT
+        :param gpio: the GPIO to set the mode to
+        :param mode: one of INPUT or OUTPUT
+        """
+        pair = self.get_offset_gpio_tuple([GPPUA, GPPUA], gpio)
+        if isinstance(mode, bool):
+            mode = HIGH if mode is True else LOW
+        self.set_bit_enabled(pair[0], pair[1], True if mode is HIGH else False)
+
+    def get_pull_up(self, gpio: int) -> bool:
+        pair = self.get_offset_gpio_tuple([GPPUA, GPPUA], gpio)
+        return self.get_bit_enabled(pair[0], pair[1]) != 0
 
     def digital_write(self, gpio, direction) -> None:
         """
@@ -418,6 +413,7 @@ class Mcp23017:
 
     # noinspection PyProtectedMember
     def handle_interrupt(self) -> None:
+        pull_ups = self.pull_ups
         interrupts = self.interrupts
         state = self.interrupt_captures
         bounce_time = -1
@@ -425,11 +421,16 @@ class Mcp23017:
             # for every pin that generated an interrupt, if there is a
             # client associated with this pin, fire events
             if (interrupts & (1 << i)) and i in self._clients:
+                pull_up = (pull_ups & (1 << i)) != 0
                 client = self._clients[i]
                 if client.bounce_time is not None and client.bounce_time > bounce_time:
                     bounce_time = client.bounce_time
-                active = (state & (1 << i)) != 0
-                # print(f"interrupt on pin {i} active: {active}")
+                capture_bit_set = (state & (1 << i)) != 0
+                if pull_up is True:
+                    active = capture_bit_set is True
+                else:
+                    active = capture_bit_set is False
+                print(f"interrupt on pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit_set}")
                 client._signal_event(active)
         # if a bounce time was specified, wait for this amount of time before enabling interrupts
         if bounce_time > 0:
