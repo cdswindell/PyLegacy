@@ -1,5 +1,5 @@
 import threading
-from typing import List, Tuple, Dict, Set, Callable
+from typing import List, Tuple, Dict, Set
 
 from gpiozero import GPIOPinInUse, PinInvalidPin, Button, Device
 
@@ -300,7 +300,7 @@ class Mcp23017:
         """
         ret = self.i2c.read_from(self.address, INTCAPA)
         ret |= self.i2c.read_from(self.address, INTCAPB) << 8
-        return ret
+        return 0xF & ~ret
 
     def get_interrupt_flags(self) -> int:
         """
@@ -374,23 +374,20 @@ class Mcp23017:
     def bitmask(gpio) -> int:
         return 1 << (gpio % 8)
 
-    def process_interrupts(self, text: str = None) -> Callable:
-        def _process_interrupts(btn):
-            print(f"{btn} {text} {self.read_interrupt_flags()}")
-            self.clear_all_interrupts()
-
-        return _process_interrupts
-
+    # noinspection PyProtectedMember
     def process_interrupt_rising(self) -> None:
-        print("Rising...")
+        interrupts = self.get_interrupt_flags()
+        state = self.get_interrupt_captures()
+        for i in range(16):
+            # for every pin that generated an interrupt, if there is a
+            # client associated with this pin, fire events
+            if (interrupts & (1 << i)) and i in self._clients:
+                active = (state & (1 << i)) != 0
+                print(f"interrupt on pin {i} active: {active}")
+                self._clients[i]._signal_event(active)
+
         print(bin(self.get_interrupt_flags()))
         print(bin(self.get_interrupt_captures()))
-        self.clear_all_interrupts()
-
-    def process_interrupt_falling(self) -> None:
-        print("Falling...")
-        print(self.read_interrupt_flags())
-        print(self.read_interrupt_captures())
         self.clear_all_interrupts()
 
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:

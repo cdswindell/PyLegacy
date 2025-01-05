@@ -43,6 +43,9 @@ class I2CButton(Device, HoldMixin):
         except Exception:
             return super().__repr__()
 
+    def _signal_event(self, active: bool) -> None:
+        self._fire_events(self.pin_factory.ticks(), active)
+
     def close(self) -> None:
         try:
             # in edge cases where constructor fails, _mcp_23017 property may not exist
