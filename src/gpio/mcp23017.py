@@ -247,6 +247,11 @@ class Mcp23017:
         """
         return [self.i2c.read_from(self.address, GPIOA), self.i2c.read_from(self.address, GPIOB)]
 
+    def inputs(self) -> int:
+        ret = self.i2c.read_from(self.address, IODIRA)
+        ret |= self.i2c.read_from(self.address, IODIRB) << 8
+        return ret
+
     @property
     def io_control(self) -> int:
         return self.i2c.read_from(self.address, IOCONA)
