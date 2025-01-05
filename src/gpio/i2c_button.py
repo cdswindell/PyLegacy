@@ -10,7 +10,7 @@ class I2CButton(Device, HoldMixin):
         i2c_address: int = 0x23,
         pull_up: bool = True,
         bounce_time: float = None,
-        hold_time: float = None,
+        hold_time: float = 1,
         hold_repeat: bool = False,
         interrupt_pin: int | str = None,
         pin_factory=None,
@@ -32,7 +32,7 @@ class I2CButton(Device, HoldMixin):
             self._mcp_23017.set_interrupt(pin, True)
         self._interrupt_pin = interrupt_pin
 
-        self.hold_time = hold_time
+        self.hold_time = hold_time if hold_time is not None and hold_time >= 0 else 1
         self.hold_repeat = hold_repeat
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
