@@ -1,4 +1,5 @@
 import threading
+import time
 from typing import List, Tuple, Dict, Set
 
 from gpiozero import GPIOPinInUse, PinInvalidPin, Button, Device
@@ -246,16 +247,6 @@ class Mcp23017:
         """
         return [self.i2c.read_from(self.address, GPIOA), self.i2c.read_from(self.address, GPIOB)]
 
-    def clear_all_interrupts(self) -> None:
-        self.i2c.read_from(self.address, INTCAPA)
-        self.i2c.read_from(self.address, INTCAPB)
-
-    def clear_int_a(self) -> None:
-        self.i2c.read_from(self.address, INTCAPA)
-
-    def clear_int_b(self) -> None:
-        self.i2c.read_from(self.address, INTCAPB)
-
     @property
     def io_control(self) -> int:
         return self.i2c.read_from(self.address, IOCONA)
@@ -281,6 +272,16 @@ class Mcp23017:
         self.i2c.write_to(self.address, INTCONA, 0x00 if prev_val else 0xFF)
         self.i2c.write_to(self.address, INTCONB, 0x00 if prev_val else 0xFF)
 
+    def clear_all_interrupts(self) -> None:
+        self.i2c.read_from(self.address, INTCAPA)
+        self.i2c.read_from(self.address, INTCAPB)
+
+    def clear_int_a(self) -> None:
+        self.i2c.read_from(self.address, INTCAPA)
+
+    def clear_int_b(self) -> None:
+        self.i2c.read_from(self.address, INTCAPB)
+
     def set_interrupt(self, gpio, enabled: bool = True) -> None:
         """
         Enables or disables the interrupt of a given GPIO
@@ -295,7 +296,7 @@ class Mcp23017:
         pair = self.get_offset_gpio_tuple([GPINTENA, GPINTENB], gpio)
         return self.get_bit_enabled(pair[0], pair[1])
 
-    def set_all_interrupt(self, enabled: bool = True) -> None:
+    def set_all_interrupts(self, enabled: bool = True) -> None:
         """
         Enables or disables the interrupt of all GPIOs
         :param enabled: enable or disable the interrupt
@@ -303,17 +304,17 @@ class Mcp23017:
         self.i2c.write_to(self.address, GPINTENA, 0xFF if enabled else 0x00)
         self.i2c.write_to(self.address, GPINTENB, 0xFF if enabled else 0x00)
 
-    def get_all_interrupt(self) -> List:
+    def get_all_interrupts(self) -> List:
         return [self.i2c.read_from(self.address, GPINTENA), self.i2c.read_from(self.address, GPINTENB)]
 
     @property
-    def interrupts(self) -> int:
+    def interrupts_on(self) -> int:
         ret = self.i2c.read_from(self.address, GPINTENA)
         ret |= self.i2c.read_from(self.address, GPINTENB) << 8
         return ret
 
-    @interrupts.setter
-    def interrupts(self, value: int) -> None:
+    @interrupts_on.setter
+    def interrupts_on(self, value: int) -> None:
         self.i2c.write_to(self.address, GPINTENA, value & 0xFF)
         self.i2c.write_to(self.address, GPINTENB, (value >> 8) & 0xFF)
 
@@ -325,7 +326,8 @@ class Mcp23017:
         self.set_bit_enabled(IOCONA, MIRROR_BIT, enable)
         self.set_bit_enabled(IOCONB, MIRROR_BIT, enable)
 
-    def get_interrupt_captures(self) -> int:
+    @property
+    def interrupt_captures(self) -> int:
         """
         Reads the interrupt captured register. It captures the GPIO port value at the time
         the interrupt occurred.
@@ -335,7 +337,8 @@ class Mcp23017:
         ret |= self.i2c.read_from(self.address, INTCAPB) << 8
         return 0xFF & ~ret
 
-    def get_interrupt_flags(self) -> int:
+    @property
+    def interrupts(self) -> int:
         """
         Reads the interrupt registers.
         :return: an int representing the pin(s) that caused the interrupt
@@ -382,17 +385,6 @@ class Mcp23017:
     def write(self, offset, value) -> None:
         return self.i2c.write_to(self.address, offset, value)
 
-    @staticmethod
-    def get_offset_gpio_tuple(offsets, gpio):
-        if offsets[0] not in ALL_OFFSET or offsets[1] not in ALL_OFFSET:
-            raise TypeError("offsets must contain a valid offset address. See description for help")
-        if gpio not in ALL_GPIO:
-            raise TypeError("pin must be one of GPAn or GPBn. See description for help")
-
-        offset = offsets[0] if gpio < 8 else offsets[1]
-        _gpio = gpio % 8
-        return offset, _gpio
-
     def set_bit_enabled(self, offset: int, gpio: int, enable: bool = True) -> None:
         state_before = self.i2c.read_from(self.address, offset)
         value = (state_before | self.bitmask(gpio)) if enable else (state_before & ~self.bitmask(gpio))
@@ -404,20 +396,38 @@ class Mcp23017:
         return value
 
     @staticmethod
+    def get_offset_gpio_tuple(offsets, gpio):
+        if offsets[0] not in ALL_OFFSET or offsets[1] not in ALL_OFFSET:
+            raise TypeError("offsets must contain a valid offset address. See description for help")
+        if gpio not in ALL_GPIO:
+            raise TypeError("pin must be one of GPAn or GPBn. See description for help")
+
+        offset = offsets[0] if gpio < 8 else offsets[1]
+        _gpio = gpio % 8
+        return offset, _gpio
+
+    @staticmethod
     def bitmask(gpio) -> int:
         return 1 << (gpio % 8)
 
     # noinspection PyProtectedMember
     def handle_interrupt(self) -> None:
-        interrupts = self.get_interrupt_flags()
-        state = self.get_interrupt_captures()
+        interrupts = self.interrupts
+        state = self.interrupt_captures
+        bounce_time = -1
         for i in range(16):
             # for every pin that generated an interrupt, if there is a
             # client associated with this pin, fire events
             if (interrupts & (1 << i)) and i in self._clients:
+                client = self._clients[i]
+                if client.bounce_time is not None and client.bounce_time > bounce_time:
+                    bounce_time = client.bounce_time
                 active = (state & (1 << i)) != 0
                 # print(f"interrupt on pin {i} active: {active}")
-                self._clients[i]._signal_event(active)
+                client._signal_event(active)
+        # if a bounce time was specified, wait for this amount of time before enabling interrupts
+        if bounce_time > 0:
+            time.sleep(bounce_time)
         # clear this interrupt; necessary to enable future interrupts
         self.clear_all_interrupts()
 

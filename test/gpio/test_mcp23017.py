@@ -98,10 +98,10 @@ class TestMCP23017(unittest.TestCase):
     def test_set_all_interrupt(self):
         mcp = Mcp23017(self.mockAddress, self.i2c)
         mcp.set_all_input()
-        mcp.set_all_interrupt(True)
+        mcp.set_all_interrupts(True)
         self.assertEqual(mcp.read(GPINTENA), 0b11111111)
         self.assertEqual(mcp.read(GPINTENB), 0b11111111)
-        mcp.set_all_interrupt(False)
+        mcp.set_all_interrupts(False)
         self.assertEqual(mcp.read(GPINTENA), 0b00000000)
         self.assertEqual(mcp.read(GPINTENB), 0b00000000)
 
