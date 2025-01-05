@@ -394,7 +394,8 @@ class Mcp23017:
             self._int_btn = Button(interrupt_pin)
             self._int_btn.when_pressed = self.handle_interrupt
             # self._int_btn.when_released = self.process_interrupt_falling
-            self.read_interrupt_captures()
+            # self.read_interrupt_captures()
+            self.clear_all_interrupts()
         else:
             raise TypeError("pin must be one of GPAn or GPBn. See description for help")
 
