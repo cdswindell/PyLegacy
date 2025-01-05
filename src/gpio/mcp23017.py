@@ -120,7 +120,6 @@ class Mcp23017:
         self.set_all_input()
         self.set_all_pull_up()
         self.set_all_interrupt_config()
-        self.io_control = 0x40
         self.set_interrupt_mirror(True)
         self.clear_all_interrupts()
         self._int_pin = None
@@ -376,7 +375,7 @@ class Mcp23017:
         return 1 << (gpio % 8)
 
     # noinspection PyProtectedMember
-    def process_interrupt_rising(self) -> None:
+    def handle_interrupt(self) -> None:
         interrupts = self.get_interrupt_flags()
         state = self.get_interrupt_captures()
         for i in range(16):
@@ -386,13 +385,14 @@ class Mcp23017:
                 active = (state & (1 << i)) != 0
                 # print(f"interrupt on pin {i} active: {active}")
                 self._clients[i]._signal_event(active)
+        # clear this interrupt; necessary to enable future interrupts
         self.clear_all_interrupts()
 
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
         if 0 <= pin <= 15:
             self._int_pin = interrupt_pin
             self._int_btn = Button(interrupt_pin)
-            self._int_btn.when_pressed = self.process_interrupt_rising
+            self._int_btn.when_pressed = self.handle_interrupt
             # self._int_btn.when_released = self.process_interrupt_falling
             self.read_interrupt_captures()
         else:
