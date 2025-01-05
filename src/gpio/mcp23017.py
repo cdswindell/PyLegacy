@@ -121,6 +121,7 @@ class Mcp23017:
         self.set_all_pull_up()
         self.set_all_interrupt_config()
         self.io_control = 0x40
+        self.set_interrupt_mirror(True)
         self.clear_all_interrupts()
         self._int_pin = None
         self._int_btn = None
@@ -378,6 +379,7 @@ class Mcp23017:
     def process_interrupt_rising(self) -> None:
         interrupts = self.get_interrupt_flags()
         state = self.get_interrupt_captures()
+        print(f"interrupts: {bin(interrupts)} state: {bin(state)}")
         for i in range(16):
             # for every pin that generated an interrupt, if there is a
             # client associated with this pin, fire events
@@ -385,9 +387,6 @@ class Mcp23017:
                 active = (state & (1 << i)) != 0
                 print(f"interrupt on pin {i} active: {active}")
                 self._clients[i]._signal_event(active)
-
-        print(bin(self.get_interrupt_flags()))
-        print(bin(self.get_interrupt_captures()))
         self.clear_all_interrupts()
 
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
