@@ -301,8 +301,8 @@ class Mcp23017:
         """
         ret = self.i2c.read_from(self.address, INTCAPA)
         ret |= self.i2c.read_from(self.address, INTCAPB) << 8
-        print(f"INTCAP: {bin(ret)} {0xF & ~ret} {bin(0xF & ~ret)}")
-        return 0xF & ~ret
+        print(f"INTCAP: {bin(ret)} {0xFF & ~ret} {bin(0xFF & ~ret)}")
+        return 0xFF & ~ret
 
     def get_interrupt_flags(self) -> int:
         """
