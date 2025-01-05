@@ -306,6 +306,17 @@ class Mcp23017:
     def get_all_interrupt(self) -> List:
         return [self.i2c.read_from(self.address, GPINTENA), self.i2c.read_from(self.address, GPINTENB)]
 
+    @property
+    def interrupts(self) -> int:
+        ret = self.i2c.read_from(self.address, GPINTENA)
+        ret |= self.i2c.read_from(self.address, GPINTENB) << 8
+        return ret
+
+    @interrupts.setter
+    def interrupts(self, value: int) -> None:
+        self.i2c.write_to(self.address, GPINTENA, value & 0xFF)
+        self.i2c.write_to(self.address, GPINTENB, (value >> 8) & 0xFF)
+
     def set_interrupt_mirror(self, enable: bool = True) -> None:
         """
         Enables or disables the interrupt mirroring
