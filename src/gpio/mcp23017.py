@@ -462,7 +462,7 @@ class Mcp23017:
 
     def deregister_client(self, client: Device):
         if hasattr(client, "pin"):
-            self._clients.pop(getattr(client, "pin"))
+            self._clients.pop(getattr(client, "pin"), None)
 
 
 class Mcp23017Factory:
