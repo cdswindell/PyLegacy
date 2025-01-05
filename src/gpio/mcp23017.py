@@ -301,7 +301,6 @@ class Mcp23017:
         """
         ret = self.i2c.read_from(self.address, INTCAPA)
         ret |= self.i2c.read_from(self.address, INTCAPB) << 8
-        print(f"INTCAP: {bin(ret)} {0xFF & ~ret} {bin(0xFF & ~ret)}")
         return 0xFF & ~ret
 
     def get_interrupt_flags(self) -> int:
@@ -380,13 +379,12 @@ class Mcp23017:
     def process_interrupt_rising(self) -> None:
         interrupts = self.get_interrupt_flags()
         state = self.get_interrupt_captures()
-        print(f"interrupts: {bin(interrupts)} state: {bin(state)}")
         for i in range(16):
             # for every pin that generated an interrupt, if there is a
             # client associated with this pin, fire events
             if (interrupts & (1 << i)) and i in self._clients:
                 active = (state & (1 << i)) != 0
-                print(f"interrupt on pin {i} active: {active}")
+                # print(f"interrupt on pin {i} active: {active}")
                 self._clients[i]._signal_event(active)
         self.clear_all_interrupts()
 
