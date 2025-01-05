@@ -149,6 +149,17 @@ class Mcp23017:
         self.i2c.write_to(self.address, IODIRA, INPUT)
         self.i2c.write_to(self.address, IODIRB, INPUT)
 
+    @property
+    def pull_up(self) -> int:
+        ret = self.i2c.read_from(self.address, GPPUA)
+        ret |= self.i2c.read_from(self.address, GPPUB) << 8
+        return ret
+
+    @pull_up.setter
+    def pull_up(self, value: int) -> None:
+        self.i2c.write_to(self.address, GPPUA, value & 0xFF)
+        self.i2c.write_to(self.address, GPPUB, (value >> 8) & 0xFF)
+
     def set_all_pull_up(self) -> None:
         """turn on all pull-up resistors"""
         self.i2c.write_to(self.address, REGISTER_MAP["GPPUA"], HIGH)
@@ -197,6 +208,17 @@ class Mcp23017:
         """
         pair = self.get_offset_gpio_tuple([IODIRA, IODIRB], gpio)
         return self.get_bit_enabled(pair[0], pair[1])
+
+    @property
+    def pin_mode(self) -> int:
+        ret = self.i2c.read_from(self.address, IODIRA)
+        ret |= self.i2c.read_from(self.address, IODIRB) << 8
+        return ret
+
+    @pin_mode.setter
+    def pin_mode(self, value: int) -> None:
+        self.i2c.write_to(self.address, IODIRA, value & 0xFF)
+        self.i2c.write_to(self.address, IODIRB, (value >> 8) & 0xFF)
 
     def digital_write(self, gpio, direction) -> None:
         """
