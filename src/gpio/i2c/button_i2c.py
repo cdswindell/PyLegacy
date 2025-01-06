@@ -25,6 +25,7 @@ class ButtonI2C(Device, HoldMixin):
                 i2c_address = pin[2]
             pin = pin[0]
         self._dio_pin = pin
+        print(f"Pin: {pin} Int: {interrupt_pin} Address: {hex(i2c_address)}  ")
         self._mcp_23017 = Mcp23017Factory.build(
             address=i2c_address,
             pin=pin,
