@@ -50,6 +50,7 @@ class LEDI2C(Device, SourceMixin):
         with self._lock:
             try:
                 self._stop_blink()
+                self.source = None
                 # in edge cases where constructor fails, _mcp_23017 property may not exist
                 if hasattr(self, "_mcp_23017") and self._mcp_23017 is not None:
                     self._mcp_23017.disable_interrupt(self._dio_pin)
