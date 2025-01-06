@@ -115,7 +115,7 @@ class Mcp23017:
     """
 
     def __init__(self, address: int = 0x23, i2c: I2C = None) -> None:
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.address = address
         self.i2c = i2c if i2c else I2C()
         self.set_all_normal()
