@@ -61,6 +61,12 @@ class ButtonI2C(Device, HoldMixin):
         except Exception:
             return super().__repr__()
 
+    @property
+    def pin(self) -> int:
+        if self._mcp_23017 is None:
+            raise GPIODeviceClosed("I2C Button is closed or uninitialized")
+        return self._dio_pin
+
     def close(self) -> None:
         with self._lock:
             try:
@@ -108,12 +114,6 @@ class ButtonI2C(Device, HoldMixin):
         if self._mcp_23017 is None:
             raise GPIODeviceClosed("I2C Button is closed or uninitialized")
         return self.value == 1
-
-    @property
-    def pin(self) -> int:
-        if self._mcp_23017 is None:
-            raise GPIODeviceClosed("I2C Button is closed or uninitialized")
-        return self._dio_pin
 
     @property
     def pull_up(self) -> bool:

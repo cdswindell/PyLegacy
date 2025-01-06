@@ -21,8 +21,13 @@ from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.constants import DEFAULT_ADDRESS
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState, TMCC1AuxCommandDef, TMCC1EngineCommandDef
-from ..protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef, TMCC2EngineCommandDef
+from ..protocol.tmcc1.tmcc1_constants import (
+    TMCC1SwitchState,
+    TMCC1AuxCommandDef,
+    TMCC1EngineCommandDef,
+    TMCC1RouteCommandDef,
+)
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from ..utils.ip_tools import find_base_address
 
 log = logging.getLogger(__name__)
@@ -537,7 +542,7 @@ class GpioHandler:
         # make the CommandReq
         req, btn, led = cls.make_button(
             btn_pin,
-            TMCC2RouteCommandDef.FIRE,
+            TMCC1RouteCommandDef.FIRE,
             address,
             led_pin=led_pin,
             bind=True,

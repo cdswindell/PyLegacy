@@ -36,9 +36,15 @@ class LEDI2C(Device, SourceMixin):
     def __repr__(self):
         # noinspection PyBroadException
         try:
-            return f"<{self.__class__.__name__} object on pin " f"is_active={self.is_active}>"
+            return f"<{self.__class__.__name__} object on pin {self.pin}" f"is_active={self.is_active}>"
         except Exception:
             return super().__repr__()
+
+    @property
+    def pin(self) -> int:
+        if self._mcp_23017 is None:
+            raise GPIODeviceClosed("I2C LED is closed or uninitialized")
+        return self._dio_pin
 
     def close(self) -> None:
         with self._lock:
@@ -100,11 +106,6 @@ class LEDI2C(Device, SourceMixin):
     def is_active(self) -> bool:
         if self._mcp_23017 is None:
             raise GPIODeviceClosed("I2C LED is closed or uninitialized")
-        return self.value == 1
-
-    @property
-    def pin(self) -> int:
-        return self._dio_pin
 
     @SourceMixin.source.setter  # override setter
     def source(self, value) -> None:
