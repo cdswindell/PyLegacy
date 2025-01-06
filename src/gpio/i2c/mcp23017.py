@@ -4,7 +4,7 @@ from typing import List, Tuple, Dict, Set
 
 from gpiozero import GPIOPinInUse, PinInvalidPin, Button, Device
 
-from src.gpio.i2c import I2C
+from .i2c import I2C
 
 IODIRA = 0x00  # Pin direction register
 IODIRB = 0x01  # Pin direction register

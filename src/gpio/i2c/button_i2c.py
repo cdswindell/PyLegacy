@@ -1,9 +1,9 @@
 from gpiozero import Device, GPIODeviceClosed, HoldMixin
 
-from src.gpio.mcp23017 import INPUT, HIGH, Mcp23017Factory
+from .mcp23017 import INPUT, HIGH, Mcp23017Factory
 
 
-class I2CButton(Device, HoldMixin):
+class ButtonI2C(Device, HoldMixin):
     def __init__(
         self,
         pin,
@@ -110,9 +110,9 @@ class I2CButton(Device, HoldMixin):
         return self._mcp_23017 is None
 
 
-I2CButton.is_pressed = I2CButton.is_active
-I2CButton.pressed_time = I2CButton.active_time
-I2CButton.when_pressed = I2CButton.when_activated
-I2CButton.when_released = I2CButton.when_deactivated
-I2CButton.wait_for_press = I2CButton.wait_for_active
-I2CButton.wait_for_release = I2CButton.wait_for_inactive
+ButtonI2C.is_pressed = ButtonI2C.is_active
+ButtonI2C.pressed_time = ButtonI2C.active_time
+ButtonI2C.when_pressed = ButtonI2C.when_activated
+ButtonI2C.when_released = ButtonI2C.when_deactivated
+ButtonI2C.wait_for_press = ButtonI2C.wait_for_active
+ButtonI2C.wait_for_release = ButtonI2C.wait_for_inactive

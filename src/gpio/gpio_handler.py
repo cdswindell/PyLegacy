@@ -8,7 +8,7 @@ from typing import Tuple, Callable, Dict, TypeVar, List
 
 from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice, PingServer
 
-from .ads_1x15 import Ads1115
+from src.gpio.i2c.ads_1x15 import Ads1115
 from .controller import Controller, ControllerI2C
 from .keypad import KEYPAD_PCF8574_ADDRESS
 from ..comm.comm_buffer import CommBuffer

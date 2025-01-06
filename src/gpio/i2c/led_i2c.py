@@ -4,10 +4,10 @@ from itertools import repeat
 from gpiozero import Device, GPIODeviceClosed, SourceMixin
 from gpiozero.threads import GPIOThread
 
-from src.gpio.mcp23017 import Mcp23017Factory, OUTPUT
+from .mcp23017 import Mcp23017Factory, OUTPUT
 
 
-class I2CLED(Device, SourceMixin):
+class LEDI2C(Device, SourceMixin):
     def __init__(
         self,
         pin,
@@ -149,4 +149,4 @@ class I2CLED(Device, SourceMixin):
                 break
 
 
-I2CLED.is_lit = I2CLED.is_active
+LEDI2C.is_lit = LEDI2C.is_active

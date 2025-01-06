@@ -1,6 +1,6 @@
-from src.gpio.i2c import I2C
+from src.gpio.i2c.i2c import I2C
+from test.test_base import TestBase
 from .smbusmock import MBusMock
-from ..test_base import TestBase
 
 
 class TestI2c(TestBase):

@@ -1,7 +1,7 @@
 import unittest
 
-from src.gpio.mcp23017 import *
-from test.gpio.smbusmock import MBusMock
+from src.gpio.i2c.mcp23017 import *
+from .smbusmock import MBusMock
 
 
 class TestMCP23017(unittest.TestCase):

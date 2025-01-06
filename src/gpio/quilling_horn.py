@@ -1,7 +1,7 @@
 from threading import Thread, Event
 from time import sleep
 
-from src.gpio.ads_1x15 import Ads1115
+from src.gpio.i2c.ads_1x15 import Ads1115
 from src.gpio.gpio_handler import GpioHandler
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import CommandScope, PROGRAM_NAME, DEFAULT_ADDRESS
