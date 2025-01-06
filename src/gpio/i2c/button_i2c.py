@@ -28,6 +28,7 @@ class ButtonI2C(Device, HoldMixin):
                 i2c_address = pin[2]
             pin = pin[0]
         self._dio_pin = pin
+        print("in ButtonI2C... 2")
         self._mcp_23017 = Mcp23017Factory.build(
             address=i2c_address,
             pin=pin,
@@ -49,6 +50,7 @@ class ButtonI2C(Device, HoldMixin):
 
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
+        print("in ButtonI2C... 3")
 
     def __repr__(self):
         # noinspection PyBroadException
