@@ -123,7 +123,6 @@ class Mcp23017:
         self.set_all_pull_up()
         self.set_all_interrupt_config()
         self.set_interrupt_mirror(True)
-        self.clear_interrupts()
         self._int_pin = None
         self._int_btn = None
         self._clients: Dict[int, Device] = dict()
