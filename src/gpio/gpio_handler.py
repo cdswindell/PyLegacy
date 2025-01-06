@@ -1387,6 +1387,7 @@ class GpioHandler:
                 # noinspection PyTypeChecker
                 button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
             else:
+                print("in make_button 2...")
                 # noinspection PyTypeChecker
                 button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME)
         else:

@@ -1,4 +1,4 @@
-from threading import Lock
+from threading import RLock
 from typing import Tuple
 
 from gpiozero import Device, GPIODeviceClosed, HoldMixin
@@ -18,7 +18,8 @@ class ButtonI2C(Device, HoldMixin):
         interrupt_pin: int | str = None,
         pin_factory=None,
     ):
-        self._lock = Lock()
+        self._lock = RLock()
+        print("in ButtonI2C...")
         # i2c buttons use the MCP 23017 i2c dio board, which supports 16 pins and interrupts
         if isinstance(pin, tuple):
             if len(pin) > 1 and pin[1]:
