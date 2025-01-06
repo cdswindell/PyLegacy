@@ -52,6 +52,10 @@ class LEDI2C(Device, SourceMixin):
             super().close()
 
     @property
+    def closed(self) -> bool:
+        return self._mcp_23017 is None
+
+    @property
     def i2c_address(self) -> int:
         return self._mcp_23017.address
 
@@ -68,10 +72,14 @@ class LEDI2C(Device, SourceMixin):
         self._mcp_23017.set_value(self._dio_pin, value)
 
     def on(self):
+        if self._mcp_23017 is None:
+            raise GPIODeviceClosed("I2C LED is closed or uninitialized")
         self._stop_blink()
         self.value = 1
 
     def off(self):
+        if self._mcp_23017 is None:
+            raise GPIODeviceClosed("I2C LED is closed or uninitialized")
         self._stop_blink()
         self.value = 0
 
@@ -94,13 +102,19 @@ class LEDI2C(Device, SourceMixin):
 
     @property
     def pin(self) -> int:
-        if self._mcp_23017 is None:
-            raise GPIODeviceClosed("I2C LED is closed or uninitialized")
         return self._dio_pin
 
     @property
-    def closed(self) -> bool:
-        return self._mcp_23017 is None
+    def source(self):
+        """
+        The iterable to use as a source of values for :attr:`value`.
+        """
+        return super().source
+
+    @source.setter
+    def source(self, value):
+        self._stop_blink()
+        super().source = value
 
     def blink(self, on_time=1, off_time=1, n=None, background=True):
         """
@@ -122,6 +136,8 @@ class LEDI2C(Device, SourceMixin):
             return when the blink is finished (warning: the default value of
             *n* will result in this method never returning).
         """
+        if self._mcp_23017 is None:
+            raise GPIODeviceClosed("I2C LED is closed or uninitialized")
         self._stop_blink()
         self._blink_thread = GPIOThread(self._blink_device, (on_time, off_time, n))
         self._blink_thread.start()
