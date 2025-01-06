@@ -126,6 +126,7 @@ class Mcp23017:
         self._int_pin = None
         self._int_btn = None
         self._clients: Dict[int, Device] = dict()
+        self._lock = threading.Lock()
 
     @property
     def interrupt_pin(self) -> int:
@@ -443,44 +444,47 @@ class Mcp23017:
 
     # noinspection PyProtectedMember
     def handle_interrupt(self) -> None:
-        pull_ups = self.pull_ups
-        interrupts = self.interrupts
-        state = self.captures
-        bounce_time = -1
-        for i in range(16):
-            # for every pin that generated an interrupt, if there is a
-            # client associated with this pin, fire events
-            if (interrupts & (1 << i)) and i in self._clients:
-                pull_up = (pull_ups & (1 << i)) != 0
-                client = self._clients[i]
-                if client.bounce_time is not None and client.bounce_time > bounce_time:
-                    bounce_time = client.bounce_time
-                capture_bit = 1 if (state & (1 << i)) != 0 else 0
-                if pull_up is True:
-                    active = capture_bit == 1
-                else:
-                    active = capture_bit == 0
-                # print(f"interrupt trigger pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit}")
-                client._signal_event(active)
-        # if a bounce time was specified, wait for this amount of time before enabling interrupts
-        if bounce_time > 0:
-            time.sleep(bounce_time)
-        # clear this interrupt; necessary to enable future interrupts
-        self.clear_interrupts()
+        with self._lock:
+            pull_ups = self.pull_ups
+            interrupts = self.interrupts
+            state = self.captures
+            bounce_time = -1
+            for i in range(16):
+                # for every pin that generated an interrupt, if there is a
+                # client associated with this pin, fire events
+                if (interrupts & (1 << i)) and i in self._clients:
+                    pull_up = (pull_ups & (1 << i)) != 0
+                    client = self._clients[i]
+                    if client.bounce_time is not None and client.bounce_time > bounce_time:
+                        bounce_time = client.bounce_time
+                    capture_bit = 1 if (state & (1 << i)) != 0 else 0
+                    if pull_up is True:
+                        active = capture_bit == 1
+                    else:
+                        active = capture_bit == 0
+                    # print(f"interrupt trigger pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit}")
+                    client._signal_event(active)
+            # if a bounce time was specified, wait for this amount of time before enabling interrupts
+            if bounce_time > 0:
+                time.sleep(bounce_time)
+            # clear this interrupt; necessary to enable future interrupts
+            self.clear_interrupts()
 
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
         if 0 <= pin <= 15:
-            self._int_pin = interrupt_pin
-            self._int_btn = Button(interrupt_pin)
-            self._int_btn.when_pressed = self.handle_interrupt
-            self.clear_interrupts()
+            with self._lock:
+                self._int_pin = interrupt_pin
+                self._int_btn = Button(interrupt_pin)
+                self._int_btn.when_pressed = self.handle_interrupt
+                self.clear_interrupts()
         else:
             raise TypeError("pin must be one of GPAn or GPBn. See description for help")
 
     def close(self) -> None:
-        if self._int_btn is not None:
-            print(f"closing button {self._int_btn}")
-            self._int_btn.close()
+        with self._lock:
+            if self._int_btn is not None:
+                self._int_btn.close()
+                self._int_btn = None
         self._int_pin = self._int_btn = None
 
     def register_client(self, pin: int, client: Device):

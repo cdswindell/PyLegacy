@@ -41,16 +41,17 @@ class LEDI2C(Device, SourceMixin):
             return super().__repr__()
 
     def close(self) -> None:
-        try:
-            self._stop_blink()
-            # in edge cases where constructor fails, _mcp_23017 property may not exist
-            if hasattr(self, "_mcp_23017") and self._mcp_23017 is not None:
-                self._mcp_23017.disable_interrupt(self._dio_pin)
-                self._mcp_23017.deregister_client(self)
-                Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
-            self._mcp_23017 = None
-        finally:
-            super().close()
+        with self._lock:
+            try:
+                self._stop_blink()
+                # in edge cases where constructor fails, _mcp_23017 property may not exist
+                if hasattr(self, "_mcp_23017") and self._mcp_23017 is not None:
+                    self._mcp_23017.disable_interrupt(self._dio_pin)
+                    self._mcp_23017.deregister_client(self)
+                    Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
+                self._mcp_23017 = None
+            finally:
+                super().close()
 
     @property
     def closed(self) -> bool:

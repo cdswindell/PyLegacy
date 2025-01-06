@@ -1,3 +1,4 @@
+from threading import Lock
 from typing import Tuple
 
 from gpiozero import Device, GPIODeviceClosed, HoldMixin
@@ -8,7 +9,7 @@ from .mcp23017 import INPUT, HIGH, Mcp23017Factory
 class ButtonI2C(Device, HoldMixin):
     def __init__(
         self,
-        pin: int | Tuple[int] | Tuple[int, int] | Tuple[int, int, int],
+        pin: int | Tuple[int, int] | Tuple[int, int, int],
         i2c_address: int = 0x23,
         pull_up: bool = True,
         bounce_time: float = None,
@@ -45,6 +46,7 @@ class ButtonI2C(Device, HoldMixin):
         self._bounce_time = bounce_time
         self.hold_time = hold_time if hold_time is not None and hold_time >= 0 else 1
         self.hold_repeat = hold_repeat
+        self._lock = Lock()
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
 
@@ -59,6 +61,22 @@ class ButtonI2C(Device, HoldMixin):
         except Exception:
             return super().__repr__()
 
+    def close(self) -> None:
+        with self._lock:
+            try:
+                # in edge cases where constructor fails, _mcp_23017 property may not exist
+                if hasattr(self, "_mcp_23017") and self._mcp_23017 is not None:
+                    self._mcp_23017.disable_interrupt(self._dio_pin)
+                    self._mcp_23017.deregister_client(self)
+                    Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
+                self._mcp_23017 = None
+            finally:
+                super().close()
+
+    @property
+    def closed(self) -> bool:
+        return self._mcp_23017 is None
+
     @property
     def bounce_time(self) -> float:
         return self._bounce_time
@@ -71,17 +89,6 @@ class ButtonI2C(Device, HoldMixin):
 
     def _signal_event(self, active: bool) -> None:
         self._fire_events(self.pin_factory.ticks(), active)
-
-    def close(self) -> None:
-        try:
-            # in edge cases where constructor fails, _mcp_23017 property may not exist
-            if hasattr(self, "_mcp_23017") and self._mcp_23017 is not None:
-                self._mcp_23017.disable_interrupt(self._dio_pin)
-                self._mcp_23017.deregister_client(self)
-                Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
-            self._mcp_23017 = None
-        finally:
-            super().close()
 
     @property
     def i2c_address(self) -> int:
@@ -113,10 +120,6 @@ class ButtonI2C(Device, HoldMixin):
         if self._mcp_23017 is None:
             raise GPIODeviceClosed("I2C Button is closed or uninitialized")
         return self._mcp_23017.get_pull_up(self._dio_pin)
-
-    @property
-    def closed(self) -> bool:
-        return self._mcp_23017 is None
 
 
 ButtonI2C.is_pressed = ButtonI2C.is_active

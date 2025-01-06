@@ -11,6 +11,7 @@ from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, Analo
 from src.gpio.i2c.ads_1x15 import Ads1115
 from .controller import Controller, ControllerI2C
 from .i2c.button_i2c import ButtonI2C
+from .i2c.led_i2c import LEDI2C
 from .keypad import KEYPAD_PCF8574_ADDRESS
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
@@ -1376,8 +1377,10 @@ class GpioHandler:
 
         if isinstance(pin, tuple):
             if hold_repeat is True:
+                # noinspection PyTypeChecker
                 button = ButtonI2C(pin, hold_repeat=hold_repeat, hold_time=hold_time)
             else:
+                # noinspection PyTypeChecker
                 button = ButtonI2C(pin)
         else:
             if hold_repeat is True:
@@ -1387,14 +1390,20 @@ class GpioHandler:
         cls.cache_device(button)
 
         # create a LED, if asked, and tie its source to the button
-        if led_pin is not None and led_pin != 0:
+        if isinstance(led_pin, tuple) and len(led_pin) > 0 and led_pin[0] > 0:
+            led_pin = led_pin[0]
+            led = LEDI2C(led_pin)
+        elif (isinstance(led_pin, int) and led_pin > 0) or (isinstance(led_pin, str)):
             led = LED(led_pin, active_high=cathode, initial_value=initially_on)
-            led.source = None
-            if bind:
-                led.source = button
-            cls.cache_device(led)
         else:
             led = None
+
+        if led is not None:
+            led.source = None
+            cls.cache_device(led)
+            if bind is True:
+                led.source = button
+
         if command is None:
             return button
         else:
