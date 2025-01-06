@@ -545,8 +545,7 @@ class GpioHandler:
         )
         # bind actions to buttons
         btn.when_pressed = req.as_action(repeat=2)
-        # btn.when_pressed = lambda x: print("Pressed...")
-
+        print(btn, led)
         # return created objects
         if led is not None:
             return btn, led
