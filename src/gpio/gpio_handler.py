@@ -546,7 +546,7 @@ class GpioHandler:
             TMCC1RouteCommandDef.FIRE,
             address,
             led_pin=led_pin,
-            bind=True,
+            bind=False,
             cathode=cathode,
         )
         # bind actions to buttons
