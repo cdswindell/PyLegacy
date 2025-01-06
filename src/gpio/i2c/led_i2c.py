@@ -134,6 +134,7 @@ class LEDI2C(Device, SourceMixin):
         """
         if self._mcp_23017 is None:
             raise GPIODeviceClosed("I2C LED is closed or uninitialized")
+        self.source = None
         self._stop_blink()
         self._blink_thread = GPIOThread(self._blink_device, (on_time, off_time, n))
         self._blink_thread.start()
