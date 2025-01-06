@@ -8,7 +8,7 @@ from .mcp23017 import INPUT, HIGH, Mcp23017Factory
 class ButtonI2C(Device, HoldMixin):
     def __init__(
         self,
-        pin: int | Tuple[int] | Tuple[int, int],
+        pin: int | Tuple[int] | Tuple[int, int] | Tuple[int, int, int],
         i2c_address: int = 0x23,
         pull_up: bool = True,
         bounce_time: float = None,
@@ -20,7 +20,9 @@ class ButtonI2C(Device, HoldMixin):
         # i2c buttons use the MCP 23017 i2c dio board, which supports 16 pins and interrupts
         if isinstance(pin, tuple):
             if len(pin) > 1 and pin[1]:
-                i2c_address = pin[1]
+                interrupt_pin = pin[1]
+            if len(pin) > 2 and pin[2]:
+                i2c_address = pin[2]
             pin = pin[0]
         self._dio_pin = pin
         self._mcp_23017 = Mcp23017Factory.build(

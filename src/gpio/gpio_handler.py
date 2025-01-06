@@ -31,7 +31,7 @@ DEFAULT_VARIANCE: float = 0.001  # pot difference variance
 
 T = TypeVar("T", bound=CommandReq)
 
-P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int]])
+P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, int, int]])
 
 
 class GpioDelayHandler(Thread):
@@ -544,7 +544,7 @@ class GpioHandler:
         )
         # bind actions to buttons
         btn.when_pressed = req.as_action(repeat=2)
-        btn.when_pressed = lambda x: print("Pressed...")
+        # btn.when_pressed = lambda x: print("Pressed...")
 
         # return created objects
         if led is not None:
@@ -1376,9 +1376,9 @@ class GpioHandler:
 
         if isinstance(pin, tuple):
             if hold_repeat is True:
-                button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
+                button = ButtonI2C(pin, hold_repeat=hold_repeat, hold_time=hold_time)
             else:
-                button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME)
+                button = ButtonI2C(pin)
         else:
             if hold_repeat is True:
                 button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
