@@ -1,4 +1,5 @@
 import threading
+import time
 from typing import List, Tuple, Dict, Set
 
 from gpiozero import GPIOPinInUse, PinInvalidPin, Button, Device
@@ -282,14 +283,17 @@ class Mcp23017:
         self.i2c.write_to(self.address, INTCONB, 0x00 if prev_val else 0xFF)
 
     def clear_interrupts(self) -> None:
-        self.i2c.read_from(self.address, INTCAPA)
-        self.i2c.read_from(self.address, INTCAPB)
+        with self._lock:
+            self.i2c.read_from(self.address, INTCAPA)
+            self.i2c.read_from(self.address, INTCAPB)
 
     def clear_int_a(self) -> None:
-        self.i2c.read_from(self.address, INTCAPA)
+        with self._lock:
+            self.i2c.read_from(self.address, INTCAPA)
 
     def clear_int_b(self) -> None:
-        self.i2c.read_from(self.address, INTCAPB)
+        with self._lock:
+            self.i2c.read_from(self.address, INTCAPB)
 
     def enable_interrupt(self, gpio) -> None:
         self._set_interrupt(gpio, True)
@@ -445,13 +449,13 @@ class Mcp23017:
     def handle_interrupt(self) -> None:
         with self._lock:
             pull_ups = self.pull_ups
-            interrupts = self.interrupts
+            interrupts = self.interrupted_pins
             state = self.captures
             bounce_time = -1
-            for i in range(16):
+            for i in interrupts:
                 # for every pin that generated an interrupt, if there is a
                 # client associated with this pin, fire events
-                if (interrupts & (1 << i)) and i in self._clients:
+                if i in self._clients:
                     pull_up = (pull_ups & (1 << i)) != 0
                     client = self._clients[i]
                     if client.bounce_time is not None and client.bounce_time > bounce_time:
@@ -464,8 +468,8 @@ class Mcp23017:
                     print(f"interrupt trigger pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit}")
                     client._signal_event(active)
             # if a bounce time was specified, wait for this amount of time before enabling interrupts
-            # if bounce_time > 0:
-            #     time.sleep(bounce_time)
+            if bounce_time > 0:
+                time.sleep(bounce_time)
         # clear this interrupt; necessary to enable future interrupts
         self.clear_interrupts()
 

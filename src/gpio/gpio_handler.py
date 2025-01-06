@@ -549,8 +549,8 @@ class GpioHandler:
             cathode=cathode,
         )
         # bind actions to buttons
-        print(req, btn, led)
         btn.when_pressed = req.as_action(repeat=2)
+        btn.when_pressed = lambda x: print("Pressed...")
 
         # return created objects
         if led is not None:
