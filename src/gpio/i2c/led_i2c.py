@@ -1,4 +1,4 @@
-from threading import Lock
+from threading import RLock
 from itertools import repeat
 
 from gpiozero import Device, GPIODeviceClosed, SourceMixin
@@ -26,7 +26,7 @@ class LEDI2C(Device, SourceMixin):
         super().__init__(pin_factory=pin_factory)
         self._controller = None
         self._blink_thread = None
-        self._lock = Lock()
+        self._lock = RLock()
 
         # configure the Mcp23017 pin to the appropriate mode
         self._mcp_23017.set_pin_mode(pin, OUTPUT)
@@ -49,8 +49,8 @@ class LEDI2C(Device, SourceMixin):
     def close(self) -> None:
         with self._lock:
             try:
-                self._stop_blink()
                 self.source = None
+                self._stop_blink()
                 # in edge cases where constructor fails, _mcp_23017 property may not exist
                 if hasattr(self, "_mcp_23017") and self._mcp_23017 is not None:
                     self._mcp_23017.disable_interrupt(self._dio_pin)
@@ -111,10 +111,11 @@ class LEDI2C(Device, SourceMixin):
 
     @SourceMixin.source.setter  # override setter
     def source(self, value) -> None:
-        if self._mcp_23017 is None:
-            raise GPIODeviceClosed("I2C LED is closed or uninitialized")
-        self._stop_blink()
-        SourceMixin.source.fset(self, value)
+        with self._lock:
+            if self._mcp_23017 is None:
+                raise GPIODeviceClosed("I2C LED is closed or uninitialized")
+            self._stop_blink()
+            SourceMixin.source.fset(self, value)
 
     def blink(self, on_time=1, off_time=1, n=None, background=True):
         """
