@@ -462,7 +462,7 @@ class Mcp23017:
                         active = capture_bit == 1
                     else:
                         active = capture_bit == 0
-                    # print(f"interrupt trigger pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit}")
+                    print(f"interrupt trigger pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit}")
                     client._signal_event(active)
             # if a bounce time was specified, wait for this amount of time before enabling interrupts
             if bounce_time > 0:
