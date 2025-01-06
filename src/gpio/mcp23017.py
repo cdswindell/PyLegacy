@@ -122,7 +122,7 @@ class Mcp23017:
         self.set_all_pull_up()
         self.set_all_interrupt_config()
         self.set_interrupt_mirror(True)
-        self.clear_all_interrupts()
+        self.clear_interrupts()
         self._int_pin = None
         self._int_btn = None
         self._clients: Dict[int, Device] = dict()
@@ -273,7 +273,7 @@ class Mcp23017:
         self.i2c.write_to(self.address, INTCONA, 0x00 if prev_val else 0xFF)
         self.i2c.write_to(self.address, INTCONB, 0x00 if prev_val else 0xFF)
 
-    def clear_all_interrupts(self) -> None:
+    def clear_interrupts(self) -> None:
         self.i2c.read_from(self.address, INTCAPA)
         self.i2c.read_from(self.address, INTCAPB)
 
@@ -283,7 +283,13 @@ class Mcp23017:
     def clear_int_b(self) -> None:
         self.i2c.read_from(self.address, INTCAPB)
 
-    def set_interrupt(self, gpio, enabled: bool = True) -> None:
+    def enable_interrupt(self, gpio) -> None:
+        self._set_interrupt(gpio, True)
+
+    def disable_interrupt(self, gpio) -> None:
+        self._set_interrupt(gpio, False)
+
+    def _set_interrupt(self, gpio, enabled: bool = True) -> None:
         """
         Enables or disables the interrupt of a given GPIO
         :param gpio: the GPIO where the interrupt needs to be set,
@@ -293,11 +299,17 @@ class Mcp23017:
         pair = self.get_offset_gpio_tuple([GPINTENA, GPINTENB], gpio)
         self.set_bit_enabled(pair[0], pair[1], enabled)
 
-    def get_interrupt(self, gpio) -> int:
+    def is_interrupt_enabled(self, gpio) -> int:
         pair = self.get_offset_gpio_tuple([GPINTENA, GPINTENB], gpio)
         return self.get_bit_enabled(pair[0], pair[1])
 
-    def set_all_interrupts(self, enabled: bool = True) -> None:
+    def enable_interrupts(self) -> None:
+        self._set_interrupts(True)
+
+    def disable_interrupts(self) -> None:
+        self._set_interrupts(False)
+
+    def _set_interrupts(self, enabled: bool = True) -> None:
         """
         Enables or disables the interrupt of all GPIOs
         :param enabled: enable or disable the interrupt
@@ -328,17 +340,6 @@ class Mcp23017:
         self.set_bit_enabled(IOCONB, MIRROR_BIT, enable)
 
     @property
-    def interrupt_captures(self) -> int:
-        """
-        Reads the interrupt captured register. It captures the GPIO port value at the time
-        the interrupt occurred.
-        :return: an int representing the state of all GPIOs at the time of interrupt
-        """
-        ret = self.i2c.read_from(self.address, INTCAPA)
-        ret |= self.i2c.read_from(self.address, INTCAPB) << 8
-        return 0xFF & ~ret
-
-    @property
     def interrupts(self) -> int:
         """
         Reads the interrupt registers.
@@ -347,6 +348,27 @@ class Mcp23017:
         ret = self.i2c.read_from(self.address, INTFA)
         ret |= self.i2c.read_from(self.address, INTFB) << 8
         return ret
+
+    @property
+    def interrupted_pins(self) -> List[int]:
+        """
+        Reads the interrupt registers.
+        :return: an int representing the pin(s) that caused the interrupt
+        """
+        ret = self.i2c.read_from(self.address, INTFA)
+        ret |= self.i2c.read_from(self.address, INTFB) << 8
+        return [pin for pin in range(16) if ret & (1 << pin)]
+
+    @property
+    def captures(self) -> int:
+        """
+        Reads the interrupt captured register. It captures the GPIO port value at the time
+        the interrupt occurred.
+        :return: an int representing the state of all GPIOs at the time of interrupt
+        """
+        ret = self.i2c.read_from(self.address, INTCAPA)
+        ret |= self.i2c.read_from(self.address, INTCAPB) << 8
+        return 0xFF & ~ret
 
     def read_interrupt_captures(self) -> Tuple[List[str], List[str]]:
         """
@@ -415,7 +437,7 @@ class Mcp23017:
     def handle_interrupt(self) -> None:
         pull_ups = self.pull_ups
         interrupts = self.interrupts
-        state = self.interrupt_captures
+        state = self.captures
         bounce_time = -1
         for i in range(16):
             # for every pin that generated an interrupt, if there is a
@@ -436,16 +458,14 @@ class Mcp23017:
         if bounce_time > 0:
             time.sleep(bounce_time)
         # clear this interrupt; necessary to enable future interrupts
-        self.clear_all_interrupts()
+        self.clear_interrupts()
 
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
         if 0 <= pin <= 15:
             self._int_pin = interrupt_pin
             self._int_btn = Button(interrupt_pin)
             self._int_btn.when_pressed = self.handle_interrupt
-            # self._int_btn.when_released = self.process_interrupt_falling
-            # self.read_interrupt_captures()
-            self.clear_all_interrupts()
+            self.clear_interrupts()
         else:
             raise TypeError("pin must be one of GPAn or GPBn. See description for help")
 

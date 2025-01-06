@@ -86,22 +86,22 @@ class TestMCP23017(unittest.TestCase):
     def test_set_interrupt(self):
         mcp = Mcp23017(self.mockAddress, self.i2c)
         mcp.set_all_input()
-        mcp.set_interrupt(GPA0, True)
+        mcp.enable_interrupt(GPA0)
         self.assertEqual(mcp.read(GPINTENA), 0b00000001)
-        mcp.set_interrupt(GPA6, True)
+        mcp.enable_interrupt(GPA6)
         self.assertEqual(mcp.read(GPINTENA), 0b01000001)
-        mcp.set_interrupt(GPA0, False)
+        mcp.disable_interrupt(GPA0)
         self.assertEqual(mcp.read(GPINTENA), 0b01000000)
-        mcp.set_interrupt(GPB0, True)
+        mcp.enable_interrupt(GPB0)
         self.assertEqual(mcp.read(GPINTENB), 0b00000001)
 
     def test_set_all_interrupt(self):
         mcp = Mcp23017(self.mockAddress, self.i2c)
         mcp.set_all_input()
-        mcp.set_all_interrupts(True)
+        mcp.enable_interrupts()
         self.assertEqual(mcp.read(GPINTENA), 0b11111111)
         self.assertEqual(mcp.read(GPINTENB), 0b11111111)
-        mcp.set_all_interrupts(False)
+        mcp.disable_interrupts()
         self.assertEqual(mcp.read(GPINTENA), 0b00000000)
         self.assertEqual(mcp.read(GPINTENB), 0b00000000)
 

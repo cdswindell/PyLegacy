@@ -30,7 +30,7 @@ class I2CButton(Device, HoldMixin):
         self._mcp_23017.set_pin_mode(pin, INPUT)
         self._mcp_23017.set_pull_up(pin, pull_up)
         if interrupt_pin is not None:
-            self._mcp_23017.set_interrupt(pin, True)
+            self._mcp_23017.enable_interrupt(pin)
         self._interrupt_pin = interrupt_pin
 
         self._bounce_time = bounce_time
@@ -67,7 +67,7 @@ class I2CButton(Device, HoldMixin):
         try:
             # in edge cases where constructor fails, _mcp_23017 property may not exist
             if hasattr(self, "_mcp_23017") and self._mcp_23017 is not None:
-                self._mcp_23017.set_interrupt(self._dio_pin, False)
+                self._mcp_23017.disable_interrupt(self._dio_pin)
                 self._mcp_23017.deregister_client(self)
                 Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
             self._mcp_23017 = None
