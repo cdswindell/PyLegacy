@@ -545,7 +545,6 @@ class GpioHandler:
         )
         # bind actions to buttons
         btn.when_pressed = req.as_action(repeat=2)
-        print(btn, led)
         # return created objects
         if led is not None:
             return btn, led
@@ -1389,7 +1388,7 @@ class GpioHandler:
         cls.cache_device(button)
 
         # create a LED, if asked, and tie its source to the button
-        if isinstance(led_pin, tuple) and len(led_pin) > 0 and led_pin[0] > 0:
+        if isinstance(led_pin, tuple) and len(led_pin) > 0 and led_pin[0] >= 0:
             led_pin = led_pin[0]
             led = LEDI2C(led_pin)
         elif (isinstance(led_pin, int) and led_pin > 0) or (isinstance(led_pin, str)):
