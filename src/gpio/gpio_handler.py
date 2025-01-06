@@ -32,7 +32,7 @@ from ..utils.ip_tools import find_base_address
 
 log = logging.getLogger(__name__)
 
-DEFAULT_BOUNCE_TIME: float = 0.05  # button debounce threshold
+DEFAULT_BOUNCE_TIME: float = 0.02  # button debounce threshold
 DEFAULT_VARIANCE: float = 0.001  # pot difference variance
 
 T = TypeVar("T", bound=CommandReq)
