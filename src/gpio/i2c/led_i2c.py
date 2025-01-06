@@ -42,6 +42,7 @@ class LEDI2C(Device, SourceMixin):
 
     def close(self) -> None:
         try:
+            self._stop_blink()
             # in edge cases where constructor fails, _mcp_23017 property may not exist
             if hasattr(self, "_mcp_23017") and self._mcp_23017 is not None:
                 self._mcp_23017.disable_interrupt(self._dio_pin)
@@ -104,8 +105,10 @@ class LEDI2C(Device, SourceMixin):
     def pin(self) -> int:
         return self._dio_pin
 
-    # noinspection PyMethodOverriding
-    def source(self, value):
+    @SourceMixin.source.setter  # override setter
+    def source(self, value) -> None:
+        if self._mcp_23017 is None:
+            raise GPIODeviceClosed("I2C LED is closed or uninitialized")
         self._stop_blink()
         super().source(value)
 
