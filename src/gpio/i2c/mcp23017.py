@@ -115,6 +115,7 @@ class Mcp23017:
     """
 
     def __init__(self, address: int = 0x23, i2c: I2C = None) -> None:
+        self._lock = threading.Lock()
         self.address = address
         self.i2c = i2c if i2c else I2C()
         self.set_all_normal()
@@ -126,7 +127,6 @@ class Mcp23017:
         self._int_pin = None
         self._int_btn = None
         self._clients: Dict[int, Device] = dict()
-        self._lock = threading.Lock()
 
     @property
     def interrupt_pin(self) -> int:
