@@ -1,6 +1,8 @@
 from threading import Lock
+from itertools import repeat
 
 from gpiozero import Device, GPIODeviceClosed, SourceMixin
+from gpiozero.threads import GPIOThread
 
 from src.gpio.mcp23017 import Mcp23017Factory, OUTPUT
 
@@ -22,6 +24,8 @@ class I2CLED(Device, SourceMixin):
         )
         # initialize the gpiozero device
         super().__init__(pin_factory=pin_factory)
+        self._controller = None
+        self._blink_thread = None
         self._lock = Lock()
 
         # configure the Mcp23017 pin to the appropriate mode
@@ -64,11 +68,11 @@ class I2CLED(Device, SourceMixin):
         self._mcp_23017.set_value(self._dio_pin, value)
 
     def on(self):
-        # self._stop_blink()
+        self._stop_blink()
         self.value = 1
 
     def off(self):
-        # self._stop_blink()
+        self._stop_blink()
         self.value = 0
 
     def toggle(self):
@@ -97,6 +101,52 @@ class I2CLED(Device, SourceMixin):
     @property
     def closed(self) -> bool:
         return self._mcp_23017 is None
+
+    def blink(self, on_time=1, off_time=1, n=None, background=True):
+        """
+        Make the device turn on and off repeatedly.
+
+        :param float on_time:
+            Number of seconds on. Defaults to 1 second.
+
+        :param float off_time:
+            Number of seconds off. Defaults to 1 second.
+
+        :type n: int or None
+        :param n:
+            Number of times to blink; :data:`None` (the default) means forever.
+
+        :param bool background:
+            If :data:`True` (the default), start a background thread to
+            continue blinking and return immediately. If :data:`False`, only
+            return when the blink is finished (warning: the default value of
+            *n* will result in this method never returning).
+        """
+        self._stop_blink()
+        self._blink_thread = GPIOThread(self._blink_device, (on_time, off_time, n))
+        self._blink_thread.start()
+        if not background:
+            self._blink_thread.join()
+            self._blink_thread = None
+
+    # noinspection PyProtectedMember
+    def _stop_blink(self):
+        if getattr(self, "_controller", None):
+            self._controller._stop_blink(self)
+        self._controller = None
+        if getattr(self, "_blink_thread", None):
+            self._blink_thread.stop()
+        self._blink_thread = None
+
+    def _blink_device(self, on_time, off_time, n):
+        iterable = repeat(0) if n is None else repeat(0, n)
+        for _ in iterable:
+            self.value = 1
+            if self._blink_thread.stopping.wait(on_time):
+                break
+            self.value = 0
+            if self._blink_thread.stopping.wait(off_time):
+                break
 
 
 I2CLED.is_lit = I2CLED.is_active
