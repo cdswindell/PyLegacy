@@ -540,6 +540,7 @@ class GpioHandler:
         Fire a TMCC2/Legacy Route, throwing all incorporated turnouts to the correct state
         """
         # make the CommandReq
+        print("in route...")
         req, btn, led = cls.make_button(
             btn_pin,
             TMCC1RouteCommandDef.FIRE,
@@ -1380,7 +1381,7 @@ class GpioHandler:
             command = CommandReq.build(command, address=address, data=data, scope=scope)
 
         # create the button object we will associate an action with
-
+        print("in make_button...")
         if isinstance(pin, tuple):
             if hold_repeat is True:
                 # noinspection PyTypeChecker
