@@ -1383,10 +1383,10 @@ class GpioHandler:
         if isinstance(pin, tuple):
             if hold_repeat is True:
                 # noinspection PyTypeChecker
-                button = ButtonI2C(pin, hold_repeat=hold_repeat, hold_time=hold_time)
+                button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
             else:
                 # noinspection PyTypeChecker
-                button = ButtonI2C(pin)
+                button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME)
         else:
             if hold_repeat is True:
                 button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
@@ -1404,7 +1404,6 @@ class GpioHandler:
             led = None
 
         if led is not None:
-            led.source = None
             cls.cache_device(led)
             if bind is True:
                 led.source = button
