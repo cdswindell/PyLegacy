@@ -104,17 +104,10 @@ class LEDI2C(Device, SourceMixin):
     def pin(self) -> int:
         return self._dio_pin
 
-    @property
-    def source(self):
-        """
-        The iterable to use as a source of values for :attr:`value`.
-        """
-        return super().source
-
-    @source.setter
+    # noinspection PyMethodOverriding
     def source(self, value):
         self._stop_blink()
-        super().source = value
+        super().source(value)
 
     def blink(self, on_time=1, off_time=1, n=None, background=True):
         """
