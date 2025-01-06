@@ -540,19 +540,16 @@ class GpioHandler:
         Fire a TMCC2/Legacy Route, throwing all incorporated turnouts to the correct state
         """
         # make the CommandReq
-        print("in route...")
         req, btn, led = cls.make_button(
             btn_pin,
             TMCC1RouteCommandDef.FIRE,
             address,
             led_pin=led_pin,
-            bind=False,
+            bind=True,
             cathode=cathode,
         )
         # bind actions to buttons
-        print(req, btn, led)
-        # btn.when_pressed = req.as_action(repeat=2)
-        btn.when_pressed = lambda x: print("Pressed...")
+        btn.when_pressed = req.as_action(repeat=2)
 
         # return created objects
         if led is not None:
@@ -1381,13 +1378,11 @@ class GpioHandler:
             command = CommandReq.build(command, address=address, data=data, scope=scope)
 
         # create the button object we will associate an action with
-        print("in make_button...")
         if isinstance(pin, tuple):
             if hold_repeat is True:
                 # noinspection PyTypeChecker
                 button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
             else:
-                print("in make_button 2...")
                 # noinspection PyTypeChecker
                 button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME)
         else:
@@ -1398,11 +1393,9 @@ class GpioHandler:
         cls.cache_device(button)
 
         # create a LED, if asked, and tie its source to the button
-        print("in make_button 3...")
         if isinstance(led_pin, tuple) and len(led_pin) > 0 and led_pin[0] >= 0:
             led_pin = led_pin[0]
             led = LEDI2C(led_pin)
-            print("in make_button 4...")
         elif (isinstance(led_pin, int) and led_pin > 0) or (isinstance(led_pin, str)):
             led = LED(led_pin, active_high=cathode, initial_value=initially_on)
         else:

@@ -464,7 +464,7 @@ class Mcp23017:
                         active = capture_bit == 1
                     else:
                         active = capture_bit == 0
-                    print(f"interrupt trigger pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit}")
+                    # print(f"interrupt trigger pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit}")
                     client._signal_event(active)
             # if a bounce time was specified, wait for this amount of time before enabling interrupts
             if bounce_time > 0:
@@ -513,24 +513,19 @@ class Mcp23017Factory:
     ) -> Mcp23017:
         if pin is None or pin < 0 or pin > 15:
             raise PinInvalidPin(f"{pin} is not a valid pin")
-        print("In Mcp23017Factory.build")
         with cls._lock:
-            print("In Mcp23017Factory.build 2")
             if cls._instance is None:
                 cls._instance = Mcp23017Factory()
             mcp23017 = cls._instance._mcp23017s.get(address, None)
-            print("In Mcp23017Factory.build 3")
             if mcp23017 is None:
                 mcp23017 = Mcp23017(address)
                 cls._instance._mcp23017s[address] = mcp23017
                 cls._instance._pins_in_use[address] = set()
-            print("In Mcp23017Factory.build 4", mcp23017)
             if pin not in cls._instance._pins_in_use[address]:
                 cls._instance._pins_in_use[address].add(pin)
             else:
                 raise GPIOPinInUse(f"Pin {pin} is already in use by Mcp23017 at address {hex(address)}")
 
-            print("In Mcp23017Factory.build 5", mcp23017)
             if interrupt_pin is not None:
                 # the CQRobot Ocean board supports 2 interrupt lines, one for DGPIO ports 0-7 (A),
                 # and another for DGPIO ports 8-15 (B). We hve to make sure the given interrupt port
@@ -551,12 +546,9 @@ class Mcp23017Factory:
                     if mcp23017.interrupt_pin == interrupt_pin:
                         mcp23017.register_client(pin, client)
                         return mcp23017
-                print("In Mcp23017Factory.build 6", mcp23017)
                 cls._instance._interrupt_pins[interrupt_pin] = mcp23017
                 mcp23017.create_interrupt_handler(pin, interrupt_pin)
-                print("In Mcp23017Factory.build 7", mcp23017)
                 mcp23017.register_client(pin, client)
-                print("In Mcp23017Factory.build 8", mcp23017)
             return mcp23017
 
     # noinspection PyProtectedMember
