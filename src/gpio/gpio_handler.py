@@ -4,12 +4,13 @@ import sched
 import threading
 import time
 from threading import Thread
-from typing import Tuple, Callable, Dict, TypeVar, List
+from typing import Tuple, Callable, Dict, TypeVar, List, Union
 
 from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice, PingServer
 
 from src.gpio.i2c.ads_1x15 import Ads1115
 from .controller import Controller, ControllerI2C
+from .i2c.button_i2c import ButtonI2C
 from .keypad import KEYPAD_PCF8574_ADDRESS
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
@@ -29,6 +30,8 @@ DEFAULT_BOUNCE_TIME: float = 0.05  # button debounce threshold
 DEFAULT_VARIANCE: float = 0.001  # pot difference variance
 
 T = TypeVar("T", bound=CommandReq)
+
+P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int]])
 
 
 class GpioDelayHandler(Thread):
@@ -350,33 +353,33 @@ class GpioHandler:
         row_pins: List[int | str] = None,
         column_pins: List[int | str] = None,
         speed_pins: List[int | str] = None,
-        halt_pin: int | str = None,
-        reset_pin: int | str = None,
-        fwd_pin: int | str = None,
-        rev_pin: int | str = None,
-        front_coupler_pin: int | str = None,
-        rear_coupler_pin: int | str = None,
-        start_up_pin: int | str = None,
-        shutdown_pin: int | str = None,
-        boost_pin: int | str = None,
-        brake_pin: int | str = None,
-        bell_pin: int | str = None,
-        horn_pin: int | str = None,
-        rpm_up_pin: int | str = None,
-        rpm_down_pin: int | str = None,
-        labor_up_pin: int | str = None,
-        labor_down_pin: int | str = None,
-        vol_up_pin: int | str = None,
-        vol_down_pin: int | str = None,
-        smoke_on_pin: int | str = None,
-        smoke_off_pin: int | str = None,
-        tower_dialog_pin: int | str = None,
-        engr_dialog_pin: int | str = None,
+        halt_pin: P = None,
+        reset_pin: P = None,
+        fwd_pin: P = None,
+        rev_pin: P = None,
+        front_coupler_pin: P = None,
+        rear_coupler_pin: P = None,
+        start_up_pin: P = None,
+        shutdown_pin: P = None,
+        boost_pin: P = None,
+        brake_pin: P = None,
+        bell_pin: P = None,
+        horn_pin: P = None,
+        rpm_up_pin: P = None,
+        rpm_down_pin: P = None,
+        labor_up_pin: P = None,
+        labor_down_pin: P = None,
+        vol_up_pin: P = None,
+        vol_down_pin: P = None,
+        smoke_on_pin: P = None,
+        smoke_off_pin: P = None,
+        tower_dialog_pin: P = None,
+        engr_dialog_pin: P = None,
         i2c_adc_address: int = 0x48,
-        train_brake_chn: int | str = None,
-        quilling_horn_chn: int | str = None,
-        base_online_pin: int | str = None,
-        base_offline_pin: int | str = None,
+        train_brake_chn: int = None,
+        quilling_horn_chn: int = None,
+        base_online_pin: P = None,
+        base_offline_pin: P = None,
         base_cathode: bool = True,
         base_ping_freq: int = 5,
         lcd_address: int = 0x27,
@@ -465,8 +468,8 @@ class GpioHandler:
     def base_watcher(
         cls,
         server: str = None,
-        active_pin: int | str = None,
-        inactive_pin: int | str = None,
+        active_pin: P = None,
+        inactive_pin: P = None,
         cathode: bool = True,
         delay: float = 5,
     ) -> Tuple[PingServer, LED, LED]:
@@ -523,8 +526,8 @@ class GpioHandler:
     def route(
         cls,
         address: int,
-        btn_pin: int,
-        led_pin: int | str = None,
+        btn_pin: P,
+        led_pin: P = None,
         cathode: bool = True,
     ) -> Button | Tuple[Button, LED]:
         """
@@ -552,10 +555,10 @@ class GpioHandler:
     def switch(
         cls,
         address: int,
-        thru_pin: int,
-        out_pin: int,
-        thru_led_pin: int | str = None,
-        out_led_pin: int | str = None,
+        thru_pin: P,
+        out_pin: P,
+        thru_led_pin: P = None,
+        out_led_pin: P = None,
         cathode: bool = True,
         initial_state: TMCC1SwitchState = None,
     ) -> Tuple[Button, Button] | Tuple[Button, Button, LED, LED]:
@@ -607,9 +610,9 @@ class GpioHandler:
     def power_district(
         cls,
         address: int,
-        on_pin: int,
-        off_pin: int,
-        on_led_pin: int | str = None,
+        on_pin: P,
+        off_pin: P,
+        on_led_pin: P = None,
         cathode: bool = True,
         initial_state: TMCC1AuxCommandDef | bool = None,
     ) -> Tuple[Button, Button] | Tuple[Button, Button, LED]:
@@ -657,9 +660,9 @@ class GpioHandler:
     def accessory(
         cls,
         address: int,
-        aux1_pin: int | str,
-        aux2_pin: int | str,
-        aux1_led_pin: int | str = None,
+        aux1_pin: P,
+        aux2_pin: P,
+        aux1_led_pin: P = None,
         cathode: bool = True,
     ) -> Tuple[Button, Button] | Tuple[Button, Button, LED]:
         """
@@ -700,9 +703,9 @@ class GpioHandler:
     def culvert_loader(
         cls,
         address: int,
-        cycle_pin: int | str,
-        # lights_pin: int | str = None,
-        cycle_led_pin: int | str = None,
+        cycle_pin: P,
+        # lights_pin: P = None,
+        cycle_led_pin: P = None,
         command_control: bool = True,
         cathode: bool = True,
     ) -> Button | Tuple[Button, LED]:
@@ -728,9 +731,9 @@ class GpioHandler:
         cls,
         address: int,
         channel: int,
-        dispense_pin: int | str,
-        lights_on_pin: int | str = None,
-        lights_off_pin: int | str = None,
+        dispense_pin: P,
+        lights_on_pin: P = None,
+        lights_off_pin: P = None,
         command_control: bool = True,
         cathode: bool = True,
     ) -> Tuple[Button, Button]:
@@ -780,12 +783,12 @@ class GpioHandler:
     def gantry_crane(
         cls,
         address: int,
-        cab_pin_1: int | str,
-        cab_pin_2: int | str,
-        lift_chn: int | str = 0,
-        roll_chn: int | str = 1,
-        mag_pin: int | str = None,
-        led_pin: int | str = None,
+        cab_pin_1: P,
+        cab_pin_2: P,
+        lift_chn: P = 0,
+        roll_chn: P = 1,
+        mag_pin: P = None,
+        led_pin: P = None,
         use_12bit: bool = True,
         cathode: bool = True,
     ) -> Tuple[RotaryEncoder, JoyStickHandler, JoyStickHandler, Button, LED]:
@@ -853,15 +856,15 @@ class GpioHandler:
     def crane_car(
         cls,
         address: int,
-        cab_pin_1: int | str,
-        cab_pin_2: int | str,
-        bo_chn: int | str = 0,
-        bo_pin: int | str = None,
-        bh_pin: int | str = None,
-        sh_pin: int | str = None,
-        bo_led_pin: int | str = None,
-        bh_led_pin: int | str = None,
-        sh_led_pin: int | str = None,
+        cab_pin_1: P,
+        cab_pin_2: P,
+        bo_chn: P = 0,
+        bo_pin: P = None,
+        bh_pin: P = None,
+        sh_pin: P = None,
+        bo_led_pin: P = None,
+        bh_led_pin: P = None,
+        sh_led_pin: P = None,
         use_12bit: bool = True,
         cathode: bool = True,
     ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED, Button, LED, Button, LED]:
@@ -946,17 +949,17 @@ class GpioHandler:
     def rocket_launcher(
         cls,
         address: int,
-        gantry_chanel: int | str = 0,
-        launch_seq_pin: int | str = None,
-        launch_now_pin: int | str = None,
-        launch_15_pin: int | str = None,
-        abort_pin: int | str = None,
-        siren_pin: int | str = None,
-        klaxon_pin: int | str = None,
-        ground_crew_pin: int | str = None,
-        mission_control_pin: int | str = None,
-        flicker_on_pin: int | str = None,
-        flicker_off_pin: int | str = None,
+        gantry_chanel: P = 0,
+        launch_seq_pin: P = None,
+        launch_now_pin: P = None,
+        launch_15_pin: P = None,
+        abort_pin: P = None,
+        siren_pin: P = None,
+        klaxon_pin: P = None,
+        ground_crew_pin: P = None,
+        mission_control_pin: P = None,
+        flicker_on_pin: P = None,
+        flicker_off_pin: P = None,
     ):
         pass
 
@@ -964,10 +967,10 @@ class GpioHandler:
     def engine(
         cls,
         address: int,
-        speed_pin_1: int | str = None,
-        speed_pin_2: int | str = None,
-        fwd_pin: int | str = None,
-        rev_pin: int | str = None,
+        speed_pin_1: P = None,
+        speed_pin_2: P = None,
+        fwd_pin: P = None,
+        rev_pin: P = None,
         is_legacy: bool = True,
         scope: CommandScope = CommandScope.ENGINE,
         cathode: bool = True,
@@ -1042,12 +1045,12 @@ class GpioHandler:
     @classmethod
     def when_button_pressed(
         cls,
-        pin: int | str,
+        pin: P,
         command: CommandReq | CommandDefEnum,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
         scope: CommandScope = None,
-        led_pin: int | str = None,
+        led_pin: P = None,
         cathode: bool = True,
     ) -> Tuple[CommandReq, Button, LED]:
         # Use helper method to construct objects
@@ -1068,13 +1071,13 @@ class GpioHandler:
     @classmethod
     def when_button_held(
         cls,
-        pin: int | str,
+        pin: P,
         command: CommandReq | CommandDefEnum,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
         scope: CommandScope = None,
         frequency: float = 1,
-        led_pin: int | str = None,
+        led_pin: P = None,
         cathode: bool = True,
     ) -> Button:
         # Use helper method to construct objects
@@ -1110,11 +1113,11 @@ class GpioHandler:
     @classmethod
     def when_toggle_switch(
         cls,
-        off_pin: int | str,
-        on_pin: int | str,
+        off_pin: P,
+        on_pin: P,
         off_command: CommandReq,
         on_command: CommandReq,
-        led_pin: int | str = None,
+        led_pin: P = None,
         cathode: bool = True,
     ) -> Tuple[Button, Button, LED]:
         # create a LED, if requested. It is turned on by pressing the
@@ -1159,12 +1162,12 @@ class GpioHandler:
     @classmethod
     def when_toggle_button_pressed(
         cls,
-        pin: int | str,
+        pin: P,
         command: CommandReq | CommandDefEnum,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
         scope: CommandScope = None,
-        led_pin: int | str = None,
+        led_pin: P = None,
         initial_state: bool = False,
         auto_timeout: int = None,
         cathode: bool = True,
@@ -1264,8 +1267,8 @@ class GpioHandler:
     @classmethod
     def when_rotary_encoder(
         cls,
-        pin_1: int | str,
-        pin_2: int | str,
+        pin_1: P,
+        pin_2: P,
         clockwise_cmd: CommandReq | CommandDefEnum,
         address: int = DEFAULT_ADDRESS,
         data: int = None,
@@ -1352,12 +1355,12 @@ class GpioHandler:
     @classmethod
     def make_button(
         cls,
-        pin: int | str,
+        pin: P,
         command: CommandReq | CommandDefEnum = None,
         address: int = DEFAULT_ADDRESS,
         data: int = None,
         scope: CommandScope = None,
-        led_pin: int | str = None,
+        led_pin: P = None,
         hold_repeat: bool = False,
         hold_time: float = None,
         initially_on: bool = False,
@@ -1370,10 +1373,16 @@ class GpioHandler:
 
         # create the button object we will associate an action with
 
-        if hold_repeat is True:
-            button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
+        if isinstance(pin, tuple):
+            if hold_repeat is True:
+                button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
+            else:
+                button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME)
         else:
-            button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
+            if hold_repeat is True:
+                button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
+            else:
+                button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
         cls.cache_device(button)
 
         # create a LED, if asked, and tie its source to the button

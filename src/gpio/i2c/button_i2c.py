@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from gpiozero import Device, GPIODeviceClosed, HoldMixin
 
 from .mcp23017 import INPUT, HIGH, Mcp23017Factory
@@ -6,7 +8,7 @@ from .mcp23017 import INPUT, HIGH, Mcp23017Factory
 class ButtonI2C(Device, HoldMixin):
     def __init__(
         self,
-        pin,
+        pin: int | Tuple[int] | Tuple[int, int],
         i2c_address: int = 0x23,
         pull_up: bool = True,
         bounce_time: float = None,
@@ -16,6 +18,10 @@ class ButtonI2C(Device, HoldMixin):
         pin_factory=None,
     ):
         # i2c buttons use the MCP 23017 i2c dio board, which supports 16 pins and interrupts
+        if isinstance(pin, tuple):
+            if len(pin) > 1 and pin[1]:
+                i2c_address = pin[1]
+            pin = pin[0]
         self._dio_pin = pin
         self._mcp_23017 = Mcp23017Factory.build(
             address=i2c_address,
