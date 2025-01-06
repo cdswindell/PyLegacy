@@ -216,14 +216,14 @@ class Mcp23017:
         pair = self.get_offset_gpio_tuple([GPPUA, GPPUA], gpio)
         return self.get_bit_enabled(pair[0], pair[1]) != 0
 
-    def digital_write(self, gpio, direction) -> None:
+    def digital_write(self, gpio, state) -> None:
         """
-        Sets the given GPIO to the given direction HIGH or LOW
-        :param gpio: the GPIO to set the direction to
-        :param direction: one of HIGH or LOW
+        Sets the given GPIO to the given state: HIGH or LOW
+        :param gpio: the GPIO to set the state of
+        :param state: one of HIGH or LOW
         """
         pair = self.get_offset_gpio_tuple([OLATA, OLATB], gpio)
-        self.set_bit_enabled(pair[0], pair[1], True if direction is HIGH else False)
+        self.set_bit_enabled(pair[0], pair[1], True if state is HIGH else False)
 
     def digital_read(self, gpio) -> int:
         """
@@ -234,6 +234,14 @@ class Mcp23017:
         pair = self.get_offset_gpio_tuple([GPIOA, GPIOB], gpio)
         bits = self.i2c.read_from(self.address, pair[0])
         return HIGH if (bits & (1 << pair[1])) > 0 else LOW
+
+    def value(self, gpio: int) -> int:
+        return 1 if self.digital_read(gpio) == HIGH else 0
+
+    def set_value(self, gpio: int, value: int) -> None:
+        if self.get_pin_mode(gpio) != OUTPUT:
+            raise TypeError(f"GPIO {gpio} must be set as OUTPUT to set a value")
+        self.digital_write(gpio, HIGH if value == 1 else LOW)
 
     def digital_read_all(self) -> List[int]:
         """
