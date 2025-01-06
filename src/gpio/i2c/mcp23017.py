@@ -513,7 +513,9 @@ class Mcp23017Factory:
     ) -> Mcp23017:
         if pin is None or pin < 0 or pin > 15:
             raise PinInvalidPin(f"{pin} is not a valid pin")
+        print("In Mcp23017Factory.build")
         with cls._lock:
+            print("In Mcp23017Factory.build 2")
             if cls._instance is None:
                 cls._instance = Mcp23017Factory()
             mcp23017 = cls._instance._mcp23017s.get(address, None)
