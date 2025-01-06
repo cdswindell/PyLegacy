@@ -18,6 +18,7 @@ class ButtonI2C(Device, HoldMixin):
         interrupt_pin: int | str = None,
         pin_factory=None,
     ):
+        self._lock = Lock()
         # i2c buttons use the MCP 23017 i2c dio board, which supports 16 pins and interrupts
         if isinstance(pin, tuple):
             if len(pin) > 1 and pin[1]:
@@ -41,11 +42,10 @@ class ButtonI2C(Device, HoldMixin):
         if interrupt_pin is not None:
             self._mcp_23017.enable_interrupt(pin)
         self._interrupt_pin = interrupt_pin
-
         self._bounce_time = bounce_time
         self.hold_time = hold_time if hold_time is not None and hold_time >= 0 else 1
         self.hold_repeat = hold_repeat
-        self._lock = Lock()
+
         # Call _fire_events once to set initial state of events
         self._fire_events(self.pin_factory.ticks(), self.is_active)
 
