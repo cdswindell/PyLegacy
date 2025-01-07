@@ -5,7 +5,7 @@ from typing import Tuple
 from gpiozero import Device, GPIODeviceClosed, SourceMixin
 from gpiozero.threads import GPIOThread
 
-from .mcp23017 import Mcp23017Factory, OUTPUT, LOW, HIGH
+from .mcp23017 import Mcp23017Factory, OUTPUT, LOW
 
 
 class LEDI2C(Device, SourceMixin):
@@ -45,11 +45,9 @@ class LEDI2C(Device, SourceMixin):
 
         # configure the Mcp23017 pin to the appropriate mode
         self._mcp_23017.set_pin_mode(pin, OUTPUT)
-        # change polarity, if requested
-        if cathode is True:
-            self._mcp_23017.set_polarity(pin, LOW)
-        elif cathode is False:
-            self._mcp_23017.set_polarity(pin, HIGH)
+
+        # If cathode is connected to GPIO,
+        if cathode is False:
             self._mcp_23017.set_value(pin, 1)  #  turns the pin off
         if initial_value is not None:
             self.value = 1 if initial_value is True else 0
