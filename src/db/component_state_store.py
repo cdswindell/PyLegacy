@@ -186,21 +186,25 @@ class ComponentStateStore:
             return None
 
     def get_all(self, scope: CommandScope) -> List[T]:
+        print(f"Scope: {scope} is in state: {scope in self._state}")
         if scope in self._state:
             # ignore dups where we store an entry for the items road number
             states = [v for k, v in self._state[scope].items() if v.road_number is None or int(v.road_number) != k]
             states.sort(key=lambda x: x.address)
+            print("returning...")
             return states
         else:
             return []
 
     def keys(self, scope: CommandScope = None) -> List[int] | List[CommandScope]:
         if scope is None:
-            return list(self._state.keys())
+            li = list(self._state.keys())
         if scope in self._state:
-            return list(self._state[scope].keys())
+            li = list(self._state[scope].keys())
         else:
-            return []
+            li = []
+        li.sort()
+        return li
 
     def component(self, scope: CommandScope, address: int) -> T:
         if (

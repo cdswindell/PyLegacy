@@ -442,7 +442,7 @@ class PyTrain:
         try:
             if len(param) >= 1:
                 scope = CommandScope.by_prefix(param[0])
-                print(f"Keys: {self._state_store.keys()} {self._state_store.keys(scope)}")
+                print(f"Scope: {scope} Keys: {self._state_store.keys()} {self._state_store.keys(scope)}")
                 if scope is not None:
                     if len(param) > 1:
                         address = int(param[1])
