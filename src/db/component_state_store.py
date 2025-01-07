@@ -189,7 +189,8 @@ class ComponentStateStore:
         print(f"Scope: {scope} is in state: {scope in self._state}")
         if scope in self._state:
             # ignore dups where we store an entry for the items road number
-            states = [v for k, v in self._state[scope].items() if v.road_number is None or int(v.road_number) != k]
+            valids = {v.address for k, v in self._state[scope].items()}
+            states = [v for k, v in self._state[scope].items() if k in valids]
             states.sort(key=lambda x: x.address)
             print("returning...")
             return states
