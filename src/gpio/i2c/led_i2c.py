@@ -18,6 +18,7 @@ class LEDI2C(Device, SourceMixin):
     ):
         # i2c buttons use the MCP 23017 i2c dio board, which supports 16 pins and interrupts
         self._dio_pin = pin
+        self._cathode = cathode
         self._mcp_23017 = Mcp23017Factory.build(
             address=i2c_address,
             pin=pin,
@@ -36,6 +37,7 @@ class LEDI2C(Device, SourceMixin):
             self._mcp_23017.set_polarity(pin, LOW)
         elif cathode is False:
             self._mcp_23017.set_polarity(pin, HIGH)
+            self._mcp_23017.set_value(pin, 1)  #  turns the pin off
         if initial_value is not None:
             self.value = 1 if initial_value is True else 0
 
@@ -79,12 +81,17 @@ class LEDI2C(Device, SourceMixin):
     def value(self) -> int:
         if self._mcp_23017 is None:
             raise GPIODeviceClosed("I2C LED is closed or uninitialized")
-        return self._mcp_23017.value(self._dio_pin)
+        value = self._mcp_23017.value(self._dio_pin)
+        if self._cathode is False:
+            value = 1 if value == 0 else 0
+        return value
 
     @value.setter
     def value(self, value: int) -> None:
         if self._mcp_23017 is None:
             raise GPIODeviceClosed("I2C LED is closed or uninitialized")
+        if self._cathode is False:
+            value = 1 if value == 0 else 0
         self._mcp_23017.set_value(self._dio_pin, value)
 
     def on(self):
