@@ -231,9 +231,10 @@ class Mcp23017:
         :param gpio: the GPIO to read from
         :return:
         """
-        pair = self.get_offset_gpio_tuple([GPIOA, GPIOB], gpio)
-        bits = self.i2c.read_from(self.address, pair[0])
-        return HIGH if (bits & (1 << pair[1])) > 0 else LOW
+        with self._lock:
+            pair = self.get_offset_gpio_tuple([GPIOA, GPIOB], gpio)
+            bits = self.i2c.read_from(self.address, pair[0])
+            return HIGH if (bits & (1 << pair[1])) > 0 else LOW
 
     def value(self, gpio: int) -> int:
         return 1 if self.digital_read(gpio) == HIGH else 0
