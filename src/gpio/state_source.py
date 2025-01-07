@@ -38,9 +38,10 @@ class StateSource(ABC, Thread):
 
     def run(self) -> None:
         while self._is_running:
-            self._component.changed.wait(1)
-            self._led.value = 1 if self.is_active is True else 0
-            print(f"{self._component.state} {self._led}")
+            self._component.changed.wait(10)
+            with self._component.state.synchronizer:
+                self._led.value = 1 if self.is_active is True else 0
+                print(f"{self._component.state} {self._led}")
 
     @property
     @abc.abstractmethod
