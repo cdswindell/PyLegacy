@@ -44,7 +44,6 @@ class StateSource(ABC, Thread):
                     self.active_led.value = 1 if self.is_active is True else 0
                     if self.inactive_led:
                         self.inactive_led.value = 0 if self.is_active is True else 1
-                    print(f"{self._component.state} {self.active_led} {self.inactive_led}")
                     self._component.changed.clear()
 
     @property
