@@ -457,8 +457,10 @@ class PyTrain:
                 keys = self._state_store.keys()
                 if keys:
                     for key in keys:
+                        if key in {CommandScope.BASE, CommandScope.SYNC}:
+                            continue
                         num = len(self._state_store.keys(key))
-                        print(f"{key.label}s: ({num})")
+                        print(f"{key.label}s: {num}")
                     return
             print("No data")
         except Exception as e:
