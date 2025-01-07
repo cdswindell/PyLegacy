@@ -276,6 +276,11 @@ class Mcp23017:
         ret |= self.i2c.read_from(self.address, GPIOB) << 8
         return ret
 
+    @values.setter
+    def values(self, value: int) -> None:
+        self.i2c.write_to(self.address, GPIOA, value & 0xFF)
+        self.i2c.write_to(self.address, GPIOB, (value >> 8) & 0xFF)
+
     @property
     def io_control(self) -> int:
         return self.i2c.read_from(self.address, IOCONA)

@@ -5,7 +5,7 @@ from typing import Tuple
 from gpiozero import Device, GPIODeviceClosed, SourceMixin
 from gpiozero.threads import GPIOThread
 
-from .mcp23017 import Mcp23017Factory, OUTPUT, LOW
+from .mcp23017 import Mcp23017Factory, OUTPUT
 
 
 class LEDI2C(Device, SourceMixin):
@@ -73,7 +73,6 @@ class LEDI2C(Device, SourceMixin):
                 if hasattr(self, "_mcp_23017") and self._mcp_23017 is not None:
                     self.value = 0
                     self.source = None
-                    self._mcp_23017.set_polarity(self._dio_pin, LOW)
                     self._mcp_23017.deregister_client(self)
                     Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
                 self._mcp_23017 = None
