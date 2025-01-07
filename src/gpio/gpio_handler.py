@@ -1393,10 +1393,15 @@ class GpioHandler:
         cls.cache_device(button)
 
         # create a LED, if asked, and tie its source to the button
+        source_delay = 0.02
         if isinstance(led_pin, tuple) and len(led_pin) > 0 and led_pin[0] >= 0:
             led_pin = led_pin[0]
             led = LEDI2C(led_pin)
-            led.source_delay = 0.25
+            # if this led has it's source set to the button defined abve, and
+            # since reading the value of an extender port clears interrupts,
+            # we want to throttle the updates to prevent missing anything. This
+            # isn't perfect and may need to be revisited...
+            source_delay = 0.2
         elif (isinstance(led_pin, int) and led_pin > 0) or (isinstance(led_pin, str)):
             led = LED(led_pin, active_high=cathode, initial_value=initially_on)
         else:
@@ -1405,6 +1410,7 @@ class GpioHandler:
         if led is not None:
             cls.cache_device(led)
             if bind is True:
+                led.source_delay = source_delay
                 led.source = button
 
         if command is None:
