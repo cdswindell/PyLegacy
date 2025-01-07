@@ -474,8 +474,6 @@ class Mcp23017:
             # if a bounce time was specified, wait for this amount of time before enabling interrupts
             if bounce_time > 0:
                 time.sleep(bounce_time)
-        # clear this interrupt; necessary to enable future interrupts
-        # self.clear_interrupts()
 
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
         if 0 <= pin <= 15:
