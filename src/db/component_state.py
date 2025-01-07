@@ -1255,7 +1255,7 @@ class BaseState(ComponentState):
                     self._firmware_high = int(version_info[0])
                     self._firmware_low = int(version_info[1])
                 self._route_throw_rate = command.route_throw_rate
-                self._ev.set()
+                self.changed.set()
                 self._cv.notify_all()
 
     @property
@@ -1333,7 +1333,7 @@ class SyncState(ComponentState):
                 elif command.command == TMCC1SyncCommandDef.SYNCHRONIZED:
                     self._state_synchronized = True
                     self._state_synchronizing = False
-                self._ev.set()
+                self.changed.set()
                 self._cv.notify_all()
 
     @property

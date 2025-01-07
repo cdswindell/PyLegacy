@@ -84,5 +84,4 @@ class QuillingHorn(Thread):
 
     def reset(self) -> None:
         self._is_running = False
-        if self.is_paused:
-            self._ev.set()
+        self._ev.set()
