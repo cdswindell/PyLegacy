@@ -115,7 +115,7 @@ class Mcp23017:
     """
 
     def __init__(self, address: int = 0x23, i2c: I2C = None) -> None:
-        self._lock = threading.RLock()
+        self._lock = threading.Lock()
         self.address = address
         self.i2c = i2c if i2c else I2C()
         self.set_all_normal()
@@ -284,8 +284,11 @@ class Mcp23017:
 
     def clear_interrupts(self) -> None:
         with self._lock:
-            self.i2c.read_from(self.address, INTCAPA)
-            self.i2c.read_from(self.address, INTCAPB)
+            self._clear_interrupts()
+
+    def _clear_interrupts(self) -> None:
+        self.i2c.read_from(self.address, INTCAPA)
+        self.i2c.read_from(self.address, INTCAPB)
 
     def clear_int_a(self) -> None:
         with self._lock:
@@ -376,6 +379,7 @@ class Mcp23017:
         """
         Reads the interrupt captured register. It captures the GPIO port value at the time
         the interrupt occurred.
+        Note: This method clears interrupts
         :return: an int representing the state of all GPIOs at the time of interrupt
         """
         ret = self.i2c.read_from(self.address, INTCAPA)
@@ -450,7 +454,7 @@ class Mcp23017:
         with self._lock:
             pull_ups = self.pull_ups
             interrupts = self.interrupted_pins
-            state = self.captures
+            state = self.captures  # clears interrupts!!
             bounce_time = -1
             for i in interrupts:
                 # for every pin that generated an interrupt, if there is a
@@ -465,13 +469,13 @@ class Mcp23017:
                         active = capture_bit == 1
                     else:
                         active = capture_bit == 0
-                    # print(f"interrupt trigger pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit}")
+                    print(f"interrupt trigger pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit}")
                     client._signal_event(active)
             # if a bounce time was specified, wait for this amount of time before enabling interrupts
             if bounce_time > 0:
                 time.sleep(bounce_time)
         # clear this interrupt; necessary to enable future interrupts
-        self.clear_interrupts()
+        # self.clear_interrupts()
 
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
         if 0 <= pin <= 15:
