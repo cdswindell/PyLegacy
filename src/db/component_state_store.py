@@ -206,7 +206,6 @@ class ComponentStateStore:
             ]
             and 1 <= address <= 9999
         ) or (scope == CommandScope.BASE and address == 0):
-            print(f"scope: {scope} address: {address} state: {self._state[scope][address]}")
             return self._state[scope][address]
         raise ValueError(f"Invalid scope/address: {scope} {address}")
 
