@@ -442,12 +442,7 @@ class PyTrain:
         try:
             if len(param) >= 1:
                 scope = CommandScope.by_prefix(param[0])
-                if scope is None:
-                    keys = self._state_store.keys()
-                    for key in keys:
-                        num = len(self._state_store.keys(key))
-                        print(f"{key.label}s: ({num})")
-                else:
+                if scope is not None:
                     if len(param) > 1:
                         address = int(param[1])
                         state = self._state_store.query(scope, address)
@@ -458,6 +453,13 @@ class PyTrain:
                         for state in self._state_store.get_all(scope):
                             print(state)
                         return
+            else:
+                keys = self._state_store.keys()
+                if keys:
+                    for key in keys:
+                        num = len(self._state_store.keys(key))
+                        print(f"{key.label}s: ({num})")
+                    return
             print("No data")
         except Exception as e:
             log.exception(e)
