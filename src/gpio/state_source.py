@@ -36,15 +36,19 @@ class StateSource(ABC, Thread):
 
     def reset(self) -> None:
         self._is_running = False
+        if self._component:
+            self._component.changed.set()
+            self._component.changed.clear()
 
     def run(self) -> None:
         while self._is_running:
-            if self._component.changed.wait(1):  # timeout required to allow thread shutdown
-                with self._component.synchronizer:
-                    self.active_led.value = 1 if self.is_active is True else 0
-                    if self.inactive_led:
-                        self.inactive_led.value = 0 if self.is_active is True else 1
-                    self._component.changed.clear()
+            if self._component.changed.wait(60):
+                if self._is_running:
+                    with self._component.synchronizer:
+                        self.active_led.value = 1 if self.is_active is True else 0
+                        if self.inactive_led:
+                            self.inactive_led.value = 0 if self.is_active is True else 1
+                        self._component.changed.clear()
 
     @property
     @abc.abstractmethod
