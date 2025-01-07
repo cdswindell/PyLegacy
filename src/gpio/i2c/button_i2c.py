@@ -25,6 +25,8 @@ class ButtonI2C(Device, HoldMixin):
                 interrupt_pin = pin[1]
             if len(pin) > 2 and pin[2]:
                 i2c_address = pin[2]
+            if len(pin) > 3 and pin[3] in {True, False}:
+                pull_up = pin[3]
             pin = pin[0]
         self._dio_pin = pin
         self._mcp_23017 = Mcp23017Factory.build(

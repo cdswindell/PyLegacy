@@ -1397,7 +1397,7 @@ class GpioHandler:
         if isinstance(led_pin, tuple) and len(led_pin) > 0 and led_pin[0] >= 0:
             led_pin = led_pin[0]
             led = LEDI2C(led_pin)
-            # if this led has it's source set to the button defined abve, and
+            # if this led has it's source set to the button defined above, and
             # since reading the value of an extender port clears interrupts,
             # we want to throttle the updates to prevent missing anything. This
             # isn't perfect and may need to be revisited...
@@ -1417,6 +1417,19 @@ class GpioHandler:
             return button
         else:
             return command, button, led
+
+    @classmethod
+    def make_led(
+        cls,
+        pin: P,
+        initially_on: bool = False,
+        cathode: bool = True,
+    ) -> LED:
+        if isinstance(pin, tuple):
+            led = LEDI2C(pin, cathode=cathode, initial_value=initially_on)
+        else:
+            led = LED(pin, active_high=cathode, initial_value=initially_on)
+        return led
 
     @classmethod
     def _with_held_action(cls, action: Callable, button: Button, delay: float = 0.10) -> Callable:

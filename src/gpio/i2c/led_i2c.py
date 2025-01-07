@@ -1,5 +1,6 @@
 from threading import RLock
 from itertools import repeat
+from typing import Tuple
 
 from gpiozero import Device, GPIODeviceClosed, SourceMixin
 from gpiozero.threads import GPIOThread
@@ -10,13 +11,24 @@ from .mcp23017 import Mcp23017Factory, OUTPUT, LOW, HIGH
 class LEDI2C(Device, SourceMixin):
     def __init__(
         self,
-        pin,
+        pin: int | Tuple[int, int],
         i2c_address: int = 0x23,
         cathode: bool = True,
         initial_value: bool = False,
         pin_factory=None,
     ):
         # i2c buttons use the MCP 23017 i2c dio board, which supports 16 pins and interrupts
+        if isinstance(pin, tuple):
+            if len(pin) > 1 and pin[1]:
+                i2c_address = pin[1]
+            if len(pin) > 2 and pin[2] in {True, False}:
+                cathode = pin[2]
+            if len(pin) > 3 and pin[3] in {True, False}:
+                initial_value = pin[3]
+            if len(pin) > 0 and pin[0] in range(16):
+                pin = pin[0]
+            else:
+                raise ValueError(f"Invalid pin specifier: {pin}")
         self._dio_pin = pin
         self._cathode = cathode
         self._mcp_23017 = Mcp23017Factory.build(
