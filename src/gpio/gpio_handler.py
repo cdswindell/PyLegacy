@@ -1384,7 +1384,7 @@ class GpioHandler:
                 button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
             else:
                 # noinspection PyTypeChecker
-                button = ButtonI2C(pin)
+                button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME)
         else:
             if hold_repeat is True:
                 button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
@@ -1393,16 +1393,14 @@ class GpioHandler:
         cls.cache_device(button)
 
         # create a LED, if asked, and tie its source to the button
-        source_delay = 0.02
         if led_pin is not None:
             led = cls.make_led(led_pin, initially_on, cathode)
         else:
             led = None
 
-        if led is not None:
+        if led:
             cls.cache_device(led)
             if bind is True:
-                led.source_delay = source_delay
                 led.source = button
 
         if command is None:
