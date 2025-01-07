@@ -605,8 +605,7 @@ class GpioHandler:
         out_btn.when_pressed = cls._with_on_action(out_action, out_led, thru_led)
 
         if thru_led is not None and out_led is not None:
-            cls.cache_handler(SwitchStateSource(address, thru_led, TMCC1SwitchState.THROUGH))
-            cls.cache_handler(SwitchStateSource(address, out_led, TMCC1SwitchState.OUT))
+            cls.cache_handler(SwitchStateSource(address, thru_led, out_led))
             return thru_btn, out_btn, thru_led, out_led
         else:
             # return created objects

@@ -24,11 +24,12 @@ class StateValidator(Protocol):
 class StateSource(ABC, Thread):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, scope: CommandScope, address: int, led: LED) -> None:
+    def __init__(self, scope: CommandScope, address: int, active_led: LED, inactive_led: LED = None) -> None:
         super().__init__(daemon=True, name=f"{scope.label} {address} State")
         self._scope = scope
         self._address = address
-        self._led = led
+        self.active_led = active_led
+        self.inactive_led = inactive_led
         self._component: T = ComponentStateStore.build().component(scope, address)
         self._is_running = True
         self.start()
@@ -38,10 +39,13 @@ class StateSource(ABC, Thread):
 
     def run(self) -> None:
         while self._is_running:
-            self._component.changed.wait(10)
-            with self._component.synchronizer:
-                self._led.value = 1 if self.is_active is True else 0
-                print(f"{self._component.state} {self._led}")
+            if self._component.changed.wait(10):
+                with self._component.synchronizer:
+                    self.active_led.value = 1 if self.is_active is True else 0
+                    if self.inactive_led:
+                        self.inactive_led.value = 0 if self.is_active is True else 1
+                    print(f"{self._component.state} {self.active_led} {self.inactive_led}")
+                    self._component.changed.clear()
 
     @property
     @abc.abstractmethod
@@ -76,14 +80,14 @@ class LionelBaseSource(StateSource):
 
     def run(self) -> None:
         while self._is_running:
-            self._led.value = 1 if self.is_active else 0
+            self.active_led.value = 1 if self.is_active else 0
             sleep(self._delay)
 
 
 class SwitchStateSource(StateSource):
-    def __init__(self, address: int, led: LED, state: TMCC1SwitchState) -> None:
-        self._state = state
-        super().__init__(CommandScope.SWITCH, address, led)
+    def __init__(self, address: int, thru_led: LED, out_led: LED) -> None:
+        self._state = TMCC1SwitchState.THROUGH
+        super().__init__(CommandScope.SWITCH, address, thru_led, out_led)
 
     def __iter__(self):
         return self
