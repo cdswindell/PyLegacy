@@ -231,8 +231,8 @@ class Mcp23017:
         :param gpio: the GPIO to read from
         :return:
         """
+        pair = self.get_offset_gpio_tuple([GPIOA, GPIOB], gpio)
         with self._lock:
-            pair = self.get_offset_gpio_tuple([GPIOA, GPIOB], gpio)
             bits = self.i2c.read_from(self.address, pair[0])
             return HIGH if (bits & (1 << pair[1])) > 0 else LOW
 
@@ -483,7 +483,7 @@ class Mcp23017:
                 self._int_pin = interrupt_pin
                 self._int_btn = Button(interrupt_pin)
                 self._int_btn.when_pressed = self.handle_interrupt
-                self.clear_interrupts()
+                self._clear_interrupts()  # public method is locked, would deadlock
         else:
             raise TypeError("pin must be one of GPAn or GPBn. See description for help")
 
