@@ -43,7 +43,7 @@ class StateSource(ABC, Thread):
     def run(self) -> None:
         while self._is_running:
             with self._component.synchronizer:
-                self.condition.synchronizer.wait()
+                self._component.synchronizer.wait()
                 if self._is_running:
                     self.active_led.value = 1 if self.is_active is True else 0
                     if self.inactive_led:
