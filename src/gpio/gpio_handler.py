@@ -577,8 +577,11 @@ class GpioHandler:
         supports bi-color LEDs with either common cathode or anode.
         """
         if initial_state is None:
-            # TODO: query initial state
-            initial_state = TMCC1SwitchState.THROUGH
+            state = ComponentStateStore.get_state(CommandScope.SWITCH, address, create=False)
+            if state:
+                initial_state = state.state
+            if initial_state is None:
+                initial_state = TMCC1SwitchState.THROUGH
 
         # make the CommandReqs
         thru_req, thru_btn, thru_led = cls.make_button(
