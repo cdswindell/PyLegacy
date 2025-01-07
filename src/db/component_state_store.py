@@ -198,11 +198,12 @@ class ComponentStateStore:
     def keys(self, scope: CommandScope = None) -> List[CommandScope] | List[int]:
         if scope is None:
             li = list(self._state.keys())
+            li.sort(key=lambda x: x.label)
         elif scope in self._state:
             li = list(self._state[scope].keys())
+            li.sort()
         else:
             li = []
-        li.sort()
         return li
 
     def component(self, scope: CommandScope, address: int) -> T:
