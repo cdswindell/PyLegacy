@@ -118,7 +118,7 @@ class Mcp23017:
         self._lock = threading.Lock()
         self.address = address
         self.i2c = i2c if i2c else I2C()
-        self.set_all_normal()
+        self.set_all_polarity_low()
         self.set_all_input()
         self.set_all_pull_up()
         self.set_all_interrupt_config()
@@ -135,10 +135,29 @@ class Mcp23017:
     def interrupt_btn(self) -> Button:
         return self._int_btn
 
-    def set_all_normal(self) -> None:
+    @property
+    def polarities(self) -> int:
+        ret = self.i2c.read_from(self.address, IPOLA)
+        ret |= self.i2c.read_from(self.address, IPOLB) << 8
+        return ret
+
+    @polarities.setter
+    def polarities(self, value: int) -> None:
+        self.i2c.write_to(self.address, IPOLA, value & 0xFF)
+        self.i2c.write_to(self.address, IPOLB, (value >> 8) & 0xFF)
+
+    def set_polarity(self, gpio: int, value: int) -> None:
+        pair = self.get_offset_gpio_tuple([IPOLA, IPOLB], gpio)
+        self.set_bit_enabled(pair[0], pair[1], True if value is HIGH else False)
+
+    def get_polarity(self, gpio: int) -> int:
+        pair = self.get_offset_gpio_tuple([IPOLA, IPOLB], gpio)
+        return HIGH if self.get_bit_enabled(pair[0], pair[1]) != 0 else LOW
+
+    def set_all_polarity_low(self) -> None:
         """sets all GPIOs normal polarity"""
-        self.i2c.write_to(self.address, IPOLA, 0x00)
-        self.i2c.write_to(self.address, IPOLB, 0x00)
+        self.i2c.write_to(self.address, IPOLA, LOW)
+        self.i2c.write_to(self.address, IPOLB, LOW)
 
     def set_all_output(self) -> None:
         """sets all GPIOs as OUTPUT"""
