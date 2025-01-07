@@ -58,8 +58,9 @@ class LEDI2C(Device, SourceMixin):
                 self._stop_blink()
                 # in edge cases where constructor fails, _mcp_23017 property may not exist
                 if hasattr(self, "_mcp_23017") and self._mcp_23017 is not None:
+                    self.value = 0
                     self.source = None
-                    self._mcp_23017.disable_interrupt(self._dio_pin)
+                    self._mcp_23017.set_polarity(self._dio_pin, LOW)
                     self._mcp_23017.deregister_client(self)
                     Mcp23017Factory.close(self._mcp_23017, self._dio_pin)
                 self._mcp_23017 = None
