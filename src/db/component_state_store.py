@@ -195,7 +195,7 @@ class ComponentStateStore:
         else:
             return []
 
-    def keys(self, scope: CommandScope = None) -> List[int] | List[CommandScope]:
+    def keys(self, scope: CommandScope = None) -> List[CommandScope] | List[int]:
         if scope is None:
             li = list(self._state.keys())
         elif scope in self._state:
