@@ -495,13 +495,13 @@ class GpioHandler:
         # set up active led, if any
         active_led = None
         if active_pin:
-            active_led = LED(active_pin, active_high=cathode)
+            active_led = cls.make_led(active_pin, cathode=cathode)
             active_led.value = 1 if ping_server.is_active else 0
             cls.cache_device(active_led)
 
         inactive_led = None
         if inactive_pin:
-            inactive_led = LED(inactive_pin, active_high=cathode)
+            inactive_led = cls.make_led(inactive_pin, cathode=cathode)
             inactive_led.value = 0 if ping_server.is_active else 1
             cls.cache_device(inactive_led)
 
@@ -1131,7 +1131,7 @@ class GpioHandler:
         # create a LED, if requested. It is turned on by pressing the
         # ON button, and turned off by pressing the OFF button
         if led_pin is not None and led_pin != 0:
-            led = LED(led_pin, active_high=cathode)
+            led = cls.make_led(led_pin, cathode=cathode)
             led.on()
         else:
             led = None
