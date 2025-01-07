@@ -38,6 +38,7 @@ class LEDI2C(Device, SourceMixin):
         )
         # initialize the gpiozero device
         super().__init__(pin_factory=pin_factory)
+        self.source_delay = 0.2
         self._controller = None
         self._blink_thread = None
         self._lock = RLock()
