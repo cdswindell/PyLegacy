@@ -34,7 +34,7 @@ class VariableCommandReq(MultiByteReq):
         return VariableCommandReq(command, address, data_bytes, scope)
 
     @classmethod
-    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False) -> Self:
+    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
         if not param or len(param) < 18:
             raise ValueError(f"Variable byte command requires at least 18 bytes {param.hex(':')}")
         if (

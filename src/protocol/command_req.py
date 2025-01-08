@@ -63,12 +63,13 @@ class CommandReq:
         cmd_req = None
         if is_tmcc4 is True and first_byte in TMCC4_FIRST_BYTE_TO_INTERPRETER:
             cmd_req = TMCC4_FIRST_BYTE_TO_INTERPRETER[first_byte](param)
-            pass
         elif is_tmcc4 is False and first_byte in TMCC_FIRST_BYTE_TO_INTERPRETER:
             cmd_req = TMCC_FIRST_BYTE_TO_INTERPRETER[first_byte](param)
         if cmd_req is not None:
             if from_tmcc_rx is True:
                 cmd_req._is_tmcc_rx = True
+            if is_tmcc4 is True or cmd_req.address > 99:
+                cmd_req._is_tmcc4 = True
             return cmd_req
         raise ValueError(f"Command bytes not understood {param.hex(':')}")
 
@@ -549,7 +550,7 @@ class CommandReq:
         else:
             from src.protocol.multybyte.multibyte_command_req import MultiByteReq
 
-            return MultiByteReq.from_bytes(param)
+            return MultiByteReq.from_bytes(param, is_tmcc4=is_tmcc4)
 
     @classmethod
     def build_tmcc4_command_req(cls, param: bytes) -> R:
@@ -558,7 +559,6 @@ class CommandReq:
 
 TMCC4_FIRST_BYTE_TO_INTERPRETER = {
     LEGACY_ENGINE_COMMAND_PREFIX: CommandReq.build_tmcc4_command_req,
-    LEGACY_TRAIN_COMMAND_PREFIX: CommandReq.build_tmcc4_command_req,
 }
 
 TMCC_FIRST_BYTE_TO_INTERPRETER = {

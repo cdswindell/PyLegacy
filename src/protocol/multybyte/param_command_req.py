@@ -41,7 +41,7 @@ class ParameterCommandReq(MultiByteReq):
         return ParameterCommandReq(command, address, data, scope)
 
     @classmethod
-    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False) -> Self:
+    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
         if not param:
             raise ValueError("Command requires at least 9 bytes")
         if len(param) < 9:
