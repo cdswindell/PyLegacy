@@ -36,6 +36,9 @@ PING: int = 0x29
 UPDATE_ENGINE_SPEED: int = 0x2A
 UPDATE_TRAIN_SPEED: int = 0x2B
 
+TMCC_4DA_TX: int = 0x2C
+TMCC_4DA_RX: int = 0x2D
+
 IRDA_GET: int = 0x30
 IRDA_SET: int = 0x31
 IRDA_RX: int = 0x32
@@ -88,6 +91,8 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     BASE_MEMORY = BASE_MEMORY
     TMCC_TX = TMCC_TX
     TMCC_RX = TMCC_RX
+    TMCC_4DA_TX = TMCC_4DA_TX
+    TMCC_4DA_RX = TMCC_4DA_RX
     PING = PING
     UPDATE_ENGINE_SPEED = UPDATE_ENGINE_SPEED
     UPDATE_TRAIN_SPEED = UPDATE_TRAIN_SPEED
@@ -119,7 +124,7 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
     @property
     def is_tmcc(self) -> bool:
-        return self.value in [TMCC_TX, TMCC_RX]
+        return self.value in {TMCC_TX, TMCC_RX, TMCC_4DA_TX, TMCC_4DA_RX}
 
     @property
     def is_base(self) -> bool:
@@ -137,11 +142,11 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
     @property
     def is_irda(self) -> bool:
-        return self.value in [IRDA_GET, IRDA_SET, IRDA_RX]
+        return self.value in {IRDA_GET, IRDA_SET, IRDA_RX}
 
     @property
     def is_wifi(self) -> bool:
-        return self.value in [WIFI_GET, WIFI_SET, WIFI_RX, WIFI_PING]
+        return self.value in {WIFI_GET, WIFI_SET, WIFI_RX, WIFI_PING}
 
     @property
     def is_asc2(self) -> bool:
