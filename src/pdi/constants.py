@@ -36,8 +36,8 @@ PING: int = 0x29
 UPDATE_ENGINE_SPEED: int = 0x2A
 UPDATE_TRAIN_SPEED: int = 0x2B
 
-TMCC_4DA_TX: int = 0x2C
-TMCC_4DA_RX: int = 0x2D
+TMCC4_TX: int = 0x2C
+TMCC4_RX: int = 0x2D
 
 IRDA_GET: int = 0x30
 IRDA_SET: int = 0x31
@@ -91,8 +91,8 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     BASE_MEMORY = BASE_MEMORY
     TMCC_TX = TMCC_TX
     TMCC_RX = TMCC_RX
-    TMCC_4DA_TX = TMCC_4DA_TX
-    TMCC_4DA_RX = TMCC_4DA_RX
+    TMCC4_TX = TMCC4_TX
+    TMCC4_RX = TMCC4_RX
     PING = PING
     UPDATE_ENGINE_SPEED = UPDATE_ENGINE_SPEED
     UPDATE_TRAIN_SPEED = UPDATE_TRAIN_SPEED
@@ -124,7 +124,7 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
     @property
     def is_tmcc(self) -> bool:
-        return self.value in {TMCC_TX, TMCC_RX, TMCC_4DA_TX, TMCC_4DA_RX}
+        return self.value in {TMCC_TX, TMCC_RX, TMCC4_TX, TMCC4_RX}
 
     @property
     def is_base(self) -> bool:

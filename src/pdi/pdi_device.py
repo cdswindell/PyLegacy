@@ -247,6 +247,7 @@ class PdiDevice(Mixins, FriendlyMixins):
     PING = DeviceWrapper(PingReq)
     ALL = DeviceWrapper(AllReq, PdiCommand.ALL_GET, PdiCommand.ALL_SET)
     TMCC = DeviceWrapper(TmccReq, PdiCommand.TMCC_TX, PdiCommand.TMCC_RX)
+    TMCC4 = DeviceWrapper(TmccReq, PdiCommand.TMCC4_TX, PdiCommand.TMCC4_RX)
     WIFI = DeviceWrapper(WiFiReq, PdiCommand.WIFI_GET, PdiCommand.WIFI_SET, PdiCommand.WIFI_RX, enums=WiFiAction)
     SER2 = DeviceWrapper(Ser2Req, PdiCommand.SER2_GET, PdiCommand.SER2_SET, PdiCommand.SER2_RX, enums=Ser2Action)
     IRDA = DeviceWrapper(
