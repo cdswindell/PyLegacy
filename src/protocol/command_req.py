@@ -214,8 +214,8 @@ class CommandReq:
 
     @staticmethod
     def _validate_requested_scope(command_def: CommandDef, request: CommandScope) -> CommandScope:
-        if request in [CommandScope.ENGINE, CommandScope.TRAIN]:
-            if command_def.scope in [CommandScope.ENGINE, CommandScope.TRAIN]:
+        if request in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            if command_def.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 return request
         # otherwise, return the scope associated with the native command def
         return command_def.scope

@@ -33,14 +33,14 @@ class Bpc2Req(LcsReq):
             else:
                 self._mode = self._debug = self._restore = None
 
-            if self._action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+            if self._action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                 self._state = self._data[3] if data_len > 3 else None
                 self._values = self._valids = None
                 if self._action == Bpc2Action.CONTROL3:
                     self.scope = CommandScope.ACC
                 else:
                     self.scope = CommandScope.TRAIN
-            elif self._action in [Bpc2Action.CONTROL2, Bpc2Action.CONTROL4]:
+            elif self._action in {Bpc2Action.CONTROL2, Bpc2Action.CONTROL4}:
                 self._values = self._data[3] if data_len > 3 else None
                 self._valids = self._data[4] if data_len > 4 else None
                 self._state = None
@@ -90,7 +90,7 @@ class Bpc2Req(LcsReq):
         if self.pdi_command != PdiCommand.ASC2_GET:
             if self.action == Bpc2Action.CONFIG:
                 return f"Mode: {self.mode} Debug: Restore: {self.restore} {self.debug} ({self.packet})"
-            elif self.action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+            elif self.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                 return f"Power {'ON' if self.state == 1 else 'OFF'} ({self.packet})"
         return super().payload
 
@@ -113,10 +113,10 @@ class Bpc2Req(LcsReq):
         elif self._action == Bpc2Action.IDENTIFY:
             if self.pdi_command == PdiCommand.BPC2_SET:
                 byte_str += (self.ident if self.ident is not None else 0).to_bytes(1, byteorder="big")
-        elif self._action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+        elif self._action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
             if self.pdi_command != PdiCommand.BPC2_GET:
                 byte_str += (self.state if self.state is not None else 0).to_bytes(1, byteorder="big")
-        elif self._action in [Bpc2Action.CONTROL2, Bpc2Action.CONTROL4]:
+        elif self._action in {Bpc2Action.CONTROL2, Bpc2Action.CONTROL4}:
             if self.pdi_command != PdiCommand.BPC2_GET:
                 byte_str += (self.state if self.state is not None else 0).to_bytes(1, byteorder="big")
                 values = self.values if self.values is not None else 0

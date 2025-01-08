@@ -128,7 +128,7 @@ class ComponentStateStore:
                         return
                 elif command.is_system_halt:  # send to all known engines and trains
                     for scope in self._state:
-                        if scope in [CommandScope.ENGINE, CommandScope.TRAIN]:
+                        if scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                             for address in self._state[scope]:
                                 self._state[scope][address].update(command)
                     return

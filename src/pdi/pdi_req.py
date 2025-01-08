@@ -81,12 +81,12 @@ class PdiReq(ABC):
         last_byte = None
         for b in data:
             check_sum += b
-            if b in [PDI_SOP, PDI_STF, PDI_EOP]:
+            if b in {PDI_SOP, PDI_STF, PDI_EOP}:
                 if add_stf is True:
                     # add the stuff byte to the output and account for it in the check sum
                     check_sum += PDI_STF
                     byte_stream += PDI_STF.to_bytes(1, byteorder="big")
-                elif b in [PDI_SOP, PDI_EOP]:
+                elif b in {PDI_SOP, PDI_EOP}:
                     # we are parsing a received packet; strip stuff byte
                     pass  # we want this byte added to the output stream
                 else:
@@ -100,7 +100,7 @@ class PdiReq(ABC):
         # do checksum calculation on buffer
         byte_sum = check_sum
         check_sum = 0xFF & (0 - check_sum)
-        if check_sum in [PDI_SOP, PDI_STF, PDI_EOP]:
+        if check_sum in {PDI_SOP, PDI_STF, PDI_EOP}:
             if add_stf is True:
                 byte_stream += PDI_STF.to_bytes(1, byteorder="big")
             byte_sum += PDI_STF
@@ -168,7 +168,7 @@ class PdiReq(ABC):
     def checksum(self) -> bytes:
         check_sum = 0
         for b in self._data:
-            if b in [PDI_SOP, PDI_EOP]:
+            if b in {PDI_SOP, PDI_EOP}:
                 continue
             check_sum += b
         check_sum = 0xFF & (0 - check_sum)
@@ -262,7 +262,7 @@ class TmccReq(PdiReq):
                     from_tmcc_rx=True if pdi_command == PdiCommand.TMCC4_RX else False,
                     is_tmcc4=True,
                 )
-            elif pdi_command in [PdiCommand.TMCC_TX, PdiCommand.TMCC_RX]:
+            elif pdi_command in {PdiCommand.TMCC_TX, PdiCommand.TMCC_RX}:
                 self._tmcc_command: CommandReq = CommandReq.from_bytes(
                     self._data[1:], from_tmcc_rx=True if pdi_command == PdiCommand.TMCC_RX else False
                 )

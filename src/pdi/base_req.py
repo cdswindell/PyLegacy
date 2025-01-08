@@ -152,7 +152,7 @@ class BaseReq(PdiReq):
 
             # special case numeric commands
             if state.name == "NUMERIC":
-                if data in [3, 6]:  # RPM up/down
+                if data in {3, 6}:  # RPM up/down
                     state = TMCC2EngineCommandDef.DIESEL_RPM
                     cur_state = ComponentStateStore.build().get_state(scope, address, False)
                     if cur_state and cur_state.rpm is not None:
@@ -285,7 +285,7 @@ class BaseReq(PdiReq):
             self._valid1 = int.from_bytes(self._data[5:7], byteorder="little") if data_len > 5 else None
             self._valid2 = None
 
-            if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
+            if self.pdi_command in {PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN}:
                 self.scope = CommandScope.ENGINE if self.pdi_command == PdiCommand.BASE_ENGINE else CommandScope.TRAIN
                 self._valid2 = int.from_bytes(self._data[7:9], byteorder="little") if data_len > 7 else None
                 self._rev_link = self._data[9] if data_len > 9 else None
@@ -314,7 +314,7 @@ class BaseReq(PdiReq):
                 self._train_brake_tmcc = round(self._data[67] / 2.143) if data_len > 67 else None
                 self._momentum = self._data[68] if data_len > 68 else None
                 self._momentum_tmcc = floor(self._data[68] / 16) if data_len > 68 else None
-            elif self.pdi_command in [PdiCommand.BASE_ACC, PdiCommand.BASE_SWITCH, PdiCommand.BASE_ROUTE]:
+            elif self.pdi_command in {PdiCommand.BASE_ACC, PdiCommand.BASE_SWITCH, PdiCommand.BASE_ROUTE}:
                 if self.pdi_command == PdiCommand.BASE_ACC:
                     self.scope = CommandScope.ACC
                 elif self.pdi_command == PdiCommand.BASE_SWITCH:
@@ -338,7 +338,7 @@ class BaseReq(PdiReq):
                 self._start = int.from_bytes(self._data[6:10], byteorder="little") if data_len > 9 else None
                 self._data_length = self._data[10] if data_len > 10 else None
                 self._data_bytes = self._data[11 : 11 + data_len] if data_len > 10 + data_len else None
-            elif self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
+            elif self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
                 self._speed = self._data[2] if data_len > 2 else None
                 self._valid1 = (1 << EngineBits.SPEED) if data_len > 2 else 0
         else:
@@ -541,13 +541,13 @@ class BaseReq(PdiReq):
 
     @property
     def is_active(self) -> bool:
-        if self.pdi_command in [
+        if self.pdi_command in {
             PdiCommand.BASE_ENGINE,
             PdiCommand.BASE_TRAIN,
             PdiCommand.BASE_ROUTE,
             PdiCommand.BASE_ACC,
             PdiCommand.BASE_SWITCH,
-        ]:
+        }:
             if self.forward_link == 255 and self.reverse_link == 255 and not self.name and not self.number:
                 return False
         return True
@@ -556,7 +556,7 @@ class BaseReq(PdiReq):
     def payload(self) -> str:
         f = hex(self.flags) if self.flags is not None else "NA"
         s = self.status if self.status is not None else "NA"
-        if self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
+        if self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
             scope = "Engine" if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else "Train"
             return f"{scope} #{self.tmcc_id} New Speed: {self.speed}"
         elif self.pdi_command == PdiCommand.BASE_MEMORY and self._start is not None:
@@ -568,7 +568,7 @@ class BaseReq(PdiReq):
             return f"Rec # {self.record_no} flags: {f} status: {s} ACK ({self.packet})"
         else:
             v = hex(self.valid1) if self.valid1 is not None else "NA"
-            if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
+            if self.pdi_command in {PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN}:
                 tmcc = f"{self.record_no}"
                 fwl = f" Fwd: {self._fwd_link}" if self._fwd_link is not None else ""
                 rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
@@ -613,7 +613,7 @@ class BaseReq(PdiReq):
             return self._original
         byte_str = self.pdi_command.as_bytes
         byte_str += self.record_no.to_bytes(1, byteorder="big")
-        if self.pdi_command in [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED]:
+        if self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
             byte_str += self.speed.to_bytes(1, byteorder="little")
         elif self.pdi_command == PdiCommand.BASE_MEMORY:
             byte_str += self.flags.to_bytes(1, byteorder="little")
@@ -640,7 +640,7 @@ class BaseReq(PdiReq):
                 byte_str += (101).to_bytes(1, byteorder="little")  # fwd link
                 byte_str += self.encode_text(self.name, 33)
                 byte_str += self.encode_text(self.number, 5)
-                if self.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
+                if self.pdi_command in {PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN}:
                     byte_str += self._loco_type.to_bytes(1, byteorder="little")  # loco type
                     byte_str += self._control_type.to_bytes(1, byteorder="little")
                     byte_str += self._sound_type.to_bytes(1, byteorder="little")
