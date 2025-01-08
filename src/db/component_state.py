@@ -1413,6 +1413,8 @@ class ComponentStateDict(defaultdict):
             raise KeyError(f"Invalid ID: {key}")
         elif self.scope == CommandScope.BASE and key != 0:
             raise KeyError(f"Invalid ID: {key}")
+        elif self.scope == CommandScope.ENGINE and (key < 1 or key > 9999):
+            raise KeyError(f"Invalid ID: {key}")
         elif self.scope != CommandScope.BASE and (key < 1 or key > 99):
             raise KeyError(f"Invalid ID: {key}")
         with self._lock:
