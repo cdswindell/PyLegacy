@@ -399,7 +399,10 @@ class CommandReq:
             first_byte = self.command_def.first_byte
         else:
             first_byte = self._determine_first_byte(self.command_def, self.scope)
-        return first_byte + self._command_bits.to_bytes(2, byteorder="big")
+        byte_str = first_byte + self._command_bits.to_bytes(2, byteorder="big")
+        if self.address > 99:
+            byte_str += str(self.address).zfill(4).encode()
+        return byte_str
 
     def as_action(
         self,
@@ -445,7 +448,8 @@ class CommandReq:
                 self._command_bits &= TMCC1_TRAIN_COMMAND_PURIFIER
                 self._command_bits |= TMCC1_TRAIN_COMMAND_MODIFIER
         elif self.syntax == CommandSyntax.LEGACY:
-            self._command_bits |= the_address << 9
+            if the_address <= 99:
+                self._command_bits |= the_address << 9
         else:
             raise ValueError(f"Command syntax not recognized {self.syntax}")
         return self._command_bits
