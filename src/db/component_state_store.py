@@ -208,16 +208,19 @@ class ComponentStateStore:
 
     def component(self, scope: CommandScope, address: int) -> T:
         if (
-            scope
-            in [
-                CommandScope.ACC,
-                CommandScope.ENGINE,
-                CommandScope.TRAIN,
-                CommandScope.SWITCH,
-                CommandScope.IRDA,
-            ]
-            and 1 <= address <= 9999
-        ) or (scope == CommandScope.BASE and address == 0):
+            (
+                scope
+                in {
+                    CommandScope.ACC,
+                    CommandScope.TRAIN,
+                    CommandScope.SWITCH,
+                    CommandScope.IRDA,
+                }
+                and 1 <= address <= 99
+            )
+            or (scope == CommandScope.ENGINE and 1 <= address <= 9999)
+            or (scope == CommandScope.BASE and address == 0)
+        ):
             return self._state[scope][address]
         raise ValueError(f"Invalid scope/address: {scope} {address}")
 

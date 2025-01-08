@@ -241,7 +241,7 @@ class ComponentState(ABC):
                     f"Received broadcast address for {self.friendly_scope} but component has not "
                     f"been initialized {self}"
                 )
-            elif command.address not in [self._address, BROADCAST_ADDRESS]:
+            elif command.address not in {self._address, BROADCAST_ADDRESS}:
                 raise AttributeError(
                     f"{self.friendly_scope} #{self._address} received update for "
                     f"{command.scope.name.title()} #{command.address}, ignoring"
@@ -288,7 +288,7 @@ class ComponentState(ABC):
         opt1: CommandDefEnum,
         off: CommandDefEnum,
     ):
-        return on if aux is None or aux in [opt1, off] else off
+        return on if aux is None or aux in {opt1, off} else off
 
     @property
     def syntax(self) -> CommandSyntax:
@@ -496,7 +496,7 @@ class AccessoryState(TmccState):
                             self._aux_state = Aux.AUX2_OPT_ONE
                             self._number = None
                         else:
-                            if command.command in [Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE]:
+                            if command.command in {Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE}:
                                 self._aux_state = command.command
                             if command.command == Aux.AUX1_OPT_ONE:
                                 if self.time_delta(self._last_updated, self._last_aux1_opt1) > 1:
@@ -507,7 +507,7 @@ class AccessoryState(TmccState):
                                         Aux.AUX1_OFF,
                                     )
                                 self._last_aux1_opt1 = self.last_updated
-                            elif command.command in [Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO]:
+                            elif command.command in {Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO}:
                                 self._aux1_state = command.command
                                 self._last_aux1_opt1 = self.last_updated
                             elif command.command == Aux.AUX2_OPT_ONE:
@@ -519,7 +519,7 @@ class AccessoryState(TmccState):
                                         Aux.AUX2_OFF,
                                     )
                                 self._last_aux2_opt1 = self.last_updated
-                            elif command.command in [Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO]:
+                            elif command.command in {Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO}:
                                 self._aux2_state = command.command
                                 self._last_aux2_opt1 = self.last_updated
                             if command.command == Aux.NUMERIC:
@@ -529,8 +529,8 @@ class AccessoryState(TmccState):
                         self._first_pdi_command = command.command
                     if self._first_pdi_action is None:
                         self._first_pdi_action = command.action
-                    if command.action in [Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
-                        if command.action in [Bpc2Action.CONTROL1, Bpc2Action.CONTROL3]:
+                    if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
+                        if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                             self._block_power = True
                         if command.state == 1:
                             self._aux1_state = Aux.AUX1_ON
@@ -615,7 +615,7 @@ class AccessoryState(TmccState):
 
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
-        if scope not in [CommandScope.ENGINE, CommandScope.TRAIN]:
+        if scope not in {CommandScope.ENGINE, CommandScope.TRAIN}:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
         super().__init__(scope)
         self._start_stop: CommandDefEnum | None = None
@@ -644,9 +644,9 @@ class EngineState(ComponentState):
 
     def __repr__(self) -> str:
         sp = dr = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = ""
-        if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
+        if self._direction in {TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION}:
             dr = " FWD"
-        elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
+        elif self._direction in {TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION}:
             dr = " REV"
 
         if self._speed is not None:
@@ -734,7 +734,7 @@ class EngineState(ComponentState):
 
                 # handle last numeric
                 if command.command in NUMERIC_SET:
-                    if self.engine_type in [LOCO_TRACK_CRANE, LOCO_ACCESSORY]:
+                    if self.engine_type in {LOCO_TRACK_CRANE, LOCO_ACCESSORY}:
                         if command.data in TRACK_CRANE_STATE_NUMERICS:
                             self._numeric = command.data
                             self._numeric_cmd = command.command
@@ -846,20 +846,20 @@ class EngineState(ComponentState):
 
                 # handle momentum
                 if command.command in MOMENTUM_SET:
-                    if command.command in [
+                    if command.command in {
                         TMCC1EngineCommandDef.MOMENTUM_LOW,
                         TMCC2EngineCommandDef.MOMENTUM_LOW,
-                    ]:
+                    }:
                         self._momentum = 0
-                    if command.command in [
+                    if command.command in {
                         TMCC1EngineCommandDef.MOMENTUM_MEDIUM,
                         TMCC2EngineCommandDef.MOMENTUM_MEDIUM,
-                    ]:
+                    }:
                         self._momentum = 3
-                    if command.command in [
+                    if command.command in {
                         TMCC1EngineCommandDef.MOMENTUM_HIGH,
                         TMCC2EngineCommandDef.MOMENTUM_HIGH,
-                    ]:
+                    }:
                         self._momentum = 7
                     elif command.command == TMCC2EngineCommandDef.MOMENTUM:
                         self._momentum = command.data
@@ -883,18 +883,18 @@ class EngineState(ComponentState):
                 isinstance(command, BaseReq)
                 and command.status == 0
                 and command.pdi_command
-                in [
+                in {
                     PdiCommand.BASE_ENGINE,
                     PdiCommand.BASE_TRAIN,
                     PdiCommand.UPDATE_ENGINE_SPEED,
                     PdiCommand.UPDATE_TRAIN_SPEED,
-                ]
+                }
             ):
                 from ..pdi.base_req import EngineBits
 
                 if self._speed is None and command.is_valid(EngineBits.SPEED):
                     self._speed = command.speed
-                if command.pdi_command in [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN]:
+                if command.pdi_command in {PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN}:
                     if command.is_valid(EngineBits.MAX_SPEED):
                         self._max_speed = command.max_speed
                     if command.is_valid(EngineBits.SPEED_LIMIT):
@@ -941,7 +941,7 @@ class EngineState(ComponentState):
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
             byte_str += CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes
         if self._numeric is not None and self._numeric_cmd is not None:
-            if self.engine_type in [LOCO_TRACK_CRANE, LOCO_ACCESSORY]:
+            if self.engine_type in {LOCO_TRACK_CRANE, LOCO_ACCESSORY}:
                 byte_str += CommandReq.build(
                     self._numeric_cmd,
                     self.address,
@@ -1052,9 +1052,9 @@ class EngineState(ComponentState):
     @property
     def direction_label(self) -> str:
         dr = "NA"
-        if self._direction in [TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION]:
+        if self._direction in {TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION}:
             dr = "FW"
-        elif self._direction in [TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION]:
+        elif self._direction in {TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION}:
             dr = "RV"
         return dr
 
@@ -1084,11 +1084,11 @@ class EngineState(ComponentState):
 
     @property
     def is_aux1(self) -> bool:
-        return self._aux2 in [TMCC1.AUX1_ON, TMCC2.AUX1_ON]
+        return self._aux2 in {TMCC1.AUX1_ON, TMCC2.AUX1_ON}
 
     @property
     def is_aux2(self) -> bool:
-        return self._aux2 in [TMCC1.AUX2_ON, TMCC2.AUX2_ON]
+        return self._aux2 in {TMCC1.AUX2_ON, TMCC2.AUX2_ON}
 
     @property
     def is_tmcc(self) -> bool:
@@ -1109,7 +1109,7 @@ class EngineState(ComponentState):
 
 class TrainState(EngineState):
     def __init__(self, scope: CommandScope = CommandScope.TRAIN) -> None:
-        if scope not in [CommandScope.TRAIN]:
+        if scope != CommandScope.TRAIN:
             raise ValueError(f"Invalid scope: {scope}, expected TRAIN")
         super().__init__(scope)
         # hard code TMCC2, for now
@@ -1156,10 +1156,10 @@ class IrdaState(LcsState):
                             log.debug(f"IRDA {self.address} Sequence: {self.sequence} Command: {command}")
                         if (
                             self.sequence
-                            in [
+                            in {
                                 IrdaSequence.SLOW_SPEED_NORMAL_SPEED,
                                 IrdaSequence.NORMAL_SPEED_SLOW_SPEED,
-                            ]
+                            }
                             and CommBuffer.is_server()
                         ):
                             rr_speed = None
@@ -1413,9 +1413,11 @@ class ComponentStateDict(defaultdict):
             raise KeyError(f"Invalid ID: {key}")
         elif self.scope == CommandScope.BASE and key != 0:
             raise KeyError(f"Invalid ID: {key}")
+        elif self.scope == CommandScope.SYNC and key != 99:
+            raise KeyError(f"Invalid ID: {key}")
         elif self.scope == CommandScope.ENGINE and (key < 1 or key > 9999):
             raise KeyError(f"Invalid ID: {key}")
-        elif self.scope not in {CommandScope.BASE, CommandScope.ENGINE} and (key < 1 or key > 99):
+        elif self.scope not in {CommandScope.BASE, CommandScope.ENGINE, CommandScope.SYNC} and (key < 1 or key > 99):
             raise KeyError(f"Invalid ID: {key}")
         with self._lock:
             value: ComponentState = SCOPE_TO_STATE_MAP[self._scope](self._scope)

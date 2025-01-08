@@ -450,9 +450,27 @@ class TestComponentState(TestBase):
                 assert value.last_updated is None
 
         # verify invalid keys not allowed
-        for scope in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
+        for scope in [CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ACC]:
             cs_dict = ComponentStateDict(scope)
             for key in [-4, 0, "abc", 100, CommandScope.TRAIN]:
+                assert key not in cs_dict
+                with pytest.raises(KeyError, match=f"Invalid ID: {key}"):
+                    _ = cs_dict[key]
+        for scope in [CommandScope.ENGINE]:
+            cs_dict = ComponentStateDict(scope)
+            for key in [-4, 0, "abc", 10000, CommandScope.TRAIN]:
+                assert key not in cs_dict
+                with pytest.raises(KeyError, match=f"Invalid ID: {key}"):
+                    _ = cs_dict[key]
+        for scope in [CommandScope.BASE]:
+            cs_dict = ComponentStateDict(scope)
+            for key in [-4, 1, "abc", 99, CommandScope.TRAIN]:
+                assert key not in cs_dict
+                with pytest.raises(KeyError, match=f"Invalid ID: {key}"):
+                    _ = cs_dict[key]
+        for scope in [CommandScope.SYNC]:
+            cs_dict = ComponentStateDict(scope)
+            for key in [-4, 1, "abc", 0, 32, CommandScope.TRAIN]:
                 assert key not in cs_dict
                 with pytest.raises(KeyError, match=f"Invalid ID: {key}"):
                     _ = cs_dict[key]

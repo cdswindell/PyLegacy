@@ -150,19 +150,19 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
     @property
     def is_asc2(self) -> bool:
-        return self.value in [ASC2_GET, ASC2_SET, ASC2_RX]
+        return self.value in {ASC2_GET, ASC2_SET, ASC2_RX}
 
     @property
     def is_stm2(self) -> bool:
-        return self.value in [STM2_GET, STM2_SET, STM2_RX]
+        return self.value in {STM2_GET, STM2_SET, STM2_RX}
 
     @property
     def is_ser2(self) -> bool:
-        return self.value in [SER2_GET, SER2_SET, SER2_RX]
+        return self.value in {SER2_GET, SER2_SET, SER2_RX}
 
     @property
     def is_bpc2(self) -> bool:
-        return self.value in [BPC2_GET, BPC2_SET, BPC2_RX]
+        return self.value in {BPC2_GET, BPC2_SET, BPC2_RX}
 
     @property
     def is_lcs(self) -> bool:
