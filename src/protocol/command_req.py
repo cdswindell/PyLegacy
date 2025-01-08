@@ -25,6 +25,8 @@ from ..utils.validations import Validations
 
 E = TypeVar("E", bound=CommandDefEnum)
 
+R = TypeVar("R", bound="CommandReq")
+
 
 class CommandReq:
     @classmethod
@@ -52,14 +54,19 @@ class CommandReq:
             raise TypeError(f"Command type not recognized {command}")
 
     @classmethod
-    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False) -> Self:
+    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
         if not param:
             raise ValueError("Command requires at least 3 bytes")
         if len(param) < 3:
             raise ValueError(f"Command requires at least 3 bytes {param.hex(':')}")
         first_byte = int(param[0])
-        if first_byte in TMCC_FIRST_BYTE_TO_INTERPRETER:
+        cmd_req = None
+        if is_tmcc4 is True and first_byte in TMCC4_FIRST_BYTE_TO_INTERPRETER:
+            cmd_req = TMCC4_FIRST_BYTE_TO_INTERPRETER[first_byte](param)
+            pass
+        elif is_tmcc4 is False and first_byte in TMCC_FIRST_BYTE_TO_INTERPRETER:
             cmd_req = TMCC_FIRST_BYTE_TO_INTERPRETER[first_byte](param)
+        if cmd_req is not None:
             if from_tmcc_rx is True:
                 cmd_req._is_tmcc_rx = True
             return cmd_req
@@ -132,7 +139,7 @@ class CommandReq:
         else:
             raise TypeError(f"Command def not recognized: '{command}'")
 
-        max_val = 99
+        max_val = 9999 if scope in {CommandScope.TRAIN, CommandScope.ENGINE} else 99
         syntax = CommandSyntax.LEGACY if enum_class == TMCC2Enum else CommandSyntax.TMCC
         if syntax == CommandSyntax.TMCC and command == TMCC1RouteCommandDef.FIRE:
             scope = TMCC1CommandIdentifier.ROUTE
@@ -239,6 +246,7 @@ class CommandReq:
         self._buffer: CommBuffer | None = None
         self._message_processor = None
         self._is_tmcc_rx = False
+        self._is_tmcc4 = False
 
         # save the command bits from the def, as we will be modifying them
         self._command_bits: int = self._command_def.bits
@@ -514,8 +522,8 @@ class CommandReq:
         raise ValueError(f"Invalid tmcc1 command: {param.hex(':')}")
 
     @classmethod
-    def build_tmcc2_command_req(cls, param):
-        if len(param) == 3:
+    def build_tmcc2_command_req(cls, param: bytes, is_tmcc4: bool = False) -> R:
+        if len(param) == 3 or (is_tmcc4 is True and len(param) == 7):
             value = int.from_bytes(param[1:3], byteorder="big")
             for tmcc_enum in [TMCC2HaltCommandDef, TMCC2EngineCommandDef, TMCC2RouteCommandDef]:
                 cmd_enum = tmcc_enum.by_value(value)
@@ -525,7 +533,13 @@ class CommandReq:
                         scope = CommandScope.TRAIN
                     # build_req the request and return
                     data = cmd_enum.value.data_from_bytes(param[1:3])
-                    address = cmd_enum.value.address_from_bytes(param[1:3])
+                    if is_tmcc4 is True:
+                        addr_str = ""
+                        for i in range(3, 7):
+                            addr_str += chr(param[i])
+                        address = int(addr_str)
+                    else:
+                        address = cmd_enum.value.address_from_bytes(param[1:3])
                     return CommandReq.build(cmd_enum, address, data, scope)
             raise ValueError(f"Invalid tmcc2 command: {param.hex(':')}")
         else:
@@ -533,6 +547,15 @@ class CommandReq:
 
             return MultiByteReq.from_bytes(param)
 
+    @classmethod
+    def build_tmcc4_command_req(cls, param: bytes) -> R:
+        return cls.build_tmcc2_command_req(param, is_tmcc4=True)
+
+
+TMCC4_FIRST_BYTE_TO_INTERPRETER = {
+    LEGACY_ENGINE_COMMAND_PREFIX: CommandReq.build_tmcc4_command_req,
+    LEGACY_TRAIN_COMMAND_PREFIX: CommandReq.build_tmcc4_command_req,
+}
 
 TMCC_FIRST_BYTE_TO_INTERPRETER = {
     TMCC1_COMMAND_PREFIX: CommandReq.build_tmcc1_command_req,
