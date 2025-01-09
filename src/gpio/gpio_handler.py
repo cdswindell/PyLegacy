@@ -604,8 +604,6 @@ class GpioHandler:
         thru_action = thru_req.as_action(repeat=2)
         out_action = out_req.as_action(repeat=2)
 
-        print(thru_action, thru_led, out_led)
-        print(out_action, out_led, thru_led)
         thru_btn.when_pressed = cls._with_on_action(thru_action, thru_led, out_led)
         out_btn.when_pressed = cls._with_on_action(out_action, out_led, thru_led)
 
@@ -1472,6 +1470,8 @@ class GpioHandler:
 
     @classmethod
     def _with_on_action(cls, action: Callable, led: LED, *impacted_leds: LED) -> Callable:
+        print(f"impacted_leds: {impacted_leds}")
+
         def on_action() -> None:
             action()
             if led is not None:
