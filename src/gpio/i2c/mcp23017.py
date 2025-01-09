@@ -118,7 +118,6 @@ class Mcp23017:
         self._lock = threading.Lock()
         self.address = address
         self.i2c = i2c if i2c else I2C()
-        self.set_all_polarity_low()
         self.set_all_input()
         self.set_all_pull_up()
         self.set_all_interrupt_config()
@@ -495,7 +494,7 @@ class Mcp23017:
                         active = capture_bit == 1
                     else:
                         active = capture_bit == 0
-                    # print(f"interrupt trigger pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit}")
+                    print(f"interrupt trigger pin {i} active: {active} pull_up: {pull_up} cb: {capture_bit}")
                     client._signal_event(active)
             # if a bounce time was specified, wait for this amount of time before enabling interrupts
             if bounce_time > 0:
