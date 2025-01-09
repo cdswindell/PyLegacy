@@ -1470,8 +1470,6 @@ class GpioHandler:
 
     @classmethod
     def _with_on_action(cls, action: Callable, led: LED, *impacted_leds: LED) -> Callable:
-        print(f"impacted_leds: {impacted_leds}")
-
         def on_action() -> None:
             action()
             if led is not None:
