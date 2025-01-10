@@ -43,37 +43,37 @@ P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, i
 class PressedHeldDef:
     def __init__(
         self,
-        pressed_action: CommandReq,
-        held_action: CommandReq = None,
+        pressed_req: CommandReq,
+        held_req: CommandReq = None,
         held_threshold: float = 0.5,
         repeat: bool = False,
         frequency: float = 0.1,
     ) -> None:
-        self._pressed_action = pressed_action
-        self._held_action = held_action if held_action else pressed_action
+        self._pressed_req = pressed_req
+        self._held_req = held_req if held_req else pressed_req
         self.held_threshold = held_threshold
         self.repeat = repeat
         self.frequency = frequency
 
     def update_target(self, address: int = None, data: int = None, scope: CommandScope = None) -> None:
         if address is not None:
-            self._pressed_action.address = address
-            if self._pressed_action != self._held_action:
-                self._held_action.address = address
+            self._pressed_req.address = address
+            if self._pressed_req != self._held_req:
+                self._held_req.address = address
         if data is not None:
-            self._pressed_action.data = data
-            if self._pressed_action != self._held_action:
-                self._held_action.data = data
+            self._pressed_req.data = data
+            if self._pressed_req != self._held_req:
+                self._held_req.data = data
         if scope is not None:
-            self._pressed_action.scope = scope
-            if self._pressed_action != self._held_action:
-                self._held_action.scope = scope
+            self._pressed_req.scope = scope
+            if self._pressed_req != self._held_req:
+                self._held_req.scope = scope
 
     def as_action(self, address: int = None, data: int = None, scope: CommandScope = None):
         self.update_target(address=address, data=data, scope=scope)
         return GpioHandler.when_button_pressed_or_held_action(
-            self._pressed_action,
-            self._held_action,
+            self._pressed_req.as_action(),
+            self._held_req.as_action(),
             held_threshold=self.held_threshold,
             held_repeat=self.repeat,
             frequency=self.frequency,
