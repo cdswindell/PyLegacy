@@ -365,6 +365,7 @@ class PyTrain:
                         # if server, signal clients to disconnect
                         if self.is_server:
                             CommandDispatcher.get().signal_client_quit()
+                        # if client quits, remaining nodes continue to run
                         raise KeyboardInterrupt()
                     elif args.command == "update":
                         # if server, signal clients to disconnect
@@ -384,12 +385,6 @@ class PyTrain:
                             self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.UPGRADE).as_bytes)
                         self._force_update = True
                         raise KeyboardInterrupt()
-                    elif args.command == "reboot":
-                        # if server, signal clients to disconnect
-                        if self.is_server:
-                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.REBOOT)
-                        self._force_reboot = True
-                        raise KeyboardInterrupt()
                     elif args.command == "shutdown":
                         # if server, signal clients to disconnect
                         if self.is_server:
@@ -398,6 +393,13 @@ class PyTrain:
                             # if client, send command to server
                             self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.SHUTDOWN).as_bytes)
                         self._force_shutdown = True
+                        raise KeyboardInterrupt()
+                    elif args.command == "reboot":
+                        # if server, signal clients to disconnect
+                        if self.is_server:
+                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.REBOOT)
+                        # if client reboots, remaining nodes continue to run
+                        self._force_reboot = True
                         raise KeyboardInterrupt()
                     elif args.command == "help":
                         self._command_parser().parse_args(["-help"])
