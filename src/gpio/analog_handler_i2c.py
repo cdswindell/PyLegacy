@@ -32,6 +32,8 @@ class AnalogHandler(Thread):
         self._action = self._cmd.as_action(repeat=self._repeat)
         self._ev = Event()
         self._ignore = ignore if ignore is not None and ignore >= 0 else 0
+        self._min_data = min_data if min_data is not None else 0
+        self._max_data = max_data
         self._interp = GpioHandler.make_interpolator(max_data, min_data, 0.0, 3.3)
         self._send_all = send_all
         self._pause_for = pause_for if pause_for is not None and pause_for > 0 else 0.20
@@ -84,12 +86,13 @@ class AnalogHandler(Thread):
             if self._is_running:
                 value = self._adc.request()
                 data = self._interp(value)
+                print(f"Raw: {value} Scaled: {data} Last: {self._last_sent} ({zero_cnt})")
                 if data >= self._ignore:
-                    new_value = data - self._ignore
+                    new_value = max(data - self._ignore, self._min_data)
                     if self._send_all is True or new_value != self._last_sent or (new_value == 0 and zero_cnt < 3):
-                        self._action(new_data=data - self._ignore)
+                        self._action(new_data=new_value)
+                        self._last_sent = new_value
                         if self._send_all is False:
-                            self._last_sent = new_value
                             if new_value != 0:
                                 zero_cnt = 0
                             else:
@@ -150,8 +153,8 @@ class TrainBrake(AnalogHandler):
             address=address,
             scope=scope,
             repeat=repeat,
-            ignore=1,
-            max_data=8,
+            ignore=0,
+            max_data=7,
             send_all=False,  # only send changes
             pause_for=0.1,
             i2c_address=i2c_address,
