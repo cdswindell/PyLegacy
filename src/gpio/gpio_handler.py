@@ -1169,14 +1169,16 @@ class GpioHandler:
         def func(btn: Button) -> None:
             # sleep for hold threshold, if button still active, do held_action
             # otherwise do pressed_action
+            trigger_effects = True
             time.sleep(held_threshold)
             if btn.is_active is True:
                 while btn.is_active:
-                    held_action()
+                    held_action(trigger_effects=trigger_effects)
                     # if held_repeat is true, continue sending when_held action
                     # with the given frequency of repeat
                     if held_repeat is True:
                         time.sleep(frequency)
+                        trigger_effects = False
                     else:
                         break
             else:

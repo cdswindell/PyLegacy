@@ -163,6 +163,7 @@ class CommandReq:
         server: str | None,
         buffer=None,
         request: CommandReq | None = None,
+        trigger_effects: bool = True,
     ) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
@@ -175,7 +176,7 @@ class CommandReq:
         for _ in range(repeat):
             buffer.enqueue_command(cmd, delay)
         # does this command cause any other state changes?
-        if request:
+        if request and trigger_effects is True:
             for effect in cls.results_in(request):
                 if isinstance(effect, CommandDefEnum):
                     effect_cmd = CommandReq.build(effect, request.address, 0, request.scope)
@@ -417,7 +418,7 @@ class CommandReq:
 
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
 
-        def send_func(new_address: int = None, new_data: int = None) -> None:
+        def send_func(new_address: int = None, new_data: int = None, trigger_effects: bool = True) -> None:
             if new_address and new_address != self.address:
                 self.address = new_address
             if self.num_data_bits and new_data is not None and new_data != self.data:
@@ -432,6 +433,7 @@ class CommandReq:
                 server=server,
                 buffer=buffer,
                 request=self,
+                trigger_effects=trigger_effects,
             )
 
         return send_func
