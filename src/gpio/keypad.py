@@ -358,6 +358,13 @@ class KeyQueue:
         with self._cv:
             return "".join(self._deque)
 
+    def processed_digit(self) -> None:
+        with self._cv:
+            if self._digit_ev and self._digit_ev.is_set():
+                self._digit_ev.clear()
+                print(f"processed digit: {self.key_presses}")
+                self._deque.clear()
+
     def reset(self) -> None:
         with self._cv:
             self._keypress_ev.set()  # force controllers to wake up

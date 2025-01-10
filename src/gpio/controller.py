@@ -162,7 +162,11 @@ class Controller(Thread):
             elif key == "*":
                 self.last_engine()
             elif key is not None:
-                self._lcd.print(key)
+                if self._key_queue.is_digit:
+                    print(f"Digit: {key}")
+                    self._key_queue.processed_digit()
+                else:
+                    self._lcd.print(key)
             sleep(0.1)
 
     def monitor_state_updates(self):
