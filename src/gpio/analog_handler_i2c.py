@@ -35,7 +35,7 @@ class AnalogHandler(Thread):
         self._interp = GpioHandler.make_interpolator(max_data, min_data, 0.0, 3.3)
         self._send_all = send_all
         self._pause_for = pause_for if pause_for is not None and pause_for > 0 else 0.20
-        self._last_value = None
+        self._last = None
         self._is_running = True
         self.start()
         GpioHandler.cache_handler(self)
@@ -86,14 +86,14 @@ class AnalogHandler(Thread):
                 data = self._interp(value)
                 if data >= self._ignore:
                     new_value = data - self._ignore
-                    if new_value != self._last_value or self._send_all is True or (new_value == 0 and zero_cnt < 3):
+                    if new_value != self._last or self._send_all is True or (new_value == 0 and zero_cnt < 3):
                         self._action(new_data=data - self._ignore)
-                        self._last_value = new_value
+                        self._last = new_value
                         if new_value != 0:
                             zero_cnt = 0
                         else:
                             zero_cnt += 1
-                        print(f"Raw: {value} Scaled: {data} - {self._ignore}: {new_value} ({zero_cnt}")
+                        print(f"R: {value} S: {data} - {self._ignore}: {new_value} ({self._last} - {zero_cnt})")
                 sleep(self._pause_for)
 
     def reset(self) -> None:
