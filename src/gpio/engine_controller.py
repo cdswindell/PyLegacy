@@ -469,3 +469,6 @@ class EngineController:
     def on_speed_changed(self, new_speed: int) -> None:
         if self._speed_re and new_speed is not None:
             self._speed_re.update_data(new_speed)
+
+    def on_numeric(self, key: str):
+        print(f"on_numeric: {key}")

@@ -155,6 +155,8 @@ class Controller(Thread):
             elif self._key_queue.is_eol:
                 if self._key_queue.key_presses:
                     self.update_engine(self._key_queue.key_presses)
+                else:
+                    self._key_queue.reset()
             elif key == "A":
                 self.change_scope(CommandScope.ENGINE)
             elif key == "B":
@@ -163,10 +165,10 @@ class Controller(Thread):
                 self.last_engine()
             elif key is not None:
                 if self._key_queue.is_digit:
-                    print(f"Digit: {key}")
-                    self._key_queue.processed_digit()
+                    if self._engine_controller:
+                        self._engine_controller.on_numeric(key)
+                    self._key_queue.reset()
                 else:
-                    print(f"Char: {key}")
                     self._lcd.print(key)
             sleep(0.1)
 
