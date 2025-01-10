@@ -46,6 +46,7 @@ class EngineController:
         aux1_pin: P = None,
         aux2_pin: P = None,
         aux3_pin: P = None,
+        stop_immediate_pin: P = None,
         i2c_adc_address: int = 0x48,
         train_brake_chn: int = None,
         quilling_horn_chn: int = None,
@@ -144,6 +145,13 @@ class EngineController:
             self._tmcc2_when_pushed[self._aux3_btn] = CommandReq(TMCC2EngineCommandDef.AUX3_OPTION_ONE)
         else:
             self._aux3_btn = None
+
+        if stop_immediate_pin:
+            self._stop_btn = GpioHandler.make_button(stop_immediate_pin)
+            self._tmcc1_when_pushed[self._stop_btn] = CommandReq(TMCC1EngineCommandDef.SPEED_STOP_HOLD)
+            self._tmcc2_when_pushed[self._stop_btn] = CommandReq(TMCC2EngineCommandDef.STOP_IMMEDIATE)
+        else:
+            self._stop_btn = None
 
         if fwd_pin is not None:
             self._fwd_btn = GpioHandler.make_button(fwd_pin)
