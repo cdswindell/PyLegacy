@@ -258,7 +258,6 @@ class EngineController:
             self._tmcc2_when_pushed_or_held[self._horn_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.BLOW_HORN_ONE),
                 CommandReq(TMCC2EngineCommandDef.QUILLING_HORN, data=7),
-                repeat_action=5,
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=0.05,
