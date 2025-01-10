@@ -85,7 +85,7 @@ class AnalogHandler(Thread):
                 data = self._interp(value)
                 if data > self._ignore:
                     new_value = data - self._ignore
-                    print(f"Scaled: {data} - {self._ignore}: {new_value}")
+                    print(f"Raw: {value} Scaled: {data} - {self._ignore}: {new_value}")
                     if new_value != self._last_value or self._send_all is True or new_value == 0:
                         self._action(new_data=data - self._ignore)
                         self._last_value = new_value
@@ -119,6 +119,7 @@ class QuillingHorn(AnalogHandler):
             repeat=repeat,
             ignore=2,
             max_data=17,
+            pause_for=0.2,
             i2c_address=i2c_address,
         )
 
