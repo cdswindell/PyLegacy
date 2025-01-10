@@ -199,6 +199,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             } and EnqueueProxyRequests.is_known_client(self.client_address[0]):
                 cmd = CommandReq.from_bytes(byte_stream)
                 CommandDispatcher.get().signal_client_quit(cmd, client_ip=self.client_address[0])
+                print(f"Publishing: {cmd}")
                 CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
                 return
         EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
