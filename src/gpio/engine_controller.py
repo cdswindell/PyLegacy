@@ -51,6 +51,7 @@ class EngineController:
         from .gpio_handler import GpioHandler
 
         # initial defaults, use update_engine to modify
+        self._engine_specified = False
         self._tmcc_id = 1
         self._control_type = ControlType.LEGACY
         self._scope = CommandScope.ENGINE
@@ -68,6 +69,11 @@ class EngineController:
         # (or initializing) prior to creating an EngineController instance
         # we will use this info when switching engines to initialize speed
         self._store = ComponentStateStore.build()
+
+        # set up for numeric commands
+        self._tmcc1_numeric_cmd = CommandReq(TMCC1EngineCommandDef.NUMERIC)
+        self._tmcc2_numeric_cmd = CommandReq(TMCC2EngineCommandDef.NUMERIC)
+        self._numeric_cmd = None
 
         # the Halt command only exists in TMCC1 form, and it doesn't take an engine address modifier
         if halt_pin is not None:
@@ -297,7 +303,7 @@ class EngineController:
             self._quilling_horn_cmd = None
 
         if train_brake_chn is not None:
-            self._train_brake_cmd = CommandReq(TMCC2EngineCommandDef.TRAIN_BRAKE)
+            self._tmcc2_train_brake_cmd = CommandReq(TMCC2EngineCommandDef.TRAIN_BRAKE)
         else:
             self._train_brake_cmd = None
 
@@ -401,6 +407,7 @@ class EngineController:
         When a new engine/train is selected, redo the button bindings to
         reflect the new engine/train tmcc_id
         """
+        self._engine_specified = True
         self._scope = scope
         self._tmcc_id = tmcc_id
         self._state = cur_state = state
@@ -419,6 +426,8 @@ class EngineController:
             when_pushed_or_held = self._tmcc2_when_pushed_or_held
             speed_cmd = self._tmcc2_speed_cmd
             quilling_horn_cmd = self._quilling_horn_cmd
+            numeric_cmd = self._tmcc2_numeric_cmd
+            train_brake_cmd = self._tmcc2_train_brake_cmd
         else:
             max_speed = 31
             speed_limit = 27
@@ -427,6 +436,8 @@ class EngineController:
             when_pushed_or_held = self._tmcc1_when_pushed_or_held
             speed_cmd = self._tmcc1_speed_cmd
             quilling_horn_cmd = None
+            numeric_cmd = self._tmcc1_numeric_cmd
+            train_brake_cmd = None
 
         # reset the when_pressed button handlers
         for btn, cmd in when_pushed.items():
@@ -466,9 +477,24 @@ class EngineController:
         if quilling_horn_cmd:
             quilling_horn_cmd.update_action(self._tmcc_id, scope)
 
+        # reset the train brake
+        if train_brake_cmd:
+            train_brake_cmd.address = self._tmcc_id
+            train_brake_cmd.scope = scope
+
+        # reset the numeric command
+        if numeric_cmd:
+            numeric_cmd.address = self._tmcc_id
+            numeric_cmd.scope = scope
+            self._numeric_cmd = numeric_cmd
+        else:
+            self._numeric_cmd = None
+
     def on_speed_changed(self, new_speed: int) -> None:
         if self._speed_re and new_speed is not None:
             self._speed_re.update_data(new_speed)
 
     def on_numeric(self, key: str):
         print(f"on_numeric: {key}")
+        if self._numeric_cmd:
+            self._numeric_cmd.as_action(data=int(key))()
