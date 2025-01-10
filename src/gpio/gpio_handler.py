@@ -1458,7 +1458,6 @@ class GpioHandler:
                 button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
             else:
                 button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
-            print(f"{button} hold_repeat: {hold_repeat} ({button.hold_repeat}) hold_time: {hold_time}")
         cls.cache_device(button)
 
         # create a LED, if asked, and tie its source to the button
