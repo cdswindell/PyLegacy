@@ -296,14 +296,16 @@ class EngineController:
             self._engr_dialog_btn = None
 
         if quilling_horn_chn is not None:
-            from .quilling_horn import QuillingHorn
+            from .analog_handler_i2c import QuillingHorn
 
             self._quilling_horn_cmd = QuillingHorn(channel=quilling_horn_chn, i2c_address=i2c_adc_address)
         else:
             self._quilling_horn_cmd = None
 
         if train_brake_chn is not None:
-            self._train_brake_cmd = CommandReq(TMCC2EngineCommandDef.TRAIN_BRAKE)
+            from .analog_handler_i2c import TrainBrake
+
+            self._train_brake_cmd = TrainBrake(channel=train_brake_chn, i2c_address=i2c_adc_address)
         else:
             self._train_brake_cmd = None
 
@@ -426,8 +428,8 @@ class EngineController:
             when_pushed_or_held = self._tmcc2_when_pushed_or_held
             speed_cmd = self._tmcc2_speed_cmd
             quilling_horn_cmd = self._quilling_horn_cmd
-            numeric_cmd = self._tmcc2_numeric_cmd
             train_brake_cmd = self._train_brake_cmd
+            numeric_cmd = self._tmcc2_numeric_cmd
         else:
             max_speed = 31
             speed_limit = 27
@@ -436,8 +438,8 @@ class EngineController:
             when_pushed_or_held = self._tmcc1_when_pushed_or_held
             speed_cmd = self._tmcc1_speed_cmd
             quilling_horn_cmd = None
-            numeric_cmd = self._tmcc1_numeric_cmd
             train_brake_cmd = None
+            numeric_cmd = self._tmcc1_numeric_cmd
 
         # reset the when_pressed button handlers
         for btn, cmd in when_pushed.items():
@@ -479,6 +481,7 @@ class EngineController:
 
         # reset the train brake
         if train_brake_cmd:
+            quilling_horn_cmd.update_action(self._tmcc_id, scope)
             train_brake_cmd.address = self._tmcc_id
             train_brake_cmd.scope = scope
 
