@@ -86,7 +86,7 @@ class AnalogHandler(Thread):
             if self._is_running:
                 value = self._adc.request()
                 data = self._interp(value)
-                print(f"Raw: {value} Scaled: {data} Last: {self._last_sent} ({zero_cnt})")
+                # print(f"Raw: {value} Scaled: {data} Last: {self._last_sent} ({zero_cnt})")
                 if data >= self._ignore:
                     new_value = max(data - self._ignore, self._min_data)
                     if self._send_all is True or new_value != self._last_sent or (new_value == 0 and zero_cnt < 3):
