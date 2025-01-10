@@ -498,7 +498,7 @@ class EngineController:
             btn.when_pressed = GpioHandler.when_button_pressed_or_held_action(
                 cmds[0].as_action(),
                 cmds[1].as_action(),
-                0.3,
+                0.5,
             )
 
         # reset the rotary encoder handlers
