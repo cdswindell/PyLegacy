@@ -393,7 +393,7 @@ class KeyQueue:
                 self._keypress_ev.is_set() is False
                 or (self._eol_ev and self._eol_ev.is_set())
                 or (self._clear_ev and self._clear_ev.is_set())
-                or (self._digit_ev and self._digit_ev.is_set())
+                or (self._digit_ev and self._digit_ev.is_set() and len(self._deque) == 0)
             ):
                 return None
             else:

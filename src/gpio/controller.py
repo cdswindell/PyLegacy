@@ -166,6 +166,7 @@ class Controller(Thread):
                     print(f"Digit: {key}")
                     self._key_queue.processed_digit()
                 else:
+                    print(f"Char: {key}")
                     self._lcd.print(key)
             sleep(0.1)
 
