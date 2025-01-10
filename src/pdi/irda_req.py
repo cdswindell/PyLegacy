@@ -232,8 +232,8 @@ class IrdaReq(LcsReq):
                 bt = f" BT: {self.bluetooth_id.hex(':')}" if self._bluetooth_id else ""
                 ty = f" Type: {self.product_id}"
                 ft = f" Od: {self._odometer:,} ft" if self._odometer is not None else ""
-                fl = f" Fuel: {(100. * self._fuel / 255):.2f}%" if self._fuel is not None else ""
-                wl = f" Water: {(100 * self._water / 255):.2f}%" if self._water is not None else ""
+                fl = f" Fuel: {(100.0 * self._fuel / 255):.2f}%" if self._fuel is not None else ""
+                wl = f" Water: {(100.0 * self._water / 255):.2f}%" if self._water is not None else ""
                 return f"{trav} {eng}{na}{no}{bt}{yr}{ty}{ft}{fl}{wl} Status: {self.status} ({self.packet})"
             elif self.action == IrdaAction.SEQUENCE:
                 return f"Sequence: {self.sequence_str} ({self.packet})"
