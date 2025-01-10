@@ -31,6 +31,9 @@ class Keypad(EventsMixin, CompositeDevice):
         column_pins: List[int | str],
         bounce_time: float = None,
         keys: List[List[str]] = DEFAULT_4X4_KEYS,
+        clear_key: str = "C",
+        digit_key: str = "D",
+        eol_key: str = "#",
         pin_factory=None,
         key_queue: KeyQueue = None,
     ):
@@ -88,7 +91,7 @@ class Keypad(EventsMixin, CompositeDevice):
         self._keypress = self._last_keypress = None
         self._keys = keys
         if key_queue is None:
-            self._key_queue = KeyQueue()
+            self._key_queue = KeyQueue(clear_key=clear_key, digit_key=digit_key, eol_key=eol_key)
         elif isinstance(key_queue, KeyQueue):
             self._key_queue = key_queue
         else:
@@ -227,6 +230,9 @@ class KeyPadI2C:
         row_pins: List[int] = ROW_PINS,
         col_pins: List[int] = COL_PINS,
         keys: List[List[str]] = DEFAULT_4X4_KEYS,
+        clear_key: str = "C",
+        digit_key: str = "D",
+        eol_key: str = "#",
         key_queue: KeyQueue = None,
     ):
         self._i2c_address = i2c_address
@@ -237,7 +243,7 @@ class KeyPadI2C:
         self._keypress = self._last_keypress = None
         self._keys = keys
         if key_queue is None:
-            self._key_queue = KeyQueue()
+            self._key_queue = KeyQueue(clear_key=clear_key, digit_key=digit_key, eol_key=eol_key)
         elif isinstance(key_queue, KeyQueue):
             self._key_queue = key_queue
         else:
@@ -287,7 +293,9 @@ class KeyPadI2C:
                     self._keypress = key
                     self._keypress_handler(self)
 
-    def read_keypad(self, bus):
+    def read_keypad(self, bus: SMBus = None):
+        if bus is None:
+            bus = SMBus(1)
         """Reads the state of the matrix keypad."""
         for r, row_pin in enumerate(self._row_pins):
             bus.write_byte(self._i2c_address, 0xFF & ~(1 << row_pin))
@@ -305,38 +313,41 @@ class KeyQueue:
     def __init__(
         self,
         clear_key: str = "C",
+        digit_key: str = "D",
         eol_key: str = "#",
         max_length: int = 256,
     ) -> None:
         self._deque: deque[str] = deque(maxlen=max_length)
         self._clear_key = clear_key
+        self._digit_key = digit_key
         self._eol_key = eol_key
         self._cv = Condition()
         self._keypress_ev = Event()
         self._eol_ev = Event() if eol_key else None
         self._clear_ev = Event() if clear_key else None
+        self._digit_ev = Event() if digit_key else None
 
     def keypress_handler(self) -> Callable:
         def fn(keypad: Keypad) -> None:
             keypress = keypad.keypress
             if keypress:
                 with self._cv:
-                    self._keypress_ev.clear()
-                    if self._eol_ev:
-                        self._eol_ev.clear()
-                    if self._clear_ev:
-                        self._clear_ev.clear()
+                    # don't clear digit_ev, we need it for context
+                    for ev in [self._keypress_ev, self._eol_ev, self._clear_ev]:
+                        if ev:
+                            ev.clear()
                     if keypress == self._clear_key:
                         self._deque.clear()
-                        if self._clear_ev:
-                            self._clear_ev.set()
+                        self._clear_ev.set()
+                    elif keypress == self._digit_key:
+                        self._deque.clear()
+                        self._digit_ev.set()
                     elif keypress == self._eol_key:
-                        if self._eol_ev:
-                            self._eol_ev.set()
+                        self._eol_ev.set()
                     else:
                         self._deque.extend(keypress)
                     self._keypress_ev.set()
-                    self._cv.notify()
+                    self._cv.notify_all()
 
         return fn
 
@@ -350,11 +361,11 @@ class KeyQueue:
     def reset(self) -> None:
         with self._cv:
             self._keypress_ev.set()  # force controllers to wake up
-            self._eol_ev.clear()
-            self._clear_ev.clear()
-            self._keypress_ev.clear()
+            for ev in [self._eol_ev, self._clear_ev, self._digit_ev, self._keypress_ev]:
+                if ev:
+                    ev.clear()
             self._deque.clear()
-            self._cv.notify()
+            self._cv.notify_all()
 
     @property
     def is_eol(self) -> bool:
@@ -362,12 +373,21 @@ class KeyQueue:
 
     @property
     def is_clear(self) -> bool:
-        return self._clear_ev.is_set() if self._eol_ev else False
+        return self._clear_ev.is_set() if self._clear_ev else False
+
+    @property
+    def is_digit(self) -> bool:
+        return self._digit_ev.is_set() if self._digit_ev else False
 
     def wait_for_keypress(self, timeout: float = 10) -> str | None:
         try:
             self._keypress_ev.wait(timeout)
-            if self._keypress_ev.is_set() is False or self._eol_ev.is_set() or self._clear_ev.is_set():
+            if (
+                self._keypress_ev.is_set() is False
+                or (self._eol_ev and self._eol_ev.is_set())
+                or (self._clear_ev and self._clear_ev.is_set())
+                or (self._digit_ev and self._digit_ev.is_set())
+            ):
                 return None
             else:
                 return self._deque[-1] if len(self._deque) > 0 else None
