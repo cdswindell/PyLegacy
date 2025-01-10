@@ -55,7 +55,7 @@ class LEDI2C(Device, SourceMixin):
     def __repr__(self):
         # noinspection PyBroadException
         try:
-            return f"<{self.__class__.__name__} object on pin {self.pin} " f"is_active={self.is_active}>"
+            return f"<{self.__class__.__name__} object on pin {self.pin} is_active={self.is_active}>"
         except Exception:
             return super().__repr__()
 
