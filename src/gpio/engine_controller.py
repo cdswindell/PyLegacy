@@ -217,7 +217,7 @@ class EngineController:
 
         if bell_pin is not None:
             self._bell_btn = GpioHandler.make_button(bell_pin)
-            self._tmcc1_when_pushed[self._bell_btn] = PressedHeldDef(
+            self._tmcc1_when_pushed_or_held[self._bell_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.RING_BELL),
                 held_threshold=self._held_threshold,
                 repeat=True,
@@ -233,7 +233,7 @@ class EngineController:
 
         if horn_pin is not None:
             self._horn_btn = GpioHandler.make_button(horn_pin)
-            self._tmcc1_when_pushed[self._horn_btn] = PressedHeldDef(
+            self._tmcc1_when_pushed_or_held[self._horn_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.BLOW_HORN_ONE),
                 held_threshold=self._held_threshold,
                 repeat=True,
@@ -251,7 +251,7 @@ class EngineController:
 
         if boost_pin is not None:
             self._boost_btn = GpioHandler.make_button(boost_pin)
-            self._tmcc1_when_pushed[self._boost_btn] = PressedHeldDef(
+            self._tmcc1_when_pushed_or_held[self._boost_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.BOOST_SPEED),
                 held_threshold=self._held_threshold,
                 repeat=True,
@@ -268,7 +268,7 @@ class EngineController:
 
         if brake_pin is not None:
             self._brake_btn = GpioHandler.make_button(brake_pin)
-            self._tmcc1_when_pushed[self._brake_btn] = PressedHeldDef(
+            self._tmcc1_when_pushed_or_held[self._brake_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.BRAKE_SPEED),
                 held_threshold=self._held_threshold,
                 repeat=True,
@@ -285,7 +285,7 @@ class EngineController:
 
         if rpm_up_pin is not None:
             self._rpm_up_btn = GpioHandler.make_button(rpm_up_pin)
-            self._tmcc1_when_pushed[self._rpm_up_btn] = PressedHeldDef(
+            self._tmcc1_when_pushed_or_held[self._rpm_up_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.RPM_UP),
                 held_threshold=self._held_threshold,
                 repeat=True,
@@ -302,7 +302,7 @@ class EngineController:
 
         if rpm_down_pin is not None:
             self._rpm_down_btn = GpioHandler.make_button(rpm_down_pin)
-            self._tmcc1_when_pushed[self._rpm_down_btn] = PressedHeldDef(
+            self._tmcc1_when_pushed_or_held[self._rpm_down_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.RPM_DOWN),
                 held_threshold=self._held_threshold,
                 repeat=True,
