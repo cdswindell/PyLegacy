@@ -1180,7 +1180,7 @@ class GpioHandler:
             if btn.is_active is True:
                 while btn.is_active:
                     if data_gen is not None:
-                        held_action(new_data=data_gen(), trigger_effects=trigger_effects)
+                        held_action(new_data=data_gen(btn), trigger_effects=trigger_effects)
                     else:
                         held_action(trigger_effects=trigger_effects)
                     # if held_repeat is true, continue sending when_held action
