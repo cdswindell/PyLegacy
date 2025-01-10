@@ -481,9 +481,7 @@ class EngineController:
 
         # reset the train brake
         if train_brake_cmd:
-            quilling_horn_cmd.update_action(self._tmcc_id, scope)
-            train_brake_cmd.address = self._tmcc_id
-            train_brake_cmd.scope = scope
+            train_brake_cmd.update_action(self._tmcc_id, scope)
 
         # reset the numeric command
         if numeric_cmd:
