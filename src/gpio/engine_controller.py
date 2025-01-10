@@ -378,14 +378,14 @@ class EngineController:
             self._engr_dialog_btn = None
 
         if quilling_horn_chn is not None:
-            from .analog_handler_i2c import QuillingHorn
+            from src.gpio.i2c.analog_handler_i2c import QuillingHorn
 
             self._quilling_horn_cmd = QuillingHorn(channel=quilling_horn_chn, i2c_address=i2c_adc_address)
         else:
             self._quilling_horn_cmd = None
 
         if train_brake_chn is not None:
-            from .analog_handler_i2c import TrainBrake
+            from src.gpio.i2c.analog_handler_i2c import TrainBrake
 
             self._train_brake_cmd = TrainBrake(channel=train_brake_chn, i2c_address=i2c_adc_address)
         else:

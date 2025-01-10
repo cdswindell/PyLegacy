@@ -315,6 +315,7 @@ class KeyQueue:
         clear_key: str = "C",
         digit_key: str = "D",
         eol_key: str = "#",
+        swap_key: str = "*",
         max_length: int = 256,
     ) -> None:
         self._deque: deque[str] = deque(maxlen=max_length)
@@ -322,6 +323,7 @@ class KeyQueue:
         self._digit_key = digit_key
         self._eol_key = eol_key
         self._cv = Condition()
+        self._excluded_keys = {k for k in [clear_key, digit_key, eol_key, swap_key] if k is not None}
         self._keypress_ev = Event()
         self._eol_ev = Event() if eol_key else None
         self._clear_ev = Event() if clear_key else None
@@ -356,7 +358,7 @@ class KeyQueue:
     @property
     def key_presses(self) -> str:
         with self._cv:
-            return "".join(self._deque)
+            return "".join([c for c in self._deque if c not in self._excluded_keys])
 
     def processed_digit(self) -> None:
         with self._cv:
