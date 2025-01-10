@@ -45,14 +45,16 @@ class PressedHeldDef:
         self,
         pressed_req: CommandReq,
         held_req: CommandReq = None,
+        repeat_action: int = 1,
         held_threshold: float = 0.5,
-        repeat: bool = False,
+        hold_repeat: bool = False,
         frequency: float = 0.1,
     ) -> None:
         self._pressed_req = pressed_req
         self._held_req = held_req if held_req else pressed_req
+        self._repeat_action = repeat_action
         self.held_threshold = held_threshold
-        self.repeat = repeat
+        self.repeat = hold_repeat
         self.frequency = frequency
 
     def update_target(self, address: int = None, data: int = None, scope: CommandScope = None) -> None:
@@ -72,8 +74,8 @@ class PressedHeldDef:
     def as_action(self, address: int = None, data: int = None, scope: CommandScope = None):
         self.update_target(address=address, data=data, scope=scope)
         return GpioHandler.when_button_pressed_or_held_action(
-            self._pressed_req.as_action(),
-            self._held_req.as_action(),
+            self._pressed_req.as_action(repeat=self._repeat_action),
+            self._held_req.as_action(repeat=self._repeat_action),
             held_threshold=self.held_threshold,
             held_repeat=self.repeat,
             frequency=self.frequency,

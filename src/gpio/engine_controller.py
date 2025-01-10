@@ -129,13 +129,13 @@ class EngineController:
             self._tmcc1_when_pushed_or_held[self._reset_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.RESET),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._reset_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.RESET),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
         else:
@@ -147,13 +147,13 @@ class EngineController:
             self._tmcc2_when_pushed_or_held[self._aux1_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.AUX1_OPTION_ONE),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._aux1_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.AUX1_OPTION_ONE),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
         else:
@@ -235,7 +235,7 @@ class EngineController:
             self._tmcc1_when_pushed_or_held[self._bell_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.RING_BELL),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._bell_btn] = PressedHeldDef(
@@ -250,16 +250,18 @@ class EngineController:
             self._horn_btn = GpioHandler.make_button(horn_pin)
             self._tmcc1_when_pushed_or_held[self._horn_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.BLOW_HORN_ONE),
+                repeat_action=5,
                 held_threshold=self._held_threshold,
-                repeat=True,
-                frequency=self._held_frequency,
+                hold_repeat=True,
+                frequency=0.05,
             )
             self._tmcc2_when_pushed_or_held[self._horn_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.BLOW_HORN_ONE),
                 CommandReq(TMCC2EngineCommandDef.QUILLING_HORN, data=7),
+                repeat_action=5,
                 held_threshold=self._held_threshold,
-                repeat=True,
-                frequency=self._held_frequency,
+                hold_repeat=True,
+                frequency=0.05,
             )
         else:
             self._horn_btn = None
@@ -269,13 +271,13 @@ class EngineController:
             self._tmcc1_when_pushed_or_held[self._boost_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.BOOST_SPEED),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._boost_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.BOOST_SPEED),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
         else:
@@ -286,13 +288,13 @@ class EngineController:
             self._tmcc1_when_pushed_or_held[self._brake_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.BRAKE_SPEED),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._brake_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.BRAKE_SPEED),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
         else:
@@ -303,13 +305,13 @@ class EngineController:
             self._tmcc1_when_pushed_or_held[self._rpm_up_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.RPM_UP),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._rpm_up_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.RPM_UP),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
         else:
@@ -320,13 +322,13 @@ class EngineController:
             self._tmcc1_when_pushed_or_held[self._rpm_down_btn] = PressedHeldDef(
                 CommandReq(TMCC1EngineCommandDef.RPM_DOWN),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._rpm_down_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.RPM_DOWN),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
         else:
@@ -338,7 +340,7 @@ class EngineController:
             self._tmcc2_when_pushed_or_held[self._labor_up_btn] = PressedHeldDef(
                 LaborEffectUpReq(),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
         else:
@@ -350,7 +352,7 @@ class EngineController:
             self._tmcc2_when_pushed_or_held[self._labor_down_btn] = PressedHeldDef(
                 LaborEffectDownReq(),
                 held_threshold=self._held_threshold,
-                repeat=True,
+                hold_repeat=True,
                 frequency=self._held_frequency,
             )
         else:
