@@ -123,6 +123,8 @@ class EngineController:
 
         if reset_pin is not None:
             self._reset_btn = GpioHandler.make_button(reset_pin, hold_repeat=True, hold_time=0.1)
+            button = self._reset_btn
+            print(f"{button} hold_repeat: {button.hold_repeat} hold_time: {button.hold_time}")
             self._tmcc1_when_pushed[self._reset_btn] = CommandReq(TMCC1EngineCommandDef.RESET)
             self._tmcc2_when_pushed[self._reset_btn] = CommandReq(TMCC2EngineCommandDef.RESET)
         else:
