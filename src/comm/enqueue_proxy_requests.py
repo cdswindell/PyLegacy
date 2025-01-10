@@ -21,6 +21,7 @@ SYNC_COMPLETE_RESPONSE: bytes = int(0xFFF2).to_bytes(2, byteorder="big") * 3
 UPDATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.UPDATE).as_bytes
 UPGRADE_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.UPGRADE).as_bytes
 REBOOT_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.REBOOT).as_bytes
+SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.SHUTDOWN).as_bytes
 
 
 class ProxyServer(socketserver.ThreadingTCPServer):
@@ -194,6 +195,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 UPDATE_REQUEST,
                 UPGRADE_REQUEST,
                 REBOOT_REQUEST,
+                SHUTDOWN_REQUEST,
             } and EnqueueProxyRequests.is_known_client(self.client_address[0]):
                 cmd = CommandReq.from_bytes(byte_stream)
                 CommandDispatcher.get().signal_client_quit(cmd, client_ip=self.client_address[0])
