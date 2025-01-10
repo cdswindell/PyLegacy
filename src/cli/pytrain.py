@@ -394,6 +394,9 @@ class PyTrain:
                         # if server, signal clients to disconnect
                         if self.is_server:
                             CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.SHUTDOWN)
+                        else:
+                            # if client, send command to server
+                            self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.SHUTDOWN).as_bytes)
                         self._force_shutdown = True
                         raise KeyboardInterrupt()
                     elif args.command == "help":
