@@ -78,17 +78,22 @@ class AnalogHandler(Thread):
         return not self._ev.is_set()
 
     def run(self) -> None:
+        zero_cnt = 0
         while self._is_running:
             self._ev.wait()
             if self._is_running:
                 value = self._adc.request()
                 data = self._interp(value)
-                if data > self._ignore:
+                if data >= self._ignore:
                     new_value = data - self._ignore
                     print(f"Raw: {value} Scaled: {data} - {self._ignore}: {new_value}")
-                    if new_value != self._last_value or self._send_all is True or new_value == 0:
+                    if new_value != self._last_value or self._send_all is True or (new_value == 0 and zero_cnt < 3):
                         self._action(new_data=data - self._ignore)
                         self._last_value = new_value
+                        if new_value != 0:
+                            zero_cnt = 0
+                        else:
+                            zero_cnt += 1
                 sleep(self._pause_for)
 
     def reset(self) -> None:
@@ -148,5 +153,6 @@ class TrainBrake(AnalogHandler):
             ignore=1,
             max_data=8,
             send_all=False,  # only send changes
+            pause_for=0.05,
             i2c_address=i2c_address,
         )
