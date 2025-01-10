@@ -183,6 +183,7 @@ class EngineController:
 
         if start_up_pin is not None:
             self._start_up_btn = GpioHandler.make_button(start_up_pin)
+            self._tmcc1_when_pushed[self._start_up_btn] = None
             self._tmcc2_when_pushed_or_held[self._start_up_btn] = (
                 CommandReq(TMCC2EngineCommandDef.START_UP_IMMEDIATE),
                 CommandReq(TMCC2EngineCommandDef.START_UP_DELAYED),
@@ -225,8 +226,6 @@ class EngineController:
             self._tmcc1_when_pushed[self._boost_btn] = CommandReq(TMCC1EngineCommandDef.BOOST_SPEED)
             self._tmcc2_when_pushed[self._boost_btn] = CommandReq(TMCC2EngineCommandDef.BOOST_SPEED)
 
-            self._boost_btn.hold_repeat = True
-            self._boost_btn.hold_time = 0.2
             self._tmcc1_when_held[self._boost_btn] = self._tmcc1_when_pushed[self._boost_btn]
             self._tmcc2_when_held[self._boost_btn] = self._tmcc2_when_pushed[self._boost_btn]
         else:
@@ -237,54 +236,48 @@ class EngineController:
             self._tmcc1_when_pushed[self._brake_btn] = CommandReq(TMCC1EngineCommandDef.BRAKE_SPEED)
             self._tmcc2_when_pushed[self._brake_btn] = CommandReq(TMCC2EngineCommandDef.BRAKE_SPEED)
 
-            self._brake_btn.hold_repeat = True
-            self._brake_btn.hold_time = 0.2
             self._tmcc1_when_held[self._brake_btn] = self._tmcc1_when_pushed[self._brake_btn]
             self._tmcc2_when_held[self._brake_btn] = self._tmcc2_when_pushed[self._brake_btn]
         else:
             self._brake_btn = None
 
         if rpm_up_pin is not None:
-            self._rpm_up_btn = GpioHandler.make_button(rpm_up_pin)
+            self._rpm_up_btn = GpioHandler.make_button(rpm_up_pin, hold_repeat=True, hold_time=0.75)
             self._tmcc1_when_pushed[self._rpm_up_btn] = CommandReq(TMCC1EngineCommandDef.RPM_UP)
             self._tmcc2_when_pushed[self._rpm_up_btn] = CommandReq(TMCC2EngineCommandDef.RPM_UP)
 
-            self._rpm_up_btn.hold_repeat = True
-            self._rpm_up_btn.hold_time = 0.75
             self._tmcc1_when_held[self._rpm_up_btn] = CommandReq(TMCC1EngineCommandDef.RPM_UP)
             self._tmcc2_when_held[self._rpm_up_btn] = CommandReq(TMCC2EngineCommandDef.RPM_UP)
         else:
             self._rpm_up_btn = None
 
         if rpm_down_pin is not None:
-            self._rpm_down_btn = GpioHandler.make_button(rpm_down_pin)
+            self._rpm_down_btn = GpioHandler.make_button(rpm_down_pin, hold_repeat=True, hold_time=0.75)
             self._tmcc1_when_pushed[self._rpm_down_btn] = CommandReq(TMCC1EngineCommandDef.RPM_DOWN)
             self._tmcc2_when_pushed[self._rpm_down_btn] = CommandReq(TMCC2EngineCommandDef.RPM_DOWN)
 
-            self._rpm_down_btn.hold_repeat = True
-            self._rpm_down_btn.hold_time = 0.75
             self._tmcc1_when_held[self._rpm_down_btn] = CommandReq(TMCC1EngineCommandDef.RPM_DOWN)
             self._tmcc2_when_held[self._rpm_down_btn] = CommandReq(TMCC2EngineCommandDef.RPM_DOWN)
         else:
             self._rpm_down_btn = None
 
         if labor_up_pin is not None:
-            self._labor_up_btn = GpioHandler.make_button(labor_up_pin)
+            self._labor_up_btn = GpioHandler.make_button(labor_up_pin, hold_repeat=True, hold_time=0.75)
+            self._tmcc1_when_pushed[self._labor_up_btn] = None
             self._tmcc2_when_pushed[self._labor_up_btn] = LaborEffectUpReq()
 
-            self._labor_up_btn.hold_repeat = True
-            self._labor_up_btn.hold_time = 0.75
             self._tmcc2_when_held[self._labor_up_btn] = LaborEffectUpReq()
+            self._tmcc1_when_held[self._labor_up_btn] = None
         else:
             self._labor_up_btn = None
 
         if labor_down_pin is not None:
-            self._labor_down_btn = GpioHandler.make_button(labor_down_pin)
+            self._labor_down_btn = GpioHandler.make_button(labor_down_pin, hold_repeat=True, hold_time=0.75)
+            self._tmcc1_when_pushed[self._labor_down_btn] = None
             self._tmcc2_when_pushed[self._labor_down_btn] = LaborEffectDownReq()
 
-            self._labor_down_btn.hold_repeat = True
-            self._labor_down_btn.hold_time = 0.75
             self._tmcc2_when_held[self._labor_down_btn] = LaborEffectDownReq()
+            self._tmcc1_when_held[self._labor_down_btn] = None
         else:
             self._labor_down_btn = None
 
@@ -478,26 +471,35 @@ class EngineController:
 
         # reset the when_pressed button handlers
         for btn, cmd in when_pushed.items():
-            cmd.address = self._tmcc_id
-            cmd.scope = scope
-            btn.when_pressed = cmd.as_action(repeat=self._repeat)
+            if cmd:
+                cmd.address = self._tmcc_id
+                cmd.scope = scope
+                btn.when_pressed = cmd.as_action(repeat=self._repeat)
+            else:
+                btn.when_pressed = None
 
         # reset the when_held button handlers
         for btn, cmd in when_held.items():
-            cmd.address = self._tmcc_id
-            cmd.scope = scope
-            btn.when_held = cmd.as_action()
+            if cmd:
+                cmd.address = self._tmcc_id
+                cmd.scope = scope
+                btn.when_held = cmd.as_action()
+            else:
+                btn.when_held = None
 
         # reset the when_pushed_or_held button handlers
         for btn, cmds in when_pushed_or_held.items():
-            for cmd in cmds:
-                cmd.address = self._tmcc_id
-                cmd.scope = scope
-            btn.when_pressed = GpioHandler.when_button_pressed_or_held_action(
-                cmds[0].as_action(),
-                cmds[1].as_action(),
-                0.5,
-            )
+            if cmds:
+                for cmd in cmds:
+                    cmd.address = self._tmcc_id
+                    cmd.scope = scope
+                btn.when_pressed = GpioHandler.when_button_pressed_or_held_action(
+                    cmds[0].as_action(),
+                    cmds[1].as_action(),
+                    0.5,
+                )
+            else:
+                btn.when_pressed = None
 
         # reset the rotary encoder handlers
         if speed_cmd:
