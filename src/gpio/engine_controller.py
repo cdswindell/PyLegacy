@@ -303,7 +303,7 @@ class EngineController:
             self._quilling_horn_cmd = None
 
         if train_brake_chn is not None:
-            self._tmcc2_train_brake_cmd = CommandReq(TMCC2EngineCommandDef.TRAIN_BRAKE)
+            self._train_brake_cmd = CommandReq(TMCC2EngineCommandDef.TRAIN_BRAKE)
         else:
             self._train_brake_cmd = None
 
@@ -427,7 +427,7 @@ class EngineController:
             speed_cmd = self._tmcc2_speed_cmd
             quilling_horn_cmd = self._quilling_horn_cmd
             numeric_cmd = self._tmcc2_numeric_cmd
-            train_brake_cmd = self._tmcc2_train_brake_cmd
+            train_brake_cmd = self._train_brake_cmd
         else:
             max_speed = 31
             speed_limit = 27
