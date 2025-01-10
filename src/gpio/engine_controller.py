@@ -497,4 +497,4 @@ class EngineController:
     def on_numeric(self, key: str):
         print(f"on_numeric: {key}")
         if self._numeric_cmd:
-            self._numeric_cmd.as_action(data=int(key))()
+            self._numeric_cmd.as_action()(new_data=int(key))
