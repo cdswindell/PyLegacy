@@ -1,3 +1,5 @@
+from typing import TypeVar, Union, Tuple
+
 from gpiozero import Button
 
 from ..db.component_state import EngineState
@@ -11,40 +13,45 @@ from ..protocol.sequence.labor_effect import LaborEffectUpReq, LaborEffectDownRe
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1EngineCommandDef
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
+P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, int, int]])
+
 
 class EngineController:
     def __init__(
         self,
-        speed_pin_1: int | str = None,
-        speed_pin_2: int | str = None,
-        halt_pin: int | str = None,
-        reset_pin: int | str = None,
-        fwd_pin: int | str = None,
-        rev_pin: int | str = None,
-        front_coupler_pin: int | str = None,
-        rear_coupler_pin: int | str = None,
-        start_up_pin: int | str = None,
-        shutdown_pin: int | str = None,
-        boost_pin: int | str = None,
-        brake_pin: int | str = None,
-        bell_pin: int | str = None,
-        horn_pin: int | str = None,
-        rpm_up_pin: int | str = None,
-        rpm_down_pin: int | str = None,
-        labor_up_pin: int | str = None,
-        labor_down_pin: int | str = None,
-        vol_up_pin: int | str = None,
-        vol_down_pin: int | str = None,
-        smoke_on_pin: int | str = None,
-        smoke_off_pin: int | str = None,
-        tower_dialog_pin: int | str = None,
-        engr_dialog_pin: int | str = None,
+        speed_pin_1: P = None,
+        speed_pin_2: P = None,
+        halt_pin: P = None,
+        reset_pin: P = None,
+        fwd_pin: P = None,
+        rev_pin: P = None,
+        front_coupler_pin: P = None,
+        rear_coupler_pin: P = None,
+        start_up_pin: P = None,
+        shutdown_pin: P = None,
+        boost_pin: P = None,
+        brake_pin: P = None,
+        bell_pin: P = None,
+        horn_pin: P = None,
+        rpm_up_pin: P = None,
+        rpm_down_pin: P = None,
+        labor_up_pin: P = None,
+        labor_down_pin: P = None,
+        vol_up_pin: P = None,
+        vol_down_pin: P = None,
+        smoke_on_pin: P = None,
+        smoke_off_pin: P = None,
+        tower_dialog_pin: P = None,
+        engr_dialog_pin: P = None,
+        aux1_pin: P = None,
+        aux2_pin: P = None,
+        aux3_pin: P = None,
         i2c_adc_address: int = 0x48,
         train_brake_chn: int = None,
         quilling_horn_chn: int = None,
         cmd_repeat: int = 1,
-        base_online_pin: int | str = None,
-        base_offline_pin: int | str = None,
+        base_online_pin: P = None,
+        base_offline_pin: P = None,
         base_cathode: bool = True,
         base_ping_freq: int = 5,
     ) -> None:
@@ -115,6 +122,28 @@ class EngineController:
             self._tmcc2_when_pushed[self._reset_btn] = CommandReq(TMCC2EngineCommandDef.RESET)
         else:
             self._reset_btn = None
+
+        # setup for Aux Commands
+        if aux1_pin:
+            self._aux1_btn = GpioHandler.make_button(aux1_pin, hold_repeat=True, hold_time=0.25)
+            self._tmcc1_when_pushed[self._aux1_btn] = CommandReq(TMCC1EngineCommandDef.AUX1_OPTION_ONE)
+            self._tmcc2_when_pushed[self._aux1_btn] = CommandReq(TMCC2EngineCommandDef.AUX1_OPTION_ONE)
+        else:
+            self._aux1_btn = None
+
+        if aux2_pin:
+            self._aux2_btn = GpioHandler.make_button(aux2_pin)
+            self._tmcc1_when_pushed[self._aux2_btn] = CommandReq(TMCC1EngineCommandDef.AUX2_OPTION_ONE)
+            self._tmcc2_when_pushed[self._aux2_btn] = CommandReq(TMCC2EngineCommandDef.AUX2_OPTION_ONE)
+        else:
+            self._aux2_btn = None
+
+        if aux3_pin:
+            self._aux3_btn = GpioHandler.make_button(aux3_pin)
+            self._tmcc1_when_pushed[self._aux3_btn] = CommandReq(TMCC1EngineCommandDef.AUX3_OPTION_ONE)
+            self._tmcc2_when_pushed[self._aux3_btn] = CommandReq(TMCC2EngineCommandDef.AUX3_OPTION_ONE)
+        else:
+            self._aux3_btn = None
 
         if fwd_pin is not None:
             self._fwd_btn = GpioHandler.make_button(fwd_pin)
