@@ -157,6 +157,7 @@ TMCC1_QUIT_COMMAND: int = 0xF0F7
 TMCC1_REBOOT_COMMAND: int = 0xF0F8
 TMCC1_UPDATE_COMMAND: int = 0xF0F9
 TMCC1_UPGRADE_COMMAND: int = 0xF0FA
+TMCC1_SHUTDOWN_COMMAND: int = 0xF0FB
 TMCC1_SYNCED_COMMAND: int = 0xF0FF
 
 
@@ -167,6 +168,7 @@ class TMCC1SyncCommandDef(TMCC1Enum):
     REBOOT = TMCC1CommandDef(TMCC1_REBOOT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     UPDATE = TMCC1CommandDef(TMCC1_UPDATE_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     UPGRADE = TMCC1CommandDef(TMCC1_UPGRADE_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
+    SHUTDOWN = TMCC1CommandDef(TMCC1_SHUTDOWN_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     QUIT = TMCC1CommandDef(TMCC1_QUIT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
 
 

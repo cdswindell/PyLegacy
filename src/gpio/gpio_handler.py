@@ -529,12 +529,7 @@ class GpioHandler:
 
     @classmethod
     def base_watcher(
-        cls,
-        server: str = None,
-        active_pin: P = None,
-        inactive_pin: P = None,
-        cathode: bool = True,
-        delay: float = 5,
+        cls, server: str = None, active_pin: P = None, inactive_pin: P = None, cathode: bool = True, delay: float = 10
     ) -> Tuple[PingServer, LED, LED]:
         # if server isn't specified, try to figure it out
         if server is None:
@@ -584,6 +579,20 @@ class GpioHandler:
             ping_server.when_deactivated = inactive_led.on
 
         return ping_server, active_led, inactive_led
+
+    @classmethod
+    def power_watcher(
+        cls,
+        power_on_pin: P,
+        cathode: bool = True,
+    ) -> LED:
+        """
+        Illuminates a LED as long as the attached Pi has power
+        """
+        power_led = cls.make_led(power_on_pin, cathode=cathode)
+        power_led.value = 1
+        cls.cache_device(power_led)
+        return power_led
 
     @classmethod
     def route(

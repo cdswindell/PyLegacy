@@ -91,6 +91,7 @@ class PyTrain:
         self._force_reboot = False
         self._force_update = False
         self._force_upgrade = False
+        self._force_shutdown = False
         self._script_loader: StartupScriptLoader | None = None
 
         if args.base is not None:
@@ -227,6 +228,10 @@ class PyTrain:
             log.info(f"{'Server' if self.is_server else 'Client'} rebooting...")
             self._force_reboot = True
             os.kill(os.getpid(), signal.SIGINT)
+        elif cmd.command == TMCC1SyncCommandDef.SHUTDOWN:
+            log.info(f"{'Server' if self.is_server else 'Client'} shutting down...")
+            self._force_shutdown = True
+            os.kill(os.getpid(), signal.SIGINT)
         elif cmd.command == TMCC1SyncCommandDef.UPDATE:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
             self._force_update = True
@@ -241,8 +246,12 @@ class PyTrain:
         return f"{PROGRAM_NAME} {sc} {dir(self)}>"
 
     @staticmethod
-    def reboot() -> None:
-        os.system("sudo shutdown -r now")
+    def reboot(reboot: bool = True) -> None:
+        if reboot is True:
+            opt = " -r"
+        else:
+            opt = ""
+        os.system(f"sudo shutdown{opt} now")
 
     def update(self) -> None:
         if self.is_client:
@@ -302,6 +311,8 @@ class PyTrain:
                 self.update()
             elif self._force_reboot is True:
                 self.reboot()
+            elif self._force_shutdown is True:
+                self.reboot(reboot=False)
 
     def shutdown(self):
         try:
@@ -378,6 +389,12 @@ class PyTrain:
                         if self.is_server:
                             CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.REBOOT)
                         self._force_reboot = True
+                        raise KeyboardInterrupt()
+                    elif args.command == "shutdown":
+                        # if server, signal clients to disconnect
+                        if self.is_server:
+                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.SHUTDOWN)
+                        self._force_shutdown = True
                         raise KeyboardInterrupt()
                     elif args.command == "help":
                         self._command_parser().parse_args(["-help"])
@@ -707,7 +724,22 @@ class PyTrain:
         )
         if self.is_server:
             group.add_argument("-pdi", action="store_const", const="pdi", dest="command", help="Sent PDI commands")
+        group.add_argument("-quit", action="store_const", const="quit", dest="command", help=f"Quit {PROGRAM_NAME}")
+        group.add_argument(
+            "-reboot",
+            action="store_const",
+            const="reboot",
+            dest="command",
+            help=f"Quit {PROGRAM_NAME} and reboot all nodes),",
+        )
         group.add_argument("-route", action="store_const", const=RouteCli, dest="command", help="Fire defined routes")
+        group.add_argument(
+            "-shutdown",
+            action="store_const",
+            const="shutdown",
+            dest="command",
+            help=f"Quit {PROGRAM_NAME} and shutdown all nodes",
+        )
         group.add_argument(
             "-sounds",
             action="store_const",
@@ -716,27 +748,20 @@ class PyTrain:
             help="Issue engine/train RailSound effects commands",
         )
         group.add_argument("-switch", action="store_const", const=SwitchCli, dest="command", help="Throw switches")
-        group.add_argument("-quit", action="store_const", const="quit", dest="command", help=f"Quit {PROGRAM_NAME}")
-        group.add_argument(
-            "-reboot",
-            action="store_const",
-            const="reboot",
-            dest="command",
-            help=f"Quit {PROGRAM_NAME} and reboot),",
-        )
+
         group.add_argument(
             "-update",
             action="store_const",
             const="update",
             dest="command",
-            help=f"Quit {PROGRAM_NAME} and update to latest release),",
+            help=f"Quit {PROGRAM_NAME} and update all nodes to latest release),",
         )
         group.add_argument(
             "-upgrade",
             action="store_const",
             const="upgrade",
             dest="command",
-            help=f"Quit {PROGRAM_NAME}, upgrade the OS, and update to latest release),",
+            help=f"Quit {PROGRAM_NAME}, upgrade the OS on all nodes, and update to latest release),",
         )
         return command_parser
 
