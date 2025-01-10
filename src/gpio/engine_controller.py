@@ -1,4 +1,6 @@
-from typing import TypeVar, Union, Tuple
+from __future__ import annotations
+
+from typing import TypeVar, Union, Tuple, Dict
 
 from gpiozero import Button
 
@@ -14,6 +16,7 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1EngineCom
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, int, int]])
+R = TypeVar("R", bound=CommandReq)
 
 
 class EngineController:
@@ -95,12 +98,12 @@ class EngineController:
             self._halt_btn = None
 
         # construct the commands; make both the TMCC1 and Legacy versions
-        self._tmcc1_speed_cmd = None
-        self._tmcc2_speed_cmd = None
-        self._tmcc1_when_pushed = {}
-        self._tmcc2_when_pushed = {}
-        self._tmcc1_when_held = {}
-        self._tmcc2_when_held = {}
+        self._tmcc1_speed_cmd: R | None = None
+        self._tmcc2_speed_cmd: R | None = None
+        self._tmcc1_when_pushed: Dict[Button, R | None] = {}
+        self._tmcc2_when_pushed: Dict[Button, R | None] = {}
+        self._tmcc1_when_held: Dict[Button, R | None] = {}
+        self._tmcc2_when_held: Dict[Button, R | None] = {}
         self._tmcc1_when_pushed_or_held = {}
         self._tmcc2_when_pushed_or_held = {}
 
@@ -127,20 +130,32 @@ class EngineController:
                 CommandReq(TMCC1EngineCommandDef.RESET),
                 held_threshold=self._held_threshold,
                 repeat=True,
+                frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._reset_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.RESET),
                 held_threshold=self._held_threshold,
                 repeat=True,
+                frequency=self._held_frequency,
             )
         else:
             self._reset_btn = None
 
         # setup for Aux Commands
         if aux1_pin:
-            self._aux1_btn = GpioHandler.make_button(aux1_pin, hold_repeat=True, hold_time=0.25)
-            self._tmcc1_when_pushed[self._aux1_btn] = CommandReq(TMCC1EngineCommandDef.AUX1_OPTION_ONE)
-            self._tmcc2_when_pushed[self._aux1_btn] = CommandReq(TMCC2EngineCommandDef.AUX1_OPTION_ONE)
+            self._aux1_btn = GpioHandler.make_button(aux1_pin)
+            self._tmcc2_when_pushed_or_held[self._aux1_btn] = PressedHeldDef(
+                CommandReq(TMCC1EngineCommandDef.AUX1_OPTION_ONE),
+                held_threshold=self._held_threshold,
+                repeat=True,
+                frequency=self._held_frequency,
+            )
+            self._tmcc2_when_pushed_or_held[self._aux1_btn] = PressedHeldDef(
+                CommandReq(TMCC2EngineCommandDef.AUX1_OPTION_ONE),
+                held_threshold=self._held_threshold,
+                repeat=True,
+                frequency=self._held_frequency,
+            )
         else:
             self._aux1_btn = None
 
@@ -321,7 +336,10 @@ class EngineController:
             self._labor_up_btn = GpioHandler.make_button(labor_up_pin)
             self._tmcc1_when_pushed[self._labor_up_btn] = None
             self._tmcc2_when_pushed_or_held[self._labor_up_btn] = PressedHeldDef(
-                LaborEffectUpReq(), held_threshold=self._held_threshold, repeat=True, frequency=self._held_frequency
+                LaborEffectUpReq(),
+                held_threshold=self._held_threshold,
+                repeat=True,
+                frequency=self._held_frequency,
             )
         else:
             self._labor_up_btn = None
@@ -330,7 +348,10 @@ class EngineController:
             self._labor_down_btn = GpioHandler.make_button(labor_down_pin)
             self._tmcc1_when_pushed[self._labor_down_btn] = None
             self._tmcc2_when_pushed_or_held[self._labor_down_btn] = PressedHeldDef(
-                LaborEffectDownReq(), held_threshold=self._held_threshold, repeat=True, frequency=self._held_frequency
+                LaborEffectDownReq(),
+                held_threshold=self._held_threshold,
+                repeat=True,
+                frequency=self._held_frequency,
             )
         else:
             self._labor_down_btn = None

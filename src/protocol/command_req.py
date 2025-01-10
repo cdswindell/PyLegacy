@@ -24,7 +24,6 @@ from .tmcc1.tmcc1_constants import TMCC1RouteCommandDef
 from ..utils.validations import Validations
 
 E = TypeVar("E", bound=CommandDefEnum)
-
 R = TypeVar("R", bound="CommandReq")
 
 
