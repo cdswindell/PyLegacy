@@ -211,7 +211,7 @@ class EngineController:
             self.bell_pin = None
 
         if horn_pin is not None:
-            self._horn_btn = GpioHandler.make_button(horn_pin, hold_repeat=True, hold_time=0.5)
+            self._horn_btn = GpioHandler.make_button(horn_pin, hold_repeat=True, hold_time=0.1)
             self._tmcc1_when_pushed[self._horn_btn] = CommandReq(TMCC1EngineCommandDef.BLOW_HORN_ONE)
             self._tmcc2_when_pushed[self._horn_btn] = CommandReq(TMCC2EngineCommandDef.BLOW_HORN_ONE)
 
