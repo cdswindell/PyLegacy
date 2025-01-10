@@ -270,11 +270,11 @@ class PyTrain:
         return self._tmcc_buffer
 
     def run(self) -> None:
+        # print opening line
+        print(f"{PROGRAM_NAME}, Ver 0.1")
         # process startup script
         if self._startup_script:
             self._script_loader = StartupScriptLoader(self)
-        # print opening line
-        print(f"{PROGRAM_NAME}, Ver 0.1")
         try:
             while True:
                 try:

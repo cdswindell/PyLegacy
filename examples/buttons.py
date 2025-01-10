@@ -2,9 +2,6 @@
 Simple examples of how to associate Lionel commands to Raspberry Pi buttons
 """
 
-import os
-import threading
-
 from src.gpio.gpio_handler import GpioHandler
 
 # GpioHandler.when_button_held(26, TMCC2EngineCommandDef.BLOW_HORN_ONE)
@@ -44,7 +41,6 @@ from src.gpio.gpio_handler import GpioHandler
 #     lcd_rows=4,
 #     lcd_cols=20,
 # )
-print(f"Thread {threading.current_thread().name} is running on CPU {os.getpid()}")
 GpioHandler.controller(
     keypad_address=0x20,
     speed_pins=[17, 27],
