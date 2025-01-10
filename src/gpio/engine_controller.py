@@ -476,7 +476,8 @@ class EngineController:
                 cmd.scope = scope
                 btn.when_pressed = cmd.as_action(repeat=self._repeat)
             else:
-                btn.when_pressed = None
+                if btn.when_pressed:
+                    btn.when_pressed = None
 
         # reset the when_held button handlers
         for btn, cmd in when_held.items():
@@ -485,7 +486,8 @@ class EngineController:
                 cmd.scope = scope
                 btn.when_held = cmd.as_action()
             else:
-                btn.when_held = None
+                if btn.when_held:
+                    btn.when_held = None
 
         # reset the when_pushed_or_held button handlers
         for btn, cmds in when_pushed_or_held.items():
@@ -499,7 +501,8 @@ class EngineController:
                     0.5,
                 )
             else:
-                btn.when_pressed = None
+                if btn.when_pressed:
+                    btn.when_pressed = None
 
         # reset the rotary encoder handlers
         if speed_cmd:
@@ -512,7 +515,6 @@ class EngineController:
             max_speed = min(max_speed, speed_limit)
             steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -100, 100)
             speed_to_steps = GpioHandler.make_interpolator(100, -100, 0, max_speed)
-            print(f"TMCC ID: {self._tmcc_id} max_speed={max_speed} speed_limit={speed_limit}")
             self._speed_re.update_action(speed_cmd, cur_state, steps_to_speed, speed_to_steps)
 
         # reset the quilling horn
