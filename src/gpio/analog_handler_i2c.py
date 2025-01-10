@@ -86,7 +86,6 @@ class AnalogHandler(Thread):
                 data = self._interp(value)
                 if data >= self._ignore:
                     new_value = data - self._ignore
-                    print(f"Raw: {value} Scaled: {data} - {self._ignore}: {new_value}")
                     if new_value != self._last_value or self._send_all is True or (new_value == 0 and zero_cnt < 3):
                         self._action(new_data=data - self._ignore)
                         self._last_value = new_value
@@ -94,6 +93,7 @@ class AnalogHandler(Thread):
                             zero_cnt = 0
                         else:
                             zero_cnt += 1
+                        print(f"Raw: {value} Scaled: {data} - {self._ignore}: {new_value} ({zero_cnt}")
                 sleep(self._pause_for)
 
     def reset(self) -> None:
