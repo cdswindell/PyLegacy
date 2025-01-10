@@ -40,6 +40,46 @@ T = TypeVar("T", bound=CommandReq)
 P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, int, int]])
 
 
+class PressedHeldDef:
+    def __init__(
+        self,
+        pressed_action: CommandReq,
+        held_action: CommandReq = None,
+        held_threshold: float = 0.5,
+        repeat: bool = False,
+        frequency: float = 0.1,
+    ) -> None:
+        self._pressed_action = pressed_action
+        self._held_action = held_action if held_action else pressed_action
+        self.held_threshold = held_threshold
+        self.repeat = repeat
+        self.frequency = frequency
+
+    def update_target(self, address: int = None, data: int = None, scope: CommandScope = None) -> None:
+        if address is not None:
+            self._pressed_action.address = address
+            if self._pressed_action != self._held_action:
+                self._held_action.address = address
+        if data is not None:
+            self._pressed_action.data = data
+            if self._pressed_action != self._held_action:
+                self._held_action.data = data
+        if scope is not None:
+            self._pressed_action.scope = scope
+            if self._pressed_action != self._held_action:
+                self._held_action.scope = scope
+
+    def as_action(self, address: int = None, data: int = None, scope: CommandScope = None):
+        self.update_target(address=address, data=data, scope=scope)
+        return GpioHandler.when_button_pressed_or_held_action(
+            self._pressed_action,
+            self._held_action,
+            held_threshold=self.held_threshold,
+            held_repeat=self.repeat,
+            frequency=self.frequency,
+        )
+
+
 class GpioDelayHandler(Thread):
     """
     Handle delayed (scheduled) requests. Implementation uses Python's lightweight
@@ -1118,13 +1158,27 @@ class GpioHandler:
         return button
 
     @classmethod
-    def when_button_pressed_or_held_action(cls, pressed_action, held_action, held_threshold) -> Callable:
+    def when_button_pressed_or_held_action(
+        cls,
+        pressed_action,
+        held_action,
+        held_threshold,
+        held_repeat: bool = False,
+        frequency: float = 0.1,
+    ) -> Callable:
         def func(btn: Button) -> None:
             # sleep for hold threshold, if button still active, do held_action
             # otherwise do pressed_action
             time.sleep(held_threshold)
             if btn.is_active is True:
-                held_action()
+                while btn.is_active:
+                    held_action()
+                    # if held_repeat is true, continue sending when_held action
+                    # with the given frequency of repeat
+                    if held_repeat is True:
+                        time.sleep(frequency)
+                    else:
+                        break
             else:
                 pressed_action()
 
