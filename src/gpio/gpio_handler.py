@@ -49,6 +49,7 @@ class PressedHeldDef:
         held_threshold: float = 0.5,
         hold_repeat: bool = False,
         frequency: float = 0.1,
+        data: Callable = None,
     ) -> None:
         self._pressed_req = pressed_req
         self._held_req = held_req if held_req else pressed_req
@@ -56,6 +57,7 @@ class PressedHeldDef:
         self.held_threshold = held_threshold
         self.repeat = hold_repeat
         self.frequency = frequency
+        self._data_gen = data
 
     def update_target(self, address: int = None, data: int = None, scope: CommandScope = None) -> None:
         if address is not None:
@@ -79,6 +81,7 @@ class PressedHeldDef:
             held_threshold=self.held_threshold,
             held_repeat=self.repeat,
             frequency=self.frequency,
+            data_gen=self._data_gen,
         )
 
 
@@ -1167,6 +1170,7 @@ class GpioHandler:
         held_threshold,
         held_repeat: bool = False,
         frequency: float = 0.1,
+        data_gen: Callable = None,
     ) -> Callable:
         def func(btn: Button) -> None:
             # sleep for hold threshold, if button still active, do held_action
@@ -1175,7 +1179,10 @@ class GpioHandler:
             time.sleep(held_threshold)
             if btn.is_active is True:
                 while btn.is_active:
-                    held_action(trigger_effects=trigger_effects)
+                    if data_gen is not None:
+                        held_action(new_data=data_gen(), trigger_effects=trigger_effects)
+                    else:
+                        held_action(trigger_effects=trigger_effects)
                     # if held_repeat is true, continue sending when_held action
                     # with the given frequency of repeat
                     if held_repeat is True:

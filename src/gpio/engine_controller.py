@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from random import randint
 from typing import TypeVar, Union, Tuple, Dict
 
 from gpiozero import Button
@@ -261,6 +262,7 @@ class EngineController:
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=0.05,
+                data=lambda b: randint(0, 15),
             )
         else:
             self._horn_btn = None
