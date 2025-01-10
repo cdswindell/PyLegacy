@@ -201,7 +201,7 @@ class EngineController:
             self._shutdown_btn = None
 
         if bell_pin is not None:
-            self._bell_btn = GpioHandler.make_button(bell_pin, hold_time=1)
+            self._bell_btn = GpioHandler.make_button(bell_pin)
             self._tmcc1_when_pushed[self._bell_btn] = CommandReq(TMCC1EngineCommandDef.RING_BELL)
             self._tmcc2_when_pushed_or_held[self._bell_btn] = (
                 CommandReq(TMCC2EngineCommandDef.BELL_ONE_SHOT_DING, data=3),
@@ -211,19 +211,17 @@ class EngineController:
             self.bell_pin = None
 
         if horn_pin is not None:
-            self._horn_btn = GpioHandler.make_button(horn_pin, hold_repeat=True, hold_time=0.25)
+            self._horn_btn = GpioHandler.make_button(horn_pin, hold_repeat=True, hold_time=0.5)
             self._tmcc1_when_pushed[self._horn_btn] = CommandReq(TMCC1EngineCommandDef.BLOW_HORN_ONE)
             self._tmcc2_when_pushed[self._horn_btn] = CommandReq(TMCC2EngineCommandDef.BLOW_HORN_ONE)
 
-            self._horn_btn.hold_repeat = True
-            self._horn_btn.hold_time = 0.25
             self._tmcc1_when_held[self._horn_btn] = CommandReq(TMCC1EngineCommandDef.BLOW_HORN_ONE)
             self._tmcc2_when_held[self._horn_btn] = CommandReq(TMCC2EngineCommandDef.QUILLING_HORN, data=7)
         else:
             self._horn_btn = None
 
         if boost_pin is not None:
-            self._boost_btn = GpioHandler.make_button(boost_pin, hold_repeat=True, hold_time=0.2)
+            self._boost_btn = GpioHandler.make_button(boost_pin, hold_repeat=True, hold_time=0.25)
             self._tmcc1_when_pushed[self._boost_btn] = CommandReq(TMCC1EngineCommandDef.BOOST_SPEED)
             self._tmcc2_when_pushed[self._boost_btn] = CommandReq(TMCC2EngineCommandDef.BOOST_SPEED)
 
@@ -235,7 +233,7 @@ class EngineController:
             self._boost_btn = None
 
         if brake_pin is not None:
-            self._brake_btn = GpioHandler.make_button(brake_pin, hold_repeat=True, hold_time=0.2)
+            self._brake_btn = GpioHandler.make_button(brake_pin, hold_repeat=True, hold_time=0.25)
             self._tmcc1_when_pushed[self._brake_btn] = CommandReq(TMCC1EngineCommandDef.BRAKE_SPEED)
             self._tmcc2_when_pushed[self._brake_btn] = CommandReq(TMCC2EngineCommandDef.BRAKE_SPEED)
 
