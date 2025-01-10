@@ -1456,6 +1456,7 @@ class GpioHandler:
         else:
             if hold_repeat is True:
                 button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
+                print(button)
             else:
                 button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME)
         cls.cache_device(button)
