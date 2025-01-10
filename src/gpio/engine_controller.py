@@ -118,7 +118,7 @@ class EngineController:
             self._speed_re = None
 
         if reset_pin is not None:
-            self._reset_btn = GpioHandler.make_button(reset_pin)
+            self._reset_btn = GpioHandler.make_button(reset_pin, hold_repeat=True, hold_time=0.1)
             self._tmcc1_when_pushed[self._reset_btn] = CommandReq(TMCC1EngineCommandDef.RESET)
             self._tmcc2_when_pushed[self._reset_btn] = CommandReq(TMCC2EngineCommandDef.RESET)
         else:
@@ -505,11 +505,14 @@ class EngineController:
         if speed_cmd:
             speed_cmd.address = self._tmcc_id
             speed_cmd.scope = scope
-            max_speed = cur_state.max_speed if cur_state.max_speed else max_speed
-            speed_limit = cur_state.speed_limit if cur_state.speed_limit else speed_limit
+            max_speed = cur_state.max_speed if cur_state.max_speed and cur_state.max_speed != 255 else max_speed
+            speed_limit = (
+                cur_state.speed_limit if cur_state.speed_limit and cur_state.speed_limit != 255 else speed_limit
+            )
             max_speed = min(max_speed, speed_limit)
             steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -100, 100)
             speed_to_steps = GpioHandler.make_interpolator(100, -100, 0, max_speed)
+            print(f"TMCC ID: {self._tmcc_id} max_speed={max_speed} speed_limit={speed_limit}")
             self._speed_re.update_action(speed_cmd, cur_state, steps_to_speed, speed_to_steps)
 
         # reset the quilling horn
