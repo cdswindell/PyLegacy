@@ -225,7 +225,6 @@ class PyTrain:
 
         if cmd.command not in self._xxx:
             self._xxx.add(cmd.command)
-            print(f"Received sysadmin command: {cmd}")
             if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
                 log.info("Client exiting...")
                 # send keyboard interrupt to main process to shut ii down
@@ -250,8 +249,6 @@ class PyTrain:
                 log.info(f"{'Server' if self.is_server else 'Client'} upgrading...")
                 self._force_upgrade = True
                 os.kill(os.getpid(), signal.SIGINT)
-        else:
-            print(f"Command '{cmd}' already received...")
 
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
