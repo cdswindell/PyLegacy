@@ -6,7 +6,7 @@ from multiprocessing import Pool, cpu_count
 from src.protocol.constants import DEFAULT_BASE_PORT
 
 
-def get_ip_address() -> List[str]:
+def get_ip_address(max_attempts: int = 32) -> List[str]:
     # Step 1: Get the local hostname.
     hostname = socket.gethostname()
     hostname = hostname if hostname.endswith(".local") else hostname + ".local"
@@ -14,16 +14,16 @@ def get_ip_address() -> List[str]:
     # Step 2: Get a list of IP addresses associated with the hostname
     ip_addresses = []
     attempts = 0
-    while len(ip_addresses) == 0 and attempts < 10:
+    while len(ip_addresses) == 0 and attempts <= max_attempts:
         try:
             ip_addresses = socket.gethostbyname_ex(hostname)[2]
         except socket.gaierror as ge:
             attempts += 1
-            if attempts >= 10:
+            if attempts > max_attempts:
                 raise ge
         except socket.herror as he:
             attempts += 1
-            if attempts >= 10:
+            if attempts > max_attempts:
                 raise he
 
     filtered_ips = [ip for ip in ip_addresses if not ip.startswith("127.")]
