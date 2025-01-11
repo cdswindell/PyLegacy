@@ -603,8 +603,8 @@ class GpioHandler:
         """
         Send the system shutdown command to all nodes
         """
-        cmd, shutdown_btn, led = cls.make_button(shutdown_pin, TMCC1SyncCommandDef.SHUTDOWN)
-        shutdown_btn.when_pressed = cmd.as_action()
+        cmd, shutdown_btn, led = cls.make_button(shutdown_pin, TMCC1SyncCommandDef.SHUTDOWN, hold_time=2.5)
+        shutdown_btn.when_held = cmd.as_action()
         log.info(f"System shutdown command: {cmd} will be sent to all nodes when {shutdown_btn} is pressed")
         return shutdown_btn
 

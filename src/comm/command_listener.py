@@ -479,7 +479,8 @@ class CommandDispatcher(Thread):
         """
         # noinspection PyTypeChecker
         for client, port in EnqueueProxyRequests.clients().items():
-            if (client in self._server_ips and port == self._server_port) or client == client_ip:
+            if client in self._server_ips and port == self._server_port:
+                print(f"Skipping update of {client}:{port} {command}")
                 continue
             try:
                 with self._lock:
