@@ -1509,17 +1509,10 @@ class GpioHandler:
         # create the button object we will associate an action with
         hold_time = hold_time if hold_time is not None and hold_time > 0 else 1.0
         if isinstance(pin, tuple):
-            if hold_repeat is True:
-                # noinspection PyTypeChecker
-                button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
-            else:
-                # noinspection PyTypeChecker
-                button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_time=hold_time)
+            # noinspection PyTypeChecker
+            button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
         else:
-            if hold_repeat is True:
-                button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
-            else:
-                button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_time=hold_time)
+            button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
         cls.cache_device(button)
 
         # create a LED, if asked, and tie its source to the button
