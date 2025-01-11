@@ -89,6 +89,7 @@ class PyTrain:
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
         self._force_reboot = False
+        self._force_restart = True
         self._force_update = False
         self._force_upgrade = False
         self._force_shutdown = False
@@ -212,6 +213,7 @@ class PyTrain:
             )
 
         # Start the command line processor
+        print(__file__, sys.argv)
         self.run()
 
     def __call__(self, cmd: CommandReq | PdiReq) -> None:
@@ -227,6 +229,10 @@ class PyTrain:
         elif cmd.command == TMCC1SyncCommandDef.REBOOT:
             log.info(f"{'Server' if self.is_server else 'Client'} rebooting...")
             self._force_reboot = True
+            os.kill(os.getpid(), signal.SIGINT)
+        elif cmd.command == TMCC1SyncCommandDef.RESTART:
+            log.info(f"{'Server' if self.is_server else 'Client'} restarting...")
+            self._force_restart = True
             os.kill(os.getpid(), signal.SIGINT)
         elif cmd.command == TMCC1SyncCommandDef.SHUTDOWN:
             log.info(f"{'Server' if self.is_server else 'Client'} shutting down...")
@@ -252,6 +258,12 @@ class PyTrain:
         else:
             opt = ""
         os.system(f"sudo shutdown{opt} now")
+
+    def restart(self) -> None:
+        if self.is_client:
+            # sleep for a few seconds to give the server time to catch up and restart
+            sleep(10)
+        os.execv(__file__, sys.argv)
 
     def update(self) -> None:
         if self.is_client:
@@ -309,6 +321,8 @@ class PyTrain:
                 self.upgrade()
             elif self._force_update is True:
                 self.update()
+            elif self._force_restart is True:
+                self.restart()
             elif self._force_reboot is True:
                 self.reboot()
             elif self._force_shutdown is True:
@@ -393,6 +407,15 @@ class PyTrain:
                             # if client, send command to server
                             self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.SHUTDOWN).as_bytes)
                         self._force_shutdown = True
+                        raise KeyboardInterrupt()
+                    elif args.command == "restart":
+                        # if server, signal clients to restart
+                        if self.is_server:
+                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.RESTART)
+                        else:
+                            # if client, send command to server
+                            self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.RESTART).as_bytes)
+                        self._force_restart = True
                         raise KeyboardInterrupt()
                     elif args.command == "reboot":
                         # if server, signal clients to disconnect

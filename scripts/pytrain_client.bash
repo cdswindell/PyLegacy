@@ -1,7 +1,7 @@
 #! /bin/bash
 #
 # change the following lines to define the path to where you installed PyTrain
-# as well as the IP Address of your Legacy Base 3
+# as well as the namer of the startup script to load, if any
 PYTRAIN_HOME=/home/davids/dev/PyLegacyEnv/PyLegacy
 STARTUP_SCRIPT=examples/buttons.py
 
@@ -24,9 +24,12 @@ if [ -n "$STARTUP_SCRIPT" ]; then
     START=-start
   fi
 fi
+
 # change direction to PYTRAIN_HOME
 cd $PYTRAIN_HOME
+
 # activate the virtual environment
 source ../bin/activate; export PYTHONPATH=.
+
 # run the program
-src/cli/pytrain.py -client $START $STARTUP_SCRIPT -headless
+src/cli/pytrain.py -client -headless $START $STARTUP_SCRIPT
