@@ -89,7 +89,7 @@ class PyTrain:
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
         self._force_reboot = False
-        self._force_restart = True
+        self._force_restart = False
         self._force_update = False
         self._force_upgrade = False
         self._force_shutdown = False
