@@ -311,6 +311,7 @@ class PyTrain:
         # process startup script
         if self._startup_script:
             self._script_loader = StartupScriptLoader(self)
+            self._script_loader.join()
         try:
             while True:
                 try:
