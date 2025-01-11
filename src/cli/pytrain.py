@@ -93,7 +93,7 @@ class PyTrain:
         self._force_update = False
         self._force_upgrade = False
         self._force_shutdown = False
-        self._xxx = set()
+        self._received_admin_cmds = set()
         self._script_loader: StartupScriptLoader | None = None
 
         if args.base is not None:
@@ -223,8 +223,8 @@ class PyTrain:
         if self._echo:
             log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
 
-        if cmd.command not in self._xxx:
-            self._xxx.add(cmd.command)
+        if cmd.command not in self._received_admin_cmds:
+            self._received_admin_cmds.add(cmd.command)
             if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
                 log.info("Client exiting...")
                 # send keyboard interrupt to main process to shut ii down
@@ -457,6 +457,9 @@ class PyTrain:
                     if args.command == "echo":
                         self._handle_echo(ui_parts)
                         return
+                    #
+                    # we're done with the admin/special commands, now do train stuff
+                    #
                     ui_parser = args.command.command_parser()
                     ui_parser.remove_args(["baudrate", "port", "server"])
                     # very hacky; should turn into a method to reduce complexity of this section
