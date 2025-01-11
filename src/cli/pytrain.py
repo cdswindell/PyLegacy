@@ -263,14 +263,14 @@ class PyTrain:
 
     def restart(self) -> None:
         log.info(f"{'Server' if self.is_server else 'Client'} restarting...")
-        self.rerun_exe()
+        self.relaunch()
 
     def update(self, do_inform: bool = True) -> None:
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
         os.system("git pull")
         os.system("pip install -r requirements.txt")
-        self.rerun_exe()
+        self.relaunch()
 
     def upgrade(self) -> None:
         log.info(f"{'Server' if self.is_server else 'Client'} upgrading...")
@@ -278,7 +278,7 @@ class PyTrain:
             os.system("sudo apt update; sudo apt upgrade -y")
         self.update(do_inform=False)
 
-    def rerun_exe(self):
+    def relaunch(self):
         if self.is_client:
             # sleep for a few seconds to give the server time to catch up and restart
             sleep(10)
