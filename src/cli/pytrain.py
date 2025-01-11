@@ -823,6 +823,7 @@ class StartupScriptLoader(threading.Thread):
         self.start()
 
     def run(self) -> None:
+        print("******Loading startup script...")
         self._main_proc.process_startup_script()
 
 
