@@ -630,7 +630,7 @@ class GpioHandler:
         """
         Send the system update command to all nodes
         """
-        cmd, update_btn, led = cls.make_button(update_pin, TMCC1SyncCommandDef.update, hold_time=hold_time)
+        cmd, update_btn, led = cls.make_button(update_pin, TMCC1SyncCommandDef.UPDATE, hold_time=hold_time)
         update_btn.when_held = cmd.as_action()
         return update_btn
 
