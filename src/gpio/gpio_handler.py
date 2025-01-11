@@ -599,13 +599,40 @@ class GpioHandler:
     def system_shutdown(
         cls,
         shutdown_pin: P,
+        hold_time: float = 2.5,
     ) -> Button:
         """
         Send the system shutdown command to all nodes
         """
-        cmd, shutdown_btn, led = cls.make_button(shutdown_pin, TMCC1SyncCommandDef.SHUTDOWN, hold_time=2.5)
+        cmd, shutdown_btn, led = cls.make_button(shutdown_pin, TMCC1SyncCommandDef.SHUTDOWN, hold_time=hold_time)
         shutdown_btn.when_held = cmd.as_action()
         return shutdown_btn
+
+    @classmethod
+    def system_restart(
+        cls,
+        restart_pin: P,
+        hold_time: float = 2.5,
+    ) -> Button:
+        """
+        Send the system restart command to all nodes
+        """
+        cmd, restart_btn, led = cls.make_button(restart_pin, TMCC1SyncCommandDef.RESTART, hold_time=hold_time)
+        restart_btn.when_held = cmd.as_action()
+        return restart_btn
+
+    @classmethod
+    def system_update(
+        cls,
+        update_pin: P,
+        hold_time: float = 2.5,
+    ) -> Button:
+        """
+        Send the system update command to all nodes
+        """
+        cmd, update_btn, led = cls.make_button(update_pin, TMCC1SyncCommandDef.update, hold_time=hold_time)
+        update_btn.when_held = cmd.as_action()
+        return update_btn
 
     @classmethod
     def route(
