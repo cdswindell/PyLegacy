@@ -1497,7 +1497,7 @@ class GpioHandler:
         scope: CommandScope = None,
         led_pin: P = None,
         hold_repeat: bool = False,
-        hold_time: float = None,
+        hold_time: float = 1,
         initially_on: bool = False,
         bind: bool = False,
         cathode: bool = True,
@@ -1507,6 +1507,7 @@ class GpioHandler:
             command = CommandReq.build(command, address=address, data=data, scope=scope)
 
         # create the button object we will associate an action with
+        hold_time = hold_time if hold_time is not None and hold_time > 0 else 1.0
         if isinstance(pin, tuple):
             if hold_repeat is True:
                 # noinspection PyTypeChecker
