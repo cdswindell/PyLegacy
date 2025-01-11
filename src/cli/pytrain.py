@@ -117,7 +117,7 @@ class PyTrain:
             # raise exception and exit if none found
             info = self.get_service_info()
             if info is None:
-                raise AttributeError(f"No {PROGRAM_NAME} servers found on the local network, exiting")
+                raise RuntimeError(f"No {PROGRAM_NAME} servers found on the local network, exiting")
             self._server, self._port = info
 
         # Based on the arguments, we are either connecting to an LCS Ser 2 or a named PyTrain server
@@ -593,12 +593,12 @@ class PyTrain:
         try:
             # listens for services on a background thread
             ServiceBrowser(z, [SERVICE_TYPE], handlers=[self.on_service_state_change])
-            waiting = 128
+            waiting = 256
             cursor = {0: "|", 1: "\\", 2: "-", 3: "/"}
             while waiting > 0:
                 print(f"Looking for {PROGRAM_NAME} servers {cursor[waiting % 4]}", end="\r")
                 waiting -= 1
-                if self._server_discovered.wait(0.25) is True:
+                if self._server_discovered.wait(0.5) is True:
                     for info in self._pytrain_servers:
                         is_ser2 = False
                         is_base3 = False
