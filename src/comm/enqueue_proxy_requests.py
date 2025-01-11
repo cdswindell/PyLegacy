@@ -170,6 +170,9 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(ack)
             else:
                 break
+        # we use TMCC1 syntax to pass special commands to control operating nodes
+        # if we know the command is not in TMCC1 format, don't take the overhead
+        # of the additional checks
         if byte_stream[0] in {0xFF, 0xFE}:
             from .command_listener import CommandDispatcher
 
