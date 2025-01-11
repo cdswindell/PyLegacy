@@ -768,6 +768,13 @@ class PyTrain:
             dest="command",
             help=f"Quit {PROGRAM_NAME} and reboot all nodes),",
         )
+        group.add_argument(
+            "-restart",
+            action="store_const",
+            const="restart",
+            dest="command",
+            help=f"Quit {PROGRAM_NAME} and restart on all nodes),",
+        )
         group.add_argument("-route", action="store_const", const=RouteCli, dest="command", help="Fire defined routes")
         group.add_argument(
             "-shutdown",
