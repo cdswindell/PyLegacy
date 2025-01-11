@@ -462,17 +462,13 @@ class CommandDispatcher(Thread):
     def is_filter_updates(self) -> bool:
         return self._filter_updates
 
-    def signal_client_quit(
-        self,
-        option: CommandReq | TMCC1SyncCommandDef = TMCC1SyncCommandDef.QUIT,
-        client_ip: str = None,
-    ) -> None:
+    def signal_client_quit(self, option: CommandReq | TMCC1SyncCommandDef = TMCC1SyncCommandDef.QUIT) -> None:
         if isinstance(option, TMCC1SyncCommandDef):
             option = CommandReq(option)
-        self.update_client_state(option, client_ip)
+        self.update_client_state(option)
 
     # noinspection DuplicatedCode
-    def update_client_state(self, command: CommandReq, client_ip: str = None):
+    def update_client_state(self, command: CommandReq):
         """
         Update all PyTrain clients with the dispatched command. Used to keep
         client states in sync with server

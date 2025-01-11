@@ -230,23 +230,18 @@ class PyTrain:
                 # send keyboard interrupt to main process to shut ii down
                 os.kill(os.getpid(), signal.SIGINT)
             elif cmd.command == TMCC1SyncCommandDef.REBOOT:
-                log.info(f"{'Server' if self.is_server else 'Client'} rebooting...")
                 self._force_reboot = True
                 os.kill(os.getpid(), signal.SIGINT)
             elif cmd.command == TMCC1SyncCommandDef.RESTART:
-                log.info(f"{'Server' if self.is_server else 'Client'} restarting...")
                 self._force_restart = True
                 os.kill(os.getpid(), signal.SIGINT)
             elif cmd.command == TMCC1SyncCommandDef.SHUTDOWN:
-                log.info(f"{'Server' if self.is_server else 'Client'} shutting down...")
                 self._force_shutdown = True
                 os.kill(os.getpid(), signal.SIGINT)
             elif cmd.command == TMCC1SyncCommandDef.UPDATE:
-                log.info(f"{'Server' if self.is_server else 'Client'} updating...")
                 self._force_update = True
                 os.kill(os.getpid(), signal.SIGINT)
             elif cmd.command == TMCC1SyncCommandDef.UPGRADE:
-                log.info(f"{'Server' if self.is_server else 'Client'} upgrading...")
                 self._force_upgrade = True
                 os.kill(os.getpid(), signal.SIGINT)
 
@@ -254,8 +249,12 @@ class PyTrain:
         sc = "Server" if self.is_server else "Client"
         return f"{PROGRAM_NAME} {sc} {dir(self)}>"
 
-    @staticmethod
-    def reboot(reboot: bool = True) -> None:
+    def reboot(self, reboot: bool = True) -> None:
+        if reboot is True:
+            msg = "rebooting"
+        else:
+            msg = "shutting down"
+        log.info(f"{'Server' if self.is_server else 'Client'} {msg}...")
         if reboot is True:
             opt = " -r"
         else:
@@ -263,17 +262,21 @@ class PyTrain:
         os.system(f"sudo shutdown{opt} now")
 
     def restart(self) -> None:
+        log.info(f"{'Server' if self.is_server else 'Client'} restarting...")
         self.rerun_exe()
 
-    def update(self) -> None:
+    def update(self, do_inform: bool = True) -> None:
+        if do_inform:
+            log.info(f"{'Server' if self.is_server else 'Client'} updating...")
         os.system("git pull")
         os.system("pip install -r requirements.txt")
         self.rerun_exe()
 
     def upgrade(self) -> None:
+        log.info(f"{'Server' if self.is_server else 'Client'} upgrading...")
         if sys.platform == "linux":
             os.system("sudo apt update; sudo apt upgrade -y")
-        self.update()
+        self.update(do_inform=False)
 
     def rerun_exe(self):
         if self.is_client:
