@@ -223,8 +223,8 @@ class PyTrain:
         if self._echo:
             log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
 
-        if cmd not in self._xxx:
-            self._xxx.add(cmd)
+        if cmd.command not in self._xxx:
+            self._xxx.add(cmd.command)
             if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
                 log.info("Server exiting...")
                 # send keyboard interrupt to main process to shut ii down
@@ -250,7 +250,7 @@ class PyTrain:
                 self._force_upgrade = True
                 os.kill(os.getpid(), signal.SIGINT)
         else:
-            print(f"Command '{cmd}' duplicated.")
+            print(f"Command '{cmd}' already received...")
 
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
