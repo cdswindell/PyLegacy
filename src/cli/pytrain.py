@@ -225,8 +225,9 @@ class PyTrain:
 
         if cmd.command not in self._xxx:
             self._xxx.add(cmd.command)
+            print(f"Received sysadmin command: {cmd}")
             if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
-                log.info("Server exiting...")
+                log.info("Client exiting...")
                 # send keyboard interrupt to main process to shut ii down
                 os.kill(os.getpid(), signal.SIGINT)
             elif cmd.command == TMCC1SyncCommandDef.REBOOT:
