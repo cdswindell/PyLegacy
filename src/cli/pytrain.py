@@ -213,7 +213,6 @@ class PyTrain:
             )
 
         # Start the command line processor
-        print(__file__, sys.argv)
         self.run()
 
     def __call__(self, cmd: CommandReq | PdiReq) -> None:
@@ -260,23 +259,32 @@ class PyTrain:
         os.system(f"sudo shutdown{opt} now")
 
     def restart(self) -> None:
-        if self.is_client:
-            # sleep for a few seconds to give the server time to catch up and restart
-            sleep(10)
-        os.execv(__file__, sys.argv)
+        self.rerun_exe()
 
     def update(self) -> None:
-        if self.is_client:
-            # sleep for a few seconds to give the server time to catch up and restart
-            sleep(10)
         os.system("git pull")
         os.system("pip install -r requirements.txt")
-        os.execv(__file__, sys.argv)
+        self.rerun_exe()
 
     def upgrade(self) -> None:
         if sys.platform == "linux":
             os.system("sudo apt update; sudo apt upgrade -y")
         self.update()
+
+    def rerun_exe(self):
+        if self.is_client:
+            # sleep for a few seconds to give the server time to catch up and restart
+            sleep(10)
+        # are we a service or run from the commandline?
+        if "-headless" in sys.argv:
+            # restart service
+            if self.is_client:
+                os.system("sudo systemctl restart pytrain_client.service")
+            elif self.is_server:
+                os.system("sudo systemctl restart pytrain_server.service")
+        else:
+            # rerun commandline pgm
+            os.execv(__file__, sys.argv)
 
     @property
     def is_server(self) -> bool:
