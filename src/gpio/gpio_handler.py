@@ -26,6 +26,7 @@ from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandDef,
     TMCC1EngineCommandDef,
     TMCC1RouteCommandDef,
+    TMCC1SyncCommandDef,
 )
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from ..utils.ip_tools import find_base_address
@@ -593,6 +594,17 @@ class GpioHandler:
         power_led.value = 1
         cls.cache_device(power_led)
         return power_led
+
+    @classmethod
+    def system_shutdown(
+        cls,
+        shutdown_pin: P,
+    ) -> Button:
+        """
+        Send the system shutdown command to all nodes
+        """
+        shutdown_btn = cls.make_button(shutdown_pin, TMCC1SyncCommandDef.SHUTDOWN)
+        return shutdown_btn
 
     @classmethod
     def route(
