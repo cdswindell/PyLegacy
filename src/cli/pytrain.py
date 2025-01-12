@@ -131,6 +131,7 @@ class PyTrain:
             if info is None:
                 raise RuntimeError(f"No {PROGRAM_NAME} servers found on the local network, exiting")
             self._server, self._port = info
+            self._server_ips = {self._server}
 
         # Based on the arguments, we are either connecting to an LCS Ser 2 or a named PyTrain server
         self._tmcc_buffer = CommBuffer.build(
@@ -225,6 +226,7 @@ class PyTrain:
                 self._args.server_port,
             )
 
+        print(f"Server IP(s): {self._server_ips}")
         # Start the command line processor
         self.run()
 
@@ -451,7 +453,7 @@ class PyTrain:
     def do_admin_cmd(self, command: CommandDefEnum, args: List[str] = None):
         cmd = CommandReq(command)
         self._admin_action = command
-        if args:
+        if args and args[0] not in self._server_ips:
             CommandDispatcher.get().signal_client(cmd, client=args[0])
             return
         # if server, signal clients
