@@ -40,6 +40,7 @@ from src.pdi.constants import PdiCommand, PDI_SOP
 from src.pdi.pdi_listener import PdiListener
 from src.pdi.pdi_req import PdiReq, AllReq
 from src.pdi.pdi_state_store import PdiStateStore
+from src.protocol.command_def import CommandDefEnum
 from src.protocol.command_req import CommandReq
 from src.protocol.constants import (
     BROADCAST_TOPIC,
@@ -56,6 +57,15 @@ from src.utils.dual_logging import set_up_logging
 from src.utils.ip_tools import get_ip_address, find_base_address
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
+
+ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
+    "update": TMCC1SyncCommandDef.UPDATE,
+    "upgrade": TMCC1SyncCommandDef.UPGRADE,
+    "restart": TMCC1SyncCommandDef.RESTART,
+    "reboot": TMCC1SyncCommandDef.REBOOT,
+    "shutdown": TMCC1SyncCommandDef.SHUTDOWN,
+}
+ACTION_TO_ADMIN_COMMAND_MAP: Dict[CommandDefEnum, str] = {v: k for k, v in ADMIN_COMMAND_TO_ACTION_MAP.items()}
 
 
 class ServiceListener:
@@ -95,7 +105,8 @@ class PyTrain:
         self._force_shutdown = False
         self._received_admin_cmds = set()
         self._script_loader: StartupScriptLoader | None = None
-        self._admin_cmds = {"reboot", "restart", "update", "upgrade", "shutdown"}
+        self._server_ips = None
+        self._admin_action: CommandDefEnum | None = None
 
         if args.base is not None:
             if isinstance(args.base, list) and len(args.base):
@@ -224,26 +235,17 @@ class PyTrain:
         if self._echo:
             log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
 
-        if cmd.command not in self._received_admin_cmds:
-            self._received_admin_cmds.add(cmd.command)
-            if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
-                log.info("Client exiting...")
-                # send keyboard interrupt to main process to shut ii down
-                os.kill(os.getpid(), signal.SIGINT)
-            elif cmd.command == TMCC1SyncCommandDef.REBOOT:
-                self._force_reboot = True
-                os.kill(os.getpid(), signal.SIGINT)
-            elif cmd.command == TMCC1SyncCommandDef.RESTART:
-                self._force_restart = True
-                os.kill(os.getpid(), signal.SIGINT)
-            elif cmd.command == TMCC1SyncCommandDef.SHUTDOWN:
-                self._force_shutdown = True
-                os.kill(os.getpid(), signal.SIGINT)
-            elif cmd.command == TMCC1SyncCommandDef.UPDATE:
-                self._force_update = True
-                os.kill(os.getpid(), signal.SIGINT)
-            elif cmd.command == TMCC1SyncCommandDef.UPGRADE:
-                self._force_upgrade = True
+        if cmd.command in ACTION_TO_ADMIN_COMMAND_MAP:
+            if cmd.command not in self._received_admin_cmds:
+                self._received_admin_cmds.add(cmd.command)
+                if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
+                    log.info("Client exiting...")
+                    # send keyboard interrupt to main process to shut ii down
+                    os.kill(os.getpid(), signal.SIGINT)
+                # record the admin command and send the interrupt signal
+                # this will interrupt the comment prompt loop and call
+                # the appropriate handler
+                self._admin_action = cmd
                 os.kill(os.getpid(), signal.SIGINT)
 
     def __repr__(self) -> str:
@@ -334,16 +336,17 @@ class PyTrain:
             if self._service_info and self._zeroconf:
                 self._zeroconf.unregister_service(self._service_info)
                 self._zeroconf.close()
-            if self._force_upgrade is True:
-                self.upgrade()
-            elif self._force_update is True:
-                self.update()
-            elif self._force_restart is True:
-                self.restart()
-            elif self._force_reboot is True:
-                self.reboot()
-            elif self._force_shutdown is True:
-                self.reboot(reboot=False)
+            if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
+                if self._admin_action == TMCC1SyncCommandDef.UPGRADE:
+                    self.upgrade()
+                elif self._admin_action == TMCC1SyncCommandDef.UPDATE:
+                    self.update()
+                elif self._admin_action == TMCC1SyncCommandDef.RESTART:
+                    self.restart()
+                elif self._admin_action == TMCC1SyncCommandDef.REBOOT:
+                    self.reboot()
+                elif self._admin_action == TMCC1SyncCommandDef.SHUTDOWN:
+                    self.reboot(reboot=False)
 
     def shutdown(self):
         try:
@@ -398,8 +401,8 @@ class PyTrain:
                             CommandDispatcher.get().signal_client()
                         # if client quits, remaining nodes continue to run
                         raise KeyboardInterrupt()
-                    elif args.command in self._admin_cmds:
-                        self.do_admin_cmd(args.command, ui_parts[1:])
+                    elif args.command in ADMIN_COMMAND_TO_ACTION_MAP:
+                        self.do_admin_cmd(ADMIN_COMMAND_TO_ACTION_MAP.get(args.command), ui_parts[1:])
                         return
                     elif args.command == "help":
                         self._command_parser().parse_args(["-help"])
@@ -445,70 +448,19 @@ class PyTrain:
                 except argparse.ArgumentError as e:
                     log.warning(e)
 
-    def do_admin_cmd(self, command, args):
-        if command == "update":
-            cmd = CommandReq(TMCC1SyncCommandDef.UPDATE)
-            if args:
-                CommandDispatcher.get().signal_client(cmd, client=args[0])
-                return
-            # if server, signal clients to disconnect
-            elif self.is_server:
-                CommandDispatcher.get().signal_client(cmd)
-            else:
-                # if client, send command to server
-                self._tmcc_buffer.enqueue_command(cmd.as_bytes)
-            self._force_update = True
-            raise KeyboardInterrupt()
-        elif command == "upgrade":
-            cmd = CommandReq(TMCC1SyncCommandDef.UPGRADE)
-            if args:
-                CommandDispatcher.get().signal_client(cmd, client=args[0])
-                return
-            # if server, signal clients to disconnect
-            elif self.is_server:
-                CommandDispatcher.get().signal_client(cmd)
-            else:
-                # if client, send command to server
-                self._tmcc_buffer.enqueue_command(cmd.as_bytes)
-            self._force_update = True
-            raise KeyboardInterrupt()
-        elif command == "shutdown":
-            cmd = CommandReq(TMCC1SyncCommandDef.SHUTDOWN)
-            if args:
-                CommandDispatcher.get().signal_client(cmd, client=args[0])
-                return
-            # if server, signal clients to disconnect
-            elif self.is_server:
-                CommandDispatcher.get().signal_client(cmd)
-            else:
-                # if client, send command to server
-                self._tmcc_buffer.enqueue_command(cmd.as_bytes)
-            self._force_shutdown = True
-            raise KeyboardInterrupt()
-        elif command == "restart":
-            cmd = CommandReq(TMCC1SyncCommandDef.RESTART)
-            if args:
-                CommandDispatcher.get().signal_client(cmd, client=args[0])
-                return
-            # if server, signal clients to restart
-            elif self.is_server:
-                CommandDispatcher.get().signal_client(cmd)
-            else:
-                # if client, send command to server
-                self._tmcc_buffer.enqueue_command(cmd.as_bytes)
-            self._force_restart = True
-            raise KeyboardInterrupt()
-        elif command == "reboot":
-            cmd = CommandReq(TMCC1SyncCommandDef.REBOOT)
-            if args:
-                CommandDispatcher.get().signal_client(cmd, client=args[0])
-                return
-            # if server, signal clients to disconnect
-            elif self.is_server:
-                CommandDispatcher.get().signal_client(cmd)
-            # if client reboots, remaining nodes continue to run
-            self._force_reboot = True
-            raise KeyboardInterrupt()
+    def do_admin_cmd(self, command: CommandDefEnum, args: List[str] = None):
+        cmd = CommandReq(command)
+        self._admin_action = command
+        if args:
+            CommandDispatcher.get().signal_client(cmd, client=args[0])
+            return
+        # if server, signal clients
+        elif self.is_server:
+            CommandDispatcher.get().signal_client(cmd)
+        else:
+            # if client, send command to server
+            self._tmcc_buffer.enqueue_command(cmd.as_bytes)
+        raise KeyboardInterrupt()
 
     def _get_system_state(self):
         self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
@@ -589,7 +541,7 @@ class PyTrain:
             "Ser2": "1" if ser2 is True else "0",
             "Base3": "1" if base3 is True else "0",
         }
-        server_ips = get_ip_address()
+        self._server_ips = server_ips = get_ip_address()
         hostname = socket.gethostname()
         hostname = hostname if hostname.endswith(".local") else hostname + ".local"
 
