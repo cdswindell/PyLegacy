@@ -95,6 +95,7 @@ class PyTrain:
         self._force_shutdown = False
         self._received_admin_cmds = set()
         self._script_loader: StartupScriptLoader | None = None
+        self._admin_cmds = {"reboot", "restart", "update", "upgrade", "shutdown"}
 
         if args.base is not None:
             if isinstance(args.base, list) and len(args.base):
@@ -397,49 +398,9 @@ class PyTrain:
                             CommandDispatcher.get().signal_client()
                         # if client quits, remaining nodes continue to run
                         raise KeyboardInterrupt()
-                    elif args.command == "update":
-                        # if server, signal clients to disconnect
-                        if self.is_server:
-                            CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.UPDATE)
-                        else:
-                            # if client, send command to server
-                            self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.UPDATE).as_bytes)
-                        self._force_update = True
-                        raise KeyboardInterrupt()
-                    elif args.command == "upgrade":
-                        # if server, signal clients to disconnect
-                        if self.is_server:
-                            CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.UPGRADE)
-                        else:
-                            # if client, send command to server
-                            self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.UPGRADE).as_bytes)
-                        self._force_update = True
-                        raise KeyboardInterrupt()
-                    elif args.command == "shutdown":
-                        # if server, signal clients to disconnect
-                        if self.is_server:
-                            CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.SHUTDOWN)
-                        else:
-                            # if client, send command to server
-                            self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.SHUTDOWN).as_bytes)
-                        self._force_shutdown = True
-                        raise KeyboardInterrupt()
-                    elif args.command == "restart":
-                        # if server, signal clients to restart
-                        if self.is_server:
-                            CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.RESTART)
-                        else:
-                            # if client, send command to server
-                            self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.RESTART).as_bytes)
-                        self._force_restart = True
-                        raise KeyboardInterrupt()
-                    elif args.command == "reboot":
-                        # if server, signal clients to disconnect
-                        if self.is_server:
-                            CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.REBOOT)
-                        # if client reboots, remaining nodes continue to run
-                        self._force_reboot = True
-                        raise KeyboardInterrupt()
+                    elif args.command in self._admin_cmds:
+                        self.do_admin_cmd(args.command, ui_parts[1:])
+                        return
                     elif args.command == "help":
                         self._command_parser().parse_args(["-help"])
                     if args.command == "db":
@@ -818,6 +779,55 @@ class PyTrain:
             help=f"Quit {PROGRAM_NAME}, upgrade the OS on all nodes, and update to latest release),",
         )
         return command_parser
+
+    def do_admin_cmd(self, command, args):
+        if command == "update":
+            cmd = CommandReq(TMCC1SyncCommandDef.UPDATE)
+            if args:
+                CommandDispatcher.get().signal_client(cmd, client=args[0])
+                return
+            # if server, signal clients to disconnect
+            elif self.is_server:
+                CommandDispatcher.get().signal_client(cmd)
+            else:
+                # if client, send command to server
+                self._tmcc_buffer.enqueue_command(cmd.as_bytes)
+            self._force_update = True
+            raise KeyboardInterrupt()
+        elif command == "upgrade":
+            # if server, signal clients to disconnect
+            if self.is_server:
+                CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.UPGRADE)
+            else:
+                # if client, send command to server
+                self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.UPGRADE).as_bytes)
+            self._force_update = True
+            raise KeyboardInterrupt()
+        elif command == "shutdown":
+            # if server, signal clients to disconnect
+            if self.is_server:
+                CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.SHUTDOWN)
+            else:
+                # if client, send command to server
+                self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.SHUTDOWN).as_bytes)
+            self._force_shutdown = True
+            raise KeyboardInterrupt()
+        elif command == "restart":
+            # if server, signal clients to restart
+            if self.is_server:
+                CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.RESTART)
+            else:
+                # if client, send command to server
+                self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.RESTART).as_bytes)
+            self._force_restart = True
+            raise KeyboardInterrupt()
+        elif command == "reboot":
+            # if server, signal clients to disconnect
+            if self.is_server:
+                CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.REBOOT)
+            # if client reboots, remaining nodes continue to run
+            self._force_reboot = True
+            raise KeyboardInterrupt()
 
 
 class StartupScriptLoader(threading.Thread):

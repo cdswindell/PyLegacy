@@ -485,7 +485,8 @@ class CommandDispatcher(Thread):
             if port is None:
                 port = DEFAULT_SERVER_PORT
             clients = {client: port}
-        for client, port in clients:
+        # noinspection PyTypeChecker
+        for client, port in clients.items():
             if client in self._server_ips and port == self._server_port:
                 print(f"Skipping update of {client}:{port} {command}")
                 continue
