@@ -245,7 +245,7 @@ class PyTrain:
                 # record the admin command and send the interrupt signal
                 # this will interrupt the comment prompt loop and call
                 # the appropriate handler
-                self._admin_action = cmd
+                self._admin_action = cmd.command
                 os.kill(os.getpid(), signal.SIGINT)
 
     def __repr__(self) -> str:
