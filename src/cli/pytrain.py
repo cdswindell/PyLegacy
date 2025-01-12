@@ -394,13 +394,13 @@ class PyTrain:
                     if args.command == "quit":
                         # if server, signal clients to disconnect
                         if self.is_server:
-                            CommandDispatcher.get().signal_client_quit()
+                            CommandDispatcher.get().signal_client()
                         # if client quits, remaining nodes continue to run
                         raise KeyboardInterrupt()
                     elif args.command == "update":
                         # if server, signal clients to disconnect
                         if self.is_server:
-                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.UPDATE)
+                            CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.UPDATE)
                         else:
                             # if client, send command to server
                             self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.UPDATE).as_bytes)
@@ -409,7 +409,7 @@ class PyTrain:
                     elif args.command == "upgrade":
                         # if server, signal clients to disconnect
                         if self.is_server:
-                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.UPGRADE)
+                            CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.UPGRADE)
                         else:
                             # if client, send command to server
                             self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.UPGRADE).as_bytes)
@@ -418,7 +418,7 @@ class PyTrain:
                     elif args.command == "shutdown":
                         # if server, signal clients to disconnect
                         if self.is_server:
-                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.SHUTDOWN)
+                            CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.SHUTDOWN)
                         else:
                             # if client, send command to server
                             self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.SHUTDOWN).as_bytes)
@@ -427,7 +427,7 @@ class PyTrain:
                     elif args.command == "restart":
                         # if server, signal clients to restart
                         if self.is_server:
-                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.RESTART)
+                            CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.RESTART)
                         else:
                             # if client, send command to server
                             self._tmcc_buffer.enqueue_command(CommandReq(TMCC1SyncCommandDef.RESTART).as_bytes)
@@ -436,7 +436,7 @@ class PyTrain:
                     elif args.command == "reboot":
                         # if server, signal clients to disconnect
                         if self.is_server:
-                            CommandDispatcher.get().signal_client_quit(TMCC1SyncCommandDef.REBOOT)
+                            CommandDispatcher.get().signal_client(TMCC1SyncCommandDef.REBOOT)
                         # if client reboots, remaining nodes continue to run
                         self._force_reboot = True
                         raise KeyboardInterrupt()

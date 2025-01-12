@@ -18,6 +18,7 @@ from ..protocol.constants import (
     DEFAULT_QUEUE_SIZE,
     DEFAULT_VALID_BAUDRATES,
     CommandScope,
+    DEFAULT_SERVER_PORT,
 )
 from ..protocol.multybyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
@@ -462,19 +463,29 @@ class CommandDispatcher(Thread):
     def is_filter_updates(self) -> bool:
         return self._filter_updates
 
-    def signal_client_quit(self, option: CommandReq | TMCC1SyncCommandDef = TMCC1SyncCommandDef.QUIT) -> None:
+    def signal_client(
+        self,
+        option: CommandReq | TMCC1SyncCommandDef = TMCC1SyncCommandDef.QUIT,
+        client: str = None,
+        port: int = None,
+    ) -> None:
         if isinstance(option, TMCC1SyncCommandDef):
             option = CommandReq(option)
-        self.update_client_state(option)
+        self.update_client_state(option, client=client, port=port)
 
     # noinspection DuplicatedCode
-    def update_client_state(self, command: CommandReq):
+    def update_client_state(self, command: CommandReq, client: str = None, port: int = None):
         """
         Update all PyTrain clients with the dispatched command. Used to keep
         client states in sync with server
         """
-        # noinspection PyTypeChecker
-        for client, port in EnqueueProxyRequests.clients().items():
+        if client is None:
+            clients = EnqueueProxyRequests.clients()
+        else:
+            if port is None:
+                port = DEFAULT_SERVER_PORT
+            clients = {client: port}
+        for client, port in clients:
             if client in self._server_ips and port == self._server_port:
                 print(f"Skipping update of {client}:{port} {command}")
                 continue

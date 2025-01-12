@@ -203,7 +203,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 SHUTDOWN_REQUEST,
             } and EnqueueProxyRequests.is_known_client(self.client_address[0]):
                 cmd = CommandReq.from_bytes(byte_stream)
-                CommandDispatcher.get().signal_client_quit(cmd)
+                CommandDispatcher.get().signal_client(cmd)
                 CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
                 return
         EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
