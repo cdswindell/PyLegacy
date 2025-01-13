@@ -114,6 +114,9 @@ Enable I2C
 Disable Serial Port
 Disable Camera Auto detect
 Disable Audio
+Disable Mail
+Disable Bluetooth
+Disable rpicam-apps
 ```
 
 ## Licensing

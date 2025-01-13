@@ -98,6 +98,7 @@ class PyTrain:
         self._server_discovered = threading.Event()
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
+        self._alexa = args.alexa
         self._force_reboot = False
         self._force_restart = False
         self._force_update = False
@@ -263,6 +264,10 @@ class PyTrain:
     @property
     def is_client(self) -> bool:
         return not self.is_server
+
+    @property
+    def is_alexa(self) -> bool:
+        return self._alexa
 
     @property
     def buffer(self) -> CommBuffer:
@@ -851,6 +856,7 @@ if __name__ == "__main__":
     parser.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
     parser.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
     parser.add_argument("-client", action="store_true", help=f"Connect to an available {PROGRAM_NAME} server")
+    parser.add_argument("-alexa", action="store_true", help=f"Enable {PROGRAM_NAME} Alexa support")
     parser.add_argument(
         "-server_port",
         type=int,
