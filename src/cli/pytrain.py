@@ -182,20 +182,19 @@ class PyTrain:
         )
         if self._args.echo:
             self.enable_echo()
-        if self._args.no_listeners is True:
-            print("Ignoring events...")
-        else:
-            print("Registering listeners...")
-            self._state_store.listen_for(CommandScope.ENGINE)
-            self._state_store.listen_for(CommandScope.TRAIN)
-            self._state_store.listen_for(CommandScope.SWITCH)
-            self._state_store.listen_for(CommandScope.ACC)
-            self._state_store.listen_for(CommandScope.IRDA)
-            self._state_store.listen_for(CommandScope.BASE)
-            self._state_store.listen_for(CommandScope.SYNC)
-            # Subscribe this instance of PyTrain to sync updates so we can receive
-            # Update and Reboot command directives from clients
-            self._tmcc_listener.subscribe(self, CommandScope.SYNC)
+
+        print("Registering listeners...")
+        self._state_store.listen_for(CommandScope.ENGINE)
+        self._state_store.listen_for(CommandScope.TRAIN)
+        self._state_store.listen_for(CommandScope.SWITCH)
+        self._state_store.listen_for(CommandScope.ACC)
+        self._state_store.listen_for(CommandScope.IRDA)
+        self._state_store.listen_for(CommandScope.BASE)
+        self._state_store.listen_for(CommandScope.SYNC)
+
+        # Subscribe this instance of PyTrain to sync updates so we can receive
+        # Update and Reboot command directives from clients
+        self._tmcc_listener.subscribe(self, CommandScope.SYNC)
 
         # load roster
         if self._pdi_buffer is not None:
@@ -829,7 +828,6 @@ if __name__ == "__main__":
     parser.add_argument("-base", nargs="*", type=str, help="IP Address of Lionel Base 2/3")
     parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
     parser.add_argument("-headless", action="store_true", help="Do not prompt for user input (run in the background)")
-    parser.add_argument("-no_listeners", action="store_true", help="Do not listen for events")
     parser.add_argument("-no_ser2", action="store_true", help="Do not send or receive TMCC commands from an LCS Ser2")
     parser.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
     parser.add_argument("-client", action="store_true", help=f"Connect to an available {PROGRAM_NAME} server")
