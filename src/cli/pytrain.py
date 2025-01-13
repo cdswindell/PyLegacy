@@ -178,7 +178,7 @@ class PyTrain:
             listeners.append(self._tmcc_listener)
             print(f"Listening for state updates on port {self._tmcc_listener.port}...")
         # register listeners
-        self._is_ser2 = args.no_ser2 is False
+        self._is_ser2 = args.ser2 is True
         self._is_base = self._base_addr is not None
         self._state_store: ComponentStateStore = ComponentStateStore(
             listeners=tuple(listeners),
