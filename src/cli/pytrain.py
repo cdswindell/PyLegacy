@@ -463,9 +463,10 @@ class PyTrain:
         if args and args[0] == "me" and self.is_client:
             # Command will execute only on this node
             if self._port != self._tmcc_listener.port:
-                print(f"{self._port} {self._tmcc_listener.port} ")
+                print(f"Sending {command.name} request to port: {self._port} on this system...")
                 CommandDispatcher.get().signal_client(cmd, client="", port=self._port)
                 self._admin_action = None
+                return
             pass
         elif self.is_server:
             # if server, signal all clients as well as the server
