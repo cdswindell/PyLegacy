@@ -108,6 +108,7 @@ class PyTrain:
         self._script_loader: StartupScriptLoader | None = None
         self._server_ips = None
         self._admin_action: CommandDefEnum | None = None
+        self._base_addr = self._base_port = None
         self._started_at = timer()
 
         #
