@@ -60,6 +60,7 @@ from src.utils.ip_tools import get_ip_address, find_base_address
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 
 ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
+    "quit": TMCC1SyncCommandDef.QUIT,
     "update": TMCC1SyncCommandDef.UPDATE,
     "upgrade": TMCC1SyncCommandDef.UPGRADE,
     "restart": TMCC1SyncCommandDef.RESTART,
@@ -247,8 +248,6 @@ class PyTrain:
                 self._received_admin_cmds.add(cmd.command)
                 if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
                     log.info("Client exiting...")
-                    # send keyboard interrupt to main process to shut ii down
-                    os.kill(os.getpid(), signal.SIGINT)
                 # record the admin command and send the interrupt signal
                 # this will interrupt the comment prompt loop and call
                 # the appropriate handler
