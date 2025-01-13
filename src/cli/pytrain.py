@@ -450,15 +450,29 @@ class PyTrain:
 
     def do_admin_cmd(self, command: CommandDefEnum, args: List[str] = None):
         cmd = CommandReq(command)
-        self._admin_action = command
-        if args and args[0] not in self._server_ips:
+        # special case to see if we want to operate on a different client node
+        if args and args[0] not in self._server_ips and args[0] != "me":
+            # point to point; command will execute on the specified node
+            print(f"Sending {command.name} request to {args[0]}...")
             CommandDispatcher.get().signal_client(cmd, client=args[0])
             return
-        # if server, signal clients
+
+        # exit pytrain, signalling the exit behavior by setting
+        # self._admin_action to the requested operation
+        self._admin_action = command
+        if args and args[0] == "me" and self.is_client:
+            # Command will execute only on this node
+            if self._port != self._tmcc_listener.port:
+                print(f"{self._port} {self._tmcc_listener.port} ")
+                CommandDispatcher.get().signal_client(cmd, client="", port=self._port)
+                self._admin_action = None
+            pass
         elif self.is_server:
+            # if server, signal all clients as well as the server
             CommandDispatcher.get().signal_client(cmd)
         else:
-            # if client, send command to server
+            # send command to server, it will send it to all clients
+            # then will execute it on the server itself
             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
         raise KeyboardInterrupt()
 
