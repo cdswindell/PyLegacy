@@ -181,7 +181,7 @@ class PyTrain:
             is_ser2=self._is_ser2,
         )
         if self._args.echo:
-            self.enable_echo()
+            self._enable_echo()
 
         print("Registering listeners...")
         self._state_store.listen_for(CommandScope.ENGINE)
@@ -251,50 +251,6 @@ class PyTrain:
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
         return f"{PROGRAM_NAME} {sc} {dir(self)}>"
-
-    def reboot(self, reboot: bool = True) -> None:
-        if reboot is True:
-            msg = "rebooting"
-        else:
-            msg = "shutting down"
-        log.info(f"{'Server' if self.is_server else 'Client'} {msg}...")
-        if reboot is True:
-            opt = " -r"
-        else:
-            opt = ""
-        os.system(f"sudo shutdown{opt} now")
-
-    def restart(self) -> None:
-        log.info(f"{'Server' if self.is_server else 'Client'} restarting...")
-        self.relaunch()
-
-    def update(self, do_inform: bool = True) -> None:
-        if do_inform:
-            log.info(f"{'Server' if self.is_server else 'Client'} updating...")
-        os.system("git pull")
-        os.system("pip install -r requirements.txt")
-        self.relaunch()
-
-    def upgrade(self) -> None:
-        log.info(f"{'Server' if self.is_server else 'Client'} upgrading...")
-        if sys.platform == "linux":
-            os.system("sudo apt update; sudo apt upgrade -y")
-        self.update(do_inform=False)
-
-    def relaunch(self):
-        if self.is_client:
-            # sleep for a few seconds to give the server time to catch up and restart
-            sleep(10)
-        # are we a service or run from the commandline?
-        if "-headless" in sys.argv:
-            # restart service
-            if self.is_client:
-                os.system("sudo systemctl restart pytrain_client.service")
-            elif self.is_server:
-                os.system("sudo systemctl restart pytrain_server.service")
-        else:
-            # rerun commandline pgm
-            os.execv(__file__, sys.argv)
 
     @property
     def is_server(self) -> bool:
@@ -375,79 +331,6 @@ class PyTrain:
         except Exception as e:
             log.warning(f"Error closing GPIO, continuing shutdown: {e}")
 
-    def _handle_command(self, ui: str) -> None:
-        """
-        Parse the user's input, reusing the individual CLI command parsers.
-        If a valid command is specified, send it to the Lionel LCS SER2.
-        """
-        if ui is None:
-            return
-        ui = ui.lower().strip()
-        if ui:
-            # show help, if user enters '?'
-            if ui == "?":
-                ui = "h"
-            # the argparse library requires the argument string to be presented as a list
-            ui_parts = ui.split()
-            if ui_parts[0]:
-                # parse the first token
-                try:
-                    # if the keyboard input starts with a valid command, args.command
-                    # is set to the corresponding CLI command class, or the verb 'quit'
-                    args = self._command_parser().parse_args(["-" + ui_parts[0]])
-                    if args.command == "quit":
-                        # if server, signal clients to disconnect
-                        if self.is_server:
-                            CommandDispatcher.get().signal_client()
-                        # if client quits, remaining nodes continue to run
-                        raise KeyboardInterrupt()
-                    elif args.command in ADMIN_COMMAND_TO_ACTION_MAP:
-                        self.do_admin_cmd(ADMIN_COMMAND_TO_ACTION_MAP.get(args.command), ui_parts[1:])
-                        return
-                    elif args.command == "help":
-                        self._command_parser().parse_args(["-help"])
-                    if args.command == "db":
-                        self._query_status(ui_parts[1:])
-                        return
-                    if args.command == "decode":
-                        self._decode_command(ui_parts[1:])
-                        return
-                    if args.command == "pdi":
-                        try:
-                            self._do_pdi(ui_parts[1:])
-                        except Exception as e:
-                            log.warning(e)
-                        return
-                    if args.command == "echo":
-                        self._handle_echo(ui_parts)
-                        return
-                    #
-                    # we're done with the admin/special commands, now do train stuff
-                    #
-                    ui_parser = args.command.command_parser()
-                    ui_parser.remove_args(["baudrate", "port", "server"])
-                    # very hacky; should turn into a method to reduce complexity of this section
-                    # if the user entered "tr....", treat this as a train command
-                    # normally, this is done by adding the "-train" token after the tmcc_id but
-                    # before any subparsers
-                    if "train".startswith(ui_parts[0].strip().lower()) and len(ui_parts) > 2:
-                        has_train_arg = False
-                        for token in ui_parts[2:]:
-                            if token.startswith("-"):
-                                if "-train".startswith(token.lower()):
-                                    has_train_arg = True
-                                    break
-                            else:
-                                break  # we're into a subparser
-                        if has_train_arg is False:
-                            ui_parts.insert(2, "-train")
-                    cli_cmd = args.command(ui_parser, ui_parts[1:], False)
-                    if cli_cmd.command is None:
-                        raise argparse.ArgumentError(None, f"'{ui}' is not a valid command")
-                    cli_cmd.send()
-                except argparse.ArgumentError as e:
-                    log.warning(e)
-
     def do_admin_cmd(self, command: CommandDefEnum, args: List[str] = None):
         cmd = CommandReq(command)
         # special case to see if we want to operate on a different client node
@@ -477,77 +360,65 @@ class PyTrain:
             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
         raise KeyboardInterrupt()
 
-    def _get_system_state(self):
-        self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
-
-    def process_startup_script(self) -> None:
-        if self._startup_script is not None:
-            if os.path.isfile(self._startup_script):
-                print(f"Loading startup script: {self._startup_script}...")
-                with open(self._startup_script, mode="r", encoding="utf-8") as script:
-                    code = script.read()
-                    try:
-                        exec(code)
-                        print("Buttons registered...")
-                    except Exception as e:
-                        log.error(f"Problem loading startup script {self._startup_script} (see logs)")
-                        log.exception(e)
-            elif self._startup_script != DEFAULT_SCRIPT_FILE:
-                log.warning(f"Startup script file {self._startup_script} not found, continuing...")
-
-    def _query_status(self, param) -> None:
+    @staticmethod
+    def decode_command(param: List[str]) -> None:
         try:
-            if len(param) >= 1:
-                scope = CommandScope.by_prefix(param[0])
-                if scope is not None:
-                    if len(param) > 1:
-                        address = int(param[1])
-                        state = self._state_store.query(scope, address)
-                        if state is not None:
-                            print(state)
-                            return
-                    elif scope in self._state_store:
-                        for state in self._state_store.get_all(scope):
-                            print(state)
-                        return
+            param = "".join(param).lower().strip()
+            if param.startswith("0x"):
+                param = param[2:]
+            param = param.replace(":", "")
+            byte_str = bytes.fromhex(param)
+            if byte_str and byte_str[0] == PDI_SOP:
+                cmd = PdiReq.from_bytes(byte_str)
             else:
-                keys = self._state_store.keys()
-                if keys:
-                    for key in keys:
-                        if key in {CommandScope.BASE, CommandScope.SYNC}:
-                            continue
-                        num = len(self._state_store.keys(key))
-                        print(f"{key.label}s: {num}")
-                    return
-            print("No data")
+                cmd = CommandReq.from_bytes(byte_str)
+            print(f"0x{byte_str.hex()} --> {cmd}")
         except Exception as e:
-            log.exception(e)
+            log.info(e)
 
-    def _handle_echo(self, ui_parts: List[str] = None):
-        if ui_parts is None:
-            ui_parts = ["echo"]
-        if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == "on"):
-            if self._echo is False:
-                self.enable_echo()
+    def reboot(self, reboot: bool = True) -> None:
+        if reboot is True:
+            msg = "rebooting"
         else:
-            if self._echo is True:
-                self.disable_echo()
+            msg = "shutting down"
+        log.info(f"{'Server' if self.is_server else 'Client'} {msg}...")
+        if reboot is True:
+            opt = " -r"
+        else:
+            opt = ""
+        os.system(f"sudo shutdown{opt} now")
 
-    def disable_echo(self):
-        self._tmcc_listener.unsubscribe(self, BROADCAST_TOPIC)
-        print("TMCC command echoing DISABLED...")
-        if self._pdi_buffer:
-            self._pdi_buffer.unsubscribe(self, BROADCAST_TOPIC)
-            print("PDI command echoing DISABLED")
-        self._echo = False
+    def restart(self) -> None:
+        log.info(f"{'Server' if self.is_server else 'Client'} restarting...")
+        self.relaunch()
 
-    def enable_echo(self):
-        self._tmcc_listener.listen_for(self, BROADCAST_TOPIC)
-        print("TMCC command echoing ENABLED..")
-        if self._pdi_buffer:
-            self._pdi_buffer.listen_for(self, BROADCAST_TOPIC)
-            print("PDI command echoing ENABLED")
-        self._echo = True
+    def update(self, do_inform: bool = True) -> None:
+        if do_inform:
+            log.info(f"{'Server' if self.is_server else 'Client'} updating...")
+        os.system("git pull")
+        os.system("pip install -r requirements.txt")
+        self.relaunch()
+
+    def upgrade(self) -> None:
+        log.info(f"{'Server' if self.is_server else 'Client'} upgrading...")
+        if sys.platform == "linux":
+            os.system("sudo apt update; sudo apt upgrade -y")
+        self.update(do_inform=False)
+
+    def relaunch(self):
+        if self.is_client:
+            # sleep for a few seconds to give the server time to catch up and restart
+            sleep(10)
+        # are we a service or run from the commandline?
+        if "-headless" in sys.argv:
+            # restart service
+            if self.is_client:
+                os.system("sudo systemctl restart pytrain_client.service")
+            elif self.is_server:
+                os.system("sudo systemctl restart pytrain_server.service")
+        else:
+            # rerun commandline pgm
+            os.execv(__file__, sys.argv)
 
     def register_service(self, ser2, base3, server_port) -> ServiceInfo:
         port = server_port
@@ -631,7 +502,154 @@ class PyTrain:
                 self._pytrain_servers.append(info)
                 self._server_discovered.set()
 
+    def _handle_command(self, ui: str) -> None:
+        """
+        Parse the user's input, reusing the individual CLI command parsers.
+        If a valid command is specified, send it to the Lionel LCS SER2.
+        """
+        if ui is None:
+            return
+        ui = ui.lower().strip()
+        if ui:
+            # show help, if user enters '?'
+            if ui == "?":
+                ui = "h"
+            # the argparse library requires the argument string to be presented as a list
+            ui_parts = ui.split()
+            if ui_parts[0]:
+                # parse the first token
+                try:
+                    # if the keyboard input starts with a valid command, args.command
+                    # is set to the corresponding CLI command class, or the verb 'quit'
+                    args = self._command_parser().parse_args(["-" + ui_parts[0]])
+                    if args.command == "quit":
+                        # if server, signal clients to disconnect
+                        if self.is_server:
+                            CommandDispatcher.get().signal_client()
+                        # if client quits, remaining nodes continue to run
+                        raise KeyboardInterrupt()
+                    elif args.command in ADMIN_COMMAND_TO_ACTION_MAP:
+                        self.do_admin_cmd(ADMIN_COMMAND_TO_ACTION_MAP.get(args.command), ui_parts[1:])
+                        return
+                    elif args.command == "help":
+                        self._command_parser().parse_args(["-help"])
+                    if args.command == "db":
+                        self._query_status(ui_parts[1:])
+                        return
+                    if args.command == "decode":
+                        self.decode_command(ui_parts[1:])
+                        return
+                    if args.command == "pdi":
+                        try:
+                            self._do_pdi(ui_parts[1:])
+                        except Exception as e:
+                            log.warning(e)
+                        return
+                    if args.command == "echo":
+                        self._handle_echo(ui_parts)
+                        return
+                    #
+                    # we're done with the admin/special commands, now do train stuff
+                    #
+                    ui_parser = args.command.command_parser()
+                    ui_parser.remove_args(["baudrate", "port", "server"])
+                    # very hacky; should turn into a method to reduce complexity of this section
+                    # if the user entered "tr....", treat this as a train command
+                    # normally, this is done by adding the "-train" token after the tmcc_id but
+                    # before any subparsers
+                    if "train".startswith(ui_parts[0].strip().lower()) and len(ui_parts) > 2:
+                        has_train_arg = False
+                        for token in ui_parts[2:]:
+                            if token.startswith("-"):
+                                if "-train".startswith(token.lower()):
+                                    has_train_arg = True
+                                    break
+                            else:
+                                break  # we're into a subparser
+                        if has_train_arg is False:
+                            ui_parts.insert(2, "-train")
+                    cli_cmd = args.command(ui_parser, ui_parts[1:], False)
+                    if cli_cmd.command is None:
+                        raise argparse.ArgumentError(None, f"'{ui}' is not a valid command")
+                    cli_cmd.send()
+                except argparse.ArgumentError as e:
+                    log.warning(e)
+
+    def _get_system_state(self):
+        self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
+
+    def process_startup_script(self) -> None:
+        if self._startup_script is not None:
+            if os.path.isfile(self._startup_script):
+                print(f"Loading startup script: {self._startup_script}...")
+                with open(self._startup_script, mode="r", encoding="utf-8") as script:
+                    code = script.read()
+                    try:
+                        exec(code)
+                        print("Buttons registered...")
+                    except Exception as e:
+                        log.error(f"Problem loading startup script {self._startup_script} (see logs)")
+                        log.exception(e)
+            elif self._startup_script != DEFAULT_SCRIPT_FILE:
+                log.warning(f"Startup script file {self._startup_script} not found, continuing...")
+
+    def _query_status(self, param) -> None:
+        try:
+            if len(param) >= 1:
+                scope = CommandScope.by_prefix(param[0])
+                if scope is not None:
+                    if len(param) > 1:
+                        address = int(param[1])
+                        state = self._state_store.query(scope, address)
+                        if state is not None:
+                            print(state)
+                            return
+                    elif scope in self._state_store:
+                        for state in self._state_store.get_all(scope):
+                            print(state)
+                        return
+            else:
+                keys = self._state_store.keys()
+                if keys:
+                    for key in keys:
+                        if key in {CommandScope.BASE, CommandScope.SYNC}:
+                            continue
+                        num = len(self._state_store.keys(key))
+                        print(f"{key.label}s: {num}")
+                    return
+            print("No data")
+        except Exception as e:
+            log.exception(e)
+
+    def _handle_echo(self, ui_parts: List[str] = None):
+        if ui_parts is None:
+            ui_parts = ["echo"]
+        if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == "on"):
+            if self._echo is False:
+                self._enable_echo()
+        else:
+            if self._echo is True:
+                self._disable_echo()
+
+    def _disable_echo(self):
+        self._tmcc_listener.unsubscribe(self, BROADCAST_TOPIC)
+        print("TMCC command echoing DISABLED...")
+        if self._pdi_buffer:
+            self._pdi_buffer.unsubscribe(self, BROADCAST_TOPIC)
+            print("PDI command echoing DISABLED")
+        self._echo = False
+
+    def _enable_echo(self):
+        self._tmcc_listener.listen_for(self, BROADCAST_TOPIC)
+        print("TMCC command echoing ENABLED..")
+        if self._pdi_buffer:
+            self._pdi_buffer.listen_for(self, BROADCAST_TOPIC)
+            print("PDI command echoing ENABLED")
+        self._echo = True
+
     def _do_pdi(self, param: List[str]) -> None:
+        if self._pdi_buffer is None:
+            raise AttributeError("Not connected to a Lionel Base 3, PDI commands not enabled...")
         param_len = len(param)
         agr = None
         if param_len == 1:
@@ -696,22 +714,6 @@ class PyTrain:
             agr = AllReq()
         if agr is not None:
             self._pdi_buffer.enqueue_command(agr)
-
-    @staticmethod
-    def _decode_command(param: List[str]) -> None:
-        try:
-            param = "".join(param).lower().strip()
-            if param.startswith("0x"):
-                param = param[2:]
-            param = param.replace(":", "")
-            byte_str = bytes.fromhex(param)
-            if byte_str and byte_str[0] == PDI_SOP:
-                cmd = PdiReq.from_bytes(byte_str)
-            else:
-                cmd = CommandReq.from_bytes(byte_str)
-            print(f"0x{byte_str.hex()} --> {cmd}")
-        except Exception as e:
-            log.info(e)
 
     def _command_parser(self) -> ArgumentParser:
         """
