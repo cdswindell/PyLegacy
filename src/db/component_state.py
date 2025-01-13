@@ -1151,6 +1151,7 @@ class IrdaState(LcsState):
                     elif command.action == IrdaAction.SEQUENCE:
                         self._sequence = command.sequence
                     elif command.action == IrdaAction.DATA:
+                        print(f"{command}")
                         # change engine/train speed, based on direction of travel
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"IRDA {self.address} Sequence: {self.sequence} Command: {command}")
