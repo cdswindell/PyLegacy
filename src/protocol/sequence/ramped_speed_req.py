@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, ABCMeta
 
 from .sequence_constants import SequenceCommandEnum
@@ -8,6 +9,8 @@ from ..constants import CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandDef
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, tmcc2_speed_to_rpm
 from ...db.component_state_store import ComponentStateStore
+
+log = logging.getLogger(__name__)
 
 
 def labor_delta(cur_speed: int, new_speed: int, cur_labor: int) -> int:
@@ -75,7 +78,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 delay_inc = 0.200
             speed_req = min(speed_req, cur_state.speed_max)
             # are we speeding up or down?
-            print(f"CS: {cs} Requested Speed: {speed_req}")
+            log.debug(f"CS: {cs} Requested Speed: {speed_req}")
             ramp = range(cs + inc, speed_req + 1, inc) if cs < speed_req else range(cs - inc, speed_req + 1, -inc)
             if ramp:
                 # increase or decrease labor
