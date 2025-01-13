@@ -75,6 +75,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 delay_inc = 0.200
             speed_req = min(speed_req, cur_state.speed_max)
             # are we speeding up or down?
+            print(f"CS: {cs} Requested Speed: {speed_req}")
             ramp = range(cs + inc, speed_req + 1, inc) if cs < speed_req else range(cs - inc, speed_req + 1, -inc)
             if ramp:
                 # increase or decrease labor

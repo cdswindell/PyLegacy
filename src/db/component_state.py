@@ -1176,6 +1176,7 @@ class IrdaState(LcsState):
                                 elif command.engine_id:
                                     address = command.engine_id
                                 state = ComponentStateStore.get_state(scope, address)
+                                print(f"*****Scope: {scope} ID: {address} State: {state}")
                                 if state is not None:
                                     from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
