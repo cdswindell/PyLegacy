@@ -22,7 +22,7 @@ PROGRAM_NAME = "PyTrain"
 
 DEFAULT_BASE_PORT: int = 50001
 
-DEFAULT_SERVER_PORT: int = 5110  # unassigned by IANA as of 9/16/2024
+DEFAULT_SERVER_PORT: int = 5110  # unassigned by IANA as of 1/1/2025
 
 DEFAULT_QUEUE_SIZE: int = 2**11  # 2,048 entries
 

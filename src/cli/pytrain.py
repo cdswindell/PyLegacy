@@ -90,7 +90,7 @@ class PyTrain:
         self._pdi_store = None
         self._echo = args.echo
         self._headless = args.headless
-        self._no_ser2 = args.no_ser2
+        self._ser2 = args.ser2
         self._no_wait = args.no_wait
         self._service_info = None
         self._zeroconf = None
@@ -108,7 +108,20 @@ class PyTrain:
         self._server_ips = None
         self._admin_action: CommandDefEnum | None = None
 
-        if args.base is not None:
+        #
+        # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).
+        # Unless we are running as a client, make sure one of those 2 devices is specified
+        if self._server is None and args.client is True:
+            # use avahi/zeroconf to locate a PyTrain server on the local network
+            # raise exception and exit if none found
+            info = self.get_service_info()
+            if info is None:
+                raise RuntimeError(f"No {PROGRAM_NAME} servers found on the local network, exiting")
+            self._server, self._port = info
+            self._server_ips = {self._server}
+        elif self._server is not None:
+            pass
+        elif args.base is not None:
             if isinstance(args.base, list) and len(args.base):
                 base = args.base[0]
             else:
@@ -120,22 +133,13 @@ class PyTrain:
             self._base_addr = args.base = base_pieces[0]
             self._base_port = base_pieces[1] if len(base_pieces) > 1 else DEFAULT_BASE_PORT
         else:
-            if self._no_ser2:
+            if args.ser2 is False:
                 raise AttributeError(f"{PROGRAM_NAME} requires either an LCS SER2 and/or Base 2/3 connection")
             self._base_addr = self._base_port = None
 
-        if self._server is None and args.client is True:
-            # use avahi/zeroconf to locate a PyTrain server on the local network
-            # raise exception and exit if none found
-            info = self.get_service_info()
-            if info is None:
-                raise RuntimeError(f"No {PROGRAM_NAME} servers found on the local network, exiting")
-            self._server, self._port = info
-            self._server_ips = {self._server}
-
         # Based on the arguments, we are either connecting to an LCS Ser 2 or a named PyTrain server
         self._tmcc_buffer = CommBuffer.build(
-            baudrate=self._baudrate, port=self._port, server=self._server, no_ser2=self._no_ser2
+            baudrate=self._baudrate, port=self._port, server=self._server, ser2=self._ser2 is True
         )
 
         listeners = []
@@ -149,7 +153,7 @@ class PyTrain:
             self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
 
             self._tmcc_listener = CommandListener.build(
-                ser2_receiver=not self._no_ser2,
+                ser2_receiver=self._ser2,
                 base3_receiver=self._base_addr is not None,
             )
             listeners.append(self._tmcc_listener)
@@ -160,10 +164,10 @@ class PyTrain:
                 listeners.append(self._pdi_buffer)
                 self.buffer.is_use_base3 = True
 
-            if self._no_ser2 is False:
+            if self._ser2 is True:
                 print("Listening for Lionel LCS Ser2 broadcasts...")
 
-            if self._pdi_buffer or self._no_ser2 is True:
+            if self._pdi_buffer or self._ser2 is False:
                 print(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
             else:
                 print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
@@ -220,7 +224,7 @@ class PyTrain:
         if self.is_server:
             self._zeroconf = Zeroconf()
             self._service_info = self.register_service(
-                self._no_ser2 is False,
+                self._ser2 is True,
                 self._base_addr is not None,
                 self._args.server_port,
             )
@@ -836,7 +840,6 @@ if __name__ == "__main__":
         default=DEFAULT_SCRIPT_FILE,
         help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})",
     )
-
     parser = ArgumentParser(
         prog="pytrain.py",
         description="Send TMCC and Legacy-formatted commands to a Lionel Base 3 and/or LCS Ser2",
@@ -845,7 +848,7 @@ if __name__ == "__main__":
     parser.add_argument("-base", nargs="*", type=str, help="IP Address of Lionel Base 2/3")
     parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
     parser.add_argument("-headless", action="store_true", help="Do not prompt for user input (run in the background)")
-    parser.add_argument("-no_ser2", action="store_true", help="Do not send or receive TMCC commands from an LCS Ser2")
+    parser.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
     parser.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
     parser.add_argument("-client", action="store_true", help=f"Connect to an available {PROGRAM_NAME} server")
     parser.add_argument(

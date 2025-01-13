@@ -1,12 +1,13 @@
 from threading import RLock
 from typing import Tuple
 
-from gpiozero import Device, GPIODeviceClosed, HoldMixin
+from gpiozero import GPIODeviceClosed, HoldMixin
 
+from .i2c_device import I2CDevice
 from .mcp23017 import INPUT, HIGH, Mcp23017Factory
 
 
-class ButtonI2C(Device, HoldMixin):
+class ButtonI2C(I2CDevice, HoldMixin):
     def __init__(
         self,
         pin: int | Tuple[int, int] | Tuple[int, int, int],

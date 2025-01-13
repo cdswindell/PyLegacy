@@ -5,6 +5,7 @@ from typing import List, Tuple, Dict, Set
 from gpiozero import GPIOPinInUse, PinInvalidPin, Button, Device
 
 from .i2c import I2C
+from .i2c_device import I2CDevice
 
 IODIRA = 0x00  # Pin direction register
 IODIRB = 0x01  # Pin direction register
@@ -124,7 +125,7 @@ class Mcp23017:
         self.set_interrupt_mirror(True)
         self._int_pin = None
         self._int_btn = None
-        self._clients: Dict[int, Device] = dict()
+        self._clients: Dict[int, I2CDevice] = dict()
 
     @property
     def interrupt_pin(self) -> int:
@@ -487,7 +488,11 @@ class Mcp23017:
                         state = self.captures  # clears interrupts, enabling !!
                     pull_up = (pull_ups & (1 << i)) != 0
                     client = self._clients[i]
-                    if client.bounce_time is not None and client.bounce_time > bounce_time:
+                    if (
+                        hasattr(client, "bounce_time")
+                        and client.bounce_time is not None
+                        and client.bounce_time > bounce_time
+                    ):
                         bounce_time = client.bounce_time
                     capture_bit = 1 if (state & (1 << i)) != 0 else 0
                     if pull_up is True:
@@ -521,7 +526,7 @@ class Mcp23017:
                 self._int_btn = None
         self._int_pin = self._int_btn = None
 
-    def register_client(self, pin: int, client: Device):
+    def register_client(self, pin: int, client: I2CDevice):
         if hasattr(client, "pin") and getattr(client, "pin") != pin:
             raise PinInvalidPin(f"{pin} is not a valid pin for {client}")
         self._clients[pin] = client
@@ -541,7 +546,7 @@ class Mcp23017Factory:
         address: int = 0x23,
         pin: int = 0,
         interrupt_pin: int | str = None,
-        client: Device = None,
+        client: I2CDevice = None,
     ) -> Mcp23017:
         if pin is None or pin < 0 or pin > 15:
             raise PinInvalidPin(f"{pin} is not a valid pin")

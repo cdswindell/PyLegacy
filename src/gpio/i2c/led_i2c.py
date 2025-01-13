@@ -2,13 +2,14 @@ from threading import RLock
 from itertools import repeat
 from typing import Tuple
 
-from gpiozero import Device, GPIODeviceClosed, SourceMixin
+from gpiozero import GPIODeviceClosed, SourceMixin
 from gpiozero.threads import GPIOThread
 
+from .i2c_device import I2CDevice
 from .mcp23017 import Mcp23017Factory, OUTPUT
 
 
-class LEDI2C(Device, SourceMixin):
+class LEDI2C(I2CDevice, SourceMixin):
     def __init__(
         self,
         pin: int | Tuple[int, int],
@@ -58,6 +59,14 @@ class LEDI2C(Device, SourceMixin):
             return f"<{self.__class__.__name__} object on pin {self.pin} is_active={self.is_active}>"
         except Exception:
             return super().__repr__()
+
+    def _signal_event(self, active: bool) -> None:
+        # Noop for LEDs
+        pass
+
+    @property
+    def bounce_time(self) -> float | None:
+        return None
 
     @property
     def pin(self) -> int:

@@ -13,7 +13,7 @@ from queue import Queue, Empty
 from threading import Thread
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    from typing import Self, Dict
 elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
@@ -74,7 +74,7 @@ class CommBuffer(abc.ABC):
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
-        no_ser2=False,
+        ser2=False,
     ) -> Self:
         if cls._instance:
             return cls._instance
@@ -83,7 +83,7 @@ class CommBuffer(abc.ABC):
         """
         server, port = cls.parse_server(server, port)
         if server is None:
-            return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port, no_ser2=no_ser2)
+            return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port, ser2=ser2)
         else:
             return CommBufferProxy(server, int(port))
 
@@ -152,7 +152,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         queue_size: int = DEFAULT_QUEUE_SIZE,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
-        no_ser2: bool = False,
+        ser2: bool = False,
     ) -> None:
         if self._initialized:
             return
@@ -164,7 +164,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._baudrate = baudrate
         self._port = port
         self._queue_size = queue_size
-        self._no_ser2 = no_ser2
+        self._ser2 = ser2
         if queue_size:
             self._queue = Queue(queue_size)
         else:
@@ -206,8 +206,8 @@ class CommBufferSingleton(CommBuffer, Thread):
         return self._baudrate
 
     @property
-    def no_ser2(self) -> bool:
-        return self._no_ser2
+    def is_ser2(self) -> bool:
+        return self._ser2
 
     @property
     def is_use_base3(self) -> bool:
@@ -260,7 +260,7 @@ class CommBufferSingleton(CommBuffer, Thread):
             data = None
             try:
                 data = self._queue.get(block=True, timeout=0.25)
-                if self.is_use_base3 is True or self.no_ser2 is True:
+                if self.is_use_base3 is True or self.is_ser2 is False:
                     self.base3_send(data)
                 else:
                     self.ser2_send(data)
@@ -299,8 +299,18 @@ class CommBufferSingleton(CommBuffer, Thread):
         pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
         # also inform CommandDispatcher to update system state
-        if self.no_ser2 is True:
+        if self.is_ser2 is False:
             self._tmcc_dispatcher.offer(tmcc_cmd)
+
+
+COMM_ERROR_CODES: Dict[int, str] = {
+    60: "TIMEOUT",
+    61: "REFUSED",
+    64: "HOST DOWN",
+    65: "NO ROUTE",
+    113: "NO ROUTE",
+    120: "CONN ERR",
+}
 
 
 class CommBufferProxy(CommBuffer):
@@ -343,39 +353,32 @@ class CommBufferProxy(CommBuffer):
             while True:
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.settimeout(5.0)
                         s.connect((str(self._server), self._port))
+                        s.settimeout(None)
                         s.sendall(command)
                         resp = s.recv(16)  # we don't care about the response
                         if self._base3_address is None:
                             self._base3_address = resp.decode("utf-8", "ignore")
                     return
                 except OSError as oe:
-                    if oe.errno == 113:  # no route to host
-                        if retries < 90:
-                            retries += 1
-                            if retries % 5 == 0:
-                                log.info(f"Looking for {PROGRAM_NAME} server at {self._server}... [NO ROUTE]")
-                            continue
+                    if retries < 90:
+                        retries += 1
+                        if retries % 5 == 0:
+                            e_msg = COMM_ERROR_CODES.get(oe.errno, "UNKNOWN")
+                            log.info(f"Looking for {PROGRAM_NAME} server at {self._server}... [{e_msg}]")
+                        if not isinstance(oe, TimeoutError):
+                            time.sleep(1)
+                        continue
                     raise oe
 
     def register(self, port: int = DEFAULT_SERVER_PORT) -> None:
         from src.comm.enqueue_proxy_requests import EnqueueProxyRequests
 
-        retries = 0
         while True:
-            try:
-                # noinspection PyTypeChecker
-                self.enqueue_command(EnqueueProxyRequests.register_request(port))
-                return
-            except ConnectionError as ce:
-                # give server time to boot up:
-                if retries < 120:
-                    retries += 1
-                    if retries % 5 == 0:
-                        log.info(f"Waiting for {PROGRAM_NAME} server at {self._server}... [CONN ERR]")
-                    time.sleep(1)
-                else:
-                    raise ce
+            # noinspection PyTypeChecker
+            self.enqueue_command(EnqueueProxyRequests.register_request(port))
+            return
 
     def disconnect(self) -> None:
         try:
