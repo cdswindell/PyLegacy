@@ -226,7 +226,6 @@ class PyTrain:
                 self._args.server_port,
             )
 
-        print(f"Server IP(s): {self._server_ips}")
         # Start the command line processor
         self.run()
 
