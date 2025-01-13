@@ -11,9 +11,10 @@ import socket
 import os
 import signal
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from signal import pause
 from time import sleep
+from timeit import default_timer as timer
 from typing import List, Tuple, Dict, Any
 
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
@@ -98,7 +99,6 @@ class PyTrain:
         self._server_discovered = threading.Event()
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
-        self._alexa = args.alexa
         self._force_reboot = False
         self._force_restart = False
         self._force_update = False
@@ -108,6 +108,7 @@ class PyTrain:
         self._script_loader: StartupScriptLoader | None = None
         self._server_ips = None
         self._admin_action: CommandDefEnum | None = None
+        self._started_at = timer()
 
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).
@@ -264,10 +265,6 @@ class PyTrain:
     @property
     def is_client(self) -> bool:
         return not self.is_server
-
-    @property
-    def is_alexa(self) -> bool:
-        return self._alexa
 
     @property
     def buffer(self) -> CommBuffer:
@@ -557,6 +554,9 @@ class PyTrain:
                     if args.command == "echo":
                         self._handle_echo(ui_parts)
                         return
+                    if args.command == "uptime":
+                        print(timedelta(seconds=timer() - self._started_at))
+                        return
                     #
                     # we're done with the admin/special commands, now do train stuff
                     #
@@ -821,6 +821,13 @@ class PyTrain:
             dest="command",
             help=f"Quit {PROGRAM_NAME}, upgrade the OS on all nodes, and update to latest release),",
         )
+        group.add_argument(
+            "-uptime",
+            action="store_const",
+            const="uptime",
+            dest="command",
+            help=f"Elapsed time this instance of {PROGRAM_NAME} has been active),",
+        )
         return command_parser
 
 
@@ -856,7 +863,6 @@ if __name__ == "__main__":
     parser.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
     parser.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
     parser.add_argument("-client", action="store_true", help=f"Connect to an available {PROGRAM_NAME} server")
-    parser.add_argument("-alexa", action="store_true", help=f"Enable {PROGRAM_NAME} Alexa support")
     parser.add_argument(
         "-server_port",
         type=int,
