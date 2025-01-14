@@ -1,3 +1,5 @@
+dist/
+src/pytrain.egg-info/
 .idea/
 .tox/
 __pycache__
