@@ -1,0 +1,30 @@
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytrain"
+version = "0.9.0"
+authors = [
+  { name="Dave Swindell", email="pytraininfo@gmail.com" },
+]
+description = "Control Lionel TMCC/Legacy engines, switches, and accesseries from a Raspberry Pi"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+license = {file = "LICENSE"}
+
+[project.urls]
+Homepage = "https://github.com/cdswindell/PyTrain"
+Issues = "https://github.com/cdswindell/PyTrain/issues"
+
+

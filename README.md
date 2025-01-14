@@ -109,14 +109,20 @@ You may wish to create a macro or alias to issue these commands for you.
 ```
 Console autologin
 
-Enable SPI
 Enable I2C
+Disable SPI
 Disable Serial Port
 Disable Camera Auto detect
 Disable Audio
-Disable Mail
+Disable mailcap
 Disable Bluetooth
 Disable rpicam-apps
+Disable rpi-connect
+Disable pipewire
+Disable pulseaudio
+Disable cups
+Disable cups-browsed
+Disable colord
 ```
 
 ## Licensing
