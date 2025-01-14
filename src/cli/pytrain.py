@@ -412,9 +412,6 @@ class PyTrain:
         self.update(do_inform=False)
 
     def relaunch(self):
-        if self.is_client:
-            # sleep for a few seconds to give the server time to catch up and restart
-            sleep(10)
         # are we a service or run from the commandline?
         if "-headless" in sys.argv:
             # restart service
@@ -424,6 +421,10 @@ class PyTrain:
                 os.system("sudo systemctl restart pytrain_server.service")
         else:
             # rerun commandline pgm
+            if self._echo is True and "-echo" not in sys.argv:
+                sys.argv.append("-echo")
+            elif self._echo is False and "-echo" in sys.argv:
+                sys.argv.remove("-echo")
             os.execv(__file__, sys.argv)
 
     def register_service(self, ser2, base3, server_port) -> ServiceInfo:
@@ -621,7 +622,7 @@ class PyTrain:
                 keys = self._state_store.keys()
                 if keys:
                     for key in keys:
-                        if key in {CommandScope.BASE, CommandScope.SYNC}:
+                        if key in {CommandScope.BASE, CommandScope.SYNC, CommandScope.IRDA}:
                             continue
                         num = len(self._state_store.keys(key))
                         print(f"{key.label}s: {num}")

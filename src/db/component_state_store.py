@@ -200,7 +200,8 @@ class ComponentStateStore:
             li = list(self._state.keys())
             li.sort(key=lambda x: x.label)
         elif scope in self._state:
-            li = list(self._state[scope].keys())
+            states = self.get_all(scope)
+            li = list(s.address for s in states)
             li.sort()
         else:
             li = []
