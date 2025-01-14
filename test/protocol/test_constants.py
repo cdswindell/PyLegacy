@@ -1,6 +1,9 @@
 # noinspection PyPackageRequirements
 import pytest
 
+from src.pytrain.protocol.multibyte.multibyte_constants import *
+from src.pytrain.protocol.tmcc1.tmcc1_constants import *
+from src.pytrain.protocol.tmcc2.tmcc2_constants import *
 from ..test_base import TestBase
 
 

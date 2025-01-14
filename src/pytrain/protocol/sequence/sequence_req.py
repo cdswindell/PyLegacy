@@ -7,7 +7,7 @@ from typing import List, Callable, TypeVar, Tuple
 
 import sys
 
-from ..multybyte.multibyte_constants import TMCC2RailSoundsDialogControl
+from ..multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
 
 if sys.version_info >= (3, 11):
     from typing import Self

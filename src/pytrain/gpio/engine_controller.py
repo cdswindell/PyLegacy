@@ -10,7 +10,7 @@ from ..db.component_state_store import ComponentStateStore
 from ..pdi.base3_buffer import Base3Buffer
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
-from ..protocol.multybyte.multibyte_constants import TMCC2EffectsControl
+from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.sequence.abs_speed_rpm import AbsoluteSpeedRpm
 from ..protocol.sequence.labor_effect import LaborEffectUpReq, LaborEffectDownReq
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1EngineCommandDef

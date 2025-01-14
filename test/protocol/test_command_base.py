@@ -1,7 +1,7 @@
 # noinspection PyPackageRequirements
 import pytest
 
-from src.pytrain.protocol import CommandBase
+from src.pytrain.protocol.command_base import CommandBase
 
 
 class TestCommandBase:

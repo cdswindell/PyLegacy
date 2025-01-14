@@ -1,5 +1,6 @@
 import unittest
 
+from src.pytrain.gpio.i2c.mcp23017 import *
 from .smbusmock import MBusMock
 
 

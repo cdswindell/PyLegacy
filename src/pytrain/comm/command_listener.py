@@ -20,7 +20,7 @@ from ..protocol.constants import (
     CommandScope,
     DEFAULT_SERVER_PORT,
 )
-from ..protocol.multybyte.multibyte_constants import TMCC2_VARIABLE_INDEX
+from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..utils.ip_tools import get_ip_address

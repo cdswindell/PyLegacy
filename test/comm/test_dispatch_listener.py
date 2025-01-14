@@ -9,9 +9,9 @@ import pytest
 
 # noinspection PyProtectedMember
 from src.pytrain.comm.command_listener import CommandListener, CommandDispatcher, Message, Channel
-from src.pytrain.protocol import CommandReq
+from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import DEFAULT_QUEUE_SIZE, BROADCAST_TOPIC, CommandScope
-from src.pytrain.protocol.tmcc1 import TMCC1HaltCommandDef, TMCC1SwitchState
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1SwitchState
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RouteCommandDef, TMCC2HaltCommandDef
 from test.test_base import TestBase
 

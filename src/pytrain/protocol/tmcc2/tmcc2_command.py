@@ -7,8 +7,8 @@ from ..command_def import CommandDefEnum
 from ..command_req import CommandReq
 from ..constants import CommandScope
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
-from ..multybyte.multibyte_constants import TMCC2ParameterEnum
-from ..multybyte.param_command_req import ParameterCommandReq
+from ..multibyte.multibyte_constants import TMCC2ParameterEnum
+from ..multibyte.param_command_req import ParameterCommandReq
 
 
 class TMCC2Command(CommandBase, ABC):

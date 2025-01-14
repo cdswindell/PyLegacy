@@ -4,9 +4,9 @@ import logging
 from typing import List
 
 from src.pytrain.cli.cli_base import CliBaseTMCC, DataAction, CliBase
-from src.pytrain.protocol.multybyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
-from src.pytrain.protocol.multybyte.multibyte_constants import TMCC2MultiByteEnum, TMCC2RailSoundsDialogControl
-from src.pytrain.protocol.multybyte.multibyte_constants import TMCC2RailSoundsEffectsControl
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum, TMCC2RailSoundsDialogControl
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
 from src.pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
 from src.pytrain.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef

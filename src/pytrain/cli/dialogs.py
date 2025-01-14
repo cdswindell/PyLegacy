@@ -3,8 +3,8 @@ import logging
 from typing import List
 
 from src.pytrain.cli.cli_base import CliBaseTMCC
-from src.pytrain.protocol.multybyte.dialog_cmd import DialogCmd
-from src.pytrain.protocol.multybyte.multibyte_constants import TMCC2RailSoundsDialogControl
+from src.pytrain.protocol.multibyte.dialog_cmd import DialogCmd
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
 from src.pytrain.utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)

@@ -1,5 +1,5 @@
 from .tmcc2_command import TMCC2Command
-from src.pytrain.protocol.multybyte.multibyte_constants import TMCC2MultiByteEnum
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
 from .tmcc2_constants import TMCC2EngineCommandDef

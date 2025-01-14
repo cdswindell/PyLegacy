@@ -4,11 +4,15 @@ from unittest import mock
 # noinspection PyPackageRequirements
 import pytest
 
+from src.pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+from src.pytrain.protocol.tmcc1.tmcc1_constants import *
+from src.pytrain.protocol.tmcc2.tmcc2_constants import *
+from src.pytrain.protocol.multibyte.multibyte_constants import *
 from ..test_base import TestBase
 
 from src.pytrain.comm.comm_buffer import CommBufferSingleton, CommBuffer
 
-from src.pytrain.protocol import CommandReq
+from src.pytrain.protocol.command_req import CommandReq
 
 
 # noinspection PyMethodMayBeStatic

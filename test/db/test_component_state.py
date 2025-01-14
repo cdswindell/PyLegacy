@@ -9,10 +9,10 @@ import pytest
 from src.pytrain.comm.command_listener import CommandListener, CommandDispatcher, Message
 from src.pytrain.db.component_state import ComponentState, SystemStateDict, ComponentStateDict
 from src.pytrain.db.component_state import SwitchState, AccessoryState, EngineState, TrainState, SCOPE_TO_STATE_MAP
-from src.pytrain.protocol import CommandReq
+from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import BROADCAST_ADDRESS, CommandScope
-from src.pytrain.protocol.tmcc1 import TMCC1AuxCommandDef as Acc
-from src.pytrain.protocol.tmcc1 import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Acc
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef
 from ..test_base import TestBase
 
