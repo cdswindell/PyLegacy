@@ -2,7 +2,7 @@
 Simple examples of how to associate Lionel commands to Raspberry Pi buttons
 """
 
-from src.gpio.gpio_handler import GpioHandler
+from src.pytrain.gpio import GpioHandler
 
 # GpioHandler.when_button_held(26, TMCC2EngineCommandDef.BLOW_HORN_ONE)
 # GpioHandler.when_button_pressed(21, TMCC2RouteCommandDef.FIRE, 10)

@@ -1,4 +1,4 @@
-from src.gpio.i2c.i2c import I2C
+from src.pytrain.gpio import I2C
 from test.test_base import TestBase
 from .smbusmock import MBusMock
 

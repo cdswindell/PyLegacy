@@ -4,8 +4,8 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pytrain"
-version = "0.9.0"
+name = "pytrain-cdswindell"
+version = "0.9.3"
 authors = [
   { name="Dave Swindell", email="pytraininfo@gmail.com" },
 ]
@@ -44,6 +44,9 @@ keywords = [
   "control",
   "trains",
 ]
+
+[project.scripts]
+pytrain = "pytrain.cli.pytrain:main"
 
 [project.urls]
 Repository = "https://github.com/cdswindell/PyTrain"

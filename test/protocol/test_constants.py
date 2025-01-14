@@ -3,10 +3,6 @@ import pytest
 
 from ..test_base import TestBase
 
-from src.protocol.tmcc1.tmcc1_constants import *
-from src.protocol.tmcc2.tmcc2_constants import *
-from src.protocol.multybyte.multibyte_constants import *
-
 
 class TestConstants(TestBase):
     def test_by_name_mixin(self) -> None:

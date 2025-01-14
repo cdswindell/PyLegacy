@@ -1,6 +1,5 @@
 import unittest
 
-from src.gpio.i2c.mcp23017 import *
 from .smbusmock import MBusMock
 
 

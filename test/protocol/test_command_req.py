@@ -6,13 +6,9 @@ import pytest
 
 from ..test_base import TestBase
 
-from src.comm.comm_buffer import CommBufferSingleton, CommBuffer
+from src.pytrain.comm.comm_buffer import CommBufferSingleton, CommBuffer
 
-from src.protocol.tmcc1.tmcc1_constants import *
-from src.protocol.tmcc2.tmcc2_constants import *
-from src.protocol.multybyte.multibyte_constants import *
-from src.protocol.command_req import CommandReq
-from src.protocol.constants import *
+from src.pytrain.protocol import CommandReq
 
 
 # noinspection PyMethodMayBeStatic

@@ -6,11 +6,11 @@ from collections import deque
 import pytest
 
 # noinspection PyProtectedMember
-from src.comm.command_listener import CommandListener, CommandDispatcher
-from src.protocol.command_req import CommandReq
-from src.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
-from src.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef
-from src.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from src.pytrain.comm.command_listener import CommandListener, CommandDispatcher
+from src.pytrain.protocol import CommandReq
+from src.pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
+from src.pytrain.protocol.tmcc1 import TMCC1HaltCommandDef
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 from test.test_base import TestBase
 
 

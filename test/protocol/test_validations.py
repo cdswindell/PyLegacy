@@ -3,7 +3,7 @@ import re
 # noinspection PyPackageRequirements
 import pytest
 
-from src.utils.validations import Validations
+from src.pytrain.utils.validations import Validations
 from test.test_base import TestBase
 
 
