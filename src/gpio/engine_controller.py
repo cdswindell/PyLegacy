@@ -60,7 +60,7 @@ class EngineController:
         base_cathode: bool = True,
         base_ping_freq: int = 5,
         held_threshold: float = 0.5,
-        held_frequency: float = 0.5,
+        held_frequency: float = 0.1,
     ) -> None:
         from .gpio_handler import GpioHandler, PressedHeldDef
 
@@ -242,7 +242,7 @@ class EngineController:
             self._tmcc2_when_pushed_or_held[self._bell_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.BELL_ONE_SHOT_DING, data=3),
                 CommandReq(TMCC2EngineCommandDef.RING_BELL),
-                held_threshold=self._held_threshold,
+                held_threshold=1.5,
             )
         else:
             self.bell_pin = None
@@ -307,13 +307,13 @@ class EngineController:
                 CommandReq(TMCC1EngineCommandDef.RPM_UP),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
-                frequency=self._held_frequency,
+                frequency=self._held_threshold,
             )
             self._tmcc2_when_pushed_or_held[self._rpm_up_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.RPM_UP),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
-                frequency=self._held_frequency,
+                frequency=self._held_threshold,
             )
         else:
             self._rpm_up_btn = None
@@ -324,13 +324,13 @@ class EngineController:
                 CommandReq(TMCC1EngineCommandDef.RPM_DOWN),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
-                frequency=self._held_frequency,
+                frequency=self._held_threshold,
             )
             self._tmcc2_when_pushed_or_held[self._rpm_down_btn] = PressedHeldDef(
                 CommandReq(TMCC2EngineCommandDef.RPM_DOWN),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
-                frequency=self._held_frequency,
+                frequency=self._held_threshold,
             )
         else:
             self._rpm_down_btn = None
@@ -342,7 +342,7 @@ class EngineController:
                 LaborEffectUpReq(),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
-                frequency=self._held_frequency,
+                frequency=self._held_threshold,
             )
         else:
             self._labor_up_btn = None
@@ -354,7 +354,7 @@ class EngineController:
                 LaborEffectDownReq(),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
-                frequency=self._held_frequency,
+                frequency=self._held_threshold,
             )
         else:
             self._labor_down_btn = None
