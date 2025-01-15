@@ -1,11 +1,10 @@
-
 [build-system]
 requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytrain-cdswindell"
-version = "0.9.14"
+version = "0.9.15"
 authors = [
   { name="Dave Swindell", email="pytraininfo@gmail.com" },
 ]
@@ -26,7 +25,6 @@ license = {file = "LICENSE"}
 dependencies = [
     "RPLCD>= 1.3.1 ",
     "colorzero >= 2.0",
-    "git-versioner >= 7.1",
     "gpiozero >= 2.0.1",
     "pyserial >= 3.5",
     "range-key-dict >= 1.1",
@@ -36,8 +34,6 @@ dependencies = [
     "lgpio >= 0.2.2.0; platform_system == 'linux'",
     "typing_extensions; python_version < '3.11'"
 ]
-dynamic = ["version"]
-
 
 keywords = [
     "automation",
@@ -45,17 +41,10 @@ keywords = [
     "legacy",
     "lionel",
     "o-gauge",
-    "raspberry pi"
+    "raspberry pi",
     "tmcc",
     "trains",
 ]
-
-[tool.setuptools.dynamic]
-version = {attr = "my_package.__version__"}
-
-[tool.git-versioner]
-short = true
-desc = true
 
 [project.scripts]
 pytrain = "pytrain.cli.pytrain:PyTrain"
