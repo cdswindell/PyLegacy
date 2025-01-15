@@ -3,7 +3,7 @@
 import logging
 from typing import List
 
-from src.pytrain.cli.cli_base import CliBase
+from src.pytraincli.cli_base import CliBase
 from src.pytrain.protocol.tmcc1.switch_cmd import SwitchCmd
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
 from src.pytrain.utils.argument_parser import ArgumentParser

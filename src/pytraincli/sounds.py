@@ -2,7 +2,7 @@
 import logging
 from typing import List
 
-from src.pytrain.cli.cli_base import CliBaseTMCC
+from src.pytraincli.cli_base import CliBaseTMCC
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
 from src.pytrain.protocol.multibyte.sound_effects_cmd import SoundEffectsCmd
 from src.pytrain.utils.argument_parser import ArgumentParser

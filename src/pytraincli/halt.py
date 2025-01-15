@@ -3,7 +3,7 @@
 import logging
 from typing import List
 
-from src.pytrain.cli.cli_base import CliBaseTMCC
+from src.pytraincli.cli_base import CliBaseTMCC
 from src.pytrain.protocol.constants import CommandSyntax
 from src.pytrain.protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
 from src.pytrain.protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2

@@ -2,7 +2,7 @@
 import logging
 from typing import List
 
-from src.pytrain.cli.cli_base import CliBaseTMCC
+from src.pytraincli.cli_base import CliBaseTMCC
 from src.pytrain.protocol.multibyte.lighting_cmd import LightingCmd
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2LightingControl
 from src.pytrain.utils.argument_parser import ArgumentParser

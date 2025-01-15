@@ -2,7 +2,7 @@
 import logging
 from typing import List
 
-from src.pytrain.cli.cli_base import CliBaseTMCC
+from src.pytraincli.cli_base import CliBaseTMCC
 from src.pytrain.protocol.multibyte.effects_cmd import EffectsCmd
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from src.pytrain.utils.argument_parser import ArgumentParser

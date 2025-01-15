@@ -19,31 +19,31 @@ from typing import List, Tuple, Dict, Any
 
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
-from src.pytrain.cli.acc import AccCli
-from src.pytrain.cli.cli_base import CliBase
-from src.pytrain.cli.dialogs import DialogsCli
-from src.pytrain.cli.effects import EffectsCli
-from src.pytrain.cli.engine import EngineCli
-from src.pytrain.cli.halt import HaltCli
-from src.pytrain.cli.lighting import LightingCli
-from src.pytrain.cli.route import RouteCli
-from src.pytrain.cli.sounds import SoundEffectsCli
-from src.pytrain.cli.switch import SwitchCli
-from src.pytrain.comm.comm_buffer import CommBuffer, CommBufferSingleton
-from src.pytrain.comm.command_listener import CommandListener, CommandDispatcher
-from src.pytrain.comm.enqueue_proxy_requests import EnqueueProxyRequests
-from src.pytrain.db.client_state_listener import ClientStateListener
-from src.pytrain.db.component_state_store import ComponentStateStore
-from src.pytrain.db.startup_state import StartupState
-from src.pytrain.gpio.gpio_handler import GpioHandler
-from src.pytrain.pdi.base_req import BaseReq
-from src.pytrain.pdi.constants import PdiCommand, PDI_SOP
-from src.pytrain.pdi.pdi_listener import PdiListener
-from src.pytrain.pdi.pdi_req import PdiReq, AllReq
-from src.pytrain.pdi.pdi_state_store import PdiStateStore
-from src.pytrain.protocol.command_def import CommandDefEnum
-from src.pytrain.protocol.command_req import CommandReq
-from src.pytrain.protocol.constants import (
+from . import CliBase
+from . import AccCli
+from .dialogs import DialogsCli
+from .effects import EffectsCli
+from .engine import EngineCli
+from .halt import HaltCli
+from .lighting import LightingCli
+from .route import RouteCli
+from .sounds import SoundEffectsCli
+from .switch import SwitchCli
+from ..pytrain.comm.comm_buffer import CommBuffer, CommBufferSingleton
+from ..pytrain.comm.command_listener import CommandListener, CommandDispatcher
+from ..pytrain.comm.enqueue_proxy_requests import EnqueueProxyRequests
+from ..pytrain.db.client_state_listener import ClientStateListener
+from ..pytrain.db.component_state_store import ComponentStateStore
+from ..pytrain.db.startup_state import StartupState
+from ..pytrain.gpio.gpio_handler import GpioHandler
+from ..pytrain.pdi.base_req import BaseReq
+from ..pytrain.pdi.constants import PdiCommand, PDI_SOP
+from ..pytrain.pdi.pdi_listener import PdiListener
+from ..pytrain.pdi.pdi_req import PdiReq, AllReq
+from ..pytrain.pdi.pdi_state_store import PdiStateStore
+from ..pytrain.protocol.command_def import CommandDefEnum
+from ..pytrain.protocol.command_req import CommandReq
+from ..pytrain.protocol.constants import (
     BROADCAST_TOPIC,
     CommandScope,
     DEFAULT_BASE_PORT,
@@ -52,10 +52,10 @@ from src.pytrain.protocol.constants import (
     SERVICE_TYPE,
     SERVICE_NAME,
 )
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
-from src.pytrain.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
-from src.pytrain.utils.dual_logging import set_up_logging
-from src.pytrain.utils.ip_tools import get_ip_address, find_base_address
+from ..pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
+from ..pytrain.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
+from ..pytrain.utils.dual_logging import set_up_logging
+from ..pytrain.utils.ip_tools import get_ip_address, find_base_address
 
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 
@@ -679,9 +679,9 @@ class PyTrain:
             elif param[0].lower().startswith("r"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ROUTE)
         elif param_len >= 3:
-            from src.pytrain.pdi.pdi_device import PdiDevice
-            from src.pytrain.pdi.constants import CommonAction, IrdaAction
-            from src.pytrain.pdi.irda_req import IrdaReq, IrdaSequence
+            from ..pytrain.pdi.pdi_device import PdiDevice
+            from ..pytrain.pdi.constants import CommonAction, IrdaAction
+            from ..pytrain.pdi.irda_req import IrdaReq, IrdaSequence
 
             dev = PdiDevice.by_prefix(param[0])
             if dev is None:

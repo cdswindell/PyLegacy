@@ -1,22 +1,36 @@
-import abc
+#
+#
+# PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+# Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+# SPDX-License-Identifier: LPGL
+
 import argparse
 import logging
 import sys
-from abc import ABC
+from abc import ABC, ABCMeta
 from typing import List, Any
 
-from src.pytrain.protocol.command_base import CommandBase
-from src.pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax
-from src.pytrain.protocol.constants import DEFAULT_VALID_BAUDRATES
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
-from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
-from src.pytrain.utils.argument_parser import ArgumentParser
+from .acc import AccCli  # noqa: F401
+from .dialogs import DialogsCli  # noqa: F401
+
+from ..pytrain.protocol.command_base import CommandBase
+from ..pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax
+from ..pytrain.protocol.constants import DEFAULT_VALID_BAUDRATES
+from ..pytrain.protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
+from ..pytrain.protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
+from ..pytrain.utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 
 
 class CliBase(ABC):
-    __metaclass__ = abc.ABCMeta
+    """
+    Base class for PyTrain CLI commands
+    """
+
+    __metaclass__ = ABCMeta
 
     @classmethod
     def command_parser(cls) -> ArgumentParser | None:
@@ -204,7 +218,7 @@ class CliBase(ABC):
 
 
 class CliBaseTMCC(CliBase):
-    __metaclass__ = abc.ABCMeta
+    __metaclass__ = ABCMeta
 
     def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)

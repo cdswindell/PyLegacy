@@ -3,7 +3,7 @@
 import logging
 from typing import List
 
-from src.pytrain.cli.cli_base import CliBaseTMCC, DataAction, CliBase
+from src.pytraincli.cli_base import CliBaseTMCC, DataAction, CliBase
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum, TMCC2RailSoundsDialogControl
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl

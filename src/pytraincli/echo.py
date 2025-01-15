@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import List
 
-from src.pytrain.cli.cli_base import CliBase
+from src.pytraincli.cli_base import CliBase
 from src.pytrain.comm.command_listener import CommandListener
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.utils.argument_parser import ArgumentParser
