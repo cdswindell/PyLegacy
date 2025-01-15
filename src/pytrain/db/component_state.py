@@ -1243,7 +1243,7 @@ class BaseState(ComponentState):
         return f"{bn}{fw}"
 
     def update(self, command: L | P) -> None:
-        from src.pytrain.pdi.base_req import BaseReq
+        from ..pdi.base_req import BaseReq
 
         if isinstance(command, BaseReq):
             with self._cv:

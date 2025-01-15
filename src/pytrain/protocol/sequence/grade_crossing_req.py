@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
-from ..protocol.sequence.sequence_constants import SequenceCommandEnum
-from ..protocol.sequence.sequence_req import SequenceReq
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from .sequence_req import SequenceReq
+from ..command_req import CommandReq
+from ..constants import CommandScope
+from ..sequence.sequence_constants import SequenceCommandEnum
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 
 class GradeCrossingReq(SequenceReq):

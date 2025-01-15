@@ -134,4 +134,11 @@ This software and its use are governed by the GNU Lesser General Public License.
 The `src/cli` directory contains a number of Python command line scripts allowing 
 you to operate engines, control switches and accessories, and fire custom routes.
 
+## Packaging
+
+rm -fr dist src/*.egg-info
+python3 -m build
+python3 -m twine upload --repository testpypi dist/*    
+python3 -m pip install -U --force-reinstall --index-url https://test.pypi.org/simple/ --no-deps pytrain-cdswindell
+
 ## Future Development

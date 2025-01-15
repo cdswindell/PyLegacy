@@ -56,7 +56,7 @@ class MultiByteReq(CommandReq, ABC):
 
                 return R4LCCommandReq.from_bytes(param, from_tmcc_rx, is_tmcc4)
             elif prefix == TMCCPrefixEnum.VARIABLE:
-                from ..protocol.multibyte.dcds_command_req import VariableCommandReq
+                from .dcds_command_req import VariableCommandReq
 
                 return VariableCommandReq.from_bytes(param, from_tmcc_rx, is_tmcc4)
         raise ValueError(f"Invalid multibyte command: : {param.hex(':')}")

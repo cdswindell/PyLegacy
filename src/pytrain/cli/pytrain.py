@@ -110,11 +110,6 @@ class PyTrain:
         self._server_discovered = threading.Event()
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
-        self._force_reboot = False
-        self._force_restart = False
-        self._force_update = False
-        self._force_upgrade = False
-        self._force_shutdown = False
         self._received_admin_cmds = set()
         self._script_loader: StartupScriptLoader | None = None
         self._server_ips = None
@@ -441,8 +436,9 @@ class PyTrain:
     def update(self, do_inform: bool = True) -> None:
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
-        os.system("git pull")
-        os.system("pip install -r requirements.txt")
+        # print(os.getcwd(), os.path.dirname(os.path.realpath(__file__)))
+        os.system(f"cd {os.getcwd()}; pwd; git pull")
+        os.system(f"cd {os.getcwd()}; pwd; pip install -r requirements.txt")
         self.relaunch()
 
     def upgrade(self) -> None:
@@ -465,7 +461,7 @@ class PyTrain:
                 sys.argv.append("-echo")
             elif self._echo is False and "-echo" in sys.argv:
                 sys.argv.remove("-echo")
-            os.execv(__file__, sys.argv)
+            os.execv(sys.argv[0], sys.argv)
 
     def register_service(self, ser2, base3, server_port) -> ServiceInfo:
         port = server_port

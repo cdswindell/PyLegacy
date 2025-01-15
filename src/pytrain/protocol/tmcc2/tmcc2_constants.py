@@ -6,15 +6,15 @@ from typing import Dict, Tuple
 
 from range_key_dict import RangeKeyDict
 
-from src.pytrain.protocol.command_def import CommandDef, CommandDefEnum
-from src.pytrain.protocol.constants import (
+from ..command_def import CommandDef, CommandDefEnum
+from ..constants import (
     CommandPrefix,
     CommandScope,
     RELATIVE_SPEED_MAP,
     CommandSyntax,
     DEFAULT_ENGINE_LABOR,
 )
-from src.pytrain.protocol.constants import OfficialRRSpeeds, DEFAULT_ADDRESS
+from ..constants import OfficialRRSpeeds, DEFAULT_ADDRESS
 
 LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: int = 0xFA
 LEGACY_MULTIBYTE_COMMAND_PREFIX: int = 0xFB

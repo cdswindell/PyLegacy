@@ -1,6 +1,6 @@
 from .tmcc2_command import TMCC2Command
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+from ..command_req import CommandReq
+from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT
 from .tmcc2_constants import LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX, TMCC2RouteCommandDef
 
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytrain-cdswindell"
-version = "0.9.5"
+version = "0.9.14"
 authors = [
   { name="Dave Swindell", email="pytraininfo@gmail.com" },
 ]

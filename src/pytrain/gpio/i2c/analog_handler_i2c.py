@@ -1,11 +1,11 @@
 from threading import Thread, Event
 from time import sleep
 
-from ..gpio.i2c.ads_1x15 import Ads1115
-from src.pytrain.gpio.gpio_handler import GpioHandler
-from src.pytrain.protocol.command_req import CommandReq
-from src.pytrain.protocol.constants import CommandScope, PROGRAM_NAME, DEFAULT_ADDRESS
-from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from .ads_1x15 import Ads1115
+from ..gpio_handler import GpioHandler
+from ...protocol.command_req import CommandReq
+from ...protocol.constants import CommandScope, PROGRAM_NAME, DEFAULT_ADDRESS
+from ...protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 
 class AnalogHandler(Thread):
