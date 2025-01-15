@@ -39,6 +39,15 @@ def title(text: str):
     return text
 
 
-def format_tag_name(tag: str) -> str:
-    print("*******", tag)
+def format_tag_name(name: str) -> str:
+    print("*******", name)
+    pattern = re.compile(r"release/(?P<tag>[^\d.]+)")
+
+    match = pattern.search(name)
+    if match:
+        return match.group("tag")
+
+    # just left properly named tags intact
+    if name.startswith("v"):
+        return name
     return "0.9.15"
