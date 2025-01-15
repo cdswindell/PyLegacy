@@ -37,3 +37,8 @@ def title(text: str):
             parts[i] = part
         text = " ".join([p for p in parts if p])
     return text
+
+
+def format_tag_name(tag: str) -> str:
+    print("*******", tag)
+    return "0.9.15"

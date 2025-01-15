@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=75.0"]
-build-backend = "setuptools.build_meta"
+build-backend = "setuptools.build_meta:__legacy__"
 
 [project]
 name = "pytrain-cdswindell"
@@ -49,7 +49,9 @@ keywords = [
 
 [tool.setuptools-git-versioning]
 enabled = true
-version_callback = "pytrain:__version__"
+dev_template = "{tag}.post{ccount}"
+dirty_template = "{tag}.dev{ccount}"
+
 
 [project.scripts]
 pytrain = "pytrain.cli.pytrain:PyTrain"
