@@ -24,10 +24,11 @@ classifiers = [
 license = {file = "LICENSE"}
 
 dependencies = [
+    "RPLCD>= 1.3.1 ",
     "colorzero >= 2.0",
+    "git-versioner >= 7.1",
     "gpiozero >= 2.0.1",
     "pyserial >= 3.5",
-    "RPLCD>= 1.3.1 ",
     "range-key-dict >= 1.1",
     "setuptools >= 75.6.0",
     "smbus2 >= 0.5.0",
@@ -35,15 +36,26 @@ dependencies = [
     "lgpio >= 0.2.2.0; platform_system == 'linux'",
     "typing_extensions; python_version < '3.11'"
 ]
+dynamic = ["version"]
+
 
 keywords = [
-  "automation",
-  "lionel",
-  "legacy",
-  "tmcc",
-  "control",
-  "trains",
+    "automation",
+    "control",
+    "legacy",
+    "lionel",
+    "o-gauge",
+    "raspberry pi"
+    "tmcc",
+    "trains",
 ]
+
+[tool.setuptools.dynamic]
+version = {attr = "my_package.__version__"}
+
+[tool.git-versioner]
+short = true
+desc = true
 
 [project.scripts]
 pytrain = "pytrain.cli.pytrain:PyTrain"

@@ -35,6 +35,7 @@ from .lighting import LightingCli
 from .route import RouteCli
 from .sounds import SoundEffectsCli
 from .switch import SwitchCli
+from .._version import version_short
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandListener, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -307,7 +308,7 @@ class PyTrain:
 
     def run(self) -> None:
         # print opening line
-        print(f"{PROGRAM_NAME}, Ver 0.1")
+        print(f"{PROGRAM_NAME}, {version_short}")
         # process startup script
         if self._startup_script:
             self._script_loader = StartupScriptLoader(self)
