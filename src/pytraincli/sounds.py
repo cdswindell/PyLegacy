@@ -2,10 +2,10 @@
 import logging
 from typing import List
 
-from src.pytraincli.cli_base import CliBaseTMCC
-from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
-from src.pytrain.protocol.multibyte.sound_effects_cmd import SoundEffectsCmd
-from src.pytrain.utils.argument_parser import ArgumentParser
+from . import CliBaseTMCC
+from ..pytrain.protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
+from ..pytrain.protocol.multibyte.sound_effects_cmd import SoundEffectsCmd
+from ..pytrain.utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -212,7 +212,7 @@ class SoundEffectsCli(CliBaseTMCC):
             parents=[sounds_parser, cls.multi_parser(), cls.train_parser(), cls.cli_parser()],
         )
 
-    def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+    def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
         engine: int = self._args.engine
         option = self._args.option
@@ -228,11 +228,12 @@ class SoundEffectsCli(CliBaseTMCC):
                 server=self._server,
             )
             if self.do_fire:
-                cmd.fire()
+                cmd.fire(baudrate=self._baudrate, port=self._port, server=self._server)
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
 
 
-if __name__ == "__main__":
-    SoundEffectsCli(SoundEffectsCli.command_parser())
+main = SoundEffectsCli()
+# if __name__ == "__main__":
+#     SoundEffectsCli()

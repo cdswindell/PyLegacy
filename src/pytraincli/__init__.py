@@ -12,11 +12,8 @@ import sys
 from abc import ABC, ABCMeta
 from typing import List, Any
 
-from .acc import AccCli  # noqa: F401
-from .dialogs import DialogsCli  # noqa: F401
-
 from ..pytrain.protocol.command_base import CommandBase
-from ..pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax
+from ..pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax, PROGRAM_NAME
 from ..pytrain.protocol.constants import DEFAULT_VALID_BAUDRATES
 from ..pytrain.protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
 from ..pytrain.protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
@@ -57,7 +54,7 @@ class CliBase(ABC):
         parser.add_argument(
             "-server",
             action="store",
-            help="IP Address of PyLegacy server, if client. Server communicates with LCS SER2",
+            help=f"IP Address of {PROGRAM_NAME} server, if client. Server communicates with LCS SER2",
         )
         return parser
 
@@ -125,7 +122,9 @@ class CliBase(ABC):
         )
         return parser
 
-    def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+    def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+        if arg_parser is None:
+            arg_parser = self.command_parser()
         if cmd_line is None:
             self._args = arg_parser.parse_args()
         else:

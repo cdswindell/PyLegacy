@@ -457,7 +457,7 @@ class DialogsCli(CliBaseTMCC):
             parents=[dialog_parser, cls.multi_parser(), cls.train_parser(), cls.cli_parser()],
         )
 
-    def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+    def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
         engine: int = self._args.engine
         option = self._args.option
@@ -473,11 +473,12 @@ class DialogsCli(CliBaseTMCC):
                 server=self._server,
             )
             if self.do_fire:
-                cmd.fire()
+                cmd.fire(baudrate=self._baudrate, port=self._port, server=self._server)
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
 
 
-if __name__ == "__main__":
-    DialogsCli(DialogsCli.command_parser())
+main = DialogsCli()
+# if __name__ == "__main__":
+#     DialogsCli()

@@ -4,16 +4,18 @@ import logging
 from datetime import datetime
 from typing import List
 
-from src.pytraincli.cli_base import CliBase
-from src.pytrain.comm.command_listener import CommandListener
-from src.pytrain.protocol.command_req import CommandReq
-from src.pytrain.utils.argument_parser import ArgumentParser
+from . import CliBase
+from ..pytrain.comm.command_listener import CommandListener
+from ..pytrain.protocol.command_req import CommandReq
+from ..pytrain.utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 
 
 class EchoCli:
-    def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None) -> None:
+    def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None) -> None:
+        if arg_parser is None:
+            arg_parser = ArgumentParser("Echo LCS SER2 output to console", parents=[CliBase.cli_parser()])
         if cmd_line is None:
             self._args = arg_parser.parse_args()
         else:
@@ -29,6 +31,6 @@ class EchoCli:
         log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
 
 
-if __name__ == "__main__":
-    parser = ArgumentParser("Echo LCS SER2 output to console", parents=[CliBase.cli_parser()])
-    EchoCli(parser)
+main = EchoCli()
+# if __name__ == "__main__":
+#     EchoCli()

@@ -3,8 +3,8 @@
 import logging
 from typing import List
 
+from . import CliBase, DataAction
 from ..pytrain.protocol.tmcc1.acc_cmd import AccCmd
-from .cli_base import CliBase, DataAction
 
 from ..pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
 from ..pytrain.utils.argument_parser import ArgumentParser
@@ -70,7 +70,7 @@ class AccCli(CliBase):
         Currently only available via the TMCC1 command format
     """
 
-    def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+    def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
         self._acc = self._args.acc
         self._command = self._args.command
@@ -88,11 +88,10 @@ class AccCli(CliBase):
                 self._acc, self._command, self._data, baudrate=self._baudrate, port=self._port, server=self._server
             )
             if self.do_fire:
-                cmd.fire()
+                cmd.fire(baudrate=self._baudrate, port=self._port, server=self._server)
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
 
 
-if __name__ == "__main__":
-    AccCli(AccCli.command_parser())
+main = AccCli()

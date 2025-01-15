@@ -3,16 +3,16 @@
 import logging
 from typing import List
 
-from src.pytraincli.cli_base import CliBaseTMCC, DataAction, CliBase
-from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
-from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum, TMCC2RailSoundsDialogControl
-from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
-from src.pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
-from src.pytrain.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
-from src.pytrain.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
-from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
-from src.pytrain.utils.argument_parser import ArgumentParser
+from . import CliBaseTMCC, DataAction, CliBase
+from ..pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
+from ..pytrain.protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum, TMCC2RailSoundsDialogControl
+from ..pytrain.protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
+from ..pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
+from ..pytrain.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
+from ..pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
+from ..pytrain.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
+from ..pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ..pytrain.utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -492,7 +492,7 @@ class EngineCli(CliBaseTMCC):
             ],
         )
 
-    def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+    def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
         engine: int = self._args.engine
         option_data: int = self._args.data if "data" in self._args else 0
@@ -517,7 +517,13 @@ class EngineCli(CliBaseTMCC):
                     server=self._server,
                 )
             if self.do_fire:
-                cmd.fire(repeat=self._args.repeat, delay=self._args.delay)
+                cmd.fire(
+                    repeat=self._args.repeat,
+                    delay=self._args.delay,
+                    baudrate=self._baudrate,
+                    port=self._port,
+                    server=self._server,
+                )
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
@@ -577,5 +583,6 @@ class EngineCli(CliBaseTMCC):
         raise ValueError(f"Invalid {self.command_format.name} option: {option}")
 
 
-if __name__ == "__main__":
-    EngineCli(EngineCli.command_parser())
+main = EngineCli()
+# if __name__ == "__main__":
+#     EngineCli()

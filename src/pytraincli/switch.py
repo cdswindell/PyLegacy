@@ -3,10 +3,10 @@
 import logging
 from typing import List
 
-from src.pytraincli.cli_base import CliBase
-from src.pytrain.protocol.tmcc1.switch_cmd import SwitchCmd
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
-from src.pytrain.utils.argument_parser import ArgumentParser
+from . import CliBase
+from ..pytrain.protocol.tmcc1.switch_cmd import SwitchCmd
+from ..pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
+from ..pytrain.utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class SwitchCli(CliBase):
         Currently only available via the TMCC1 command format
     """
 
-    def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+    def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
         self._switch = self._args.switch
         self._switch_state = self._args.command
@@ -46,11 +46,10 @@ class SwitchCli(CliBase):
                 self._switch, self._switch_state, baudrate=self._baudrate, port=self._port, server=self._server
             )
             if self.do_fire:
-                cmd.fire()
+                cmd.fire(baudrate=self._baudrate, port=self._port, server=self._server)
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
 
 
-if __name__ == "__main__":
-    SwitchCli(SwitchCli.command_parser())
+main = SwitchCli()

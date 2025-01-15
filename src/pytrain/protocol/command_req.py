@@ -167,6 +167,7 @@ class CommandReq:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
         # send command to comm buffer
+
         if buffer is None:
             from ..comm.comm_buffer import CommBuffer
 

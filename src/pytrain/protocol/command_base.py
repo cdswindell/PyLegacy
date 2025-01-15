@@ -102,11 +102,18 @@ class CommandBase(ABC):
             buffer.shutdown()
             buffer.join()
 
-    def fire(self, repeat: int = 1, delay: float = 0) -> None:
+    def fire(
+        self,
+        repeat: int = 1,
+        delay: float = 0,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ) -> None:
         """
         Fire the command immediately and shut down comm buffers, once empty
         """
-        self.send(repeat=repeat, delay=delay, shutdown=True)
+        self.send(repeat=repeat, delay=delay, shutdown=True, baudrate=baudrate, port=port, server=server)
 
     @staticmethod
     def _encode_command(command: int, num_bytes: int = 2) -> bytes:

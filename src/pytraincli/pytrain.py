@@ -20,7 +20,7 @@ from typing import List, Tuple, Dict, Any
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
 from . import CliBase
-from . import AccCli
+from .acc import AccCli
 from .dialogs import DialogsCli
 from .effects import EffectsCli
 from .engine import EngineCli
