@@ -5,8 +5,8 @@ from ipaddress import IPv4Address, IPv6Address
 from .command_req import CommandReq
 from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from .command_def import CommandDef, CommandDefEnum
-from src.pytrain.utils.validations import Validations
-from src.pytrain.comm.comm_buffer import CommBuffer
+from ..utils.validations import Validations
+from ..comm.comm_buffer import CommBuffer
 
 
 class CommandBase(ABC):

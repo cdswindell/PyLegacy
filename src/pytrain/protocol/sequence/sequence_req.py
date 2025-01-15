@@ -49,13 +49,13 @@ class SequenceReq(CommandReq, Sequence):
         We need this function to avoid Python circular dependencies
         """
         from .sequence_constants import SequenceCommandEnum
-        from src.pytrain.protocol.sequence.speed_req import SpeedReq
+        from ..protocol.sequence.speed_req import SpeedReq
         from .abs_speed_rpm import AbsoluteSpeedRpm
-        from src.pytrain.protocol.sequence.grade_crossing_req import GradeCrossingReq
-        from src.pytrain.protocol.sequence.ramped_speed_req import RampedSpeedReq
-        from src.pytrain.protocol.sequence.ramped_speed_req import RampedSpeedDialogReq
-        from src.pytrain.protocol.sequence.labor_effect import LaborEffectUpReq
-        from src.pytrain.protocol.sequence.labor_effect import LaborEffectDownReq
+        from ..protocol.sequence.grade_crossing_req import GradeCrossingReq
+        from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
+        from ..protocol.sequence.ramped_speed_req import RampedSpeedDialogReq
+        from ..protocol.sequence.labor_effect import LaborEffectUpReq
+        from ..protocol.sequence.labor_effect import LaborEffectDownReq
 
         if command == SequenceCommandEnum.ABSOLUTE_SPEED_SEQ:
             SequenceCommandEnum.ABSOLUTE_SPEED_SEQ.value.register_cmd_class(SpeedReq)

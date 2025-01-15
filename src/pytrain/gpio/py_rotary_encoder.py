@@ -4,10 +4,10 @@ from typing import Dict, Callable
 
 from gpiozero import RotaryEncoder
 
-from src.pytrain.comm.comm_buffer import CommBuffer
-from src.pytrain.gpio.gpio_handler import GpioHandler, log
-from src.pytrain.protocol.command_req import CommandReq
-from src.pytrain.protocol.constants import PROGRAM_NAME
+from ..comm.comm_buffer import CommBuffer
+from ..gpio.gpio_handler import GpioHandler, log
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import PROGRAM_NAME
 
 
 class PyRotaryEncoder(RotaryEncoder):

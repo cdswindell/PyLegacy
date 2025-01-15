@@ -434,7 +434,7 @@ class SwitchState(TmccState):
         return self._state == Switch.OUT
 
     def as_bytes(self) -> bytes:
-        from src.pytrain.pdi.base_req import BaseReq
+        from ..pdi.base_req import BaseReq
 
         byte_str = BaseReq(self.address, PdiCommand.BASE_SWITCH, state=self).as_bytes
         if self.is_known:
@@ -583,7 +583,7 @@ class AccessoryState(TmccState):
         return self._number
 
     def as_bytes(self) -> bytes:
-        from src.pytrain.pdi.base_req import BaseReq
+        from ..pdi.base_req import BaseReq
 
         byte_str = BaseReq(self.address, PdiCommand.BASE_ACC, state=self).as_bytes
         if self._sensor_track:
@@ -924,7 +924,7 @@ class EngineState(ComponentState):
             self._cv.notify_all()
 
     def as_bytes(self) -> bytes:
-        from src.pytrain.pdi.base_req import BaseReq
+        from ..pdi.base_req import BaseReq
 
         byte_str = bytes()
         # encode name, number, momentum, speed, and rpm using PDI command

@@ -37,14 +37,14 @@ class CommandReq:
         cls._vet_request(command, address, data, scope)
         # we have to do these imports here to avoid cyclic dependencies
         from .sequence.sequence_constants import SequenceCommandEnum
-        from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum
+        from ..protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum
 
         if isinstance(command, SequenceCommandEnum):
             from .sequence.sequence_req import SequenceReq
 
             return SequenceReq.build(command, address, data, scope)
         elif isinstance(command, TMCC2MultiByteEnum):
-            from src.pytrain.protocol.multibyte.param_command_req import MultiByteReq
+            from ..protocol.multibyte.param_command_req import MultiByteReq
 
             return MultiByteReq.build(command, address, data, scope)
         elif isinstance(command, CommandDefEnum):
@@ -550,7 +550,7 @@ class CommandReq:
                     return CommandReq.build(cmd_enum, address, data, scope)
             raise ValueError(f"Invalid tmcc2 command: {param.hex(':')}")
         else:
-            from src.pytrain.protocol.multibyte.multibyte_command_req import MultiByteReq
+            from ..protocol.multibyte.multibyte_command_req import MultiByteReq
 
             return MultiByteReq.from_bytes(param, is_tmcc4=is_tmcc4)
 

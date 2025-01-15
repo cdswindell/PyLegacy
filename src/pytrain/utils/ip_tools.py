@@ -3,7 +3,7 @@ from typing import List
 from multiprocessing import Pool, cpu_count
 
 
-from src.pytrain.protocol.constants import DEFAULT_BASE_PORT
+from ..protocol.constants import DEFAULT_BASE_PORT
 
 
 def get_ip_address(max_attempts: int = 32) -> List[str]:

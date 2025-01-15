@@ -217,7 +217,7 @@ class Base3Buffer(Thread):
                 # convert the byte stream into one or more commands
                 command_seq = bytes()
                 for b in data:
-                    from src.pytrain.protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER
+                    from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER
 
                     # When we sync state, states are expressed as the byte-string representations
                     # of the command(s) that generate them. This means that the byte string we

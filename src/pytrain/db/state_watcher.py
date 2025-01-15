@@ -3,8 +3,8 @@ from queue import Queue
 from threading import Thread
 from typing import Callable
 
-from src.pytrain.db.component_state import ComponentState
-from src.pytrain.protocol.constants import PROGRAM_NAME
+from ..db.component_state import ComponentState
+from ..protocol.constants import PROGRAM_NAME
 
 log = logging.getLogger(__name__)
 

@@ -46,7 +46,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
         # if there is no state information, treat this as an ABSOLUTE_SPEED req
         if cur_state is None or cur_state.speed is None:
             if tower and engr and dialog is True:
-                from src.pytrain.protocol.sequence.speed_req import SpeedReq
+                from ..protocol.sequence.speed_req import SpeedReq
 
                 sr = SpeedReq(address, speed, scope, is_tmcc)
                 for request in sr.requests:

@@ -37,7 +37,7 @@ class AbsoluteSpeedRpm(SequenceReq):
             raise AttributeError(f"Scope {new_scope} not supported for {self}")
 
     def _apply_data(self, new_data: int = None) -> int:
-        from src.pytrain.db.component_state_store import ComponentStateStore
+        from ..db.component_state_store import ComponentStateStore
 
         state = ComponentStateStore.get_state(self.scope, self.address, create=False)
         if state:

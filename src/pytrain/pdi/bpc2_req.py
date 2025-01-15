@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from src.pytrain.pdi.constants import PdiCommand, Bpc2Action, PDI_SOP, PDI_EOP
-from src.pytrain.pdi.lcs_req import LcsReq
-from src.pytrain.protocol.constants import CommandScope
+from ..pdi.constants import PdiCommand, Bpc2Action, PDI_SOP, PDI_EOP
+from ..pdi.lcs_req import LcsReq
+from ..protocol.constants import CommandScope
 
 
 class Bpc2Req(LcsReq):

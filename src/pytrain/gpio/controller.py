@@ -6,7 +6,7 @@ from typing import List, TypeVar, Union, Tuple
 
 from .engine_controller import EngineController
 from .keypad import Keypad, KeyPadI2C, KEYPAD_PCF8574_ADDRESS
-from src.pytrain.gpio.i2c.lcd import Lcd, LCD_PCF8574_ADDRESS
+from ..gpio.i2c.lcd import Lcd, LCD_PCF8574_ADDRESS
 from ..db.state_watcher import StateWatcher
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..db.component_state_store import ComponentStateStore

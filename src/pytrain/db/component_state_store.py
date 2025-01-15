@@ -6,8 +6,8 @@ import threading
 from collections import defaultdict
 from typing import List, TypeVar, Set, Tuple
 
-from src.pytrain.db.client_state_listener import ClientStateListener
-from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl as Effects
+from ..db.client_state_listener import ClientStateListener
+from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl as Effects
 from .component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Topic, Subscriber

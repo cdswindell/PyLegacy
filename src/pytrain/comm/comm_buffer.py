@@ -373,7 +373,7 @@ class CommBufferProxy(CommBuffer):
                     raise oe
 
     def register(self, port: int = DEFAULT_SERVER_PORT) -> None:
-        from src.pytrain.comm.enqueue_proxy_requests import EnqueueProxyRequests
+        from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 
         while True:
             # noinspection PyTypeChecker
@@ -382,7 +382,7 @@ class CommBufferProxy(CommBuffer):
 
     def disconnect(self) -> None:
         try:
-            from src.pytrain.comm.enqueue_proxy_requests import EnqueueProxyRequests
+            from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 
             # noinspection PyTypeChecker
             self.enqueue_command(EnqueueProxyRequests.disconnect_request())
@@ -391,7 +391,7 @@ class CommBufferProxy(CommBuffer):
             raise ce
 
     def sync_state(self) -> None:
-        from src.pytrain.comm.enqueue_proxy_requests import EnqueueProxyRequests
+        from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 
         try:
             # noinspection PyTypeChecker

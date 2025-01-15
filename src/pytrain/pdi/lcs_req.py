@@ -4,7 +4,7 @@ import abc
 from abc import ABC
 from typing import List, TypeVar, Dict
 
-from src.pytrain.pdi.constants import (
+from ..pdi.constants import (
     ALL_FIRMWARE,
     ALL_IDENTIFY,
     ALL_INFO,
@@ -14,7 +14,7 @@ from src.pytrain.pdi.constants import (
     PdiCommand,
     Ser2Action,
 )
-from src.pytrain.pdi.pdi_req import PdiReq
+from ..pdi.pdi_req import PdiReq
 
 T = TypeVar("T", bound=PdiAction)
 

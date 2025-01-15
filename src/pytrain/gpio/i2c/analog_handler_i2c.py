@@ -1,7 +1,7 @@
 from threading import Thread, Event
 from time import sleep
 
-from src.pytrain.gpio.i2c.ads_1x15 import Ads1115
+from ..gpio.i2c.ads_1x15 import Ads1115
 from src.pytrain.gpio.gpio_handler import GpioHandler
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope, PROGRAM_NAME, DEFAULT_ADDRESS

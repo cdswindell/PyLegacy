@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from src.pytrain.protocol.command_req import CommandReq
-from src.pytrain.protocol.constants import CommandScope
-from src.pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
-from src.pytrain.protocol.sequence.sequence_req import SequenceReq
-from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import CommandScope
+from ..protocol.sequence.sequence_constants import SequenceCommandEnum
+from ..protocol.sequence.sequence_req import SequenceReq
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
 
 
 class GradeCrossingReq(SequenceReq):

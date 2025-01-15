@@ -8,7 +8,7 @@ from typing import Tuple, Callable, Dict, TypeVar, List, Union
 
 from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice, PingServer
 
-from src.pytrain.gpio.i2c.ads_1x15 import Ads1115
+from .i2c.ads_1x15 import Ads1115
 from .controller import Controller, ControllerI2C
 from .i2c.button_i2c import ButtonI2C
 from .i2c.led_i2c import LEDI2C
