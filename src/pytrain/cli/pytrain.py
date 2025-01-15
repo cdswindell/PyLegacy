@@ -347,6 +347,13 @@ class PyTrain:
 
     def shutdown(self):
         try:
+            if self.is_server and self._service_info and self._zeroconf:
+                self._zeroconf.unregister_service(self._service_info)
+                self._zeroconf.close()
+                self._zeroconf = self._service_info = None
+        except Exception as e:
+            log.warning(f"Error closing zeroconf, continuing shutdown: {e}")
+        try:
             if self.is_client:
                 self._tmcc_buffer.disconnect()
         except Exception as e:
