@@ -3,9 +3,9 @@ import logging
 from typing import List
 
 from . import CliBaseTMCC
-from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
-from src.pytrain.protocol.multibyte.sound_effects_cmd import SoundEffectsCmd
-from src.pytrain.utils.argument_parser import ArgumentParser
+from ..protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
+from ..protocol.multibyte.sound_effects_cmd import SoundEffectsCmd
+from ..utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 

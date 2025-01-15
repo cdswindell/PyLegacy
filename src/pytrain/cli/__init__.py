@@ -12,12 +12,12 @@ import sys
 from abc import ABC, ABCMeta
 from typing import List, Any
 
-from src.pytrain.protocol.command_base import CommandBase
-from src.pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax, PROGRAM_NAME
-from src.pytrain.protocol.constants import DEFAULT_VALID_BAUDRATES
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
-from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
-from src.pytrain.utils.argument_parser import ArgumentParser
+from ..protocol.command_base import CommandBase
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax, PROGRAM_NAME
+from ..protocol.constants import DEFAULT_VALID_BAUDRATES
+from ..protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
+from ..protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
+from ..utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 

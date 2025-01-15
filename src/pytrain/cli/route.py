@@ -3,9 +3,9 @@ import logging
 from typing import List
 
 from . import CliBaseTMCC
-from src.pytrain.protocol.tmcc1.route_cmd import RouteCmd as RouteCmdTMCC1
-from src.pytrain.protocol.tmcc2.route_cmd import RouteCmd as RouteCmdTMCC2
-from src.pytrain.utils.argument_parser import ArgumentParser
+from ..protocol.tmcc1.route_cmd import RouteCmd as RouteCmdTMCC1
+from ..protocol.tmcc2.route_cmd import RouteCmd as RouteCmdTMCC2
+from ..utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 

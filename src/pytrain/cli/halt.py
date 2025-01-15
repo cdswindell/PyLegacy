@@ -4,10 +4,10 @@ import logging
 from typing import List
 
 from . import CliBaseTMCC
-from src.pytrain.protocol.constants import CommandSyntax
-from src.pytrain.protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
-from src.pytrain.protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
-from src.pytrain.utils.argument_parser import ArgumentParser
+from ..protocol.constants import CommandSyntax
+from ..protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
+from ..protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
+from ..utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 

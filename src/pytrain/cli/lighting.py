@@ -3,9 +3,9 @@ import logging
 from typing import List
 
 from . import CliBaseTMCC
-from src.pytrain.protocol.multibyte.lighting_cmd import LightingCmd
-from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2LightingControl
-from src.pytrain.utils.argument_parser import ArgumentParser
+from ..protocol.multibyte.lighting_cmd import LightingCmd
+from ..protocol.multibyte.multibyte_constants import TMCC2LightingControl
+from ..utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 

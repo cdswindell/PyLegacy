@@ -4,9 +4,9 @@ import logging
 from typing import List
 
 from . import CliBase
-from src.pytrain.protocol.tmcc1.switch_cmd import SwitchCmd
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
-from src.pytrain.utils.argument_parser import ArgumentParser
+from ..protocol.tmcc1.switch_cmd import SwitchCmd
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
+from ..utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 

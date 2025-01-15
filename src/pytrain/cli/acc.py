@@ -4,10 +4,10 @@ import logging
 from typing import List
 
 from . import CliBase, DataAction
-from src.pytrain.protocol.tmcc1.acc_cmd import AccCmd
+from ..protocol.tmcc1.acc_cmd import AccCmd
 
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
-from src.pytrain.utils.argument_parser import ArgumentParser
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
+from ..utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 
