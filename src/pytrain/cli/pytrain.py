@@ -330,9 +330,7 @@ class PyTrain:
                     self.shutdown()
                     break
         finally:
-            if self._service_info and self._zeroconf:
-                self._zeroconf.unregister_service(self._service_info)
-                self._zeroconf.close()
+            self.shutdown_service()
             if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
                 if self._admin_action == TMCC1SyncCommandDef.UPGRADE:
                     self.upgrade()
@@ -347,10 +345,7 @@ class PyTrain:
 
     def shutdown(self):
         try:
-            if self.is_server and self._service_info and self._zeroconf:
-                self._zeroconf.unregister_service(self._service_info)
-                self._zeroconf.close()
-                self._zeroconf = self._service_info = None
+            self.shutdown_service()
         except Exception as e:
             log.warning(f"Error closing zeroconf, continuing shutdown: {e}")
         try:
@@ -406,6 +401,10 @@ class PyTrain:
             # send command to server, it will send it to all clients
             # then will execute it on the server itself
             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
+            # if we're a client, we need to give the server time to respond, otherwise, we
+            # will connect to it as it is shutting down
+            if self.is_client:
+                sleep(10)
         raise KeyboardInterrupt()
 
     @staticmethod
@@ -551,6 +550,12 @@ class PyTrain:
             if info:
                 self._pytrain_servers.append(info)
                 self._server_discovered.set()
+
+    def shutdown_service(self):
+        if self._service_info and self._zeroconf:
+            self._zeroconf.unregister_service(self._service_info)
+            self._zeroconf.close()
+            self._service_info = self._zeroconf = None
 
     def _handle_command(self, ui: str) -> None:
         """
