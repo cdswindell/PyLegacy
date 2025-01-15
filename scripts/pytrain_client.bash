@@ -32,4 +32,4 @@ cd $PYTRAIN_HOME
 source ../bin/activate; export PYTHONPATH=.
 
 # run the program
-src/pytrain/cli/pytrain.py -client -headless $START $STARTUP_SCRIPT
+cli/pytrain.py -client -headless $START $STARTUP_SCRIPT

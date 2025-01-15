@@ -32,5 +32,5 @@ cd $PYTRAIN_HOME
 source ../bin/activate; export PYTHONPATH=.
 
 # run the program
-src/pytrain/cli/pytrain.py -base $LIONEL_BASE_3 -ser2 -headless $START $STARTUP_SCRIPT
+cli/pytrain.py -base $LIONEL_BASE_3 -ser2 -headless $START $STARTUP_SCRIPT
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytrain-cdswindell"
-version = "0.9.3"
+version = "0.9.4"
 authors = [
   { name="Dave Swindell", email="pytraininfo@gmail.com" },
 ]
@@ -46,7 +46,7 @@ keywords = [
 ]
 
 [project.scripts]
-pytrain = "pytrain.cli.pytrain:main"
+pytrain = "pytrain.cli.pytrain:PyTrain"
 
 [project.urls]
 Repository = "https://github.com/cdswindell/PyTrain"
