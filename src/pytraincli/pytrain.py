@@ -47,10 +47,10 @@ from ..pytrain.protocol.constants import (
     BROADCAST_TOPIC,
     CommandScope,
     DEFAULT_BASE_PORT,
-    DEFAULT_SERVER_PORT,
     PROGRAM_NAME,
     SERVICE_TYPE,
     SERVICE_NAME,
+    DEFAULT_SERVER_PORT,
 )
 from ..pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
 from ..pytrain.utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
@@ -70,6 +70,34 @@ ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
 ACTION_TO_ADMIN_COMMAND_MAP: Dict[CommandDefEnum, str] = {v: k for k, v in ADMIN_COMMAND_TO_ACTION_MAP.items()}
 
 
+def arg_parser() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument(
+        "-startup_script",
+        type=str,
+        default=DEFAULT_SCRIPT_FILE,
+        help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})",
+    )
+    parser = ArgumentParser(
+        prog="pytrain.py",
+        description="Send TMCC and Legacy-formatted commands to a Lionel Base 3 and/or LCS Ser2",
+        parents=[parser, CliBase.cli_parser()],
+    )
+    parser.add_argument("-base", nargs="*", type=str, help="IP Address of Lionel Base 2/3")
+    parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
+    parser.add_argument("-headless", action="store_true", help="Do not prompt for user input (run in the background)")
+    parser.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
+    parser.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
+    parser.add_argument("-client", action="store_true", help=f"Connect to an available {PROGRAM_NAME} server")
+    parser.add_argument(
+        "-server_port",
+        type=int,
+        default=DEFAULT_SERVER_PORT,
+        help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})",
+    )
+    return parser
+
+
 class ServiceListener:
     @staticmethod
     def remove_service(zeroconf, type_, name):
@@ -82,7 +110,8 @@ class ServiceListener:
 
 class PyTrain:
     def __init__(self) -> None:
-        args = self.cli_parser().parse_args()
+        args = arg_parser().parse_args()
+        print(sys.argv, args)
         self._args = args
         self._startup_script = args.startup_script
         self._baudrate = args.baudrate
@@ -831,36 +860,6 @@ class PyTrain:
             help=f"Elapsed time this instance of {PROGRAM_NAME} has been active),",
         )
         return command_parser
-
-    @staticmethod
-    def cli_parser() -> ArgumentParser:
-        parser = ArgumentParser(add_help=False)
-        parser.add_argument(
-            "-startup_script",
-            type=str,
-            default=DEFAULT_SCRIPT_FILE,
-            help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})",
-        )
-        parser = ArgumentParser(
-            prog="pytrain.py",
-            description="Send TMCC and Legacy-formatted commands to a Lionel Base 3 and/or LCS Ser2",
-            parents=[parser, CliBase.cli_parser()],
-        )
-        parser.add_argument("-base", nargs="*", type=str, help="IP Address of Lionel Base 2/3")
-        parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
-        parser.add_argument(
-            "-headless", action="store_true", help="Do not prompt for user input (run in the background)"
-        )
-        parser.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
-        parser.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
-        parser.add_argument("-client", action="store_true", help=f"Connect to an available {PROGRAM_NAME} server")
-        parser.add_argument(
-            "-server_port",
-            type=int,
-            default=DEFAULT_SERVER_PORT,
-            help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})",
-        )
-        return parser
 
 
 class StartupScriptLoader(threading.Thread):
