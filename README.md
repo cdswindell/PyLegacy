@@ -137,6 +137,8 @@ you to operate engines, control switches and accessories, and fire custom routes
 ## Packaging
 
 rm -fr dist src/*.egg-info
+git tag <tag_name>
+
 python3 -m build
 python3 -m twine upload --repository testpypi dist/*    
 python3 -m pip install -U --force-reinstall --index-url https://test.pypi.org/simple/ --no-deps pytrain-cdswindell

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytrain-cdswindell"
-version = "0.9.15"
+dynamic = ["version"]
 authors = [
   { name="Dave Swindell", email="pytraininfo@gmail.com" },
 ]
@@ -45,6 +45,9 @@ keywords = [
     "tmcc",
     "trains",
 ]
+
+[tool.setuptools-git-versioning]
+enabled = true
 
 [project.scripts]
 pytrain = "pytrain.cli.pytrain:PyTrain"

@@ -35,7 +35,6 @@ from .lighting import LightingCli
 from .route import RouteCli
 from .sounds import SoundEffectsCli
 from .switch import SwitchCli
-from ..__version__ import version_short
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandListener, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -117,6 +116,7 @@ class PyTrain:
         self._admin_action: CommandDefEnum | None = None
         self._base_addr = self._base_port = None
         self._started_at = timer()
+        self._version = "v0.9.15"
 
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).
@@ -308,7 +308,7 @@ class PyTrain:
 
     def run(self) -> None:
         # print opening line
-        print(f"{PROGRAM_NAME}, {version_short}")
+        print(f"{PROGRAM_NAME}, {self._version}")
         # process startup script
         if self._startup_script:
             self._script_loader = StartupScriptLoader(self)
