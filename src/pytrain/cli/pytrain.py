@@ -22,9 +22,9 @@ from signal import pause
 from time import sleep
 from timeit import default_timer as timer
 from typing import List, Tuple, Dict, Any
-
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
+from .. import __version__
 from . import CliBase
 from .acc import AccCli
 from .dialogs import DialogsCli
@@ -116,7 +116,7 @@ class PyTrain:
         self._admin_action: CommandDefEnum | None = None
         self._base_addr = self._base_port = None
         self._started_at = timer()
-        self._version = "v0.9.15"
+        self._version = __version__
 
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).

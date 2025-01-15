@@ -29,6 +29,7 @@ dependencies = [
     "pyserial >= 3.5",
     "range-key-dict >= 1.1",
     "setuptools >= 75.6.0",
+    "setuptools_git_versioning >= 2.1",
     "smbus2 >= 0.5.0",
     "zeroconf >= 0.139",
     "lgpio >= 0.2.2.0; platform_system == 'linux'",
@@ -48,6 +49,7 @@ keywords = [
 
 [tool.setuptools-git-versioning]
 enabled = true
+version_callback = "pytrain:__version__"
 
 [project.scripts]
 pytrain = "pytrain.cli.pytrain:PyTrain"
