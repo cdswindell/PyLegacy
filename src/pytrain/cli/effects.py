@@ -3,9 +3,9 @@ import logging
 from typing import List
 
 from . import CliBaseTMCC
-from ..pytrain.protocol.multibyte.effects_cmd import EffectsCmd
-from ..pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ..pytrain.utils.argument_parser import ArgumentParser
+from src.pytrain.protocol.multibyte.effects_cmd import EffectsCmd
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+from src.pytrain.utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 

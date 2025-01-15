@@ -5,9 +5,9 @@ from datetime import datetime
 from typing import List
 
 from . import CliBase
-from ..pytrain.comm.command_listener import CommandListener
-from ..pytrain.protocol.command_req import CommandReq
-from ..pytrain.utils.argument_parser import ArgumentParser
+from src.pytrain.comm.command_listener import CommandListener
+from src.pytrain.protocol.command_req import CommandReq
+from src.pytrain.utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 

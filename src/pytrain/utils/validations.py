@@ -1,3 +1,10 @@
+#
+# PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+# Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+# SPDX-License-Identifier: LPGL
+#
 class Validations:
     @classmethod
     def validate_int(cls, value: int, min_value: int = None, max_value: int = None, label: str = None) -> int:

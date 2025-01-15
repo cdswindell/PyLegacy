@@ -4,15 +4,15 @@ import logging
 from typing import List
 
 from . import CliBaseTMCC, DataAction, CliBase
-from ..pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
-from ..pytrain.protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum, TMCC2RailSoundsDialogControl
-from ..pytrain.protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
-from ..pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
-from ..pytrain.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
-from ..pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
-from ..pytrain.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
-from ..pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
-from ..pytrain.utils.argument_parser import ArgumentParser
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum, TMCC2RailSoundsDialogControl
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
+from src.pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
+from src.pytrain.protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
+from src.pytrain.protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from src.pytrain.utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 
