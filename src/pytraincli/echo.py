@@ -29,8 +29,3 @@ class EchoCli:
 
     def __call__(self, cmd: CommandReq) -> None:
         log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
-
-
-main = EchoCli()
-# if __name__ == "__main__":
-#     EchoCli()

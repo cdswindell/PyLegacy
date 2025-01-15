@@ -109,9 +109,9 @@ class ServiceListener:
 
 
 class PyTrain:
-    def __init__(self) -> None:
-        args = arg_parser().parse_args()
-        print(sys.argv, args)
+    def __init__(self, args: argparse.Namespace = None) -> None:
+        if args is None:
+            args = arg_parser().parse_args()
         self._args = args
         self._startup_script = args.startup_script
         self._baudrate = args.baudrate
@@ -874,4 +874,4 @@ class StartupScriptLoader(threading.Thread):
 
 set_up_logging()
 log = logging.getLogger(__name__)
-main = PyTrain()
+# main = PyTrain(arg_parser().parse_args())

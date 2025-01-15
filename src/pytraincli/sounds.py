@@ -232,8 +232,3 @@ class SoundEffectsCli(CliBaseTMCC):
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
-
-
-main = SoundEffectsCli()
-# if __name__ == "__main__":
-#     SoundEffectsCli()

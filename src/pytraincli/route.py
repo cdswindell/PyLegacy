@@ -32,8 +32,3 @@ class RouteCli(CliBaseTMCC):
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
-
-
-main = RouteCli()
-# if __name__ == "__main__":
-#     RouteCli()

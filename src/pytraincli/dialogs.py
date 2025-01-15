@@ -477,8 +477,3 @@ class DialogsCli(CliBaseTMCC):
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
-
-
-main = DialogsCli()
-# if __name__ == "__main__":
-#     DialogsCli()

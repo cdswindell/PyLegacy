@@ -581,8 +581,3 @@ class EngineCli(CliBaseTMCC):
             if option in dir(enum_class):
                 return enum_class[option]
         raise ValueError(f"Invalid {self.command_format.name} option: {option}")
-
-
-main = EngineCli()
-# if __name__ == "__main__":
-#     EngineCli()

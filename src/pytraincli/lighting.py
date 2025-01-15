@@ -273,8 +273,3 @@ class LightingCli(CliBaseTMCC):
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
-
-
-main = LightingCli()
-# if __name__ == "__main__":
-#     LightingCli()

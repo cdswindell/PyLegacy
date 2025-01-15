@@ -32,8 +32,3 @@ class HaltCli(CliBaseTMCC):
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
-
-
-main = HaltCli()
-# if __name__ == "__main__":
-#     HaltCli()

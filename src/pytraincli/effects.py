@@ -175,8 +175,3 @@ class EffectsCli(CliBaseTMCC):
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
-
-
-main = EffectsCli()
-# if __name__ == "__main__":
-#     EffectsCli()

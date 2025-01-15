@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 #
-from src.pytraincli.pytrain import PyTrain
-
+from src.pytraincli.pytrain import PyTrain, arg_parser
 
 if __name__ == "__main__":
-    print("****", __name__)
-    PyTrain()
+    PyTrain(arg_parser().parse_args())

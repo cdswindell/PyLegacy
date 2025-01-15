@@ -50,6 +50,3 @@ class SwitchCli(CliBase):
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
-
-
-main = SwitchCli()
