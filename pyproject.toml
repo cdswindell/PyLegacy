@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=75.0", "setuptools-git-versioning>=2.0,<3.0"]
+requires = ["setuptools>=75.0", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -29,7 +29,7 @@ dependencies = [
     "pyserial >= 3.5",
     "range-key-dict >= 1.1",
     "setuptools >= 75.6.0",
-    "setuptools_git_versioning >= 2.1",
+    "setuptools_scm >= 8.1",
     "smbus2 >= 0.5.0",
     "zeroconf >= 0.139",
     "lgpio >= 0.2.2.0; platform_system == 'linux'",
@@ -47,12 +47,8 @@ keywords = [
     "trains",
 ]
 
-[tool.setuptools-git-versioning]
-enabled = true
-template = "{tag}"
-dev_template = "{tag}.post{ccount}"
-dirty_template = "{tag}.dev{ccount}"
-starting_version = "0.0.1"
+[tool.setuptools_scm]
+version_file = "src/pytrain/_version.py"
 
 
 [project.scripts]

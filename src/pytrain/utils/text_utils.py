@@ -37,17 +37,3 @@ def title(text: str):
             parts[i] = part
         text = " ".join([p for p in parts if p])
     return text
-
-
-def format_tag_name(name: str) -> str:
-    print("*******", name)
-    pattern = re.compile(r"release/(?P<tag>[^\d.]+)")
-
-    match = pattern.search(name)
-    if match:
-        return match.group("tag")
-
-    # just left properly named tags intact
-    if name.startswith("v"):
-        return name
-    return "0.9.15"

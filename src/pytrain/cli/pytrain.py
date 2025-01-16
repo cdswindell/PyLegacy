@@ -34,6 +34,7 @@ from .lighting import LightingCli
 from .route import RouteCli
 from .sounds import SoundEffectsCli
 from .switch import SwitchCli
+from .. import get_version
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandListener, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -115,7 +116,7 @@ class PyTrain:
         self._admin_action: CommandDefEnum | None = None
         self._base_addr = self._base_port = None
         self._started_at = timer()
-        self._version = "0.9.15"
+        self._version = get_version()
 
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).

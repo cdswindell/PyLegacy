@@ -138,6 +138,7 @@ you to operate engines, control switches and accessories, and fire custom routes
 
 rm -fr dist src/*.egg-info
 git tag <tag_name>
+git push origin --tags
 
 python3 -m build
 python3 -m twine upload --repository testpypi dist/*    
