@@ -7,7 +7,7 @@ SETTINGS = [
     "do_net_names 0",
     "do_i2c 0",
     "do_ssh 0",
-    "do_pi4video V3",
+    "do_pi4video 1",
     "do_boot_splash 1",
     "do_rpi_connect 1",
     "do_spi 1",
@@ -21,7 +21,13 @@ SERVICES = [
     "hciuart",
     "bluealsa",
     "bluetooth",
+    "rpi-connect",
+    "rpi-connect-wayvnc",
+    "rpi-connect-wayvnc-watcher",
 ]
+
+# Disable Bluetooth
+# dtoverlay=disable-bt
 
 
 class PiConfig:
