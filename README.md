@@ -112,10 +112,13 @@ Console autologin
 Enable I2C
 Disable SPI
 Disable Serial Port
+
 Disable Camera Auto detect
 Disable Audio
-Disable mailcap
 Disable Bluetooth
+
+Disable mailcap
+
 Disable rpicam-apps
 Disable rpi-connect
 Disable pipewire
