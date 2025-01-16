@@ -31,9 +31,18 @@ def get_version() -> str:
 
     # now try the other way
     if version is None:
-        from ._version import __version__
+        try:
+            from ._version import __version__
 
-        version = __version__
+            version = __version__
+        except ModuleNotFoundError:
+            pass
+
+    # finally, call the method to read it from git
+    if version is None:
+        from setuptools_scm import get_version as get_git_version
+
+        version = get_git_version()
 
     version = version if version.startswith("v") else f"v{version}"
     return version
