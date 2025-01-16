@@ -91,12 +91,12 @@ class PiConfig:
             if self.verbose:
                 print(f"Executing: {cmd}...", end="")
             try:
-                status = os.system(cmd)
-                if status == 0:
+                result = subprocess.run(cmd.split(), capture_output=True)
+                if result.returncode == 0:
                     if self.verbose:
                         print("...Done")
                 else:
-                    print(f"...Failed with status {status}")
+                    print(f"...Failed with error {result.stderr.decode('utf-8').strip()}")
             except Exception as e:
                 print(e)
 
