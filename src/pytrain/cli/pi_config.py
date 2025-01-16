@@ -37,7 +37,7 @@ class PiConfig:
         for setting in SETTINGS:
             cmd = f"sudo raspi-config nonint {setting}"
             if self.verbose:
-                print(f"Executing: {cmd}...", end="\r")
+                print(f"Executing: {cmd}...", end="")
             try:
                 status = os.system(cmd)
                 if status == 0:
