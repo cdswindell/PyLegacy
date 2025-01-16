@@ -32,6 +32,7 @@ def get_version() -> str:
     # now try the other way
     if version is None:
         try:
+            # noinspection PyUnresolvedReferences
             from ._version import __version__
 
             version = __version__
@@ -42,7 +43,7 @@ def get_version() -> str:
     if version is None:
         from setuptools_scm import get_version as get_git_version
 
-        version = get_git_version()
+        version = get_git_version(version_scheme="post-release", local_scheme="no-local-version")
 
     version = version if version.startswith("v") else f"v{version}"
     return version
