@@ -49,6 +49,8 @@ keywords = [
 
 [tool.setuptools_scm]
 version_file = "src/pytrain/_version.py"
+version_scheme = "post-release"
+local_scheme = "no-local-version"
 
 
 [project.scripts]
