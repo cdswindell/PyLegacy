@@ -94,20 +94,20 @@ class PiConfig:
                     print("...ERROR")
                 print(f"*** Check {setting} Error: {result.stderr.decode('utf-8').strip()} ***")
 
-            # check services
-            for service in SERVICES:
+        # check services
+        for service in SERVICES:
+            if self.verbose:
+                print(f"Checking {service}...", end="")
+            cmd = f"sudo systemctl status {service}.service"
+            result = subprocess.run(cmd.split(), capture_output=True)
+            if result.returncode == 4:
                 if self.verbose:
-                    print(f"Checking {service}...", end="")
-                cmd = f"sudo systemctl status {service}.service"
-                result = subprocess.run(cmd.split(), capture_output=True)
-                if result.returncode == 4:
-                    if self.verbose:
-                        print("...OK")
+                    print("...OK")
+            else:
+                if self.verbose:
+                    print("...FOUND; can be removed")
                 else:
-                    if self.verbose:
-                        print("...FOUND; can be removed")
-                    else:
-                        print(f"*** {service} is installed; for {PROGRAM_NAME}, it can be deactivated and removed ***")
+                    print(f"*** {service} is installed; for {PROGRAM_NAME}, it can be deactivated and removed ***")
 
     def optimize_config(self) -> None:
         for setting, value in SETTINGS.items():
