@@ -64,7 +64,7 @@ class PiConfig:
     def do_check(self) -> None:
         for setting, value in SETTINGS.items():
             cmd = f"sudo raspi-config nonint get_{setting}"
-            result = subprocess.run([cmd], capture_output=True)
+            result = subprocess.run(cmd.split(), capture_output=True)
             print(result)
 
     def optimize_config(self) -> None:
