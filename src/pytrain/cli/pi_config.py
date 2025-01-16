@@ -74,7 +74,8 @@ class PiConfig:
                         print("...OK")
                 else:
                     if self.verbose:
-                        print(f"...FAILED: {status} != {value}")
+                        good = "ENABLED" if int(status) == 0 else "DISABLED"
+                        print(f"...FAILED: {good}")
                     else:
                         good = "ENABLED" if value == 0 else "DISABLED"
                         bad = "DISABLED" if good == "ENABLED" else "ENABLED"
