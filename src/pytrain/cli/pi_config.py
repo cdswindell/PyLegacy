@@ -3,7 +3,7 @@ import sys
 from argparse import ArgumentParser
 from typing import List
 
-SETTINGS = {
+SETTINGS = [
     "do_net_names 0",
     "do_i2c 0",
     "do_ssh 0",
@@ -15,7 +15,13 @@ SETTINGS = {
     "do_serial_cons 1",
     "do_onewire 1",
     "do_rgpio 1",
-}
+]
+
+SERVICES = [
+    "hciuart",
+    "bluealsa",
+    "bluetooth",
+]
 
 
 class PiConfig:
@@ -32,6 +38,8 @@ class PiConfig:
         # do the work
         if self.option in {"all", "configuration"}:
             self.optimize_config()
+        if self.option in {"all", "services"}:
+            self.optimize_services()
 
     def optimize_config(self) -> None:
         for setting in SETTINGS:
@@ -47,6 +55,22 @@ class PiConfig:
                     print(f"...Failed with status {status}")
             except Exception as e:
                 print(e)
+
+    def optimize_services(self) -> None:
+        for service in SERVICES:
+            for sub_cmd in ["stop", "disable"]:
+                cmd = f"sudo systemctl {sub_cmd} {service}.service"
+                if self.verbose:
+                    print(f"Executing: {cmd}...", end="")
+                try:
+                    status = os.system(cmd)
+                    if status == 0:
+                        if self.verbose:
+                            print("...Done")
+                    else:
+                        print(f"...Failed with status {status}")
+                except Exception as e:
+                    print(e)
 
     @staticmethod
     def command_line_parser() -> ArgumentParser:
