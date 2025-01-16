@@ -63,9 +63,26 @@ class PiConfig:
 
     def do_check(self) -> None:
         for setting, value in SETTINGS.items():
+            if self.verbose:
+                print(f"Checking {setting}...", end="")
             cmd = f"sudo raspi-config nonint get_{setting}"
             result = subprocess.run(cmd.split(), capture_output=True)
-            print(result)
+            if result.returncode == 0:
+                status = result.stdout.decode("utf-8").strip()
+                if status == str(value):
+                    if self.verbose:
+                        print("...OK")
+                else:
+                    if self.verbose:
+                        print(f"...FAILED: {status} != {value}")
+                    else:
+                        good = "ENABLED" if value == 0 else "DISABLED"
+                        bad = "DISABLED" if value == 1 else "ENABLED"
+                        print(f"!!! {setting} is {bad} ({status}), should be {good} ({value}!!!")
+            else:
+                if self.verbose:
+                    print("...ERROR")
+                print(f"*** Check {setting} Error: {result.stderr.decode('utf-8').strip()} ***")
 
     def optimize_config(self) -> None:
         for setting, value in SETTINGS.items():
