@@ -1,21 +1,22 @@
 import os
+import subprocess
 import sys
 from argparse import ArgumentParser
 from typing import List
 
-SETTINGS = [
-    "do_net_names 0",
-    "do_i2c 0",
-    "do_ssh 0",
-    "do_pi4video 1",
-    "do_boot_splash 1",
-    "do_rpi_connect 1",
-    "do_spi 1",
-    "do_serial_hw 1",
-    "do_serial_cons 1",
-    "do_onewire 1",
-    "do_rgpio 1",
-]
+SETTINGS = {
+    "net_names": 0,
+    "i2c": 0,
+    "ssh": 0,
+    "pi4video": 1,
+    "boot_splash": 1,
+    "rpi_connect": 1,
+    "spi": 1,
+    "serial_hw": 1,
+    "serial_cons": 1,
+    "onewire": 1,
+    "rgpio": 1,
+}
 
 SERVICES = [
     "hciuart",
@@ -28,6 +29,16 @@ SERVICES = [
 
 # Disable Bluetooth
 # dtoverlay=disable-bt
+
+# Enable audio (loads snd_bcm2835)
+# dtparam=audio=on   OR
+# dtparam=audio=off
+
+# Automatically load overlays for detected cameras
+# camera_auto_detect=1
+
+# Automatically load overlays for detected DSI displays
+# display_auto_detect=1
 
 
 class PiConfig:
@@ -42,14 +53,23 @@ class PiConfig:
         self.do_services = self.option in {"all", "services"}
         self.do_packages = self.option in {"all", "packages"}
         # do the work
-        if self.option in {"all", "configuration"}:
-            self.optimize_config()
-        if self.option in {"all", "services"}:
-            self.optimize_services()
+        if self.option == "check":
+            self.do_check()
+        else:
+            if self.option in {"all", "configuration"}:
+                self.optimize_config()
+            if self.option in {"all", "services"}:
+                self.optimize_services()
+
+    def do_check(self) -> None:
+        for setting, value in SETTINGS.items():
+            cmd = f"sudo raspi-config nonint get_{setting}"
+            result = subprocess.run([cmd], capture_output=True)
+            print(result)
 
     def optimize_config(self) -> None:
-        for setting in SETTINGS:
-            cmd = f"sudo raspi-config nonint {setting}"
+        for setting, value in SETTINGS.items():
+            cmd = f"sudo raspi-config nonint do_{setting} {value}"
             if self.verbose:
                 print(f"Executing: {cmd}...", end="")
             try:
@@ -88,6 +108,13 @@ class PiConfig:
         )
         config_group = parser.add_mutually_exclusive_group()
         config_group.add_argument(
+            "-check",
+            action="store_const",
+            const="check",
+            dest="option",
+            help="Check Raspberry Pi configuration (no changes made)",
+        )
+        config_group.add_argument(
             "-all",
             action="store_const",
             const="all",
@@ -115,7 +142,7 @@ class PiConfig:
             dest="option",
             help="Only remove unneeded packages",
         )
-        parser.set_defaults(option="all")
+        parser.set_defaults(option="check")
         return parser
 
 
