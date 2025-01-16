@@ -87,9 +87,9 @@ class ServiceListener:
 
 
 class PyTrain:
-    def __init__(self, cmd_line: str = None) -> None:
+    def __init__(self, cmd_line: List[str] = None) -> None:
         if cmd_line:
-            args = self.command_line_parser().parse_args(cmd_line.split())
+            args = self.command_line_parser().parse_args(cmd_line)
         else:
             args = self.command_line_parser().parse_args()
         self._args = args

@@ -54,7 +54,7 @@ local_scheme = "no-local-version"
 
 
 [project.scripts]
-pytrain = "pytrain.cli.pytrain:PyTrain"
+pytrain = "pytrain:main"
 
 [project.urls]
 Repository = "https://github.com/cdswindell/PyTrain"

@@ -5,7 +5,9 @@
 # Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
 #
 # SPDX-License-Identifier: LPGL
+
 import importlib.metadata
+import sys
 from importlib.metadata import PackageNotFoundError
 
 from .gpio.gpio_handler import (
@@ -13,6 +15,20 @@ from .gpio.gpio_handler import (
     PotHandler,  # noqa: F401
     JoyStickHandler,  # noqa: F401
 )
+from .protocol.constants import PROGRAM_NAME
+
+
+def main(args: list[str] | None = None) -> int:
+    if args is None:
+        args = sys.argv[1:]
+    try:
+        from .cli.pytrain import PyTrain
+
+        PyTrain(args)
+        return 0
+    except Exception as e:
+        # Output anything else nicely formatted on stderr and exit code 1
+        sys.exit(f"{PROGRAM_NAME}: error: {e}\n")
 
 
 def get_version() -> str:
