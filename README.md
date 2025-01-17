@@ -113,7 +113,7 @@ This software and its use are governed by the GNU Lesser General Public License 
 
 ## CLI Scripts
 
-The `src/cli` directory contains a number of Python command line scripts allowing 
+The `cli` directory contains a number of Python command line scripts allowing 
 you to operate engines, control switches and accessories, and fire custom routes.
 
 ## Packaging
