@@ -81,8 +81,6 @@ class PiConfig:
         self._args = args
         self.option = args.option
         self.verbose = args.quiet is False
-        self.do_services = self.option in {"all", "services"}
-        self.do_packages = self.option in {"all", "packages"}
         # do the work
         if self.option == "check":
             self.do_check()
@@ -91,6 +89,8 @@ class PiConfig:
                 self.optimize_config()
             if self.option in {"all", "services"}:
                 self.optimize_services()
+            if self.option in {"all", "packages"}:
+                self.optimize_packages()
 
     def do_check(self) -> None:
         if self.verbose:
