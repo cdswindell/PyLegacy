@@ -190,6 +190,25 @@ class PiConfig:
             print("Reloading daemon services...")
         subprocess.run("sudo systemctl daemon-reload".split())
 
+    def optimize_packages(self):
+        if self.verbose:
+            print("Purging unneeded packages... This may take a while...")
+        for package in PACKAGES:
+            if self.verbose:
+                print(f"Removing: {package}...", end="")
+            cmd = f"sudo apt purge -y {package}"
+            try:
+                subprocess.run(cmd.split())
+            except Exception as e:
+                print(f"Error removing {package}: {e}")
+            if self.verbose:
+                print("...OK")
+        if self.verbose:
+            print("Removing unused files... This may take a while...")
+        r = subprocess.run("sudo apt autoremove -y".split(), capture_output=True, text=True)
+        if self.verbose:
+            print(r.stdout.strip())
+
     @staticmethod
     def command_line_parser() -> ArgumentParser:
         parser = ArgumentParser()
