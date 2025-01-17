@@ -143,7 +143,7 @@ class PiConfig:
                 print(f"Checking {package}...", end="")
             cmd = f"sudo apt policy {package}"
             result = subprocess.run(cmd.split(), capture_output=True, text=True)
-            success = result.returncode != 0 or len(result.stdout.strip()) == 0
+            success = result.returncode != 0 or len(result.stdout.strip()) == 0 or "Installed: (none)" in result.stdout
             if self.verbose and success:
                 print("...OK")
             else:
