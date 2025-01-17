@@ -100,7 +100,7 @@ class PiConfig:
             if do_reboot_msg:
                 print(f"Unknown optimization option: {self.option}")
             else:
-                print("Your Pi should now be rebooted (sudo reboot)...")
+                print("Your Pi must now be rebooted (sudo reboot)...")
 
     def do_check(self, option: str = "all") -> Tuple[Set[str], Set[str], Set[str]]:
         do_output = self.verbose is True and option == "all"
@@ -132,6 +132,45 @@ class PiConfig:
                     if self.verbose:
                         print("...ERROR")
                     print(f"*** Check {setting} Error: {result.stderr.strip()} ***")
+            if do_output:
+                print("Checking /boot/firmware/config.txt...", end="")
+            lines = self._read_config("/boot/firmware/config.txt")
+            if lines:
+                bluetooth_disabled = audio_disabled = camera_disabled = display_disabled = False
+                for line in lines:
+                    if line.startswith("dtoverlay=disable-bt"):
+                        bluetooth_disabled = True
+                    elif self._contains(line, "dtparam=audio=off", "#dtparam=audio=on", "# dtparam=audio=on"):
+                        audio_disabled = True
+                    elif self._contains(line, "dtparam=audio=on"):
+                        audio_disabled = False
+                    elif self._contains(line, "#camera_auto_detect=1", "# camera_auto_detect=1"):
+                        camera_disabled = True
+                    elif self._contains(line, "camera_auto_detect=1"):
+                        camera_disabled = False
+                    elif self._contains(line, "#display_auto_detect=1", "# display_auto_detect=1"):
+                        display_disabled = True
+                    elif self._contains(line, "display_auto_detect=1"):
+                        display_disabled = False
+                if bluetooth_disabled and audio_disabled and camera_disabled and display_disabled:
+                    if do_output:
+                        print("...OK")
+                elif do_output:
+                    if self.verbose:
+                        print("...FAILED")
+                    if bluetooth_disabled is False:
+                        print("*** Bluetooth should be disabled ***")
+                    if audio_disabled is False:
+                        print("*** Audio should be disabled ***")
+                    if camera_disabled is False:
+                        print("*** Camera Autodetect should be disabled ***")
+                    if display_disabled is False:
+                        print("*** Display Autodetect should be disabled ***")
+            else:
+                if do_output:
+                    if self.verbose:
+                        print("...FAILED")
+                    print("*** /boot/firmware/config.txt is empty ***")
         # check services
         svsc: Set[str] = set()
         if option in {"all", "services"}:
@@ -249,6 +288,15 @@ class PiConfig:
             print(r.stdout.strip())
 
     @staticmethod
+    def _read_config(filename: str = "/boot/firmware/config.txt") -> List[str]:
+        config = list()
+        if os.path.exists(filename):
+            with open(filename, "r") as f:
+                for line in f:
+                    config.append(line.strip())
+        return config
+
+    @staticmethod
     def command_line_parser() -> ArgumentParser:
         parser = ArgumentParser()
         parser.add_argument(
@@ -294,6 +342,13 @@ class PiConfig:
         )
         parser.set_defaults(option="check")
         return parser
+
+    @staticmethod
+    def _contains(line: str, *args: str) -> bool:
+        for p in args:
+            if line.startswith(p):
+                return True
+        return False
 
 
 def main(args: list[str] | None = None) -> int:
