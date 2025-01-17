@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import textwrap
 from argparse import ArgumentParser
 from typing import List, Set, Tuple
 
@@ -211,18 +212,25 @@ class PiConfig:
         subprocess.run("sudo systemctl daemon-reload".split())
 
     def optimize_packages(self):
+        _, _, pkgs = self.do_check("packages")
+        if len(pkgs) == 0:
+            if self.verbose:
+                print("No extraneous packages remain!")
+            return
         if self.verbose:
-            print("Purging unneeded packages... This may take a while...")
-        for package in PACKAGES:
-            if self.verbose:
-                print(f"Removing: {package}...", end="")
-            cmd = f"sudo apt purge -y {package}"
-            try:
-                subprocess.run(cmd.split())
-            except Exception as e:
-                print(f"Error removing {package}: {e}")
-            if self.verbose:
-                print("...OK")
+            text = ", ".join(pkgs)
+            text = (
+                f"The following packages are not needed to run {PROGRAM_NAME} and will be removed: {text}; "
+                f"This may take awhile..."
+            )
+            print(textwrap.fill(text, width=70))
+
+        cmd = f"sudo apt purge -y {" ".join(pkgs)}"
+        try:
+            subprocess.run(cmd.split())
+        except Exception as e:
+            print(f"Error removing packages: {e}")
+
         if self.verbose:
             print("Removing unused files... This may take a while...")
         r = subprocess.run("sudo apt autoremove -y".split(), capture_output=True, text=True)
