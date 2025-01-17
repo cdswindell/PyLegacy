@@ -143,7 +143,7 @@ class PiConfig:
                     if self.verbose:
                         print("...Done")
                 else:
-                    print(f"...Failed with error {result.stderr.decode('utf-8').strip()}")
+                    print(f"...Failed with code {result.returncode}: {result.stderr.decode('utf-8').strip()}")
             except Exception as e:
                 print(e)
 
