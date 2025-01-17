@@ -269,9 +269,14 @@ class PiConfig:
 
                 if reboot_required:
                     # rewrite the file
+                    current_user = os.getuid()
+                    if os.getuid() != 0:  # Check if already running as root
+                        os.setuid(0)
                     with open("/boot/firmware/config.txt", "w") as f:
                         for line in lines:
                             f.write(f"{line}\n")
+                    if current_user != 0:
+                        os.setuid(current_user)
                     print("*** Reboot required to apply changes...")
 
     def optimize_services(self, svsc: Set[str] = None) -> None:
