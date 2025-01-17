@@ -87,12 +87,18 @@ class PiConfig:
         if self.option == "check":
             self.do_check()
         else:
+            do_reboot_msg = True
             if self.option in {"all", "configuration"}:
                 self.optimize_config()
-            if self.option in {"all", "services"}:
+            elif self.option in {"all", "services"}:
                 self.optimize_services()
-            if self.option in {"all", "packages"}:
+            elif self.option in {"all", "packages"}:
                 self.optimize_packages()
+            else:
+                print(f"Unknown optimization option: {self.option}")
+                do_reboot_msg = False
+            if do_reboot_msg:
+                print("Your Pi should now be rebooted (sudo reboot)...")
 
     def do_check(self, option: str = "all") -> Tuple[Set[str], Set[str], Set[str]]:
         do_output = self.verbose is True and option == "all"
