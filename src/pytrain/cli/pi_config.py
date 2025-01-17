@@ -92,10 +92,7 @@ class PiConfig:
             if self.option in {"all", "packages"}:
                 self.optimize_packages()
 
-    def do_check(
-        self,
-        option: str = "all",
-    ) -> Tuple[Set[str], Set[str], Set[str]]:
+    def do_check(self, option: str = "all") -> Tuple[Set[str], Set[str], Set[str]]:
         do_output = self.verbose is True and option == "all"
         cfg: Set[str] = set()
         if option in {"all", "configuration"}:
@@ -125,7 +122,6 @@ class PiConfig:
                     if self.verbose:
                         print("...ERROR")
                     print(f"*** Check {setting} Error: {result.stderr.strip()} ***")
-
         # check services
         svsc: Set[str] = set()
         if option in {"all", "services"}:
@@ -148,8 +144,7 @@ class PiConfig:
                             print(
                                 f"*** {service} is installed; for {PROGRAM_NAME}, it can be deactivated and removed ***"
                             )
-
-        # check services
+        # check packages
         pkgs: Set[str] = set()
         if option in {"all", "packages"}:
             if do_output:
@@ -165,10 +160,11 @@ class PiConfig:
                 if do_output and success:
                     print("...OK")
                 else:
+                    print(f"Adding {package} {result}")
                     pkgs.add(package)
                     if do_output:
                         if self.verbose:
-                            print("...IS INSTALLED")
+                            print("...CAN BE REMOVED")
                         else:
                             print(f"*** {package} installed; {PROGRAM_NAME} doesn't require it ***")
         return cfg, svsc, pkgs
@@ -220,7 +216,7 @@ class PiConfig:
         if self.verbose:
             text = ", ".join(pkgs)
             text = (
-                f"The following packages are not needed to run {PROGRAM_NAME} and will be removed: {text}; "
+                f"The following packages aren't needed to run {PROGRAM_NAME} and will be removed: {text}; "
                 f"This may take awhile..."
             )
             print(textwrap.fill(text, width=70))
