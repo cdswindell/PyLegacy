@@ -26,6 +26,7 @@ SERVICES = [
     "bluetooth",
     "colord",
     "cups",
+    "cupsd",
     "dbus-org.bluez",
     "dbus-org.freedesktop.ModemManager1",
     "hciuart",
@@ -40,23 +41,21 @@ SERVICES = [
 ]
 
 PACKAGES = [
-    "labwc",
-    "cups",
-    "cupsd",
-    "colord",
-    "cups-browsed",
-    "dbus-org.bluez",
-    "dbus-org.freedesktop.ModemManager1",
-    "pulseaudio",
-    "pipewire",
-    "rpi-connect",
-    "mailcap",
-    "mail",
-    "modemmanager",
     "bluez",
-    "rpi-connect-wayvnc",
+    "colord",
+    "cups",
+    "cups-browsed",
+    "dbus-org.freedesktop.ModemManager1",
+    "labwc",
+    "mailcap",
+    "mailutils",
+    "modemmanager",
+    "pipewire",
+    "pulseaudio",
+    "rpi-connect",
     "rpi-connect-wayvnc-watcher",
     "rpicam-apps",
+    "squeekboard",
 ]
 
 # Disable Bluetooth
@@ -100,9 +99,9 @@ class PiConfig:
             if self.verbose:
                 print(f"Checking {setting}...", end="")
             cmd = f"sudo raspi-config nonint get_{setting}"
-            result = subprocess.run(cmd.split(), capture_output=True)
+            result = subprocess.run(cmd.split(), capture_output=True, text=True)
             if result.returncode == 0:
-                status = result.stdout.decode("utf-8").strip()
+                status = result.stdout.strip()
                 if status == str(value):
                     if self.verbose:
                         print("...OK")
@@ -117,7 +116,7 @@ class PiConfig:
             else:
                 if self.verbose:
                     print("...ERROR")
-                print(f"*** Check {setting} Error: {result.stderr.decode('utf-8').strip()} ***")
+                print(f"*** Check {setting} Error: {result.stderr.strip()} ***")
 
         # check services
         if self.verbose:
@@ -139,6 +138,19 @@ class PiConfig:
         # check services
         if self.verbose:
             print("\nChecking packages...")
+        for package in PACKAGES:
+            if self.verbose:
+                print(f"Checking {package}...", end="")
+            cmd = f"sudo apt policy {package}"
+            result = subprocess.run(cmd.split(), capture_output=True, text=True)
+            success = result.returncode != 0 or len(result.stdout.strip()) == 0
+            if self.verbose and success:
+                print("...OK")
+            else:
+                if self.verbose:
+                    print("...IS INSTALLED")
+                else:
+                    print(f"*** {package} installed; {PROGRAM_NAME} doesn't require it ***")
 
     def optimize_config(self) -> None:
         for setting, value in SETTINGS.items():
@@ -156,6 +168,8 @@ class PiConfig:
                 print(e)
 
     def optimize_services(self) -> None:
+        if self.verbose:
+            print("Disabling/removing unneeded services...")
         for service in SERVICES:
             results = list()
             if self.verbose:
@@ -166,17 +180,14 @@ class PiConfig:
                     results.append(subprocess.run(cmd.split(), capture_output=True))
                 except Exception as e:
                     print(f"Error disabling {service}: {e}")
-            success = len(results) == 2 and results[0].returncode in [0, 4] and results[1].returncode in [0, 4]
-            if self.verbose and success:
+            # delete service file, if it exists
+            if os.path.exists(f"/etc/systemd/system/{service}.service"):
+                subprocess.run(f"sudo rm -f /etc/systemd/system/{service}.service".split())
+            if self.verbose:
                 print("...Done")
-            elif success is False:
-                if self.verbose:
-                    print("...Failed")
-                if len(results) > 0 and results[0].returncode not in [0, 4]:
-                    print(f"Return Code: {results[0].returncode} Error: {results[0].stderr.decode('utf-8').strip()}")
-                if len(results) > 1 and results[1].returncode not in [0, 4]:
-                    print(f"Return Code: {results[1].returncode} Error: {results[1].stderr.decode('utf-8').strip()}")
         # do a daemon reload
+        if self.verbose:
+            print("Reloading daemon services...")
         subprocess.run("sudo systemctl daemon-reload".split())
 
     @staticmethod
