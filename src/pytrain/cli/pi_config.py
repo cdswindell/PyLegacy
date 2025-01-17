@@ -21,19 +21,44 @@ SETTINGS = {
 }
 
 SERVICES = [
-    "hciuart",
     "bluealsa",
     "bluetooth",
+    "colord",
+    "cups",
+    "dbus-org.bluez",
+    "dbus-org.freedesktop.ModemManager1",
+    "hciuart",
+    "lightdm",
+    "pipewire",
+    "ModemManager",
+    "pulseaudio",
+    "rpi-connect",
     "rpi-connect",
     "rpi-connect-wayvnc",
     "rpi-connect-wayvnc-watcher",
     "rpicam-apps",
-    "rpi-connect",
-    "pipewire",
-    "pulseaudio",
+    "wayvnc",
+]
+
+PACKAGES = [
+    "labwc",
     "cups",
+    "cupsd",
     "colord",
-    "lightdm",
+    "cups-browsed",
+    "dbus-org.bluez",
+    "dbus-org.freedesktop.ModemManager1",
+    "pulseaudio",
+    "pipewire",
+    "rpi-connect",
+    "mailcap",
+    "mail",
+    "modemmanager",
+    "bluez",
+    "rpi-connect-wayvnc",
+    "rpi-connect-wayvnc-watcher",
+    "rpicam-apps",
+    "wayvnc",
 ]
 
 # Disable Bluetooth
