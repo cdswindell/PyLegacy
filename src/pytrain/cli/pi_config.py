@@ -225,7 +225,7 @@ class PiConfig:
             )
             print(textwrap.fill(text, width=70))
 
-        cmd = f"sudo apt purge -y {" ".join(pkgs)}"
+        cmd = f"sudo apt purge -y {' '.join(pkgs)}"
         try:
             subprocess.run(cmd.split())
         except Exception as e:
