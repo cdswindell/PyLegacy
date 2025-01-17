@@ -157,10 +157,10 @@ class PiConfig:
                 success = (
                     result.returncode != 0 or len(result.stdout.strip()) == 0 or "Installed: (none)" in result.stdout
                 )
-                if do_output and success:
-                    print("...OK")
+                if success:
+                    if do_output:
+                        print("...OK")
                 else:
-                    print(f"Adding {package} {result}")
                     pkgs.add(package)
                     if do_output:
                         if self.verbose:
