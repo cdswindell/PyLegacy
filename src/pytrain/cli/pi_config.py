@@ -20,6 +20,7 @@ SETTINGS = {
 }
 
 SERVICES = [
+    "ModemManager",
     "bluealsa",
     "bluetooth",
     "colord",
@@ -29,7 +30,6 @@ SERVICES = [
     "hciuart",
     "lightdm",
     "pipewire",
-    "ModemManager",
     "pulseaudio",
     "rpi-connect",
     "rpi-connect",
@@ -122,7 +122,7 @@ class PiConfig:
                 print(f"Checking {service}...", end="")
             cmd = f"sudo systemctl status {service}.service"
             result = subprocess.run(cmd.split(), capture_output=True)
-            if result.returncode == 4:
+            if result.returncode == 4 or os.path.exists(f"/etc/systemd/system/{service}.service") is False:
                 if self.verbose:
                     print("...OK")
             else:
