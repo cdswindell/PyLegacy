@@ -87,16 +87,16 @@ class PiConfig:
         if self.option == "check":
             self.do_check()
         else:
-            do_reboot_msg = False
+            do_reboot_msg = True
             if self.option in {"all", "configuration"}:
                 self.optimize_config()
-                do_reboot_msg = True
+                do_reboot_msg = False
             if self.option in {"all", "services"}:
                 self.optimize_services()
-                do_reboot_msg = True
+                do_reboot_msg = False
             if self.option in {"all", "packages"}:
                 self.optimize_packages()
-                do_reboot_msg = True
+                do_reboot_msg = False
             if do_reboot_msg:
                 print(f"Unknown optimization option: {self.option}")
             else:
