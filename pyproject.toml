@@ -55,6 +55,7 @@ local_scheme = "no-local-version"
 
 [project.scripts]
 pytrain = "pytrain:main"
+piconfig = "pytrain.cli.pi_config:main"
 
 [project.urls]
 Repository = "https://github.com/cdswindell/PyTrain"

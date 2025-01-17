@@ -92,6 +92,9 @@ class PyTrain:
             args = self.command_line_parser().parse_args(cmd_line)
         else:
             args = self.command_line_parser().parse_args()
+        if args.version is True:
+            print(f"{PROGRAM_NAME} {get_version()}")
+            return
         self._args = args
         self._startup_script = args.startup_script
         self._baudrate = args.baudrate
@@ -270,6 +273,7 @@ class PyTrain:
             default=DEFAULT_SERVER_PORT,
             help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})",
         )
+        parser.add_argument("-version", action="store_true", help="Show version and exit")
         return parser
 
     def __call__(self, cmd: CommandReq | PdiReq) -> None:
@@ -606,6 +610,9 @@ class PyTrain:
                     if args.command == "uptime":
                         print(timedelta(seconds=timer() - self._started_at))
                         return
+                    if args.command == "version":
+                        print(f"{PROGRAM_NAME} {get_version()}")
+                        return
                     #
                     # we're done with the admin/special commands, now do train stuff
                     #
@@ -876,6 +883,13 @@ class PyTrain:
             const="uptime",
             dest="command",
             help=f"Elapsed time this instance of {PROGRAM_NAME} has been active),",
+        )
+        group.add_argument(
+            "-version",
+            action="store_const",
+            const="version",
+            dest="command",
+            help=f"Show current {PROGRAM_NAME} version),",
         )
         return command_parser
 

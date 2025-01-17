@@ -6,7 +6,7 @@ import textwrap
 from argparse import ArgumentParser
 from typing import List, Set, Tuple
 
-from src.pytrain import PROGRAM_NAME
+from src.pytrain import PROGRAM_NAME, get_version
 
 SETTINGS = {
     "net_names": 0,
@@ -87,6 +87,8 @@ class PiConfig:
         # do the work
         if self.option == "check":
             self.do_check()
+        elif self.option == "version":
+            print(f"{self.__class__.__name__} {get_version()}")
         else:
             do_reboot_msg = True
             if self.option == "all":
@@ -391,6 +393,13 @@ class PiConfig:
             const="packages",
             dest="option",
             help="Only remove unneeded packages",
+        )
+        config_group.add_argument(
+            "-version",
+            action="store_const",
+            const="version",
+            dest="option",
+            help="Show version and exit",
         )
         parser.set_defaults(option="check")
         return parser
