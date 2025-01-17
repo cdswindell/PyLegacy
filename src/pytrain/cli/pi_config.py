@@ -240,7 +240,39 @@ class PiConfig:
             except Exception as e:
                 print(e)
         if (cfg and "config.txt" in cfg) or cfg is None:
+            reboot_required = False
             print("Updating /boot/firmware/config.txt...")
+            lines = self._read_config("/boot/firmware/config.txt", make_copy=True)
+            if lines:
+                bluetooth_disabled = False
+                newlines = {}
+                for i, line in enumerate(lines):
+                    if line.startswith("dtoverlay=disable-bt"):
+                        bluetooth_disabled = True
+                    elif self._contains(line, "dtparam=audio=on"):
+                        newlines[i] = "dtparam=audio=off"
+                    elif self._contains(line, "camera_auto_detect=1"):
+                        newlines[i] = "#display_auto_detect=1"
+                    elif self._contains(line, "display_auto_detect=1"):
+                        newlines[i] = "#display_auto_detect=1"
+                # replace modified lines
+                for k, v in newlines.items():
+                    reboot_required = True
+                    lines[k] = v
+
+                # disable bluetooth, if needed
+                if bluetooth_disabled is False:
+                    reboot_required = True
+                    lines.append("")
+                    lines.append("# Disable Bluetooth")
+                    lines.append("dtoverlay=disable-bt")
+
+                if reboot_required:
+                    # rewrite the file
+                    with open("/boot/firmware/config.txt", "w") as f:
+                        for line in lines:
+                            f.write(f"{line}\n")
+                    print("*** Reboot required to apply changes...")
 
     def optimize_services(self, svsc: Set[str] = None) -> None:
         if svsc is None or len(svsc) > 0:
@@ -301,10 +333,13 @@ class PiConfig:
         if self.verbose:
             print(r.stdout.strip())
 
-    @staticmethod
-    def _read_config(filename: str = "/boot/firmware/config.txt") -> List[str]:
+    def _read_config(self, filename: str = "/boot/firmware/config.txt", make_copy: bool = False) -> List[str]:
         config = list()
         if os.path.exists(filename):
+            if make_copy:
+                if self.verbose:
+                    print(f"Making a backup copy of {filename}: {filename}.bak...")
+                subprocess.run(f"sudo cp -f {filename} {filename}.bak".split())
             with open(filename, "r") as f:
                 for line in f:
                     config.append(line.strip())
