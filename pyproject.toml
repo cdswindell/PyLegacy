@@ -50,7 +50,6 @@ keywords = [
 [tool.setuptools_scm]
 version_file = "src/pytrain/_version.py"
 version_scheme = "only-version"
-local_scheme = "no-guess-dev"
 
 
 [project.scripts]
