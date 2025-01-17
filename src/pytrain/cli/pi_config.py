@@ -99,7 +99,7 @@ class PiConfig:
                 print(f"Checking {setting}...", end="")
             cmd = f"sudo raspi-config nonint get_{setting}"
             result = subprocess.run(cmd.split(), capture_output=True)
-            if result.returncode == 0:
+            if result.returncode == 0 or len(result.stderr) == 0:
                 status = result.stdout.decode("utf-8").strip()
                 if status == str(value):
                     if self.verbose:
