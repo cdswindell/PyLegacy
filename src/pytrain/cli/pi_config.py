@@ -94,6 +94,8 @@ class PiConfig:
                 self.optimize_services()
 
     def do_check(self) -> None:
+        if self.verbose:
+            print("Checking Raspberry Pi Configuration...")
         for setting, value in SETTINGS.items():
             if self.verbose:
                 print(f"Checking {setting}...", end="")
@@ -118,6 +120,8 @@ class PiConfig:
                 print(f"*** Check {setting} Error: {result.stderr.decode('utf-8').strip()} ***")
 
         # check services
+        if self.verbose:
+            print("Checking installed services...")
         for service in SERVICES:
             if self.verbose:
                 print(f"Checking {service}...", end="")
@@ -131,6 +135,10 @@ class PiConfig:
                     print("...FOUND; can be removed")
                 else:
                     print(f"*** {service} is installed; for {PROGRAM_NAME}, it can be deactivated and removed ***")
+
+        # check services
+        if self.verbose:
+            print("Checking packages...")
 
     def optimize_config(self) -> None:
         for setting, value in SETTINGS.items():
