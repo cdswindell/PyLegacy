@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 from argparse import ArgumentParser
-from typing import List
+from typing import List, Set, Tuple
 
 from src.pytrain import PROGRAM_NAME
 
@@ -53,7 +53,6 @@ PACKAGES = [
     "pipewire",
     "pulseaudio",
     "rpi-connect",
-    "rpi-connect-wayvnc-watcher",
     "rpicam-apps",
     "squeekboard",
 ]
@@ -92,65 +91,86 @@ class PiConfig:
             if self.option in {"all", "packages"}:
                 self.optimize_packages()
 
-    def do_check(self) -> None:
-        if self.verbose:
-            print("Checking Raspberry Pi Configuration...")
-        for setting, value in SETTINGS.items():
-            if self.verbose:
-                print(f"Checking {setting}...", end="")
-            cmd = f"sudo raspi-config nonint get_{setting}"
-            result = subprocess.run(cmd.split(), capture_output=True, text=True)
-            if result.returncode == 0:
-                status = result.stdout.strip()
-                if status == str(value):
+    def do_check(
+        self,
+        option: str = "all",
+    ) -> Tuple[Set[str], Set[str], Set[str]]:
+        do_output = self.verbose is True and option == "all"
+        cfg: Set[str] = set()
+        if option in {"all", "configuration"}:
+            if do_output:
+                print("Checking Raspberry Pi Configuration...")
+            for setting, value in SETTINGS.items():
+                if do_output:
+                    print(f"Checking {setting}...", end="")
+                cmd = f"sudo raspi-config nonint get_{setting}"
+                result = subprocess.run(cmd.split(), capture_output=True, text=True)
+                if result.returncode == 0:
+                    status = result.stdout.strip()
+                    if status == str(value):
+                        if do_output:
+                            print("...OK")
+                    else:
+                        cfg.add(setting)
+                        if do_output:
+                            if self.verbose:
+                                good = "ENABLED" if int(status) == 0 else "DISABLED"
+                                print(f"...FAILED: {good}")
+                            else:
+                                good = "ENABLED" if value == 0 else "DISABLED"
+                                bad = "DISABLED" if good == "ENABLED" else "ENABLED"
+                                print(f"!!! {setting} is {bad} ({status}), should be {good} ({value})!!!")
+                elif do_output:
                     if self.verbose:
+                        print("...ERROR")
+                    print(f"*** Check {setting} Error: {result.stderr.strip()} ***")
+
+        # check services
+        svsc: Set[str] = set()
+        if option in {"all", "services"}:
+            if do_output:
+                print("\nChecking installed services...")
+            for service in SERVICES:
+                if do_output:
+                    print(f"Checking {service}...", end="")
+                cmd = f"sudo systemctl status {service}.service"
+                result = subprocess.run(cmd.split(), capture_output=True)
+                if result.returncode == 4 or os.path.exists(f"/etc/systemd/system/{service}.service") is False:
+                    if do_output:
                         print("...OK")
                 else:
-                    if self.verbose:
-                        good = "ENABLED" if int(status) == 0 else "DISABLED"
-                        print(f"...FAILED: {good}")
-                    else:
-                        good = "ENABLED" if value == 0 else "DISABLED"
-                        bad = "DISABLED" if good == "ENABLED" else "ENABLED"
-                        print(f"!!! {setting} is {bad} ({status}), should be {good} ({value})!!!")
-            else:
-                if self.verbose:
-                    print("...ERROR")
-                print(f"*** Check {setting} Error: {result.stderr.strip()} ***")
+                    svsc.add(service)
+                    if do_output:
+                        if self.verbose:
+                            print("...FOUND; can be removed")
+                        else:
+                            print(
+                                f"*** {service} is installed; for {PROGRAM_NAME}, it can be deactivated and removed ***"
+                            )
 
         # check services
-        if self.verbose:
-            print("\nChecking installed services...")
-        for service in SERVICES:
-            if self.verbose:
-                print(f"Checking {service}...", end="")
-            cmd = f"sudo systemctl status {service}.service"
-            result = subprocess.run(cmd.split(), capture_output=True)
-            if result.returncode == 4 or os.path.exists(f"/etc/systemd/system/{service}.service") is False:
-                if self.verbose:
+        pkgs: Set[str] = set()
+        if option in {"all", "packages"}:
+            if do_output:
+                print("\nChecking packages...")
+            for package in PACKAGES:
+                if do_output:
+                    print(f"Checking {package}...", end="")
+                cmd = f"sudo apt policy {package}"
+                result = subprocess.run(cmd.split(), capture_output=True, text=True)
+                success = (
+                    result.returncode != 0 or len(result.stdout.strip()) == 0 or "Installed: (none)" in result.stdout
+                )
+                if do_output and success:
                     print("...OK")
-            else:
-                if self.verbose:
-                    print("...FOUND; can be removed")
                 else:
-                    print(f"*** {service} is installed; for {PROGRAM_NAME}, it can be deactivated and removed ***")
-
-        # check services
-        if self.verbose:
-            print("\nChecking packages...")
-        for package in PACKAGES:
-            if self.verbose:
-                print(f"Checking {package}...", end="")
-            cmd = f"sudo apt policy {package}"
-            result = subprocess.run(cmd.split(), capture_output=True, text=True)
-            success = result.returncode != 0 or len(result.stdout.strip()) == 0 or "Installed: (none)" in result.stdout
-            if self.verbose and success:
-                print("...OK")
-            else:
-                if self.verbose:
-                    print("...IS INSTALLED")
-                else:
-                    print(f"*** {package} installed; {PROGRAM_NAME} doesn't require it ***")
+                    pkgs.add(package)
+                    if do_output:
+                        if self.verbose:
+                            print("...IS INSTALLED")
+                        else:
+                            print(f"*** {package} installed; {PROGRAM_NAME} doesn't require it ***")
+        return cfg, svsc, pkgs
 
     def optimize_config(self) -> None:
         for setting, value in SETTINGS.items():
