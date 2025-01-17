@@ -164,9 +164,9 @@ class PiConfig:
                 if self.verbose:
                     print("...Failed")
                 if len(results) > 0 and results[0].returncode not in [0, 4]:
-                    print(f"{results[0].stderr.decode('utf-8').strip()}")
+                    print(f"Return Code: {results[0].returncode} Error: {results[0].stderr.decode('utf-8').strip()}")
                 if len(results) > 1 and results[1].returncode not in [0, 4]:
-                    print(f"{results[1].stderr.decode('utf-8').strip()}")
+                    print(f"Return Code: {results[1].returncode} Error: {results[1].stderr.decode('utf-8').strip()}")
         # do a daemon reload
         subprocess.run("sudo systemctl daemon-reload".split())
 
