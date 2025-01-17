@@ -88,14 +88,18 @@ class PiConfig:
             self.do_check()
         else:
             do_reboot_msg = True
+            if self.option == "all":
+                cfg, svcs, pkgs = self.do_check("all")
+            else:
+                cfg = svcs = pkgs = None
             if self.option in {"all", "configuration"}:
-                self.optimize_config()
+                self.optimize_config(cfg)
                 do_reboot_msg = False
             if self.option in {"all", "services"}:
-                self.optimize_services()
+                self.optimize_services(svcs)
                 do_reboot_msg = False
             if self.option in {"all", "packages"}:
-                self.optimize_packages()
+                self.optimize_packages(pkgs)
                 do_reboot_msg = False
             if do_reboot_msg:
                 print(f"Unknown optimization option: {self.option}")
@@ -156,6 +160,7 @@ class PiConfig:
                     if do_output:
                         print("...OK")
                 elif do_output:
+                    cfg.add("config.txt")
                     if self.verbose:
                         print("...FAILED")
                     if bluetooth_disabled is False:
@@ -166,6 +171,8 @@ class PiConfig:
                         print("*** Camera Autodetect should be disabled ***")
                     if display_disabled is False:
                         print("*** Display Autodetect should be disabled ***")
+                else:
+                    cfg.add("config.txt")
             else:
                 if do_output:
                     if self.verbose:
@@ -218,7 +225,7 @@ class PiConfig:
                             print(f"*** {package} installed; {PROGRAM_NAME} doesn't require it ***")
         return cfg, svsc, pkgs
 
-    def optimize_config(self) -> None:
+    def optimize_config(self, cfg: Set[str] = None) -> None:
         for setting, value in SETTINGS.items():
             cmd = f"sudo raspi-config nonint do_{setting} {value}"
             if self.verbose:
@@ -232,32 +239,39 @@ class PiConfig:
                     print(f"...Failed with code {result.returncode}: {result.stderr.decode('utf-8').strip()}")
             except Exception as e:
                 print(e)
+        if cfg and "config.txt" in cfg:
+            print("Updating /boot/firmware/config.txt...")
 
-    def optimize_services(self) -> None:
-        if self.verbose:
-            print("Disabling/removing unneeded services...")
-        for service in SERVICES:
-            results = list()
+    def optimize_services(self, svsc: Set[str] = None) -> None:
+        if svsc is None or len(svsc) > 0:
             if self.verbose:
-                print(f"Disabling: {service} service...", end="")
-            for sub_cmd in ["stop", "disable"]:
-                cmd = f"sudo systemctl {sub_cmd} {service}.service"
-                try:
-                    results.append(subprocess.run(cmd.split(), capture_output=True))
-                except Exception as e:
-                    print(f"Error disabling {service}: {e}")
-            # delete service file, if it exists
-            if os.path.exists(f"/etc/systemd/system/{service}.service"):
-                subprocess.run(f"sudo rm -f /etc/systemd/system/{service}.service".split())
+                print("Disabling/removing unneeded services...")
+            for service in SERVICES:
+                results = list()
+                if self.verbose:
+                    print(f"Disabling: {service} service...", end="")
+                for sub_cmd in ["stop", "disable"]:
+                    cmd = f"sudo systemctl {sub_cmd} {service}.service"
+                    try:
+                        results.append(subprocess.run(cmd.split(), capture_output=True))
+                    except Exception as e:
+                        print(f"Error disabling {service}: {e}")
+                # delete service file, if it exists
+                if os.path.exists(f"/etc/systemd/system/{service}.service"):
+                    subprocess.run(f"sudo rm -f /etc/systemd/system/{service}.service".split())
+                if self.verbose:
+                    print("...Done")
+            # do a daemon reload
             if self.verbose:
-                print("...Done")
-        # do a daemon reload
-        if self.verbose:
-            print("Reloading daemon services...")
-        subprocess.run("sudo systemctl daemon-reload".split())
+                print("Reloading daemon services...")
+            subprocess.run("sudo systemctl daemon-reload".split())
+        else:
+            if self.verbose:
+                print("No unneeded services found!")
 
-    def optimize_packages(self):
-        _, _, pkgs = self.do_check("packages")
+    def optimize_packages(self, pkgs: Set[str] = None):
+        if pkgs is None:
+            _, _, pkgs = self.do_check("packages")
         if len(pkgs) == 0:
             if self.verbose:
                 print("No extraneous packages remain!")
