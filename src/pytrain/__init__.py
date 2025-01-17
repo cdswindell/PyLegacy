@@ -45,6 +45,12 @@ def get_version() -> str:
     except PackageNotFoundError:
         pass
 
+    if version is None:
+        try:
+            version = importlib.metadata.version("pytrain-cdswindell")
+        except PackageNotFoundError:
+            pass
+
     # now try the other way
     # if version is None:
     #     try:
