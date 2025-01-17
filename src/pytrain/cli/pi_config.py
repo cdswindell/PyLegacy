@@ -36,7 +36,6 @@ SERVICES = [
     "rpi-connect-wayvnc",
     "rpi-connect-wayvnc-watcher",
     "rpicam-apps",
-    "wayvnc",
 ]
 
 PACKAGES = [
@@ -57,7 +56,6 @@ PACKAGES = [
     "rpi-connect-wayvnc",
     "rpi-connect-wayvnc-watcher",
     "rpicam-apps",
-    "wayvnc",
 ]
 
 # Disable Bluetooth
