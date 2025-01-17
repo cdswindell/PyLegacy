@@ -121,7 +121,7 @@ class PiConfig:
 
         # check services
         if self.verbose:
-            print("Checking installed services...")
+            print("\nChecking installed services...")
         for service in SERVICES:
             if self.verbose:
                 print(f"Checking {service}...", end="")
@@ -138,7 +138,7 @@ class PiConfig:
 
         # check services
         if self.verbose:
-            print("Checking packages...")
+            print("\nChecking packages...")
 
     def optimize_config(self) -> None:
         for setting, value in SETTINGS.items():
