@@ -42,6 +42,7 @@ SERVICES = [
 ]
 
 PACKAGES = [
+    "squeekboard",  # must be removed before labwc...
     "bluez",
     "colord",
     "cups",
@@ -55,7 +56,6 @@ PACKAGES = [
     "pulseaudio",
     "rpi-connect",
     "rpicam-apps",
-    "squeekboard",
 ]
 
 # Disable Bluetooth
