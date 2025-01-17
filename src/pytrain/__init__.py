@@ -41,7 +41,7 @@ def get_version() -> str:
     # we try the package path first...
     version = None
     try:
-        version = importlib.metadata.version("my-package")
+        version = importlib.metadata.version("pytrain")
     except PackageNotFoundError:
         pass
 
@@ -59,7 +59,8 @@ def get_version() -> str:
     if version is None:
         from setuptools_scm import get_version as get_git_version
 
-        version = get_git_version(version_scheme="post-release", local_scheme="no-local-version")
+        version = get_git_version(version_scheme="only-version", local_scheme="node-and-date")
 
     version = version if version.startswith("v") else f"v{version}"
+    version = version.replace(".post0", "")
     return version

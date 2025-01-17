@@ -6,7 +6,7 @@ import textwrap
 from argparse import ArgumentParser
 from typing import List, Set, Tuple
 
-from src.pytrain import PROGRAM_NAME, get_version
+from .pytrain import PROGRAM_NAME, get_version
 
 SETTINGS = {
     "net_names": 0,

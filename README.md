@@ -106,31 +106,10 @@ You may wish to create a macro or alias to issue these commands for you.
 
 ## Raspberry Pi Configuration
 
-```
-Console autologin
-
-Enable I2C
-Disable SPI
-Disable Serial Port
-
-Disable Camera Auto detect
-Disable Audio
-Disable Bluetooth
-
-Disable mailcap
-
-Disable rpicam-apps
-Disable rpi-connect
-Disable pipewire
-Disable pulseaudio
-Disable cups
-Disable cups-browsed
-Disable colord
-```
 
 ## Licensing
 
-This software and its use are governed by the GNU Lesser General Public License.
+This software and its use are governed by the GNU Lesser General Public License (LPGL).
 
 ## CLI Scripts
 
@@ -140,7 +119,7 @@ you to operate engines, control switches and accessories, and fire custom routes
 ## Packaging
 
 rm -fr dist src/*.egg-info
-git tag <tag_name>
+git tag <tag_name> -m "message"
 git push origin --tags
 
 python3 -m build
