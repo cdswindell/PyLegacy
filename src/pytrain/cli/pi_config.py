@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import tempfile
 import textwrap
 from argparse import ArgumentParser
 from typing import List, Set, Tuple
@@ -269,14 +270,11 @@ class PiConfig:
 
                 if reboot_required:
                     # rewrite the file
-                    current_user = os.getuid()
-                    if os.getuid() != 0:  # Check if already running as root
-                        os.setuid(0)
-                    with open("/boot/firmware/config.txt", "w") as f:
+                    tmp = tempfile.NamedTemporaryFile()
+                    with open(tmp.name, "w") as f:
                         for line in lines:
                             f.write(f"{line}\n")
-                    if current_user != 0:
-                        os.setuid(current_user)
+                    subprocess.run(f"sudo cp -f {tmp.name} /boot/firmware/config.txt".split())
                     print("*** Reboot required to apply changes...")
 
     def optimize_services(self, svsc: Set[str] = None) -> None:
