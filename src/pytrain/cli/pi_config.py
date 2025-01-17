@@ -1,4 +1,3 @@
-import os
 import subprocess
 import sys
 from argparse import ArgumentParser
@@ -151,19 +150,27 @@ class PiConfig:
 
     def optimize_services(self) -> None:
         for service in SERVICES:
+            results = list()
+            if self.verbose:
+                print(f"Disabling: {service} service...", end="")
             for sub_cmd in ["stop", "disable"]:
                 cmd = f"sudo systemctl {sub_cmd} {service}.service"
-                if self.verbose:
-                    print(f"Executing: {cmd}...", end="")
                 try:
-                    status = os.system(cmd)
-                    if status == 0:
-                        if self.verbose:
-                            print("...Done")
-                    else:
-                        print(f"...Failed with status {status}")
+                    results.append(subprocess.run(cmd.split(), capture_output=True))
                 except Exception as e:
-                    print(e)
+                    print(f"Error disabling {service}: {e}")
+            success = len(results) == 2 and results[0].returncode in [0, 4] and results[1].returncode in [0, 4]
+            if self.verbose and success:
+                print("...Done")
+            elif success is False:
+                if self.verbose:
+                    print("...Failed")
+                if len(results) > 0 and results[0].returncode not in [0, 4]:
+                    print(f"{results[0].stderr.decode('utf-8').strip()}")
+                if len(results) > 1 and results[1].returncode not in [0, 4]:
+                    print(f"{results[1].stderr.decode('utf-8').strip()}")
+        # do a daemon reload
+        subprocess.run("sudo systemctl daemon-reload".split())
 
     @staticmethod
     def command_line_parser() -> ArgumentParser:
