@@ -239,7 +239,7 @@ class PiConfig:
                     print(f"...Failed with code {result.returncode}: {result.stderr.decode('utf-8').strip()}")
             except Exception as e:
                 print(e)
-        if cfg and "config.txt" in cfg:
+        if (cfg and "config.txt" in cfg) or cfg is None:
             print("Updating /boot/firmware/config.txt...")
 
     def optimize_services(self, svsc: Set[str] = None) -> None:
