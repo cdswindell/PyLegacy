@@ -443,7 +443,6 @@ class PyTrain:
     def update(self, do_inform: bool = True) -> None:
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
-        # print(os.getcwd(), os.path.dirname(os.path.realpath(__file__)))
         os.system(f"cd {os.getcwd()}; pwd; git pull")
         os.system(f"cd {os.getcwd()}; pwd; pip install -r requirements.txt")
         self.relaunch()
