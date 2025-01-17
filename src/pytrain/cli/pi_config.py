@@ -231,7 +231,12 @@ class PiConfig:
 
         if self.verbose:
             print("Removing unused files... This may take a while...")
-        r = subprocess.run("sudo apt autoremove -y".split(), capture_output=True, text=True)
+        r = subprocess.run("sudo apt autoremove --purge -y".split(), capture_output=True, text=True)
+        if self.verbose:
+            print(r.stdout.strip())
+        # cups (printing damon) is particularly pernicious...
+        cmd = "sudo find . -name 'cups*' -print | sudo xargs rm -fr"
+        r = subprocess.run(cmd.split(), capture_output=True, text=True)
         if self.verbose:
             print(r.stdout.strip())
 
