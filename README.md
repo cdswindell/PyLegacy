@@ -117,7 +117,7 @@ project, which is used by PyTrain:
 
 <div align="center">
 
-![switch-example.png](https://gpiozero.readthedocs.io/en/latest/_images/pin_layout.svg)
+![pin_layout.png](https://gpiozero.readthedocs.io/en/latest/_images/pin_layout.svg)
 
 #### Raspberry Pi GPIO Pins
 </div>

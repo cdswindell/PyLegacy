@@ -57,8 +57,8 @@ pytrain = "pytrain:main"
 piconfig = "pytrain.cli.piconfig:main"
 
 [project.urls]
-Repository = "https://github.com/cdswindell/PyTrain"
-Homepage = "https://github.com/cdswindell/PyTrain"
-Issues = "https://github.com/cdswindell/PyTrain/issues"
+Repository = "https://github.com/cdswindell/PyLegacy"
+Homepage = "https://github.com/cdswindell/PyLegacy"
+Issues = "https://github.com/cdswindell/PyLegacy/issues"
 
 
