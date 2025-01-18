@@ -78,16 +78,6 @@ ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
 ACTION_TO_ADMIN_COMMAND_MAP: Dict[CommandDefEnum, str] = {v: k for k, v in ADMIN_COMMAND_TO_ACTION_MAP.items()}
 
 
-class ServiceListener:
-    @staticmethod
-    def remove_service(zeroconf, type_, name):
-        pass
-
-    @staticmethod
-    def add_service(zeroconf, type_, name):
-        pass
-
-
 class PyTrain:
     def __init__(self, cmd_line: List[str] = None) -> None:
         if cmd_line:
@@ -341,7 +331,7 @@ class PyTrain:
 
     def run(self) -> None:
         # print opening line
-        print(f"{PROGRAM_NAME}, {self._version}")
+        log.info(f"{PROGRAM_NAME}, {self._version}")
         # process startup script
         if self._startup_script:
             self._script_loader = StartupScriptLoader(self)
@@ -640,7 +630,7 @@ class PyTrain:
                         print(timedelta(seconds=timer() - self._started_at))
                         return
                     if args.command == "version":
-                        print(f"{PROGRAM_NAME} {get_version()}")
+                        print(f"{PROGRAM_NAME} {self._version}")
                         return
                     #
                     # we're done with the admin/special commands, now do train stuff
@@ -924,6 +914,11 @@ class PyTrain:
 
 
 class StartupScriptLoader(threading.Thread):
+    """
+    We run the startup-script reader so that we can continue with
+    main program execution while the script is loading
+    """
+
     def __init__(self, main_proc: PyTrain) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup Script Loader")
         self._main_proc = main_proc
@@ -935,4 +930,3 @@ class StartupScriptLoader(threading.Thread):
 
 set_up_logging()
 log = logging.getLogger(__name__)
-# main = PyTrain(arg_parser().parse_args())
