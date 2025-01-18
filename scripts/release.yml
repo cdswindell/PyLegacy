@@ -1,0 +1,17 @@
+name: release.yml
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'  # Modify when Raspberry Pi changes supported version
+      - run: pip install build
+      - run: python setup.py bdist_wheel
