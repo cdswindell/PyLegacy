@@ -34,17 +34,113 @@ actions, allowing the development of physical control panels to operate trains.
 
 The PyLegacy project is intended for two primary audiences:
 
-* Model rail enthusiasts wanting to build physical control panels to operate their layout, including:
+* Model railroad enthusiasts running Lionel TMCC and/or Legacy layouts that
+want to add physical control panels to operate their layout, including:
   * operating accessories
-  * switches
+  * switches (turnouts)
   * power districts
   * routes
   * layout segments (e.g., yards, stations)
-  * replacement for hand-held remote
+  * engines, trains, and operating cars equipped with TMCC or Legacy technology
 * Developers interested in:
-  * automated train control, 
+  * automated train control
+  * adding elements of randomness into their layouts (lights on & off, sounding horn or bell effects, etc.)
+  * building sequence commands that start up, ramp an engine to speed, then stop and shut down an engine
   * integration with smart speakers and intelligent assistants (e.g., Alexa, Ok Google)
+  * console control of a layout via [ssh](https://www.raspberrypi.com/documentation/computers/remote-access.html#ssh)
+  * integrating model railroading and computer science
+  * learning the Lionel TMCC/Legacy command protocol
   * continuing to develop software post retirement :smirk:
+
+For the first audience, model railroad enthusiasts, PyLegacy allows you to build
+full functionality control panels that use physical switches, dials, and keypads to control
+your layout and get real-time feedback on LEDs and multi-line LCD screens. The software,
+called **_PyTrain_**, runs on small, low-cost [Raspberry Pis](https://www.raspberrypi.com). These are
+relatively inexpensive, (< $100), small (size of a deck of playing cards) single-board computers
+that feature pin connections to which you can attach physical controls (toggle switches, push buttons,
+keypads, speed-control dials and levers, etc.), as well as LEDs and LCD screens. An entire 
+world of inexpensive control hardware is available from Amazon and other online suppliers. 
+
+Rather than running wires from each control panel to the component(s) you want to control, you simply wire your 
+buttons, switches, LEDs, etc. to the Pi itself that you mount within your panel. The Raspberry Pi communicates with
+your layout via Wi-Fi to a Lionel Base 3 or LCS Wi-Fi module. The only wire you need to connect to your panel 
+is power for the Pi itself!
+
+What if you want multiple control panels situated near the layout elements you want to control? Simple!
+Use multiple Raspberry Pis, mounting one in each control panel. The Pis can each communicate directly to a Base 
+3 (or LCS Wi-Fi module), or, you designate one of your Pi's as a _**server**_. This Pi will handle all 
+communication to and from your layout, and all the Pis that drive your other panels, the clients,
+communicate directly with the server over Wi-Fi.
+
+PyTrain provides many tools that let you operate specific switches, routes, accessories, and even engines
+right out of the box. All you need is to specify the TMCC ID of the component you want to operate and the 
+[pin(s)](https://gpiozero.readthedocs.io/en/latest/recipes.html#pin-numbering) on the Pi that your 
+physical buttons, LEDs, etc. connect to. PyTrain does the rest. 
+
+Let's say you want to operate and show the state of a Lionel Turnout addressed as
+TMCC ID 12. The turnout can be a TMCC Command Controlled model or one that is wired to an LCS ASC2.
+In this example, our panel would consist of a momentary (on)-off-(on) toggle switch and 2 bi-color red/green 
+LEDs. The LEDs show the current path a train would take when traversing the turnout from right to left. In the 
+panel below, the _through_ position is set, so the _through_ LED is green, and the _out_ LED is red. If we pull
+down and release the toggle switch, the turnout would change to the _out_ position, and its LED would light green, 
+and the _through_ path would turn red. We would also want the LEDs to reflect the actual turnout state, should it be 
+controlled from a Cab-2, Cab-3, or from the auto-derail prevention feature of FasTrack turnouts.
+ 
+
+<div align="center">
+
+![switch-example.png](doc/images/switch-example.png)
+
+#### Simple Panel 
+</div>
+
+To construct this panel, we would need to connect toggle switch and LEDs to pins on the Raspberry Pi. Below is a 
+schematic of a Pi pinout, taken from the [GPIO Zero](https://gpiozero.readthedocs.io/en/latest/index.html) 
+project, which is used by PyTrain:
+
+<div align="center">
+
+![switch-example.png](https://gpiozero.readthedocs.io/en/latest/_images/pin_layout.svg)
+
+#### Raspberry Pi GPIO Pins
+</div>
+
+To control and show the state of our turnout, we would connect the center terminal of out toggle switch and 
+the common cathode lead of our Bi-Color LEDs to a GND pin on the Pi (any will do). We next need to decide 
+which pins we will connect the other two terminals of the toggle (up for _through_ and down for _out_), and 
+the 4 leads of the 2 LEDs. We can use any of the pins colored green above, as well as GPIO pins 7, 8, 9, 10, 11, 
+14, and 15. Pins GPIO 2 and GPIO 3 are reserved to communicate with expander boards that provide 
+additional GPIO pins, as are pins ID SD and ID SC.
+
+Let's say we make the following connections:
+
+| Pin | Component     | Function   |
+|:---:|---------------|------------|
+|  7  | Toggle  (Up)  | Through    |
+|  8  | Toggle (Down) | Out        |
+|  9  | Thru LED      | Green Lead |
+| 10  | Thru LED      | Red Lead   |
+| 10  | Out LED       | Green Lead |
+|  9  | Out LED       | Red Lead   |
+
+Here is the Python code to control the switch:
+
+```
+from pytrain import GpioHandler
+
+GpioHandler.switch(
+    address = 12,     # TMCC ID of the turnout to control
+    thru_pin = 7,      
+    out_pin = 8,       
+    thru_led_pin = 9,
+    out_led_pin = 10
+)
+```
+Note that the pins driving the 2 LEDs, 9 & 10 are connected to _both_ LEDs. 
+Because the LEDs in our example are bi-color, when power is applied to pin 9, 
+it simultaneously lights the green element in the _through_ LED and the red
+element in the _out_ LED. 
+
 
 ## Requirements
 
