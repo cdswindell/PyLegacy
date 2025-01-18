@@ -54,7 +54,7 @@ class CliBase(ABC):
         parser.add_argument(
             "-server",
             action="store",
-            help=f"IP Address of {PROGRAM_NAME} server, if client. Server communicates with LCS SER2",
+            help=f"IP Address of {PROGRAM_NAME} server, if client. Server communicates with Base 3/LCS SER2",
         )
         return parser
 

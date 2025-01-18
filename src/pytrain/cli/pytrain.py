@@ -24,7 +24,6 @@ from timeit import default_timer as timer
 from typing import List, Tuple, Dict, Any
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
-from . import CliBase
 from .acc import AccCli
 from .dialogs import DialogsCli
 from .effects import EffectsCli
@@ -57,6 +56,9 @@ from ..protocol.constants import (
     SERVICE_TYPE,
     SERVICE_NAME,
     DEFAULT_SERVER_PORT,
+    DEFAULT_VALID_BAUDRATES,
+    DEFAULT_BAUDRATE,
+    DEFAULT_PORT,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
@@ -124,17 +126,7 @@ class PyTrain:
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).
         # Unless we are running as a client, make sure one of those 2 devices is specified
-        if self._server is None and args.client is True:
-            # use avahi/zeroconf to locate a PyTrain server on the local network
-            # raise exception and exit if none found
-            info = self.get_service_info()
-            if info is None:
-                raise RuntimeError(f"No {PROGRAM_NAME} servers found on the local network, exiting")
-            self._server, self._port = info
-            self._server_ips = {self._server}
-        elif self._server is not None:
-            pass
-        elif args.base is not None:
+        if args.base is not None:
             if isinstance(args.base, list) and len(args.base):
                 base = args.base[0]
             else:
@@ -145,6 +137,16 @@ class PyTrain:
             base_pieces = base.split(":")
             self._base_addr = args.base = base_pieces[0]
             self._base_port = base_pieces[1] if len(base_pieces) > 1 else DEFAULT_BASE_PORT
+        elif self._server is None and args.client is True:
+            # use avahi/zeroconf to locate a PyTrain server on the local network
+            # raise exception and exit if none found
+            info = self.get_service_info()
+            if info is None:
+                raise RuntimeError(f"No {PROGRAM_NAME} servers found on the local network, exiting")
+            self._server, self._port = info
+            self._server_ips = {self._server}
+        elif self._server is not None:
+            pass
         else:
             if args.ser2 is False:
                 raise AttributeError(f"{PROGRAM_NAME} requires either an LCS SER2 and/or Base 2/3 connection")
@@ -247,31 +249,58 @@ class PyTrain:
 
     @staticmethod
     def command_line_parser() -> ArgumentParser:
-        parser = ArgumentParser(add_help=False)
-        parser.add_argument(
-            "-startup_script",
-            type=str,
-            default=DEFAULT_SCRIPT_FILE,
-            help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})",
-        )
         parser = ArgumentParser(
             prog="pytrain.py",
             description="Send TMCC and Legacy-formatted commands to a Lionel Base 3 and/or LCS Ser2",
-            parents=[parser, CliBase.cli_parser()],
         )
-        parser.add_argument("-base", nargs="*", type=str, help="IP Address of Lionel Base 2/3")
-        parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
+        mode_group = parser.add_mutually_exclusive_group()
+        mode_group.add_argument(
+            "-base",
+            nargs="*",
+            type=str,
+            help="Connect to Lionel Base 2/3 or LCS Wi-Fi at IP address (Server mode)",
+        )
+        mode_group.add_argument(
+            "-client",
+            action="store_true",
+            help=f"Connect to an available {PROGRAM_NAME} server (Client mode)",
+        )
+        mode_group.add_argument(
+            "-server",
+            action="store",
+            help=f"Connect to {PROGRAM_NAME} server at IP address (Client mode)",
+        )
+        parser.set_defaults(client=True)
         parser.add_argument(
-            "-headless", action="store_true", help="Do not prompt for user input (run in the background)"
+            "-baudrate",
+            action="store",
+            type=int,
+            choices=DEFAULT_VALID_BAUDRATES,
+            default=DEFAULT_BAUDRATE,
+            help=f"Baud Rate ({DEFAULT_BAUDRATE})",
+        )
+        parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
+
+        parser.add_argument("-headless", action="store_true", help="Do not prompt for user input (run in background),")
+        parser.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
+        parser.add_argument(
+            "-port",
+            action="store",
+            default=DEFAULT_PORT,
+            help=f"Serial port for LCS Ser2 connection" f"({DEFAULT_PORT})",
         )
         parser.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
-        parser.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
-        parser.add_argument("-client", action="store_true", help=f"Connect to an available {PROGRAM_NAME} server")
         parser.add_argument(
             "-server_port",
             type=int,
             default=DEFAULT_SERVER_PORT,
             help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})",
+        )
+        parser.add_argument(
+            "-startup_script",
+            type=str,
+            default=DEFAULT_SCRIPT_FILE,
+            help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})",
         )
         parser.add_argument("-version", action="store_true", help="Show version and exit")
         return parser
