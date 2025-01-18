@@ -77,12 +77,14 @@ def get_version() -> str:
     # we try the package path first...
     version = None
     try:
-        version = importlib.metadata.version("pytrain")
+        # production version
+        version = importlib.metadata.version("pytrain-ogr")
     except PackageNotFoundError:
         pass
 
     if version is None:
         try:
+            # this is for testing
             version = importlib.metadata.version("pytrain-cdswindell")
         except PackageNotFoundError:
             pass

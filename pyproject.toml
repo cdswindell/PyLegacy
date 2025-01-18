@@ -3,7 +3,7 @@ requires = ["setuptools>=75.0", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pytrain-cdswindell"
+name = "pytrain-ogr"
 dynamic = ["version"]
 authors = [
   { name="Dave Swindell", email="pytraininfo@gmail.com" },
