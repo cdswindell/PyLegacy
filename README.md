@@ -42,6 +42,8 @@ want to add physical control panels to operate their layout, including:
   * routes
   * layout segments (e.g., yards, stations)
   * engines, trains, and operating cars equipped with TMCC or Legacy technology
+  * control and recieve information from Lionel LCS Sensor Tracks
+  * LCS devices, including the ASC2, STM2, and BPC2
 * Developers interested in:
   * automated train control
   * adding elements of randomness into their layouts (lights on & off, sounding horn or bell effects, etc.)
@@ -51,6 +53,8 @@ want to add physical control panels to operate their layout, including:
   * integrating model railroading and computer science
   * learning the Lionel TMCC/Legacy command protocol
   * continuing to develop software post retirement :smirk:
+
+### Model Railroad Enthusiasts
 
 For the first audience, model railroad enthusiasts, PyLegacy allows you to build
 full functionality control panels that use physical switches, dials, and keypads to control
@@ -77,8 +81,8 @@ right out of the box. All you need is to specify the TMCC ID of the component yo
 [pin(s)](https://gpiozero.readthedocs.io/en/latest/recipes.html#pin-numbering) on the Pi that your 
 physical buttons, LEDs, etc. connect to. PyTrain does the rest. 
 
-Let's say you want to operate and show the state of a Lionel Turnout addressed as
-TMCC ID 12. The turnout can be a TMCC Command Controlled model or one that is wired to an LCS ASC2.
+Let's say you want to control Lionel Turnout 12 (TMCC ID is 12).
+The turnout can be a TMCC Command Controlled model or one that is wired to an LCS ASC2.
 In this example, our panel would consist of a momentary (on)-off-(on) toggle switch and 2 bi-color red/green 
 LEDs. The LEDs show the current path a train would take when traversing the turnout from right to left. In the 
 panel below, the _through_ position is set, so the _through_ LED is green, and the _out_ LED is red. If we pull
@@ -141,6 +145,18 @@ Because the LEDs in our example are bi-color, when power is applied to pin 9,
 it simultaneously lights the green element in the _through_ LED and the red
 element in the _out_ LED. 
 
+When we pull _down_ on the toggle switch, pin 8 is connected to GND. The python code responds by
+sending the TMCC command to your Base 3 or LCS Wi-Fi to set the turnout to the _out_ position. It
+also turns off the power to pin 9 and turns on the power to pin 10, causing the red element in
+the "through" led to shine red, and the green element in the _out_ led to shine green. The PyTrain 
+software can send _**all**_ the defined TMCC and Legacy commands, including almost all the 
+functionality available on the Cab 2 and Cab 3 controllers, including control of engine smoke, lights,
+engine sounds, speed, momentum, volume, dialog, whistle and bell sounds, and much more. 
+It can also fire routes, control momentary and on/off accessories, rotate gantry cranes, etc. 
+
+### Developers
+
+For developers...
 
 ## Requirements
 
