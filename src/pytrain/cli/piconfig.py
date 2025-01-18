@@ -89,6 +89,8 @@ class PiConfig:
             self.do_check()
         elif self.option == "version":
             print(f"{self.__class__.__name__} {get_version()}")
+        elif self.option == "expand_file_system":
+            self.expand_file_system()
         else:
             do_reboot_msg = True
             if self.option == "all":
@@ -338,6 +340,17 @@ class PiConfig:
         if self.verbose:
             print(r.stdout.strip())
 
+    @staticmethod
+    def expand_file_system():
+        print("Expanding file system; your Pi will reboot...")
+        cmd = "sudo sudo raspi-config --expand-rootfs"
+        result = subprocess.run(cmd.split(), capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"Error expanding file system: {result.stderr.strip()}")
+        else:
+            print("File system expansion complete! Rebooting...")
+            subprocess.run("sudo reboot".split(), capture_output=True, text=True)
+
     def _read_config(self, filename: str = "/boot/firmware/config.txt", make_copy: bool = False) -> List[str]:
         config = list()
         if os.path.exists(filename):
@@ -353,19 +366,14 @@ class PiConfig:
     @staticmethod
     def command_line_parser() -> ArgumentParser:
         parser = ArgumentParser()
+        config_group = parser.add_mutually_exclusive_group()
+
         parser.add_argument(
             "-quiet",
             action="store_true",
             help="Operate quietly and don't provide feedback",
         )
-        config_group = parser.add_mutually_exclusive_group()
-        config_group.add_argument(
-            "-check",
-            action="store_const",
-            const="check",
-            dest="option",
-            help="Check Raspberry Pi configuration (no changes made)",
-        )
+
         config_group.add_argument(
             "-all",
             action="store_const",
@@ -374,18 +382,25 @@ class PiConfig:
             help="Perform all optimizations",
         )
         config_group.add_argument(
+            "-check",
+            action="store_const",
+            const="check",
+            dest="option",
+            help="Check Raspberry Pi configuration (no changes made; default option)",
+        )
+        config_group.add_argument(
             "-configuration",
             action="store_const",
             const="configuration",
             dest="option",
             help="Enable/disable Raspberry Pi configuration options",
         )
-        config_group.add_argument(
-            "-services",
+        parser.add_argument(
+            "-expand_file_system",
             action="store_const",
-            const="services",
+            const="expand_file_system",
             dest="option",
-            help="Only disable unneeded services",
+            help="Expand file system and reboot",
         )
         config_group.add_argument(
             "-packages",
@@ -395,6 +410,13 @@ class PiConfig:
             help="Only remove unneeded packages",
         )
         config_group.add_argument(
+            "-services",
+            action="store_const",
+            const="services",
+            dest="option",
+            help="Only disable unneeded services",
+        )
+        parser.add_argument(
             "-version",
             action="store_const",
             const="version",

@@ -16,19 +16,32 @@ and trains, throw switches, operate accessories, and fire custom routes. This wi
 developing code to translate physical button presses on a Raspberry Pi to Legacy and TMCC command 
 actions, allowing the development of physical control panels to operate trains.
 
+<div style="font-size: 16px; ">
 
-## Contents
-- [PyLegacy]()
-  - [Audience](#audience)
-  - [Requirements](#requirements)
-    - [Macintosh](#macintosh)
-    - [Raspberry Pi/Linux](#raspberry-pi-and-pi-zero-w-2)
-  - [Installation and one-time setup](#installation-and-one-time-setup)
-    - [Model Railroader](#model-railroader)
-    - [Developer](#developer)
-  - [CLI Scripts](#cli-scripts)
-  - [Licensing](#licensing)
-  - [Future Development](#future-development)
+<!-- TOC -->
+* [PyLegacy](#pylegacy)
+  * [Audience](#audience)
+    * [Model Railroad Enthusiasts](#model-railroad-enthusiasts)
+      * [Simple Panel](#simple-panel-)
+      * [Raspberry Pi GPIO Pins](#raspberry-pi-gpio-pins)
+    * [Lionel Legacy Gantry Crane and Yard](#lionel-legacy-gantry-crane-and-yard)
+    * [Developers](#developers)
+  * [Installing PyLegacy](#installing-pylegacy)
+  * [Raspberry Pi Configuration](#raspberry-pi-configuration)
+  * [Command-line Tools](#command-line-tools)
+    * [PyTrain](#pytrain)
+    * [PiConfig](#piconfig)
+  * [Contributing](#contributing)
+  * [Development](#development)
+    * [Requirements](#requirements)
+      * [Macintosh:](#macintosh)
+      * [Raspberry Pi and Pi Zero W 2](#raspberry-pi-and-pi-zero-w-2)
+    * [Installation and one time setup](#installation-and-one-time-setup)
+  * [Future Enhancements](#future-enhancements)
+  * [License](#license)
+<!-- TOC -->
+
+</div>
 
 ## Audience
 
@@ -127,7 +140,7 @@ Let's say we make the following connections:
 | 10  | Out LED       | Green Lead |
 |  9  | Out LED       | Red Lead   |
 
-Here is the Python code to control the switch:
+Here is the Python code to control the turnout:
 
 ```
 from pytrain import GpioHandler
@@ -172,9 +185,28 @@ as the turnout to the two track segments.
 
 For developers...
 
-## Requirements
+## Installing PyLegacy
 
-### Macintosh:
+## Raspberry Pi Configuration
+
+
+## Command-line Tools
+
+PyLegacy includes several command-line tools you
+The `cli` directory contains a number of Python command line scripts allowing 
+you to operate engines, control switches and accessories, and fire custom routes.
+
+### PyTrain
+
+### PiConfig
+
+## Contributing
+
+## Development
+
+### Requirements
+
+#### Macintosh:
 
 - Brew:
 
@@ -192,7 +224,7 @@ For developers...
 
 `brew install git`
 
-### Raspberry Pi and Pi Zero W 2
+#### Raspberry Pi and Pi Zero W 2
 
 - Python 3.11, gh, and git:
 
@@ -205,18 +237,16 @@ sudo apt install gh
 sudo apt install git
 ```
 
-For the Raspberry Pi Zero W (NOT the 2 W):
+For the Raspberry Pi Zero W (**NOT** the 2 W):
 
 ```
 sudo apt-get install swig
 ```
 
-Note that some or all of this software may already be installed on your pi
+**Note**: some or all of this software may already be installed on your pi
 
-## Installation and one time setup
+### Installation and one time setup
 
-### Model Railroader
-### Developer
 ```
 cd /where/you/like/your/source
 
@@ -251,26 +281,8 @@ export PYTHONPATH=.
 
 You may wish to create a macro or alias to issue these commands for you.
 
-## Raspberry Pi Configuration
+## Future Enhancements
 
-
-## Licensing
+## License
 
 This software and its use are governed by the GNU Lesser General Public License (LPGL).
-
-## CLI Scripts
-
-The `cli` directory contains a number of Python command line scripts allowing 
-you to operate engines, control switches and accessories, and fire custom routes.
-
-## Packaging
-
-rm -fr dist src/*.egg-info
-git tag <tag_name> -m "message"
-git push origin --tags
-
-python3 -m build
-python3 -m twine upload --repository testpypi dist/*    
-python3 -m pip install -U --force-reinstall --index-url https://test.pypi.org/simple/ --no-deps pytrain-cdswindell
-
-## Future Development
