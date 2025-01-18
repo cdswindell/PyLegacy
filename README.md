@@ -106,7 +106,7 @@ controlled from a Cab-2, Cab-3, or from the auto-derail prevention feature of Fa
 
 <div align="center">
 
-![switch-example.png](doc/images/switch-example.png)
+![switch-example.png](https://github.com/cdswindell/PyLegacy/raw/master/doc/images/switch-example.png)
 
 #### Simple Panel 
 </div>
@@ -176,7 +176,7 @@ as the turnout to the two track segments.
 
 <div align="center">
 
-![gantry.jpg](doc/images/gantry.jpg)
+![gantry.jpg](https://github.com/cdswindell/PyLegacy/raw/master/doc/images/gantry.jpg)
 
 ### Lionel Legacy Gantry Crane and Yard
 </div>
