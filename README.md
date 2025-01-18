@@ -154,6 +154,20 @@ functionality available on the Cab 2 and Cab 3 controllers, including control of
 engine sounds, speed, momentum, volume, dialog, whistle and bell sounds, and much more. 
 It can also fire routes, control momentary and on/off accessories, rotate gantry cranes, etc. 
 
+Below is another control panel to operate a Lionel Command Control Gantry. This panel uses a 2-axis joystick 
+to move the gantry back and forth on the special GarGraves 5-rail track, as well as to lift the magnet
+up and down. A Rotary Encoder is used to rotate the crane cab. The encoder I use has a push button 
+built in that I use to turn the magnet on and off. A yellow LED is lit when the magnet is energized. 
+The panel also allows control of the two track power blocks in this part of my layout, as well
+as the turnout to the two track segments.
+
+<div align="center">
+
+![gantry.jpg](doc/images/gantry.jpg)
+
+### Lionel Legacy Gantry Crane and Yard
+</div>
+
 ### Developers
 
 For developers...
