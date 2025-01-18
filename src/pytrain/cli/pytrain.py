@@ -277,7 +277,7 @@ class PyTrain:
             "-port",
             action="store",
             default=DEFAULT_PORT,
-            help=f"Serial port for LCS Ser2 connection" f"({DEFAULT_PORT})",
+            help=f"Serial port for LCS Ser2 connection ({DEFAULT_PORT})",
         )
         parser.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
         parser.add_argument(
