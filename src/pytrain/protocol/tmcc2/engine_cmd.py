@@ -2,14 +2,14 @@ from .tmcc2_command import TMCC2Command
 from ..multibyte.multibyte_constants import TMCC2MultiByteEnum
 from ..command_req import CommandReq
 from ..constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
-from .tmcc2_constants import TMCC2EngineCommandDef
+from .tmcc2_constants import TMCC2EngineCommandEnum
 
 
 class EngineCmd(TMCC2Command):
     def __init__(
         self,
         engine: int,
-        command: TMCC2EngineCommandDef | TMCC2MultiByteEnum,
+        command: TMCC2EngineCommandEnum | TMCC2MultiByteEnum,
         data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,
         baudrate: int = DEFAULT_BAUDRATE,

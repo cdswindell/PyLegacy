@@ -9,9 +9,9 @@ from ..protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum, TMCC2Ra
 from ..protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
 from ..protocol.sequence.sequence_constants import SequenceCommandEnum
 from ..protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from ..utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
@@ -509,7 +509,7 @@ class EngineCli(CliBaseTMCC):
             else:
                 cmd = EngineCmdTMCC1(
                     engine,
-                    TMCC1EngineCommandDef(option),
+                    TMCC1EngineCommandEnum(option),
                     option_data,
                     scope,
                     baudrate=self._baudrate,
@@ -528,7 +528,7 @@ class EngineCli(CliBaseTMCC):
         except ValueError as ve:
             log.exception(ve)
 
-    def _decode_engine_option(self) -> TMCC1EngineCommandDef | TMCC2EngineCommandDef | TMCC2MultiByteEnum | None:
+    def _decode_engine_option(self) -> TMCC1EngineCommandEnum | TMCC2EngineCommandEnum | TMCC2MultiByteEnum | None:
         """
         Decode the 'option' argument, if present, into a valid
         TMCC1EngineCommandDef, TMCC2EngineCommandDef, or one of the multiword TMCC2
@@ -567,10 +567,10 @@ class EngineCli(CliBaseTMCC):
 
         # if scope is TMCC1, resolve via TMCC1EngineCommandDef
         if self.is_tmcc1:
-            enum_classes = [TMCC1EngineCommandDef]
+            enum_classes = [TMCC1EngineCommandEnum]
         else:
             enum_classes = [
-                TMCC2EngineCommandDef,
+                TMCC2EngineCommandEnum,
                 TMCC2RailSoundsDialogControl,
                 TMCC2RailSoundsEffectsControl,
                 TMCC2EffectsControl,

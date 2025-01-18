@@ -18,13 +18,13 @@ from ..command_def import CommandDefEnum
 from ..command_req import CommandReq
 from ..constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT, OfficialRRSpeeds
 from ..constants import CommandScope
-from ..tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1RRSpeeds
-from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2RRSpeeds
+from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1RRSpeedsEnum
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
 
 from ...comm.comm_buffer import CommBuffer
 from ...utils.argument_parser import ArgumentParser
 
-T = TypeVar("T", TMCC1RRSpeeds, TMCC2RRSpeeds)
+T = TypeVar("T", TMCC1RRSpeedsEnum, TMCC2RRSpeedsEnum)
 
 
 class SequenceReq(CommandReq, Sequence):
@@ -194,7 +194,7 @@ class SequenceReq(CommandReq, Sequence):
         """
         Parse the first token of the user's input
         """
-        cde = TMCC1EngineCommandDef if is_tmcc else TMCC2EngineCommandDef
+        cde = TMCC1EngineCommandEnum if is_tmcc else TMCC2EngineCommandEnum
         command_parser = ArgumentParser(exit_on_error=False)
         group = command_parser.add_mutually_exclusive_group()
         group.add_argument("-stop", action="store_const", const=cde.SPEED_STOP_HOLD, dest="command")
@@ -214,26 +214,26 @@ class SequenceReq(CommandReq, Sequence):
         tower = engr = None
         if isinstance(speed, OfficialRRSpeeds):
             base = f"SPEED_{speed.name}"
-            if isinstance(speed, TMCC1RRSpeeds):
-                speed_enum = TMCC1EngineCommandDef.by_name(base)
+            if isinstance(speed, TMCC1RRSpeedsEnum):
+                speed_enum = TMCC1EngineCommandEnum.by_name(base)
             else:
-                speed_enum = TMCC2EngineCommandDef.by_name(base)
+                speed_enum = TMCC2EngineCommandEnum.by_name(base)
             if speed_enum is None:
                 raise ValueError(f"Unknown speed type: {speed}")
         elif isinstance(speed, int):
             if is_tmcc:
-                for rr_speed in TMCC1RRSpeeds:
+                for rr_speed in TMCC1RRSpeedsEnum:
                     if speed in rr_speed.value:
                         speed_int = rr_speed.value[0]
                         base = f"SPEED_{rr_speed.name}"
-                        speed_enum = TMCC1EngineCommandDef.by_name(base)
+                        speed_enum = TMCC1EngineCommandEnum.by_name(base)
                         break
             else:
-                for rr_speed in TMCC2RRSpeeds:
+                for rr_speed in TMCC2RRSpeedsEnum:
                     if speed in rr_speed.value:
                         speed_int = rr_speed.value[0]
                         base = f"SPEED_{rr_speed.name}"
-                        speed_enum = TMCC2EngineCommandDef.by_name(base)
+                        speed_enum = TMCC2EngineCommandEnum.by_name(base)
                         break
         elif isinstance(speed, str):
             try:

@@ -6,7 +6,7 @@ from typing import List
 from . import CliBase, DataAction
 from ..protocol.tmcc1.acc_cmd import AccCmd
 
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
@@ -51,13 +51,13 @@ class AccCli(CliBase):
             type=int,
             nargs="?",
             default=1,
-            const=TMCC1AuxCommandDef.NUMERIC,
+            const=TMCC1AuxCommandEnum.NUMERIC,
             help="Numeric value",
         )
         aux_group.add_argument(
             "-address",
             action="store_const",
-            const=TMCC1AuxCommandDef.SET_ADDRESS,
+            const=TMCC1AuxCommandEnum.SET_ADDRESS,
             dest="command",
             help="Set accessory address",
         )
@@ -78,11 +78,11 @@ class AccCli(CliBase):
         self._aux1 = self._args.aux1
         self._aux2 = self._args.aux2
         if self._args.aux1 and self._args.aux1 in AUX_OPTIONS_MAP:
-            self._command = TMCC1AuxCommandDef.by_name(f"AUX1_{AUX_OPTIONS_MAP[self._args.aux1]}")
+            self._command = TMCC1AuxCommandEnum.by_name(f"AUX1_{AUX_OPTIONS_MAP[self._args.aux1]}")
         elif self._args.aux2 and self._args.aux2 in AUX_OPTIONS_MAP:
-            self._command = TMCC1AuxCommandDef.by_name(f"AUX2_{AUX_OPTIONS_MAP[self._args.aux2]}")
+            self._command = TMCC1AuxCommandEnum.by_name(f"AUX2_{AUX_OPTIONS_MAP[self._args.aux2]}")
         try:
-            if self._command is None or not isinstance(self._command, TMCC1AuxCommandDef):
+            if self._command is None or not isinstance(self._command, TMCC1AuxCommandEnum):
                 raise ValueError("Must specify an option, use -h for help")
             cmd = AccCmd(
                 self._acc, self._command, self._data, baudrate=self._baudrate, port=self._port, server=self._server

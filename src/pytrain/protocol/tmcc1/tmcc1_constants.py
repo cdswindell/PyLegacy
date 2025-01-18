@@ -139,10 +139,10 @@ class TMCC1CommandDef(CommandDef):
         return TMCC1CommandIdentifier.classify(byte_data)
 
     @property
-    def alias(self) -> TMCC1EngineCommandDef | Tuple[TMCC1EngineCommandDef, int] | None:
+    def alias(self) -> TMCC1EngineCommandEnum | Tuple[TMCC1EngineCommandEnum, int] | None:
         if self._alias is not None:
             if isinstance(self._alias, str):
-                alias = TMCC1EngineCommandDef.by_name(self._alias, raise_exception=True)
+                alias = TMCC1EngineCommandEnum.by_name(self._alias, raise_exception=True)
                 if self._data is None:
                     return alias
                 else:
@@ -163,7 +163,7 @@ TMCC1_SYNCED_COMMAND: int = 0xF0FF
 
 
 @unique
-class TMCC1SyncCommandDef(TMCC1Enum):
+class TMCC1SyncCommandEnum(TMCC1Enum):
     QUIT = TMCC1CommandDef(TMCC1_QUIT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     REBOOT = TMCC1CommandDef(TMCC1_REBOOT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     RESTART = TMCC1CommandDef(TMCC1_RESTART_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
@@ -178,7 +178,7 @@ TMCC1_HALT_COMMAND: int = 0xFFFF
 
 
 @unique
-class TMCC1HaltCommandDef(TMCC1Enum):
+class TMCC1HaltCommandEnum(TMCC1Enum):
     HALT = TMCC1CommandDef(TMCC1_HALT_COMMAND, TMCC1CommandIdentifier.HALT, is_addressable=False, filtered=True)
 
 
@@ -186,7 +186,7 @@ TMCC1_ROUTE_COMMAND: int = 0xD01F
 
 
 @unique
-class TMCC1RouteCommandDef(TMCC1Enum):
+class TMCC1RouteCommandEnum(TMCC1Enum):
     FIRE = TMCC1CommandDef(TMCC1_ROUTE_COMMAND, TMCC1CommandIdentifier.ROUTE, num_address_bits=5)
 
 
@@ -196,7 +196,7 @@ TMCC1_SWITCH_SET_ADDRESS_COMMAND: int = 0x402B
 
 
 @unique
-class TMCC1SwitchState(TMCC1Enum):
+class TMCC1SwitchCommandEnum(TMCC1Enum):
     """
     Switch State
     """
@@ -230,7 +230,7 @@ TMCC1_ACC_RELATIVE_SPEED_COMMAND: int = 0x8040
 
 
 @unique
-class TMCC1AuxCommandDef(TMCC1Enum):
+class TMCC1AuxCommandEnum(TMCC1Enum):
     SET_ADDRESS = TMCC1CommandDef(TMCC1_ACC_SET_ADDRESS_COMMAND, TMCC1CommandIdentifier.ACC)
     NUMERIC = TMCC1CommandDef(TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandIdentifier.ACC, d_max=9)
     AUX1_OFF = TMCC1CommandDef(TMCC1_ACC_AUX_1_OFF_COMMAND, TMCC1CommandIdentifier.ACC)
@@ -343,7 +343,7 @@ TMCC1_NUMERIC_SPEED_TO_DIRECTIVE_MAP = {s: p for p, s in TMCC1_SPEED_MAP.items()
 
 
 @unique
-class TMCC1RRSpeeds(OfficialRRSpeeds):
+class TMCC1RRSpeedsEnum(OfficialRRSpeeds):
     STOP_HOLD = range(0, TMCC1_ROLL_SPEED)
     ROLL = range(TMCC1_ROLL_SPEED, TMCC1_RESTRICTED_SPEED)
     RESTRICTED = range(TMCC1_RESTRICTED_SPEED, TMCC1_SLOW_SPEED)
@@ -355,7 +355,7 @@ class TMCC1RRSpeeds(OfficialRRSpeeds):
 
 
 @unique
-class TMCC1EngineCommandDef(TMCC1Enum):
+class TMCC1EngineCommandEnum(TMCC1Enum):
     ABSOLUTE_SPEED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, d_max=31, filtered=True)
     ASSIGN_TRAIN = TMCC1CommandDef(TMCC1_ENG_ASSIGN_TRAIN_COMMAND, d_max=10)
     AUX1_OFF = TMCC1CommandDef(TMCC1_ENG_AUX1_OFF_COMMAND)
@@ -456,7 +456,7 @@ class TMCC1EngineCommandDef(TMCC1Enum):
 
 
 TMCC1_COMMAND_TO_ALIAS_MAP = {}
-for tmcc2_enum in [TMCC1EngineCommandDef]:
+for tmcc2_enum in [TMCC1EngineCommandEnum]:
     for enum in tmcc2_enum:
         if enum.is_alias:
             TMCC1_COMMAND_TO_ALIAS_MAP[enum.alias] = enum

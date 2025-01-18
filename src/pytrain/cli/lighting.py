@@ -32,6 +32,13 @@ class LightingCli(CliBaseTMCC):
         cab_group.add_argument(
             "-off", action="store_const", const=TMCC2LightingControl.CAB_OFF, dest="option", help="Cab lights off"
         )
+        cab_group.add_argument(
+            "-toggle",
+            action="store_const",
+            const=TMCC2LightingControl.CAB_TOGGLE,
+            dest="option",
+            help="Cab lights toggle",
+        )
 
         car = sp.add_parser("car", help="Car cabin lighting options")
         car_group = car.add_mutually_exclusive_group()

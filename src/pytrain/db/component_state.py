@@ -31,12 +31,12 @@ from ..protocol.constants import (
     RPM_TYPE,
     STEAM_TYPE,
 )
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux, TMCC1SyncCommandDef
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef, TMCC1_COMMAND_TO_ALIAS_MAP
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as TMCC1
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef, TMCC2_COMMAND_TO_ALIAS_MAP
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as TMCC2
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux, TMCC1SyncCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1_COMMAND_TO_ALIAS_MAP
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch, TMCC1HaltCommandEnum
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_COMMAND_TO_ALIAS_MAP
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
 from ..utils.text_utils import title
 
 log = logging.getLogger(__name__)
@@ -48,77 +48,77 @@ L = TypeVar("L", bound=CommandReq)
 
 
 DIRECTIONS_SET = {
-    TMCC1EngineCommandDef.FORWARD_DIRECTION,
-    TMCC2EngineCommandDef.FORWARD_DIRECTION,
-    TMCC1EngineCommandDef.REVERSE_DIRECTION,
-    TMCC2EngineCommandDef.REVERSE_DIRECTION,
+    TMCC1EngineCommandEnum.FORWARD_DIRECTION,
+    TMCC2EngineCommandEnum.FORWARD_DIRECTION,
+    TMCC1EngineCommandEnum.REVERSE_DIRECTION,
+    TMCC2EngineCommandEnum.REVERSE_DIRECTION,
 }
 
 MOMENTUM_SET = {
-    TMCC1EngineCommandDef.MOMENTUM_LOW,
-    TMCC1EngineCommandDef.MOMENTUM_MEDIUM,
-    TMCC1EngineCommandDef.MOMENTUM_HIGH,
-    TMCC2EngineCommandDef.MOMENTUM_LOW,
-    TMCC2EngineCommandDef.MOMENTUM_MEDIUM,
-    TMCC2EngineCommandDef.MOMENTUM_HIGH,
-    TMCC2EngineCommandDef.MOMENTUM,
+    TMCC1EngineCommandEnum.MOMENTUM_LOW,
+    TMCC1EngineCommandEnum.MOMENTUM_MEDIUM,
+    TMCC1EngineCommandEnum.MOMENTUM_HIGH,
+    TMCC2EngineCommandEnum.MOMENTUM_LOW,
+    TMCC2EngineCommandEnum.MOMENTUM_MEDIUM,
+    TMCC2EngineCommandEnum.MOMENTUM_HIGH,
+    TMCC2EngineCommandEnum.MOMENTUM,
 }
 
 SPEED_SET = {
-    TMCC1EngineCommandDef.ABSOLUTE_SPEED,
-    TMCC2EngineCommandDef.ABSOLUTE_SPEED,
-    (TMCC1EngineCommandDef.ABSOLUTE_SPEED, 0),
-    (TMCC2EngineCommandDef.ABSOLUTE_SPEED, 0),
+    TMCC1EngineCommandEnum.ABSOLUTE_SPEED,
+    TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+    (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 0),
+    (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 0),
 }
 
 RPM_SET = {
-    TMCC2EngineCommandDef.DIESEL_RPM,
+    TMCC2EngineCommandEnum.DIESEL_RPM,
 }
 
 LABOR_SET = {
-    TMCC2EngineCommandDef.ENGINE_LABOR,
+    TMCC2EngineCommandEnum.ENGINE_LABOR,
 }
 
 NUMERIC_SET = {
-    TMCC1EngineCommandDef.NUMERIC,
-    TMCC2EngineCommandDef.NUMERIC,
+    TMCC1EngineCommandEnum.NUMERIC,
+    TMCC2EngineCommandEnum.NUMERIC,
 }
 
 
 TRAIN_BRAKE_SET = {
-    TMCC2EngineCommandDef.TRAIN_BRAKE,
+    TMCC2EngineCommandEnum.TRAIN_BRAKE,
 }
 
-STARTUP_SET = {TMCC2EngineCommandDef.START_UP_IMMEDIATE, TMCC2EngineCommandDef.START_UP_DELAYED}
+STARTUP_SET = {TMCC2EngineCommandEnum.START_UP_IMMEDIATE, TMCC2EngineCommandEnum.START_UP_DELAYED}
 
 SHUTDOWN_SET = {
-    TMCC1EngineCommandDef.SHUTDOWN_DELAYED,
-    (TMCC1EngineCommandDef.NUMERIC, 5),
-    TMCC2EngineCommandDef.SHUTDOWN_DELAYED,
-    (TMCC2EngineCommandDef.NUMERIC, 5),
-    TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE,
+    TMCC1EngineCommandEnum.SHUTDOWN_DELAYED,
+    (TMCC1EngineCommandEnum.NUMERIC, 5),
+    TMCC2EngineCommandEnum.SHUTDOWN_DELAYED,
+    (TMCC2EngineCommandEnum.NUMERIC, 5),
+    TMCC2EngineCommandEnum.SHUTDOWN_IMMEDIATE,
 }
 
 ENGINE_AUX1_SET = {
-    TMCC1EngineCommandDef.AUX1_ON,
-    TMCC1EngineCommandDef.AUX1_OFF,
-    TMCC1EngineCommandDef.AUX1_OPTION_ONE,
-    TMCC1EngineCommandDef.AUX1_OPTION_TWO,
-    TMCC2EngineCommandDef.AUX1_ON,
-    TMCC2EngineCommandDef.AUX1_OFF,
-    TMCC2EngineCommandDef.AUX1_OPTION_ONE,
-    TMCC2EngineCommandDef.AUX1_OPTION_TWO,
+    TMCC1EngineCommandEnum.AUX1_ON,
+    TMCC1EngineCommandEnum.AUX1_OFF,
+    TMCC1EngineCommandEnum.AUX1_OPTION_ONE,
+    TMCC1EngineCommandEnum.AUX1_OPTION_TWO,
+    TMCC2EngineCommandEnum.AUX1_ON,
+    TMCC2EngineCommandEnum.AUX1_OFF,
+    TMCC2EngineCommandEnum.AUX1_OPTION_ONE,
+    TMCC2EngineCommandEnum.AUX1_OPTION_TWO,
 }
 
 ENGINE_AUX2_SET = {
-    TMCC1EngineCommandDef.AUX2_ON,
-    TMCC1EngineCommandDef.AUX2_OFF,
-    TMCC1EngineCommandDef.AUX2_OPTION_ONE,
-    TMCC1EngineCommandDef.AUX2_OPTION_TWO,
-    TMCC2EngineCommandDef.AUX2_ON,
-    TMCC2EngineCommandDef.AUX2_OFF,
-    TMCC2EngineCommandDef.AUX2_OPTION_ONE,
-    TMCC2EngineCommandDef.AUX2_OPTION_TWO,
+    TMCC1EngineCommandEnum.AUX2_ON,
+    TMCC1EngineCommandEnum.AUX2_OFF,
+    TMCC1EngineCommandEnum.AUX2_OPTION_ONE,
+    TMCC1EngineCommandEnum.AUX2_OPTION_TWO,
+    TMCC2EngineCommandEnum.AUX2_ON,
+    TMCC2EngineCommandEnum.AUX2_OFF,
+    TMCC2EngineCommandEnum.AUX2_OPTION_ONE,
+    TMCC2EngineCommandEnum.AUX2_OPTION_TWO,
 }
 
 BIG_NUMBER = float("inf")
@@ -232,7 +232,7 @@ class ComponentState(ABC):
         from ..pdi.base_req import BaseReq
 
         self.changed.clear()
-        if command and command.command != TMCC1HaltCommandDef.HALT:
+        if command and command.command != TMCC1HaltCommandEnum.HALT:
             if self._address is None and command.address != BROADCAST_ADDRESS:
                 self._address = command.address
             # invalid states
@@ -403,7 +403,7 @@ class SwitchState(TmccState):
         if command:
             with self._cv:
                 super().update(command)
-                if command.command == TMCC1HaltCommandDef.HALT:
+                if command.command == TMCC1HaltCommandEnum.HALT:
                     return
                 if isinstance(command, CommandReq):
                     if command.command != Switch.SET_ADDRESS:
@@ -490,7 +490,7 @@ class AccessoryState(TmccState):
                 super().update(command)
                 if isinstance(command, CommandReq):
                     if command.command != Aux.SET_ADDRESS:
-                        if command.command == TMCC1HaltCommandDef.HALT:
+                        if command.command == TMCC1HaltCommandEnum.HALT:
                             self._aux1_state = Aux.AUX1_OFF
                             self._aux2_state = Aux.AUX2_OFF
                             self._aux_state = Aux.AUX2_OPT_ONE
@@ -644,9 +644,9 @@ class EngineState(ComponentState):
 
     def __repr__(self) -> str:
         sp = dr = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = ""
-        if self._direction in {TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION}:
+        if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
             dr = " FWD"
-        elif self._direction in {TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION}:
+        elif self._direction in {TMCC1EngineCommandEnum.REVERSE_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION}:
             dr = " REV"
 
         if self._speed is not None:
@@ -713,7 +713,7 @@ class EngineState(ComponentState):
                     self._is_legacy = command.is_tmcc2
 
                 # handle some aspects of halt command
-                if command.command == TMCC1HaltCommandDef.HALT:
+                if command.command == TMCC1HaltCommandEnum.HALT:
                     if self.is_legacy:
                         self._aux1 = TMCC2.AUX1_OFF
                         self._aux2 = TMCC2.AUX2_OFF
@@ -847,21 +847,21 @@ class EngineState(ComponentState):
                 # handle momentum
                 if command.command in MOMENTUM_SET:
                     if command.command in {
-                        TMCC1EngineCommandDef.MOMENTUM_LOW,
-                        TMCC2EngineCommandDef.MOMENTUM_LOW,
+                        TMCC1EngineCommandEnum.MOMENTUM_LOW,
+                        TMCC2EngineCommandEnum.MOMENTUM_LOW,
                     }:
                         self._momentum = 0
                     if command.command in {
-                        TMCC1EngineCommandDef.MOMENTUM_MEDIUM,
-                        TMCC2EngineCommandDef.MOMENTUM_MEDIUM,
+                        TMCC1EngineCommandEnum.MOMENTUM_MEDIUM,
+                        TMCC2EngineCommandEnum.MOMENTUM_MEDIUM,
                     }:
                         self._momentum = 3
                     if command.command in {
-                        TMCC1EngineCommandDef.MOMENTUM_HIGH,
-                        TMCC2EngineCommandDef.MOMENTUM_HIGH,
+                        TMCC1EngineCommandEnum.MOMENTUM_HIGH,
+                        TMCC2EngineCommandEnum.MOMENTUM_HIGH,
                     }:
                         self._momentum = 7
-                    elif command.command == TMCC2EngineCommandDef.MOMENTUM:
+                    elif command.command == TMCC2EngineCommandEnum.MOMENTUM:
                         self._momentum = command.data
 
                 # handle startup/shutdown
@@ -1052,9 +1052,9 @@ class EngineState(ComponentState):
     @property
     def direction_label(self) -> str:
         dr = "NA"
-        if self._direction in {TMCC1EngineCommandDef.FORWARD_DIRECTION, TMCC2EngineCommandDef.FORWARD_DIRECTION}:
+        if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
             dr = "FW"
-        elif self._direction in {TMCC1EngineCommandDef.REVERSE_DIRECTION, TMCC2EngineCommandDef.REVERSE_DIRECTION}:
+        elif self._direction in {TMCC1EngineCommandEnum.REVERSE_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION}:
             dr = "RV"
         return dr
 
@@ -1327,10 +1327,10 @@ class SyncState(ComponentState):
             self._ev.clear()
             with self._cv:
                 # Note: super().update is explicitly not called
-                if command.command == TMCC1SyncCommandDef.SYNCHRONIZING:
+                if command.command == TMCC1SyncCommandEnum.SYNCHRONIZING:
                     self._state_synchronized = False
                     self._state_synchronizing = True
-                elif command.command == TMCC1SyncCommandDef.SYNCHRONIZED:
+                elif command.command == TMCC1SyncCommandEnum.SYNCHRONIZED:
                     self._state_synchronized = True
                     self._state_synchronizing = False
                 self.changed.set()

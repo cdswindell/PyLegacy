@@ -24,7 +24,7 @@ class TestCommandReq(TestBase):
     def test_send_command(self):
         with mock.patch.object(CommandReq, "_enqueue_command") as mk_enqueue_command:
             # test TMCC1 commands, beginning with HALT
-            CommandReq.send_request(TMCC1HaltCommandDef.HALT)
+            CommandReq.send_request(TMCC1HaltCommandEnum.HALT)
             mk_enqueue_command.assert_called_once_with(
                 0xFEFFFF.to_bytes(3, byteorder="big"),
                 1,
@@ -36,7 +36,7 @@ class TestCommandReq(TestBase):
             mk_enqueue_command.reset_mock()
 
             # Route command
-            CommandReq.send_request(TMCC1RouteCommandDef.FIRE, 10)
+            CommandReq.send_request(TMCC1RouteCommandEnum.FIRE, 10)
             mk_enqueue_command.assert_called_once_with(
                 0xFED51F.to_bytes(3, byteorder="big"),
                 1,
@@ -49,9 +49,9 @@ class TestCommandReq(TestBase):
 
             # test all TMCC1 command defs
             address = 23
-            for cdef in [TMCC1AuxCommandDef, TMCC1SwitchState, TMCC1EngineCommandDef]:
+            for cdef in [TMCC1AuxCommandEnum, TMCC1SwitchCommandEnum, TMCC1EngineCommandEnum]:
                 for cmd in cdef:
-                    if cmd in [TMCC1EngineCommandDef.RELATIVE_SPEED, TMCC1AuxCommandDef.RELATIVE_SPEED]:
+                    if cmd in [TMCC1EngineCommandEnum.RELATIVE_SPEED, TMCC1AuxCommandEnum.RELATIVE_SPEED]:
                         continue  # can't test defs that map data, yet
                     data = self.generate_random_data(cmd)
                     CommandReq.send_request(cmd, address, data)
@@ -66,8 +66,8 @@ class TestCommandReq(TestBase):
 
             # test engine defs again with TRAIN scope
             address = 1
-            for cmd in TMCC1EngineCommandDef:
-                if cmd == TMCC1EngineCommandDef.RELATIVE_SPEED:
+            for cmd in TMCC1EngineCommandEnum:
+                if cmd == TMCC1EngineCommandEnum.RELATIVE_SPEED:
                     continue  # can't test defs that map data, yet
                 data = self.generate_random_data(cmd)
                 CommandReq.send_request(cmd, address, data, CommandScope.TRAIN)
@@ -84,30 +84,30 @@ class TestCommandReq(TestBase):
                 mk_enqueue_command.reset_mock()
 
             # random switch command
-            CommandReq.send_request(TMCC1SwitchState.THROUGH, 15)
+            CommandReq.send_request(TMCC1SwitchCommandEnum.THROUGH, 15)
             mk_enqueue_command.assert_called_once_with(
                 0xFE4780.to_bytes(3, byteorder="big"), 1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None
             )
             mk_enqueue_command.reset_mock()
 
             # random acc command
-            CommandReq.send_request(TMCC1AuxCommandDef.AUX2_OPT_ONE, 15)
+            CommandReq.send_request(TMCC1AuxCommandEnum.AUX2_OPT_ONE, 15)
             mk_enqueue_command.assert_called_once_with(
                 0xFE878D.to_bytes(3, byteorder="big"), 1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None
             )
             mk_enqueue_command.reset_mock()
 
             # random engine command
-            CommandReq.send_request(TMCC1EngineCommandDef.RELATIVE_SPEED, 28, -5)
+            CommandReq.send_request(TMCC1EngineCommandEnum.RELATIVE_SPEED, 28, -5)
             mk_enqueue_command.assert_called_once_with(
                 0xFE0E40.to_bytes(3, byteorder="big"), 1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None
             )
             mk_enqueue_command.reset_mock()
 
             # test TMCC2 commands
-            for cdef in [TMCC2RouteCommandDef, TMCC2EngineCommandDef]:
+            for cdef in [TMCC2RouteCommandEnum, TMCC2EngineCommandEnum]:
                 for cmd in cdef:
-                    if cmd == TMCC2EngineCommandDef.RELATIVE_SPEED:
+                    if cmd == TMCC2EngineCommandEnum.RELATIVE_SPEED:
                         continue  # can't test defs that map data, yet
                     data = self.generate_random_data(cmd)
                     bits = cmd.command_def.bits
@@ -121,7 +121,7 @@ class TestCommandReq(TestBase):
                     )
                     mk_enqueue_command.reset_mock()
 
-            CommandReq.send_request(TMCC2RouteCommandDef.FIRE, 10)
+            CommandReq.send_request(TMCC2RouteCommandEnum.FIRE, 10)
             mk_enqueue_command.assert_called_once_with(
                 0xFA14FD.to_bytes(3, byteorder="big"), 1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None
             )
@@ -239,18 +239,18 @@ class TestCommandReq(TestBase):
         map back to the sane request
         """
         for tmcc_enums in [
-            TMCC1HaltCommandDef,
-            TMCC1SwitchState,
-            TMCC1AuxCommandDef,
-            TMCC1RouteCommandDef,
-            TMCC1EngineCommandDef,
+            TMCC1HaltCommandEnum,
+            TMCC1SwitchCommandEnum,
+            TMCC1AuxCommandEnum,
+            TMCC1RouteCommandEnum,
+            TMCC1EngineCommandEnum,
         ]:
             for tmcc_enum in tmcc_enums:
                 if tmcc_enum.command_def.is_data:
                     n_times = 10
                 else:
                     n_times = 1
-                if tmcc_enums == TMCC1EngineCommandDef:
+                if tmcc_enums == TMCC1EngineCommandEnum:
                     scopes = [None, CommandScope.TRAIN]
                 else:
                     scopes = [None]
@@ -292,13 +292,13 @@ class TestCommandReq(TestBase):
         Build all the TMCC2 CommandReqs and verify that their command bytes
         map back to the sane request
         """
-        for tmcc_enums in [TMCC2HaltCommandDef, TMCC2EngineCommandDef, TMCC2RouteCommandDef]:
+        for tmcc_enums in [TMCC2HaltCommandEnum, TMCC2EngineCommandEnum, TMCC2RouteCommandEnum]:
             for tmcc_enum in tmcc_enums:
                 if tmcc_enum.command_def.is_data:
                     n_times = 10
                 else:
                     n_times = 1
-                if tmcc_enums == TMCC2EngineCommandDef:
+                if tmcc_enums == TMCC2EngineCommandEnum:
                     scopes = [None, CommandScope.TRAIN]
                 else:
                     scopes = [None]

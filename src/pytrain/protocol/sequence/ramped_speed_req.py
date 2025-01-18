@@ -6,8 +6,8 @@ from abc import ABC, ABCMeta
 from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq, T
 from ..constants import CommandScope
-from ..tmcc1.tmcc1_constants import TMCC1EngineCommandDef
-from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, tmcc2_speed_to_rpm
+from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 from ...db.component_state_store import ComponentStateStore
 
 log = logging.getLogger(__name__)
@@ -52,14 +52,14 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 for request in sr.requests:
                     self.add(request.request, delay=request.delay, repeat=request.repeat)
             else:
-                speed_enum = TMCC1EngineCommandDef.ABSOLUTE_SPEED if is_tmcc else TMCC2EngineCommandDef.ABSOLUTE_SPEED
+                speed_enum = TMCC1EngineCommandEnum.ABSOLUTE_SPEED if is_tmcc else TMCC2EngineCommandEnum.ABSOLUTE_SPEED
                 self.add(speed_enum, address, speed_req, scope)
                 if is_tmcc is False:
                     rpm = tmcc2_speed_to_rpm(speed_req)
-                    self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=4)
+                    self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=4)
         else:
             speed_enum = (
-                TMCC2EngineCommandDef.ABSOLUTE_SPEED if cur_state.is_legacy else TMCC1EngineCommandDef.ABSOLUTE_SPEED
+                TMCC2EngineCommandEnum.ABSOLUTE_SPEED if cur_state.is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
             )
             # issue tower dialog, if requested
             if tower and dialog is True:
@@ -83,35 +83,37 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             if ramp:
                 # increase or decrease labor
                 c_labor = labor_delta(cs, speed_req, init_labor)
-                self.add(TMCC2EngineCommandDef.ENGINE_LABOR, address, data=c_labor, scope=scope, delay=delay)
+                self.add(TMCC2EngineCommandEnum.ENGINE_LABOR, address, data=c_labor, scope=scope, delay=delay)
                 # if we're decelerating, kill RPM and labor up front
                 if cur_state.is_legacy and cs > speed_req:
                     if cur_state.is_rpm:
                         rpm = tmcc2_speed_to_rpm(speed_req)
-                        self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
+                        self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
                         c_rpm = rpm
                 for speed in ramp:
                     self.add(speed_enum, address, speed, scope, delay=delay)
                     if cur_state.is_legacy:
                         labor = labor_delta(speed, speed_req, init_labor)
                         if labor != c_labor:
-                            self.add(TMCC2EngineCommandDef.ENGINE_LABOR, address, data=labor, scope=scope, delay=delay)
+                            self.add(TMCC2EngineCommandEnum.ENGINE_LABOR, address, data=labor, scope=scope, delay=delay)
                             c_labor = labor
                         if cur_state.is_rpm and cs < speed_req:
                             rpm = tmcc2_speed_to_rpm(speed)
                             if rpm != c_rpm:
-                                self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
+                                self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
                                 c_rpm = rpm
                     delay += delay_inc
                 # make sure the final speed is requested
                 if ramp[-1] != speed_req:
                     self.add(speed_enum, address, speed_req, scope, delay=delay)
                     if cur_state.is_legacy:
-                        self.add(TMCC2EngineCommandDef.ENGINE_LABOR, address, data=init_labor, scope=scope, delay=delay)
+                        self.add(
+                            TMCC2EngineCommandEnum.ENGINE_LABOR, address, data=init_labor, scope=scope, delay=delay
+                        )
                         if cur_state.is_rpm:
                             rpm = tmcc2_speed_to_rpm(speed_req)
                             if rpm != c_rpm:
-                                self.add(TMCC2EngineCommandDef.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
+                                self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
             else:
                 self.add(speed_enum, address, speed_req, scope)
             # issue engineer dialog, if requested

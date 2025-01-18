@@ -10,24 +10,24 @@ from ..gpio.i2c.lcd import Lcd, LCD_PCF8574_ADDRESS
 from ..db.state_watcher import StateWatcher
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..db.component_state_store import ComponentStateStore
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 COMMANDS_OF_INTEREST = {
-    TMCC1EngineCommandDef.ABSOLUTE_SPEED,
-    TMCC1EngineCommandDef.FORWARD_DIRECTION,
-    TMCC1EngineCommandDef.REVERSE_DIRECTION,
-    TMCC1EngineCommandDef.NUMERIC,
-    TMCC2EngineCommandDef.ABSOLUTE_SPEED,
-    TMCC2EngineCommandDef.FORWARD_DIRECTION,
-    TMCC2EngineCommandDef.REVERSE_DIRECTION,
-    TMCC2EngineCommandDef.DIESEL_RPM,
-    TMCC2EngineCommandDef.NUMERIC,
-    TMCC2EngineCommandDef.MOMENTUM,
-    TMCC2EngineCommandDef.MOMENTUM_LOW,
-    TMCC2EngineCommandDef.MOMENTUM_MEDIUM,
-    TMCC2EngineCommandDef.MOMENTUM_HIGH,
-    TMCC2EngineCommandDef.TRAIN_BRAKE,
+    TMCC1EngineCommandEnum.ABSOLUTE_SPEED,
+    TMCC1EngineCommandEnum.FORWARD_DIRECTION,
+    TMCC1EngineCommandEnum.REVERSE_DIRECTION,
+    TMCC1EngineCommandEnum.NUMERIC,
+    TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+    TMCC2EngineCommandEnum.FORWARD_DIRECTION,
+    TMCC2EngineCommandEnum.REVERSE_DIRECTION,
+    TMCC2EngineCommandEnum.DIESEL_RPM,
+    TMCC2EngineCommandEnum.NUMERIC,
+    TMCC2EngineCommandEnum.MOMENTUM,
+    TMCC2EngineCommandEnum.MOMENTUM_LOW,
+    TMCC2EngineCommandEnum.MOMENTUM_MEDIUM,
+    TMCC2EngineCommandEnum.MOMENTUM_HIGH,
+    TMCC2EngineCommandEnum.TRAIN_BRAKE,
 }
 
 P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, int, int]])

@@ -10,30 +10,30 @@ from ..test_base import TestBase
 class TestConstants(TestBase):
     def test_by_name_mixin(self) -> None:
         # assert all enums are found
-        for ss in TMCC1SwitchState:
-            assert TMCC1SwitchState.by_name(ss.name) == ss
+        for ss in TMCC1SwitchCommandEnum:
+            assert TMCC1SwitchCommandEnum.by_name(ss.name) == ss
 
         # assert by_name is case-insensitive
-        assert TMCC1SwitchState.by_name("through") == TMCC1SwitchState.THROUGH
-        assert TMCC1SwitchState.by_name("THROUGH") == TMCC1SwitchState.THROUGH
+        assert TMCC1SwitchCommandEnum.by_name("through") == TMCC1SwitchCommandEnum.THROUGH
+        assert TMCC1SwitchCommandEnum.by_name("THROUGH") == TMCC1SwitchCommandEnum.THROUGH
 
         # assert non-members return None
-        assert TMCC1SwitchState.by_name("NOT_PRESENT") is None
+        assert TMCC1SwitchCommandEnum.by_name("NOT_PRESENT") is None
 
         # assert None return None
-        assert TMCC1SwitchState.by_name(str(None)) is None
+        assert TMCC1SwitchCommandEnum.by_name(str(None)) is None
 
         # check ValueError is thrown
-        with pytest.raises(ValueError, match="'NOT_PRESENT' is not a valid TMCC1SwitchState"):
-            TMCC1SwitchState.by_name("NOT_PRESENT", raise_exception=True)
+        with pytest.raises(ValueError, match="'NOT_PRESENT' is not a valid TMCC1SwitchCommandEnum"):
+            TMCC1SwitchCommandEnum.by_name("NOT_PRESENT", raise_exception=True)
 
         # check ValueError is thrown
-        with pytest.raises(ValueError, match="None is not a valid TMCC1SwitchState"):
-            TMCC1SwitchState.by_name(None, raise_exception=True)  # noqa
+        with pytest.raises(ValueError, match="None is not a valid TMCC1SwitchCommandEnum"):
+            TMCC1SwitchCommandEnum.by_name(None, raise_exception=True)  # noqa
 
         # check ValueError is thrown
-        with pytest.raises(ValueError, match="Empty is not a valid TMCC1SwitchState"):
-            TMCC1SwitchState.by_name("  ", raise_exception=True)
+        with pytest.raises(ValueError, match="Empty is not a valid TMCC1SwitchCommandEnum"):
+            TMCC1SwitchCommandEnum.by_name("  ", raise_exception=True)
 
     def test_by_name_mixin_in_enums(self) -> None:
         """
@@ -42,13 +42,13 @@ class TestConstants(TestBase):
         enums = [
             CommandSyntax,
             CommandScope,
-            TMCC1SwitchState,
-            TMCC1HaltCommandDef,
-            TMCC1RouteCommandDef,
-            TMCC1AuxCommandDef,
-            TMCC1EngineCommandDef,
+            TMCC1SwitchCommandEnum,
+            TMCC1HaltCommandEnum,
+            TMCC1RouteCommandEnum,
+            TMCC1AuxCommandEnum,
+            TMCC1EngineCommandEnum,
             TMCC2ParameterIndex,
-            TMCC2EngineCommandDef,
+            TMCC2EngineCommandEnum,
             TMCC2EffectsControl,
             TMCC2LightingControl,
         ]

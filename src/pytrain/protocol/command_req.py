@@ -12,15 +12,20 @@ elif sys.version_info >= (3, 9):
 from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
 from .constants import CommandScope, CommandSyntax
 from .tmcc2.tmcc2_constants import TMCC2Enum, TMCC2CommandPrefix, LEGACY_ENGINE_COMMAND_PREFIX
-from .tmcc2.tmcc2_constants import TMCC2RouteCommandDef, TMCC2HaltCommandDef, TMCC2EngineCommandDef
+from .tmcc2.tmcc2_constants import TMCC2RouteCommandEnum, TMCC2HaltCommandEnum, TMCC2EngineCommandEnum
 from .tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX, LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX
 from .tmcc2.tmcc2_constants import TMCC2CommandDef
 from .command_def import CommandDef, CommandDefEnum
-from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum, TMCC1SyncCommandDef
-from .tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1SwitchState, TMCC1AuxCommandDef, TMCC1EngineCommandDef
+from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum, TMCC1SyncCommandEnum
+from .tmcc1.tmcc1_constants import (
+    TMCC1HaltCommandEnum,
+    TMCC1SwitchCommandEnum,
+    TMCC1AuxCommandEnum,
+    TMCC1EngineCommandEnum,
+)
 from .tmcc1.tmcc1_constants import TMCC1CommandIdentifier, TMCC1_TRAIN_COMMAND_PURIFIER
 from .tmcc1.tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
-from .tmcc1.tmcc1_constants import TMCC1RouteCommandDef
+from .tmcc1.tmcc1_constants import TMCC1RouteCommandEnum
 from ..utils.validations import Validations
 
 E = TypeVar("E", bound=CommandDefEnum)
@@ -141,7 +146,7 @@ class CommandReq:
 
         max_val = 9999 if scope in {CommandScope.TRAIN, CommandScope.ENGINE} else 99
         syntax = CommandSyntax.LEGACY if enum_class == TMCC2Enum else CommandSyntax.TMCC
-        if syntax == CommandSyntax.TMCC and command == TMCC1RouteCommandDef.FIRE:
+        if syntax == CommandSyntax.TMCC and command == TMCC1RouteCommandEnum.FIRE:
             scope = TMCC1CommandIdentifier.ROUTE
             max_val = 31
         if scope is None:
@@ -319,11 +324,11 @@ class CommandReq:
 
     @property
     def is_halt(self) -> bool:
-        return self.command == TMCC1HaltCommandDef.HALT
+        return self.command == TMCC1HaltCommandEnum.HALT
 
     @property
     def is_system_halt(self) -> bool:
-        return self.command in [TMCC2HaltCommandDef.HALT, TMCC2EngineCommandDef.SYSTEM_HALT]
+        return self.command in [TMCC2HaltCommandEnum.HALT, TMCC2EngineCommandEnum.SYSTEM_HALT]
 
     @property
     def command(self) -> E:
@@ -502,18 +507,18 @@ class CommandReq:
     def build_tmcc1_command_req(cls, param: bytes) -> Self:
         value = int.from_bytes(param[1:3], byteorder="big")
         for tmcc_enum in [
-            TMCC1HaltCommandDef,
-            TMCC1SwitchState,
-            TMCC1AuxCommandDef,
-            TMCC1RouteCommandDef,
-            TMCC1EngineCommandDef,
-            TMCC1SyncCommandDef,
+            TMCC1HaltCommandEnum,
+            TMCC1SwitchCommandEnum,
+            TMCC1AuxCommandEnum,
+            TMCC1RouteCommandEnum,
+            TMCC1EngineCommandEnum,
+            TMCC1SyncCommandEnum,
         ]:
             scope = None
             cmd_enum = tmcc_enum.by_value(value)
             if (
                 cmd_enum is None
-                and tmcc_enum == TMCC1EngineCommandDef
+                and tmcc_enum == TMCC1EngineCommandEnum
                 and (value & TMCC1_TRAIN_COMMAND_MODIFIER) == TMCC1_TRAIN_COMMAND_MODIFIER
             ):
                 # check if this is a TRAIN command and if so, clear out the
@@ -532,7 +537,7 @@ class CommandReq:
     def build_tmcc2_command_req(cls, param: bytes, is_tmcc4: bool = False) -> R:
         if len(param) == 3 or (is_tmcc4 is True and len(param) == 7):
             value = int.from_bytes(param[1:3], byteorder="big")
-            for tmcc_enum in [TMCC2HaltCommandDef, TMCC2EngineCommandDef, TMCC2RouteCommandDef]:
+            for tmcc_enum in [TMCC2HaltCommandEnum, TMCC2EngineCommandEnum, TMCC2RouteCommandEnum]:
                 cmd_enum = tmcc_enum.by_value(value)
                 if cmd_enum is not None:
                     scope = cmd_enum.scope

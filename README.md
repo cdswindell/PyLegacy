@@ -19,13 +19,19 @@ actions, allowing the development of physical control panels to operate trains.
 
 ## Contents
 - [PyLegacy]()
+  - [Audience](#audience)
   - [Requirements](#requirements)
     - [Macintosh](#macintosh)
     - [Raspberry Pi/Linux](#raspberry-pi-and-pi-zero-w-2)
   - [Installation and one-time setup](#installation-and-one-time-setup)
-  - [Licensing](#licensing)
+    - [Model Railroader](#model-railroader)
+    - [Developer](#developer)
   - [CLI Scripts](#cli-scripts)
+  - [Licensing](#licensing)
   - [Future Development](#future-development)
+
+## Audience
+
 
 ## Requirements
 
@@ -70,6 +76,8 @@ Note that some or all of this software may already be installed on your pi
 
 ## Installation and one time setup
 
+### Model Railroader
+### Developer
 ```
 cd /where/you/like/your/source
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq
 from ..constants import CommandScope, DEFAULT_ADDRESS
-from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef, tmcc2_speed_to_rpm
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 
 
 class AbsoluteSpeedRpm(SequenceReq):
@@ -17,9 +17,9 @@ class AbsoluteSpeedRpm(SequenceReq):
         self._scope = scope
         self._data = data
         self._state = None
-        self.add(TMCC2EngineCommandDef.ABSOLUTE_SPEED, data=data, scope=CommandScope.ENGINE)
+        self.add(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, data=data, scope=CommandScope.ENGINE)
         rpm = tmcc2_speed_to_rpm(data)
-        self.add(TMCC2EngineCommandDef.DIESEL_RPM, data=rpm, scope=CommandScope.ENGINE)
+        self.add(TMCC2EngineCommandEnum.DIESEL_RPM, data=rpm, scope=CommandScope.ENGINE)
 
     @property
     def scope(self) -> CommandScope | None:
@@ -48,9 +48,9 @@ class AbsoluteSpeedRpm(SequenceReq):
 
         for req_wrapper in self._requests:
             req = req_wrapper.request
-            if req.command == TMCC2EngineCommandDef.DIESEL_RPM:
+            if req.command == TMCC2EngineCommandEnum.DIESEL_RPM:
                 req.data = tmcc2_speed_to_rpm(new_speed)
-            elif req.command == TMCC2EngineCommandDef.ABSOLUTE_SPEED:
+            elif req.command == TMCC2EngineCommandEnum.ABSOLUTE_SPEED:
                 req.data = new_speed
         return 0
 

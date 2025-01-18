@@ -9,13 +9,45 @@
 import importlib.metadata
 import sys
 from importlib.metadata import PackageNotFoundError
-
 from .gpio.gpio_handler import (
     GpioHandler,  # noqa: F401
     PotHandler,  # noqa: F401
     JoyStickHandler,  # noqa: F401
 )
-from .protocol.constants import PROGRAM_NAME
+from .protocol.constants import (
+    PROGRAM_NAME,
+    CommandSyntax,  # noqa: F401
+    CommandScope,  # noqa: F401
+    ControlType,  # noqa: F401
+)
+from .protocol.tmcc1.tmcc1_constants import (
+    TMCC1RRSpeedsEnum,  # noqa: F401
+    TMCC1HaltCommandEnum,  # noqa: F401
+    TMCC1RouteCommandEnum,  # noqa: F401
+    TMCC1SwitchCommandEnum,  # noqa: F401
+    TMCC1AuxCommandEnum,  # noqa: F401
+    TMCC1EngineCommandEnum,  # noqa: F401
+)
+from .protocol.tmcc2.tmcc2_constants import (
+    TMCC2RRSpeedsEnum,  # noqa: F401
+    TMCC2HaltCommandEnum,  # noqa: F401
+    TMCC2RouteCommandEnum,  # noqa: F401
+    TMCC2EngineCommandEnum,  # noqa: F401
+)
+from .protocol.sequence.sequence_constants import (
+    SequenceCommandEnum,  # noqa: F401
+)
+from .protocol.multibyte.multibyte_constants import (
+    TMCC2RailSoundsDialogControl,  # noqa: F401
+    TMCC2RailSoundsEffectsControl,  # noqa: F401
+    TMCC2MaskingControl,  # noqa: F401
+    TMCC2EffectsControl,  # noqa: F401
+    TMCC2LightingControl,  # noqa: F401
+    UnitAssignment,  # noqa: F401
+    TMCC2R4LCEnum,  # noqa: F401
+    TMCC2VariableEnum,  # noqa: F401
+)
+from .protocol.command_req import CommandReq  # noqa: F401
 
 
 def main(args: list[str] | None = None) -> int:

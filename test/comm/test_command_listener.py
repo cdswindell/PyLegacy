@@ -9,8 +9,8 @@ import pytest
 from src.pytrain.comm.command_listener import CommandListener, CommandDispatcher
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef
-from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from test.test_base import TestBase
 
 
@@ -79,8 +79,8 @@ class TestCommandListener(TestBase):
     def test_command_listener_run(self) -> None:
         listener = CommandListener.build()
         # add elements to the queue and make sure they appear in deque in the correct order
-        ring_req = CommandReq.build(TMCC2EngineCommandDef.RING_BELL, 10)
-        halt_req = CommandReq.build(TMCC1HaltCommandDef.HALT)
+        ring_req = CommandReq.build(TMCC2EngineCommandEnum.RING_BELL, 10)
+        halt_req = CommandReq.build(TMCC1HaltCommandEnum.HALT)
         with listener._cv:
             listener.offer(ring_req.as_bytes)
             listener.offer(halt_req.as_bytes)

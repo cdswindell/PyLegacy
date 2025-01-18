@@ -5,7 +5,7 @@ from .ads_1x15 import Ads1115
 from ..gpio_handler import GpioHandler
 from ...protocol.command_req import CommandReq
 from ...protocol.constants import CommandScope, PROGRAM_NAME, DEFAULT_ADDRESS
-from ...protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ...protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
 class AnalogHandler(Thread):
@@ -118,7 +118,7 @@ class QuillingHorn(AnalogHandler):
         repeat: int = 2,
         i2c_address: int = 0x48,
     ) -> None:
-        cmd = CommandReq(TMCC2EngineCommandDef.QUILLING_HORN, address=address, scope=scope)
+        cmd = CommandReq(TMCC2EngineCommandEnum.QUILLING_HORN, address=address, scope=scope)
         super().__init__(
             cmd,
             channel=channel,
@@ -146,7 +146,7 @@ class TrainBrake(AnalogHandler):
         repeat: int = 2,
         i2c_address: int = 0x48,
     ) -> None:
-        cmd = CommandReq(TMCC2EngineCommandDef.TRAIN_BRAKE, address=address, scope=scope)
+        cmd = CommandReq(TMCC2EngineCommandEnum.TRAIN_BRAKE, address=address, scope=scope)
         super().__init__(
             cmd,
             channel=channel,

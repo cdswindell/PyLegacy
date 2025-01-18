@@ -13,7 +13,7 @@ from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS, Mixins
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 log = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ class BaseReq(PdiReq):
             # special case numeric commands
             if state.name == "NUMERIC":
                 if data in {3, 6}:  # RPM up/down
-                    state = TMCC2EngineCommandDef.DIESEL_RPM
+                    state = TMCC2EngineCommandEnum.DIESEL_RPM
                     cur_state = ComponentStateStore.build().get_state(scope, address, False)
                     if cur_state and cur_state.rpm is not None:
                         cur_rpm = cur_state.rpm

@@ -1,14 +1,14 @@
 from .tmcc1_command import TMCC1Command
 from ..command_req import CommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
-from ..tmcc1.tmcc1_constants import TMCC1EngineCommandDef
+from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 
 
 class EngineCmd(TMCC1Command):
     def __init__(
         self,
         engine: int,
-        command: TMCC1EngineCommandDef,
+        command: TMCC1EngineCommandEnum,
         data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,
         baudrate: int = DEFAULT_BAUDRATE,

@@ -1,5 +1,5 @@
 from .tmcc1_command import TMCC1Command
-from .tmcc1_constants import TMCC1SwitchState
+from .tmcc1_constants import TMCC1SwitchCommandEnum
 
 from ..command_req import CommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT
@@ -9,7 +9,7 @@ class SwitchCmd(TMCC1Command):
     def __init__(
         self,
         switch: int,
-        state: TMCC1SwitchState = TMCC1SwitchState.THROUGH,
+        state: TMCC1SwitchCommandEnum = TMCC1SwitchCommandEnum.THROUGH,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,

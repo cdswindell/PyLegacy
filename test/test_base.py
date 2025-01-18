@@ -47,14 +47,14 @@ class TestBase:
     @property
     def all_command_enums(self) -> List[T]:
         return [
-            TMCC1HaltCommandDef,
-            TMCC1RouteCommandDef,
-            TMCC1AuxCommandDef,
-            TMCC1SwitchState,
-            TMCC1EngineCommandDef,
-            TMCC2HaltCommandDef,
-            TMCC2RouteCommandDef,
-            TMCC2EngineCommandDef,
+            TMCC1HaltCommandEnum,
+            TMCC1RouteCommandEnum,
+            TMCC1AuxCommandEnum,
+            TMCC1SwitchCommandEnum,
+            TMCC1EngineCommandEnum,
+            TMCC2HaltCommandEnum,
+            TMCC2RouteCommandEnum,
+            TMCC2EngineCommandEnum,
             TMCC2RailSoundsDialogControl,
             TMCC2EffectsControl,
             TMCC2LightingControl,

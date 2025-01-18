@@ -14,10 +14,10 @@ from ..comm.command_listener import CommandListener, Message, Topic, Subscriber
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Aux
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandDef as Engine1
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef as Engine2
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as Engine1
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as Engine2
 
 log = logging.getLogger(__name__)
 

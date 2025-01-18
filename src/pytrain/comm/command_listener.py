@@ -21,7 +21,7 @@ from ..protocol.constants import (
     DEFAULT_SERVER_PORT,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..utils.ip_tools import get_ip_address
 from .enqueue_proxy_requests import SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE, EnqueueProxyRequests
@@ -31,8 +31,8 @@ log = logging.getLogger(__name__)
 Message = TypeVar("Message")
 Topic = TypeVar("Topic")
 
-SYNCING = CommandReq(TMCC1SyncCommandDef.SYNCHRONIZING)
-SYNC_COMPLETE = CommandReq(TMCC1SyncCommandDef.SYNCHRONIZED)
+SYNCING = CommandReq(TMCC1SyncCommandEnum.SYNCHRONIZING)
+SYNC_COMPLETE = CommandReq(TMCC1SyncCommandEnum.SYNCHRONIZED)
 
 
 class CommandListener(Thread):
@@ -465,11 +465,11 @@ class CommandDispatcher(Thread):
 
     def signal_client(
         self,
-        option: CommandReq | TMCC1SyncCommandDef = TMCC1SyncCommandDef.QUIT,
+        option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT,
         client: str = None,
         port: int = None,
     ) -> None:
-        if isinstance(option, TMCC1SyncCommandDef):
+        if isinstance(option, TMCC1SyncCommandEnum):
             option = CommandReq(option)
         self.update_client_state(option, client=client, port=port)
 

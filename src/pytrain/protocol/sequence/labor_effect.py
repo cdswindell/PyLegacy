@@ -6,7 +6,7 @@ from abc import ABC
 from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq
 from ..constants import CommandScope, DEFAULT_ADDRESS
-from ..tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from ...db.component_state_store import ComponentStateStore
 
 
@@ -26,7 +26,7 @@ class LaborEffectBase(SequenceReq, ABC):
         self._scope = scope
         self._data = data
         self._state = None
-        self.add(TMCC2EngineCommandDef.ENGINE_LABOR, scope=CommandScope.ENGINE)
+        self.add(TMCC2EngineCommandEnum.ENGINE_LABOR, scope=CommandScope.ENGINE)
 
     @property
     def scope(self) -> CommandScope | None:

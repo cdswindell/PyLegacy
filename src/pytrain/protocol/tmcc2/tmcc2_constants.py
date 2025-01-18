@@ -111,10 +111,10 @@ class TMCC2CommandDef(CommandDef):
             return DEFAULT_ADDRESS
 
     @property
-    def alias(self) -> TMCC2EngineCommandDef | Tuple[TMCC2EngineCommandDef, int] | None:
+    def alias(self) -> TMCC2EngineCommandEnum | Tuple[TMCC2EngineCommandEnum, int] | None:
         if self._alias is not None:
             if isinstance(self._alias, str):
-                alias = TMCC2EngineCommandDef.by_name(self._alias, raise_exception=True)
+                alias = TMCC2EngineCommandEnum.by_name(self._alias, raise_exception=True)
             else:
                 raise ValueError(f"Cannot classify command alias: {self._alias} ({type(self._alias)})")
             if self._data is None:
@@ -128,7 +128,7 @@ TMCC2_HALT_COMMAND: int = 0x01AB
 
 
 @unique
-class TMCC2HaltCommandDef(TMCC2Enum):
+class TMCC2HaltCommandEnum(TMCC2Enum):
     HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND, CommandScope.ENGINE, alias="SYSTEM_HALT", data=99)
 
 
@@ -137,7 +137,7 @@ LEGACY_ROUTE_COMMAND: int = 0x00FD
 
 
 @unique
-class TMCC2RouteCommandDef(TMCC2Enum):
+class TMCC2RouteCommandEnum(TMCC2Enum):
     FIRE = TMCC2CommandDef(LEGACY_ROUTE_COMMAND, scope=CommandScope.ROUTE)
 
 
@@ -246,7 +246,7 @@ TMCC2_NUMERIC_SPEED_TO_DIRECTIVE_MAP = {s: p for p, s in TMCC2_SPEED_MAP.items()
 
 
 @unique
-class TMCC2RRSpeeds(OfficialRRSpeeds):
+class TMCC2RRSpeedsEnum(OfficialRRSpeeds):
     STOP_HOLD = range(0, TMCC2_ROLL_SPEED)
     ROLL = range(TMCC2_ROLL_SPEED, TMCC2_RESTRICTED_SPEED)
     RESTRICTED = range(TMCC2_RESTRICTED_SPEED, TMCC2_SLOW_SPEED)
@@ -258,7 +258,7 @@ class TMCC2RRSpeeds(OfficialRRSpeeds):
 
 
 @unique
-class TMCC2EngineCommandDef(TMCC2Enum):
+class TMCC2EngineCommandEnum(TMCC2Enum):
     ABSOLUTE_SPEED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199, filtered=True)
     AUGER = TMCC2CommandDef(TMCC2_ENG_AUGER_SOUND_COMMAND)
     AUX1_OFF = TMCC2CommandDef(TMCC2_AUX1_OFF_COMMAND)
@@ -360,7 +360,7 @@ class TMCC2EngineCommandDef(TMCC2Enum):
 
 # map dereferenced commands to their aliases
 TMCC2_COMMAND_TO_ALIAS_MAP = {}
-for tmcc2_enum in [TMCC2EngineCommandDef, TMCC2HaltCommandDef, TMCC2RouteCommandDef]:
+for tmcc2_enum in [TMCC2EngineCommandEnum, TMCC2HaltCommandEnum, TMCC2RouteCommandEnum]:
     for enum in tmcc2_enum:
         if enum.is_alias:
             TMCC2_COMMAND_TO_ALIAS_MAP[enum.alias] = enum

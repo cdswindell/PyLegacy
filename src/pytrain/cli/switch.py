@@ -5,7 +5,7 @@ from typing import List
 
 from . import CliBase
 from ..protocol.tmcc1.switch_cmd import SwitchCmd
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 from ..utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
@@ -18,17 +18,23 @@ class SwitchCli(CliBase):
         sw_parser.add_argument("switch", metavar="Switch Number", type=int, help="switch to fire")
         group = sw_parser.add_mutually_exclusive_group()
         group.add_argument(
-            "-through", action="store_const", const=TMCC1SwitchState.THROUGH, dest="command", help="Throw Through"
+            "-through",
+            action="store_const",
+            const=TMCC1SwitchCommandEnum.THROUGH,
+            dest="command",
+            help="Throw Through",
         )
-        group.add_argument("-out", action="store_const", const=TMCC1SwitchState.OUT, dest="command", help="Throw Out")
+        group.add_argument(
+            "-out", action="store_const", const=TMCC1SwitchCommandEnum.OUT, dest="command", help="Throw Out"
+        )
         group.add_argument(
             "-address",
             action="store_const",
-            const=TMCC1SwitchState.SET_ADDRESS,
+            const=TMCC1SwitchCommandEnum.SET_ADDRESS,
             dest="command",
             help="Set switch address",
         )
-        group.set_defaults(command=TMCC1SwitchState.THROUGH)
+        group.set_defaults(command=TMCC1SwitchCommandEnum.THROUGH)
         return ArgumentParser("Fire specified switch (1 - 99)", parents=[sw_parser, cls.cli_parser()])
 
     """

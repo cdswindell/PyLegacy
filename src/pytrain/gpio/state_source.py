@@ -11,7 +11,7 @@ from gpiozero import LED, PingServer
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState, TMCC1AuxCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum, TMCC1AuxCommandEnum
 
 T = TypeVar("T", bound=ComponentState)
 
@@ -88,7 +88,7 @@ class LionelBaseSource(StateSource):
 
 class SwitchStateSource(StateSource):
     def __init__(self, address: int, thru_led: LED, out_led: LED) -> None:
-        self._state = TMCC1SwitchState.THROUGH
+        self._state = TMCC1SwitchCommandEnum.THROUGH
         super().__init__(CommandScope.SWITCH, address, thru_led, out_led)
 
     def __iter__(self):
@@ -107,9 +107,9 @@ class AccessoryStateSource(StateSource):
         self,
         address: int,
         led: LED,
-        aux_state: TMCC1AuxCommandDef = None,
-        aux1_state: TMCC1AuxCommandDef = None,
-        aux2_state: TMCC1AuxCommandDef = None,
+        aux_state: TMCC1AuxCommandEnum = None,
+        aux1_state: TMCC1AuxCommandEnum = None,
+        aux2_state: TMCC1AuxCommandEnum = None,
     ) -> None:
         self._aux_state = aux_state
         self._aux1_state = aux1_state

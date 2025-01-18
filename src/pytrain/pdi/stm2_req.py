@@ -3,7 +3,7 @@ from __future__ import annotations
 from .constants import PdiCommand, Stm2Action, PDI_SOP, PDI_EOP
 from .lcs_req import LcsReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 
 
 class Stm2Req(LcsReq):
@@ -16,7 +16,7 @@ class Stm2Req(LcsReq):
         error: bool = False,
         mode: int = None,
         debug: int = None,
-        state: TMCC1SwitchState = None,
+        state: TMCC1SwitchCommandEnum = None,
     ) -> None:
         super().__init__(data, pdi_command, action, ident, error)
         if isinstance(data, bytes):
@@ -30,7 +30,7 @@ class Stm2Req(LcsReq):
 
             if self._action == Stm2Action.CONTROL1:
                 sw_state = self._data[3] if data_len > 3 else None
-                self._state = TMCC1SwitchState.OUT if sw_state == 1 else TMCC1SwitchState.THROUGH
+                self._state = TMCC1SwitchCommandEnum.OUT if sw_state == 1 else TMCC1SwitchCommandEnum.THROUGH
                 self.scope = CommandScope.SWITCH
             else:
                 self._state = None
@@ -49,16 +49,16 @@ class Stm2Req(LcsReq):
         return self._debug
 
     @property
-    def state(self) -> TMCC1SwitchState:
+    def state(self) -> TMCC1SwitchCommandEnum:
         return self._state
 
     @property
     def is_thru(self) -> bool | None:
-        return self._state == TMCC1SwitchState.THROUGH
+        return self._state == TMCC1SwitchCommandEnum.THROUGH
 
     @property
     def is_out(self) -> bool | None:
-        return self._state == TMCC1SwitchState.OUT
+        return self._state == TMCC1SwitchCommandEnum.OUT
 
     @property
     def payload(self) -> str | None:
@@ -92,7 +92,7 @@ class Stm2Req(LcsReq):
                 byte_str += (self.ident if self.ident is not None else 0).to_bytes(1, byteorder="big")
         elif self._action == Stm2Action.CONTROL1:
             if self.pdi_command != PdiCommand.STM2_GET:
-                sw_state = 1 if self.state == TMCC1SwitchState.OUT else 0
+                sw_state = 1 if self.state == TMCC1SwitchCommandEnum.OUT else 0
                 byte_str += sw_state.to_bytes(1, byteorder="big")
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str

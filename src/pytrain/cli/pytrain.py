@@ -58,7 +58,7 @@ from ..protocol.constants import (
     SERVICE_NAME,
     DEFAULT_SERVER_PORT,
 )
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 from ..utils.dual_logging import set_up_logging
 from ..utils.ip_tools import get_ip_address, find_base_address
@@ -66,12 +66,12 @@ from ..utils.ip_tools import get_ip_address, find_base_address
 DEFAULT_SCRIPT_FILE: str = "buttons.py"
 
 ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
-    "quit": TMCC1SyncCommandDef.QUIT,
-    "update": TMCC1SyncCommandDef.UPDATE,
-    "upgrade": TMCC1SyncCommandDef.UPGRADE,
-    "restart": TMCC1SyncCommandDef.RESTART,
-    "reboot": TMCC1SyncCommandDef.REBOOT,
-    "shutdown": TMCC1SyncCommandDef.SHUTDOWN,
+    "quit": TMCC1SyncCommandEnum.QUIT,
+    "update": TMCC1SyncCommandEnum.UPDATE,
+    "upgrade": TMCC1SyncCommandEnum.UPGRADE,
+    "restart": TMCC1SyncCommandEnum.RESTART,
+    "reboot": TMCC1SyncCommandEnum.REBOOT,
+    "shutdown": TMCC1SyncCommandEnum.SHUTDOWN,
 }
 ACTION_TO_ADMIN_COMMAND_MAP: Dict[CommandDefEnum, str] = {v: k for k, v in ADMIN_COMMAND_TO_ACTION_MAP.items()}
 
@@ -286,7 +286,7 @@ class PyTrain:
         if cmd.command in ACTION_TO_ADMIN_COMMAND_MAP:
             if cmd.command not in self._received_admin_cmds:
                 self._received_admin_cmds.add(cmd.command)
-                if self.is_client and cmd.command == TMCC1SyncCommandDef.QUIT:
+                if self.is_client and cmd.command == TMCC1SyncCommandEnum.QUIT:
                     log.info("Client exiting...")
                 # record the admin command and send the interrupt signal
                 # this will interrupt the comment prompt loop and call
@@ -337,15 +337,15 @@ class PyTrain:
         finally:
             self.shutdown_service()
             if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
-                if self._admin_action == TMCC1SyncCommandDef.UPGRADE:
+                if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
                     self.upgrade()
-                elif self._admin_action == TMCC1SyncCommandDef.UPDATE:
+                elif self._admin_action == TMCC1SyncCommandEnum.UPDATE:
                     self.update()
-                elif self._admin_action == TMCC1SyncCommandDef.RESTART:
+                elif self._admin_action == TMCC1SyncCommandEnum.RESTART:
                     self.restart()
-                elif self._admin_action == TMCC1SyncCommandDef.REBOOT:
+                elif self._admin_action == TMCC1SyncCommandEnum.REBOOT:
                     self.reboot()
-                elif self._admin_action == TMCC1SyncCommandDef.SHUTDOWN:
+                elif self._admin_action == TMCC1SyncCommandEnum.SHUTDOWN:
                     self.reboot(reboot=False)
 
     def shutdown(self):

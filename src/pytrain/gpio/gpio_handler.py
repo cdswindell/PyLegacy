@@ -22,13 +22,13 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.constants import DEFAULT_ADDRESS
 from ..protocol.tmcc1.tmcc1_constants import (
-    TMCC1SwitchState,
-    TMCC1AuxCommandDef,
-    TMCC1EngineCommandDef,
-    TMCC1RouteCommandDef,
-    TMCC1SyncCommandDef,
+    TMCC1SwitchCommandEnum,
+    TMCC1AuxCommandEnum,
+    TMCC1EngineCommandEnum,
+    TMCC1RouteCommandEnum,
+    TMCC1SyncCommandEnum,
 )
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from ..utils.ip_tools import find_base_address
 
 log = logging.getLogger(__name__)
@@ -604,7 +604,7 @@ class GpioHandler:
         """
         Send the system shutdown command to all nodes
         """
-        cmd, shutdown_btn, led = cls.make_button(shutdown_pin, TMCC1SyncCommandDef.SHUTDOWN, hold_time=hold_time)
+        cmd, shutdown_btn, led = cls.make_button(shutdown_pin, TMCC1SyncCommandEnum.SHUTDOWN, hold_time=hold_time)
         shutdown_btn.when_held = cmd.as_action()
         return shutdown_btn
 
@@ -617,7 +617,7 @@ class GpioHandler:
         """
         Send the system restart command to all nodes
         """
-        cmd, restart_btn, led = cls.make_button(restart_pin, TMCC1SyncCommandDef.RESTART, hold_time=hold_time)
+        cmd, restart_btn, led = cls.make_button(restart_pin, TMCC1SyncCommandEnum.RESTART, hold_time=hold_time)
         restart_btn.when_held = cmd.as_action()
         return restart_btn
 
@@ -630,7 +630,7 @@ class GpioHandler:
         """
         Send the system update command to all nodes
         """
-        cmd, update_btn, led = cls.make_button(update_pin, TMCC1SyncCommandDef.UPDATE, hold_time=hold_time)
+        cmd, update_btn, led = cls.make_button(update_pin, TMCC1SyncCommandEnum.UPDATE, hold_time=hold_time)
         update_btn.when_held = cmd.as_action()
         return update_btn
 
@@ -648,7 +648,7 @@ class GpioHandler:
         # make the CommandReq
         req, btn, led = cls.make_button(
             btn_pin,
-            TMCC1RouteCommandDef.FIRE,
+            TMCC1RouteCommandEnum.FIRE,
             address,
             led_pin=led_pin,
             bind=True,
@@ -672,7 +672,7 @@ class GpioHandler:
         thru_led_pin: P = None,
         out_led_pin: P = None,
         cathode: bool = True,
-        initial_state: TMCC1SwitchState = None,
+        initial_state: TMCC1SwitchCommandEnum = None,
     ) -> Tuple[Button, Button] | Tuple[Button, Button, LED, LED]:
         """
         Control a switch/turnout that responds to TMCC1 switch commands, such
@@ -687,23 +687,23 @@ class GpioHandler:
             if state:
                 initial_state = state.state
             if initial_state is None:
-                initial_state = TMCC1SwitchState.THROUGH
+                initial_state = TMCC1SwitchCommandEnum.THROUGH
 
         # make the CommandReqs
         thru_req, thru_btn, thru_led = cls.make_button(
             thru_pin,
-            TMCC1SwitchState.THROUGH,
+            TMCC1SwitchCommandEnum.THROUGH,
             address,
             led_pin=thru_led_pin,
-            initially_on=initial_state == TMCC1SwitchState.THROUGH,
+            initially_on=initial_state == TMCC1SwitchCommandEnum.THROUGH,
             cathode=cathode,
         )
         out_req, out_btn, out_led = cls.make_button(
             out_pin,
-            TMCC1SwitchState.OUT,
+            TMCC1SwitchCommandEnum.OUT,
             address,
             led_pin=out_led_pin,
-            initially_on=initial_state == TMCC1SwitchState.OUT,
+            initially_on=initial_state == TMCC1SwitchCommandEnum.OUT,
             cathode=cathode,
         )
         # bind actions to buttons
@@ -728,7 +728,7 @@ class GpioHandler:
         off_pin: P,
         on_led_pin: P = None,
         cathode: bool = True,
-        initial_state: TMCC1AuxCommandDef | bool = None,
+        initial_state: TMCC1AuxCommandEnum | bool = None,
     ) -> Tuple[Button, Button] | Tuple[Button, Button, LED]:
         """
         Control a power district that responds to TMCC1 accessory commands, such
@@ -736,23 +736,23 @@ class GpioHandler:
         """
         if initial_state is None:
             # TODO: query initial state
-            initial_state = TMCC1AuxCommandDef.AUX2_OPT_ONE
+            initial_state = TMCC1AuxCommandEnum.AUX2_OPT_ONE
 
         # make the CommandReqs
         on_req, on_btn, on_led = cls.make_button(
             on_pin,
-            TMCC1AuxCommandDef.AUX1_OPT_ONE,
+            TMCC1AuxCommandEnum.AUX1_OPT_ONE,
             address,
             led_pin=on_led_pin,
             cathode=cathode,
-            initially_on=initial_state == TMCC1AuxCommandDef.AUX1_OPT_ONE,
+            initially_on=initial_state == TMCC1AuxCommandEnum.AUX1_OPT_ONE,
         )
         off_req, off_btn, off_led = cls.make_button(
             off_pin,
-            TMCC1AuxCommandDef.AUX2_OPT_ONE,
+            TMCC1AuxCommandEnum.AUX2_OPT_ONE,
             address,
             cathode=cathode,
-            initially_on=initial_state == TMCC1AuxCommandDef.AUX2_OPT_ONE,
+            initially_on=initial_state == TMCC1AuxCommandEnum.AUX2_OPT_ONE,
         )
         # bind actions to buttons
         on_action = on_req.as_action(repeat=2)
@@ -766,7 +766,7 @@ class GpioHandler:
             return on_btn, off_btn
         else:
             # listen for external state changes
-            cls.cache_handler(AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandDef.AUX1_OPT_ONE))
+            cls.cache_handler(AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandEnum.AUX1_OPT_ONE))
             # return created objects
             return on_btn, off_btn, on_led
 
@@ -789,7 +789,7 @@ class GpioHandler:
         # make the CommandReqs
         aux1_req, aux1_btn, aux1_led = cls.make_button(
             aux1_pin,
-            TMCC1AuxCommandDef.AUX1_OPT_ONE,
+            TMCC1AuxCommandEnum.AUX1_OPT_ONE,
             address,
             led_pin=aux1_led_pin,
             cathode=cathode,
@@ -797,7 +797,7 @@ class GpioHandler:
         )
         aux2_req, aux2_btn, aux2_led = cls.make_button(
             aux2_pin,
-            TMCC1AuxCommandDef.AUX2_OPT_ONE,
+            TMCC1AuxCommandEnum.AUX2_OPT_ONE,
             address,
             cathode=cathode,
         )
@@ -826,7 +826,7 @@ class GpioHandler:
         if command_control is True:
             cycle_req, cycle_btn, cycle_led = cls.make_button(
                 cycle_pin,
-                TMCC1AuxCommandDef.AUX2_OPT_ONE,
+                TMCC1AuxCommandEnum.AUX2_OPT_ONE,
                 address,
                 led_pin=cycle_led_pin,
                 cathode=cathode,
@@ -837,7 +837,7 @@ class GpioHandler:
         if cycle_led is None:
             return cycle_btn
         else:
-            cls.cache_handler(AccessoryStateSource(address, cycle_led, aux2_state=TMCC1AuxCommandDef.AUX2_ON))
+            cls.cache_handler(AccessoryStateSource(address, cycle_led, aux2_state=TMCC1AuxCommandEnum.AUX2_ON))
             return cycle_btn, cycle_led
 
     @classmethod
@@ -854,7 +854,7 @@ class GpioHandler:
         if command_control is True:
             scale = {0: 0} | {x: 1 for x in range(1, 9)} | {x: 2 for x in range(9, 11)}
             scale |= {-x: -1 for x in range(1, 9)} | {-x: -2 for x in range(9, 11)}
-            rotate_boom_req = CommandReq.build(TMCC1AuxCommandDef.RELATIVE_SPEED, address)
+            rotate_boom_req = CommandReq.build(TMCC1AuxCommandEnum.RELATIVE_SPEED, address)
             knob = JoyStickHandler(
                 rotate_boom_req,
                 channel,
@@ -868,21 +868,21 @@ class GpioHandler:
 
             lights_on_req, lights_on_btn, lights_on_led = cls.make_button(
                 lights_on_pin,
-                TMCC1AuxCommandDef.NUMERIC,
+                TMCC1AuxCommandEnum.NUMERIC,
                 address,
                 data=9,
                 cathode=cathode,
             )
             lights_off_req, lights_off_btn, lights_off_led = cls.make_button(
                 lights_off_pin,
-                TMCC1AuxCommandDef.NUMERIC,
+                TMCC1AuxCommandEnum.NUMERIC,
                 address,
                 data=8,
                 cathode=cathode,
             )
             dispense_req, dispense_btn, dispense_led = cls.make_button(
                 dispense_pin,
-                TMCC1AuxCommandDef.BRAKE,
+                TMCC1AuxCommandEnum.BRAKE,
                 address,
                 cathode=cathode,
             )
@@ -907,9 +907,9 @@ class GpioHandler:
         cathode: bool = True,
     ) -> Tuple[RotaryEncoder, JoyStickHandler, JoyStickHandler, Button, LED]:
         # use rotary encoder to control crane cab
-        cab_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 1)
-        turn_right = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, 2)
-        turn_left = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, -2)
+        cab_prefix = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, 1)
+        turn_right = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, 2)
+        turn_left = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, -2)
         cab_ctrl = cls.when_rotary_encoder(
             cab_pin_1,
             cab_pin_2,
@@ -919,8 +919,8 @@ class GpioHandler:
         )
 
         # set up joystick for boom lift
-        lift_cmd = CommandReq.build(TMCC1EngineCommandDef.BOOST_SPEED, address)
-        drop_cmd = CommandReq.build(TMCC1EngineCommandDef.BRAKE_SPEED, address)
+        lift_cmd = CommandReq.build(TMCC1EngineCommandEnum.BOOST_SPEED, address)
+        drop_cmd = CommandReq.build(TMCC1EngineCommandEnum.BRAKE_SPEED, address)
         cmd_map = {}
         for i in range(-20, -2, 1):
             cmd_map[i] = drop_cmd
@@ -939,8 +939,8 @@ class GpioHandler:
         # set up for crane track motion
         scale = {-x: -2 for x in range(9, 21)} | {-x: -1 for x in range(2, 9)}
         scale |= {-1: 0, 0: 0, 1: 0} | {x: 1 for x in range(2, 9)} | {x: 2 for x in range(9, 21)}
-        move_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 2)
-        move_cmd = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address)
+        move_prefix = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, 2)
+        move_cmd = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address)
         move_cntr = cls.when_joystick(
             move_cmd,
             channel=roll_chn,
@@ -956,7 +956,7 @@ class GpioHandler:
         if mag_pin is not None:
             btn, led = cls.when_toggle_button_pressed(
                 mag_pin,
-                TMCC1EngineCommandDef.AUX2_OPTION_ONE,
+                TMCC1EngineCommandEnum.AUX2_OPTION_ONE,
                 address,
                 led_pin=led_pin,
                 auto_timeout=59,
@@ -983,9 +983,9 @@ class GpioHandler:
         cathode: bool = True,
     ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED, Button, LED, Button, LED]:
         # use rotary encoder to control crane cab
-        cab_prefix = CommandReq.build(TMCC1EngineCommandDef.NUMERIC, address, 1)
-        turn_right = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, 1)
-        turn_left = CommandReq.build(TMCC1EngineCommandDef.RELATIVE_SPEED, address, -1)
+        cab_prefix = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, 1)
+        turn_right = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, 1)
+        turn_left = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, -1)
         cab_ctrl = cls.when_rotary_encoder(
             cab_pin_1,
             cab_pin_2,
@@ -995,8 +995,8 @@ class GpioHandler:
         )
 
         # set up joystick for boom lift
-        lift_cmd = CommandReq.build(TMCC1EngineCommandDef.BOOST_SPEED, address)
-        drop_cmd = CommandReq.build(TMCC1EngineCommandDef.BRAKE_SPEED, address)
+        lift_cmd = CommandReq.build(TMCC1EngineCommandEnum.BOOST_SPEED, address)
+        drop_cmd = CommandReq.build(TMCC1EngineCommandEnum.BRAKE_SPEED, address)
         cmd_map = {}
         for i in range(-20, -1, 1):
             cmd_map[i] = drop_cmd
@@ -1017,7 +1017,7 @@ class GpioHandler:
         if bo_pin is not None:
             cmd, bo_btn, bo_led = cls.when_button_pressed(
                 bo_pin,
-                TMCC1EngineCommandDef.NUMERIC,
+                TMCC1EngineCommandEnum.NUMERIC,
                 address,
                 data=1,
                 scope=CommandScope.ENGINE,
@@ -1032,7 +1032,7 @@ class GpioHandler:
         if bh_pin is not None:
             cmd, bh_btn, bh_led = cls.when_button_pressed(
                 bh_pin,
-                TMCC1EngineCommandDef.NUMERIC,
+                TMCC1EngineCommandEnum.NUMERIC,
                 address,
                 data=2,
                 scope=CommandScope.ENGINE,
@@ -1047,7 +1047,7 @@ class GpioHandler:
         if sh_pin is not None:
             cmd, sh_btn, sh_led = cls.when_button_pressed(
                 sh_pin,
-                TMCC1EngineCommandDef.NUMERIC,
+                TMCC1EngineCommandEnum.NUMERIC,
                 address,
                 data=3,
                 scope=CommandScope.ENGINE,
@@ -1093,11 +1093,11 @@ class GpioHandler:
         fwd_cmd = rev_cmd = None
         if is_legacy is True:
             max_steps = 200
-            speed_cmd = CommandReq.build(TMCC2EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
+            speed_cmd = CommandReq.build(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, address, 0, scope)
             if fwd_pin is not None:
                 fwd_cmd, fwd_btn, _ = cls.make_button(
                     fwd_pin,
-                    TMCC2EngineCommandDef.FORWARD_DIRECTION,
+                    TMCC2EngineCommandEnum.FORWARD_DIRECTION,
                     address,
                     scope=scope,
                     cathode=cathode,
@@ -1105,18 +1105,18 @@ class GpioHandler:
             if rev_pin is not None:
                 rev_cmd, rev_btn, _ = cls.make_button(
                     rev_pin,
-                    TMCC2EngineCommandDef.REVERSE_DIRECTION,
+                    TMCC2EngineCommandEnum.REVERSE_DIRECTION,
                     address,
                     scope=scope,
                     cathode=cathode,
                 )
         else:
             max_steps = 32
-            speed_cmd = CommandReq.build(TMCC1EngineCommandDef.ABSOLUTE_SPEED, address, 0, scope)
+            speed_cmd = CommandReq.build(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, address, 0, scope)
             if fwd_pin is not None:
                 fwd_cmd, fwd_btn, _ = cls.make_button(
                     fwd_pin,
-                    TMCC1EngineCommandDef.FORWARD_DIRECTION,
+                    TMCC1EngineCommandEnum.FORWARD_DIRECTION,
                     address,
                     scope=scope,
                     cathode=cathode,
@@ -1124,7 +1124,7 @@ class GpioHandler:
             if rev_pin is not None:
                 rev_cmd, rev_btn, _ = cls.make_button(
                     rev_pin,
-                    TMCC1EngineCommandDef.REVERSE_DIRECTION,
+                    TMCC1EngineCommandEnum.REVERSE_DIRECTION,
                     address,
                     scope=scope,
                     cathode=cathode,

@@ -13,8 +13,8 @@ from ..protocol.constants import CommandScope, ControlType
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.sequence.abs_speed_rpm import AbsoluteSpeedRpm
 from ..protocol.sequence.labor_effect import LaborEffectUpReq, LaborEffectDownReq
-from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandDef, TMCC1EngineCommandDef
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1EngineCommandEnum
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, int, int]])
 R = TypeVar("R", bound=CommandReq)
@@ -87,14 +87,14 @@ class EngineController:
         self._store = ComponentStateStore.build()
 
         # set up for numeric commands
-        self._tmcc1_numeric_cmd = CommandReq(TMCC1EngineCommandDef.NUMERIC)
-        self._tmcc2_numeric_cmd = CommandReq(TMCC2EngineCommandDef.NUMERIC)
+        self._tmcc1_numeric_cmd = CommandReq(TMCC1EngineCommandEnum.NUMERIC)
+        self._tmcc2_numeric_cmd = CommandReq(TMCC2EngineCommandEnum.NUMERIC)
         self._numeric_cmd = None
 
         # the Halt command only exists in TMCC1 form, and it doesn't take an engine address modifier
         if halt_pin is not None:
             self._halt_btn = GpioHandler.make_button(halt_pin)
-            self._halt_btn.when_pressed = CommandReq(TMCC1HaltCommandDef.HALT).as_action(repeat=2)
+            self._halt_btn.when_pressed = CommandReq(TMCC1HaltCommandEnum.HALT).as_action(repeat=2)
         else:
             self._halt_btn = None
 
@@ -120,7 +120,7 @@ class EngineController:
                 500: 1,
             }
             self._speed_re = PyRotaryEncoder(speed_pin_1, speed_pin_2, wrap=False, ramp=ramp, max_steps=100)
-            self._tmcc1_speed_cmd = CommandReq(TMCC1EngineCommandDef.ABSOLUTE_SPEED)
+            self._tmcc1_speed_cmd = CommandReq(TMCC1EngineCommandEnum.ABSOLUTE_SPEED)
             self._tmcc2_speed_cmd = AbsoluteSpeedRpm()
         else:
             self._speed_re = None
@@ -128,13 +128,13 @@ class EngineController:
         if reset_pin is not None:
             self._reset_btn = GpioHandler.make_button(reset_pin)
             self._tmcc1_when_pushed_or_held[self._reset_btn] = PressedHeldDef(
-                CommandReq(TMCC1EngineCommandDef.RESET),
+                CommandReq(TMCC1EngineCommandEnum.RESET),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._reset_btn] = PressedHeldDef(
-                CommandReq(TMCC2EngineCommandDef.RESET),
+                CommandReq(TMCC2EngineCommandEnum.RESET),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_frequency,
@@ -146,13 +146,13 @@ class EngineController:
         if aux1_pin:
             self._aux1_btn = GpioHandler.make_button(aux1_pin)
             self._tmcc2_when_pushed_or_held[self._aux1_btn] = PressedHeldDef(
-                CommandReq(TMCC1EngineCommandDef.AUX1_OPTION_ONE),
+                CommandReq(TMCC1EngineCommandEnum.AUX1_OPTION_ONE),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._aux1_btn] = PressedHeldDef(
-                CommandReq(TMCC2EngineCommandDef.AUX1_OPTION_ONE),
+                CommandReq(TMCC2EngineCommandEnum.AUX1_OPTION_ONE),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_frequency,
@@ -162,50 +162,50 @@ class EngineController:
 
         if aux2_pin:
             self._aux2_btn = GpioHandler.make_button(aux2_pin)
-            self._tmcc1_when_pushed[self._aux2_btn] = CommandReq(TMCC1EngineCommandDef.AUX2_OPTION_ONE)
-            self._tmcc2_when_pushed[self._aux2_btn] = CommandReq(TMCC2EngineCommandDef.AUX2_OPTION_ONE)
+            self._tmcc1_when_pushed[self._aux2_btn] = CommandReq(TMCC1EngineCommandEnum.AUX2_OPTION_ONE)
+            self._tmcc2_when_pushed[self._aux2_btn] = CommandReq(TMCC2EngineCommandEnum.AUX2_OPTION_ONE)
         else:
             self._aux2_btn = None
 
         if aux3_pin:
             self._aux3_btn = GpioHandler.make_button(aux3_pin)
-            self._tmcc1_when_pushed[self._aux3_btn] = CommandReq(TMCC1EngineCommandDef.AUX3_OPTION_ONE)
-            self._tmcc2_when_pushed[self._aux3_btn] = CommandReq(TMCC2EngineCommandDef.AUX3_OPTION_ONE)
+            self._tmcc1_when_pushed[self._aux3_btn] = CommandReq(TMCC1EngineCommandEnum.AUX3_OPTION_ONE)
+            self._tmcc2_when_pushed[self._aux3_btn] = CommandReq(TMCC2EngineCommandEnum.AUX3_OPTION_ONE)
         else:
             self._aux3_btn = None
 
         if stop_immediate_pin:
             self._stop_btn = GpioHandler.make_button(stop_immediate_pin)
-            self._tmcc1_when_pushed[self._stop_btn] = CommandReq(TMCC1EngineCommandDef.SPEED_STOP_HOLD)
-            self._tmcc2_when_pushed[self._stop_btn] = CommandReq(TMCC2EngineCommandDef.STOP_IMMEDIATE)
+            self._tmcc1_when_pushed[self._stop_btn] = CommandReq(TMCC1EngineCommandEnum.SPEED_STOP_HOLD)
+            self._tmcc2_when_pushed[self._stop_btn] = CommandReq(TMCC2EngineCommandEnum.STOP_IMMEDIATE)
         else:
             self._stop_btn = None
 
         if fwd_pin is not None:
             self._fwd_btn = GpioHandler.make_button(fwd_pin)
-            self._tmcc1_when_pushed[self._fwd_btn] = CommandReq(TMCC1EngineCommandDef.FORWARD_DIRECTION)
-            self._tmcc2_when_pushed[self._fwd_btn] = CommandReq(TMCC2EngineCommandDef.FORWARD_DIRECTION)
+            self._tmcc1_when_pushed[self._fwd_btn] = CommandReq(TMCC1EngineCommandEnum.FORWARD_DIRECTION)
+            self._tmcc2_when_pushed[self._fwd_btn] = CommandReq(TMCC2EngineCommandEnum.FORWARD_DIRECTION)
         else:
             self._fwd_btn = None
 
         if rev_pin is not None:
             self._rev_btn = GpioHandler.make_button(rev_pin)
-            self._tmcc1_when_pushed[self._rev_btn] = CommandReq(TMCC1EngineCommandDef.REVERSE_DIRECTION)
-            self._tmcc2_when_pushed[self._rev_btn] = CommandReq(TMCC2EngineCommandDef.REVERSE_DIRECTION)
+            self._tmcc1_when_pushed[self._rev_btn] = CommandReq(TMCC1EngineCommandEnum.REVERSE_DIRECTION)
+            self._tmcc2_when_pushed[self._rev_btn] = CommandReq(TMCC2EngineCommandEnum.REVERSE_DIRECTION)
         else:
             self._rev_btn = None
 
         if front_coupler_pin is not None:
             self._fwd_cplr_btn = GpioHandler.make_button(front_coupler_pin)
-            self._tmcc1_when_pushed[self._fwd_cplr_btn] = CommandReq(TMCC1EngineCommandDef.FRONT_COUPLER)
-            self._tmcc2_when_pushed[self._fwd_cplr_btn] = CommandReq(TMCC2EngineCommandDef.FRONT_COUPLER)
+            self._tmcc1_when_pushed[self._fwd_cplr_btn] = CommandReq(TMCC1EngineCommandEnum.FRONT_COUPLER)
+            self._tmcc2_when_pushed[self._fwd_cplr_btn] = CommandReq(TMCC2EngineCommandEnum.FRONT_COUPLER)
         else:
             self._fwd_cplr_btn = None
 
         if rear_coupler_pin is not None:
             self._rev_cplr_btn = GpioHandler.make_button(rear_coupler_pin)
-            self._tmcc1_when_pushed[self._rev_cplr_btn] = CommandReq(TMCC1EngineCommandDef.REAR_COUPLER)
-            self._tmcc2_when_pushed[self._rev_cplr_btn] = CommandReq(TMCC2EngineCommandDef.REAR_COUPLER)
+            self._tmcc1_when_pushed[self._rev_cplr_btn] = CommandReq(TMCC1EngineCommandEnum.REAR_COUPLER)
+            self._tmcc2_when_pushed[self._rev_cplr_btn] = CommandReq(TMCC2EngineCommandEnum.REAR_COUPLER)
         else:
             self._rev_cplr_btn = None
 
@@ -213,8 +213,8 @@ class EngineController:
             self._start_up_btn = GpioHandler.make_button(start_up_pin)
             self._tmcc1_when_pushed[self._start_up_btn] = None
             self._tmcc2_when_pushed_or_held[self._start_up_btn] = PressedHeldDef(
-                CommandReq(TMCC2EngineCommandDef.START_UP_IMMEDIATE),
-                CommandReq(TMCC2EngineCommandDef.START_UP_DELAYED),
+                CommandReq(TMCC2EngineCommandEnum.START_UP_IMMEDIATE),
+                CommandReq(TMCC2EngineCommandEnum.START_UP_DELAYED),
                 held_threshold=self._held_threshold,
             )
         else:
@@ -222,10 +222,10 @@ class EngineController:
 
         if shutdown_pin is not None:
             self._shutdown_btn = GpioHandler.make_button(shutdown_pin)
-            self._tmcc1_when_pushed[self._shutdown_btn] = CommandReq(TMCC1EngineCommandDef.SHUTDOWN_DELAYED)
+            self._tmcc1_when_pushed[self._shutdown_btn] = CommandReq(TMCC1EngineCommandEnum.SHUTDOWN_DELAYED)
             self._tmcc2_when_pushed_or_held[self._shutdown_btn] = PressedHeldDef(
-                CommandReq(TMCC2EngineCommandDef.SHUTDOWN_IMMEDIATE),
-                CommandReq(TMCC2EngineCommandDef.SHUTDOWN_DELAYED),
+                CommandReq(TMCC2EngineCommandEnum.SHUTDOWN_IMMEDIATE),
+                CommandReq(TMCC2EngineCommandEnum.SHUTDOWN_DELAYED),
                 held_threshold=self._held_threshold,
             )
         else:
@@ -234,14 +234,14 @@ class EngineController:
         if bell_pin is not None:
             self._bell_btn = GpioHandler.make_button(bell_pin)
             self._tmcc1_when_pushed_or_held[self._bell_btn] = PressedHeldDef(
-                CommandReq(TMCC1EngineCommandDef.RING_BELL),
+                CommandReq(TMCC1EngineCommandEnum.RING_BELL),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._bell_btn] = PressedHeldDef(
-                CommandReq(TMCC2EngineCommandDef.BELL_ONE_SHOT_DING, data=3),
-                CommandReq(TMCC2EngineCommandDef.RING_BELL),
+                CommandReq(TMCC2EngineCommandEnum.BELL_ONE_SHOT_DING, data=3),
+                CommandReq(TMCC2EngineCommandEnum.RING_BELL),
                 held_threshold=1.5,
             )
         else:
@@ -250,15 +250,15 @@ class EngineController:
         if horn_pin is not None:
             self._horn_btn = GpioHandler.make_button(horn_pin)
             self._tmcc1_when_pushed_or_held[self._horn_btn] = PressedHeldDef(
-                CommandReq(TMCC1EngineCommandDef.BLOW_HORN_ONE),
+                CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE),
                 repeat_action=5,
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=0.05,
             )
             self._tmcc2_when_pushed_or_held[self._horn_btn] = PressedHeldDef(
-                CommandReq(TMCC2EngineCommandDef.BLOW_HORN_ONE),
-                CommandReq(TMCC2EngineCommandDef.QUILLING_HORN, data=7),
+                CommandReq(TMCC2EngineCommandEnum.BLOW_HORN_ONE),
+                CommandReq(TMCC2EngineCommandEnum.QUILLING_HORN, data=7),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=0.05,
@@ -270,13 +270,13 @@ class EngineController:
         if boost_pin is not None:
             self._boost_btn = GpioHandler.make_button(boost_pin)
             self._tmcc1_when_pushed_or_held[self._boost_btn] = PressedHeldDef(
-                CommandReq(TMCC1EngineCommandDef.BOOST_SPEED),
+                CommandReq(TMCC1EngineCommandEnum.BOOST_SPEED),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._boost_btn] = PressedHeldDef(
-                CommandReq(TMCC2EngineCommandDef.BOOST_SPEED),
+                CommandReq(TMCC2EngineCommandEnum.BOOST_SPEED),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_frequency,
@@ -287,13 +287,13 @@ class EngineController:
         if brake_pin is not None:
             self._brake_btn = GpioHandler.make_button(brake_pin)
             self._tmcc1_when_pushed_or_held[self._brake_btn] = PressedHeldDef(
-                CommandReq(TMCC1EngineCommandDef.BRAKE_SPEED),
+                CommandReq(TMCC1EngineCommandEnum.BRAKE_SPEED),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_frequency,
             )
             self._tmcc2_when_pushed_or_held[self._brake_btn] = PressedHeldDef(
-                CommandReq(TMCC2EngineCommandDef.BRAKE_SPEED),
+                CommandReq(TMCC2EngineCommandEnum.BRAKE_SPEED),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_frequency,
@@ -304,13 +304,13 @@ class EngineController:
         if rpm_up_pin is not None:
             self._rpm_up_btn = GpioHandler.make_button(rpm_up_pin)
             self._tmcc1_when_pushed_or_held[self._rpm_up_btn] = PressedHeldDef(
-                CommandReq(TMCC1EngineCommandDef.RPM_UP),
+                CommandReq(TMCC1EngineCommandEnum.RPM_UP),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_threshold,
             )
             self._tmcc2_when_pushed_or_held[self._rpm_up_btn] = PressedHeldDef(
-                CommandReq(TMCC2EngineCommandDef.RPM_UP),
+                CommandReq(TMCC2EngineCommandEnum.RPM_UP),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_threshold,
@@ -321,13 +321,13 @@ class EngineController:
         if rpm_down_pin is not None:
             self._rpm_down_btn = GpioHandler.make_button(rpm_down_pin)
             self._tmcc1_when_pushed_or_held[self._rpm_down_btn] = PressedHeldDef(
-                CommandReq(TMCC1EngineCommandDef.RPM_DOWN),
+                CommandReq(TMCC1EngineCommandEnum.RPM_DOWN),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_threshold,
             )
             self._tmcc2_when_pushed_or_held[self._rpm_down_btn] = PressedHeldDef(
-                CommandReq(TMCC2EngineCommandDef.RPM_DOWN),
+                CommandReq(TMCC2EngineCommandEnum.RPM_DOWN),
                 held_threshold=self._held_threshold,
                 hold_repeat=True,
                 frequency=self._held_threshold,
@@ -361,43 +361,43 @@ class EngineController:
 
         if vol_up_pin is not None:
             self._vol_up_btn = GpioHandler.make_button(vol_up_pin)
-            self._tmcc1_when_pushed[self._vol_up_btn] = CommandReq(TMCC1EngineCommandDef.VOLUME_UP)
-            self._tmcc2_when_pushed[self._vol_up_btn] = CommandReq(TMCC2EngineCommandDef.VOLUME_UP)
+            self._tmcc1_when_pushed[self._vol_up_btn] = CommandReq(TMCC1EngineCommandEnum.VOLUME_UP)
+            self._tmcc2_when_pushed[self._vol_up_btn] = CommandReq(TMCC2EngineCommandEnum.VOLUME_UP)
         else:
             self._vol_up_btn = None
 
         if vol_down_pin is not None:
             self._vol_down_btn = GpioHandler.make_button(vol_down_pin)
-            self._tmcc1_when_pushed[self._vol_down_btn] = CommandReq(TMCC1EngineCommandDef.VOLUME_DOWN)
-            self._tmcc2_when_pushed[self._vol_down_btn] = CommandReq(TMCC2EngineCommandDef.VOLUME_DOWN)
+            self._tmcc1_when_pushed[self._vol_down_btn] = CommandReq(TMCC1EngineCommandEnum.VOLUME_DOWN)
+            self._tmcc2_when_pushed[self._vol_down_btn] = CommandReq(TMCC2EngineCommandEnum.VOLUME_DOWN)
         else:
             self._vol_down_btn = None
 
         if smoke_on_pin is not None:
             self._smoke_on_btn = GpioHandler.make_button(smoke_on_pin)
-            self._tmcc1_when_pushed[self._smoke_on_btn] = CommandReq(TMCC1EngineCommandDef.SMOKE_ON)
+            self._tmcc1_when_pushed[self._smoke_on_btn] = CommandReq(TMCC1EngineCommandEnum.SMOKE_ON)
             self._tmcc2_when_pushed[self._smoke_on_btn] = CommandReq(TMCC2EffectsControl.SMOKE_MEDIUM)
         else:
             self._smoke_on_btn = None
 
         if smoke_off_pin is not None:
             self._smoke_off_btn = GpioHandler.make_button(smoke_off_pin)
-            self._tmcc1_when_pushed[self._smoke_off_btn] = CommandReq(TMCC1EngineCommandDef.SMOKE_OFF)
+            self._tmcc1_when_pushed[self._smoke_off_btn] = CommandReq(TMCC1EngineCommandEnum.SMOKE_OFF)
             self._tmcc2_when_pushed[self._smoke_off_btn] = CommandReq(TMCC2EffectsControl.SMOKE_OFF)
         else:
             self._smoke_off_btn = None
 
         if tower_dialog_pin is not None:
             self.tower_dialog_btn = GpioHandler.make_button(tower_dialog_pin)
-            self._tmcc1_when_pushed[self.tower_dialog_btn] = CommandReq(TMCC1EngineCommandDef.NUMERIC, data=7)
-            self._tmcc2_when_pushed[self.tower_dialog_btn] = CommandReq(TMCC2EngineCommandDef.NUMERIC, data=7)
+            self._tmcc1_when_pushed[self.tower_dialog_btn] = CommandReq(TMCC1EngineCommandEnum.NUMERIC, data=7)
+            self._tmcc2_when_pushed[self.tower_dialog_btn] = CommandReq(TMCC2EngineCommandEnum.NUMERIC, data=7)
         else:
             self.tower_dialog_btn = None
 
         if engr_dialog_pin is not None:
             self._engr_dialog_btn = GpioHandler.make_button(engr_dialog_pin)
-            self._tmcc1_when_pushed[self._engr_dialog_btn] = CommandReq(TMCC1EngineCommandDef.NUMERIC, data=2)
-            self._tmcc2_when_pushed[self._engr_dialog_btn] = CommandReq(TMCC2EngineCommandDef.NUMERIC, data=2)
+            self._tmcc1_when_pushed[self._engr_dialog_btn] = CommandReq(TMCC1EngineCommandEnum.NUMERIC, data=2)
+            self._tmcc2_when_pushed[self._engr_dialog_btn] = CommandReq(TMCC2EngineCommandEnum.NUMERIC, data=2)
         else:
             self._engr_dialog_btn = None
 

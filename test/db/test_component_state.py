@@ -11,9 +11,9 @@ from src.pytrain.db.component_state import ComponentState, SystemStateDict, Comp
 from src.pytrain.db.component_state import SwitchState, AccessoryState, EngineState, TrainState, SCOPE_TO_STATE_MAP
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import BROADCAST_ADDRESS, CommandScope
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandDef as Acc
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState as Switch, TMCC1HaltCommandDef
-from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandDef
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Acc
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch, TMCC1HaltCommandEnum
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandEnum
 from ..test_base import TestBase
 
 
@@ -159,12 +159,12 @@ class TestComponentState(TestBase):
             ss.update(thru_req)
 
         # verify we can't send update for some other object
-        route_req = CommandReq(TMCC2RouteCommandDef.FIRE, 1)
+        route_req = CommandReq(TMCC2RouteCommandEnum.FIRE, 1)
         with pytest.raises(AttributeError, match="Switch 1 received update for Route, ignoring"):
             ss.update(route_req)
 
         # verify we can receive a Halt command
-        halt_req = CommandReq(TMCC1HaltCommandDef.HALT, 1)
+        halt_req = CommandReq(TMCC1HaltCommandEnum.HALT, 1)
         ss.update(halt_req)
         # but that it didn't affect state
         assert ss.address == 1
@@ -249,7 +249,7 @@ class TestComponentState(TestBase):
         last_updated = acc_state.last_updated
 
         # send a halt command, it should turn Aux 1 & 2 off
-        halt_req = CommandReq(TMCC1HaltCommandDef.HALT, 1)
+        halt_req = CommandReq(TMCC1HaltCommandEnum.HALT, 1)
         acc_state.update(halt_req)
         assert acc_state.aux_state == Acc.AUX2_OPT_ONE
         assert acc_state.is_aux_on is False

@@ -9,7 +9,7 @@ from src.pytrain.db.component_state import SwitchState
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchState
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 from test.test_base import TestBase
 
 
@@ -47,7 +47,7 @@ class TestComponentStateStore(TestBase):
         assert store.is_empty
 
         # add some state
-        sw_out = CommandReq.build(TMCC1SwitchState.OUT, 15)
+        sw_out = CommandReq.build(TMCC1SwitchCommandEnum.OUT, 15)
         dispatcher.offer(sw_out)
         time.sleep(0.1)
         assert store.is_empty is False
@@ -56,24 +56,24 @@ class TestComponentStateStore(TestBase):
         assert sw_15_state.last_updated is not None
         assert sw_15_state.last_command == sw_out
         assert sw_15_state.is_known is True
-        assert sw_15_state.state == TMCC1SwitchState.OUT
+        assert sw_15_state.state == TMCC1SwitchCommandEnum.OUT
         assert sw_15_state.is_out is True
         assert sw_15_state.is_through is False
 
         # throw to through
-        sw_through = CommandReq.build(TMCC1SwitchState.THROUGH, 15)
+        sw_through = CommandReq.build(TMCC1SwitchCommandEnum.THROUGH, 15)
         dispatcher.offer(sw_through)
         time.sleep(0.1)
         assert sw_15_state is not None
         assert sw_15_state.last_updated is not None
         assert sw_15_state.last_command == sw_through
         assert sw_15_state.is_known is True
-        assert sw_15_state.state == TMCC1SwitchState.THROUGH
+        assert sw_15_state.state == TMCC1SwitchCommandEnum.THROUGH
         assert sw_15_state.is_out is False
         assert sw_15_state.is_through is True
 
         # set the address of a different switch. should not cause state to be known
-        sw_addr = CommandReq.build(TMCC1SwitchState.SET_ADDRESS, 47)
+        sw_addr = CommandReq.build(TMCC1SwitchCommandEnum.SET_ADDRESS, 47)
         dispatcher.offer(sw_addr)
         time.sleep(0.1)
         sw_47_state: SwitchState = store.query(CommandScope.SWITCH, 47)
@@ -95,6 +95,6 @@ class TestComponentStateStore(TestBase):
         assert sw_47_state.last_updated is not None
         assert sw_47_state.last_command == sw_out
         assert sw_47_state.is_known is True
-        assert sw_47_state.state is TMCC1SwitchState.OUT
+        assert sw_47_state.state is TMCC1SwitchCommandEnum.OUT
         assert sw_47_state.is_out is True
         assert sw_47_state.is_through is False

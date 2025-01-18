@@ -9,7 +9,7 @@ from typing import Dict, cast
 from ..comm.comm_buffer import CommBuffer
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import DEFAULT_SERVER_PORT, CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandDef
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 log = logging.getLogger(__name__)
 
@@ -18,11 +18,11 @@ DISCONNECT_REQUEST: bytes = int(0xFFFC).to_bytes(2, byteorder="big") * 3
 SYNC_STATE_REQUEST: bytes = int(0xFFF0).to_bytes(2, byteorder="big") * 3
 SYNC_BEGIN_RESPONSE: bytes = int(0xFFF1).to_bytes(2, byteorder="big") * 3
 SYNC_COMPLETE_RESPONSE: bytes = int(0xFFF2).to_bytes(2, byteorder="big") * 3
-UPDATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.UPDATE).as_bytes
-UPGRADE_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.UPGRADE).as_bytes
-REBOOT_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.REBOOT).as_bytes
-RESTART_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.RESTART).as_bytes
-SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandDef.SHUTDOWN).as_bytes
+UPDATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.UPDATE).as_bytes
+UPGRADE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.UPGRADE).as_bytes
+REBOOT_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.REBOOT).as_bytes
+RESTART_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.RESTART).as_bytes
+SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
 
 
 class ProxyServer(socketserver.ThreadingTCPServer):

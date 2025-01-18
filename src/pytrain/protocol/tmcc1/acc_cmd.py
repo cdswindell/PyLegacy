@@ -1,14 +1,14 @@
 from .tmcc1_command import TMCC1Command
 from ..command_req import CommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT
-from .tmcc1_constants import TMCC1AuxCommandDef
+from .tmcc1_constants import TMCC1AuxCommandEnum
 
 
 class AccCmd(TMCC1Command):
     def __init__(
         self,
         acc: int,
-        command: TMCC1AuxCommandDef,  # enum
+        command: TMCC1AuxCommandEnum,  # enum
         data: int = None,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
