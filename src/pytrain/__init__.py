@@ -37,6 +37,10 @@ from .protocol.tmcc2.tmcc2_constants import (
 from .protocol.sequence.sequence_constants import (
     SequenceCommandEnum,  # noqa: F401
 )
+from .protocol.sequence.sequence_req import (
+    SequenceReq,  # noqa: F401
+    SequencedReq,  # noqa: F401
+)
 from .protocol.multibyte.multibyte_constants import (
     TMCC2RailSoundsDialogControl,  # noqa: F401
     TMCC2RailSoundsEffectsControl,  # noqa: F401

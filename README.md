@@ -32,6 +32,19 @@ actions, allowing the development of physical control panels to operate trains.
 
 ## Audience
 
+The PyLegacy project is intended for two primary audiences:
+
+* Model rail enthusiasts wanting to build physical control panels to operate their layout, including:
+  * operating accessories
+  * switches
+  * power districts
+  * routes
+  * layout segments (e.g., yards, stations)
+  * replacement for hand-held remote
+* Developers interested in:
+  * automated train control, 
+  * integration with smart speakers and intelligent assistants (e.g., Alexa, Ok Google)
+  * continuing to develop software post retirement :smirk:
 
 ## Requirements
 
