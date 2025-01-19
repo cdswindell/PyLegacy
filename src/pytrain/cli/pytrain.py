@@ -377,7 +377,8 @@ class PyTrain:
     def _handle_signals(self, signum: int, frame=None) -> None:
         print(f"Received SIGTERM {signum} ({signal.SIGTERM}), shutting down... {frame} ({type(frame)})")
         signal.signal(signal.SIGTERM, self._original_sigterm_handler)
-        # CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
+        if self.is_server:
+            CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
         self._admin_action = TMCC1SyncCommandEnum.QUIT
         os.kill(os.getpid(), signal.SIGINT)
 
