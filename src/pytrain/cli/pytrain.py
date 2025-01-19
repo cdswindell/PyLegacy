@@ -231,6 +231,10 @@ class PyTrain:
         # Start the command line processor
         self.run()
 
+    @property
+    def tid(self) -> int:
+        return threading.get_native_id()
+
     @staticmethod
     def command_line_parser() -> ArgumentParser:
         parser = ArgumentParser(
@@ -376,14 +380,14 @@ class PyTrain:
     # noinspection PyUnusedLocal
     def _handle_signals(self, signum: int, frame=None) -> None:
         signal.signal(signal.SIGTERM, self._original_sigterm_handler)
-        print(f"********* Received SIGTERM {signum} ({signal.SIGTERM}), shutting down...", flush=True)
+        print(f"********* Received SIGTERM {signum}, shutting down ({self.tid})...", flush=True)
         if self.is_server:
             CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
         self._admin_action = TMCC1SyncCommandEnum.QUIT
         os.kill(os.getpid(), signal.SIGINT)
 
     def shutdown(self):
-        print("****** IN SHUTDOWN *******", flush=True)
+        print(f"****** IN SHUTDOWN ({self.tid}) *******", flush=True)
         try:
             self.shutdown_service()
         except Exception as e:
