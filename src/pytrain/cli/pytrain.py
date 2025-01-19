@@ -112,6 +112,7 @@ class PyTrain:
         self._started_at = timer()
         self._version = get_version()
         self._original_sigterm_handler = signal.getsignal(signal.SIGTERM)
+        self._original_sigstop_handler = signal.getsignal(signal.SIGSTOP)
 
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).
@@ -177,14 +178,14 @@ class PyTrain:
             else:
                 print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
             # register server signal handle
-            # signal.signal(signal.SIGTERM, self._handle_sigterm)
+            # signal.signal(signal.SIGTERM, self._handle_signals)
         else:
-            signal.signal(signal.SIGTERM, self._handle_sigterm)
-            print("*****", signal.getsignal(signal.SIGTERM))
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             self._tmcc_listener = ClientStateListener.build()
             listeners.append(self._tmcc_listener)
             print(f"Listening for state updates on port {self._tmcc_listener.port}...")
+            signal.signal(signal.SIGTERM, self._handle_signals)
+            signal.signal(signal.SIGSTOP, self._handle_signals)
         # register listeners
         self._is_ser2 = args.ser2 is True
         self._is_base = self._base_addr is not None
@@ -374,9 +375,10 @@ class PyTrain:
                 elif self._admin_action == TMCC1SyncCommandEnum.SHUTDOWN:
                     self.reboot(reboot=False)
 
-    def _handle_sigterm(self, signum: int, frame=None) -> None:
+    def _handle_signals(self, signum: int, frame=None) -> None:
         print(f"Received SIGTERM {signum} ({signal.SIGTERM}), shutting down... {frame} ({type(frame)})")
         signal.signal(signal.SIGTERM, self._original_sigterm_handler)
+        signal.signal(signal.SIGSTOP, self._original_sigstop_handler)
         # CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
         self._admin_action = TMCC1SyncCommandEnum.QUIT
         os.kill(os.getpid(), signal.SIGINT)
