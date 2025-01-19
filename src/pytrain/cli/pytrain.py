@@ -395,7 +395,7 @@ class PyTrain:
             log.warning(f"Error closing zeroconf, continuing shutdown: {e}")
         try:
             if self.is_client:
-                self._tmcc_buffer.disconnect()
+                self._tmcc_buffer.disconnect(self._tmcc_listener.port)
         except Exception as e:
             log.warning(f"Error disconnecting client, continuing shutdown: {e}")
         try:

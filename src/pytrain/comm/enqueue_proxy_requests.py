@@ -50,7 +50,7 @@ class EnqueueProxyRequests(Thread):
         EnqueueProxyRequests.get_comm_buffer().enqueue_command(data)
 
     @classmethod
-    def record_client(cls, client: str, port: int = DEFAULT_SERVER_PORT) -> None:
+    def client_connect(cls, client: str, port: int = DEFAULT_SERVER_PORT) -> None:
         """
         Take note of client IPs, so we can update them of component state changes
         """
@@ -59,7 +59,7 @@ class EnqueueProxyRequests(Thread):
             cls._instance._clients[client] = port
 
     @classmethod
-    def client_disconnect(cls, client: str) -> None:
+    def client_disconnect(cls, client: str, port: int = DEFAULT_SERVER_PORT) -> None:
         """
         Remove client so we don't send more state updates
         """
@@ -96,7 +96,9 @@ class EnqueueProxyRequests(Thread):
         return REGISTER_REQUEST
 
     @classmethod
-    def disconnect_request(cls) -> bytes:
+    def disconnect_request(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
+        if port and port != DEFAULT_SERVER_PORT:
+            return DISCONNECT_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
         return DISCONNECT_REQUEST
 
     @classmethod
@@ -176,19 +178,18 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         if byte_stream[0] in {0xFF, 0xFE}:
             from .command_listener import CommandDispatcher
 
-            if byte_stream == EnqueueProxyRequests.disconnect_request():
-                EnqueueProxyRequests.client_disconnect(self.client_address[0])
-                log.info(f"Client at {self.client_address[0]} disconnecting...")
+            if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
+                client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
+                EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
+                log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
                 return
             elif byte_stream.startswith(EnqueueProxyRequests.register_request()):
-                if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
-                    log.info(f"Client at {self.client_address[0]} connecting...")
                 # Appended to the register request byte sequence s the port that the server
                 # must use to send state updates back to the client. Decode it here
-                client_port = DEFAULT_SERVER_PORT
-                if len(byte_stream) > len(REGISTER_REQUEST):
-                    client_port = int.from_bytes(byte_stream[len(REGISTER_REQUEST) :], "big")
-                EnqueueProxyRequests.record_client(self.client_address[0], client_port)
+                client_port = self.extract_port(byte_stream, REGISTER_REQUEST)
+                if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
+                    log.info(f"Client at {self.client_address[0]}:{client_port} connecting...")
+                EnqueueProxyRequests.client_connect(self.client_address[0], client_port)
                 return
             elif byte_stream == EnqueueProxyRequests.sync_state_request():
                 log.info(f"Client at {self.client_address[0]} syncing...")
@@ -207,3 +208,10 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
                 return
         EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
+
+    @staticmethod
+    def extract_port(byte_stream: bytes, request: bytes) -> int:
+        if len(byte_stream) > len(request):
+            return int.from_bytes(byte_stream[len(request) :], "big")
+        else:
+            return DEFAULT_SERVER_PORT
