@@ -180,6 +180,7 @@ class PyTrain:
             # signal.signal(signal.SIGTERM, self._handle_sigterm)
         else:
             signal.signal(signal.SIGTERM, self._handle_sigterm)
+            print("*****", signal.getsignal(signal.SIGTERM))
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             self._tmcc_listener = ClientStateListener.build()
             listeners.append(self._tmcc_listener)
