@@ -304,7 +304,7 @@ class PdiDispatcher(Thread):
         Update all PyTrain clients with the dispatched command. Used to keep
         client states in sync with serve
         """
-        for client, port in EnqueueProxyRequests.clients().items():
+        for client, port in EnqueueProxyRequests.clients():
             if client in self._server_ips and port == self._server_port:
                 continue  # don't notify ourself
             try:
