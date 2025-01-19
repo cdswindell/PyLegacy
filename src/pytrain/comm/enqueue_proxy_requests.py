@@ -29,6 +29,11 @@ SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
 class ProxyServer(socketserver.ThreadingTCPServer):
     __slots__ = "base3_addr", "ack"
 
+    def __init__(self, server_address, req_handler_class):
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        super().__init__(server_address, req_handler_class)
+
 
 class EnqueueProxyRequests(Thread):
     """
@@ -154,19 +159,15 @@ class EnqueueProxyRequests(Thread):
         Simplified TCP/IP Server listens for command requests from client and executes them
         on the PyTrain server.
         """
+        ProxyServer.allow_reuse_port = True
+        ProxyServer.allow_reuse_address = True
         # noinspection PyTypeChecker
-        ps = ProxyServer(("", self._server_port), EnqueueHandler)
-        ps.allow_reuse_port = True
-        ps.allow_reuse_address = True
-        # noinspection PyTypeChecker
-        with ps as server:
+        with ProxyServer(("", self._server_port), EnqueueHandler) as server:
             if self._tmcc_buffer.base3_address:
                 server.base3_addr = self._tmcc_buffer.base3_address
                 server.ack = str.encode(server.base3_addr)
             else:
                 server.ack = str.encode("ack")
-            server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server.serve_forever()
 
 
