@@ -29,9 +29,10 @@ class ProxyServer(socketserver.ThreadingTCPServer):
     __slots__ = "base3_addr", "ack"
     allow_reuse_address = True
 
-    # def __init__(self, server_address, handler) -> None:
-    #     self.allow_reuse_address = True
-    #     super().__init__(server_address, handler)
+    def __init__(self, address, request_handler_class):
+        self.address = address
+        self.request_handler_class = request_handler_class
+        super().__init__(self.address, self.request_handler_class)
 
 
 class EnqueueProxyRequests(Thread):
