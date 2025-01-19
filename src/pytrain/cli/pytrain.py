@@ -176,8 +176,9 @@ class PyTrain:
             else:
                 print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
             # register server signal handle
-            # signal.signal(signal.SIGTERM, self._handle_sigterm_server)
+            # signal.signal(signal.SIGTERM, self._handle_sigterm)
         else:
+            signal.signal(signal.SIGTERM, self._handle_sigterm)
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             self._tmcc_listener = ClientStateListener.build()
             listeners.append(self._tmcc_listener)
@@ -370,9 +371,9 @@ class PyTrain:
                 elif self._admin_action == TMCC1SyncCommandEnum.SHUTDOWN:
                     self.reboot(reboot=False)
 
-    def _handle_sigterm_server(self, signum: int, frame=None) -> None:
+    def _handle_sigterm(self, signum: int, frame=None) -> None:
         print(f"Received SIGTERM {signum}, shutting down... {frame} ({type(frame)})")
-        CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
+        # CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
         self._admin_action = TMCC1SyncCommandEnum.QUIT
         os.kill(os.getpid(), signal.SIGINT)
 
