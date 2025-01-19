@@ -593,7 +593,7 @@ class PyTrain:
 
     def shutdown_service(self):
         if self._service_info and self._zeroconf:
-            self._zeroconf.unregister_service(self._service_info)
+            # self._zeroconf.unregister_service(self._service_info)
             self._zeroconf.close()
             self._service_info = self._zeroconf = None
 
