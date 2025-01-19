@@ -31,10 +31,8 @@ class ProxyServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, server_address, req_handler_class):
         super().__init__(server_address, req_handler_class, bind_and_activate=False)
-        # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.allow_reuse_address = True
         self.allow_reuse_port = True
+        self.allow_reuse_address = True
         self.server_bind()
         self.server_activate()
 
@@ -163,8 +161,6 @@ class EnqueueProxyRequests(Thread):
         Simplified TCP/IP Server listens for command requests from client and executes them
         on the PyTrain server.
         """
-        # ProxyServer.allow_reuse_port = True
-        # ProxyServer.allow_reuse_address = True
         # noinspection PyTypeChecker
         with ProxyServer(("", self._server_port), EnqueueHandler) as server:
             if self._tmcc_buffer.base3_address:
