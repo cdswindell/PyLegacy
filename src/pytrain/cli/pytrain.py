@@ -367,6 +367,7 @@ class PyTrain:
         finally:
             self.shutdown_service()
             if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
+                print(f"********* Exiting with {self._admin_action}...", flush=True)
                 if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
                     self.upgrade()
                 elif self._admin_action == TMCC1SyncCommandEnum.UPDATE:
@@ -382,9 +383,10 @@ class PyTrain:
     def _handle_signals(self, signum: int, frame=None) -> None:
         signal.signal(signal.SIGINT, self._original_sigterm_handler)
         print(f"********* Received {signum}, shutting down ({self._admin_action})...", flush=True)
-        if self.is_server:
-            CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
-        self._admin_action = TMCC1SyncCommandEnum.QUIT
+        if self._admin_action is None:
+            if self.is_server:
+                CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
+            self._admin_action = TMCC1SyncCommandEnum.QUIT
         os.kill(os.getpid(), signal.SIGINT)
 
     def shutdown(self):
