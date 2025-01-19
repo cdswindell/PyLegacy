@@ -28,6 +28,10 @@ SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
 class ProxyServer(socketserver.ThreadingTCPServer):
     __slots__ = "base3_addr", "ack"
 
+    def __init__(self, server_address, handler) -> None:
+        self.allow_reuse_address = True
+        super().__init__(server_address, handler)
+
 
 class EnqueueProxyRequests(Thread):
     """
@@ -160,7 +164,6 @@ class EnqueueProxyRequests(Thread):
                 server.ack = str.encode(server.base3_addr)
             else:
                 server.ack = str.encode("ack")
-            server.allow_reuse_address = True
             server.serve_forever()
 
 
