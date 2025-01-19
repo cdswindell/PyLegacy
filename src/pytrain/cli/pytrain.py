@@ -381,6 +381,7 @@ class PyTrain:
         os.kill(os.getpid(), signal.SIGINT)
 
     def shutdown(self):
+        print("****** IN SHUTDOWN *******")
         try:
             self.shutdown_service()
         except Exception as e:
