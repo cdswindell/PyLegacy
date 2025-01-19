@@ -182,7 +182,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         if byte_stream[0] in {0xFF, 0xFE}:
             from .command_listener import CommandDispatcher
 
-            print(f"**** {self.client_address[0]}")
+            print(f"**** {self.client_address}")
 
             if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
                 client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
