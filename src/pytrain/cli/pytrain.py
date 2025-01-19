@@ -438,6 +438,7 @@ class PyTrain:
         print(f"Received SIGTERM {signum}, shutting down... {frame}")
         CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
         self._admin_action = TMCC1SyncCommandEnum.QUIT
+        self.shutdown_service()
         os.kill(os.getpid(), signal.SIGINT)
 
     @staticmethod
