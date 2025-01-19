@@ -27,7 +27,7 @@ SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
 
 class ProxyServer(socketserver.ThreadingTCPServer):
     __slots__ = "base3_addr", "ack"
-    allow_reuse_address = True
+    allow_reuse_address = 1
 
     def __init__(self, address, request_handler_class):
         self.address = address
