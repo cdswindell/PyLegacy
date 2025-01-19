@@ -194,7 +194,7 @@ class PyTrain:
             self._enable_echo()
 
         # register server signal handle
-        signal.signal(signal.SIGINT, self._handle_signals)
+        # signal.signal(signal.SIGINT, self._handle_signals)
 
         print("Registering listeners...")
         self._state_store.listen_for(CommandScope.ENGINE)
@@ -367,7 +367,6 @@ class PyTrain:
         finally:
             self.shutdown_service()
             if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
-                print(f"********* Exiting with {self._admin_action}...", flush=True)
                 if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
                     self.upgrade()
                 elif self._admin_action == TMCC1SyncCommandEnum.UPDATE:
@@ -382,7 +381,7 @@ class PyTrain:
     # noinspection PyUnusedLocal
     def _handle_signals(self, signum: int, frame=None) -> None:
         signal.signal(signal.SIGINT, self._original_sigterm_handler)
-        print(f"********* Received {signum}, shutting down ({self._admin_action})...", flush=True)
+        # print(f"********* Received {signum}, shutting down ({self._admin_action})...", flush=True)
         if self._admin_action is None:
             if self.is_server:
                 CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
@@ -390,7 +389,6 @@ class PyTrain:
         os.kill(os.getpid(), signal.SIGINT)
 
     def shutdown(self):
-        print(f"****** IN SHUTDOWN ({self.tid}) *******", flush=True)
         try:
             self.shutdown_service()
         except Exception as e:
