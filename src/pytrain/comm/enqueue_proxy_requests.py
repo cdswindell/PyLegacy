@@ -181,14 +181,14 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 log.info(f"Client at {self.client_address[0]} disconnecting...")
                 return
             elif byte_stream.startswith(EnqueueProxyRequests.register_request()):
-                if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
-                    log.info(f"Client at {self.client_address[0]} connecting...")
                 # Appended to the register request byte sequence s the port that the server
                 # must use to send state updates back to the client. Decode it here
                 client_port = DEFAULT_SERVER_PORT
                 if len(byte_stream) > len(REGISTER_REQUEST):
                     client_port = int.from_bytes(byte_stream[len(REGISTER_REQUEST) :], "big")
                 EnqueueProxyRequests.record_client(self.client_address[0], client_port)
+                if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
+                    log.info(f"Client at {self.client_address[0]}:{client_port} connecting...")
                 return
             elif byte_stream == EnqueueProxyRequests.sync_state_request():
                 log.info(f"Client at {self.client_address[0]} syncing...")

@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 from signal import pause
 from time import sleep
 from timeit import default_timer as timer
+from types import FrameType
 from typing import List, Tuple, Dict, Any
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
@@ -176,6 +177,8 @@ class PyTrain:
                 print(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
             else:
                 print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
+            # register server signal handle
+            signal.signal(signal.SIGTERM, self._handle_sigterm_server)
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             self._tmcc_listener = ClientStateListener.build()
@@ -430,6 +433,9 @@ class PyTrain:
             if self.is_client:
                 sleep(10)
         raise KeyboardInterrupt()
+
+    def _handle_sigterm_server(self, signum: int, frame: FrameType | None = None) -> None:
+        print(f"Received SIGTERM {signum}, shutting down... {frame}")
 
     @staticmethod
     def decode_command(param: List[str]) -> None:
