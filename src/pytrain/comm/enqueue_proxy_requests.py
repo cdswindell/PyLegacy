@@ -180,6 +180,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         if byte_stream[0] in {0xFF, 0xFE}:
             from .command_listener import CommandDispatcher
 
+            print(f"******** {self.client_address} {dir(self)}")
+
             if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
                 client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
                 EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
@@ -195,7 +197,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 return
             elif byte_stream.startswith(EnqueueProxyRequests.sync_state_request()):
                 client_port = self.extract_port(byte_stream, SYNC_STATE_REQUEST)
-                log.info(f"Client at {self.client_address[0]} syncing...")
+                log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
                 CommandDispatcher.get().send_current_state(self.client_address[0], client_port)
                 return
             elif byte_stream in {
