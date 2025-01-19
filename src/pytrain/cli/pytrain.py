@@ -78,11 +78,12 @@ ACTION_TO_ADMIN_COMMAND_MAP: Dict[CommandDefEnum, str] = {v: k for k, v in ADMIN
 
 
 def receive_signal(signum, frame):
-    print(f"Received signal: {signal.strsignal(signum)} ({signum})")
+    print(f"**************** Received signal: {signal.strsignal(signum)} ({signum})")
 
     signal.signal(signal.SIGINT, receive_signal)  # Ctrl+C
     signal.signal(signal.SIGTERM, receive_signal)  # Termination signal
     signal.signal(signal.SIGHUP, receive_signal)
+
 
 class PyTrain:
     def __init__(self, cmd_line: List[str] = None) -> None:
