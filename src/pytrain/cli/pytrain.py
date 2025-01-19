@@ -177,7 +177,7 @@ class PyTrain:
             else:
                 print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
             # register server signal handle
-            # signal.signal(signal.SIGTERM, self._handle_signals)
+            signal.signal(signal.SIGTERM, self._handle_signals)
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             self._tmcc_listener = ClientStateListener.build()
