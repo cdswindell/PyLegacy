@@ -78,7 +78,7 @@ ACTION_TO_ADMIN_COMMAND_MAP: Dict[CommandDefEnum, str] = {v: k for k, v in ADMIN
 
 
 def receive_signal(signum, frame):
-    print(f"**************** Received signal: {signal.strsignal(signum)} ({signum})")
+    print(f"**************** Received signal: {signal.strsignal(signum)} ({signum})", flush=True)
 
 
 signal.signal(signal.SIGINT, receive_signal)  # Ctrl+C
