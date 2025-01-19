@@ -77,15 +77,6 @@ ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
 ACTION_TO_ADMIN_COMMAND_MAP: Dict[CommandDefEnum, str] = {v: k for k, v in ADMIN_COMMAND_TO_ACTION_MAP.items()}
 
 
-def receive_signal(signum, frame):
-    print(f"**************** Received signal: {signal.strsignal(signum)} ({signum})", flush=True)
-
-
-signal.signal(signal.SIGINT, receive_signal)  # Ctrl+C
-signal.signal(signal.SIGTERM, receive_signal)  # Termination signal
-signal.signal(signal.SIGHUP, receive_signal)
-
-
 class PyTrain:
     def __init__(self, cmd_line: List[str] = None) -> None:
         if cmd_line:
@@ -383,7 +374,7 @@ class PyTrain:
                     self.reboot(reboot=False)
 
     def _handle_signals(self, signum: int, frame=None) -> None:
-        print(f"Received SIGTERM {signum} ({signal.SIGTERM}), shutting down... {frame} ({type(frame)})")
+        print(f"Received SIGTERM {signum} ({signal.SIGTERM}), shutting down... {frame} ({type(frame)})", flush=True)
         signal.signal(signal.SIGTERM, self._original_sigterm_handler)
         if self.is_server:
             CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
