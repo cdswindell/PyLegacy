@@ -73,7 +73,7 @@ def main(args: list[str] | None = None) -> int:
 def is_from_package() -> bool:
     try:
         # production version
-        importlib.metadata.version("PROGRAM_PACKAGE")
+        importlib.metadata.version(PROGRAM_PACKAGE)
         return True
     except PackageNotFoundError:
         return False
@@ -90,7 +90,7 @@ def get_version() -> str:
     version = None
     try:
         # production version
-        version = importlib.metadata.version("PROGRAM_PACKAGE")
+        version = importlib.metadata.version(PROGRAM_PACKAGE)
     except PackageNotFoundError:
         pass
 
