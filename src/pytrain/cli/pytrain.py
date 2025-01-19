@@ -227,15 +227,6 @@ class PyTrain:
             else:
                 print(f"Loading roster from Lionel Base at {self._base_addr}...")
 
-        # register as server so clients can connect without IP addr
-        if self.is_server:
-            self._zeroconf = Zeroconf()
-            self._service_info = self.register_service(
-                self._ser2 is True,
-                self._base_addr is not None,
-                self._args.server_port,
-            )
-
         # Start the command line processor
         self.run()
 
@@ -338,6 +329,16 @@ class PyTrain:
         if self._startup_script:
             self._script_loader = StartupScriptLoader(self)
             self._script_loader.join()
+
+        # register as server so clients can connect without IP addr
+        if self.is_server:
+            self._zeroconf = Zeroconf()
+            self._service_info = self.register_service(
+                self._ser2 is True,
+                self._base_addr is not None,
+                self._args.server_port,
+            )
+
         if self._headless:
             log.warning("Not accepting user input; background mode")
         try:
