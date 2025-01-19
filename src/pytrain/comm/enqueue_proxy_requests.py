@@ -164,7 +164,10 @@ class EnqueueProxyRequests(Thread):
         server_socket.bind(("", self._server_port))
         server_socket.listen(5)
         # noinspection PyTypeChecker
-        with ProxyServer(("", self._server_port), EnqueueHandler, bind_and_activate=False) as server:
+        ps = ProxyServer(("", self._server_port), EnqueueHandler, bind_and_activate=False)
+        ps.allow_reuse_port = True
+        # noinspection PyTypeChecker
+        with ps as server:
             if self._tmcc_buffer.base3_address:
                 server.base3_addr = self._tmcc_buffer.base3_address
                 server.ack = str.encode(server.base3_addr)

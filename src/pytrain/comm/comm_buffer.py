@@ -366,7 +366,7 @@ class CommBufferProxy(CommBuffer):
                     if retries < 90:
                         retries += 1
                         if retries % 5 == 0:
-                            e_msg = COMM_ERROR_CODES.get(oe.errno, "UNKNOWN")
+                            e_msg = COMM_ERROR_CODES.get(oe.errno, f"UNKNOWN ({oe.errno})")
                             log.info(f"Looking for {PROGRAM_NAME} server at {self._server}... [{e_msg}]")
                         if not isinstance(oe, TimeoutError):
                             time.sleep(1)
