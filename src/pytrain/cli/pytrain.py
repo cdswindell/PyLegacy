@@ -343,8 +343,7 @@ class PyTrain:
             while True:
                 try:
                     if self._headless:
-                        sleep(10)  # essentially puts the job into the background
-                        print("*** After Pause ***")
+                        signal.pause()  # essentially puts the job into the background
                     else:
                         ui: str = input(">> ")
                         readline.add_history(ui)  # provides limited command line recall and editing
@@ -592,7 +591,7 @@ class PyTrain:
                 self._server_discovered.set()
 
     def shutdown_service(self):
-        if self._service_info and self._zeroconf:
+        if self._service_info and self._zeroconf and False:
             # self._zeroconf.unregister_service(self._service_info)
             self._zeroconf.close()
             self._service_info = self._zeroconf = None
