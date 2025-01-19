@@ -381,7 +381,7 @@ class PyTrain:
     # noinspection PyUnusedLocal
     def _handle_signals(self, signum: int, frame=None) -> None:
         signal.signal(signal.SIGINT, self._original_sigterm_handler)
-        print(f"********* Received SIGTERM {signum}, shutting down ({self.tid})...", flush=True)
+        print(f"********* Received {signum}, shutting down ({self._admin_action})...", flush=True)
         if self.is_server:
             CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
         self._admin_action = TMCC1SyncCommandEnum.QUIT
