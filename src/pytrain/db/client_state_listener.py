@@ -47,7 +47,7 @@ class ClientStateListener(threading.Thread):
         # wait for socket server to be up and running
         self._ev.wait()
         self._tmcc_buffer.register(self.port)  # register this client with server to receive updates
-        self._tmcc_buffer.sync_state()  # request initial state from server
+        self._tmcc_buffer.sync_state(self.port)  # request initial state from server
 
     def __new__(cls, *args, **kwargs):
         """

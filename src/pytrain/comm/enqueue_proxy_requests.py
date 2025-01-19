@@ -4,7 +4,7 @@ import logging
 import socketserver
 import threading
 from threading import Thread
-from typing import Dict, cast
+from typing import cast, Tuple, Set
 
 from ..comm.comm_buffer import CommBuffer
 from ..protocol.command_req import CommandReq
@@ -56,7 +56,7 @@ class EnqueueProxyRequests(Thread):
         """
         if cls._instance is not None:
             # noinspection PyProtectedMember
-            cls._instance._clients[client] = port
+            cls._instance._clients.add((client, port))
 
     @classmethod
     def client_disconnect(cls, client: str, port: int = DEFAULT_SERVER_PORT) -> None:
@@ -65,17 +65,17 @@ class EnqueueProxyRequests(Thread):
         """
         if cls._instance is not None:
             # noinspection PyProtectedMember
-            cls._instance._clients.pop(client, None)
+            cls._instance._clients.pop((client, port), None)
 
     @classmethod
-    def is_known_client(cls, ip_addr: str) -> bool:
+    def is_known_client(cls, ip_addr: str, port: int = DEFAULT_SERVER_PORT) -> bool:
         # noinspection PyProtectedMember
-        if cls._instance and (ip_addr in cls._instance._clients):
+        if cls._instance and ((ip_addr, port) in cls._instance._clients):
             return True
         return False
 
     @classmethod
-    def clients(cls) -> Dict[str, int]:
+    def clients(cls) -> Set[Tuple[str, int]]:
         # noinspection PyProtectedMember
         return cls._instance._clients.copy()
 
@@ -102,7 +102,9 @@ class EnqueueProxyRequests(Thread):
         return DISCONNECT_REQUEST
 
     @classmethod
-    def sync_state_request(cls) -> bytes:
+    def sync_state_request(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
+        if port and port != DEFAULT_SERVER_PORT:
+            return SYNC_STATE_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
         return SYNC_STATE_REQUEST
 
     @classmethod
@@ -132,7 +134,7 @@ class EnqueueProxyRequests(Thread):
         super().__init__(daemon=True, name="PyLegacy Enqueue Receiver")
         self._tmcc_buffer: CommBuffer = tmcc_buffer
         self._server_port = server_port
-        self._clients: Dict[str, int] = dict()
+        self._clients: Set[Tuple[str, int]] = set()
         self.start()
 
     def __new__(cls, *args, **kwargs):
@@ -187,14 +189,14 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 # Appended to the register request byte sequence s the port that the server
                 # must use to send state updates back to the client. Decode it here
                 client_port = self.extract_port(byte_stream, REGISTER_REQUEST)
-                if EnqueueProxyRequests.is_known_client(self.client_address[0]) is False:
+                if EnqueueProxyRequests.is_known_client(self.client_address[0], client_port) is False:
                     log.info(f"Client at {self.client_address[0]}:{client_port} connecting...")
                 EnqueueProxyRequests.client_connect(self.client_address[0], client_port)
                 return
-            elif byte_stream == EnqueueProxyRequests.sync_state_request():
+            elif byte_stream.startswith(EnqueueProxyRequests.sync_state_request()):
+                client_port = self.extract_port(byte_stream, SYNC_STATE_REQUEST)
                 log.info(f"Client at {self.client_address[0]} syncing...")
-                port = EnqueueProxyRequests.clients().get(self.client_address[0], DEFAULT_SERVER_PORT)
-                CommandDispatcher.get().send_current_state(self.client_address[0], port)
+                CommandDispatcher.get().send_current_state(self.client_address[0], client_port)
                 return
             elif byte_stream in {
                 UPDATE_REQUEST,
