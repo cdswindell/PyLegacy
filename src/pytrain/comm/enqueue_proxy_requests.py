@@ -154,17 +154,8 @@ class EnqueueProxyRequests(Thread):
         Simplified TCP/IP Server listens for command requests from client and executes them
         on the PyTrain server.
         """
-        # Create the server socket
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        # Set SO_REUSEPORT option
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-
-        # Bind and listen
-        server_socket.bind(("", self._server_port))
-        server_socket.listen(5)
         # noinspection PyTypeChecker
-        ps = ProxyServer(("", self._server_port), EnqueueHandler, bind_and_activate=False)
+        ps = ProxyServer(("", self._server_port), EnqueueHandler)
         ps.allow_reuse_port = True
         # noinspection PyTypeChecker
         with ps as server:
@@ -173,7 +164,6 @@ class EnqueueProxyRequests(Thread):
                 server.ack = str.encode(server.base3_addr)
             else:
                 server.ack = str.encode("ack")
-            server.socket = server_socket
             server.serve_forever()
 
 
