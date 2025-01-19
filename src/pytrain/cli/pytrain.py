@@ -111,7 +111,7 @@ class PyTrain:
         self._base_addr = self._base_port = None
         self._started_at = timer()
         self._version = get_version()
-        self._original_sigterm_handler = signal.getsignal(signal.SIGTERM)
+        self._original_sigterm_handler = signal.getsignal(signal.SIGINT)
 
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).
@@ -176,14 +176,12 @@ class PyTrain:
                 print(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
             else:
                 print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
-            # register server signal handle
-            signal.signal(signal.SIGTERM, self._handle_signals)
+
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             self._tmcc_listener = ClientStateListener.build()
             listeners.append(self._tmcc_listener)
             print(f"Listening for state updates on port {self._tmcc_listener.port}...")
-            signal.signal(signal.SIGTERM, self._handle_signals)
         # register listeners
         self._is_ser2 = args.ser2 is True
         self._is_base = self._base_addr is not None
@@ -194,6 +192,9 @@ class PyTrain:
         )
         if self._args.echo:
             self._enable_echo()
+
+        # register server signal handle
+        signal.signal(signal.SIGINT, self._handle_signals)
 
         print("Registering listeners...")
         self._state_store.listen_for(CommandScope.ENGINE)
@@ -379,7 +380,7 @@ class PyTrain:
 
     # noinspection PyUnusedLocal
     def _handle_signals(self, signum: int, frame=None) -> None:
-        signal.signal(signal.SIGTERM, self._original_sigterm_handler)
+        signal.signal(signal.SIGINT, self._original_sigterm_handler)
         print(f"********* Received SIGTERM {signum}, shutting down ({self.tid})...", flush=True)
         if self.is_server:
             CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
