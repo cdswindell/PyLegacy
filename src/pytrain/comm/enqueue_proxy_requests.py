@@ -65,7 +65,7 @@ class EnqueueProxyRequests(Thread):
         """
         if cls._instance is not None:
             # noinspection PyProtectedMember
-            cls._instance._clients.pop((client, port), None)
+            cls._instance._clients.discard((client, port))
 
     @classmethod
     def is_known_client(cls, ip_addr: str, port: int = DEFAULT_SERVER_PORT) -> bool:
