@@ -165,6 +165,8 @@ class EnqueueProxyRequests(Thread):
                 server.ack = str.encode(server.base3_addr)
             else:
                 server.ack = str.encode("ack")
+            server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server.serve_forever()
 
 
