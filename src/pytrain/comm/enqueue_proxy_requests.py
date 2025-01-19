@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import socket
 import socketserver
 import threading
 from threading import Thread
@@ -26,14 +25,14 @@ RESTART_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.RESTART).as_bytes
 SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
 
 
-# class ProxyServer(socketserver.ThreadingTCPServer):
-class ProxyServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    allow_reuse_address = True  # Set SO_REUSEADDR
+class ProxyServer(socketserver.ThreadingTCPServer):
+    # class ProxyServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    # allow_reuse_address = True  # Set SO_REUSEADDR
     __slots__ = "base3_addr", "ack"
-
-    def server_bind(self):
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        super().server_bind()
+    #
+    # def server_bind(self):
+    #     self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    #     super().server_bind()
 
 
 class EnqueueProxyRequests(Thread):
@@ -188,6 +187,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             from .command_listener import CommandDispatcher
 
             print(f"******** {self.client_address} {self.request} {dir(self.request)}")
+            print(f"******** {self.request.recvfrom()} ")
 
             if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
                 client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
