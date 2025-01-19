@@ -353,6 +353,7 @@ class CommBufferProxy(CommBuffer):
             while True:
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                         s.settimeout(5.0)
                         s.connect((str(self._server), self._port))
                         s.settimeout(None)
