@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import socket
 import socketserver
 import threading
 from threading import Thread
@@ -160,6 +161,7 @@ class EnqueueProxyRequests(Thread):
                 server.ack = str.encode(server.base3_addr)
             else:
                 server.ack = str.encode("ack")
+            server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server.serve_forever()
 
 
@@ -180,7 +182,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         if byte_stream[0] in {0xFF, 0xFE}:
             from .command_listener import CommandDispatcher
 
-            print(f"******** {self.client_address} {dir(self)}")
+            print(f"******** {self.client_address} {self.extract_port} {dir(self)}")
 
             if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
                 client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
