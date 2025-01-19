@@ -112,7 +112,6 @@ class PyTrain:
         self._started_at = timer()
         self._version = get_version()
         self._original_sigterm_handler = signal.getsignal(signal.SIGTERM)
-        self._original_sigstop_handler = signal.getsignal(signal.SIGSTOP)
 
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).
@@ -378,7 +377,6 @@ class PyTrain:
     def _handle_signals(self, signum: int, frame=None) -> None:
         print(f"Received SIGTERM {signum} ({signal.SIGTERM}), shutting down... {frame} ({type(frame)})")
         signal.signal(signal.SIGTERM, self._original_sigterm_handler)
-        signal.signal(signal.SIGSTOP, self._original_sigstop_handler)
         # CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
         self._admin_action = TMCC1SyncCommandEnum.QUIT
         os.kill(os.getpid(), signal.SIGINT)
