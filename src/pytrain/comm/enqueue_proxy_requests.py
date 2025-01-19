@@ -31,8 +31,8 @@ class ProxyServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, server_address, req_handler_class):
         super().__init__(server_address, req_handler_class, bind_and_activate=False)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.allow_reuse_address = True
         self.allow_reuse_port = True
         self.server_bind()
