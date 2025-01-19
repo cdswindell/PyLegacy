@@ -157,6 +157,7 @@ class EnqueueProxyRequests(Thread):
         # noinspection PyTypeChecker
         ps = ProxyServer(("", self._server_port), EnqueueHandler)
         ps.allow_reuse_port = True
+        ps.allow_reuse_address = True
         # noinspection PyTypeChecker
         with ps as server:
             if self._tmcc_buffer.base3_address:
