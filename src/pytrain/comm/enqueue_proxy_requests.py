@@ -37,8 +37,8 @@ class ProxyServer(socketserver.ThreadingTCPServer):
     address_family = socket.AF_INET  # Specify the address family (IPv4)
 
     def __init__(self, server_address, req_handler_class):
-        super().__init__(server_address, req_handler_class)
         self.socket = ReusablePortSocket(self.address_family, self.socket_type)
+        super().__init__(server_address, req_handler_class)
 
 
 class EnqueueProxyRequests(Thread):
