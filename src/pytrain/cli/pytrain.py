@@ -467,14 +467,14 @@ class PyTrain:
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
         # always update pip
-        os.system(f"cd {os.getcwd()}; pwd; pip install -U pip")
+        os.system(f"cd {os.getcwd()}; pip install -U pip")
         if is_from_package():
             # upgrade from Pypi
-            os.system(f"cd {os.getcwd()}; pwd; pip install -U {PROGRAM_PACKAGE}")
+            os.system(f"cd {os.getcwd()}; pip install -U {PROGRAM_PACKAGE}")
         else:
             # upgrade from github
-            os.system(f"cd {os.getcwd()}; pwd; git pull")
-            os.system(f"cd {os.getcwd()}; pwd; pip install -r requirements.txt")
+            os.system(f"cd {os.getcwd()}; git pull")
+            os.system(f"cd {os.getcwd()}; pip install -r requirements.txt")
         self.relaunch()
 
     def upgrade(self) -> None:
