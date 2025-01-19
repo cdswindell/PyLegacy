@@ -184,7 +184,6 @@ class PyTrain:
             listeners.append(self._tmcc_listener)
             print(f"Listening for state updates on port {self._tmcc_listener.port}...")
             signal.signal(signal.SIGTERM, self._handle_signals)
-            signal.signal(signal.SIGSTOP, self._handle_signals)
         # register listeners
         self._is_ser2 = args.ser2 is True
         self._is_base = self._base_addr is not None
