@@ -176,7 +176,7 @@ class PyTrain:
             else:
                 print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
             # register server signal handle
-            signal.signal(signal.SIGTERM, self._handle_sigterm_server)
+            # signal.signal(signal.SIGTERM, self._handle_sigterm_server)
         else:
             print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             self._tmcc_listener = ClientStateListener.build()
@@ -591,8 +591,8 @@ class PyTrain:
                 self._server_discovered.set()
 
     def shutdown_service(self):
-        if self._service_info and self._zeroconf and False:
-            # self._zeroconf.unregister_service(self._service_info)
+        if self._service_info and self._zeroconf:
+            self._zeroconf.unregister_service(self._service_info)
             self._zeroconf.close()
             self._service_info = self._zeroconf = None
 
