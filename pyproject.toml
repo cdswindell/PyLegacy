@@ -14,6 +14,8 @@ requires-python = ">=3.10"
 classifiers = [
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Model Railroaders",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -38,6 +40,7 @@ dependencies = [
 
 keywords = [
     "automation",
+    "interactive",
     "control",
     "legacy",
     "lionel",
@@ -57,8 +60,14 @@ pytrain = "pytrain:main"
 piconfig = "pytrain.cli.piconfig:main"
 
 [project.urls]
-Repository = "https://github.com/cdswindell/PyLegacy"
 Homepage = "https://github.com/cdswindell/PyLegacy"
+Source = "https://github.com/cdswindell/PyLegacy"
 Issues = "https://github.com/cdswindell/PyLegacy/issues"
 
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["F403", "F405"]
+line-length = 120
 
+[tool.ruff]
+extend-exclude = ["test", "scripts"]
