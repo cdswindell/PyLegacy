@@ -21,7 +21,6 @@ from datetime import datetime, timedelta
 from signal import pause
 from time import sleep
 from timeit import default_timer as timer
-from types import FrameType
 from typing import List, Tuple, Dict, Any
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
@@ -339,17 +338,20 @@ class PyTrain:
         if self._startup_script:
             self._script_loader = StartupScriptLoader(self)
             self._script_loader.join()
+        if self._headless:
+            log.warning("Not accepting user input; background mode")
         try:
             while True:
                 try:
                     if self._headless:
-                        log.warning("Not accepting user input; background mode")
                         pause()  # essentially puts the job into the background
+                        print("*** After Pause ***")
                     else:
                         ui: str = input(">> ")
                         readline.add_history(ui)  # provides limited command line recall and editing
                         self._handle_command(ui)
                 except SystemExit:
+                    print("Exiting...")
                     pass
                 except argparse.ArgumentError:
                     pass
@@ -369,6 +371,12 @@ class PyTrain:
                     self.reboot()
                 elif self._admin_action == TMCC1SyncCommandEnum.SHUTDOWN:
                     self.reboot(reboot=False)
+
+    def _handle_sigterm_server(self, signum: int, frame=None) -> None:
+        print(f"Received SIGTERM {signum}, shutting down... {frame} ({type(frame)})")
+        CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
+        self._admin_action = TMCC1SyncCommandEnum.QUIT
+        os.kill(os.getpid(), signal.SIGINT)
 
     def shutdown(self):
         try:
@@ -433,12 +441,6 @@ class PyTrain:
             if self.is_client:
                 sleep(10)
         raise KeyboardInterrupt()
-
-    def _handle_sigterm_server(self, signum: int, frame: FrameType | None = None) -> None:
-        print(f"Received SIGTERM {signum}, shutting down... {frame}")
-        CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
-        self._admin_action = TMCC1SyncCommandEnum.QUIT
-        os.kill(os.getpid(), signal.SIGINT)
 
     @staticmethod
     def decode_command(param: List[str]) -> None:
