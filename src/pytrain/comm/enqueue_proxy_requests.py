@@ -174,7 +174,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
         while True:
-            data = self.request.recv(128)
+            data, addr = self.request.recvfrom(128)
             if data:
                 byte_stream += data
                 self.request.sendall(ack)
@@ -186,8 +186,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         if byte_stream[0] in {0xFF, 0xFE}:
             from .command_listener import CommandDispatcher
 
-            print(f"******** {self.client_address} {self.request} {dir(self.request)}")
-            print(f"******** {self.request.recvfrom()} ")
+            print(f"******** {self.client_address} {addr}")
 
             if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
                 client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
