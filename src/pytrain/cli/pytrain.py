@@ -33,7 +33,7 @@ from .lighting import LightingCli
 from .route import RouteCli
 from .sounds import SoundEffectsCli
 from .switch import SwitchCli
-from .. import get_version
+from .. import get_version, is_from_package, PROGRAM_PACKAGE
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandListener, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -466,8 +466,15 @@ class PyTrain:
     def update(self, do_inform: bool = True) -> None:
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
-        os.system(f"cd {os.getcwd()}; pwd; git pull")
-        os.system(f"cd {os.getcwd()}; pwd; pip install -r requirements.txt")
+        # always update pip
+        os.system(f"cd {os.getcwd()}; pwd; pip install -U pip")
+        if is_from_package():
+            # upgrade from Pypi
+            os.system(f"cd {os.getcwd()}; pwd; pip install -U {PROGRAM_PACKAGE}")
+        else:
+            # upgrade from github
+            os.system(f"cd {os.getcwd()}; pwd; git pull")
+            os.system(f"cd {os.getcwd()}; pwd; pip install -r requirements.txt")
         self.relaunch()
 
     def upgrade(self) -> None:

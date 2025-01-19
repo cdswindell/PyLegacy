@@ -9,6 +9,7 @@
 import importlib.metadata
 import sys
 from importlib.metadata import PackageNotFoundError
+
 from .gpio.gpio_handler import (
     GpioHandler,  # noqa: F401
     PotHandler,  # noqa: F401
@@ -53,6 +54,8 @@ from .protocol.multibyte.multibyte_constants import (
 )
 from .protocol.command_req import CommandReq  # noqa: F401
 
+PROGRAM_PACKAGE = "pytrain-ogr"
+
 
 def main(args: list[str] | None = None) -> int:
     if args is None:
@@ -67,6 +70,15 @@ def main(args: list[str] | None = None) -> int:
         sys.exit(f"{PROGRAM_NAME}: error: {e}\n")
 
 
+def is_from_package() -> bool:
+    try:
+        # production version
+        importlib.metadata.version("PROGRAM_PACKAGE")
+        return True
+    except PackageNotFoundError:
+        return False
+
+
 def get_version() -> str:
     #
     # this should be easier, but, it is what it is.
@@ -78,26 +90,9 @@ def get_version() -> str:
     version = None
     try:
         # production version
-        version = importlib.metadata.version("pytrain-ogr")
+        version = importlib.metadata.version("PROGRAM_PACKAGE")
     except PackageNotFoundError:
         pass
-
-    if version is None:
-        try:
-            # this is for testing
-            version = importlib.metadata.version("pytrain-cdswindell")
-        except PackageNotFoundError:
-            pass
-
-    # now try the other way
-    # if version is None:
-    #     try:
-    #         # noinspection PyUnresolvedReferences
-    #         from ._version import __version__
-    #
-    #         version = __version__
-    #     except ModuleNotFoundError:
-    #         pass
 
     # finally, call the method to read it from git
     if version is None:
