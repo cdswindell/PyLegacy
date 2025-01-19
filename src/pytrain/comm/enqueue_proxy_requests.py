@@ -27,10 +27,11 @@ SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
 
 class ProxyServer(socketserver.ThreadingTCPServer):
     __slots__ = "base3_addr", "ack"
+    allow_reuse_address = True
 
-    def __init__(self, server_address, handler) -> None:
-        self.allow_reuse_address = True
-        super().__init__(server_address, handler)
+    # def __init__(self, server_address, handler) -> None:
+    #     self.allow_reuse_address = True
+    #     super().__init__(server_address, handler)
 
 
 class EnqueueProxyRequests(Thread):
@@ -184,7 +185,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         if byte_stream[0] in {0xFF, 0xFE}:
             from .command_listener import CommandDispatcher
 
-            print(f"******** {self.client_address} {dir(self)}")
+            print(f"******** {self.client_address} {self.request} {dir(self.request)}")
 
             if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
                 client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
