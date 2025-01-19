@@ -18,7 +18,6 @@ import os
 import signal
 import threading
 from datetime import datetime, timedelta
-from signal import pause
 from time import sleep
 from timeit import default_timer as timer
 from typing import List, Tuple, Dict, Any
@@ -344,7 +343,7 @@ class PyTrain:
             while True:
                 try:
                     if self._headless:
-                        pause()  # essentially puts the job into the background
+                        sleep(10)  # essentially puts the job into the background
                         print("*** After Pause ***")
                     else:
                         ui: str = input(">> ")
