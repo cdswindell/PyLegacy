@@ -153,10 +153,10 @@ class EnqueueProxyRequests(Thread):
         Simplified TCP/IP Server listens for command requests from client and executes them
         on the PyTrain server.
         """
+
+        ProxyServer.allow_reuse_address = True
         # noinspection PyTypeChecker
-        ps = ProxyServer(("", self._server_port), EnqueueHandler)
-        ps.allow_reuse_address = True
-        with ps as server:
+        with ProxyServer(("", self._server_port), EnqueueHandler) as server:
             if self._tmcc_buffer.base3_address:
                 server.base3_addr = self._tmcc_buffer.base3_address
                 server.ack = str.encode(server.base3_addr)
@@ -182,7 +182,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         if byte_stream[0] in {0xFF, 0xFE}:
             from .command_listener import CommandDispatcher
 
-            print(f"****** {self.client_address}")
+            print(f"**** {self.client_address[0]}")
 
             if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
                 client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
