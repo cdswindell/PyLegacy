@@ -26,13 +26,7 @@ SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
 
 
 class ProxyServer(socketserver.ThreadingTCPServer):
-    # class ProxyServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    # allow_reuse_address = True  # Set SO_REUSEADDR
     __slots__ = "base3_addr", "ack"
-    #
-    # def server_bind(self):
-    #     self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    #     super().server_bind()
 
 
 class EnqueueProxyRequests(Thread):
@@ -160,7 +154,9 @@ class EnqueueProxyRequests(Thread):
         on the PyTrain server.
         """
         # noinspection PyTypeChecker
-        with ProxyServer(("", self._server_port), EnqueueHandler) as server:
+        ps = ProxyServer(("", self._server_port), EnqueueHandler)
+        ps.allow_reuse_address = True
+        with ps as server:
             if self._tmcc_buffer.base3_address:
                 server.base3_addr = self._tmcc_buffer.base3_address
                 server.ack = str.encode(server.base3_addr)
@@ -172,11 +168,9 @@ class EnqueueProxyRequests(Thread):
 class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
         byte_stream = bytes()
-        from_addr = None
         ack = cast(ProxyServer, self.server).ack
         while True:
-            data, addr = self.request.recvfrom(128)
-            from_addr = addr if addr else from_addr
+            data = self.request.recv(128)
             if data:
                 byte_stream += data
                 self.request.sendall(ack)
@@ -188,7 +182,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         if byte_stream[0] in {0xFF, 0xFE}:
             from .command_listener import CommandDispatcher
 
-            print(f"******** {self.client_address} {from_addr}")
+            print(f"****** {self.client_address}")
 
             if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
                 client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
