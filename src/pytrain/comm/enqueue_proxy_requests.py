@@ -133,6 +133,13 @@ class EnqueueProxyRequests(Thread):
             return cls._instance._server_port
         raise AttributeError("EnqueueProxyRequests is not built yet.")
 
+    @classmethod
+    def server_ip(cls) -> int:
+        if cls._instance is not None:
+            # noinspection PyProtectedMember
+            return cls._instance._server_ip
+        raise AttributeError("EnqueueProxyRequests is not built yet.")
+
     def __init__(self, tmcc_buffer: CommBuffer, server_port: int = DEFAULT_SERVER_PORT) -> None:
         if self._initialized:
             return
@@ -141,6 +148,7 @@ class EnqueueProxyRequests(Thread):
         super().__init__(daemon=True, name="PyLegacy Enqueue Receiver")
         self._tmcc_buffer: CommBuffer = tmcc_buffer
         self._server_port = server_port
+        self._server_ip = None
         self._clients: Set[Tuple[str, int]] = set()
         self.start()
 
@@ -168,6 +176,7 @@ class EnqueueProxyRequests(Thread):
                 server.ack = str.encode(server.base3_addr)
             else:
                 server.ack = str.encode("ack")
+            print("*******", server.server_address)
             server.serve_forever()
 
 

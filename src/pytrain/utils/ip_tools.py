@@ -26,8 +26,8 @@ def get_ip_address(max_attempts: int = 32) -> List[str]:
             if attempts > max_attempts:
                 raise he
 
-    filtered_ips = [ip for ip in ip_addresses if not ip.startswith("127.")]
-    return filtered_ips
+    filtered_ips = {ip for ip in ip_addresses if not ip.startswith("127.")}
+    return list(filtered_ips)
 
 
 def is_base_address(address, base3_port: int = DEFAULT_BASE_PORT) -> str | None:

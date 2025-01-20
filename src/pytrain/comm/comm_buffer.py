@@ -115,6 +115,10 @@ class CommBuffer(abc.ABC):
     def server_port(cls) -> int | None:
         return None
 
+    @classmethod
+    def server_ip(cls) -> int | None:
+        return None
+
     @abc.abstractmethod
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         """
@@ -327,6 +331,13 @@ class CommBufferProxy(CommBuffer):
             return cls._instance._port
         raise AttributeError("CommBufferProxy must be built first")
 
+    # noinspection PyProtectedMember
+    @classmethod
+    def server_ip(cls) -> str:
+        if cls.is_built() is True and cls.is_client() is True and cls._instance._ephemeral_port:
+            return cls._instance._ephemeral_port(0)
+        raise AttributeError("CommBufferProxy must be built first")
+
     def __init__(self, server: IPv4Address | IPv6Address = None, port: int = DEFAULT_SERVER_PORT) -> None:
         if self._initialized:
             return
@@ -362,6 +373,8 @@ class CommBufferProxy(CommBuffer):
                         resp = s.recv(16)  # we don't care about the response
                         if self._base3_address is None:
                             self._base3_address = resp.decode("utf-8", "ignore")
+                        if self._ephemeral_port is None:
+                            self._ephemeral_port = s.getsockname()
                     return
                 except OSError as oe:
                     if retries < 90:
