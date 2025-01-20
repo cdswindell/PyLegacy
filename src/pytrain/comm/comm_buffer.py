@@ -356,8 +356,8 @@ class CommBufferProxy(CommBuffer):
             while True:
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                        # s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 5)
+                        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                        # s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
                         s.settimeout(5.0)
                         if self._ephemeral_port:
                             s.bind(self._ephemeral_port)
