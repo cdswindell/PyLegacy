@@ -476,11 +476,9 @@ class CommandDispatcher(Thread):
     def signal_clients_on(
         self, option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT, client: str = None
     ) -> None:
-        print(f"*** {client} {option}")
         if isinstance(option, TMCC1SyncCommandEnum):
             option = CommandReq(option)
         for client_ip, port in EnqueueProxyRequests.clients():
-            print(f"*** {client} {client_ip}:{port}")
             if client_ip == client:
                 self.update_client_state(option, client=client, port=port)
 

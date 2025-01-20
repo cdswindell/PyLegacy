@@ -65,10 +65,8 @@ class EnqueueProxyRequests(Thread):
         Remove client so we don't send more state updates
         """
         if cls._instance is not None:
-            print(f"Disconnecting {client}:{port} {cls.clients()}")
             # noinspection PyProtectedMember
             cls._instance._clients.discard((client, port))
-            print(f"Disconnected {client}:{port} {cls.clients()}")
 
     @classmethod
     def is_known_client(cls, ip_addr: str, port: int = DEFAULT_SERVER_PORT) -> bool:
@@ -241,11 +239,12 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
 
     @staticmethod
     def extract_addendum(byte_stream: bytes) -> Tuple[str | None, int | None]:
-        print(f"*** {byte_stream} {byte_stream.hex(' ')} ***")
         if len(byte_stream) > 5:
-            addendum = byte_stream[3:].decode("utf-8", errors="ignore")
-            print("***", addendum, "***")
-            return addendum, None
+            addenda = byte_stream[3:].decode("utf-8", errors="ignore")
+            parts = addenda.split(":")
+            ip_addr = parts[0] if parts[0] else None
+            port = int(parts[1]) if len(parts) > 1 else None
+            return ip_addr, port
         elif len(byte_stream) > 3:
             return None, int.from_bytes(byte_stream[3:], "big")
         else:
