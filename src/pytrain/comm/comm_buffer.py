@@ -116,7 +116,7 @@ class CommBuffer(abc.ABC):
         return None
 
     @classmethod
-    def server_ip(cls) -> int | None:
+    def server_ip(cls) -> str | None:
         return None
 
     @abc.abstractmethod

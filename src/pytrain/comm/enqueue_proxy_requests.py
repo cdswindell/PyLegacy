@@ -201,7 +201,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
 
                 # Appended to the admin/sync byte sequence is the port that the server
                 # must use to send state updates back to the client. Decode it here
-                client_port = self.extract_port(byte_stream)
+                (client_ip, client_port) = self.extract_addendum(byte_stream)
                 byte_stream = byte_stream[0:3]
                 cmd = CommandReq.from_bytes(byte_stream)
 
@@ -223,10 +223,12 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     SHUTDOWN_REQUEST,
                 }:
                     # admin request, signal all clients
-                    print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***")
-                    CommandDispatcher.get().signal_client(cmd)
-                    CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
-
+                    print(f"*** {cmd} from {self.client_address[0]}:{client_port} for {client_ip} ***")
+                    if client_ip:
+                        CommandDispatcher.get().signal_clients_on(cmd, client_ip)
+                    else:
+                        CommandDispatcher.get().signal_client(cmd)
+                        CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
                 else:
                     log.error(f"*** Unhandled {cmd} received from {self.client_address[0]}:{client_port} ***")
                 # do not send the special PyTrain commands to the Lionel Base 3 or Ser2
@@ -238,8 +240,13 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             self.request.close()
 
     @staticmethod
-    def extract_port(byte_stream: bytes) -> int:
-        if len(byte_stream) > 3:
-            return int.from_bytes(byte_stream[3:], "big")
+    def extract_addendum(byte_stream: bytes) -> Tuple[str | None, int | None]:
+        print(f"*** {byte_stream} {byte_stream.hex(' ')} ***")
+        if len(byte_stream) > 5:
+            addendum = byte_stream[3:].decode("utf-8", errors="ignore")
+            print("***", addendum, "***")
+            return addendum, None
+        elif len(byte_stream) > 3:
+            return None, int.from_bytes(byte_stream[3:], "big")
         else:
-            return DEFAULT_SERVER_PORT
+            return None, DEFAULT_SERVER_PORT

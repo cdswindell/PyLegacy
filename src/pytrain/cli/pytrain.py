@@ -183,7 +183,7 @@ class PyTrain:
             self._tmcc_listener = ClientStateListener.build()
             listeners.append(self._tmcc_listener)
             print(f"Listening for state updates on port {self._tmcc_listener.port}...")
-            self._client_ip = self._tmcc_buffer.server_ip()
+            self._client_ip: str = self._tmcc_buffer.server_ip()
         # register listeners
         self._is_ser2 = args.ser2 is True
         self._is_base = self._base_addr is not None
@@ -449,7 +449,7 @@ class PyTrain:
                 self._tmcc_buffer.enqueue_command(cmd.as_bytes)
             else:
                 print(f"Sending {command.name} to all clients on this system ({self._client_ip})...")
-                self._dispatcher.signal_clients_on(cmd, self._client_ip)
+                self._tmcc_buffer.enqueue_command(cmd.as_bytes + self._client_ip.encode())
                 self._admin_action = None
             return
         elif self.is_server:
