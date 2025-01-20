@@ -363,7 +363,6 @@ class CommBufferProxy(CommBuffer):
                         resp = s.recv(16)  # we don't care about the response
                         if self._base3_address is None:
                             self._base3_address = resp.decode("utf-8", "ignore")
-                        print(f"Received {resp.decode('utf-8', 'ignore')} from {self._server}:{self._port}")
                     return
                 except OSError as oe:
                     if retries < 90:
