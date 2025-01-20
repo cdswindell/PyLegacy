@@ -216,7 +216,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     SHUTDOWN_REQUEST,
                 }:
                     print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***")
-                    CommandDispatcher.get().signal_client(cmd, self.client_address[0], client_port)
+                    CommandDispatcher.get().signal_client(cmd)
                     CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
 
                 else:
