@@ -186,6 +186,9 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
+
+        # Do something with the IP address
+        print("******** Server IP:", self.server.socket.getsockname()[0])
         while True:
             data = self.request.recv(128)
             if data:
@@ -193,7 +196,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(ack)
             else:
                 break
-        print("*******", self.server.server_address)
         # we use TMCC1 syntax to pass special commands to control operating nodes,
         # to reduce overhead, only do the special processing if necessary
         try:
