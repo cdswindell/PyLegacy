@@ -352,7 +352,6 @@ class CommBufferProxy(CommBuffer):
             self._scheduler.schedule(delay, command)
         else:
             retries = 0
-            print(f"Sending command {command.hex()} to {self._server} on port {self._port}...")
             while True:
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
