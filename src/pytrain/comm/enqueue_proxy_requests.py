@@ -184,6 +184,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(ack)
             else:
                 break
+        self.server.socket.close()
         # we use TMCC1 syntax to pass special commands to control operating nodes
         # if we know the command is not in TMCC1 format, don't take the overhead
         # of the additional checks
