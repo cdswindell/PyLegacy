@@ -352,11 +352,12 @@ class CommBufferProxy(CommBuffer):
             self._scheduler.schedule(delay, command)
         else:
             retries = 0
+            print(f"Sending command to {self._server} on port {self._port}...")
             while True:
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+                        # s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 5)
                         s.settimeout(5.0)
                         if self._ephemeral_port:
                             s.bind(self._ephemeral_port)
@@ -365,8 +366,10 @@ class CommBufferProxy(CommBuffer):
                         if self._ephemeral_port is None:
                             self._ephemeral_port = s.getsockname()
                         s.settimeout(None)
+                        print(f"*** Sending command from {self._ephemeral_port}")
                         s.sendall(command)
                         resp = s.recv(16)  # we don't care about the response
+                        print(f"*** Response to {self._ephemeral_port}: {resp.decode('utf-8', 'ignore')}")
                         if self._base3_address is None:
                             self._base3_address = resp.decode("utf-8", "ignore")
                         return
