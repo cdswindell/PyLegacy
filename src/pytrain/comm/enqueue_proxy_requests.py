@@ -177,7 +177,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
         rp = self.server.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT)
-        print(f"******* {self.client_address}  ReusePort: {rp}")
+        print(f"******* {self.client_address}  ReusePort: {rp}", flush=True)
         while True:
             data = self.request.recv(128)
             if data:
@@ -189,7 +189,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         # we use TMCC1 syntax to pass special commands to control operating nodes
         # if we know the command is not in TMCC1 format, don't take the overhead
         # of the additional checks
-        print(f"Received {byte_stream.hex()} {len(byte_stream)} bytes from {self.client_address[0]}")
+        print(f"Received {byte_stream.hex()} {len(byte_stream)} bytes from {self.client_address[0]}", flush=True)
         try:
             if byte_stream[0] == 0xFE and len(byte_stream) == 4:
                 from .command_listener import CommandDispatcher
@@ -200,7 +200,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 byte_stream = byte_stream[0:3]
                 cmd = CommandReq.from_bytes(byte_stream)
 
-                print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***")
+                print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***", flush=True)
 
                 if byte_stream == DISCONNECT_REQUEST:
                     EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
