@@ -187,12 +187,11 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(ack)
             else:
                 break
-        # we use TMCC1 syntax to pass special commands to control operating nodes
-        # if we know the command is not in TMCC1 format, don't take the overhead
-        # of the additional checks
+        # we use TMCC1 syntax to pass special commands to control operating nodes,
+        # to reduce overhead, only do the special processing if necessary
         print(f"Received {byte_stream.hex()} {len(byte_stream)} bytes from {self.client_address}", flush=True)
         try:
-            print(f"{hex(byte_stream[0])} == 0xfe: {byte_stream[0] == 0xfe}")
+            print(f"{hex(byte_stream[0])} == 0xfe: {byte_stream[0] == 0xFE}")
             if byte_stream[0] == 0xFE and byte_stream[1] == 0xF0:
                 from .command_listener import CommandDispatcher
 
