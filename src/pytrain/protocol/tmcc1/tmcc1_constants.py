@@ -177,6 +177,7 @@ class SyncCommandDef(TMCC1CommandDef):
         )
         self._node_scope = node_scope
 
+    @property
     def is_node_scope(self) -> bool:
         return self._node_scope
 
