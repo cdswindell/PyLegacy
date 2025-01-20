@@ -191,7 +191,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         print(f"Received {byte_stream.hex()} {len(byte_stream)} bytes from {self.client_address}", flush=True)
         try:
             print(f"{hex(byte_stream[0])} == 0xfe: {byte_stream[0] == 0xfe}")
-            if byte_stream[0] == 0xFE and len(byte_stream) == 4:
+            if byte_stream[0] == 0xFE and byte_stream[1] == 0xF0:
                 from .command_listener import CommandDispatcher
 
                 # Appended to the admin/sync byte sequence is the port that the server
@@ -201,7 +201,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 cmd = CommandReq.from_bytes(byte_stream)
 
                 print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***", flush=True)
-
                 if byte_stream == DISCONNECT_REQUEST:
                     EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
                     log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
@@ -225,6 +224,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     CommandDispatcher.get().signal_client(cmd, self.client_address[0], client_port)
                     CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
                     return
+                print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***", flush=True)
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
         finally:
             self.request.shutdown(socket.SHUT_RDWR)
