@@ -480,8 +480,10 @@ class CommandDispatcher(Thread):
             option = CommandReq(option)
         for client_ip, port in EnqueueProxyRequests.clients():
             if client_ip == client:
+                node_scope = cast(SyncCommandDef, option.command_def).is_node_scope
+                print(f"**** Applying {option} to {client}:{port} ns: {node_scope }****")
                 self.update_client_state(option, client=client, port=port)
-                if cast(SyncCommandDef, option.command_def).is_node_scope:
+                if node_scope is True:
                     return
 
     # noinspection DuplicatedCode
