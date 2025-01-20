@@ -175,6 +175,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
+        rp = self.server.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT)
+        print(f"******* {self.client_address}  ReusePort: {rp}")
         while True:
             data = self.request.recv(128)
             if data:
