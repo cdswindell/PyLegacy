@@ -190,41 +190,43 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         # we use TMCC1 syntax to pass special commands to control operating nodes
         # if we know the command is not in TMCC1 format, don't take the overhead
         # of the additional checks
-        if byte_stream[0] in {0xFF, 0xFE}:
-            from .command_listener import CommandDispatcher
+        try:
+            if byte_stream[0] in {0xFF, 0xFE}:
+                from .command_listener import CommandDispatcher
 
-            print(f"Client: {self.client_address}")
-            if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
-                client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
-                EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
-                log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
-                return
-            elif byte_stream.startswith(EnqueueProxyRequests.register_request()):
-                # Appended to the register request byte sequence s the port that the server
-                # must use to send state updates back to the client. Decode it here
-                client_port = self.extract_port(byte_stream, REGISTER_REQUEST)
-                if EnqueueProxyRequests.is_known_client(self.client_address[0], client_port) is False:
-                    log.info(f"Client at {self.client_address[0]}:{client_port} connecting...")
-                EnqueueProxyRequests.client_connect(self.client_address[0], client_port)
-                return
-            elif byte_stream.startswith(EnqueueProxyRequests.sync_state_request()):
-                client_port = self.extract_port(byte_stream, SYNC_STATE_REQUEST)
-                log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
-                CommandDispatcher.get().send_current_state(self.client_address[0], client_port)
-                return
-            elif byte_stream in {
-                UPDATE_REQUEST,
-                UPGRADE_REQUEST,
-                REBOOT_REQUEST,
-                RESTART_REQUEST,
-                SHUTDOWN_REQUEST,
-            } and EnqueueProxyRequests.is_known_client(self.client_address[0]):
-                cmd = CommandReq.from_bytes(byte_stream)
-                CommandDispatcher.get().signal_client(cmd)
-                CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
-                return
-        EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
-        self.finish()
+                print(f"Client: {self.client_address}")
+                if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
+                    client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
+                    EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
+                    log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
+                    return
+                elif byte_stream.startswith(EnqueueProxyRequests.register_request()):
+                    # Appended to the register request byte sequence s the port that the server
+                    # must use to send state updates back to the client. Decode it here
+                    client_port = self.extract_port(byte_stream, REGISTER_REQUEST)
+                    if EnqueueProxyRequests.is_known_client(self.client_address[0], client_port) is False:
+                        log.info(f"Client at {self.client_address[0]}:{client_port} connecting...")
+                    EnqueueProxyRequests.client_connect(self.client_address[0], client_port)
+                    return
+                elif byte_stream.startswith(EnqueueProxyRequests.sync_state_request()):
+                    client_port = self.extract_port(byte_stream, SYNC_STATE_REQUEST)
+                    log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
+                    CommandDispatcher.get().send_current_state(self.client_address[0], client_port)
+                    return
+                elif byte_stream in {
+                    UPDATE_REQUEST,
+                    UPGRADE_REQUEST,
+                    REBOOT_REQUEST,
+                    RESTART_REQUEST,
+                    SHUTDOWN_REQUEST,
+                } and EnqueueProxyRequests.is_known_client(self.client_address[0]):
+                    cmd = CommandReq.from_bytes(byte_stream)
+                    CommandDispatcher.get().signal_client(cmd)
+                    CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
+                    return
+            EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
+        finally:
+            self.finish()
 
     def finish(self):
         print(f"Finish request called: {self.client_address}")
