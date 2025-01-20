@@ -28,13 +28,18 @@ SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
 
 class ProxyServer(socketserver.ThreadingTCPServer):
     __slots__ = "base3_addr", "ack"
+    #
+    # def __init__(self, server_address, req_handler_class):
+    #     super().__init__(server_address, req_handler_class)
+    #     self.allow_reuse_port = True
+    #     self.allow_reuse_address = True
+    #     self.server_bind()
+    #     self.server_activate()
 
-    def __init__(self, server_address, req_handler_class):
-        super().__init__(server_address, req_handler_class, bind_and_activate=False)
-        self.allow_reuse_port = True
-        self.allow_reuse_address = True
-        self.server_bind()
-        self.server_activate()
+    def server_bind(self):
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        self.socket.bind(self.server_address)
 
 
 class EnqueueProxyRequests(Thread):
@@ -175,8 +180,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
-        rp = self.server.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT)
-        print(f"******* {self.client_address}  ReusePort: {rp}")
         while True:
             data = self.request.recv(128)
             if data:
@@ -184,7 +187,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(ack)
             else:
                 break
-        self.server.socket.close()
         # we use TMCC1 syntax to pass special commands to control operating nodes
         # if we know the command is not in TMCC1 format, don't take the overhead
         # of the additional checks

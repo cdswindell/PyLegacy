@@ -359,6 +359,8 @@ class CommBufferProxy(CommBuffer):
                         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
                         s.settimeout(5.0)
                         if self._ephemeral_port:
+                            s.close()
+                            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                             s.bind(self._ephemeral_port)
                         s.connect((str(self._server), self._port))
                         print(f"*** Connected to {s.getsockname()}")
@@ -369,8 +371,7 @@ class CommBufferProxy(CommBuffer):
                         resp = s.recv(16)  # we don't care about the response
                         if self._base3_address is None:
                             self._base3_address = resp.decode("utf-8", "ignore")
-                        s.close()
-                    return
+                        return
                 except OSError as oe:
                     if retries < 90:
                         retries += 1
