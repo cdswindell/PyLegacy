@@ -182,6 +182,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             if data:
                 byte_stream += data
                 self.request.sendall(ack)
+                print(f"Received {byte_stream.hex()} {len(byte_stream)} bytes from {self.client_address[0]}")
             else:
                 break
         # we use TMCC1 syntax to pass special commands to control operating nodes
