@@ -197,7 +197,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 byte_stream = byte_stream[0:3]
                 cmd = CommandReq.from_bytes(byte_stream)
 
-                print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***", flush=True)
                 if byte_stream == DISCONNECT_REQUEST:
                     EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
                     log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
@@ -215,6 +214,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     RESTART_REQUEST,
                     SHUTDOWN_REQUEST,
                 }:
+                    # admin request, signal all clients
                     print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***")
                     CommandDispatcher.get().signal_client(cmd)
                     CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
