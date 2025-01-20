@@ -177,6 +177,9 @@ class EnqueueProxyRequests(Thread):
 
 
 class EnqueueHandler(socketserver.BaseRequestHandler):
+    def __init__(self, request: socket.socket, client_address: Tuple[str, int], server: ProxyServer) -> None:
+        super().__init__(request, client_address, server)
+
     def handle(self):
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
@@ -226,12 +229,11 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     return
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
         finally:
-            self.finish()
+            self.request.shutdown(socket.SHUT_RDWR)
+            self.request.close()
 
     def finish(self):
         print(f"Finish request called: {self.client_address}")
-        self.request.shutdown(socket.SHUT_RDWR)
-        self.request.close()
 
     @staticmethod
     def extract_port(byte_stream: bytes, request: bytes) -> int:
