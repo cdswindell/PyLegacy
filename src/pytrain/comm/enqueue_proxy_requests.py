@@ -220,7 +220,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     SHUTDOWN_REQUEST,
                 }:
                     # admin request, signal all clients
-                    print(f"*** {cmd} from {self.client_address[0]}:{client_port} for {client_ip} ***")
                     if client_ip:
                         CommandDispatcher.get().signal_clients_on(cmd, client_ip)
                     else:
