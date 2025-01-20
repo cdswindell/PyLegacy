@@ -4,7 +4,6 @@ TMCC1 Constants
 
 from __future__ import annotations
 
-import abc
 from enum import unique
 from typing import Dict, Tuple
 
@@ -69,8 +68,6 @@ TMCC1_IDENT_TO_SCOPE_MAP: Dict[TMCC1CommandIdentifier, CommandScope] = {
 
 
 class TMCC1CommandDef(CommandDef):
-    __metaclass__ = abc.ABCMeta
-
     def __init__(
         self,
         command_bits: int,
@@ -152,6 +149,38 @@ class TMCC1CommandDef(CommandDef):
         return None
 
 
+class SyncCommandDef(TMCC1CommandDef):
+    def __init__(
+        self,
+        command_bits: int,
+        node_scope: bool = False,
+        d_min: int = 0,
+        d_max: int = 0,
+        d_map: Dict[int, int] = None,
+        do_reverse_lookup: bool = True,
+        alias: str = None,
+        data: int = None,
+        filtered: bool = False,
+    ) -> None:
+        super().__init__(
+            command_bits,
+            command_ident=TMCC1CommandIdentifier.SYNC,
+            is_addressable=False,
+            num_address_bits=7,
+            d_min=d_min,
+            d_max=d_max,
+            d_map=d_map,
+            do_reverse_lookup=do_reverse_lookup,
+            alias=alias,
+            data=data,
+            filtered=filtered,
+        )
+        self._node_scope = node_scope
+
+    def is_node_scope(self) -> bool:
+        return self._node_scope
+
+
 TMCC1_REGISTER_COMMAND: int = 0xF0F0
 TMCC1_DISCONNECT_COMMAND: int = 0xF0F1
 TMCC1_SYNC_REQUEST_COMMAND: int = 0xF0F2
@@ -169,19 +198,19 @@ TMCC1_UPGRADE_COMMAND: int = 0xF0FA
 
 @unique
 class TMCC1SyncCommandEnum(TMCC1Enum):
-    DISCONNECT = TMCC1CommandDef(TMCC1_DISCONNECT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    QUIT = TMCC1CommandDef(TMCC1_QUIT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    REBOOT = TMCC1CommandDef(TMCC1_REBOOT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    REGISTER = TMCC1CommandDef(TMCC1_REGISTER_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    RESTART = TMCC1CommandDef(TMCC1_RESTART_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    SHUTDOWN = TMCC1CommandDef(TMCC1_SHUTDOWN_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    SYNCHRONIZED = TMCC1CommandDef(TMCC1_SYNCED_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    SYNCHRONIZING = TMCC1CommandDef(TMCC1_SYNCING_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    SYNC_BEGIN = TMCC1CommandDef(TMCC1_SYNC_BEGIN_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    SYNC_COMPLETE = TMCC1CommandDef(TMCC1_SYNC_COMPLETE_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    SYNC_REQUEST = TMCC1CommandDef(TMCC1_SYNC_REQUEST_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    UPDATE = TMCC1CommandDef(TMCC1_UPDATE_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
-    UPGRADE = TMCC1CommandDef(TMCC1_UPGRADE_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
+    DISCONNECT = SyncCommandDef(TMCC1_DISCONNECT_COMMAND)
+    QUIT = SyncCommandDef(TMCC1_QUIT_COMMAND)
+    REBOOT = SyncCommandDef(TMCC1_REBOOT_COMMAND, node_scope=True)
+    REGISTER = SyncCommandDef(TMCC1_REGISTER_COMMAND)
+    RESTART = SyncCommandDef(TMCC1_RESTART_COMMAND, node_scope=True)
+    SHUTDOWN = SyncCommandDef(TMCC1_SHUTDOWN_COMMAND, node_scope=True)
+    SYNCHRONIZED = SyncCommandDef(TMCC1_SYNCED_COMMAND)
+    SYNCHRONIZING = SyncCommandDef(TMCC1_SYNCING_COMMAND)
+    SYNC_BEGIN = SyncCommandDef(TMCC1_SYNC_BEGIN_COMMAND)
+    SYNC_COMPLETE = SyncCommandDef(TMCC1_SYNC_COMPLETE_COMMAND)
+    SYNC_REQUEST = SyncCommandDef(TMCC1_SYNC_REQUEST_COMMAND)
+    UPDATE = SyncCommandDef(TMCC1_UPDATE_COMMAND)
+    UPGRADE = SyncCommandDef(TMCC1_UPGRADE_COMMAND)
 
 
 TMCC1_HALT_COMMAND: int = 0xFFFF

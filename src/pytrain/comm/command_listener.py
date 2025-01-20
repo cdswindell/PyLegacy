@@ -6,7 +6,7 @@ import threading
 from collections import defaultdict, deque
 from queue import Queue
 from threading import Thread
-from typing import Generic, List, Protocol, Tuple, TypeVar, runtime_checkable
+from typing import Generic, List, Protocol, Tuple, TypeVar, runtime_checkable, cast
 
 from .enqueue_proxy_requests import SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE, EnqueueProxyRequests
 from ..db.component_state import ComponentState
@@ -22,7 +22,7 @@ from ..protocol.constants import (
     DEFAULT_SERVER_PORT,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum, SyncCommandDef
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..utils.ip_tools import get_ip_address
 
@@ -481,6 +481,8 @@ class CommandDispatcher(Thread):
         for client_ip, port in EnqueueProxyRequests.clients():
             if client_ip == client:
                 self.update_client_state(option, client=client, port=port)
+                if cast(SyncCommandDef, option.command_def).is_node_scope:
+                    return
 
     # noinspection DuplicatedCode
     def update_client_state(self, command: CommandReq, client: str = None, port: int = None):

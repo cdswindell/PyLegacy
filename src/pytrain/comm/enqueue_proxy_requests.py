@@ -166,7 +166,6 @@ class EnqueueProxyRequests(Thread):
         Simplified TCP/IP Server listens for command requests from client and executes them
         on the PyTrain server.
         """
-        print(f"Starting EnqueueProxyRequests on port {self._server_port}")
         # noinspection PyTypeChecker
         with ProxyServer(("", self._server_port), EnqueueHandler) as server:
             if self._tmcc_buffer.base3_address:
