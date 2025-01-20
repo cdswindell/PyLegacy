@@ -109,11 +109,15 @@ class EnqueueProxyRequests(Thread):
         return SYNC_STATE_REQUEST
 
     @classmethod
-    def sync_begin_response(cls) -> bytes:
+    def sync_begin_response(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
+        if port and port != DEFAULT_SERVER_PORT:
+            return SYNC_BEGIN_RESPONSE + int(port & 0xFFFF).to_bytes(2, byteorder="big")
         return SYNC_BEGIN_RESPONSE
 
     @classmethod
-    def sync_complete_response(cls) -> bytes:
+    def sync_complete_response(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
+        if port and port != DEFAULT_SERVER_PORT:
+            return SYNC_COMPLETE_RESPONSE + int(port & 0xFFFF).to_bytes(2, byteorder="big")
         return SYNC_COMPLETE_RESPONSE
 
     @classmethod
@@ -182,36 +186,34 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         # if we know the command is not in TMCC1 format, don't take the overhead
         # of the additional checks
         try:
-            if byte_stream[0] in {0xFF, 0xFE}:
+            if byte_stream[0] == 0xFE and len(byte_stream) == 4:
                 from .command_listener import CommandDispatcher
 
-                if byte_stream.startswith(EnqueueProxyRequests.disconnect_request()):
-                    client_port = self.extract_port(byte_stream, DISCONNECT_REQUEST)
+                client_port = self.extract_port(byte_stream)
+                if byte_stream.startswith(DISCONNECT_REQUEST):
                     EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
                     log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
                     return
-                elif byte_stream.startswith(EnqueueProxyRequests.register_request()):
+                elif byte_stream.startswith(REGISTER_REQUEST):
                     # Appended to the register request byte sequence s the port that the server
                     # must use to send state updates back to the client. Decode it here
-                    client_port = self.extract_port(byte_stream, REGISTER_REQUEST)
                     if EnqueueProxyRequests.is_known_client(self.client_address[0], client_port) is False:
                         log.info(f"Client at {self.client_address[0]}:{client_port} connecting...")
                     EnqueueProxyRequests.client_connect(self.client_address[0], client_port)
                     return
-                elif byte_stream.startswith(EnqueueProxyRequests.sync_state_request()):
-                    client_port = self.extract_port(byte_stream, SYNC_STATE_REQUEST)
+                elif byte_stream.startswith(SYNC_STATE_REQUEST):
                     log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
                     CommandDispatcher.get().send_current_state(self.client_address[0], client_port)
                     return
-                elif byte_stream in {
+                elif byte_stream[0:3] in {
                     UPDATE_REQUEST,
                     UPGRADE_REQUEST,
                     REBOOT_REQUEST,
                     RESTART_REQUEST,
                     SHUTDOWN_REQUEST,
-                } and EnqueueProxyRequests.is_known_client(self.client_address[0]):
-                    cmd = CommandReq.from_bytes(byte_stream)
-                    CommandDispatcher.get().signal_client(cmd)
+                }:
+                    cmd = CommandReq.from_bytes(byte_stream[0:3])
+                    CommandDispatcher.get().signal_client(cmd, self.client_address[0], client_port)
                     CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
                     return
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
@@ -220,8 +222,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             self.request.close()
 
     @staticmethod
-    def extract_port(byte_stream: bytes, request: bytes) -> int:
-        if len(byte_stream) > len(request):
-            return int.from_bytes(byte_stream[len(request) :], "big")
+    def extract_port(byte_stream: bytes) -> int:
+        if len(byte_stream) == 4:
+            return int.from_bytes(byte_stream[3:], "big")
         else:
             return DEFAULT_SERVER_PORT
