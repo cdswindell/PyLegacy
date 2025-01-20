@@ -424,7 +424,10 @@ class PyTrain:
         if args and args[0] not in self._server_ips and args[0] != "me":
             # point to point; command will execute on the specified node
             print(f"Sending {command.name} request to {args[0]}...")
-            CommandDispatcher.get().signal_client(cmd, client=args[0])
+            arg_parts = args[0].split(":")
+            addr = arg_parts[0] if len(arg_parts) > 0 else None
+            port = int(arg_parts[1]) if len(arg_parts) > 0 else self._port
+            CommandDispatcher.get().signal_client(cmd, client=addr, port=port)
             return
 
         # exit pytrain, signalling the exit behavior by setting
