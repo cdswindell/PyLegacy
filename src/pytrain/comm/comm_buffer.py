@@ -352,7 +352,7 @@ class CommBufferProxy(CommBuffer):
             self._scheduler.schedule(delay, command)
         else:
             retries = 0
-            print(f"Sending command to {self._server} on port {self._port}...")
+            print(f"Sending command {command.hex()} to {self._server} on port {self._port}...")
             while True:
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -363,7 +363,7 @@ class CommBufferProxy(CommBuffer):
                         resp = s.recv(16)  # we don't care about the response
                         if self._base3_address is None:
                             self._base3_address = resp.decode("utf-8", "ignore")
-                        return
+                    return
                 except OSError as oe:
                     if retries < 90:
                         retries += 1
