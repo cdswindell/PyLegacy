@@ -189,30 +189,34 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             if byte_stream[0] == 0xFE and len(byte_stream) == 4:
                 from .command_listener import CommandDispatcher
 
+                # Appended to the admin/sync byte sequence is the port that the server
+                # must use to send state updates back to the client. Decode it here
                 client_port = self.extract_port(byte_stream)
-                if byte_stream.startswith(DISCONNECT_REQUEST):
+                byte_stream = byte_stream[0:3]
+                cmd = CommandReq.from_bytes(byte_stream)
+
+                print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***")
+
+                if byte_stream == DISCONNECT_REQUEST:
                     EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
                     log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
                     return
-                elif byte_stream.startswith(REGISTER_REQUEST):
-                    # Appended to the register request byte sequence s the port that the server
-                    # must use to send state updates back to the client. Decode it here
+                elif byte_stream == REGISTER_REQUEST:
                     if EnqueueProxyRequests.is_known_client(self.client_address[0], client_port) is False:
                         log.info(f"Client at {self.client_address[0]}:{client_port} connecting...")
                     EnqueueProxyRequests.client_connect(self.client_address[0], client_port)
                     return
-                elif byte_stream.startswith(SYNC_STATE_REQUEST):
+                elif byte_stream == SYNC_STATE_REQUEST:
                     log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
                     CommandDispatcher.get().send_current_state(self.client_address[0], client_port)
                     return
-                elif byte_stream[0:3] in {
+                elif byte_stream in {
                     UPDATE_REQUEST,
                     UPGRADE_REQUEST,
                     REBOOT_REQUEST,
                     RESTART_REQUEST,
                     SHUTDOWN_REQUEST,
                 }:
-                    cmd = CommandReq.from_bytes(byte_stream[0:3])
                     CommandDispatcher.get().signal_client(cmd, self.client_address[0], client_port)
                     CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
                     return
