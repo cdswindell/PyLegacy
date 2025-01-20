@@ -8,8 +8,8 @@ from typing import Tuple, Callable, Dict, TypeVar, List, Union
 
 from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice, PingServer
 
-from .i2c.ads_1x15 import Ads1115
 from .controller import Controller, ControllerI2C
+from .i2c.ads_1x15 import Ads1115
 from .i2c.button_i2c import ButtonI2C
 from .i2c.led_i2c import LEDI2C
 from .keypad import KEYPAD_PCF8574_ADDRESS
@@ -962,6 +962,7 @@ class GpioHandler:
                 auto_timeout=59,
                 cathode=cathode,
             )
+            led.blink()
             cls.cache_handler(EngineStateSource(address, led, lambda x: x.is_aux2))
 
         return cab_ctrl, lift_cntr, move_cntr, btn, led

@@ -363,7 +363,6 @@ class PyTrain:
                         readline.add_history(ui)  # provides limited command line recall and editing
                         self._handle_command(ui)
                 except SystemExit:
-                    print("Exiting...")
                     pass
                 except argparse.ArgumentError:
                     pass
