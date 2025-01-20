@@ -176,7 +176,6 @@ class EnqueueProxyRequests(Thread):
                 server.ack = str.encode(server.base3_addr)
             else:
                 server.ack = str.encode("ack")
-            print("*******", server.server_address)
             server.serve_forever()
 
 
@@ -194,6 +193,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(ack)
             else:
                 break
+        print("*******", self.server.server_address)
         # we use TMCC1 syntax to pass special commands to control operating nodes,
         # to reduce overhead, only do the special processing if necessary
         try:
