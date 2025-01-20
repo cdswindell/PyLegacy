@@ -234,7 +234,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
 
     @staticmethod
     def extract_port(byte_stream: bytes) -> int:
-        if len(byte_stream) == 4:
+        if len(byte_stream) > 3:
             return int.from_bytes(byte_stream[3:], "big")
         else:
             return DEFAULT_SERVER_PORT
