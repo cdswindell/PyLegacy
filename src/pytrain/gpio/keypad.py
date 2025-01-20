@@ -364,7 +364,6 @@ class KeyQueue:
         with self._cv:
             if self._digit_ev and self._digit_ev.is_set():
                 self._digit_ev.clear()
-                print(f"processed digit: {self.key_presses}")
                 self._deque.clear()
 
     def reset(self) -> None:
