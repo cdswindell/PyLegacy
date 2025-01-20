@@ -65,8 +65,10 @@ class EnqueueProxyRequests(Thread):
         Remove client so we don't send more state updates
         """
         if cls._instance is not None:
+            print(f"Disconnecting {client}:{port} {cls.clients()}")
             # noinspection PyProtectedMember
             cls._instance._clients.discard((client, port))
+            print(f"Disconnected {client}:{port} {cls.clients()}")
 
     @classmethod
     def is_known_client(cls, ip_addr: str, port: int = DEFAULT_SERVER_PORT) -> bool:
