@@ -202,7 +202,7 @@ class TMCC1SyncCommandEnum(TMCC1Enum):
     QUIT = SyncCommandDef(TMCC1_QUIT_COMMAND)
     REBOOT = SyncCommandDef(TMCC1_REBOOT_COMMAND, node_scope=True)
     REGISTER = SyncCommandDef(TMCC1_REGISTER_COMMAND)
-    RESTART = SyncCommandDef(TMCC1_RESTART_COMMAND, node_scope=True)
+    RESTART = SyncCommandDef(TMCC1_RESTART_COMMAND)
     SHUTDOWN = SyncCommandDef(TMCC1_SHUTDOWN_COMMAND, node_scope=True)
     SYNCHRONIZED = SyncCommandDef(TMCC1_SYNCED_COMMAND)
     SYNCHRONIZING = SyncCommandDef(TMCC1_SYNCING_COMMAND)
