@@ -10,17 +10,17 @@ from __future__ import annotations
 
 import argparse
 import logging.config
-import sys
-
-import readline
-import socket
 import os
+import readline
 import signal
+import socket
+import sys
 import threading
 from datetime import datetime, timedelta
 from time import sleep
 from timeit import default_timer as timer
 from typing import List, Tuple, Dict, Any
+
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
 from .acc import AccCli
@@ -106,9 +106,11 @@ class PyTrain:
         self._client = args.client
         self._received_admin_cmds = set()
         self._script_loader: StartupScriptLoader | None = None
+        self._client_ip = None
         self._server_ips = None
         self._admin_action: CommandDefEnum | None = None
         self._base_addr = self._base_port = None
+        self._dispatcher = None
         self._started_at = timer()
         self._version = get_version()
         self._original_sigterm_handler = signal.getsignal(signal.SIGINT)
@@ -181,6 +183,7 @@ class PyTrain:
             self._tmcc_listener = ClientStateListener.build()
             listeners.append(self._tmcc_listener)
             print(f"Listening for state updates on port {self._tmcc_listener.port}...")
+            self._client_ip = self._tmcc_buffer.server_ip()
         # register listeners
         self._is_ser2 = args.ser2 is True
         self._is_base = self._base_addr is not None
@@ -207,6 +210,10 @@ class PyTrain:
         # Subscribe this instance of PyTrain to sync updates so we can receive
         # Update and Reboot command directives from clients
         self._tmcc_listener.subscribe(self, CommandScope.SYNC)
+
+        # Command dispatcher should be built by now, get call will throw exception
+        # if it is not
+        self._dispatcher = CommandDispatcher.get()
 
         # load roster
         if self._pdi_buffer is not None:
@@ -383,7 +390,7 @@ class PyTrain:
         # print(f"********* Received {signum}, shutting down ({self._admin_action})...", flush=True)
         if self._admin_action is None:
             if self.is_server:
-                CommandDispatcher.get().signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
+                self._dispatcher.signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
             self._admin_action = TMCC1SyncCommandEnum.QUIT
         os.kill(os.getpid(), signal.SIGINT)
 
@@ -423,27 +430,31 @@ class PyTrain:
         # special case to see if we want to operate on a different client node
         if args and args[0] not in self._server_ips and args[0] != "me":
             # point to point; command will execute on the specified node
-            print(f"Sending {command.name} request to {args[0]}...")
             arg_parts = args[0].split(":")
             addr = arg_parts[0] if len(arg_parts) > 0 else None
             port = int(arg_parts[1]) if len(arg_parts) > 0 else self._port
-            CommandDispatcher.get().signal_client(cmd, client=addr, port=port)
+            print(f"Sending {command.name} request to {addr}:{port}...")
+            self._dispatcher.signal_client(cmd, client=addr, port=port)
             return
 
         # exit pytrain, signalling the exit behavior by setting
         # self._admin_action to the requested operation
         self._admin_action = command
+
+        # if we're a client, send command to all instances on the client host
         if args and args[0] == "me" and self.is_client:
-            # Command will execute only on this node
-            if self._port != self._tmcc_listener.port:
-                print(f"Sending {command.name} request to port: {self._port} on this system...")
-                CommandDispatcher.get().signal_client(cmd, client="", port=self._port)
+            # If the client is on the server node, send command to the server
+            if self._client_ip in self._server_ips:
+                print(f"Sending {command.name} to {PROGRAM_NAME} server...")
+                self._tmcc_buffer.enqueue_command(cmd.as_bytes)
+            else:
+                print(f"Sending {command.name} to all clients on this system ({self._client_ip})...")
+                self._dispatcher.signal_clients_on(cmd, self._client_ip)
                 self._admin_action = None
-                return
-            pass
+            return
         elif self.is_server:
             # if server, signal all clients as well as the server
-            CommandDispatcher.get().signal_client(cmd)
+            self._dispatcher.signal_client(cmd)
         else:
             # send command to server, it will send it to all clients
             # then will execute it on the server itself
@@ -633,7 +644,7 @@ class PyTrain:
                     if args.command == "quit":
                         # if server, signal clients to disconnect
                         if self.is_server:
-                            CommandDispatcher.get().signal_client()
+                            self._dispatcher.signal_client()
                         # if client quits, remaining nodes continue to run
                         raise KeyboardInterrupt()
                     elif args.command in ADMIN_COMMAND_TO_ACTION_MAP:

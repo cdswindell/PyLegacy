@@ -335,7 +335,7 @@ class CommBufferProxy(CommBuffer):
     @classmethod
     def server_ip(cls) -> str:
         if cls.is_built() is True and cls.is_client() is True and cls._instance._ephemeral_port:
-            return cls._instance._ephemeral_port(0)
+            return cls._instance._ephemeral_port[0]
         raise AttributeError("CommBufferProxy must be built first")
 
     def __init__(self, server: IPv4Address | IPv6Address = None, port: int = DEFAULT_SERVER_PORT) -> None:

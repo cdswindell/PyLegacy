@@ -8,6 +8,7 @@ from queue import Queue
 from threading import Thread
 from typing import Generic, List, Protocol, Tuple, TypeVar, runtime_checkable
 
+from .enqueue_proxy_requests import SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE, EnqueueProxyRequests
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
@@ -24,7 +25,6 @@ from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..utils.ip_tools import get_ip_address
-from .enqueue_proxy_requests import SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE, EnqueueProxyRequests
 
 log = logging.getLogger(__name__)
 
@@ -472,6 +472,16 @@ class CommandDispatcher(Thread):
         if isinstance(option, TMCC1SyncCommandEnum):
             option = CommandReq(option)
         self.update_client_state(option, client=client, port=port)
+
+    def signal_clients_on(
+        self, option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT, client: str = None
+    ) -> None:
+        if isinstance(option, TMCC1SyncCommandEnum):
+            option = CommandReq(option)
+        for client_ip, port in EnqueueProxyRequests.clients():
+            print(f"*** {client} {client_ip}:{port}")
+            if client_ip == client:
+                self.update_client_state(option, client=client, port=port)
 
     # noinspection DuplicatedCode
     def update_client_state(self, command: CommandReq, client: str = None, port: int = None):
