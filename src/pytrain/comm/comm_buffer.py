@@ -359,8 +359,6 @@ class CommBufferProxy(CommBuffer):
                         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
                         s.settimeout(5.0)
                         if self._ephemeral_port:
-                            s.close()
-                            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                             s.bind(self._ephemeral_port)
                         s.connect((str(self._server), self._port))
                         print(f"*** Connected to {s.getsockname()}")
