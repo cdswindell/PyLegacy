@@ -178,8 +178,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
-        rp = self.server.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT)
-        print(f"******* {self.client_address}  ReusePort: {rp}", flush=True)
         while True:
             data = self.request.recv(128)
             if data:
@@ -189,9 +187,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 break
         # we use TMCC1 syntax to pass special commands to control operating nodes,
         # to reduce overhead, only do the special processing if necessary
-        print(f"Received {byte_stream.hex()} {len(byte_stream)} bytes from {self.client_address}", flush=True)
         try:
-            print(f"{hex(byte_stream[0])} == 0xfe: {byte_stream[0] == 0xFE}")
             if byte_stream[0] == 0xFE and byte_stream[1] == 0xF0:
                 from .command_listener import CommandDispatcher
 
@@ -201,20 +197,17 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 byte_stream = byte_stream[0:3]
                 cmd = CommandReq.from_bytes(byte_stream)
 
-                print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***", flush=True)
+                # print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***", flush=True)
                 if byte_stream == DISCONNECT_REQUEST:
                     EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
                     log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
-                    return
                 elif byte_stream == REGISTER_REQUEST:
                     if EnqueueProxyRequests.is_known_client(self.client_address[0], client_port) is False:
                         log.info(f"Client at {self.client_address[0]}:{client_port} connecting...")
                     EnqueueProxyRequests.client_connect(self.client_address[0], client_port)
-                    return
                 elif byte_stream == SYNC_STATE_REQUEST:
                     log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
                     CommandDispatcher.get().send_current_state(self.client_address[0], client_port)
-                    return
                 elif byte_stream in {
                     UPDATE_REQUEST,
                     UPGRADE_REQUEST,
@@ -222,10 +215,15 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     RESTART_REQUEST,
                     SHUTDOWN_REQUEST,
                 }:
+                    print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***")
                     CommandDispatcher.get().signal_client(cmd, self.client_address[0], client_port)
                     CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
-                    return
-                print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***", flush=True)
+
+                else:
+                    log.error(f"*** Unhandled {cmd} received from {self.client_address[0]}:{client_port} ***")
+                # do not send the special PyTrain commands to the Lionel Base 3 or Ser2
+                return
+
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
         finally:
             self.request.shutdown(socket.SHUT_RDWR)
