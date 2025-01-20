@@ -226,6 +226,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
 
     def finish(self):
+        print(f"Finish request called: {self.client_address}")
         self.request.shutdown(socket.SHUT_RDWR)
         self.request.close()
 
