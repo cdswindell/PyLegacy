@@ -356,20 +356,11 @@ class CommBufferProxy(CommBuffer):
             while True:
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                        # s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
                         s.settimeout(5.0)
-                        if self._ephemeral_port:
-                            s.bind(self._ephemeral_port)
                         s.connect((str(self._server), self._port))
-                        print(f"*** Connected to {s.getsockname()}")
-                        if self._ephemeral_port is None:
-                            self._ephemeral_port = s.getsockname()
                         s.settimeout(None)
-                        print(f"*** Sending command from {self._ephemeral_port}")
                         s.sendall(command)
                         resp = s.recv(16)  # we don't care about the response
-                        print(f"*** Response to {self._ephemeral_port}: {resp.decode('utf-8', 'ignore')}")
                         if self._base3_address is None:
                             self._base3_address = resp.decode("utf-8", "ignore")
                         return

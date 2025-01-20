@@ -152,24 +152,34 @@ class TMCC1CommandDef(CommandDef):
         return None
 
 
-TMCC1_SYNCING_COMMAND: int = 0xF0F0
+TMCC1_DISCONNECT_COMMAND: int = 0xF0F1
 TMCC1_QUIT_COMMAND: int = 0xF0F7
 TMCC1_REBOOT_COMMAND: int = 0xF0F8
+TMCC1_REGISTER_COMMAND: int = 0xF0F0
+TMCC1_RESTART_COMMAND: int = 0xF0FC
+TMCC1_SHUTDOWN_COMMAND: int = 0xF0FB
+TMCC1_SYNCED_COMMAND: int = 0xF0FF
+TMCC1_SYNCING_COMMAND: int = 0xF0F4
+TMCC1_SYNC_BEGIN_COMMAND: int = 0xF0F3
+TMCC1_SYNC_COMPLETE_COMMAND: int = 0xF0F5
+TMCC1_SYNC_REQUEST_COMMAND: int = 0xF0F2
 TMCC1_UPDATE_COMMAND: int = 0xF0F9
 TMCC1_UPGRADE_COMMAND: int = 0xF0FA
-TMCC1_SHUTDOWN_COMMAND: int = 0xF0FB
-TMCC1_RESTART_COMMAND: int = 0xF0FC
-TMCC1_SYNCED_COMMAND: int = 0xF0FF
 
 
 @unique
 class TMCC1SyncCommandEnum(TMCC1Enum):
+    DISCONNECT = TMCC1CommandDef(TMCC1_DISCONNECT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     QUIT = TMCC1CommandDef(TMCC1_QUIT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     REBOOT = TMCC1CommandDef(TMCC1_REBOOT_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
+    REGISTER = TMCC1CommandDef(TMCC1_REGISTER_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     RESTART = TMCC1CommandDef(TMCC1_RESTART_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     SHUTDOWN = TMCC1CommandDef(TMCC1_SHUTDOWN_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     SYNCHRONIZED = TMCC1CommandDef(TMCC1_SYNCED_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     SYNCHRONIZING = TMCC1CommandDef(TMCC1_SYNCING_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
+    SYNC_BEGIN = TMCC1CommandDef(TMCC1_SYNC_BEGIN_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
+    SYNC_COMPLETE = TMCC1CommandDef(TMCC1_SYNC_COMPLETE_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
+    SYNC_REQUEST = TMCC1CommandDef(TMCC1_SYNC_REQUEST_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     UPDATE = TMCC1CommandDef(TMCC1_UPDATE_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
     UPGRADE = TMCC1CommandDef(TMCC1_UPGRADE_COMMAND, TMCC1CommandIdentifier.SYNC, is_addressable=False)
 
