@@ -224,6 +224,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
                 return
         EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
+        self.finish()
 
     def finish(self):
         print(f"Finish request called: {self.client_address}")
