@@ -197,7 +197,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 byte_stream = byte_stream[0:3]
                 cmd = CommandReq.from_bytes(byte_stream)
 
-                # print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***", flush=True)
+                print(f"*** {cmd} received from {self.client_address[0]}:{client_port} ***", flush=True)
                 if byte_stream == DISCONNECT_REQUEST:
                     EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
                     log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
