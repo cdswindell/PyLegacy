@@ -186,9 +186,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
     def handle(self):
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
-
-        # Do something with the IP address
-        print("******** Server IP:", self.server.socket.getsockname()[0])
         while True:
             data = self.request.recv(128)
             if data:
