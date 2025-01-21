@@ -8,6 +8,7 @@ import socket
 import sys
 import threading
 import time
+import uuid
 from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
 from threading import Thread
@@ -149,6 +150,10 @@ class CommBuffer(abc.ABC):
     @abc.abstractmethod
     def base3_address(self, value: str) -> None: ...
 
+    @property
+    @abc.abstractmethod
+    def uuid(self) -> uuid.UUID: ...
+
 
 class CommBufferSingleton(CommBuffer, Thread):
     def __init__(
@@ -182,6 +187,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._base3: Base3Buffer | None = None
         self._use_base3 = False
         self._tmcc_dispatcher = None
+        self._uuid: uuid.UUID = uuid.uuid4()
         # start the consumer threads
         self._scheduler = DelayHandler(self)
         self.start()
@@ -193,6 +199,10 @@ class CommBufferSingleton(CommBuffer, Thread):
     @base3_address.setter
     def base3_address(self, value: str) -> None:
         self._base3_address = value
+
+    @property
+    def uuid(self) -> uuid.UUID:
+        return self._uuid
 
     @staticmethod
     def _current_milli_time() -> int:
@@ -349,6 +359,7 @@ class CommBufferProxy(CommBuffer):
         self._port = port
         self._ephemeral_port = None
         self._base3_address = None
+        self._uuid: uuid.UUID = uuid.uuid4()
 
     @property
     def base3_address(self) -> str:
@@ -357,6 +368,10 @@ class CommBufferProxy(CommBuffer):
     @base3_address.setter
     def base3_address(self, value: str) -> None:
         pass
+
+    @property
+    def uuid(self) -> uuid.UUID:
+        return self._uuid
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if delay > 0:
@@ -370,7 +385,7 @@ class CommBufferProxy(CommBuffer):
                         s.connect((str(self._server), self._port))
                         s.settimeout(None)
                         s.sendall(command)
-                        resp = s.recv(16)  # we don't care about the response
+                        resp = s.recv(32)  # we don't care about the response
                         if self._base3_address is None:
                             self._base3_address = resp.decode("utf-8", "ignore")
                         if self._ephemeral_port is None:
@@ -392,7 +407,7 @@ class CommBufferProxy(CommBuffer):
 
         while True:
             # noinspection PyTypeChecker
-            self.enqueue_command(EnqueueProxyRequests.register_request(port))
+            self.enqueue_command(EnqueueProxyRequests.register_request(port, self.uuid))
             return
 
     def disconnect(self, port: int = DEFAULT_SERVER_PORT) -> None:

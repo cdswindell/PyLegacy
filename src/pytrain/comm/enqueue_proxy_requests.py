@@ -4,6 +4,7 @@ import logging
 import socket
 import socketserver
 import threading
+import uuid
 from threading import Thread
 from typing import cast, Tuple, Set
 
@@ -91,10 +92,10 @@ class EnqueueProxyRequests(Thread):
             cls._instance.shutdown()
 
     @classmethod
-    def register_request(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
-        if port and port != DEFAULT_SERVER_PORT:
-            return REGISTER_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
-        return REGISTER_REQUEST
+    def register_request(cls, port: int, client_id: uuid.UUID) -> bytes:
+        if port is None:
+            port = DEFAULT_SERVER_PORT
+        return REGISTER_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
 
     @classmethod
     def disconnect_request(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
@@ -198,7 +199,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
 
                 # Appended to the admin/sync byte sequence is the port that the server
                 # must use to send state updates back to the client. Decode it here
-                (client_ip, client_port) = self.extract_addendum(byte_stream)
+                (client_ip, client_port, client_uuid) = self.extract_addendum(byte_stream)
                 byte_stream = byte_stream[0:3]
                 cmd = CommandReq.from_bytes(byte_stream)
 
@@ -236,14 +237,15 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             self.request.close()
 
     @staticmethod
-    def extract_addendum(byte_stream: bytes) -> Tuple[str | None, int | None]:
+    def extract_addendum(byte_stream: bytes) -> Tuple[str | None, int | None, uuid.UUID | None]:
+        client_uuid: uuid.UUID | None = None
+        client_ip: str | None = None
+        client_port: int = DEFAULT_SERVER_PORT
         if len(byte_stream) > 5:
             addenda = byte_stream[3:].decode("utf-8", errors="ignore")
             parts = addenda.split(":")
-            ip_addr = parts[0] if parts[0] else None
-            port = int(parts[1]) if len(parts) > 1 else None
-            return ip_addr, port
+            client_ip = parts[0] if parts[0] else None
+            client_port = int(parts[1]) if len(parts) > 1 else None
         elif len(byte_stream) > 3:
-            return None, int.from_bytes(byte_stream[3:], "big")
-        else:
-            return None, DEFAULT_SERVER_PORT
+            client_port = int.from_bytes(byte_stream[3:], "big")
+        return client_ip, client_port, client_uuid
