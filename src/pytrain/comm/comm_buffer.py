@@ -415,7 +415,7 @@ class CommBufferProxy(CommBuffer):
             from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 
             # noinspection PyTypeChecker
-            self.enqueue_command(EnqueueProxyRequests.disconnect_request(port))
+            self.enqueue_command(EnqueueProxyRequests.disconnect_request(port, self.uuid))
             return
         except ConnectionError as ce:
             raise ce
@@ -425,7 +425,7 @@ class CommBufferProxy(CommBuffer):
 
         try:
             # noinspection PyTypeChecker
-            self.enqueue_command(EnqueueProxyRequests.sync_state_request(port))
+            self.enqueue_command(EnqueueProxyRequests.sync_state_request(port, self.uuid))
         except ConnectionError as ce:
             raise ce
 
