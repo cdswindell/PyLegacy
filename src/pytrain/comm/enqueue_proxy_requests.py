@@ -6,7 +6,8 @@ import socketserver
 import threading
 import uuid
 from threading import Thread
-from typing import cast, Tuple, Set
+from time import time
+from typing import cast, Tuple, Set, Dict
 
 from ..comm.comm_buffer import CommBuffer
 from ..protocol.command_req import CommandReq
@@ -53,7 +54,7 @@ class EnqueueProxyRequests(Thread):
         EnqueueProxyRequests.get_comm_buffer().enqueue_command(data)
 
     @classmethod
-    def client_connect(cls, client: str, port: int, client_id: uuid.UUID) -> None:
+    def client_connect(cls, client_ip: str, port: int, client_id: uuid.UUID) -> None:
         """
         Take note of client IPs, so we can update them of component state changes
         """
@@ -61,10 +62,10 @@ class EnqueueProxyRequests(Thread):
             if port is None:
                 port = DEFAULT_SERVER_PORT
             # noinspection PyProtectedMember
-            cls._instance._clients.add((client, port))
+            cls._instance._clients[(client_ip, port, client_id)] = time()
 
     @classmethod
-    def client_disconnect(cls, client: str, port: int, client_id: uuid.UUID) -> None:
+    def client_disconnect(cls, client_ip: str, port: int, client_id: uuid.UUID) -> None:
         """
         Remove client so we don't send more state updates
         """
@@ -72,19 +73,21 @@ class EnqueueProxyRequests(Thread):
             if port is None:
                 port = DEFAULT_SERVER_PORT
             # noinspection PyProtectedMember
-            cls._instance._clients.discard((client, port))
+            cls._instance._clients.pop((client_ip, port, client_id), None)
 
+    # noinspection PyProtectedMember
     @classmethod
-    def is_known_client(cls, ip_addr: str, port: int = DEFAULT_SERVER_PORT) -> bool:
-        # noinspection PyProtectedMember
-        if cls._instance and ((ip_addr, port) in cls._instance._clients):
+    def is_known_client(cls, client_ip: str, port: int, client_id: uuid.UUID) -> bool:
+        if port is None:
+            port = DEFAULT_SERVER_PORT
+        if cls._instance and ((client_ip, port, client_id) in cls._instance._clients):
             return True
         return False
 
     @classmethod
     def clients(cls) -> Set[Tuple[str, int]]:
         # noinspection PyProtectedMember
-        return cls._instance._clients.copy()
+        return {(k[0], k[1]) for k, v in cls._instance._clients.items()}
 
     @classmethod
     def get_comm_buffer(cls) -> CommBuffer:
@@ -153,7 +156,7 @@ class EnqueueProxyRequests(Thread):
         self._tmcc_buffer: CommBuffer = tmcc_buffer
         self._server_port = server_port
         self._server_ip = None
-        self._clients: Set[Tuple[str, int]] = set()
+        self._clients: Dict[Tuple[str, int, uuid.UUID | None], int] = dict()
         self.start()
 
     def __new__(cls, *args, **kwargs):
@@ -210,17 +213,17 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
 
                 # Appended to the admin/sync byte sequence is the port that the server
                 # must use to send state updates back to the client. Decode it here
-                (client_ip, client_port, client_uuid) = self.extract_addendum(byte_stream)
+                (client_ip, client_port, client_id) = self.extract_addendum(byte_stream)
                 byte_stream = byte_stream[0:3]
                 cmd = CommandReq.from_bytes(byte_stream)
 
                 if byte_stream == DISCONNECT_REQUEST:
-                    EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port, client_uuid)
+                    EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port, client_id)
                     log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
                 elif byte_stream == REGISTER_REQUEST:
-                    if EnqueueProxyRequests.is_known_client(self.client_address[0], client_port) is False:
+                    if EnqueueProxyRequests.is_known_client(self.client_address[0], client_port, client_id) is False:
                         log.info(f"Client at {self.client_address[0]}:{client_port} connecting...")
-                    EnqueueProxyRequests.client_connect(self.client_address[0], client_port, client_uuid)
+                    EnqueueProxyRequests.client_connect(self.client_address[0], client_port, client_id)
                 elif byte_stream == SYNC_STATE_REQUEST:
                     log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
                     dispatcher.send_current_state(self.client_address[0], client_port)
