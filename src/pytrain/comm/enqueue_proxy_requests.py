@@ -109,15 +109,18 @@ class EnqueueProxyRequests(Thread):
 
     @classmethod
     def sync_state_request(cls, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> bytes:
-        return cls._build_request(SYNC_STATE_REQUEST, port, client_id)
+        return SYNC_STATE_REQUEST
+        # return cls._build_request(SYNC_STATE_REQUEST, port, client_id)
 
     @classmethod
     def sync_begin_response(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
-        return cls._build_request(SYNC_BEGIN_RESPONSE, port)
+        return SYNC_BEGIN_RESPONSE
+        # return cls._build_request(SYNC_BEGIN_RESPONSE, port)
 
     @classmethod
     def sync_complete_response(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
-        return cls._build_request(SYNC_COMPLETE_RESPONSE, port)
+        return SYNC_COMPLETE_RESPONSE
+        # return cls._build_request(SYNC_COMPLETE_RESPONSE, port)
 
     @classmethod
     def is_built(cls) -> bool:
@@ -244,7 +247,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     log.error(f"*** Unhandled {cmd} received from {self.client_address[0]}:{client_port} ***")
                 # do not send the special PyTrain commands to the Lionel Base 3 or Ser2
                 return
-
+            # with the handling of the admin cmds out of the way, queue the bytes
+            # received from the client for processing by the Lionel Base 3
             EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
         finally:
             self.request.shutdown(socket.SHUT_RDWR)
