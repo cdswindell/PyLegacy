@@ -87,6 +87,8 @@ class EnqueueProxyRequests(Thread):
     @classmethod
     def clients(cls) -> Set[Tuple[str, int]]:
         # noinspection PyProtectedMember
+        cds = {(k[0], k[1]) for k, v in cls._instance._clients.items()}
+        print(cds)
         return {(k[0], k[1]) for k, v in cls._instance._clients.items()}
 
     @classmethod
