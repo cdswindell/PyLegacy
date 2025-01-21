@@ -207,6 +207,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             if byte_stream[0] == 0xFE and byte_stream[1] == 0xF0:
                 from .command_listener import CommandDispatcher
 
+                print(f"Received {CommandReq.from_bytes(byte_stream[0:3])} from {self.client_address}")
                 # Appended to the admin/sync byte sequence is the port that the server
                 # must use to send state updates back to the client. Decode it here
                 (client_ip, client_port, client_id) = self.extract_addendum(byte_stream)
