@@ -25,10 +25,11 @@ UPGRADE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.UPGRADE).as_bytes
 REBOOT_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.REBOOT).as_bytes
 RESTART_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.RESTART).as_bytes
 SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
+KEEP_ALIVE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.KEEP_ALIVE).as_bytes
 
 
 class ProxyServer(socketserver.ThreadingTCPServer):
-    __slots__ = "base3_addr", "ack"
+    __slots__ = "base3_addr", "ack", "dispatcher"
 
 
 class EnqueueProxyRequests(Thread):
@@ -52,20 +53,24 @@ class EnqueueProxyRequests(Thread):
         EnqueueProxyRequests.get_comm_buffer().enqueue_command(data)
 
     @classmethod
-    def client_connect(cls, client: str, port: int = DEFAULT_SERVER_PORT) -> None:
+    def client_connect(cls, client: str, port: int, client_id: uuid.UUID) -> None:
         """
         Take note of client IPs, so we can update them of component state changes
         """
         if cls._instance is not None:
+            if port is None:
+                port = DEFAULT_SERVER_PORT
             # noinspection PyProtectedMember
             cls._instance._clients.add((client, port))
 
     @classmethod
-    def client_disconnect(cls, client: str, port: int = DEFAULT_SERVER_PORT) -> None:
+    def client_disconnect(cls, client: str, port: int, client_id: uuid.UUID) -> None:
         """
         Remove client so we don't send more state updates
         """
         if cls._instance is not None:
+            if port is None:
+                port = DEFAULT_SERVER_PORT
             # noinspection PyProtectedMember
             cls._instance._clients.discard((client, port))
 
@@ -98,16 +103,16 @@ class EnqueueProxyRequests(Thread):
         return REGISTER_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
 
     @classmethod
-    def disconnect_request(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
-        if port and port != DEFAULT_SERVER_PORT:
-            return DISCONNECT_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
-        return DISCONNECT_REQUEST
+    def disconnect_request(cls, port, client_id: uuid.UUID) -> bytes:
+        if port is None:
+            port = DEFAULT_SERVER_PORT
+        return DISCONNECT_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
 
     @classmethod
-    def sync_state_request(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
-        if port and port != DEFAULT_SERVER_PORT:
-            return SYNC_STATE_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
-        return SYNC_STATE_REQUEST
+    def sync_state_request(cls, port: int, client_id: uuid.UUID) -> bytes:
+        if port is None:
+            port = DEFAULT_SERVER_PORT
+        return SYNC_STATE_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
 
     @classmethod
     def sync_begin_response(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
@@ -163,6 +168,8 @@ class EnqueueProxyRequests(Thread):
             return EnqueueProxyRequests._instance
 
     def run(self) -> None:
+        from src.pytrain.comm.command_listener import CommandDispatcher
+
         """
         Simplified TCP/IP Server listens for command requests from client and executes them
         on the PyTrain server.
@@ -174,6 +181,7 @@ class EnqueueProxyRequests(Thread):
                 server.ack = str.encode(server.base3_addr)
             else:
                 server.ack = str.encode("ack")
+            server.dispatcher = CommandDispatcher.get()
             server.serve_forever()
 
 
@@ -182,8 +190,11 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         super().__init__(request, client_address, server)
 
     def handle(self):
+        from src.pytrain.comm.command_listener import CommandDispatcher
+
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
+        dispatcher: CommandDispatcher = cast(ProxyServer, self.server).dispatcher
         while True:
             data = self.request.recv(128)
             if data:
@@ -204,15 +215,18 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 cmd = CommandReq.from_bytes(byte_stream)
 
                 if byte_stream == DISCONNECT_REQUEST:
-                    EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port)
+                    EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port, client_uuid)
                     log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
                 elif byte_stream == REGISTER_REQUEST:
                     if EnqueueProxyRequests.is_known_client(self.client_address[0], client_port) is False:
                         log.info(f"Client at {self.client_address[0]}:{client_port} connecting...")
-                    EnqueueProxyRequests.client_connect(self.client_address[0], client_port)
+                    EnqueueProxyRequests.client_connect(self.client_address[0], client_port, client_uuid)
                 elif byte_stream == SYNC_STATE_REQUEST:
                     log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
-                    CommandDispatcher.get().send_current_state(self.client_address[0], client_port)
+                    dispatcher.send_current_state(self.client_address[0], client_port)
+                elif byte_stream == KEEP_ALIVE_REQUEST:
+                    log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
+                    dispatcher.send_current_state(self.client_address[0], client_port)
                 elif byte_stream in {
                     UPDATE_REQUEST,
                     UPGRADE_REQUEST,
@@ -222,10 +236,10 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 }:
                     # admin request, signal all clients
                     if client_ip:
-                        CommandDispatcher.get().signal_clients_on(cmd, client_ip)
+                        dispatcher.signal_clients_on(cmd, client_ip)
                     else:
-                        CommandDispatcher.get().signal_client(cmd)
-                        CommandDispatcher.get().publish(CommandScope.SYNC, cmd)
+                        dispatcher.signal_client(cmd)
+                        dispatcher.publish(CommandScope.SYNC, cmd)
                 else:
                     log.error(f"*** Unhandled {cmd} received from {self.client_address[0]}:{client_port} ***")
                 # do not send the special PyTrain commands to the Lionel Base 3 or Ser2
