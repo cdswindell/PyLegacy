@@ -112,14 +112,12 @@ class EnqueueProxyRequests(Thread):
         return cls._build_request(SYNC_STATE_REQUEST, port, client_id)
 
     @classmethod
-    def sync_begin_response(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
+    def sync_begin_response(cls) -> bytes:
         return SYNC_BEGIN_RESPONSE
-        # return cls._build_request(SYNC_BEGIN_RESPONSE, port)
 
     @classmethod
-    def sync_complete_response(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
+    def sync_complete_response(cls) -> bytes:
         return SYNC_COMPLETE_RESPONSE
-        # return cls._build_request(SYNC_COMPLETE_RESPONSE, port)
 
     @classmethod
     def is_built(cls) -> bool:
