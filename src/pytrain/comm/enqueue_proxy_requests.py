@@ -54,7 +54,7 @@ class EnqueueProxyRequests(Thread):
         EnqueueProxyRequests.get_comm_buffer().enqueue_command(data)
 
     @classmethod
-    def client_connect(cls, client_ip: str, port: int, client_id: uuid.UUID) -> None:
+    def client_connect(cls, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
         """
         Take note of client IPs, so we can update them of component state changes
         """
@@ -65,7 +65,7 @@ class EnqueueProxyRequests(Thread):
             cls._instance._clients[(client_ip, port, client_id)] = time()
 
     @classmethod
-    def client_disconnect(cls, client_ip: str, port: int, client_id: uuid.UUID) -> None:
+    def client_disconnect(cls, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
         """
         Remove client so we don't send more state updates
         """
@@ -77,7 +77,7 @@ class EnqueueProxyRequests(Thread):
 
     # noinspection PyProtectedMember
     @classmethod
-    def is_known_client(cls, client_ip: str, port: int, client_id: uuid.UUID) -> bool:
+    def is_known_client(cls, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> bool:
         if port is None:
             port = DEFAULT_SERVER_PORT
         if cls._instance and ((client_ip, port, client_id) in cls._instance._clients):
@@ -101,33 +101,23 @@ class EnqueueProxyRequests(Thread):
 
     @classmethod
     def register_request(cls, port: int, client_id: uuid.UUID) -> bytes:
-        if port is None:
-            port = DEFAULT_SERVER_PORT
-        return REGISTER_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
+        return cls._build_request(REGISTER_REQUEST, port, client_id)
 
     @classmethod
     def disconnect_request(cls, port, client_id: uuid.UUID) -> bytes:
-        if port is None:
-            port = DEFAULT_SERVER_PORT
-        return DISCONNECT_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
+        return cls._build_request(DISCONNECT_REQUEST, port, client_id)
 
     @classmethod
-    def sync_state_request(cls, port: int, client_id: uuid.UUID) -> bytes:
-        if port is None:
-            port = DEFAULT_SERVER_PORT
-        return SYNC_STATE_REQUEST + int(port & 0xFFFF).to_bytes(2, byteorder="big")
+    def sync_state_request(cls, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> bytes:
+        return cls._build_request(SYNC_STATE_REQUEST, port, client_id)
 
     @classmethod
     def sync_begin_response(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
-        if port and port != DEFAULT_SERVER_PORT:
-            return SYNC_BEGIN_RESPONSE + int(port & 0xFFFF).to_bytes(2, byteorder="big")
-        return SYNC_BEGIN_RESPONSE
+        return cls._build_request(SYNC_BEGIN_RESPONSE, port)
 
     @classmethod
     def sync_complete_response(cls, port: int = DEFAULT_SERVER_PORT) -> bytes:
-        if port and port != DEFAULT_SERVER_PORT:
-            return SYNC_COMPLETE_RESPONSE + int(port & 0xFFFF).to_bytes(2, byteorder="big")
-        return SYNC_COMPLETE_RESPONSE
+        return cls._build_request(SYNC_COMPLETE_RESPONSE, port)
 
     @classmethod
     def is_built(cls) -> bool:
@@ -146,6 +136,12 @@ class EnqueueProxyRequests(Thread):
             # noinspection PyProtectedMember
             return cls._instance._server_ip
         raise AttributeError("EnqueueProxyRequests is not built yet.")
+
+    @classmethod
+    def _build_request(cls, request: bytes, port: int, client_id: uuid.UUID = None) -> bytes:
+        port = port if port else DEFAULT_SERVER_PORT
+        client_id_bytes = client_id.bytes if client_id else bytes()
+        return request + int(port & 0xFFFF).to_bytes(2, byteorder="big") + client_id_bytes
 
     def __init__(self, tmcc_buffer: CommBuffer, server_port: int = DEFAULT_SERVER_PORT) -> None:
         if self._initialized:
@@ -217,6 +213,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 byte_stream = byte_stream[0:3]
                 cmd = CommandReq.from_bytes(byte_stream)
 
+                print(f"*** {self.client_address}: {client_port} {client_id} {client_ip}")
                 if byte_stream == DISCONNECT_REQUEST:
                     EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port, client_id)
                     log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
@@ -228,7 +225,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
                     dispatcher.send_current_state(self.client_address[0], client_port)
                 elif byte_stream == KEEP_ALIVE_REQUEST:
-                    log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
+                    log.info(f"Client at {self.client_address[0]}:{client_port} is alive...")
                     dispatcher.send_current_state(self.client_address[0], client_port)
                 elif byte_stream in {
                     UPDATE_REQUEST,
@@ -241,7 +238,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     if client_ip:
                         dispatcher.signal_clients_on(cmd, client_ip)
                     else:
-                        dispatcher.signal_client(cmd)
+                        dispatcher.signal_clients(cmd)
                         dispatcher.publish(CommandScope.SYNC, cmd)
                 else:
                     log.error(f"*** Unhandled {cmd} received from {self.client_address[0]}:{client_port} ***")
@@ -258,7 +255,10 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         client_uuid: uuid.UUID | None = None
         client_ip: str | None = None
         client_port: int = DEFAULT_SERVER_PORT
-        if len(byte_stream) > 5:
+        if len(byte_stream) > 12:  # port and UUID as bytes
+            client_port = int.from_bytes(byte_stream[3:5], "big")
+            client_uuid = uuid.UUID(bytes=byte_stream[5:])
+        elif len(byte_stream) > 5:
             addenda = byte_stream[3:].decode("utf-8", errors="ignore")
             parts = addenda.split(":")
             client_ip = parts[0] if parts[0] else None

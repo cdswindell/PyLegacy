@@ -389,7 +389,7 @@ class PyTrain:
         # print(f"********* Received {signum}, shutting down ({self._admin_action})...", flush=True)
         if self._admin_action is None:
             if self.is_server:
-                self._dispatcher.signal_client(CommandReq(TMCC1SyncCommandEnum.QUIT))
+                self._dispatcher.signal_clients(CommandReq(TMCC1SyncCommandEnum.QUIT))
             self._admin_action = TMCC1SyncCommandEnum.QUIT
         os.kill(os.getpid(), signal.SIGINT)
 
@@ -433,7 +433,7 @@ class PyTrain:
             addr = arg_parts[0] if len(arg_parts) > 0 else None
             port = int(arg_parts[1]) if len(arg_parts) > 0 else self._port
             print(f"Sending {command.name} request to {addr}:{port}...")
-            self._dispatcher.signal_client(cmd, client=addr, port=port)
+            self._dispatcher.signal_clients(cmd, client=addr, port=port)
             return
 
         # exit pytrain, signalling the exit behavior by setting
@@ -453,7 +453,7 @@ class PyTrain:
             return
         elif self.is_server:
             # if server, signal all clients as well as the server
-            self._dispatcher.signal_client(cmd)
+            self._dispatcher.signal_clients(cmd)
         else:
             # send command to server, it will send it to all clients
             # then will execute it on the server itself
@@ -643,7 +643,7 @@ class PyTrain:
                     if args.command == "quit":
                         # if server, signal clients to disconnect
                         if self.is_server:
-                            self._dispatcher.signal_client()
+                            self._dispatcher.signal_clients()
                         # if client quits, remaining nodes continue to run
                         raise KeyboardInterrupt()
                     elif args.command in ADMIN_COMMAND_TO_ACTION_MAP:

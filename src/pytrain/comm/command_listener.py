@@ -463,7 +463,7 @@ class CommandDispatcher(Thread):
     def is_filter_updates(self) -> bool:
         return self._filter_updates
 
-    def signal_client(
+    def signal_clients(
         self,
         option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT,
         client: str = None,
