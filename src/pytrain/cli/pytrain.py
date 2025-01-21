@@ -458,10 +458,6 @@ class PyTrain:
             # send command to server, it will send it to all clients
             # then will execute it on the server itself
             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
-            # if we're a client, we need to give the server time to respond, otherwise, we
-            # will connect to it as it is shutting down
-            if self.is_client:
-                sleep(10)
         raise KeyboardInterrupt()
 
     @staticmethod
@@ -516,7 +512,11 @@ class PyTrain:
             os.system("sudo apt update; sudo apt upgrade -y")
         self.update(do_inform=False)
 
-    def relaunch(self):
+    def relaunch(self) -> None:
+        # if we're a client, we need to give the server time to respond, otherwise, we
+        # will connect to it as it is shutting down
+        if self.is_client:
+            sleep(10)
         # are we a service or run from the commandline?
         if "-headless" in sys.argv:
             # restart service
