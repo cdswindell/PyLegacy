@@ -312,7 +312,7 @@ class PdiDispatcher(Thread):
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((client, port))
                         s.sendall(command.as_bytes)
-                        _ = s.recv(16)
+                        _ = s.recv(32)
             except ConnectionRefusedError:
                 # ignore disconnects; client will receive state update on reconnect
                 pass

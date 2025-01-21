@@ -59,10 +59,9 @@ class EnqueueProxyRequests(Thread):
         Take note of client IPs, so we can update them of component state changes
         """
         if cls._instance is not None:
-            if port is None:
-                port = DEFAULT_SERVER_PORT
-            # noinspection PyProtectedMember
-            cls._instance._clients[(client_ip, port, client_id)] = time()
+            cls._instance.record_client(client_ip, port, client_id)
+        else:
+            raise AttributeError("EnqueueProxyRequests is not built yet.")
 
     @classmethod
     def client_disconnect(cls, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
@@ -70,26 +69,22 @@ class EnqueueProxyRequests(Thread):
         Remove client so we don't send more state updates
         """
         if cls._instance is not None:
-            if port is None:
-                port = DEFAULT_SERVER_PORT
-            # noinspection PyProtectedMember
-            cls._instance._clients.pop((client_ip, port, client_id), None)
+            cls._instance.forget_client(client_ip, port, client_id)
+        else:
+            raise AttributeError("EnqueueProxyRequests is not built yet.")
 
     # noinspection PyProtectedMember
     @classmethod
     def is_known_client(cls, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> bool:
-        if port is None:
-            port = DEFAULT_SERVER_PORT
-        if cls._instance and ((client_ip, port, client_id) in cls._instance._clients):
-            return True
-        return False
+        if cls._instance:
+            return cls._instance.is_client(client_ip, port, client_id)
+        raise AttributeError("EnqueueProxyRequests is not built yet.")
 
     @classmethod
     def clients(cls) -> Set[Tuple[str, int]]:
-        # noinspection PyProtectedMember
-        cds = {(k[0], k[1]) for k, v in cls._instance._clients.items()}
-        print(f"@@@@@@@ Current Clients: {cds}")
-        return {(k[0], k[1]) for k, v in cls._instance._clients.items()}
+        if cls._instance is not None:
+            return cls._instance.client_sessions
+        raise AttributeError("EnqueueProxyRequests is not built yet.")
 
     @classmethod
     def get_comm_buffer(cls) -> CommBuffer:
@@ -154,7 +149,8 @@ class EnqueueProxyRequests(Thread):
         self._tmcc_buffer: CommBuffer = tmcc_buffer
         self._server_port = server_port
         self._server_ip = None
-        self._clients: Dict[Tuple[str, int, uuid.UUID | None], int] = dict()
+        self._lock = threading.RLock()
+        self._clients: Dict[Tuple[str, int, uuid.UUID | None], float] = dict()
         self.start()
 
     def __new__(cls, *args, **kwargs):
@@ -167,6 +163,36 @@ class EnqueueProxyRequests(Thread):
                 EnqueueProxyRequests._instance = super(EnqueueProxyRequests, cls).__new__(cls)
                 EnqueueProxyRequests._instance._initialized = False
             return EnqueueProxyRequests._instance
+
+    def record_client(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
+        # check if (client_ip, port) is unique, it should be unless
+        # previous client on this port unexpectedly disconnected
+        with self._lock:
+            disconnected = set()
+            for k_ip, k_port, k_uuid in self._clients.keys():
+                if k_ip == client_ip and k_port == port:
+                    if client_id != k_uuid:
+                        disconnected.add((k_ip, k_port, k_uuid))
+                        print(f"Encountered disconnected client: {client_ip}:{port} {k_uuid} != {client_id}")
+            # delete disconnected key
+            for k in disconnected:
+                self._clients.pop(k, None)
+
+            # record new client
+            self._clients[(client_ip, port, client_id)] = time()
+
+    def forget_client(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
+        with self._lock:
+            self._clients.pop((client_ip, port, client_id), None)
+
+    def is_client(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> bool:
+        with self._lock:
+            return (client_ip, port, client_id) in self._clients
+
+    @property
+    def client_sessions(self) -> Set[Tuple[str, int]]:
+        with self._lock:
+            return {(k[0], k[1]) for k, v in self._clients.items()}
 
     def run(self) -> None:
         from src.pytrain.comm.command_listener import CommandDispatcher
@@ -209,7 +235,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             if byte_stream[0] == 0xFE and byte_stream[1] == 0xF0:
                 from .command_listener import CommandDispatcher
 
-                print(f"Received {CommandReq.from_bytes(byte_stream[0:3])} from {self.client_address}")
                 # Appended to the admin/sync byte sequence is the port that the server
                 # must use to send state updates back to the client. Decode it here
                 (client_ip, client_port, client_id) = self.extract_addendum(byte_stream)
@@ -259,14 +284,17 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         client_uuid: uuid.UUID | None = None
         client_ip: str | None = None
         client_port: int = DEFAULT_SERVER_PORT
-        if len(byte_stream) > 18:  # port and UUID as bytes
-            client_port = int.from_bytes(byte_stream[3:5], "big")
-            client_uuid = uuid.UUID(bytes=byte_stream[5:])
-        elif len(byte_stream) > 5:
-            addenda = byte_stream[3:].decode("utf-8", errors="ignore")
-            parts = addenda.split(":")
-            client_ip = parts[0] if parts[0] else None
-            client_port = int(parts[1]) if len(parts) > 1 else None
-        elif len(byte_stream) > 3:
-            client_port = int.from_bytes(byte_stream[3:], "big")
+        try:
+            if len(byte_stream) > 18:  # port and UUID as bytes
+                client_port = int.from_bytes(byte_stream[3:5], "big")
+                client_uuid = uuid.UUID(bytes=byte_stream[5:])
+            elif len(byte_stream) > 5:
+                addenda = byte_stream[3:].decode("utf-8", errors="ignore")
+                parts = addenda.split(":")
+                client_ip = parts[0] if parts[0] else None
+                client_port = int(parts[1]) if len(parts) > 1 else None
+            elif len(byte_stream) > 3:
+                client_port = int.from_bytes(byte_stream[3:], "big")
+        except Exception as e:
+            log.exception(e)
         return client_ip, client_port, client_uuid
