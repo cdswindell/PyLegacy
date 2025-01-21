@@ -257,7 +257,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         client_uuid: uuid.UUID | None = None
         client_ip: str | None = None
         client_port: int = DEFAULT_SERVER_PORT
-        if len(byte_stream) > 12:  # port and UUID as bytes
+        if len(byte_stream) > 18:  # port and UUID as bytes
             client_port = int.from_bytes(byte_stream[3:5], "big")
             client_uuid = uuid.UUID(bytes=byte_stream[5:])
         elif len(byte_stream) > 5:
