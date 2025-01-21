@@ -72,7 +72,6 @@ Notes:
 * **PyTrain** _may_ work with an LCS Wi-Fi module, but this configuration hasn't been tested
 * The **PyTrain** CLI can be run on a Mac or Windows system. It allows complete control of _all_ TMCC or
   Legacy-equipped devices as well as allows you to monitor all TMCC and Legacy commands
-*
 
 ### Installation
 
@@ -121,14 +120,146 @@ PyTrain Service registered successfully!
 >> 
 ```
 
+### Raspberry Pi Configuration
+
+Out of the box, as Raspberry Pi 4/5 supports **PyTrain** and can be installed and run as
+detailed above. However, the Pi and its OS were developed to be low-cost, general purpose computers
+capable of sending and receiving email, running web browsers, playing games, driving printers, etc.
+Disabling and removing the unneeded software means there will be more of your Pi available for **PyTrain**.
+
+**PiConfig** is a program that automatically disables and removes software
+not needed to support **PyTrain**.It also can configure the hardware interfaces appropriately. Your
+Pi will boot faster and use less memory if you remove all the suggested software. If you change
+your mind, deleted packages can be reinstalled at any time.
+**PiConfig** is installed alongside of **PyTrain**.
+
+To run PiConfig:
+
+* Open a Terminal shell window and navigate to the folder/directory where you installed **PyTrain**
+* Activate the virtual environment:
+
+```aiignore
+source ./bin/activate
+```
+
+* Run **PiConfig** and display the `help` options:
+
+```aiignore
+(PyTrain) davids@PiZ2w:~/dev/PyTrain $ piconfig -h
+usage: piconfig [-h] [-quiet] [-all] [-check] [-configuration] [-expand_file_system] [-packages] [-services] [-version]
+
+options:
+  -h, --help           show this help message and exit
+  -quiet               Operate quietly and don't provide feedback
+  -all                 Perform all optimizations
+  -check               Check Raspberry Pi configuration (no changes made; default option)
+  -configuration       Enable/disable Raspberry Pi configuration options
+  -expand_file_system  Expand file system and reboot
+  -packages            Only remove unneeded packages
+  -services            Only disable unneeded services
+  -version             Show version and exit
+(PyTrain) davids@PiZ2w:~/dev/PyTrain $ 
+```
+
+* Use the `-check` option (or run the program with no switches) what changes should be made
+  to your system:
+
+```aiignore
+piconfig -check
+```
+
+* Use the `-all` option to modify your Pi's configuration and remove unnecessary software (this may
+  take some time to complete). Note that removal of the squeekboard keyboard may generate errors; these
+  are of no concern:
+
+```aiignore
+piconfig -all
+```
+
+* Reboot your system to apply configuration changes:
+
+```aiignore
+sudo reboot
+```
+
+### Running **PyTrain**
+
+**PyTrain** is the heart of the system. In addition to allowing you to control layout from
+it's command-line interface, **PyTrain**:
+
+* allows you to map physical button presses to Lionel TMCC commands, allowing you to build
+  simple to sophisticated control panels to run your layout
+* monitors the state of every TMCC/Legacy-equipped component, including engines, switches, and accessories
+* communicates and controls your LCS components, including the ASC2, BPC2, STM2, and all Sensor Tracks
+* communicates with the LCS SER2, if available, allowing complete visibility of all TMCC command traffic
+* communicates with your Base 3 and downloads your entire/train roster, allowing you to see the current
+  speed, labor, momentum, and train brake settings, along with road name and number
+* the same for switches (turnouts) and TMCC/Legacy/LCS accessories
+* operate as a server to other **PyTrain** clients running on other Raspberry Pis (or on your desktop)
+  relaying real-time state and forwarding command actions from your control panels
+* can echo all TMCC and PDI command traffic
+* logs all activity
+* and much more!
+
+#### Command-line Options
+
+**PyTrain** has several startup switches that control what it does:
+
+```aiignore
+usage: pytrain  [-h] [-base [BASE ...] | -client | -server SERVER] 
+                [-ser2] [-baudrate {9600,19200,38400,57600,115200}] [-port PORT] 
+                [-echo] [-headless] [-no_wait] [-ser2]
+                [-server_port SERVER_PORT] [-startup_script STARTUP_SCRIPT] [-version]
+
+Send TMCC and Legacy-formatted commands to a Lionel Base 3 and/or LCS Ser2
+
+options:
+  -h, --help            show this help message and exit
+  -base [BASE ...]      Connect to Lionel Base 2/3 or LCS Wi-Fi at IP address (Server mode)
+  -client               Connect to an available PyTrain server (Client mode)
+  -server SERVER        Connect to PyTrain server at IP address (Client mode)
+  -ser2                 Send or receive TMCC commands from an LCS Ser2
+  -baudrate {9600,19200,38400,57600,115200}
+                        Baud Rate used to communicate with LCS Ser2 (9600)
+  -port PORT            Serial port for LCS Ser2 connection (/dev/ttyUSB0)
+  -echo                 Echo received TMCC/PDI commands to console
+  -headless             Do not prompt for user input (run in background),
+  -no_wait              Do not wait for roster download
+  -server_port SERVER_PORT
+                        Port to use for remote connections, if client (default: 5110)
+  -startup_script STARTUP_SCRIPT
+                        Run the commands in the specified file at start up (default: buttons.py)
+  -version              Show version and exit
+```
+
+For example, to connect to a Lionel Base 3, you specify the Base 3's IP address on your local
+network:
+
+```aiignore
+pytrain -base 192.168.1.124
+```
+
+If you also have an LCS Ser2 connected to a USB port on your Pi:
+
+```aiignore
+pytrain -base 192.168.1.124 -ser2
+```
+
+In this configuration, **PyTrain** will send all commands directly to the Base 3, but will monitor
+the Ser2 for all TMCC command activity. This is important because currently, with Base 3 firmware
+v1.32, the Base 3 broadcasts a limited subset of the TMCC command activity, whereas all activity is
+reflected out of the LCS Ser2.
+
+#### Miscellaneous
+
 * To see a list of all **PyTrain** commands:
 
 ```aiignore
 >> ?
 usage:  [h]
-        [accessory | db | decode | dialogs | echo | effects | engine | train | halt | lighting |
-         pdi | quit | reboot | restart | route | shutdown | sounds | switch | update | upgrade | 
-         uptime | version]
+        accessory | db | decode | dialogs | echo | effects | engine | train | halt | lighting |
+        pdi | quit | reboot | restart | route | shutdown | sounds | switch | update | upgrade | 
+        uptime | version
 
 Valid commands:
 
@@ -146,16 +277,16 @@ options:
   lighting   Issue engine/train lighting effects commands
   pdi        Sent PDI commands
   quit       Quit PyTrain
-  reboot     Quit PyTrain and reboot all nodes),
-  restart    Quit PyTrain and restart on all nodes),
+  reboot     Quit PyTrain and reboot all nodes,
+  restart    Quit PyTrain and restart on all nodes,
   route      Fire defined routes
   shutdown   Quit PyTrain and shutdown all nodes
   sounds     Issue engine/train RailSound effects commands
   switch     Throw switches
-  update     Quit PyTrain and update all nodes to latest release),
-  upgrade    Quit PyTrain, upgrade the OS on all nodes, and update to latest release),
-  uptime     Elapsed time this instance of PyTrain has been active),
-  version    Show current PyTrain version),
+  update     Quit PyTrain and update all nodes to latest release,
+  upgrade    Quit PyTrain, upgrade the OS on all nodes, and update to latest release,
+  uptime     Elapsed time this instance of PyTrain has been active,
+  version    Show current PyTrain version,
 
 Commands can be abbreviated, so long as they are unique; e.g., 'en', or 'eng' are the same as typing 
 'engine'. Help on a specific command is also available by typing the command name (or abbreviation), 
@@ -182,10 +313,8 @@ pip install -U pytrain-ogr
 * From within **PyTrain** itself:
 
 ```aiignore
->> upgrade
+>> update
 ```
-
-### Raspberry Pi Configuration
 
 ## Audience
 

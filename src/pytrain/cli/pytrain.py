@@ -896,14 +896,14 @@ class PyTrain:
             action="store_const",
             const="reboot",
             dest="command",
-            help=f"Quit {PROGRAM_NAME} and reboot all nodes),",
+            help=f"Quit {PROGRAM_NAME} and reboot all nodes,",
         )
         group.add_argument(
             "-restart",
             action="store_const",
             const="restart",
             dest="command",
-            help=f"Quit {PROGRAM_NAME} and restart on all nodes),",
+            help=f"Quit {PROGRAM_NAME} and restart on all nodes,",
         )
         group.add_argument("-route", action="store_const", const=RouteCli, dest="command", help="Fire defined routes")
         group.add_argument(
@@ -927,28 +927,28 @@ class PyTrain:
             action="store_const",
             const="update",
             dest="command",
-            help=f"Quit {PROGRAM_NAME} and update all nodes to latest release),",
+            help=f"Quit {PROGRAM_NAME} and update all nodes to latest release,",
         )
         group.add_argument(
             "-upgrade",
             action="store_const",
             const="upgrade",
             dest="command",
-            help=f"Quit {PROGRAM_NAME}, upgrade the OS on all nodes, and update to latest release),",
+            help=f"Quit {PROGRAM_NAME}, upgrade the OS on all nodes, and update to latest release,",
         )
         group.add_argument(
             "-uptime",
             action="store_const",
             const="uptime",
             dest="command",
-            help=f"Elapsed time this instance of {PROGRAM_NAME} has been active),",
+            help=f"Elapsed time this instance of {PROGRAM_NAME} has been active,",
         )
         group.add_argument(
             "-version",
             action="store_const",
             const="version",
             dest="command",
-            help=f"Show current {PROGRAM_NAME} version),",
+            help=f"Show current {PROGRAM_NAME} version,",
         )
         return command_parser
 
