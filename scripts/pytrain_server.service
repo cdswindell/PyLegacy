@@ -1,6 +1,7 @@
 [Unit]
 Description=PyTrain Server
 After=multi-user.target
+After=network-online.target
 
 [Service]
 Type=exec

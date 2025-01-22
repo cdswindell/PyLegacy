@@ -64,7 +64,9 @@ from ..utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
 from ..utils.dual_logging import set_up_logging
 from ..utils.ip_tools import get_ip_address, find_base_address
 
-DEFAULT_SCRIPT_FILE: str = "buttons.py"
+DEFAULT_BUTTONS_FILE: str = "buttons.py"
+DEFAULT_REPLAY_FILE: str = "replay.txt"
+DEFAULT_HISTORY_FILE: str = f"{PROGRAM_NAME.lower()}.history"
 
 ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
     "quit": TMCC1SyncCommandEnum.QUIT,
@@ -87,7 +89,8 @@ class PyTrain:
             print(f"{PROGRAM_NAME} {get_version()}")
             return
         self._args = args
-        self._startup_script = args.startup_script
+        self._buttons_file = args.buttons_file
+        self._replay_file = args.replay_file
         self._baudrate = args.baudrate
         self._port = args.port
         self._listener: CommandListener | ClientStateListener
@@ -105,7 +108,7 @@ class PyTrain:
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
         self._received_admin_cmds = set()
-        self._script_loader: StartupScriptLoader | None = None
+        self._buttons_loader: ButtonsFileLoader | None = None
         self._client_ip = None
         self._server_ips = None
         self._admin_action: CommandDefEnum | None = None
@@ -274,6 +277,12 @@ class PyTrain:
             default=DEFAULT_BAUDRATE,
             help=f"Baud Rate ({DEFAULT_BAUDRATE})",
         )
+        parser.add_argument(
+            "-buttons_file",
+            type=str,
+            default=DEFAULT_BUTTONS_FILE,
+            help=f"Load button definitions at start up (default file: {DEFAULT_BUTTONS_FILE})",
+        )
         parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
 
         parser.add_argument("-headless", action="store_true", help="Do not prompt for user input (run in background),")
@@ -284,6 +293,12 @@ class PyTrain:
             default=DEFAULT_PORT,
             help=f"Serial port for LCS Ser2 connection ({DEFAULT_PORT})",
         )
+        parser.add_argument(
+            "-replay_file",
+            type=str,
+            default=DEFAULT_REPLAY_FILE,
+            help=f"Replay {PROGRAM_NAME} commands at start up (default file: {DEFAULT_REPLAY_FILE})",
+        )
         parser.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
         parser.add_argument(
             "-server_port",
@@ -291,12 +306,7 @@ class PyTrain:
             default=DEFAULT_SERVER_PORT,
             help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})",
         )
-        parser.add_argument(
-            "-startup_script",
-            type=str,
-            default=DEFAULT_SCRIPT_FILE,
-            help=f"Run the commands in the specified file at start up (default: {DEFAULT_SCRIPT_FILE})",
-        )
+
         parser.add_argument("-version", action="store_true", help="Show version and exit")
         return parser
 
@@ -338,9 +348,9 @@ class PyTrain:
         # print opening line
         log.info(f"{PROGRAM_NAME}, {self._version}")
         # process startup script
-        if self._startup_script:
-            self._script_loader = StartupScriptLoader(self)
-            self._script_loader.join()
+        if self._buttons_file:
+            self._buttons_loader = ButtonsFileLoader(self)
+            self._buttons_loader.join()
 
         # register as server so clients can connect without IP addr
         if self.is_server:
@@ -372,9 +382,8 @@ class PyTrain:
                     self.shutdown()
                     break
         finally:
-            # TODO: support history files
-            # if self._headless is False:
-            #     readline.write_history_file()
+            if self._headless is False:
+                readline.write_history_file(DEFAULT_HISTORY_FILE)
             self.shutdown_service()
             if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
                 if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
@@ -507,10 +516,10 @@ class PyTrain:
             os.system("sudo apt update; sudo apt upgrade -y")
         self.update(do_inform=False)
 
-    def relaunch(self) -> None:
+    def relaunch(self, delay: bool = True) -> None:
         # if we're a client, we need to give the server time to respond, otherwise, we
         # will connect to it as it is shutting down
-        if self.is_client:
+        if self.is_client is True and delay is True:
             sleep(10)
         # are we a service or run from the commandline?
         if "-headless" in sys.argv:
@@ -698,19 +707,19 @@ class PyTrain:
         self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
 
     def process_startup_script(self) -> None:
-        if self._startup_script is not None:
-            if os.path.isfile(self._startup_script):
-                print(f"Loading startup script: {self._startup_script}...")
-                with open(self._startup_script, mode="r", encoding="utf-8") as script:
+        if self._buttons_file is not None:
+            if os.path.isfile(self._buttons_file):
+                print(f"Loading buttons file: {self._buttons_file}...")
+                with open(self._buttons_file, mode="r", encoding="utf-8") as script:
                     code = script.read()
                     try:
                         exec(code)
                         print("Buttons registered...")
                     except Exception as e:
-                        log.error(f"Problem loading startup script {self._startup_script} (see logs)")
+                        log.error(f"Problem loading buttons file {self._buttons_file} (see logs)")
                         log.exception(e)
-            elif self._startup_script != DEFAULT_SCRIPT_FILE:
-                log.warning(f"Startup script file {self._startup_script} not found, continuing...")
+            elif self._buttons_file != DEFAULT_BUTTONS_FILE:
+                log.warning(f"Startup buttons file {self._buttons_file} not found, continuing...")
 
     def _query_status(self, param) -> None:
         try:
@@ -948,14 +957,14 @@ class PyTrain:
         return command_parser
 
 
-class StartupScriptLoader(threading.Thread):
+class ButtonsFileLoader(threading.Thread):
     """
     We run the startup-script reader so that we can continue with
     main program execution while the script is loading
     """
 
     def __init__(self, main_proc: PyTrain) -> None:
-        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup Script Loader")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Buttons Script Loader")
         self._main_proc = main_proc
         self.start()
 

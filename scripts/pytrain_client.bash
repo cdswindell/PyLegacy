@@ -3,25 +3,25 @@
 # change the following lines to define the path to where you installed PyTrain
 # as well as the namer of the startup script to load, if any
 PYTRAIN_HOME=/home/davids/dev/PyLegacyEnv/PyLegacy
-STARTUP_SCRIPT=examples/buttons.py
+BUTTONS_FILE=examples/buttons.py
 
 # if a startup script is specified, use it if found
-if [ -n "$STARTUP_SCRIPT" ]; then
-  if [ -f $STARTUP_SCRIPT ]; then
+if [ -n "$BUTTONS_FILE" ]; then
+  if [ -f $BUTTONS_FILE ]; then
     :
-  elif [ -f $PYTRAIN_HOME/$STARTUP_SCRIPT ]; then
-    STARTUP_SCRIPT=$PYTRAIN_HOME/$STARTUP_SCRIPT
-  elif [ -f $PYTRAIN_HOME$STARTUP_SCRIPT ]; then
-    STARTUP_SCRIPT=$PYTRAIN_HOME$STARTUP_SCRIPT
+  elif [ -f $PYTRAIN_HOME/$BUTTONS_FILE ]; then
+    BUTTONS_FILE=$PYTRAIN_HOME/$BUTTONS_FILE
+  elif [ -f $PYTRAIN_HOME$BUTTONS_FILE ]; then
+    BUTTONS_FILE=$PYTRAIN_HOME$BUTTONS_FILE
   else
-    echo "Can not locate start-up script: $STARTUP_SCRIPT, continuing..."
-    STARTUP_SCRIPT=
+    echo "Can not find button definitions file: $BUTTONS_FILE, continuing..."
+    BUTTONS_FILE=
     START=
   fi
 
-  if [ -n "$STARTUP_SCRIPT" ]; then
-    echo "Using start-up script: $STARTUP_SCRIPT"
-    START=-start
+  if [ -n "$BUTTONS_FILE" ]; then
+    echo "Using start-up script: $BUTTONS_FILE"
+    START=-buttons
   fi
 fi
 
@@ -32,4 +32,4 @@ cd $PYTRAIN_HOME
 source ../bin/activate; export PYTHONPATH=.
 
 # run the program
-cli/pytrain.py -client -headless $START $STARTUP_SCRIPT
+cli/pytrain.py -client -headless $START $BUTTONS_FILE
