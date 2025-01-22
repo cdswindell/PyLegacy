@@ -20,6 +20,7 @@ from ..protocol.constants import (
     DEFAULT_VALID_BAUDRATES,
     CommandScope,
     DEFAULT_SERVER_PORT,
+    PROGRAM_NAME,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum, SyncCommandDef
@@ -102,7 +103,7 @@ class CommandListener(Thread):
             raise ValueError(f"Invalid baudrate: {baudrate}")
         self._baudrate = baudrate
         self._port = port
-        super().__init__(daemon=True, name="PyLegacy Command Listener")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Command Listener")
 
         # prep our consumer(s)
         self._cv = threading.Condition()
@@ -368,7 +369,7 @@ class CommandDispatcher(Thread):
             return
         else:
             self._initialized = True
-        super().__init__(daemon=True, name="PyLegacy TMCC Command Dispatcher")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} TMCC Command Dispatcher")
         self._is_ser2_receiver = ser2_receiver
         self._is_base3_receiver = base3_receiver
         self._filter_updates = base3_receiver is True and ser2_receiver is True

@@ -88,6 +88,7 @@ class PyTrain:
         if args.version is True:
             print(f"{PROGRAM_NAME} {get_version()}")
             return
+        log.debug(f"{PROGRAM_NAME} args: {args}")
         self._args = args
         self._buttons_file = args.buttons_file
         self._replay_file = args.replay_file
@@ -237,6 +238,25 @@ class PyTrain:
                     print("")
             else:
                 print(f"Loading roster from Lionel Base at {self._base_addr}...")
+        elif self.is_client:
+            server = f" at: {self._server}" if self._server_ips else ""
+            if self._no_wait is False:  # wait for roster download
+                cycle = 0
+                cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
+                print(f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle]}", end="\r")
+                sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+                if sync_state is not None:
+                    while not sync_state.is_synchronized:
+                        cycle += 1
+                        print(
+                            f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle % 4]}", end="\r"
+                        )
+                        sleep(0.10)
+                    print(f"Loading layout state from {PROGRAM_NAME} server{server}......Done")
+                else:
+                    print("")
+            else:
+                print(f"Loading layout state {PROGRAM_NAME} from server{server}...")
 
         # Start the command line processor
         self.run()
@@ -280,7 +300,8 @@ class PyTrain:
         parser.add_argument(
             "-buttons_file",
             type=str,
-            default=DEFAULT_BUTTONS_FILE,
+            nargs="?",
+            const=DEFAULT_BUTTONS_FILE,
             help=f"Load button definitions at start up (default file: {DEFAULT_BUTTONS_FILE})",
         )
         parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
@@ -296,7 +317,8 @@ class PyTrain:
         parser.add_argument(
             "-replay_file",
             type=str,
-            default=DEFAULT_REPLAY_FILE,
+            nargs="?",
+            const=DEFAULT_REPLAY_FILE,
             help=f"Replay {PROGRAM_NAME} commands at start up (default file: {DEFAULT_REPLAY_FILE})",
         )
         parser.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
@@ -349,7 +371,7 @@ class PyTrain:
         log.info(f"{PROGRAM_NAME}, {self._version}")
         # process startup script
         if self._buttons_file:
-            self._buttons_loader = ButtonsFileLoader(self)
+            self._buttons_loader = ButtonsFileLoader(self._buttons_file)
             self._buttons_loader.join()
 
         # register as server so clients can connect without IP addr
@@ -361,6 +383,7 @@ class PyTrain:
                 self._args.server_port,
             )
 
+        processed_replay = False
         if self._headless:
             log.info("Not accepting keyboard input; background mode")
         try:
@@ -369,7 +392,21 @@ class PyTrain:
                 readline.set_auto_history(True)
             while True:
                 try:
-                    if self._headless:
+                    if processed_replay is False and self._replay_file:
+                        processed_replay = True
+                        if os.path.isfile(self._replay_file):
+                            log.info(f"Replaying commands from {self._replay_file}...")
+                            with open(self._replay_file, "r") as f:
+                                for line in f:
+                                    try:
+                                        self._handle_command(line)
+                                    except SystemExit:
+                                        pass
+                                    except argparse.ArgumentError:
+                                        pass
+                        else:
+                            log.warning(f'Replay file "{self._replay_file}" not found, continuing...')
+                    elif self._headless:
                         signal.pause()  # essentially puts the job into the background
                     else:
                         ui: str = input(">> ")
@@ -706,21 +743,6 @@ class PyTrain:
     def _get_system_state(self):
         self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
 
-    def process_startup_script(self) -> None:
-        if self._buttons_file is not None:
-            if os.path.isfile(self._buttons_file):
-                print(f"Loading buttons file: {self._buttons_file}...")
-                with open(self._buttons_file, mode="r", encoding="utf-8") as script:
-                    code = script.read()
-                    try:
-                        exec(code)
-                        print("Buttons registered...")
-                    except Exception as e:
-                        log.error(f"Problem loading buttons file {self._buttons_file} (see logs)")
-                        log.exception(e)
-            elif self._buttons_file != DEFAULT_BUTTONS_FILE:
-                log.warning(f"Startup buttons file {self._buttons_file} not found, continuing...")
-
     def _query_status(self, param) -> None:
         try:
             if len(param) >= 1:
@@ -963,13 +985,24 @@ class ButtonsFileLoader(threading.Thread):
     main program execution while the script is loading
     """
 
-    def __init__(self, main_proc: PyTrain) -> None:
+    def __init__(self, buttons_file: str) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Buttons Script Loader")
-        self._main_proc = main_proc
+        self._buttons_file = buttons_file
         self.start()
 
     def run(self) -> None:
-        self._main_proc.process_startup_script()
+        if os.path.isfile(self._buttons_file):
+            print(f"Loading buttons file: {self._buttons_file}...")
+            with open(self._buttons_file, mode="r", encoding="utf-8") as script:
+                code = script.read()
+                try:
+                    exec(code)
+                    print("Buttons registered...")
+                except Exception as e:
+                    log.error(f"Problem loading buttons file {self._buttons_file} (see logs)")
+                    log.exception(e)
+        else:
+            log.warning(f'Buttons file "{self._buttons_file}" not found, continuing...')
 
 
 set_up_logging()

@@ -13,7 +13,7 @@ from .constants import PDI_SOP, PDI_STF, PDI_EOP, PdiAction, PdiCommand
 from .pdi_req import PdiReq, TmccReq
 from ..comm.command_listener import Topic, Message, Channel, Subscriber, CommandDispatcher, SYNC_COMPLETE
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
-from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE_PORT, BROADCAST_TOPIC, CommandScope
+from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE_PORT, BROADCAST_TOPIC, CommandScope, PROGRAM_NAME
 from ..utils.ip_tools import get_ip_address
 
 log = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ class PdiListener(Thread):
             self._initialized = True
         self._base3_addr = base3_addr
         self._base3_port = base3_port
-        super().__init__(daemon=True, name=f"PyLegacy PDI Listener {base3_addr}:{base3_port}")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} PDI Listener {base3_addr}:{base3_port}")
 
         # open a connection to our Base 3
         if build_base3_reader is True:
@@ -239,7 +239,7 @@ class PdiDispatcher(Thread):
             return
         else:
             self._initialized = True
-        super().__init__(daemon=True, name="PyLegacy Pdi Dispatcher")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Pdi Dispatcher")
         self._channels: dict[Topic | Tuple[Topic, int], Channel[Message]] = defaultdict(Channel)
         self._cv = threading.Condition()
         self._is_running = True

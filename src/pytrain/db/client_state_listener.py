@@ -32,7 +32,9 @@ class ClientStateListener(threading.Thread):
             return
         else:
             self._initialized = True
-        super().__init__(daemon=True, name="PyLegacy ComponentStateListener")
+        from .. import PROGRAM_NAME
+
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} ComponentStateListener")
         self._tmcc_listener = CommandListener.build(ser2_receiver=False, base3_receiver=False)
         from ..pdi.pdi_listener import PdiListener
 

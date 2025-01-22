@@ -5,7 +5,7 @@ from threading import Thread
 import serial
 
 from .command_listener import CommandListener
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, PROGRAM_NAME
 
 log = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class SerialReader(Thread):
     def __init__(
         self, baudrate: int = DEFAULT_BAUDRATE, port: str = DEFAULT_PORT, consumer: CommandListener = None
     ) -> None:
-        super().__init__(name="PyLegacy Serial Port Reader")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Serial Port Reader")
         self._consumer = consumer
         self._baudrate = baudrate
         self._port = port

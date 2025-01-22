@@ -19,7 +19,7 @@ from ..db.component_state_store import DependencyCache, ComponentStateStore
 from ..gpio.state_source import SwitchStateSource, AccessoryStateSource, EngineStateSource
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
+from ..protocol.constants import CommandScope, PROGRAM_NAME
 from ..protocol.constants import DEFAULT_ADDRESS
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1SwitchCommandEnum,
@@ -96,7 +96,7 @@ class GpioDelayHandler(Thread):
     """
 
     def __init__(self) -> None:
-        super().__init__(daemon=True, name="PyLegacy GPIO Delay Handler")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} GPIO Delay Handler")
         self._cv = threading.Condition()
         self._ev = threading.Event()
         self._scheduler = sched.scheduler(time.time, self._ev.wait)

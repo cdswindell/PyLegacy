@@ -11,7 +11,7 @@ from typing import cast, Tuple, Set, Dict
 
 from ..comm.comm_buffer import CommBuffer
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import DEFAULT_SERVER_PORT, CommandScope
+from ..protocol.constants import DEFAULT_SERVER_PORT, CommandScope, PROGRAM_NAME
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 log = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ class EnqueueProxyRequests(Thread):
             return
         else:
             self._initialized = True
-        super().__init__(daemon=True, name="PyLegacy Enqueue Receiver")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Enqueue Receiver")
         self._tmcc_buffer: CommBuffer = tmcc_buffer
         self._server_port = server_port
         self._server_ip = None

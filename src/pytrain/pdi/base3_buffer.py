@@ -14,7 +14,13 @@ from .constants import KEEP_ALIVE_CMD, PDI_SOP, PdiCommand, TMCC_TX
 from .pdi_listener import PdiListener
 from .pdi_req import PdiReq, TmccReq
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, CommandScope, DEFAULT_BASE_THROTTLE_DELAY
+from ..protocol.constants import (
+    DEFAULT_BASE_PORT,
+    DEFAULT_QUEUE_SIZE,
+    CommandScope,
+    DEFAULT_BASE_THROTTLE_DELAY,
+    PROGRAM_NAME,
+)
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..utils.pollable_queue import PollableQueue
 
@@ -71,7 +77,7 @@ class Base3Buffer(Thread):
             return
         else:
             self._initialized = True
-        super().__init__(daemon=True, name="PyLegacy Base3 Interface")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Base3 Interface")
         # ip address and port to connect
         self._base3_addr = base3_addr
         self._base3_port = base3_port
@@ -250,7 +256,7 @@ class KeepAlive(Thread):
     """
 
     def __init__(self, writer: Base3Buffer) -> None:
-        super().__init__(daemon=True, name="PyLegacy Base3 Keep Alive")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Base3 Keep Alive")
         self._writer = writer
         self._is_running = True
         self.start()

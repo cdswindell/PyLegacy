@@ -175,7 +175,7 @@ class CommBufferSingleton(CommBuffer, Thread):
             self._initialized = True
         if baudrate not in DEFAULT_VALID_BAUDRATES:
             raise ValueError(f"Invalid baudrate: {baudrate}")
-        super().__init__(daemon=True, name="PyLegacy Comm Buffer")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} TMCC Command Buffer")
         self._baudrate = baudrate
         self._port = port
         self._queue_size = queue_size
@@ -469,7 +469,7 @@ class DelayHandler(Thread):
     """
 
     def __init__(self, buffer: CommBuffer) -> None:
-        super().__init__(daemon=True, name="PyLegacy Delay Handler")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Command Delay Handler")
         self._buffer = buffer
         self._cv = threading.Condition()
         self._ev = threading.Event()
