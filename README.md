@@ -17,30 +17,7 @@ developing code to translate physical button presses on a Raspberry Pi to Legacy
 actions, allowing the development of physical control panels to operate trains.
 
 <div style="font-size: 16px; ">
-<!-- TOC -->
-  * [Quick Start](#quick-start)
-    * [Concepts](#concepts)
-    * [Requirements](#requirements)
-    * [Installation](#installation)
-    * [Raspberry Pi Configuration](#raspberry-pi-configuration)
-  * [Audience](#audience)
-    * [Model Railroad Enthusiasts](#model-railroad-enthusiasts)
-      * [Simple Panel](#simple-panel)
-      * [Raspberry Pi GPIO Pins](#raspberry-pi-gpio-pins)
-      * [Lionel Legacy Gantry Crane and Yard](#lionel-legacy-gantry-crane-and-yard)
-    * [Developers](#developers)
-  * [Command-line Tools](#command-line-tools)
-    * [PyTrain](#pytrain)
-    * [PiConfig](#piconfig)
-  * [Contributing](#contributing)
-  * [Development](#development)
-    * [Requirements](#requirements-1)
-      * [Macintosh:](#macintosh)
-      * [Raspberry Pi and Pi Zero W 2](#raspberry-pi-and-pi-zero-w-2)
-    * [Installation and one time setup](#installation-and-one-time-setup)
-  * [Future Enhancements](#future-enhancements)
-  * [License](#license)
-<!-- TOC -->
+
 </div>
 
 ## Quick Start
