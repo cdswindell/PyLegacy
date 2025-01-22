@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "pytrain-ogr"
 dynamic = ["version"]
 authors = [
-  { name="Dave Swindell", email="pytraininfo@gmail.com" },
+    { name = "Dave Swindell", email = "pytraininfo@gmail.com" },
 ]
 description = "Control Lionel TMCC/Legacy engines, switches, and accesseries from a Raspberry Pi"
 readme = "README.md"
@@ -24,7 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 
 dependencies = [
     "RPLCD>= 1.3.1 ",
@@ -55,6 +55,12 @@ keywords = [
 [tool.setuptools_scm]
 version_file = "src/pytrain/_version.py"
 version_scheme = "only-version"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+install = ["*.bash", "*.service"]
 
 
 [project.scripts]

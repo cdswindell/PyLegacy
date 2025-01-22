@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 #
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
 import logging
 from typing import List
 
 from . import CliBase, DataAction
 from ..protocol.tmcc1.acc_cmd import AccCmd
-
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.argument_parser import ArgumentParser
 

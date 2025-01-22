@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
+
 #
-# PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
 #
-# Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
 #
-# SPDX-License-Identifier: LPGL
+#  SPDX-License-Identifier: LPGL
 #
+#
+
 from __future__ import annotations
 
 import argparse
@@ -66,7 +69,7 @@ from ..utils.ip_tools import get_ip_address, find_base_address
 
 DEFAULT_BUTTONS_FILE: str = "buttons.py"
 DEFAULT_REPLAY_FILE: str = "replay.txt"
-DEFAULT_HISTORY_FILE: str = f"{PROGRAM_NAME.lower()}.history"
+DEFAULT_HISTORY_FILE: str = f".{PROGRAM_NAME.lower()}.history"
 
 ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
     "quit": TMCC1SyncCommandEnum.QUIT,

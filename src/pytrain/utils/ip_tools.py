@@ -1,7 +1,15 @@
-import socket
-from typing import List
-from multiprocessing import Pool, cpu_count
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
 
+import socket
+from multiprocessing import Pool, cpu_count
+from typing import List
 
 from ..protocol.constants import DEFAULT_BASE_PORT
 
