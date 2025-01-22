@@ -13,6 +13,8 @@ from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
 from threading import Thread
 
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+
 if sys.version_info >= (3, 11):
     from typing import Self, Dict
 elif sys.version_info >= (3, 9):
@@ -27,6 +29,7 @@ from ..protocol.constants import (
     DEFAULT_QUEUE_SIZE,
     DEFAULT_VALID_BAUDRATES,
     PROGRAM_NAME,
+    DEFAULT_PULSE,
 )
 from ..protocol.constants import DEFAULT_SER2_THROTTLE_DELAY, DEFAULT_SERVER_PORT
 
@@ -140,6 +143,9 @@ class CommBuffer(abc.ABC):
     def sync_state(self, port: int = DEFAULT_SERVER_PORT) -> None: ...
 
     @abc.abstractmethod
+    def start_heart_beat(self, port: int = DEFAULT_SERVER_PORT): ...
+
+    @abc.abstractmethod
     def join(self) -> None: ...
 
     @property
@@ -152,7 +158,7 @@ class CommBuffer(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def uuid(self) -> uuid.UUID: ...
+    def session_id(self) -> uuid.UUID: ...
 
 
 class CommBufferSingleton(CommBuffer, Thread):
@@ -187,10 +193,14 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._base3: Base3Buffer | None = None
         self._use_base3 = False
         self._tmcc_dispatcher = None
-        self._uuid: uuid.UUID = uuid.uuid4()
+        self._uuid: uuid.UUID = uuid.uuid4()  # uniquely identify this instance of the server
+
         # start the consumer threads
         self._scheduler = DelayHandler(self)
         self.start()
+
+    def start_heart_beat(self, port: int = DEFAULT_SERVER_PORT):
+        raise NotImplementedError
 
     @property
     def base3_address(self) -> str:
@@ -201,7 +211,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._base3_address = value
 
     @property
-    def uuid(self) -> uuid.UUID:
+    def session_id(self) -> uuid.UUID:
         return self._uuid
 
     @staticmethod
@@ -358,8 +368,13 @@ class CommBufferProxy(CommBuffer):
         self._server = server
         self._port = port
         self._ephemeral_port = None
+        self._client_port = None
         self._base3_address = None
         self._uuid: uuid.UUID = uuid.uuid4()
+        self._heart_beat_thread = None
+
+    def start_heart_beat(self, port: int = DEFAULT_SERVER_PORT):
+        self._heart_beat_thread = ClientHeartBeat(self)
 
     @property
     def base3_address(self) -> str:
@@ -370,8 +385,12 @@ class CommBufferProxy(CommBuffer):
         pass
 
     @property
-    def uuid(self) -> uuid.UUID:
+    def session_id(self) -> uuid.UUID:
         return self._uuid
+
+    @property
+    def client_port(self) -> int:
+        return self._client_port
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if delay > 0:
@@ -405,27 +424,30 @@ class CommBufferProxy(CommBuffer):
     def register(self, port: int = DEFAULT_SERVER_PORT) -> None:
         from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 
+        self._client_port = port
         while True:
             # noinspection PyTypeChecker
-            self.enqueue_command(EnqueueProxyRequests.register_request(port, self.uuid))
+            self.enqueue_command(EnqueueProxyRequests.register_request(port, self.session_id))
             return
 
-    def disconnect(self, port: int = DEFAULT_SERVER_PORT) -> None:
+    def disconnect(self, port: int = None) -> None:
+        port = self._client_port if port is None else port
         try:
             from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 
             # noinspection PyTypeChecker
-            self.enqueue_command(EnqueueProxyRequests.disconnect_request(port, self.uuid))
+            self.enqueue_command(EnqueueProxyRequests.disconnect_request(port, self.session_id))
             return
         except ConnectionError as ce:
             raise ce
 
-    def sync_state(self, port: int = DEFAULT_SERVER_PORT) -> None:
-        from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
-
+    def sync_state(self, port: int = None) -> None:
+        port = self._client_port if port is None else port
         try:
+            from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
+
             # noinspection PyTypeChecker
-            self.enqueue_command(EnqueueProxyRequests.sync_state_request(port, self.uuid))
+            self.enqueue_command(EnqueueProxyRequests.sync_state_request(port, self.session_id))
         except ConnectionError as ce:
             raise ce
 
@@ -471,3 +493,23 @@ class DelayHandler(Thread):
             # and this notifies the main thread to restart, as there is a new
             # request in the sched queue
             self._cv.notify()
+
+
+class ClientHeartBeat(Thread):
+    def __init__(self, tmcc_buffer: CommBufferProxy) -> None:
+        from .. import CommandReq
+
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Client Heart Beat")
+        self._tmcc_buffer = tmcc_buffer
+        heartbeat = CommandReq(TMCC1SyncCommandEnum.KEEP_ALIVE).as_bytes
+        self._heartbeat_bytes = (
+            heartbeat
+            + int(tmcc_buffer.client_port & 0xFFFF).to_bytes(2, byteorder="big")
+            + tmcc_buffer.session_id.bytes
+        )
+        self.start()
+
+    def run(self) -> None:
+        while True:
+            time.sleep(DEFAULT_PULSE)
+            self._tmcc_buffer.enqueue_command(self._heartbeat_bytes)

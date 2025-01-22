@@ -554,7 +554,7 @@ class CommandDispatcher(Thread):
                     s.sendall(packet)
                     _ = s.recv(32)
                 except Exception as e:
-                    log.warning(f"Exception sending TMCC state update {state} to {client_ip}")
+                    log.warning(f"Exception sending TMCC state update {state} to {client_ip}:{client_port}")
                     log.exception(e)
 
     @property

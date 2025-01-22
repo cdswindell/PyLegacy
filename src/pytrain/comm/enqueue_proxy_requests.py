@@ -30,7 +30,7 @@ KEEP_ALIVE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.KEEP_ALIVE).as_bytes
 
 
 class ProxyServer(socketserver.ThreadingTCPServer):
-    __slots__ = "base3_addr", "ack", "dispatcher"
+    __slots__ = "base3_addr", "ack", "dispatcher", "enqueue_proxy"
 
 
 class EnqueueProxyRequests(Thread):
@@ -50,46 +50,10 @@ class EnqueueProxyRequests(Thread):
         return EnqueueProxyRequests(buffer, port)
 
     @classmethod
-    def enqueue_tmcc_packet(cls, data: bytes) -> None:
-        EnqueueProxyRequests.get_comm_buffer().enqueue_command(data)
-
-    @classmethod
-    def client_connect(cls, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
-        """
-        Take note of client IPs, so we can update them of component state changes
-        """
-        if cls._instance is not None:
-            cls._instance.record_client(client_ip, port, client_id)
-        else:
-            raise AttributeError("EnqueueProxyRequests is not built yet.")
-
-    @classmethod
-    def client_disconnect(cls, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
-        """
-        Remove client so we don't send more state updates
-        """
-        if cls._instance is not None:
-            cls._instance.forget_client(client_ip, port, client_id)
-        else:
-            raise AttributeError("EnqueueProxyRequests is not built yet.")
-
-    # noinspection PyProtectedMember
-    @classmethod
-    def is_known_client(cls, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> bool:
-        if cls._instance:
-            return cls._instance.is_client(client_ip, port, client_id)
-        raise AttributeError("EnqueueProxyRequests is not built yet.")
-
-    @classmethod
     def clients(cls) -> Set[Tuple[str, int]]:
         if cls._instance is not None:
             return cls._instance.client_sessions
         raise AttributeError("EnqueueProxyRequests is not built yet.")
-
-    @classmethod
-    def get_comm_buffer(cls) -> CommBuffer:
-        # noinspection PyProtectedMember
-        return cls._instance._tmcc_buffer if cls._instance is not None else None
 
     @classmethod
     def stop(cls) -> None:
@@ -164,7 +128,7 @@ class EnqueueProxyRequests(Thread):
                 EnqueueProxyRequests._instance._initialized = False
             return EnqueueProxyRequests._instance
 
-    def record_client(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
+    def client_connect(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
         # check if (client_ip, port) is unique, it should be unless
         # previous client on this port unexpectedly disconnected
         with self._lock:
@@ -181,13 +145,23 @@ class EnqueueProxyRequests(Thread):
             # record new client
             self._clients[(client_ip, port, client_id)] = time()
 
-    def forget_client(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
+    def client_disconnect(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
         with self._lock:
             self._clients.pop((client_ip, port, client_id), None)
 
     def is_client(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> bool:
         with self._lock:
             return (client_ip, port, client_id) in self._clients
+
+    def client_alive(self, client_ip: str, port: int, client_id: uuid.UUID) -> None:
+        with self._lock:
+            if (client_ip, port, client_id) in self._clients:
+                self._clients[(client_ip, port, client_id)] = time()
+            else:
+                log.error(f"Client {client_ip}:{port}:{client_id} is not registered")
+
+    def enqueue_request(self, data: bytes) -> None:
+        self._tmcc_buffer.enqueue_command(data)
 
     @property
     def client_sessions(self) -> Set[Tuple[str, int]]:
@@ -203,12 +177,14 @@ class EnqueueProxyRequests(Thread):
         """
         # noinspection PyTypeChecker
         with ProxyServer(("", self._server_port), EnqueueHandler) as server:
+            server.session_id = self._tmcc_buffer.session_id
             if self._tmcc_buffer.base3_address:
                 server.base3_addr = self._tmcc_buffer.base3_address
                 server.ack = str.encode(server.base3_addr)
             else:
                 server.ack = str.encode("ack")
             server.dispatcher = CommandDispatcher.get()
+            server.enqueue_proxy = self
             server.serve_forever()
 
 
@@ -222,6 +198,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
         dispatcher: CommandDispatcher = cast(ProxyServer, self.server).dispatcher
+        enqueue_proxy: EnqueueProxyRequests = cast(ProxyServer, self.server).enqueue_proxy
         while True:
             data = self.request.recv(128)
             if data:
@@ -238,23 +215,22 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 # Appended to the admin/sync byte sequence is the port that the server
                 # must use to send state updates back to the client. Decode it here
                 (client_ip, client_port, client_id) = self.extract_addendum(byte_stream)
+                client_ip = client_ip if client_ip else self.client_address[0]
                 byte_stream = byte_stream[0:3]
                 cmd = CommandReq.from_bytes(byte_stream)
 
-                print(f"*** {self.client_address}: {client_port} {client_id} {client_ip}")
                 if byte_stream == DISCONNECT_REQUEST:
-                    EnqueueProxyRequests.client_disconnect(self.client_address[0], client_port, client_id)
-                    log.info(f"Client at {self.client_address[0]}:{client_port} disconnecting...")
+                    enqueue_proxy.client_disconnect(client_ip, client_port, client_id)
+                    log.info(f"Client at {client_ip}:{client_port} disconnecting...")
                 elif byte_stream == REGISTER_REQUEST:
-                    if EnqueueProxyRequests.is_known_client(self.client_address[0], client_port, client_id) is False:
-                        log.info(f"Client at {self.client_address[0]}:{client_port} connecting...")
-                    EnqueueProxyRequests.client_connect(self.client_address[0], client_port, client_id)
+                    if enqueue_proxy.is_client(client_ip, client_port, client_id) is False:
+                        log.info(f"Client at {client_ip}:{client_port} connecting...")
+                    enqueue_proxy.client_connect(client_ip, client_port, client_id)
                 elif byte_stream == SYNC_STATE_REQUEST:
-                    log.info(f"Client at {self.client_address[0]}:{client_port} syncing...")
-                    dispatcher.send_current_state(self.client_address[0], client_port)
+                    log.info(f"Client at {client_ip}:{client_port} syncing...")
+                    dispatcher.send_current_state(client_ip, client_port)
                 elif byte_stream == KEEP_ALIVE_REQUEST:
-                    log.info(f"Client at {self.client_address[0]}:{client_port} is alive...")
-                    dispatcher.send_current_state(self.client_address[0], client_port)
+                    enqueue_proxy.client_alive(client_ip, client_port, client_id)
                 elif byte_stream in {
                     UPDATE_REQUEST,
                     UPGRADE_REQUEST,
@@ -269,12 +245,12 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                         dispatcher.signal_clients(cmd)
                         dispatcher.publish(CommandScope.SYNC, cmd)
                 else:
-                    log.error(f"*** Unhandled {cmd} received from {self.client_address[0]}:{client_port} ***")
+                    log.error(f"Unhandled {cmd} received from {client_ip}:{client_port}")
                 # do not send the special PyTrain commands to the Lionel Base 3 or Ser2
                 return
             # with the handling of the admin cmds out of the way, queue the bytes
             # received from the client for processing by the Lionel Base 3
-            EnqueueProxyRequests.enqueue_tmcc_packet(byte_stream)
+            enqueue_proxy.enqueue_request(byte_stream)
         finally:
             self.request.shutdown(socket.SHUT_RDWR)
             self.request.close()
