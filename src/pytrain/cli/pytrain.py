@@ -155,15 +155,15 @@ class PyTrain:
             # Remember Base 3 address on the comm buffer; it is an object that both
             # clients and servers both have
             self._tmcc_buffer.base3_address = self._base_addr
-            # listen for client connections
-            print(f"Listening for client requests on port {self._args.server_port}...")
-            self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
-
             self._tmcc_listener = CommandListener.build(
                 ser2_receiver=self._ser2,
                 base3_receiver=self._base_addr is not None,
             )
             listeners.append(self._tmcc_listener)
+
+            # listen for client connections
+            print(f"Listening for client requests on port {self._args.server_port}...")
+            self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
 
             if self._base_addr is not None:
                 print(f"Listening for Lionel Base broadcasts on {self._base_addr}:{self._base_port}...")

@@ -158,7 +158,13 @@ class EnqueueProxyRequests(Thread):
             if (client_ip, port, client_id) in self._clients:
                 self._clients[(client_ip, port, client_id)] = time()
             else:
-                log.error(f"Client {client_ip}:{port}:{client_id} is not registered")
+                log.error(f"Client {client_ip}:{port}:{client_id} is not registered, attempting restart...")
+                if (client_ip, port) in self.client_sessions:
+                    log.error(f"Can not restart client at {client_ip}:{port}; port in use")
+                else:
+                    from src.pytrain.comm.command_listener import CommandDispatcher
+
+                    CommandDispatcher.get().signal_clients(TMCC1SyncCommandEnum.RESTART, client_ip, port)
 
     def enqueue_request(self, data: bytes) -> None:
         self._tmcc_buffer.enqueue_command(data)
@@ -214,8 +220,12 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
 
                 # Appended to the admin/sync byte sequence is the port that the server
                 # must use to send state updates back to the client. Decode it here
-                (client_ip, client_port, client_id) = self.extract_addendum(byte_stream)
-                client_ip = client_ip if client_ip else self.client_address[0]
+                # client_scope is set if the scope of a command are all the clients
+                # on that node ("restart me"). This is only used below iff
+                # signal_clients_on is called; this is why we have 2 variables;
+                # client_scope & client_ip
+                (client_scope, client_port, client_id) = self.extract_addendum(byte_stream)
+                client_ip = client_scope if client_scope else self.client_address[0]
                 byte_stream = byte_stream[0:3]
                 cmd = CommandReq.from_bytes(byte_stream)
 
@@ -239,8 +249,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     SHUTDOWN_REQUEST,
                 }:
                     # admin request, signal all clients
-                    if client_ip:
-                        dispatcher.signal_clients_on(cmd, client_ip)
+                    if client_scope:
+                        dispatcher.signal_clients_on(cmd, client_scope)
                     else:
                         dispatcher.signal_clients(cmd)
                         dispatcher.publish(CommandScope.SYNC, cmd)
