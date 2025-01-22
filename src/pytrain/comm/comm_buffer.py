@@ -435,7 +435,8 @@ class CommBufferProxy(CommBuffer):
         try:
             from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 
-            # noinspection PyTypeChecker
+            if self._heart_beat_thread:
+                self._heart_beat_thread.shutdown()
             self.enqueue_command(EnqueueProxyRequests.disconnect_request(port, self.session_id))
             return
         except ConnectionError as ce:
@@ -501,15 +502,21 @@ class ClientHeartBeat(Thread):
 
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Client Heart Beat")
         self._tmcc_buffer = tmcc_buffer
+        self._client_port = tmcc_buffer.client_port
         heartbeat = CommandReq(TMCC1SyncCommandEnum.KEEP_ALIVE).as_bytes
         self._heartbeat_bytes = (
-            heartbeat
-            + int(tmcc_buffer.client_port & 0xFFFF).to_bytes(2, byteorder="big")
-            + tmcc_buffer.session_id.bytes
+            heartbeat + int(self._client_port & 0xFFFF).to_bytes(2, byteorder="big") + tmcc_buffer.session_id.bytes
         )
+        self._ev = threading.Event()
+        self._is_running = True
         self.start()
 
+    def shutdown(self) -> None:
+        self._is_running = False
+        self._ev.set()
+
     def run(self) -> None:
-        while True:
-            time.sleep(DEFAULT_PULSE)
-            self._tmcc_buffer.enqueue_command(self._heartbeat_bytes)
+        while self._is_running:
+            self._ev.wait(DEFAULT_PULSE)
+            if self._is_running:
+                self._tmcc_buffer.enqueue_command(self._heartbeat_bytes)
