@@ -352,15 +352,17 @@ class PyTrain:
             )
 
         if self._headless:
-            log.warning("Not accepting user input; background mode")
+            log.info("Not accepting keyboard input; background mode")
         try:
+            if self._headless is False:
+                # provide limited command line recall and editing
+                readline.set_auto_history(True)
             while True:
                 try:
                     if self._headless:
                         signal.pause()  # essentially puts the job into the background
                     else:
                         ui: str = input(">> ")
-                        readline.add_history(ui)  # provides limited command line recall and editing
                         self._handle_command(ui)
                 except SystemExit:
                     pass
@@ -370,6 +372,9 @@ class PyTrain:
                     self.shutdown()
                     break
         finally:
+            # TODO: support history files
+            # if self._headless is False:
+            #     readline.write_history_file()
             self.shutdown_service()
             if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
                 if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
