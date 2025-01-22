@@ -3,7 +3,8 @@ Lionel's [TMCC and Legacy serial command protocol](https://ogrforum.com/fileSend
 Most Lionel engines produced after 2000 support either TMCC or Legacy, and all engines produced after 2010 do.
 Additionally, Lionel makes track switches, operating accessories, as well as LCS modules that control your
 layout that respond to Legacy commands (see
-[Lionel Layout Control System: LCS](https://control.lionel.com/docs/lionel-layout-control-system-lcs/)).
+[Lionel Layout Control System: LCS](https://control.lionel.com/docs/lionel-layout-control-system-lcs/)
+{:target=”_blank”} ).
 
 **PyTrain** is developed in pure Python and can be run on Windows, Macs (Intel and M-series) as well as
 inexpensive Raspberry Pi systems. My goal is to convert physical button presses on a Pi
