@@ -158,7 +158,7 @@ class EnqueueProxyRequests(Thread):
             if (client_ip, port, client_id) in self._clients:
                 self._clients[(client_ip, port, client_id)] = time()
             else:
-                log.error(f"Client {client_ip}:{port}:{client_id} is not registered, attempting restart...")
+                log.error(f"Client {client_ip}:{port} is not registered, attempting restart...")
                 if (client_ip, port) in self.client_sessions:
                     log.error(f"Can not restart client at {client_ip}:{port}; port in use")
                 else:
