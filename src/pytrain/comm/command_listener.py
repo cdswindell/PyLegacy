@@ -479,7 +479,6 @@ class CommandDispatcher(Thread):
         if isinstance(option, TMCC1SyncCommandEnum):
             option = CommandReq(option)
         for client_ip, port in EnqueueProxyRequests.clients():
-            print(f"Sending {option} to {client_ip}:{port} if {client}")
             if client_ip == client:
                 node_scope = cast(SyncCommandDef, option.command_def).is_node_scope
                 self.update_client_state(option, client=client, port=port)
