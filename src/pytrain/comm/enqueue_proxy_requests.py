@@ -173,19 +173,16 @@ class EnqueueProxyRequests(Thread):
                 if k_ip == client_ip and k_port == port:
                     if client_id != k_uuid:
                         disconnected.add((k_ip, k_port, k_uuid))
-                        print(f"******** Encountered disconnected client: {client_ip}:{port} {k_uuid} != {client_id}")
             # delete disconnected key
             for k in disconnected:
-                print(f"******** Purging disconnected client: {k}")
+                log.info(f"Purging disconnected client: {k}...")
                 self._clients.pop(k, None)
 
             # record new client
-            print(f"******** Recording new client: {(client_ip, port, client_id)}")
             self._clients[(client_ip, port, client_id)] = time()
 
     def forget_client(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
         with self._lock:
-            print(f"******** Forgetting client: {(client_ip, port, client_id)}")
             self._clients.pop((client_ip, port, client_id), None)
 
     def is_client(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> bool:
