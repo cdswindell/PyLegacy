@@ -70,19 +70,6 @@ PACKAGES = [
     "rpicam-apps",
 ]
 
-# Disable Bluetooth
-# dtoverlay=disable-bt
-
-# Enable audio (loads snd_bcm2835)
-# dtparam=audio=on   OR
-# dtparam=audio=off
-
-# Automatically load overlays for detected cameras
-# camera_auto_detect=1
-
-# Automatically load overlays for detected DSI displays
-# display_auto_detect=1
-
 
 class PiConfig:
     def __init__(self, cmd_line: List[str] = None) -> None:

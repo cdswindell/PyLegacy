@@ -60,12 +60,13 @@ version_scheme = "only-version"
 where = ["src"]
 
 [tool.setuptools.package-data]
-install = ["*.bash", "*.service"]
+install = ["*.template"]
 
 
 [project.scripts]
 pytrain = "pytrain:main"
 piconfig = "pytrain.cli.piconfig:main"
+install = "pytrain.cli.install:main"
 
 [project.urls]
 Homepage = "https://github.com/cdswindell/PyLegacy"

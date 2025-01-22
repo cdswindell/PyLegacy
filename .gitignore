@@ -7,5 +7,6 @@ __pycache__
  *.pyc
 /pytrain.log*
 .DS_Store
-/pytrain.history
 /replay.txt
+/.pytrain.history
+/pytrain.history
