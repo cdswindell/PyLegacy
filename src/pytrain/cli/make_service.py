@@ -145,25 +145,42 @@ class MakeService:
             f.write(template_data)
         service = "pytrain_server.service" if self.is_server else "pytrain_client.service"
         result = subprocess.run(
-            f"sudo mv -f {tmp.name} /etc/systemd/system/{service}".split(),
+            f"sudo cp -f {tmp.name} /etc/systemd/system/{service}".split(),
             capture_output=True,
             text=True,
         )
-        print(result)
-        subprocess.run(
+        if result.returncode != 0:
+            print(f"Error creating /etc/systemd/system/{service}: {result.stderr} Exiting")
+            return None
+        result = subprocess.run(
+            f"sudo chmod 644 /etc/systemd/system/{service}".split(),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"Error changing mode of /etc/systemd/system/{service}: {result.stderr} Exiting")
+            return None
+        result = subprocess.run(
             "sudo systemctl daemon-reload".split(),
             capture_output=True,
             text=True,
         )
-        subprocess.run(
+        if result.returncode != 0:
+            print(f"Error reloading system daemons: {result.stderr} Exiting")
+            return None
+        result = subprocess.run(
             f"sudo systemctl enable {service}".split(),
             capture_output=True,
             text=True,
         )
+        if result.returncode != 0:
+            print(f"Error enabling {PROGRAM_NAME} service: {result.stderr} Exiting")
+            return None
         if self._start_service:
             subprocess.run(
-                f"sudo systemctl start {service}".split(),
+                f"sudo systemctl restart {service}".split(),
             )
+            print(f"\n{PROGRAM_NAME} service started...")
         return service
 
     @property

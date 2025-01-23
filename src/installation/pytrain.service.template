@@ -1,5 +1,6 @@
 [Unit]
 Description=PyTrain ___MODE___
+After=network-online.target
 After=multi-user.target
 
 [Service]
