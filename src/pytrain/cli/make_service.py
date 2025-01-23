@@ -13,7 +13,7 @@ import sys
 class MakeService:
     def __init__(self, args: list[str] = None) -> None:
         tmpl = self.template_dir
-        print(f"Install: {tmpl} {os.path.isfile(tmpl+'/pytrain_client.bash.template')}")
+        print(f"Install: {tmpl} {os.path.isfile(tmpl + '/pytrain_client.bash.template')}")
 
     @property
     def template_dir(self) -> str | None:
