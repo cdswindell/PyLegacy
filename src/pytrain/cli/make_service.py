@@ -7,6 +7,7 @@
 #
 #
 import getpass
+import ipaddress
 import os
 import pwd
 import sys
@@ -14,6 +15,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from src.pytrain import PROGRAM_NAME, is_package, get_version
+from src.pytrain.cli.pytrain import DEFAULT_BUTTONS_FILE
 
 
 class MakeService:
@@ -27,13 +29,69 @@ class MakeService:
         else:
             args = self.command_line_parser().parse_args()
         self._args = args
+
         # verify username
-        usr = self._user = args.user
+        self._user = args.user
         if self._user is None:
-            raise AttributeError("A valid Raspberry Pi username is required")
+            print("\nA valid Raspberry Pi username is required")
+            return
         elif self.validate_username(self._user) is False:
-            raise AttributeError(f"User '{usr}' does not exist on this system")
-        self.confirm()
+            print(f"\nUser '{self._user}' does not exist on this system. Exiting.")
+            return
+
+        # if server, verify a base 3 and/or ser2 is specified
+        if args.base is None:
+            self._base_ip = None
+        else:
+            self._base_ip = args.base if args.base and args.base != "search" else "search"
+            if self._base_ip != "search":
+                if self.is_valid_ip(self._base_ip) is False:
+                    print(f"\nInvalid IP address '{self._base_ip}'. Exiting")
+                    return
+        if args.mode == "server" and args.base is None and args.ser2 is False:
+            print("\nA Lionel Base IP address or Ser2 is required when configuring as a server. Exiting")
+            return
+
+        # verify client args
+        if args.mode == "client":
+            if self._base_ip:
+                print("\nA Lionel Base IP address is not required when configuring as a client. Continuing")
+            if args.ser2 is True:
+                print("\nA Ser2 is not required when configuring as a client. Continuing")
+
+        # verify buttons file exists
+        if args.button_file:
+            if os.path.isfile(args.button_file) is False:
+                print(f"\nButton definitions file '{args.button_file}' not found. Continuing")
+
+        self._exe = "pytrain" if is_package() else "cli/pytrain.py"
+        self._cmd_line = self.command_line
+        if self.confirm_environment():
+            self._config = {
+                "___PYTRAINHOME___": self._cwd,
+                "___PYTRAIN___": None,
+                "___BUTTONS___": self._args.button_file,
+                "___LIONELBASE___": self._base_ip,
+                "___USER___": self._user,
+            }
+            self.do_install_service()
+        else:
+            print("\nRe-run this script with the -h option for help")
+
+    def do_install_service(self) -> None:
+        pass
+
+    @property
+    def is_client(self) -> bool:
+        return self._args.mode == "client"
+
+    @property
+    def is_server(self) -> bool:
+        return self._args.mode == "server"
+
+    @property
+    def pytrain_path(self) -> str:
+        return f"{self._cwd}/{self._exe}"
 
     @property
     def template_dir(self) -> str | None:
@@ -49,11 +107,50 @@ class MakeService:
                             return f"{root}/{cd}"
         return None
 
+    @property
+    def command_line(self) -> str | None:
+        cmd_line = f"{self._exe} -headless"
+        if self._args.mode == "client":
+            cmd_line += " -client"
+        else:
+            print(self._base_ip)
+            if self._base_ip:
+                ip = self._base_ip
+                ip = f" {ip}" if ip != "search" else ""
+                cmd_line += f" -base{ip}"
+            if self._args.ser2 is True:
+                cmd_line += " -ser2"
+        if self._args.button_file:
+            cmd_line += f" -buttons {self._args.button_file}"
+        return cmd_line
+
+    def confirm_environment(self) -> bool:
+        print(f"\nInstalling {PROGRAM_NAME} as a systemd service with these settings:")
+        print(f"  Mode: {'Client' if self._args.mode == 'client' else 'Server'}")
+        if self._args.mode == "server":
+            print(f"  Lionel Base IP addresses: {self._base_ip}")
+            print(f"  Use Ser2: {'Yes' if self._args.ser2 is True else 'No'}")
+        print(f"  Button definitions file: {self._args.button_file if self._args.button_file else 'None'}")
+        print(f"  Run as user: {self._user}")
+        print(f"  User '{self._user} Home: {self._home}")
+        print(f"  {PROGRAM_NAME} Path: {self.pytrain_path}")
+        print(f"  {PROGRAM_NAME} Home: {self._cwd}")
+        print(f"  {PROGRAM_NAME} Command Line: {self._cmd_line}")
+        return self.confirm("\nConfirm? [y/n] ")
+
     @staticmethod
     def confirm(msg: str = None) -> bool:
-        msg = msg if msg else "Continue? [y/n]"
+        msg = msg if msg else "Continue? [y/n] "
         answer = input(msg)
         return True if answer.lower() in ["y", "yes"] else False
+
+    @staticmethod
+    def is_valid_ip(ip: str) -> bool:
+        try:
+            ipaddress.ip_address(ip)
+            return True
+        except ValueError:
+            return False
 
     def command_line_parser(self) -> ArgumentParser:
         parser = ArgumentParser(
@@ -64,20 +161,23 @@ class MakeService:
         mode_group.add_argument(
             "-client",
             action="store_const",
+            const="client",
             dest="mode",
             help=f"Configure this node as a {PROGRAM_NAME} client",
         )
         mode_group.add_argument(
             "-server",
             action="store_const",
+            const="server",
             dest="mode",
             help=f"Configure this node as a {PROGRAM_NAME} server",
         )
         server_opts = parser.add_argument_group("Server options")
         server_opts.add_argument(
             "-base",
-            nargs="*",
-            type=str,
+            nargs="?",
+            default=None,
+            const="search",
             help="IP address of Lionel Base 3 or LCS Wi-Fi module",
         )
         server_opts.add_argument(
@@ -88,8 +188,9 @@ class MakeService:
         misc_opts = parser.add_argument_group("Miscellaneous options")
         misc_opts.add_argument(
             "-button_file",
-            nargs="*",
-            type=str,
+            nargs="?",
+            default=None,
+            const=DEFAULT_BUTTONS_FILE,
             help=f"Button definitions file, loaded when {PROGRAM_NAME} starts",
         )
         misc_opts.add_argument(
