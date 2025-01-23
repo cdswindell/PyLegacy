@@ -10,7 +10,7 @@
 #
 
 #
-from src.pytrain.cli.install import Install
+from src.pytrain.cli.make_service import MakeService
 
 if __name__ == "__main__":
-    Install()
+    MakeService()
