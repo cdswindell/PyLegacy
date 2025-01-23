@@ -5,8 +5,8 @@ After=network-online.target
 
 [Service]
 Type=exec
-User=davids
-Group=davids
+User=___USER___
+Group=___USER___
 ExecStart=/home/davids/pytrain_server.bash
 Nice=-5
 

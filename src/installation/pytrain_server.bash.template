@@ -2,8 +2,9 @@
 #
 # change the following lines to define the path to where you installed PyTrain
 # as well as the IP Address of your Legacy Base 3
-PYTRAIN_HOME=/home/davids/dev/PyLegacyEnv/PyLegacy
-LIONEL_BASE_3=192.168.1.124
+PYTRAIN_HOME=___PYTRAINHOME___
+BUTTONS_FILE=___BUTTONS___
+LIONEL_BASE=___LIONELBASE___
 
 # if a startup script is specified, use it if found
 if [ -n "$BUTTONS_FILE" ]; then
@@ -29,8 +30,9 @@ fi
 cd $PYTRAIN_HOME
 
 # activate the virtual environment
-source ../bin/activate; export PYTHONPATH=.
+#source ../bin/activate; export PYTHONPATH=.
+source ___ACTIVATE___; export PYTHONPATH=.
 
 # run the program
-cli/pytrain.py -base $LIONEL_BASE_3 -ser2 -headless $START $BUTTONS_FILE
+__PYTRAIN___ -base $LIONEL_BASE_3 -ser2 -headless $START $BUTTONS_FILE
 

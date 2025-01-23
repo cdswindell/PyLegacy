@@ -35,7 +35,7 @@ from .lighting import LightingCli
 from .route import RouteCli
 from .sounds import SoundEffectsCli
 from .switch import SwitchCli
-from .. import get_version, is_from_package, PROGRAM_PACKAGE
+from .. import get_version, is_package, PROGRAM_PACKAGE
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandListener, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -270,8 +270,9 @@ class PyTrain:
 
     @staticmethod
     def command_line_parser() -> ArgumentParser:
+        prog = "pytrain" if is_package() else "pytrain.py"
         parser = ArgumentParser(
-            prog="pytrain.py",
+            prog=prog,
             description="Send TMCC and Legacy-formatted commands to a Lionel Base 3 and/or LCS Ser2",
         )
         mode_group = parser.add_mutually_exclusive_group()
@@ -541,7 +542,7 @@ class PyTrain:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
         # always update pip
         os.system(f"cd {os.getcwd()}; pip install -U pip")
-        if is_from_package():
+        if is_package():
             # upgrade from Pypi
             os.system(f"cd {os.getcwd()}; pip install -U {PROGRAM_PACKAGE}")
         else:

@@ -16,6 +16,7 @@ from argparse import ArgumentParser
 from typing import List, Set, Tuple
 
 from .pytrain import PROGRAM_NAME, get_version
+from .. import is_package
 
 SETTINGS = {
     "net_names": 0,
@@ -361,7 +362,11 @@ class PiConfig:
 
     @staticmethod
     def command_line_parser() -> ArgumentParser:
-        parser = ArgumentParser()
+        prog = "piconfig" if is_package() else "piconfig.py"
+        parser = ArgumentParser(
+            prog=prog,
+            description=f"Optimize Raspberry Pi configuration for running {PROGRAM_NAME}",
+        )
         config_group = parser.add_mutually_exclusive_group()
 
         parser.add_argument(

@@ -4,9 +4,9 @@ After=multi-user.target
 
 [Service]
 Type=exec
-User=davids
-Group=davids
-ExecStart=/home/davids/pytrain_client.bash
+User=___USER___
+Group=___USER___
+ExecStart=___HOME___/pytrain_client.bash
 Nice=-5
 
 [Install]

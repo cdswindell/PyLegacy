@@ -1,9 +1,10 @@
 #! /bin/bash
 #
-# change the following lines to define the path to where you installed PyTrain
-# as well as the namer of the startup script to load, if any
-PYTRAIN_HOME=/home/davids/dev/PyLegacyEnv/PyLegacy
-BUTTONS_FILE=examples/buttons.py
+# Change the following lines to define the path to where you installed PyTrain
+# as well as the namer of the button definitions file to load, if any
+PYTRAIN_HOME=___PYTRAINHOME___
+BUTTONS_FILE=___BUTTONS___
+LIONEL_BASE=___LIONELBASE___
 
 # if a startup script is specified, use it if found
 if [ -n "$BUTTONS_FILE" ]; then
@@ -20,7 +21,7 @@ if [ -n "$BUTTONS_FILE" ]; then
   fi
 
   if [ -n "$BUTTONS_FILE" ]; then
-    echo "Using start-up script: $BUTTONS_FILE"
+    echo "Using button definitions from: $BUTTONS_FILE"
     START=-buttons
   fi
 fi
@@ -29,7 +30,8 @@ fi
 cd $PYTRAIN_HOME
 
 # activate the virtual environment
-source ../bin/activate; export PYTHONPATH=.
+#source ../bin/activate; export PYTHONPATH=.
+source ___ACTIVATE___; export PYTHONPATH=.
 
 # run the program
-cli/pytrain.py -client -headless $START $BUTTONS_FILE
+___PYTRAIN___ -client -headless $START $BUTTONS_FILE
