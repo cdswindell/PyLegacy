@@ -14,8 +14,9 @@ import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
-from src.pytrain import PROGRAM_NAME, is_package, get_version
-from src.pytrain.cli.pytrain import DEFAULT_BUTTONS_FILE
+from .pytrain import DEFAULT_BUTTONS_FILE
+from .pytrain import PROGRAM_NAME, is_package, get_version
+from ..utils.path_utils import find_dir
 
 
 class MakeService:
@@ -29,6 +30,11 @@ class MakeService:
         else:
             args = self.command_line_parser().parse_args()
         self._args = args
+
+        self._template_dir = find_dir("installation", (".", "../", "src"))
+        if self._template_dir is None:
+            print("\nUnable to find directory with installation templates. Exiting")
+            return
 
         # verify username
         self._user = args.user
@@ -94,26 +100,11 @@ class MakeService:
         return f"{self._cwd}/{self._exe}"
 
     @property
-    def template_dir(self) -> str | None:
-        for d in [".", "../", "src"]:
-            if os.path.isdir(d):
-                for root, dirs, _ in os.walk(d):
-                    if root.startswith("./.") or root.startswith("./venv/"):
-                        continue
-                    for cd in dirs:
-                        if cd.startswith(".") or cd in ["__pycache__"]:
-                            continue
-                        if cd == "installation":
-                            return f"{root}/{cd}"
-        return None
-
-    @property
     def command_line(self) -> str | None:
         cmd_line = f"{self._exe} -headless"
         if self._args.mode == "client":
             cmd_line += " -client"
         else:
-            print(self._base_ip)
             if self._base_ip:
                 ip = self._base_ip
                 ip = f" {ip}" if ip != "search" else ""
