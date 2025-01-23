@@ -128,7 +128,7 @@ class MakeService:
         print(f"\n{path} created")
         return path
 
-    def install_service(self) -> Path | None:
+    def install_service(self) -> str | None:
         if is_linux() is False:
             print("\nThis script is only supported on Raspberry Pi/Linux. Exiting")
             return None
@@ -143,9 +143,9 @@ class MakeService:
         tmp = tempfile.NamedTemporaryFile()
         with open(tmp.name, "w") as f:
             f.write(template_data)
-        path = Path(self._home, "pytrain_server.service" if self.is_server else "pytrain_client.service")
+        service = "pytrain_server.service" if self.is_server else "pytrain_client.service"
         result = subprocess.run(
-            f"sudo mv -f {tmp.name} /etc/serviced/service/{path}".split(),
+            f"sudo mv -f {tmp.name} /etc/serviced/service/{service}".split(),
             capture_output=True,
             text=True,
         )
@@ -156,15 +156,15 @@ class MakeService:
             text=True,
         )
         subprocess.run(
-            f"sudo systemctl enable {path}".split(),
+            f"sudo systemctl enable {service}".split(),
             capture_output=True,
             text=True,
         )
         if self._start_service:
             subprocess.run(
-                f"sudo systemctl start {path}".split(),
+                f"sudo systemctl start {service}".split(),
             )
-        return path
+        return service
 
     @property
     def is_client(self) -> bool:
