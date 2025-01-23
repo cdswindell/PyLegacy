@@ -254,7 +254,7 @@ class PiConfig:
                     elif self._contains(line, "dtparam=audio=on"):
                         newlines[i] = "dtparam=audio=off"
                     elif self._contains(line, "camera_auto_detect=1"):
-                        newlines[i] = "#display_auto_detect=1"
+                        newlines[i] = "#camera_auto_detect=1"
                     elif self._contains(line, "display_auto_detect=1"):
                         newlines[i] = "#display_auto_detect=1"
                 # replace modified lines
@@ -312,6 +312,14 @@ class PiConfig:
             if self.verbose:
                 print("No extraneous packages remain!")
             return
+
+        # hack to deal with squeekboard/labwc issue
+        if os.path.isfile("/usr/share/labwc/autostart"):
+            pass
+        else:
+            subprocess.run("sudo mkdir -p /usr/share/labwc".split())
+            subprocess.run("sudo touch /usr/share/labwc/autostart".split())
+
         if self.verbose:
             text = ", ".join(pkgs)
             text = (
