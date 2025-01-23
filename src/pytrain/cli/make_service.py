@@ -194,6 +194,8 @@ class MakeService:
                 cmd_line += f" -base{ip}"
             if self._args.ser2 is True:
                 cmd_line += " -ser2"
+        if self._echo is True:
+            cmd_line += " -echo"
         if self._args.button_file:
             cmd_line += f" -buttons {self._args.button_file}"
         return cmd_line
