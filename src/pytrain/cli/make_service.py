@@ -283,7 +283,7 @@ class MakeService:
         )
         misc_opts = parser.add_argument_group("Miscellaneous options")
         misc_opts.add_argument(
-            "-button_file",
+            "-buttons_file",
             nargs="?",
             default=None,
             const=DEFAULT_BUTTONS_FILE,
