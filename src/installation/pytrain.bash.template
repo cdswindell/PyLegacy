@@ -1,12 +1,15 @@
 #! /bin/bash
 #
-# Change the following lines to define the path to where you installed PyTrain
-# as well as the namer of the button definitions file to load, if any
+# Use the PyTrain make_service script to configure this file.
+#
 PYTRAIN_HOME=___PYTRAINHOME___
 BUTTONS_FILE=___BUTTONS___
 LIONEL_BASE=___LIONELBASE___
+LCS_SER_2=___LCSSER2___
+CLIENT=___CLIENT___
+ECHO=___ECHO___
 
-# if a startup script is specified, use it if found
+# if a buttons file is specified, use it if found
 if [ -n "$BUTTONS_FILE" ]; then
   if [ -f $BUTTONS_FILE ]; then
     :
@@ -21,7 +24,7 @@ if [ -n "$BUTTONS_FILE" ]; then
   fi
 
   if [ -n "$BUTTONS_FILE" ]; then
-    echo "Using button definitions from: $BUTTONS_FILE"
+    echo "Using button definitions in: $BUTTONS_FILE"
     START=-buttons
   fi
 fi
@@ -30,8 +33,8 @@ fi
 cd $PYTRAIN_HOME
 
 # activate the virtual environment
-#source ../bin/activate; export PYTHONPATH=.
 source ___ACTIVATE___; export PYTHONPATH=.
 
-# run the program
-___PYTRAIN___ -client -headless $START $BUTTONS_FILE
+# run the program with appropriate arguments
+___PYTRAIN___  -headless ___CLIENT______LIONELBASE______LCSSER2______ECHO___ $START $BUTTONS_FILE
+

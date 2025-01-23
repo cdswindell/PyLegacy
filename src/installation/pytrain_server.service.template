@@ -7,7 +7,7 @@ After=network-online.target
 Type=exec
 User=___USER___
 Group=___USER___
-ExecStart=/home/davids/pytrain_server.bash
+ExecStart=___HOME___/pytrain_server.bash
 Nice=-5
 
 [Install]

@@ -10,13 +10,15 @@ import getpass
 import ipaddress
 import os
 import pwd
+import shutil
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import Dict
 
 from .pytrain import DEFAULT_BUTTONS_FILE
 from .pytrain import PROGRAM_NAME, is_package, get_version
-from ..utils.path_utils import find_dir
+from ..utils.path_utils import find_dir, find_file
 
 
 class MakeService:
@@ -33,7 +35,12 @@ class MakeService:
 
         self._template_dir = find_dir("installation", (".", "../", "src"))
         if self._template_dir is None:
-            print("\nUnable to find directory with installation templates. Exiting")
+            print("\nUnable to locate directory with installation templates. Exiting")
+            return
+
+        self._activate_cmd = find_file("activate", (".", "../"))
+        if self._activate_cmd is None:
+            print("\nUnable to locate virtual environment 'activate' command. Exiting")
             return
 
         # verify username
@@ -46,6 +53,7 @@ class MakeService:
             return
 
         # if server, verify a base 3 and/or ser2 is specified
+        self._ser2 = args.ser2 is True
         if args.base is None:
             self._base_ip = None
         else:
@@ -54,13 +62,15 @@ class MakeService:
                 if self.is_valid_ip(self._base_ip) is False:
                     print(f"\nInvalid IP address '{self._base_ip}'. Exiting")
                     return
+            else:
+                self._base_ip = ""  # an empty value causes PyTrain to search for the base
         if args.mode == "server" and args.base is None and args.ser2 is False:
             print("\nA Lionel Base IP address or Ser2 is required when configuring as a server. Exiting")
             return
 
         # verify client args
         if args.mode == "client":
-            if self._base_ip:
+            if self._base_ip is not None:
                 print("\nA Lionel Base IP address is not required when configuring as a client. Continuing")
             if args.ser2 is True:
                 print("\nA Ser2 is not required when configuring as a client. Continuing")
@@ -71,20 +81,46 @@ class MakeService:
                 print(f"\nButton definitions file '{args.button_file}' not found. Continuing")
 
         self._exe = "pytrain" if is_package() else "cli/pytrain.py"
+        self._echo = args.echo is True
         self._cmd_line = self.command_line
+        self._config = {
+            "___ACTIVATE___": str(self._activate_cmd),
+            "___BUTTONS___": self._args.button_file if self._args.button_file else "",
+            "___CLIENT___": "-client" if self.is_client else "",
+            "___ECHO___": " -echo" if self._echo is True else "",
+            "___HOME___": str(self._home),
+            "___LCSSER2___": " -ser2" if self._ser2 is True else "",
+            "___LIONELBASE___": f"-base {self._base_ip}" if self._base_ip is not None else "",
+            "___PYTRAINHOME___": str(self._cwd),
+            "___PYTRAIN___": str(self._exe),
+            "___USER___": self._user,
+        }
         if self.confirm_environment():
-            self._config = {
-                "___PYTRAINHOME___": self._cwd,
-                "___PYTRAIN___": None,
-                "___BUTTONS___": self._args.button_file,
-                "___LIONELBASE___": self._base_ip,
-                "___USER___": self._user,
-            }
-            self.do_install_service()
+            self.make_shell_script()
+            self.install_service()
         else:
             print("\nRe-run this script with the -h option for help")
 
-    def do_install_service(self) -> None:
+    def make_shell_script(self) -> None:
+        template = find_file("pytrain.bash.template", (".", "../", "src"))
+        if template is None:
+            print("\nUnable to locate shell script template. Exiting")
+            return
+        with open(template, "r") as f:
+            template_data = f.read()
+        for key, value in self.config.items():
+            template_data = template_data.replace(key, value)
+        path = Path(self._home, "pytrain_server.bash" if self.is_server else "pytrain_client.bash")
+        # write the shell script file
+        if path.exists():
+            shutil.copy2(path, path.with_suffix(".bak"))
+        with open(path, "w") as f:
+            f.write("#!/bin/bash\n")  # Add shebang
+            f.write(template_data)
+        os.chmod(path, 0o755)
+        print(f"\n{path} created")
+
+    def install_service(self) -> None:
         pass
 
     @property
@@ -94,6 +130,10 @@ class MakeService:
     @property
     def is_server(self) -> bool:
         return self._args.mode == "server"
+
+    @property
+    def config(self) -> Dict[str, str]:
+        return self._config
 
     @property
     def pytrain_path(self) -> str:
@@ -124,7 +164,9 @@ class MakeService:
         print(f"  Button definitions file: {self._args.button_file if self._args.button_file else 'None'}")
         print(f"  Run as user: {self._user}")
         print(f"  User '{self._user} Home: {self._home}")
-        print(f"  {PROGRAM_NAME} Path: {self.pytrain_path}")
+        print(f"  Echo TMCC/Legacy/Pdi commands to log file: {'Yes' if self._echo is True else 'No'}")
+        print(f"  Virtual environment activation command: {self._activate_cmd}")
+        print(f"  {PROGRAM_NAME} Exe: {self._exe}")
         print(f"  {PROGRAM_NAME} Home: {self._cwd}")
         print(f"  {PROGRAM_NAME} Command Line: {self._cmd_line}")
         return self.confirm("\nConfirm? [y/n] ")
@@ -183,6 +225,11 @@ class MakeService:
             default=None,
             const=DEFAULT_BUTTONS_FILE,
             help=f"Button definitions file, loaded when {PROGRAM_NAME} starts",
+        )
+        server_opts.add_argument(
+            "-echo",
+            action="store_true",
+            help="Echo received TMCC/Legacy/Pdi commands to log file",
         )
         misc_opts.add_argument(
             "-user",
