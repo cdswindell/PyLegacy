@@ -145,7 +145,7 @@ class MakeService:
             f.write(template_data)
         service = "pytrain_server.service" if self.is_server else "pytrain_client.service"
         result = subprocess.run(
-            f"sudo mv -f {tmp.name} /etc/serviced/service/{service}".split(),
+            f"sudo mv -f {tmp.name} /etc/systemd/system/{service}".split(),
             capture_output=True,
             text=True,
         )
