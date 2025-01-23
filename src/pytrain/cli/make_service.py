@@ -130,7 +130,7 @@ class MakeService:
 
     def install_service(self) -> str | None:
         if is_linux() is False:
-            print("\nThis script is only supported on Raspberry Pi/Linux. Exiting")
+            print(f"\nPlease run {self._prog} from a Raspberry Pi. Exiting")
             return None
         template = find_file("pytrain.service.template", (".", "../", "src"))
         if template is None:
