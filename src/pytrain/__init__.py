@@ -7,6 +7,7 @@
 # SPDX-License-Identifier: LPGL
 
 import importlib.metadata
+import platform
 import sys
 from importlib.metadata import PackageNotFoundError
 
@@ -77,6 +78,10 @@ def is_package() -> bool:
         return True
     except PackageNotFoundError:
         return False
+
+
+def is_linux() -> bool:
+    return platform.system().lower() == "linux"
 
 
 def get_version() -> str:

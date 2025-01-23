@@ -9,15 +9,19 @@
 import getpass
 import ipaddress
 import os
+import platform
 import pwd
 import shutil
+import subprocess
 import sys
+import tempfile
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import Dict
 
 from .pytrain import DEFAULT_BUTTONS_FILE
 from .pytrain import PROGRAM_NAME, is_package, get_version
+from .. import is_linux
 from ..utils.path_utils import find_dir, find_file
 
 
@@ -91,21 +95,25 @@ class MakeService:
             "___HOME___": str(self._home),
             "___LCSSER2___": " -ser2" if self._ser2 is True else "",
             "___LIONELBASE___": f"-base {self._base_ip}" if self._base_ip is not None else "",
+            "___MODE___": "Server" if self.is_server else "Client",
             "___PYTRAINHOME___": str(self._cwd),
             "___PYTRAIN___": str(self._exe),
             "___USER___": self._user,
         }
+        self._start_service = args.start is True
         if self.confirm_environment():
-            self.make_shell_script()
-            self.install_service()
+            path = self.make_shell_script()
+            if path:
+                self._config["___SHELL_SCRIPT___"] = str(path)
+                self.install_service()
         else:
             print("\nRe-run this script with the -h option for help")
 
-    def make_shell_script(self) -> None:
+    def make_shell_script(self) -> Path | None:
         template = find_file("pytrain.bash.template", (".", "../", "src"))
         if template is None:
             print("\nUnable to locate shell script template. Exiting")
-            return
+            return None
         with open(template, "r") as f:
             template_data = f.read()
         for key, value in self.config.items():
@@ -115,13 +123,48 @@ class MakeService:
         if path.exists():
             shutil.copy2(path, path.with_suffix(".bak"))
         with open(path, "w") as f:
-            f.write("#!/bin/bash\n")  # Add shebang
             f.write(template_data)
         os.chmod(path, 0o755)
         print(f"\n{path} created")
+        return path
 
-    def install_service(self) -> None:
-        pass
+    def install_service(self) -> Path | None:
+        if is_linux() is False:
+            print("\nThis script is only supported on Raspberry Pi/Linux. Exiting")
+            return None
+        template = find_file("pytrain.service.template", (".", "../", "src"))
+        if template is None:
+            print("\nUnable to locate service definition template. Exiting")
+            return None
+        with open(template, "r") as f:
+            template_data = f.read()
+        for key, value in self.config.items():
+            template_data = template_data.replace(key, value)
+        tmp = tempfile.NamedTemporaryFile()
+        with open(tmp.name, "w") as f:
+            f.write(template_data)
+        path = Path(self._home, "pytrain_server.service" if self.is_server else "pytrain_client.service")
+        result = subprocess.run(
+            f"sudo mv -f {tmp.name} /etc/serviced/service/{path}".split(),
+            capture_output=True,
+            text=True,
+        )
+        print(result)
+        subprocess.run(
+            "sudo systemctl daemon-reload".split(),
+            capture_output=True,
+            text=True,
+        )
+        subprocess.run(
+            f"sudo systemctl enable {path}".split(),
+            capture_output=True,
+            text=True,
+        )
+        if self._start_service:
+            subprocess.run(
+                f"sudo systemctl start {path}".split(),
+            )
+        return path
 
     @property
     def is_client(self) -> bool:
@@ -165,6 +208,7 @@ class MakeService:
         print(f"  Run as user: {self._user}")
         print(f"  User '{self._user} Home: {self._home}")
         print(f"  Echo TMCC/Legacy/Pdi commands to log file: {'Yes' if self._echo is True else 'No'}")
+        print(f"  System type: {platform.system()}")
         print(f"  Virtual environment activation command: {self._activate_cmd}")
         print(f"  {PROGRAM_NAME} Exe: {self._exe}")
         print(f"  {PROGRAM_NAME} Home: {self._cwd}")
@@ -230,6 +274,11 @@ class MakeService:
             "-echo",
             action="store_true",
             help="Echo received TMCC/Legacy/Pdi commands to log file",
+        )
+        server_opts.add_argument(
+            "-start",
+            action="store_true",
+            help=f"Start {PROGRAM_NAME} Client/Server now (otherwise, it starts on reboot)",
         )
         misc_opts.add_argument(
             "-user",

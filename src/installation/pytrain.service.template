@@ -1,13 +1,12 @@
 [Unit]
-Description=PyTrain Server
+Description=PyTrain ___MODE___
 After=multi-user.target
-After=network-online.target
 
 [Service]
 Type=exec
 User=___USER___
 Group=___USER___
-ExecStart=___HOME___/pytrain_server.bash
+ExecStart=___SHELL_SCRIPT___
 Nice=-5
 
 [Install]
