@@ -13,7 +13,7 @@ import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
-from src.pytrain import PROGRAM_NAME, is_package
+from src.pytrain import PROGRAM_NAME, is_package, get_version
 
 
 class MakeService:
@@ -21,6 +21,7 @@ class MakeService:
         self._user = getpass.getuser()
         self._home = Path.home()
         self._cwd = Path.cwd()
+        self._prog = "make_service" if is_package() else "make_service.py"
         if cmd_line:
             args = self.command_line_parser().parse_args(cmd_line)
         else:
@@ -55,9 +56,8 @@ class MakeService:
         return True if answer.lower() in ["y", "yes"] else False
 
     def command_line_parser(self) -> ArgumentParser:
-        prog = "make_service" if is_package() else "make_service.py"
         parser = ArgumentParser(
-            prog=prog,
+            prog=self._prog,
             description=f"Launch {PROGRAM_NAME} as a systemd service when your Raspberry Pi is powered on",
         )
         mode_group = parser.add_mutually_exclusive_group(required=True)
@@ -98,7 +98,12 @@ class MakeService:
             default=self._user,
             help=f"Raspberry Pi user to run {PROGRAM_NAME} as (default: {self._user})",
         )
-        misc_opts.add_argument("-version", action="store_true", help="Show version and exit")
+        misc_opts.add_argument(
+            "-version",
+            action="version",
+            version=f"{self.__class__.__name__} {get_version()}",
+            help="Show version and exit",
+        )
         return parser
 
     @staticmethod

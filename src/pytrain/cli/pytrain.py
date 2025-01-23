@@ -88,9 +88,6 @@ class PyTrain:
             args = self.command_line_parser().parse_args(cmd_line)
         else:
             args = self.command_line_parser().parse_args()
-        if args.version is True:
-            print(f"{PROGRAM_NAME} {get_version()}")
-            return
         log.debug(f"{PROGRAM_NAME} args: {args}")
         self._args = args
         self._buttons_file = args.buttons_file
@@ -268,8 +265,7 @@ class PyTrain:
     def tid(self) -> int:
         return threading.get_native_id()
 
-    @staticmethod
-    def command_line_parser() -> ArgumentParser:
+    def command_line_parser(self) -> ArgumentParser:
         prog = "pytrain" if is_package() else "pytrain.py"
         parser = ArgumentParser(
             prog=prog,
@@ -333,7 +329,12 @@ class PyTrain:
             help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})",
         )
 
-        parser.add_argument("-version", action="store_true", help="Show version and exit")
+        parser.add_argument(
+            "-version",
+            action="version",
+            version=f"{self.__class__.__name__} {get_version()}",
+            help="Show version and exit",
+        )
         return parser
 
     def __call__(self, cmd: CommandReq | PdiReq) -> None:

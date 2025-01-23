@@ -360,8 +360,7 @@ class PiConfig:
                     config.append(line.strip())
         return config
 
-    @staticmethod
-    def command_line_parser() -> ArgumentParser:
+    def command_line_parser(self) -> ArgumentParser:
         prog = "piconfig" if is_package() else "piconfig.py"
         parser = ArgumentParser(
             prog=prog,
@@ -419,9 +418,9 @@ class PiConfig:
         )
         parser.add_argument(
             "-version",
-            action="store_const",
-            const="version",
-            dest="option",
+            "-version",
+            action="version",
+            version=f"{self.__class__.__name__} {get_version()}",
             help="Show version and exit",
         )
         parser.set_defaults(option="check")
