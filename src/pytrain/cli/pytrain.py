@@ -555,7 +555,9 @@ class PyTrain:
     def upgrade(self) -> None:
         log.info(f"{'Server' if self.is_server else 'Client'} upgrading...")
         if sys.platform == "linux":
-            os.system("sudo apt update; sudo apt upgrade -y")
+            os.system("sudo apt update")
+            sleep(1)
+            os.system("sudo apt upgrade -y")
         self.update(do_inform=False)
 
     def relaunch(self, delay: bool = True) -> None:
