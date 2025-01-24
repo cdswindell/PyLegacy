@@ -593,7 +593,8 @@ class PyTrain:
         if self.is_client is True and delay is True:
             sleep(10)
         # are we a service or run from the commandline?
-        log.info(f"***{'Server' if self.is_server else 'Client'} relaunching {psutil.Process(os.getpid()).ppid()}...")
+        ospid = os.getppid()
+        log.info(f"***{'Server' if self.is_server else 'Client'}  {psutil.Process(os.getppid()).ppid()} {ospid}...")
         if psutil.Process(os.getpid()).ppid() == 1:
             # if "-headless" in sys.argv:
             # restart service
