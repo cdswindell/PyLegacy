@@ -80,16 +80,16 @@ class MakeService:
                 print("\nA Ser2 is not required when configuring as a client. Continuing")
 
         # verify buttons file exists
-        if args.button_file:
-            if os.path.isfile(args.button_file) is False:
-                print(f"\nButton definitions file '{args.button_file}' not found. Continuing")
+        if args.buttons_file:
+            if os.path.isfile(args.buttons_file) is False:
+                print(f"\nButton definitions file '{args.buttons_file}' not found. Continuing")
 
         self._exe = "pytrain" if is_package() else "cli/pytrain.py"
         self._echo = args.echo is True
         self._cmd_line = self.command_line
         self._config = {
             "___ACTIVATE___": str(self._activate_cmd),
-            "___BUTTONS___": self._args.button_file if self._args.button_file else "",
+            "___BUTTONS___": self._args.buttons_file if self._args.buttons_file else "",
             "___CLIENT___": "-client" if self.is_client else "",
             "___ECHO___": " -echo" if self._echo is True else "",
             "___HOME___": str(self._home),
@@ -213,8 +213,8 @@ class MakeService:
                 cmd_line += " -ser2"
         if self._echo is True:
             cmd_line += " -echo"
-        if self._args.button_file:
-            cmd_line += f" -buttons {self._args.button_file}"
+        if self._args.buttons_file:
+            cmd_line += f" -buttons {self._args.buttons_file}"
         return cmd_line
 
     def confirm_environment(self) -> bool:
@@ -223,7 +223,7 @@ class MakeService:
         if self._args.mode == "server":
             print(f"  Lionel Base IP addresses: {self._base_ip}")
             print(f"  Use Ser2: {'Yes' if self._args.ser2 is True else 'No'}")
-        print(f"  Button definitions file: {self._args.button_file if self._args.button_file else 'None'}")
+        print(f"  Button definitions file: {self._args.buttons_file if self._args.buttons_file else 'None'}")
         print(f"  Run as user: {self._user}")
         print(f"  User '{self._user} Home: {self._home}")
         print(f"  Echo TMCC/Legacy/Pdi commands to log file: {'Yes' if self._echo is True else 'No'}")
