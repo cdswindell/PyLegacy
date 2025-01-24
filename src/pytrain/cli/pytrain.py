@@ -117,7 +117,6 @@ class PyTrain:
         self._dispatcher = None
         self._started_at = timer()
         self._version = get_version()
-        self._original_sigterm_handler = signal.getsignal(signal.SIGINT)
 
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).
@@ -155,7 +154,7 @@ class PyTrain:
 
         listeners = []
         self._pdi_buffer = None
-        if isinstance(self.buffer, CommBufferSingleton):
+        if isinstance(self.tmcc_buffer, CommBufferSingleton):
             # Remember Base 3 address on the comm buffer; it is an object that both
             # clients and servers both have
             self._tmcc_buffer.base3_address = self._base_addr
@@ -167,13 +166,13 @@ class PyTrain:
 
             # listen for client connections
             print(f"Listening for client requests on port {self._args.server_port}...")
-            self._receiver = EnqueueProxyRequests(self.buffer, self._args.server_port)
+            self._receiver = EnqueueProxyRequests(self.tmcc_buffer, self._args.server_port)
 
             if self._base_addr is not None:
                 print(f"Listening for Lionel Base broadcasts on {self._base_addr}:{self._base_port}...")
                 self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
                 listeners.append(self._pdi_buffer)
-                self.buffer.is_use_base3 = True
+                self.tmcc_buffer.is_use_base3 = True
 
             if self._ser2 is True:
                 print("Listening for Lionel LCS Ser2 broadcasts...")
@@ -259,11 +258,100 @@ class PyTrain:
                 print(f"Loading layout state {PROGRAM_NAME} from server{server}...")
 
         # Start the command line processor
-        self.run()
+        self._command_processor_ev = threading.Event()
+        if args.api is True:
+            self._command_processor_thread: threading.Thread | None = threading.Thread(target=self.run)
+            self._command_processor_thread.daemon = True
+            self._command_processor_thread.start()
+        else:
+            self._command_processor_thread = None
+            self.run()
+
+    def run(self) -> None:
+        # print opening line
+        log.info(f"{PROGRAM_NAME}, {self._version}")
+        # process startup script
+        if self._buttons_file:
+            self._buttons_loader = ButtonsFileLoader(self._buttons_file)
+            self._buttons_loader.join()
+
+        # register as server so clients can connect without IP addr
+        if self.is_server:
+            self._zeroconf = Zeroconf()
+            self._service_info = self.register_service(
+                self._ser2 is True,
+                self._base_addr is not None,
+                self._args.server_port,
+            )
+
+        processed_replay = False
+        if self._headless:
+            log.info("Not accepting keyboard input; background mode")
+        try:
+            if self._headless is False:
+                # provide limited command line recall and editing
+                readline.set_auto_history(True)
+            while True:
+                try:
+                    if processed_replay is False and self._replay_file:
+                        processed_replay = True
+                        if os.path.isfile(self._replay_file):
+                            log.info(f"Replaying commands from {self._replay_file}...")
+                            with open(self._replay_file, "r") as f:
+                                for line in f:
+                                    try:
+                                        self._handle_command(line)
+                                    except SystemExit:
+                                        pass
+                                    except argparse.ArgumentError:
+                                        pass
+                        else:
+                            log.warning(f'Replay file "{self._replay_file}" not found, continuing...')
+                    elif self._headless:
+                        self._command_processor_ev.wait()
+                        raise KeyboardInterrupt
+                    # signal.pause()  # essentially puts the job into the background
+                    else:
+                        ui: str = input(">> ")
+                        self._handle_command(ui)
+                except SystemExit:
+                    pass
+                except argparse.ArgumentError:
+                    pass
+                except KeyboardInterrupt:
+                    self.shutdown()
+                    break
+        finally:
+            if self._headless is False:
+                readline.write_history_file(DEFAULT_HISTORY_FILE)
+            self.shutdown_service()
+            if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
+                if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
+                    self.upgrade()
+                elif self._admin_action == TMCC1SyncCommandEnum.UPDATE:
+                    self.update()
+                elif self._admin_action == TMCC1SyncCommandEnum.RESTART:
+                    self.restart()
+                elif self._admin_action == TMCC1SyncCommandEnum.REBOOT:
+                    self.reboot()
+                elif self._admin_action == TMCC1SyncCommandEnum.SHUTDOWN:
+                    self.reboot(reboot=False)
 
     @property
     def tid(self) -> int:
         return threading.get_native_id()
+
+    @property
+    def store(self) -> ComponentStateStore:
+        return self._state_store
+
+    @property
+    def command_dispatcher(self) -> CommandDispatcher:
+        return self._dispatcher
+
+    @property
+    def tmcc_buffer(self) -> CommBuffer:
+        return self._tmcc_buffer
 
     def command_line_parser(self) -> ArgumentParser:
         prog = "pytrain" if is_package() else "pytrain.py"
@@ -313,6 +401,7 @@ class PyTrain:
         )
         ser2_opts.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
         misc_opts = parser.add_argument_group("Miscellaneous options")
+        misc_opts.add_argument("-api", action="store_true", help=argparse.SUPPRESS)
         misc_opts.add_argument(
             "-buttons_file",
             type=str,
@@ -356,6 +445,8 @@ class PyTrain:
                 # this will interrupt the comment prompt loop and call
                 # the appropriate handler
                 self._admin_action = cmd.command
+                if self._command_processor_thread:
+                    self._command_processor_ev.set()
                 os.kill(os.getpid(), signal.SIGINT)
 
     def __repr__(self) -> str:
@@ -364,83 +455,15 @@ class PyTrain:
 
     @property
     def is_server(self) -> bool:
-        return isinstance(self.buffer, CommBufferSingleton)
+        return isinstance(self.tmcc_buffer, CommBufferSingleton)
 
     @property
     def is_client(self) -> bool:
         return not self.is_server
 
-    @property
-    def buffer(self) -> CommBuffer:
-        return self._tmcc_buffer
-
-    def run(self) -> None:
-        # print opening line
-        log.info(f"{PROGRAM_NAME}, {self._version}")
-        # process startup script
-        if self._buttons_file:
-            self._buttons_loader = ButtonsFileLoader(self._buttons_file)
-            self._buttons_loader.join()
-
-        # register as server so clients can connect without IP addr
-        if self.is_server:
-            self._zeroconf = Zeroconf()
-            self._service_info = self.register_service(
-                self._ser2 is True,
-                self._base_addr is not None,
-                self._args.server_port,
-            )
-
-        processed_replay = False
-        if self._headless:
-            log.info("Not accepting keyboard input; background mode")
-        try:
-            if self._headless is False:
-                # provide limited command line recall and editing
-                readline.set_auto_history(True)
-            while True:
-                try:
-                    if processed_replay is False and self._replay_file:
-                        processed_replay = True
-                        if os.path.isfile(self._replay_file):
-                            log.info(f"Replaying commands from {self._replay_file}...")
-                            with open(self._replay_file, "r") as f:
-                                for line in f:
-                                    try:
-                                        self._handle_command(line)
-                                    except SystemExit:
-                                        pass
-                                    except argparse.ArgumentError:
-                                        pass
-                        else:
-                            log.warning(f'Replay file "{self._replay_file}" not found, continuing...')
-                    elif self._headless:
-                        signal.pause()  # essentially puts the job into the background
-                    else:
-                        ui: str = input(">> ")
-                        self._handle_command(ui)
-                except SystemExit:
-                    pass
-                except argparse.ArgumentError:
-                    pass
-                except KeyboardInterrupt:
-                    self.shutdown()
-                    break
-        finally:
-            if self._headless is False:
-                readline.write_history_file(DEFAULT_HISTORY_FILE)
-            self.shutdown_service()
-            if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
-                if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
-                    self.upgrade()
-                elif self._admin_action == TMCC1SyncCommandEnum.UPDATE:
-                    self.update()
-                elif self._admin_action == TMCC1SyncCommandEnum.RESTART:
-                    self.restart()
-                elif self._admin_action == TMCC1SyncCommandEnum.REBOOT:
-                    self.reboot()
-                elif self._admin_action == TMCC1SyncCommandEnum.SHUTDOWN:
-                    self.reboot(reboot=False)
+    # @property
+    # def buffer(self) -> CommBuffer:
+    #     return self._tmcc_buffer
 
     def shutdown(self):
         try:
