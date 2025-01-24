@@ -37,7 +37,7 @@ from .lighting import LightingCli
 from .route import RouteCli
 from .sounds import SoundEffectsCli
 from .switch import SwitchCli
-from .. import get_version, is_package, PROGRAM_PACKAGE
+from .. import get_version, is_package, PROGRAM_PACKAGE, is_linux
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandListener, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -633,7 +633,6 @@ class PyTrain:
         # are we a service or run from the commandline?
         if self.is_service is True:
             # restart service
-            print("*********** Restarting service...", flush=True)
             os.system(f"sudo systemctl restart pytrain_{'server' if self.is_server else 'client'}.service")
         else:
             # rerun commandline pgm
@@ -645,8 +644,11 @@ class PyTrain:
 
     @property
     def is_service(self) -> bool:
+        if is_linux() is False:
+            return False
         service = f"pytrain_{'server' if self.is_server else 'client'}.service"
-        return subprocess.call(f"sudo systemctl is-active --quiet {service}".split()) == 0
+        stat = subprocess.call(f"systemctl is-active --quiet {service}".split())
+        return stat == 0
 
     def register_service(self, ser2, base3, server_port) -> ServiceInfo:
         port = server_port
