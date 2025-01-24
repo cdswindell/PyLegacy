@@ -17,14 +17,15 @@ import os
 import readline
 import signal
 import socket
+import subprocess
 import sys
 import threading
 from datetime import datetime, timedelta
+from queue import Queue, Empty
 from time import sleep
 from timeit import default_timer as timer
 from typing import List, Tuple, Dict, Any
 
-import psutil
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
 from .acc import AccCli
@@ -62,6 +63,7 @@ from ..protocol.constants import (
     DEFAULT_VALID_BAUDRATES,
     DEFAULT_BAUDRATE,
     DEFAULT_PORT,
+    DEFAULT_QUEUE_SIZE,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
@@ -258,14 +260,18 @@ class PyTrain:
             else:
                 print(f"Loading layout state {PROGRAM_NAME} from server{server}...")
 
-        # Start the command line processor
+        # Start the command line processor; run as thread if we're serving the REST api
         self._command_processor_ev = threading.Event()
         if args.api is True:
-            self._command_processor_thread: threading.Thread | None = threading.Thread(target=self.run)
-            self._command_processor_thread.daemon = True
-            self._command_processor_thread.start()
+            self._api = True
+            self._command_queue = Queue(DEFAULT_QUEUE_SIZE)
+            self._api_thread: threading.Thread | None = threading.Thread(target=self.run)
+            self._api_thread.daemon = True
+            self._api_thread.start()
         else:
-            self._command_processor_thread = None
+            self._api = False
+            self._api_thread = None
+            self._command_queue = None
             self.run()
 
     def run(self) -> None:
@@ -308,10 +314,18 @@ class PyTrain:
                                         pass
                         else:
                             log.warning(f'Replay file "{self._replay_file}" not found, continuing...')
+                    elif self._api:
+                        cmd = None
+                        try:
+                            cmd = self._command_queue.get(block=True)
+                            self._handle_command(cmd)
+                        except Empty:
+                            pass
+                        finally:
+                            if cmd and self._command_queue:
+                                self._command_queue.task_done()
                     elif self._headless:
-                        self._command_processor_ev.wait()
-                        raise KeyboardInterrupt
-                    # signal.pause()  # essentially puts the job into the background
+                        signal.pause()  # essentially puts the job into the background
                     else:
                         ui: str = input(">> ")
                         self._handle_command(ui)
@@ -323,7 +337,7 @@ class PyTrain:
                     self.shutdown()
                     break
         finally:
-            if self._headless is False:
+            if self._headless is False and self._api is False:
                 readline.write_history_file(DEFAULT_HISTORY_FILE)
             self.shutdown_service()
             if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
@@ -337,6 +351,13 @@ class PyTrain:
                     self.reboot()
                 elif self._admin_action == TMCC1SyncCommandEnum.SHUTDOWN:
                     self.reboot(reboot=False)
+
+    def queue_command(self, cmd: str) -> None:
+        if cmd:
+            if self._api:
+                self._command_queue.put(cmd)
+            else:
+                self._handle_command(cmd)
 
     @property
     def tid(self) -> int:
@@ -446,8 +467,8 @@ class PyTrain:
                 # this will interrupt the comment prompt loop and call
                 # the appropriate handler
                 self._admin_action = cmd.command
-                if self._command_processor_thread:
-                    self._command_processor_ev.set()
+                if self._api_thread:
+                    self.shutdown()
                 os.kill(os.getpid(), signal.SIGINT)
 
     def __repr__(self) -> str:
@@ -462,6 +483,14 @@ class PyTrain:
     def is_client(self) -> bool:
         return not self.is_server
 
+    @property
+    def is_api(self) -> bool:
+        return self._api
+
+    @property
+    def is_api_active(self) -> bool:
+        return self._api is True and self._command_queue is not None and self._api_thread is not None
+
     # @property
     # def buffer(self) -> CommBuffer:
     #     return self._tmcc_buffer
@@ -471,6 +500,15 @@ class PyTrain:
             self.shutdown_service()
         except Exception as e:
             log.warning(f"Error closing zeroconf, continuing shutdown: {e}")
+        try:
+            if self._api is True and self._command_queue is not None:
+                with self._command_queue.mutex:
+                    self._command_queue.queue.clear()
+                    self._command_queue.all_tasks_done.notify_all()
+                    self._command_queue.unfinished_tasks = 0
+                    self._command_queue = None
+        except Exception as e:
+            log.warning(f"Error disconnecting API, continuing shutdown: {e}")
         try:
             if self.is_client:
                 self._tmcc_buffer.disconnect(self._tmcc_listener.port)
@@ -594,11 +632,10 @@ class PyTrain:
             sleep(10)
         # are we a service or run from the commandline?
         if self.is_service is True:
-            print("******************", flush=True)
             # restart service
+            print("*********** Restarting service...", flush=True)
             os.system(f"sudo systemctl restart pytrain_{'server' if self.is_server else 'client'}.service")
         else:
-            print("&&&&&&&&&&&&&&&&&&&")
             # rerun commandline pgm
             if self._echo is True and "-echo" not in sys.argv:
                 sys.argv.append("-echo")
@@ -608,8 +645,8 @@ class PyTrain:
 
     @property
     def is_service(self) -> bool:
-        # service_file = f"pytrain_{'server' if self.is_server else 'client'}.service"
-        return psutil.Process(os.getppid()).ppid() == 1
+        service = f"pytrain_{'server' if self.is_server else 'client'}.service"
+        return subprocess.call(f"sudo systemctl is-active --quiet {service}".split()) == 0
 
     def register_service(self, ser2, base3, server_port) -> ServiceInfo:
         port = server_port
