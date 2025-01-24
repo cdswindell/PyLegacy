@@ -598,6 +598,7 @@ class PyTrain:
             # restart service
             os.system(f"sudo systemctl restart pytrain_{'server' if self.is_server else 'client'}.service")
         else:
+            print("&&&&&&&&&&&&&&&&&&&")
             # rerun commandline pgm
             if self._echo is True and "-echo" not in sys.argv:
                 sys.argv.append("-echo")
