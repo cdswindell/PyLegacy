@@ -594,7 +594,7 @@ class PyTrain:
             sleep(10)
         # are we a service or run from the commandline?
         if self.is_service is True:
-            print("******************")
+            print("******************", flush=True)
             # restart service
             os.system(f"sudo systemctl restart pytrain_{'server' if self.is_server else 'client'}.service")
         else:
@@ -609,7 +609,6 @@ class PyTrain:
     @property
     def is_service(self) -> bool:
         # service_file = f"pytrain_{'server' if self.is_server else 'client'}.service"
-        log.info(f"***{'Server' if self.is_server else 'Client'}  {psutil.Process(os.getppid()).ppid()}...")
         return psutil.Process(os.getppid()).ppid() == 1
 
     def register_service(self, ser2, base3, server_port) -> ServiceInfo:
