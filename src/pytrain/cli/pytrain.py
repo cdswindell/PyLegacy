@@ -24,6 +24,7 @@ from time import sleep
 from timeit import default_timer as timer
 from typing import List, Tuple, Dict, Any
 
+import psutil
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
 from .acc import AccCli
@@ -592,7 +593,9 @@ class PyTrain:
         if self.is_client is True and delay is True:
             sleep(10)
         # are we a service or run from the commandline?
-        if "-headless" in sys.argv:
+        log.info(f"{'Server' if self.is_server else 'Client'} relaunching {psutil.Process(os.getpid()).ppid()}...")
+        if psutil.Process(os.getpid()).ppid() == 1:
+            # if "-headless" in sys.argv:
             # restart service
             if self.is_client:
                 os.system("sudo systemctl restart pytrain_client.service")
