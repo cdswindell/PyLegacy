@@ -289,7 +289,15 @@ class PyTrain:
             help=f"Connect to {PROGRAM_NAME} server at IP address (Client mode)",
         )
         parser.set_defaults(client=True)
-        parser.add_argument(
+        server_opts = parser.add_argument_group("Client/Server options")
+        server_opts.add_argument(
+            "-server_port",
+            type=int,
+            default=DEFAULT_SERVER_PORT,
+            help=f"Server port that remote clients connect to (default: {DEFAULT_SERVER_PORT})",
+        )
+        ser2_opts = parser.add_argument_group("LCS Ser2 options")
+        ser2_opts.add_argument(
             "-baudrate",
             action="store",
             type=int,
@@ -297,39 +305,34 @@ class PyTrain:
             default=DEFAULT_BAUDRATE,
             help=f"Baud Rate ({DEFAULT_BAUDRATE})",
         )
-        parser.add_argument(
+        ser2_opts.add_argument(
+            "-port",
+            action="store",
+            default=DEFAULT_PORT,
+            help=f"Serial port for LCS Ser2 connection ({DEFAULT_PORT})",
+        )
+        ser2_opts.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
+        misc_opts = parser.add_argument_group("Miscellaneous options")
+        misc_opts.add_argument(
             "-buttons_file",
             type=str,
             nargs="?",
             const=DEFAULT_BUTTONS_FILE,
             help=f"Load button definitions at start up (default file: {DEFAULT_BUTTONS_FILE})",
         )
-        parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
-
-        parser.add_argument("-headless", action="store_true", help="Do not prompt for user input (run in background),")
-        parser.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
-        parser.add_argument(
-            "-port",
-            action="store",
-            default=DEFAULT_PORT,
-            help=f"Serial port for LCS Ser2 connection ({DEFAULT_PORT})",
+        misc_opts.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
+        misc_opts.add_argument(
+            "-headless", action="store_true", help="Do not prompt for user input (run in background),"
         )
-        parser.add_argument(
+        misc_opts.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
+        misc_opts.add_argument(
             "-replay_file",
             type=str,
             nargs="?",
             const=DEFAULT_REPLAY_FILE,
             help=f"Replay {PROGRAM_NAME} commands at start up (default file: {DEFAULT_REPLAY_FILE})",
         )
-        parser.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
-        parser.add_argument(
-            "-server_port",
-            type=int,
-            default=DEFAULT_SERVER_PORT,
-            help=f"Port to use for remote connections, if client (default: {DEFAULT_SERVER_PORT})",
-        )
-
-        parser.add_argument(
+        misc_opts.add_argument(
             "-version",
             action="version",
             version=f"{self.__class__.__name__} {get_version()}",

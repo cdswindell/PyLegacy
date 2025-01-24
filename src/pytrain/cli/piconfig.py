@@ -16,7 +16,7 @@ from argparse import ArgumentParser
 from typing import List, Set, Tuple
 
 from .pytrain import PROGRAM_NAME, get_version
-from .. import is_package
+from .. import is_package, is_linux
 
 SETTINGS = {
     "net_names": 0,
@@ -81,6 +81,9 @@ class PiConfig:
         self._args = args
         self.option = args.option
         self.verbose = args.quiet is False
+        if is_linux() is False:
+            print("This command can only run on Raspberry Pi systems! Exiting...")
+            sys.exit(1)
         # do the work
         if self.option == "check":
             self.do_check()
@@ -372,23 +375,9 @@ class PiConfig:
         prog = "piconfig" if is_package() else "piconfig.py"
         parser = ArgumentParser(
             prog=prog,
-            description=f"Optimize Raspberry Pi configuration for running {PROGRAM_NAME}",
+            description=f"Optimize Raspberry Pi for use with {PROGRAM_NAME}",
         )
         config_group = parser.add_mutually_exclusive_group()
-
-        parser.add_argument(
-            "-quiet",
-            action="store_true",
-            help="Operate quietly and don't provide feedback",
-        )
-
-        config_group.add_argument(
-            "-all",
-            action="store_const",
-            const="all",
-            dest="option",
-            help="Perform all optimizations",
-        )
         config_group.add_argument(
             "-check",
             action="store_const",
@@ -397,41 +386,55 @@ class PiConfig:
             help="Check Raspberry Pi configuration (no changes made; default option)",
         )
         config_group.add_argument(
+            "-all",
+            action="store_const",
+            const="all",
+            dest="option",
+            help="Perform all optimizations",
+        )
+        config_group.add_argument(
             "-configuration",
             action="store_const",
             const="configuration",
             dest="option",
-            help="Enable/disable Raspberry Pi configuration options",
+            help="Optimize Raspberry Pi configuration options",
         )
-        parser.add_argument(
-            "-expand_file_system",
-            action="store_const",
-            const="expand_file_system",
-            dest="option",
-            help="Expand file system and reboot",
-        )
+
         config_group.add_argument(
             "-packages",
             action="store_const",
             const="packages",
             dest="option",
-            help="Only remove unneeded packages",
+            help="Optimize packages",
         )
         config_group.add_argument(
             "-services",
             action="store_const",
             const="services",
             dest="option",
-            help="Only disable unneeded services",
+            help="Optimize services",
         )
-        parser.add_argument(
-            "-version",
+        parser.set_defaults(option="check")
+
+        misc_opts = parser.add_argument_group("Miscellaneous options")
+        misc_opts.add_argument(
+            "-expand_file_system",
+            action="store_const",
+            const="expand_file_system",
+            dest="option",
+            help="Expand file system and reboot",
+        )
+        misc_opts.add_argument(
+            "-quiet",
+            action="store_true",
+            help="Operate quietly and don't provide feedback",
+        )
+        misc_opts.add_argument(
             "-version",
             action="version",
             version=f"{self.__class__.__name__} {get_version()}",
             help="Show version and exit",
         )
-        parser.set_defaults(option="check")
         return parser
 
     @staticmethod
