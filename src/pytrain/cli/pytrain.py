@@ -593,15 +593,10 @@ class PyTrain:
         if self.is_client is True and delay is True:
             sleep(10)
         # are we a service or run from the commandline?
-        ospid = os.getppid()
-        log.info(f"***{'Server' if self.is_server else 'Client'}  {psutil.Process(os.getppid()).ppid()} {ospid}...")
-        if psutil.Process(os.getpid()).ppid() == 1:
-            # if "-headless" in sys.argv:
+        if self.is_service is True:
+            print("******************")
             # restart service
-            if self.is_client:
-                os.system("sudo systemctl restart pytrain_client.service")
-            elif self.is_server:
-                os.system("sudo systemctl restart pytrain_server.service")
+            os.system(f"sudo systemctl restart pytrain_{'server' if self.is_server else 'client'}.service")
         else:
             # rerun commandline pgm
             if self._echo is True and "-echo" not in sys.argv:
@@ -609,6 +604,12 @@ class PyTrain:
             elif self._echo is False and "-echo" in sys.argv:
                 sys.argv.remove("-echo")
             os.execv(sys.argv[0], sys.argv)
+
+    @property
+    def is_service(self) -> bool:
+        # service_file = f"pytrain_{'server' if self.is_server else 'client'}.service"
+        log.info(f"***{'Server' if self.is_server else 'Client'}  {psutil.Process(os.getppid()).ppid()}...")
+        return psutil.Process(os.getppid()).ppid() == 1
 
     def register_service(self, ser2, base3, server_port) -> ServiceInfo:
         port = server_port
