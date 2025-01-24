@@ -214,56 +214,52 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 break
         # we use TMCC1 syntax to pass special commands to control operating nodes,
         # to reduce overhead, only do the special processing if necessary
-        try:
-            if byte_stream[0] == 0xFE and byte_stream[1] == 0xF0:
-                from .command_listener import CommandDispatcher
+        if byte_stream[0] == 0xFE and byte_stream[1] == 0xF0:
+            from .command_listener import CommandDispatcher
 
-                # Appended to the admin/sync byte sequence is the port that the server
-                # must use to send state updates back to the client. Decode it here
-                # client_scope is set if the scope of a command are all the clients
-                # on that node ("restart me"). This is only used below iff
-                # signal_clients_on is called; this is why we have 2 variables;
-                # client_scope & client_ip
-                (client_scope, client_port, client_id) = self.extract_addendum(byte_stream)
-                client_ip = client_scope if client_scope else self.client_address[0]
-                byte_stream = byte_stream[0:3]
-                cmd = CommandReq.from_bytes(byte_stream)
+            # Appended to the admin/sync byte sequence is the port that the server
+            # must use to send state updates back to the client. Decode it here
+            # client_scope is set if the scope of a command are all the clients
+            # on that node ("restart me"). This is only used below iff
+            # signal_clients_on is called; this is why we have 2 variables;
+            # client_scope & client_ip
+            (client_scope, client_port, client_id) = self.extract_addendum(byte_stream)
+            client_ip = client_scope if client_scope else self.client_address[0]
+            byte_stream = byte_stream[0:3]
+            cmd = CommandReq.from_bytes(byte_stream)
 
-                if byte_stream == DISCONNECT_REQUEST:
-                    enqueue_proxy.client_disconnect(client_ip, client_port, client_id)
-                    log.info(f"Client at {client_ip}:{client_port} disconnecting...")
-                elif byte_stream == REGISTER_REQUEST:
-                    if enqueue_proxy.is_client(client_ip, client_port, client_id) is False:
-                        log.info(f"Client at {client_ip}:{client_port} connecting...")
-                    enqueue_proxy.client_connect(client_ip, client_port, client_id)
-                elif byte_stream == SYNC_STATE_REQUEST:
-                    log.info(f"Client at {client_ip}:{client_port} syncing...")
-                    dispatcher.send_current_state(client_ip, client_port)
-                elif byte_stream == KEEP_ALIVE_REQUEST:
-                    enqueue_proxy.client_alive(client_ip, client_port, client_id)
-                elif byte_stream in {
-                    UPDATE_REQUEST,
-                    UPGRADE_REQUEST,
-                    REBOOT_REQUEST,
-                    RESTART_REQUEST,
-                    SHUTDOWN_REQUEST,
-                }:
-                    # admin request, signal all clients
-                    if client_scope:
-                        dispatcher.signal_clients_on(cmd, client_scope)
-                    else:
-                        dispatcher.signal_clients(cmd)
-                        dispatcher.publish(CommandScope.SYNC, cmd)
+            if byte_stream == DISCONNECT_REQUEST:
+                enqueue_proxy.client_disconnect(client_ip, client_port, client_id)
+                log.info(f"Client at {client_ip}:{client_port} disconnecting...")
+            elif byte_stream == REGISTER_REQUEST:
+                if enqueue_proxy.is_client(client_ip, client_port, client_id) is False:
+                    log.info(f"Client at {client_ip}:{client_port} connecting...")
+                enqueue_proxy.client_connect(client_ip, client_port, client_id)
+            elif byte_stream == SYNC_STATE_REQUEST:
+                log.info(f"Client at {client_ip}:{client_port} syncing...")
+                dispatcher.send_current_state(client_ip, client_port)
+            elif byte_stream == KEEP_ALIVE_REQUEST:
+                enqueue_proxy.client_alive(client_ip, client_port, client_id)
+            elif byte_stream in {
+                UPDATE_REQUEST,
+                UPGRADE_REQUEST,
+                REBOOT_REQUEST,
+                RESTART_REQUEST,
+                SHUTDOWN_REQUEST,
+            }:
+                # admin request, signal all clients
+                if client_scope:
+                    dispatcher.signal_clients_on(cmd, client_scope)
                 else:
-                    log.error(f"Unhandled {cmd} received from {client_ip}:{client_port}")
-                # do not send the special PyTrain commands to the Lionel Base 3 or Ser2
-                return
-            # with the handling of the admin cmds out of the way, queue the bytes
-            # received from the client for processing by the Lionel Base 3
-            enqueue_proxy.enqueue_request(byte_stream)
-        finally:
-            self.request.shutdown(socket.SHUT_RDWR)
-            self.request.close()
+                    dispatcher.signal_clients(cmd)
+                    dispatcher.publish(CommandScope.SYNC, cmd)
+            else:
+                log.error(f"Unhandled {cmd} received from {client_ip}:{client_port}")
+            # do not send the special PyTrain commands to the Lionel Base 3 or Ser2
+            return
+        # with the handling of the admin cmds out of the way, queue the bytes
+        # received from the client for processing by the Lionel Base 3
+        enqueue_proxy.enqueue_request(byte_stream)
 
     @staticmethod
     def extract_addendum(byte_stream: bytes) -> Tuple[str | None, int | None, uuid.UUID | None]:

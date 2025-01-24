@@ -158,6 +158,10 @@ class PyTrain:
         listeners = []
         self._pdi_buffer = None
         if isinstance(self.tmcc_buffer, CommBufferSingleton):
+            # listen for client connections; must be built before CommandListener
+            print(f"Listening for client requests on port {self._args.server_port}...")
+            self._receiver = EnqueueProxyRequests(self.tmcc_buffer, self._args.server_port)
+
             # Remember Base 3 address on the comm buffer; it is an object that both
             # clients and servers both have
             self._tmcc_buffer.base3_address = self._base_addr
@@ -166,10 +170,6 @@ class PyTrain:
                 base3_receiver=self._base_addr is not None,
             )
             listeners.append(self._tmcc_listener)
-
-            # listen for client connections
-            print(f"Listening for client requests on port {self._args.server_port}...")
-            self._receiver = EnqueueProxyRequests(self.tmcc_buffer, self._args.server_port)
 
             if self._base_addr is not None:
                 print(f"Listening for Lionel Base broadcasts on {self._base_addr}:{self._base_port}...")
@@ -600,7 +600,10 @@ class PyTrain:
         os.system(f"sudo shutdown{opt} now")
 
     def restart(self) -> None:
-        log.info(f"{'Server' if self.is_server else 'Client'} restarting...")
+        try:
+            log.info(f"{'Server' if self.is_server else 'Client'} restarting...")
+        except KeyboardInterrupt:
+            pass
         self.relaunch()
 
     def update(self, do_inform: bool = True) -> None:
@@ -684,10 +687,12 @@ class PyTrain:
     def get_service_info(self) -> Tuple[str, int] | None:
         z = Zeroconf()
         an_info = None
+        base3_info = None
         try:
             # listens for services on a background thread
             ServiceBrowser(z, [SERVICE_TYPE], handlers=[self.on_service_state_change])
-            waiting = 256
+            found_at = -1
+            waiting = 240
             cursor = {0: "|", 1: "\\", 2: "-", 3: "/"}
             while waiting > 0:
                 print(f"Looking for {PROGRAM_NAME} servers {cursor[waiting % 4]}", end="\r")
@@ -704,9 +709,18 @@ class PyTrain:
                                 is_ser2 = decoded_value == "1"
                             elif decoded_prop == "Base3":
                                 is_base3 = decoded_value == "1"
+                        if is_base3 is True:
+                            base3_info = info
                         if is_ser2 is True and is_base3 is True:
                             waiting = 0
                             break
+                if found_at < 0:
+                    found_at = waiting
+                if base3_info and (found_at - waiting) / 2 > 15:
+                    # if we found a server with a base 3, and more than
+                    # 15 seconds have passed, return it
+                    an_info = base3_info
+                    break
                 self._server_discovered.clear()
         except Exception as e:
             log.warning(e)

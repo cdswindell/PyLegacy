@@ -379,7 +379,13 @@ class CommandDispatcher(Thread):
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
-        self._server_port = EnqueueProxyRequests.server_port() if EnqueueProxyRequests.is_built() else None
+        self._is_server = ser2_receiver is True or base3_receiver is True
+        if EnqueueProxyRequests.is_built():
+            self._server_port = EnqueueProxyRequests.server_port()
+        elif self._is_server is True:
+            raise AttributeError("EnqueueProxyRequests not yet built")
+        else:
+            self._server_port = None
         self._server_ips = get_ip_address()
         self.start()
 
