@@ -289,12 +289,12 @@ class MakeService:
             const=DEFAULT_BUTTONS_FILE,
             help=f"Button definitions file, loaded when {PROGRAM_NAME} starts",
         )
-        server_opts.add_argument(
+        misc_opts.add_argument(
             "-echo",
             action="store_true",
             help="Echo received TMCC/Legacy/Pdi commands to log file",
         )
-        server_opts.add_argument(
+        misc_opts.add_argument(
             "-start",
             action="store_true",
             help=f"Start {PROGRAM_NAME} Client/Server now (otherwise, it starts on reboot)",
