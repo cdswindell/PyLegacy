@@ -6,7 +6,7 @@ import threading
 from abc import ABC
 from collections import defaultdict
 from time import time
-from typing import Tuple, TypeVar, Set, Any
+from typing import Dict, Tuple, TypeVar, Set, Any
 
 
 from ..comm.comm_buffer import CommBuffer
@@ -227,6 +227,18 @@ class ComponentState(ABC):
     def spare_1(self) -> int:
         return self._spare_1
 
+    @staticmethod
+    def _as_label(prop: Any) -> str:
+        return f"{prop if prop is not None else 'NA'}"
+
+    def _as_dict(self) -> Dict[str, Any]:
+        return {
+            "tmcc_id": self.tmcc_id,
+            "road_name": self.road_name,
+            "road_number": self.road_number,
+            "scope": self.scope.name.lower(),
+        }
+
     @abc.abstractmethod
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
@@ -337,6 +349,14 @@ class ComponentState(ABC):
         """
         ...
 
+    @abc.abstractmethod
+    def as_dict(self) -> Dict[str, Any]:
+        """
+        Returns the component state as a dict object containing the current state
+        of the component
+        """
+        ...
+
 
 class TmccState(ComponentState, ABC):
     __metaclass__ = abc.ABCMeta
@@ -440,6 +460,15 @@ class SwitchState(TmccState):
         if self.is_known:
             byte_str += CommandReq.build(self.state, self.address).as_bytes
         return byte_str
+
+    def as_dict(self) -> Dict[str, Any]:
+        d = super()._as_dict()
+        if self.is_known:
+            state = "thru" if self.is_through else "out"
+        else:
+            state = None
+        d["state"] = state
+        return d
 
 
 class AccessoryState(TmccState):
@@ -612,6 +641,19 @@ class AccessoryState(TmccState):
                 byte_str += CommandReq.build(self.aux2_state, self.address).as_bytes
         return byte_str
 
+    def as_dict(self) -> Dict[str, Any]:
+        d = super()._as_dict()
+        if self._sensor_track:
+            d["scope"] = "sensor_track"
+        elif self._block_power:
+            d["scope"] = "power_district"
+            d["block"] = "on" if self._aux_state == Aux.AUX1_OPT_ONE else "off"
+        else:
+            d["aux"] = self._aux_state.name.lower() if self._aux_state else None
+            d["aux1"] = self.aux1_state.name.lower() if self.aux1_state else None
+            d["aux2"] = self.aux2_state.name.lower() if self.aux2_state else None
+        return d
+
 
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
@@ -631,7 +673,9 @@ class EngineState(ComponentState):
         self._labor: int | None = None
         self._control_type: int | None = None
         self._sound_type: int | None = None
+        self._sound_type_label: str | None = None
         self._engine_type: int | None = None
+        self._engine_type_label: str | None = None
         self._engine_class: int | None = None
         self._numeric: int | None = None
         self._numeric_cmd: CommandDefEnum | None = None
@@ -910,10 +954,12 @@ class EngineState(ComponentState):
                         self._is_legacy = command.is_legacy
                     if command.is_valid(EngineBits.SOUND_TYPE):
                         self._sound_type = command.sound_id
+                        self._sound_type_label = command.sound
                     if command.is_valid(EngineBits.CLASS_TYPE):
                         self._engine_class = command.loco_class_id
                     if command.is_valid(EngineBits.LOCO_TYPE):
                         self._engine_type = command.loco_type_id
+                        self._engine_type_label = command.loco_type
                     if command.is_valid(EngineBits.SMOKE_LEVEL):
                         self._smoke_level = command.smoke_level
                     if command.is_valid(EngineBits.TRAIN_BRAKE):
@@ -1018,6 +1064,10 @@ class EngineState(ComponentState):
         return self._as_label(self.labor)
 
     @property
+    def smoke(self) -> CommandDefEnum | None:
+        return None
+
+    @property
     def train_brake(self) -> int:
         return self._train_brake
 
@@ -1036,6 +1086,10 @@ class EngineState(ComponentState):
     @property
     def sound_type(self) -> int:
         return self._sound_type
+
+    @property
+    def sound_type_label(self) -> str:
+        return self._sound_type_label
 
     @property
     def engine_type(self) -> int:
@@ -1102,9 +1156,16 @@ class EngineState(ComponentState):
     def is_lcs(self) -> bool:
         return False
 
-    @staticmethod
-    def _as_label(prop: Any) -> str:
-        return f"{prop if prop is not None else 'NA'}"
+    def as_dict(self) -> Dict[str, Any]:
+        d = super()._as_dict()
+        for elem in ["speed", "speed_limit", "max_speed", "smoke", "train_brake", "momentum", "rpm", "labor", "year"]:
+            if hasattr(self, elem):
+                val = getattr(self, elem)
+                d[elem] = val if val is not None and val != 255 else None
+        d["direction"] = self.direction.name.lower if self.direction else None
+        d["smoke"] = self.smoke.name.lower() if self.smoke else None
+        d["control"] = self.control_type_label
+        return d
 
 
 class TrainState(EngineState):
@@ -1221,6 +1282,13 @@ class IrdaState(LcsState):
         else:
             return bytes()
 
+    def as_dict(self) -> Dict[str, Any]:
+        d = super()._as_dict()
+        d["sequence"] = self.sequence.name.lower() if self.sequence else None
+        d["last_loco_rl"] = self._loco_rl
+        d["last_loco_lr"] = self._loco_lr
+        return d
+
 
 class BaseState(ComponentState):
     """
@@ -1302,6 +1370,13 @@ class BaseState(ComponentState):
         else:
             return bytes()
 
+    def as_dict(self) -> Dict[str, Any]:
+        d = dict()
+        d["firmware"] = self.firmware
+        d["base_name"] = self.base_name
+        d["route_throw_rate"] = self.route_throw_rate
+        return d
+
 
 class SyncState(ComponentState):
     """
@@ -1362,6 +1437,10 @@ class SyncState(ComponentState):
 
     def as_bytes(self) -> bytes:
         return bytes()
+
+    def as_dict(self) -> Dict[str, Any]:
+        state = "synchronized" if self.is_synchronized else "synchronizing" if self.is_synchronizing else None
+        return {"state": state}
 
 
 SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
