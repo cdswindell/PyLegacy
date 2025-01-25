@@ -677,6 +677,7 @@ class EngineState(ComponentState):
         self._engine_type: int | None = None
         self._engine_type_label: str | None = None
         self._engine_class: int | None = None
+        self._engine_class_label: str | None = None
         self._numeric: int | None = None
         self._numeric_cmd: CommandDefEnum | None = None
         self._aux: CommandDefEnum | None = None
@@ -957,6 +958,7 @@ class EngineState(ComponentState):
                         self._sound_type_label = command.sound
                     if command.is_valid(EngineBits.CLASS_TYPE):
                         self._engine_class = command.loco_class_id
+                        self._engine_class_label = command.loco_class
                     if command.is_valid(EngineBits.LOCO_TYPE):
                         self._engine_type = command.loco_type_id
                         self._engine_type_label = command.loco_type
@@ -1096,8 +1098,16 @@ class EngineState(ComponentState):
         return self._engine_type
 
     @property
+    def engine_type_label(self) -> str:
+        return self._engine_type_label
+
+    @property
     def engine_class(self) -> int:
         return self._engine_class
+
+    @property
+    def engine_class_label(self) -> str:
+        return self._engine_class_label
 
     @property
     def direction(self) -> CommandDefEnum | None:
@@ -1162,9 +1172,12 @@ class EngineState(ComponentState):
             if hasattr(self, elem):
                 val = getattr(self, elem)
                 d[elem] = val if val is not None and val != 255 else None
-        d["direction"] = self.direction.name.lower if self.direction else None
+        d["direction"] = self.direction.name.lower() if self.direction else None
         d["smoke"] = self.smoke.name.lower() if self.smoke else None
         d["control"] = self.control_type_label.lower()
+        d["sound_type"] = self.sound_type_label.lower()
+        d["engine_type"] = self.engine_type_label.lower()
+        d["engine_class"] = self.engine_class_label.lower()
         return d
 
 
