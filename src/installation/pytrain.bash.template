@@ -8,12 +8,12 @@
 #
 # Use the PyTrain make_service script to configure this file.
 #
-PYTRAIN_HOME=___PYTRAINHOME___
-BUTTONS_FILE=___BUTTONS___
-LIONEL_BASE=___LIONELBASE___
-LCS_SER_2=___LCSSER2___
-CLIENT=___CLIENT___
-ECHO=___ECHO___
+PYTRAIN_HOME="___PYTRAINHOME___"
+BUTTONS_FILE="___BUTTONS___"
+LIONEL_BASE="___LIONELBASE___"
+LCS_SER_2="___LCSSER2___"
+CLIENT="___CLIENT___"
+ECHO="___ECHO___"
 
 # if a buttons file is specified, use it if found
 if [ -n "$BUTTONS_FILE" ]; then
