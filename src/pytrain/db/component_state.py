@@ -666,7 +666,7 @@ class EngineState(ComponentState):
         self._max_speed: int | None = None
         self._direction: CommandDefEnum | None = None
         self._momentum: int | None = None
-        self._smoke_level: int | None = None
+        self._smoke_level: CommandDefEnum | None = None
         self._train_brake: int | None = None
         self._prod_year: int | None = None
         self._rpm: int | None = None
@@ -961,7 +961,7 @@ class EngineState(ComponentState):
                         self._engine_type = command.loco_type_id
                         self._engine_type_label = command.loco_type
                     if command.is_valid(EngineBits.SMOKE_LEVEL):
-                        self._smoke_level = command.smoke_level
+                        self._smoke_level = command.smoke
                     if command.is_valid(EngineBits.TRAIN_BRAKE):
                         self._train_brake = command.train_brake
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
@@ -1065,7 +1065,7 @@ class EngineState(ComponentState):
 
     @property
     def smoke(self) -> CommandDefEnum | None:
-        return None
+        return self._smoke_level
 
     @property
     def train_brake(self) -> int:
@@ -1158,20 +1158,20 @@ class EngineState(ComponentState):
 
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
-        for elem in ["speed", "speed_limit", "max_speed", "smoke", "train_brake", "momentum", "rpm", "labor", "year"]:
+        for elem in ["speed", "speed_limit", "max_speed", "train_brake", "momentum", "rpm", "labor", "year"]:
             if hasattr(self, elem):
                 val = getattr(self, elem)
                 d[elem] = val if val is not None and val != 255 else None
         d["direction"] = self.direction.name.lower if self.direction else None
         d["smoke"] = self.smoke.name.lower() if self.smoke else None
-        d["control"] = self.control_type_label
+        d["control"] = self.control_type_label.lower()
         return d
 
 
 class TrainState(EngineState):
     def __init__(self, scope: CommandScope = CommandScope.TRAIN) -> None:
         if scope != CommandScope.TRAIN:
-            raise ValueError(f"Invalid scope: {scope}, expected TRAIN")
+            raise ValueError(f"Invalid scope: {scope}, expected {CommandScope.TRAIN.name}")
         super().__init__(scope)
         # hard code TMCC2, for now
         self._is_legacy = True
@@ -1185,7 +1185,7 @@ class IrdaState(LcsState):
 
     def __init__(self, scope: CommandScope = CommandScope.IRDA) -> None:
         if scope != CommandScope.IRDA:
-            raise ValueError(f"Invalid scope: {scope}")
+            raise ValueError(f"Invalid scope: {scope}, expected {CommandScope.IRDA.name}")
         super().__init__(scope)
         self._sequence: IrdaSequence | None = None
         self._loco_rl: int | None = 255

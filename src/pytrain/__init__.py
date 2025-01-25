@@ -108,3 +108,11 @@ def get_version() -> str:
     version = version if version.startswith("v") else f"v{version}"
     version = version.replace(".post0", "")
     return version
+
+
+SMOKE_LEVEL_MAP = {
+    0: TMCC2EffectsControl.SMOKE_OFF,
+    1: TMCC2EffectsControl.SMOKE_LOW,
+    2: TMCC2EffectsControl.SMOKE_MEDIUM,
+    3: TMCC2EffectsControl.SMOKE_HIGH,
+}

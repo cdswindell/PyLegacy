@@ -15,6 +15,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS, Mixins
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
+
 log = logging.getLogger(__name__)
 
 ROUTE_THROW_RATE_MAP: Dict[int, float] = {
@@ -452,6 +453,12 @@ class BaseReq(PdiReq):
     @property
     def momentum(self) -> int:
         return self._momentum
+
+    @property
+    def smoke(self) -> CommandDefEnum | None:
+        from .. import SMOKE_LEVEL_MAP
+
+        return SMOKE_LEVEL_MAP.get(self._smoke_level, None)
 
     @property
     def smoke_level(self) -> int:

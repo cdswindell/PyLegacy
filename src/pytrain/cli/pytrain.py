@@ -42,6 +42,7 @@ from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandListener, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..db.client_state_listener import ClientStateListener
+from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
 from ..db.startup_state import StartupState
 from ..gpio.gpio_handler import GpioHandler
@@ -784,7 +785,7 @@ class PyTrain:
                     elif args.command == "help":
                         self._command_parser().parse_args(["-help"])
                     if args.command == "db":
-                        self._query_status(ui_parts[1:])
+                        self._do_db(ui_parts[1:])
                         return
                     if args.command == "decode":
                         self.decode_command(ui_parts[1:])
@@ -834,16 +835,17 @@ class PyTrain:
     def _get_system_state(self):
         self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
 
-    def _query_status(self, param) -> None:
+    def _do_db(self, param) -> None:
         try:
             if len(param) >= 1:
                 scope = CommandScope.by_prefix(param[0])
                 if scope is not None:
                     if len(param) > 1:
                         address = int(param[1])
-                        state = self._state_store.query(scope, address)
+                        state: ComponentState = self._state_store.query(scope, address)
                         if state is not None:
                             print(state)
+                            print(state.as_dict())
                             return
                     elif scope in self._state_store:
                         for state in self._state_store.get_all(scope):

@@ -178,9 +178,11 @@ class ComponentStateStore:
                 for listener in self._listeners:
                     listener.listen_for(self, topics)
 
-    def query(self, scope: CommandScope, address: int) -> T | None:
+    def query(self, scope: CommandScope, address: int = None) -> T | List[T] | None:
         if scope in self._state:
-            if address in self._state[scope]:
+            if address is None:
+                return self.get_all(scope)
+            elif address in self._state[scope]:
                 return self._state[scope][address]
         else:
             return None
