@@ -124,11 +124,11 @@ class Asc2Req(LcsReq):
                     return f"Sub ID: {self.sub_id} Time: {self.time} ({self.packet})"
             elif self.action == Asc2Action.CONTROL4:
                 if self.pdi_command == PdiCommand.ASC2_SET:
-                    return f"{'THROUGH' if self.values == 0 else 'OUT'} Time: {self.time} ({self.packet})"
+                    return f"{'THRU' if self.values == 0 else 'OUT'} Time: {self.time} ({self.packet})"
                 elif self.pdi_command == PdiCommand.ASC2_RX:
-                    return f"{'THROUGH' if self.values == 0 else 'OUT'} ({self.packet})"
+                    return f"{'THRU' if self.values == 0 else 'OUT'} ({self.packet})"
             elif self.action == Asc2Action.CONTROL5:
-                return f"{'THROUGH' if self.values == 0 else 'OUT'} ({self.packet})"
+                return f"{'THRU' if self.values == 0 else 'OUT'} ({self.packet})"
         return super().payload
 
     @property

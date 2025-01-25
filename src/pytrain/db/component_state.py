@@ -6,8 +6,7 @@ import threading
 from abc import ABC
 from collections import defaultdict
 from time import time
-from typing import Dict, Tuple, TypeVar, Set, Any
-
+from typing import Dict, Tuple, TypeVar, Set, Any, List
 
 from ..comm.comm_buffer import CommBuffer
 from ..pdi.asc2_req import Asc2Req
@@ -468,6 +467,76 @@ class SwitchState(TmccState):
         else:
             state = None
         d["state"] = state
+        return d
+
+
+class RouteState(TmccState):
+    """
+    Maintain Route State
+    """
+
+    def __init__(self, scope: CommandScope = CommandScope.ROUTE) -> None:
+        if scope != CommandScope.ROUTE:
+            raise ValueError(f"Invalid scope: {scope}")
+        super().__init__(scope)
+        self._components: List[CommandReq] | None = None
+        self._components_raw: List[int] | None = None
+
+    def __repr__(self) -> str:
+        nm = nu = sw = ""
+        if self.road_name is not None:
+            nm = f" {self.road_name}"
+        if self.road_number is not None:
+            nu = f" #{self.road_number} "
+        if self._components:
+            sw = " Switches: "
+            sep = ""
+            for c in self._components:
+                state = "thru" if c.command == Switch.THROUGH else "out"
+                sw += f"{sep}{c.address} [{state}]"
+                sep = ", "
+        return f"{self.scope.title} {self.address}: {nm}{nu}{sw}"
+
+    def update(self, command: L | P) -> None:
+        from ..pdi.base_req import BaseReq
+
+        if command:
+            with self._cv:
+                super().update(command)
+                if command.command == TMCC1HaltCommandEnum.HALT:
+                    return
+                if isinstance(command, CommandReq):
+                    pass
+                elif isinstance(command, BaseReq):
+                    if command.components:
+                        self._components = list()
+                        self._components_raw = command.components.copy()
+                        for comp in command.components:
+                            is_thru = (comp & 0x0300) == 0
+                            comp &= 0x007F
+                            self._components.append(CommandReq(Switch.THROUGH if is_thru else Switch.OUT, comp))
+                else:
+                    log.warning(f"Unhandled Route State Update received: {command}")
+                self.changed.set()
+                self._cv.notify_all()
+
+    @property
+    def is_known(self) -> bool:
+        return self._components is not None
+
+    def as_bytes(self) -> bytes:
+        from ..pdi.base_req import BaseReq
+
+        byte_str = BaseReq(self.address, PdiCommand.BASE_ROUTE, state=self).as_bytes
+        return byte_str
+
+    def as_dict(self) -> Dict[str, Any]:
+        d = super()._as_dict()
+        if self._components:
+            sw = {c.address: c.command.name.lower() for c in self._components}
+        else:
+            sw = dict()
+        d["switches"] = sw
         return d
 
 
@@ -1457,13 +1526,14 @@ class SyncState(ComponentState):
 
 
 SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
-    CommandScope.SWITCH: SwitchState,
     CommandScope.ACC: AccessoryState,
-    CommandScope.ENGINE: EngineState,
-    CommandScope.TRAIN: TrainState,
-    CommandScope.IRDA: IrdaState,
     CommandScope.BASE: BaseState,
+    CommandScope.ENGINE: EngineState,
+    CommandScope.IRDA: IrdaState,
+    CommandScope.ROUTE: RouteState,
+    CommandScope.SWITCH: SwitchState,
     CommandScope.SYNC: SyncState,
+    CommandScope.TRAIN: TrainState,
 }
 
 

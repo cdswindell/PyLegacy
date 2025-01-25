@@ -209,6 +209,7 @@ class PyTrain:
         self._state_store.listen_for(CommandScope.ENGINE)
         self._state_store.listen_for(CommandScope.TRAIN)
         self._state_store.listen_for(CommandScope.SWITCH)
+        self._state_store.listen_for(CommandScope.ROUTE)
         self._state_store.listen_for(CommandScope.ACC)
         self._state_store.listen_for(CommandScope.IRDA)
         self._state_store.listen_for(CommandScope.BASE)

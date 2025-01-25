@@ -213,12 +213,7 @@ class ComponentStateStore:
         if (
             (
                 scope
-                in {
-                    CommandScope.ACC,
-                    CommandScope.TRAIN,
-                    CommandScope.SWITCH,
-                    CommandScope.IRDA,
-                }
+                in {CommandScope.ACC, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.IRDA, CommandScope.ROUTE}
                 and 1 <= address <= 99
             )
             or (scope == CommandScope.ENGINE and 1 <= address <= 9999)

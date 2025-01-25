@@ -267,6 +267,7 @@ class BaseReq(PdiReq):
             raise ValueError(f"Invalid PDI Base Request: {data}")
         self._status = self._firmware_high = self._firmware_low = None
         self._route_throw_rate = self._name = self._number = None
+        self._route_components = None
         self._rev_link = self._fwd_link = None
         self._loco_type = self._control_type = self._sound_type = self._loco_class = None
         self._speed_step = self._speed_limit = self._max_speed = self._labor_bias = None
@@ -325,7 +326,17 @@ class BaseReq(PdiReq):
                 self._rev_link = self._data[7] if data_len > 7 else None
                 self._fwd_link = self._data[8] if data_len > 8 else None
                 self._name = self.decode_text(self._data[9:42]) if data_len > 9 else None
-                self._number = self.decode_text(self._data[42:]) if data_len > 42 else None
+                self._number = self.decode_text(self._data[42:47]) if data_len > 42 else None
+                if self.scope == CommandScope.ROUTE and self.is_active:
+                    # grab the switches/routes in this route
+                    if data_len > 47:
+                        self._route_components: List[int] = list()
+                        for i in range(47, 79, 2):
+                            if data_len < i + 2:
+                                break
+                            tmcc_id = int.from_bytes(self._data[i : i + 2], byteorder="big")
+                            if tmcc_id != 0xFFFF and tmcc_id != 0:
+                                self._route_components.append(tmcc_id)
             elif self.pdi_command == PdiCommand.BASE:
                 self._firmware_high = self._data[7] if data_len > 7 else None
                 self._firmware_low = self._data[8] if data_len > 8 else None
@@ -533,6 +544,10 @@ class BaseReq(PdiReq):
         return self._loco_class
 
     @property
+    def components(self) -> List[int]:
+        return self._route_components
+
+    @property
     def route_throw_rate(self) -> float:
         return self._route_throw_rate
 
@@ -601,12 +616,19 @@ class BaseReq(PdiReq):
                     f"flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl} "
                     f"({self.packet})"
                 )
-            if self.pdi_command == PdiCommand.BASE_ACC:
+            if self.pdi_command in [PdiCommand.BASE_ACC, PdiCommand.BASE_ROUTE, PdiCommand.BASE_SWITCH]:
                 fwl = f" Fwd: {self._fwd_link}" if self._fwd_link is not None else ""
                 rvl = f" Rev: {self._rev_link}" if self._rev_link is not None else ""
                 na = f" {self._name}" if self._name is not None else ""
                 no = f" {self._number}" if self._number is not None else ""
-                return f"# {self.record_no}{na}{no} flags: {f} status: {s} valid: {v}{fwl}{rvl}\n({self.packet})"
+                sw = ""
+                if self.pdi_command == PdiCommand.BASE_ROUTE and self._route_components and self.is_active:
+                    sw = " Switches:"
+                    for comp in self._route_components:
+                        state = "out" if (comp & 0x0300) != 0 else "thru"
+                        comp &= 0x007F
+                        sw += f" {comp} [{state}],"
+                return f"# {self.record_no}{na}{no}{sw} flags: {f} status: {s} valid: {v}{fwl}{rvl}\n({self.packet})"
             elif self.pdi_command == PdiCommand.BASE:
                 fw = f" V{self._firmware_high}.{self._firmware_low}" if self._firmware_high is not None else ""
                 tr = f" Route Throw Rate: {self._route_throw_rate} sec" if self._route_throw_rate is not None else ""
