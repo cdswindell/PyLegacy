@@ -496,7 +496,7 @@ class TMCC1EngineCommandEnum(TMCC1Enum):
 
 
 TMCC1_COMMAND_TO_ALIAS_MAP = {}
-for tmcc2_enum in [TMCC1EngineCommandEnum]:
-    for enum in tmcc2_enum:
+for tmcc1_enum in [TMCC1EngineCommandEnum]:
+    for enum in tmcc1_enum:
         if enum.is_alias:
             TMCC1_COMMAND_TO_ALIAS_MAP[enum.alias] = enum
