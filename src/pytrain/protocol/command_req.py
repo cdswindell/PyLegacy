@@ -142,7 +142,7 @@ class CommandReq:
         elif isinstance(command, TMCC2Enum) or isinstance(command, SequenceCommandEnum):
             enum_class = TMCC2Enum
         else:
-            raise TypeError(f"Command def not recognized: '{command}: ({type(command)})'")
+            raise TypeError(f"Command def not recognized: '{command}'")
 
         max_val = 9999 if scope in {CommandScope.TRAIN, CommandScope.ENGINE} else 99
         syntax = CommandSyntax.LEGACY if enum_class == TMCC2Enum else CommandSyntax.TMCC

@@ -36,6 +36,7 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch, TMCC1HaltCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_COMMAND_TO_ALIAS_MAP
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
+from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..utils.text_utils import title
 
 log = logging.getLogger(__name__)
@@ -123,6 +124,17 @@ ENGINE_AUX2_SET = {
     TMCC2EngineCommandEnum.AUX2_OFF,
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE,
     TMCC2EngineCommandEnum.AUX2_OPTION_TWO,
+}
+
+SMOKE_SET = {
+    TMCC1EngineCommandEnum.SMOKE_ON,
+    (TMCC1EngineCommandEnum.NUMERIC, 9),
+    TMCC1EngineCommandEnum.SMOKE_OFF,
+    (TMCC1EngineCommandEnum.NUMERIC, 8),
+    TMCC2EffectsControl.SMOKE_OFF,
+    TMCC2EffectsControl.SMOKE_LOW,
+    TMCC2EffectsControl.SMOKE_MEDIUM,
+    TMCC2EffectsControl.SMOKE_HIGH,
 }
 
 BIG_NUMBER = float("inf")
