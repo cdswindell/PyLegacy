@@ -782,7 +782,7 @@ class EngineState(ComponentState):
         self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
 
     def __repr__(self) -> str:
-        sp = dr = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = ""
+        sp = dr = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = ""
         if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
             dr = " FWD"
         elif self._direction in {TMCC1EngineCommandEnum.REVERSE_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION}:
@@ -821,10 +821,12 @@ class EngineState(ComponentState):
             lt = f" {LOCO_TYPE.get(self.engine_type, 'NA')}"
         if self._aux2:
             aux = f" Aux2: {self._aux2.name.split('_')[-1]}"
+        if self._smoke_level is not None:
+            sm = f" Smoke: {self._smoke_level.name.split('_')[-1].lower()}"
         # if self.engine_class is not None:
         #     cl = f" Class: {LOCO_CLASS.get(self.engine_class, 'NA')}"
         ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
-        return f"{self.scope.title} {self._address:02}{sp}{rl}{lb}{mom}{tb}{dr}{nu}{aux}{name}{num}{lt}{ct}{yr}{ss}"
+        return f"{self.scope.title} {self._address:02}{sp}{rl}{lb}{mom}{tb}{sm}{dr}{nu}{aux}{name}{num}{lt}{ct}{yr}{ss}"
 
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
@@ -906,13 +908,12 @@ class EngineState(ComponentState):
                 elif cmd_effects & TRAIN_BRAKE_SET:
                     self._train_brake = self._harvest_effect(cmd_effects & TRAIN_BRAKE_SET)
 
-                if command.command in SMOKE_SET:
-                    if isinstance(command.command, CommandDefEnum):
+                if command.command in SMOKE_SET or (command.command, command.data) in SMOKE_SET:
+                    if isinstance(command.command, TMCC2EffectsControl):
                         self._smoke_level = command.command
-                    elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
-                        self._smoke_level = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                         self._smoke_level = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                        print(self._smoke_level, command)
 
                 # aux commands
                 for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
@@ -1070,7 +1071,7 @@ class EngineState(ComponentState):
                     if command.is_valid(EngineBits.LOCO_TYPE):
                         self._engine_type = command.loco_type_id
                         self._engine_type_label = command.loco_type
-                    if command.is_valid(EngineBits.SMOKE_LEVEL):
+                    if command.is_valid(EngineBits.SMOKE_LEVEL) and self.is_legacy:
                         self._smoke_level = command.smoke
                     if command.is_valid(EngineBits.TRAIN_BRAKE):
                         self._train_brake = command.train_brake
