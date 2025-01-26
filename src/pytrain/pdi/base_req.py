@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
 
 from .pdi_req import PdiReq
-from ..db.component_state import ComponentState
+from ..db.component_state import ComponentState, RouteState
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
@@ -397,6 +397,14 @@ class BaseReq(PdiReq):
                         self._sound_type = state.sound_type
                         self._loco_type = state.engine_type
                         self._loco_class = state.engine_class
+                    elif isinstance(state, RouteState):
+                        # copy over component switches
+                        raw = state.components_raw
+                        if raw is not None:
+                            self._valid1 |= 0b10000  # set bit 4
+                            self._route_components = [0] * 16
+                            for i, sc in enumerate(raw):
+                                self._route_components[i] = sc
 
     def is_valid(self, field: EngineBits) -> bool:
         if self._valid1 and field.value <= 15:
@@ -683,6 +691,9 @@ class BaseReq(PdiReq):
                     byte_str += (0).to_bytes(6, byteorder="little")
                     byte_str += self._train_brake.to_bytes(1, byteorder="little")
                     byte_str += self._momentum.to_bytes(1, byteorder="little")
+                elif self.pdi_command == PdiCommand.BASE_ROUTE:
+                    for sw in self._route_components:
+                        byte_str += sw.to_bytes(2, byteorder="big")
         else:
             byte_str += self.flags.to_bytes(1, byteorder="big")
         byte_str, checksum = self._calculate_checksum(byte_str)

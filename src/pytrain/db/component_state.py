@@ -524,6 +524,14 @@ class RouteState(TmccState):
     def is_known(self) -> bool:
         return self._components is not None
 
+    @property
+    def components(self) -> List[CommandReq]:
+        return self._components.copy() if self._components else None
+
+    @property
+    def components_raw(self) -> List[int]:
+        return self._components_raw.copy() if self._components_raw else None
+
     def as_bytes(self) -> bytes:
         from ..pdi.base_req import BaseReq
 
