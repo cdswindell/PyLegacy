@@ -906,6 +906,14 @@ class EngineState(ComponentState):
                 elif cmd_effects & TRAIN_BRAKE_SET:
                     self._train_brake = self._harvest_effect(cmd_effects & TRAIN_BRAKE_SET)
 
+                if command.command in SMOKE_SET:
+                    if isinstance(command.command, CommandDefEnum):
+                        self._smoke_level = command.command
+                    elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
+                        self._smoke_level = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                    elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
+                        self._smoke_level = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+
                 # aux commands
                 for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
                     if cmd in ENGINE_AUX1_SET:
@@ -1085,6 +1093,8 @@ class EngineState(ComponentState):
             byte_str += pdi.as_bytes
         if self._start_stop is not None:
             byte_str += CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes
+        if self._smoke_level is not None:
+            byte_str += CommandReq.build(self._smoke_level, self.address, scope=self.scope).as_bytes
         if self._direction is not None:
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
             byte_str += CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes
