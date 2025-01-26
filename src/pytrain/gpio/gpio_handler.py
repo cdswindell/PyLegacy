@@ -687,15 +687,15 @@ class GpioHandler:
             if state:
                 initial_state = state.state
             if initial_state is None:
-                initial_state = TMCC1SwitchCommandEnum.THROUGH
+                initial_state = TMCC1SwitchCommandEnum.THRU
 
         # make the CommandReqs
         thru_req, thru_btn, thru_led = cls.make_button(
             thru_pin,
-            TMCC1SwitchCommandEnum.THROUGH,
+            TMCC1SwitchCommandEnum.THRU,
             address,
             led_pin=thru_led_pin,
-            initially_on=initial_state == TMCC1SwitchCommandEnum.THROUGH,
+            initially_on=initial_state == TMCC1SwitchCommandEnum.THRU,
             cathode=cathode,
         )
         out_req, out_btn, out_led = cls.make_button(

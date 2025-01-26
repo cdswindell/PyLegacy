@@ -466,8 +466,8 @@ class DependencyCache:
         self.causes(Engine1.TOGGLE_DIRECTION, Engine1.SPEED_STOP_HOLD)
 
         # define command toggles; commands that are essentially mutually exclusive
-        self.toggles(Switch.OUT, Switch.THROUGH)
-        self.toggles(Switch.THROUGH, Switch.OUT)
+        self.toggles(Switch.OUT, Switch.THRU)
+        self.toggles(Switch.THRU, Switch.OUT)
 
         self.toggles(Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE)
         self.toggles(Aux.AUX2_OPT_ONE, Aux.AUX1_OPT_ONE)

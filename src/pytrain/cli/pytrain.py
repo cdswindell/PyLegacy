@@ -846,7 +846,6 @@ class PyTrain:
                         state: ComponentState = self._state_store.query(scope, address)
                         if state is not None:
                             print(state)
-                            print(state.as_dict())
                             return
                     elif scope in self._state_store:
                         for state in self._state_store.get_all(scope):

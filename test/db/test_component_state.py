@@ -118,14 +118,14 @@ class TestComponentState(TestBase):
         assert ss.is_through is False
 
         # create a "switch thrown to through" request
-        thru_req = CommandReq(Switch.THROUGH, 1)
+        thru_req = CommandReq(Switch.THRU, 1)
         ss.update(thru_req)
         assert ss.last_command == thru_req
         assert ss.last_updated is not None
         assert ss.last_updated >= last_updated
         last_updated = ss.last_updated
         assert ss.address == 1
-        assert ss.state == Switch.THROUGH
+        assert ss.state == Switch.THRU
         assert ss.is_known is True
         assert ss.is_out is False
         assert ss.is_through is True
@@ -137,7 +137,7 @@ class TestComponentState(TestBase):
         assert ss.last_updated >= last_updated
         last_updated = ss.last_updated
         assert ss.address == 1
-        assert ss.state == Switch.THROUGH
+        assert ss.state == Switch.THRU
         assert ss.is_known is True
         assert ss.is_out is False
         assert ss.is_through is True
@@ -154,7 +154,7 @@ class TestComponentState(TestBase):
         assert ss.is_through is False
 
         # verify address can not be modified once set
-        thru_req = CommandReq(Switch.THROUGH, 2)
+        thru_req = CommandReq(Switch.THRU, 2)
         with pytest.raises(AttributeError, match="Switch #1 received update for Switch #2, ignoring"):
             ss.update(thru_req)
 

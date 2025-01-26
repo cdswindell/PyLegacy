@@ -14,8 +14,8 @@ class TestConstants(TestBase):
             assert TMCC1SwitchCommandEnum.by_name(ss.name) == ss
 
         # assert by_name is case-insensitive
-        assert TMCC1SwitchCommandEnum.by_name("through") == TMCC1SwitchCommandEnum.THROUGH
-        assert TMCC1SwitchCommandEnum.by_name("THROUGH") == TMCC1SwitchCommandEnum.THROUGH
+        assert TMCC1SwitchCommandEnum.by_name("thru") == TMCC1SwitchCommandEnum.THRU
+        assert TMCC1SwitchCommandEnum.by_name("THRU") == TMCC1SwitchCommandEnum.THRU
 
         # assert non-members return None
         assert TMCC1SwitchCommandEnum.by_name("NOT_PRESENT") is None
@@ -67,7 +67,7 @@ class TestConstants(TestBase):
 
         assert TMCC1_ROUTE_COMMAND == 0b1101000000011111
 
-        assert TMCC1_SWITCH_THROUGH_COMMAND == 0b0100000000000000
+        assert TMCC1_SWITCH_THRU_COMMAND == 0b0100000000000000
         assert TMCC1_SWITCH_OUT_COMMAND == 0b0100000000011111
         assert TMCC1_SWITCH_SET_ADDRESS_COMMAND == 0b0100000000101011
 

@@ -61,14 +61,14 @@ class TestComponentStateStore(TestBase):
         assert sw_15_state.is_through is False
 
         # throw to through
-        sw_through = CommandReq.build(TMCC1SwitchCommandEnum.THROUGH, 15)
+        sw_through = CommandReq.build(TMCC1SwitchCommandEnum.THRU, 15)
         dispatcher.offer(sw_through)
         time.sleep(0.1)
         assert sw_15_state is not None
         assert sw_15_state.last_updated is not None
         assert sw_15_state.last_command == sw_through
         assert sw_15_state.is_known is True
-        assert sw_15_state.state == TMCC1SwitchCommandEnum.THROUGH
+        assert sw_15_state.state == TMCC1SwitchCommandEnum.THRU
         assert sw_15_state.is_out is False
         assert sw_15_state.is_through is True
 

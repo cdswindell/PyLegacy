@@ -30,7 +30,7 @@ class SwitchCli(CliBase):
         group.add_argument(
             "-through",
             action="store_const",
-            const=TMCC1SwitchCommandEnum.THROUGH,
+            const=TMCC1SwitchCommandEnum.THRU,
             dest="command",
             help="Throw Through",
         )
@@ -44,7 +44,7 @@ class SwitchCli(CliBase):
             dest="command",
             help="Set switch address",
         )
-        group.set_defaults(command=TMCC1SwitchCommandEnum.THROUGH)
+        group.set_defaults(command=TMCC1SwitchCommandEnum.THRU)
         return ArgumentParser("Fire specified switch (1 - 99)", parents=[sw_parser, cls.cli_parser()])
 
     """

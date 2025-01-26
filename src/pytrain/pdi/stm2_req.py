@@ -30,7 +30,7 @@ class Stm2Req(LcsReq):
 
             if self._action == Stm2Action.CONTROL1:
                 sw_state = self._data[3] if data_len > 3 else None
-                self._state = TMCC1SwitchCommandEnum.OUT if sw_state == 1 else TMCC1SwitchCommandEnum.THROUGH
+                self._state = TMCC1SwitchCommandEnum.OUT if sw_state == 1 else TMCC1SwitchCommandEnum.THRU
                 self.scope = CommandScope.SWITCH
             else:
                 self._state = None
@@ -54,7 +54,7 @@ class Stm2Req(LcsReq):
 
     @property
     def is_thru(self) -> bool | None:
-        return self._state == TMCC1SwitchCommandEnum.THROUGH
+        return self._state == TMCC1SwitchCommandEnum.THRU
 
     @property
     def is_out(self) -> bool | None:

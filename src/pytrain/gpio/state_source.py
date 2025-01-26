@@ -88,7 +88,7 @@ class LionelBaseSource(StateSource):
 
 class SwitchStateSource(StateSource):
     def __init__(self, address: int, thru_led: LED, out_led: LED) -> None:
-        self._state = TMCC1SwitchCommandEnum.THROUGH
+        self._state = TMCC1SwitchCommandEnum.THRU
         super().__init__(CommandScope.SWITCH, address, thru_led, out_led)
 
     def __iter__(self):

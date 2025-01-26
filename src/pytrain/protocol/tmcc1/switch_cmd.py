@@ -9,7 +9,7 @@ class SwitchCmd(TMCC1Command):
     def __init__(
         self,
         switch: int,
-        state: TMCC1SwitchCommandEnum = TMCC1SwitchCommandEnum.THROUGH,
+        state: TMCC1SwitchCommandEnum = TMCC1SwitchCommandEnum.THRU,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,

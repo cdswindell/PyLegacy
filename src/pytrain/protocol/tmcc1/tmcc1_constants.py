@@ -232,18 +232,14 @@ class TMCC1RouteCommandEnum(TMCC1Enum):
     FIRE = TMCC1CommandDef(TMCC1_ROUTE_COMMAND, TMCC1CommandIdentifier.ROUTE, num_address_bits=5)
 
 
-TMCC1_SWITCH_THROUGH_COMMAND: int = 0x4000
+TMCC1_SWITCH_THRU_COMMAND: int = 0x4000
 TMCC1_SWITCH_OUT_COMMAND: int = 0x401F
 TMCC1_SWITCH_SET_ADDRESS_COMMAND: int = 0x402B
 
 
 @unique
 class TMCC1SwitchCommandEnum(TMCC1Enum):
-    """
-    Switch State
-    """
-
-    THROUGH = TMCC1CommandDef(TMCC1_SWITCH_THROUGH_COMMAND, TMCC1CommandIdentifier.SWITCH)
+    THRU = TMCC1CommandDef(TMCC1_SWITCH_THRU_COMMAND, TMCC1CommandIdentifier.SWITCH)
     OUT = TMCC1CommandDef(TMCC1_SWITCH_OUT_COMMAND, TMCC1CommandIdentifier.SWITCH)
     SET_ADDRESS = TMCC1CommandDef(TMCC1_SWITCH_SET_ADDRESS_COMMAND, TMCC1CommandIdentifier.SWITCH)
 

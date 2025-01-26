@@ -84,7 +84,7 @@ class TestCommandReq(TestBase):
                 mk_enqueue_command.reset_mock()
 
             # random switch command
-            CommandReq.send_request(TMCC1SwitchCommandEnum.THROUGH, 15)
+            CommandReq.send_request(TMCC1SwitchCommandEnum.THRU, 15)
             mk_enqueue_command.assert_called_once_with(
                 0xFE4780.to_bytes(3, byteorder="big"), 1, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None
             )

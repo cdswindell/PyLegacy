@@ -23,8 +23,8 @@
         <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
       </ENTRIES>
     </EXTENSION>
-    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/cli/pytrain.py" />
-    <option name="PARAMETERS" value="-base 192.168.3.124 -no_ser2" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/cli/pytrain.py" />
+    <option name="PARAMETERS" value="-base 192.168.3.124" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

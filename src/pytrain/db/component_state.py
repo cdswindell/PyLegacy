@@ -428,7 +428,7 @@ class SwitchState(TmccState):
                     if command.command != Switch.SET_ADDRESS:
                         self._state = command.command
                 elif isinstance(command, Asc2Req) or isinstance(command, Stm2Req):
-                    self._state = Switch.THROUGH if command.is_thru else Switch.OUT
+                    self._state = Switch.THRU if command.is_thru else Switch.OUT
                 elif isinstance(command, BaseReq):
                     pass
                 else:
@@ -446,7 +446,7 @@ class SwitchState(TmccState):
 
     @property
     def is_through(self) -> bool:
-        return self._state == Switch.THROUGH
+        return self._state == Switch.THRU
 
     @property
     def is_out(self) -> bool:
@@ -492,7 +492,7 @@ class RouteState(TmccState):
             sw = " Switches: "
             sep = ""
             for c in self._components:
-                state = "thru" if c.command == Switch.THROUGH else "out"
+                state = "thru" if c.command == Switch.THRU else "out"
                 sw += f"{sep}{c.address} [{state}]"
                 sep = ", "
         return f"{self.scope.title} {self.address}: {nm}{nu}{sw}"
@@ -514,7 +514,7 @@ class RouteState(TmccState):
                         for comp in command.components:
                             is_thru = (comp & 0x0300) == 0
                             comp &= 0x007F
-                            self._components.append(CommandReq(Switch.THROUGH if is_thru else Switch.OUT, comp))
+                            self._components.append(CommandReq(Switch.THRU if is_thru else Switch.OUT, comp))
                 else:
                     log.warning(f"Unhandled Route State Update received: {command}")
                 self.changed.set()
