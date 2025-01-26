@@ -997,7 +997,13 @@ class EngineState(ComponentState):
                 elif command.command in SHUTDOWN_SET:
                     self._start_stop = command.command
                 elif cmd_effects & STARTUP_SET:
-                    self._start_stop = self._harvest_effect(cmd_effects & STARTUP_SET)
+                    startup = self._harvest_effect(cmd_effects & STARTUP_SET)
+                    if isinstance(startup, CommandDefEnum):
+                        self._start_stop = startup
+                    elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
+                        self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                    elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
+                        self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
                 elif cmd_effects & SHUTDOWN_SET:
                     shutdown = self._harvest_effect(cmd_effects & SHUTDOWN_SET)
                     if isinstance(shutdown, CommandDefEnum):
