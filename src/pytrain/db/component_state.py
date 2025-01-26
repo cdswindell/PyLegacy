@@ -913,7 +913,6 @@ class EngineState(ComponentState):
                         self._smoke_level = command.command
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                         self._smoke_level = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-                        print(self._smoke_level, command)
 
                 # aux commands
                 for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
