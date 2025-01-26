@@ -88,10 +88,15 @@ TRAIN_BRAKE_SET = {
     TMCC2EngineCommandEnum.TRAIN_BRAKE,
 }
 
-STARTUP_SET = {TMCC2EngineCommandEnum.START_UP_IMMEDIATE, TMCC2EngineCommandEnum.START_UP_DELAYED}
+STARTUP_SET = {
+    TMCC1EngineCommandEnum.START_UP_IMMEDIATE,
+    (TMCC1EngineCommandEnum.NUMERIC, 3),
+    TMCC2EngineCommandEnum.START_UP_IMMEDIATE,
+    TMCC2EngineCommandEnum.START_UP_DELAYED,
+}
 
 SHUTDOWN_SET = {
-    TMCC1EngineCommandEnum.SHUTDOWN_DELAYED,
+    TMCC1EngineCommandEnum.SHUTDOWN_IMMEDIATE,
     (TMCC1EngineCommandEnum.NUMERIC, 5),
     TMCC2EngineCommandEnum.SHUTDOWN_DELAYED,
     (TMCC2EngineCommandEnum.NUMERIC, 5),
