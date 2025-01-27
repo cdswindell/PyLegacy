@@ -200,6 +200,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         from src.pytrain.comm.command_listener import CommandDispatcher
+        from src.pytrain.pdi.constants import PDI_SOP
 
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
@@ -212,7 +213,12 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(ack)
             else:
                 break
+
         if len(byte_stream) == 0:
+            return
+        elif byte_stream[0] == PDI_SOP:
+            # This is an error, we should not be receiving PDI commands here
+            log.error(f"EnqueueHandler received PDI command: {byte_stream.hex(' ')}")
             return
         # we use TMCC1 syntax to pass special commands to control operating nodes,
         # to reduce overhead, only do the special processing if necessary
