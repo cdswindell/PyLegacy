@@ -754,13 +754,29 @@ class PyTrain:
             self._zeroconf.close()
             self._service_info = self._zeroconf = None
 
-    def _handle_command(self, ui: str) -> None:
+    def parse_cli(self, command_line: str) -> str | None:
+        """
+        Parse a command line to determine ig it's a valid command, if so,
+        return the command. If not, return an informative error message
+        """
+        # get the first token and check it for pytrain-specific command
+        token = command_line.split()[0] if command_line else None
+        if token is None:
+            return "No command specified."
+        # is token an admin command?
+        if token.lower() in ADMIN_COMMAND_TO_ACTION_MAP:
+            return f"Unrecognized command: {token}"
+
+        # call _handle_command to do the command parsing
+        return self._handle_command(command_line, parse_only=True)
+
+    def _handle_command(self, ui: str, parse_only: bool = False) -> str | None:
         """
         Parse the user's input, reusing the individual CLI command parsers.
         If a valid command is specified, send it to the Lionel LCS SER2.
         """
         if ui is None:
-            return
+            return "No command specified."
         ui = ui.lower().strip()
         if ui:
             # show help, if user enters '?'
@@ -774,38 +790,38 @@ class PyTrain:
                     # if the keyboard input starts with a valid command, args.command
                     # is set to the corresponding CLI command class, or the verb 'quit'
                     args = self._command_parser().parse_args(["-" + ui_parts[0]])
-                    if args.command == "quit":
+                    if parse_only is False and args.command == "quit":
                         # if server, signal clients to disconnect
                         if self.is_server:
                             self._dispatcher.signal_clients()
                         # if client quits, remaining nodes continue to run
                         raise KeyboardInterrupt()
-                    elif args.command in ADMIN_COMMAND_TO_ACTION_MAP:
+                    elif parse_only is False and args.command in ADMIN_COMMAND_TO_ACTION_MAP:
                         self.do_admin_cmd(ADMIN_COMMAND_TO_ACTION_MAP.get(args.command), ui_parts[1:])
-                        return
-                    elif args.command == "help":
+                        return None
+                    elif parse_only is False and args.command == "help":
                         self._command_parser().parse_args(["-help"])
-                    if args.command == "db":
+                    if parse_only is False and args.command == "db":
                         self._do_db(ui_parts[1:])
-                        return
-                    if args.command == "decode":
+                        return None
+                    if parse_only is False and args.command == "decode":
                         self.decode_command(ui_parts[1:])
-                        return
-                    if args.command == "pdi":
+                        return None
+                    if parse_only is False and args.command == "pdi":
                         try:
                             self._do_pdi(ui_parts[1:])
                         except Exception as e:
                             log.warning(e)
-                        return
-                    if args.command == "echo":
+                        return None
+                    if parse_only is False and args.command == "echo":
                         self._handle_echo(ui_parts)
-                        return
-                    if args.command == "uptime":
+                        return None
+                    if parse_only is False and args.command == "uptime":
                         print(timedelta(seconds=timer() - self._started_at))
-                        return
-                    if args.command == "version":
+                        return None
+                    if parse_only is False and args.command == "version":
                         print(f"{PROGRAM_NAME} {self._version}")
-                        return
+                        return None
                     #
                     # we're done with the admin/special commands, now do train stuff
                     #
@@ -826,11 +842,19 @@ class PyTrain:
                                 break  # we're into a subparser
                         if has_train_arg is False:
                             ui_parts.insert(2, "-train")
-                    cli_cmd = args.command(ui_parser, ui_parts[1:], False)
-                    if cli_cmd.command is None:
-                        raise argparse.ArgumentError(None, f"'{ui}' is not a valid command")
-                    cli_cmd.send()
+                    if parse_only is True:
+                        parser = args.command.command_parser()
+                        cmd_args, argv = parser.validate_args(ui_parts[1:])
+                        return argv
+                    else:
+                        cli_cmd = args.command(ui_parser, ui_parts[1:], False)
+                        if cli_cmd.command is None:
+                            raise argparse.ArgumentError(None, f"'{ui}' is not a valid command")
+                        cli_cmd.send()
                 except argparse.ArgumentError as e:
+                    e.message = e.message.replace(": -", ": ")
+                    if parse_only is True:
+                        return e.message
                     log.warning(e)
 
     def _get_system_state(self):

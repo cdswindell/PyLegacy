@@ -14,6 +14,27 @@ from typing import List
 class ArgumentParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self._error_message: str | None = None
+
+    def error(self, message: str) -> None:
+        self._error_message = message
+        super().error(message)
+
+    @property
+    def error_message(self) -> str | None:
+        return self._error_message
+
+    def validate_args(self, args=None, namespace=None):
+        msg = None
+        try:
+            args, argv = self.parse_known_args(args, namespace)
+            if argv:
+                msg = "Unrecognized arguments: %s" % " ".join(argv)
+        except SystemExit:
+            msg = self._error_message
+        except argparse.ArgumentError as e:
+            msg = e.message
+        return args, msg
 
     # noinspection PyProtectedMember
     def remove_args(self, args: List[str]) -> None:
