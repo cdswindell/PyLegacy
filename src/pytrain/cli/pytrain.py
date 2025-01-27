@@ -843,6 +843,7 @@ class PyTrain:
                         if has_train_arg is False:
                             ui_parts.insert(2, "-train")
                     if parse_only is True:
+                        # TODO: provide tool to get usage text
                         parser = args.command.command_parser()
                         cmd_args, argv = parser.validate_args(ui_parts[1:])
                         return argv
