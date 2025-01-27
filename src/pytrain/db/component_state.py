@@ -30,13 +30,13 @@ from ..protocol.constants import (
     RPM_TYPE,
     STEAM_TYPE,
 )
+from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux, TMCC1SyncCommandEnum
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1_COMMAND_TO_ALIAS_MAP
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch, TMCC1HaltCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_COMMAND_TO_ALIAS_MAP
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
-from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..utils.text_utils import title
 
 log = logging.getLogger(__name__)
@@ -738,11 +738,12 @@ class AccessoryState(TmccState):
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
         if self._sensor_track:
-            d["scope"] = "sensor_track"
+            d["type"] = "sensor track"
         elif self._block_power:
-            d["scope"] = "power_district"
+            d["type"] = "power district"
             d["block"] = "on" if self._aux_state == Aux.AUX1_OPT_ONE else "off"
         else:
+            d["type"] = "accessory"
             d["aux"] = self._aux_state.name.lower() if self._aux_state else None
             d["aux1"] = self.aux1_state.name.lower() if self.aux1_state else None
             d["aux2"] = self.aux2_state.name.lower() if self.aux2_state else None

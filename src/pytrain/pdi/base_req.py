@@ -6,7 +6,6 @@ from math import floor
 from typing import Dict, List, Tuple
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
-
 from .pdi_req import PdiReq
 from ..db.component_state import ComponentState, RouteState
 from ..db.component_state_store import ComponentStateStore
@@ -14,7 +13,6 @@ from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS, Mixins
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
-
 
 log = logging.getLogger(__name__)
 
@@ -381,6 +379,15 @@ class BaseReq(PdiReq):
                     self._valid1 = 0b1100
                     self.scope = state.scope
                     if isinstance(state, EngineState):
+                        if state.momentum is None:
+                            print(f"************** {self.scope} {self.tmcc_id} Momentum is None **************")
+                            state._momentum = 1
+                        if state.train_brake is None:
+                            print(f"************** {self.scope} {self.tmcc_id} Brake is None **************")
+                            state._train_brake = 0
+                        if state.labor is None:
+                            print(f"************** {self.scope} {self.tmcc_id} Labor is None **************")
+                            state._labor = 12
                         self._valid1 = 0b1111100011111100
                         self._valid2 = 0b11000000
                         self._speed_step = state.speed
