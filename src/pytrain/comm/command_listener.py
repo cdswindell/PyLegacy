@@ -442,7 +442,6 @@ class CommandDispatcher(Thread):
                         if self._filter_updates is True and cmd.is_filtered is True:
                             log.debug(f"Filtering client update: {cmd}")
                         else:
-                            print(f"*** Updating clients with: {cmd}")
                             self.update_client_state(cmd)
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {cmd}; see log for details")

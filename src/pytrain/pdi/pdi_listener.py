@@ -288,7 +288,6 @@ class PdiDispatcher(Thread):
                         # if the command is TMCC command received from the Base, as it
                         # has been handled via the call to tmcc_dispatcher.offer above
                         if self._server_port is not None:
-                            print(f"*** PDI Updating clients with: {cmd}")
                             self.update_client_state(cmd)
                     # update broadcast channels, mostly used for command echoing
                     if self._broadcasts:
@@ -309,7 +308,6 @@ class PdiDispatcher(Thread):
             if client in self._server_ips and port == self._server_port:
                 continue  # don't notify ourself
             try:
-                print(f"***** PDI: Sending update to {client}:{port} {command}")
                 with self._lock:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((client, port))
