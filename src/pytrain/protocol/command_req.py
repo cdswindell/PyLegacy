@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 from typing import Callable, TypeVar, Set
 
-
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):

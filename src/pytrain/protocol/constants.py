@@ -28,7 +28,7 @@ DEFAULT_PULSE = 5  # send heartbeat periodically as proof of life
 DEFAULT_QUEUE_SIZE: int = 2**11  # 2,048 entries
 
 DEFAULT_SER2_THROTTLE_DELAY: int = 50  # milliseconds
-DEFAULT_BASE_THROTTLE_DELAY: int = 25
+DEFAULT_BASE_THROTTLE_DELAY: int = 50
 
 DEFAULT_ENGINE_LABOR = 12
 
