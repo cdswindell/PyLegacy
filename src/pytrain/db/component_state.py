@@ -849,7 +849,6 @@ class EngineState(ComponentState):
         # in the lionel ecosystem, as commands are frequently sent twice or even 3 times
         # consecutively.
         if command is None or (command == self._last_command and self.last_updated_ago < 1):
-            print(f"Skipping update: {command}")
             return
         with self._cv:
             super().update(command)
@@ -891,7 +890,8 @@ class EngineState(ComponentState):
                         # to a Base 3
                         from ..pdi.base3_buffer import Base3Buffer
 
-                        Base3Buffer.request_state_update(self.address, self.scope)
+                        if command != self._last_command:
+                            Base3Buffer.request_state_update(self.address, self.scope)
                 elif cmd_effects & NUMERIC_SET:
                     numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
                     log.info(f"What to do? {command}: {numeric} {type(numeric)}")
