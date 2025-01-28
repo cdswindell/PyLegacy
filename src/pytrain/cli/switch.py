@@ -11,12 +11,13 @@
 
 #
 import logging
+from argparse import ArgumentParser
 from typing import List
 
 from . import CliBase
 from ..protocol.tmcc1.switch_cmd import SwitchCmd
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
-from ..utils.argument_parser import ArgumentParser
+from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ log = logging.getLogger(__name__)
 class SwitchCli(CliBase):
     @classmethod
     def command_parser(cls) -> ArgumentParser:
-        sw_parser = ArgumentParser(add_help=False)
+        sw_parser = PyTrainArgumentParser(add_help=False)
         sw_parser.add_argument("switch", metavar="Switch Number", type=int, help="switch to fire")
         group = sw_parser.add_mutually_exclusive_group()
         group.add_argument(
@@ -45,7 +46,7 @@ class SwitchCli(CliBase):
             help="Set switch address",
         )
         group.set_defaults(command=TMCC1SwitchCommandEnum.THRU)
-        return ArgumentParser("Fire specified switch (1 - 99)", parents=[sw_parser, cls.cli_parser()])
+        return PyTrainArgumentParser("Throw specified switch (1 - 99)", parents=[sw_parser, cls.cli_parser()])
 
     """
         Throw the specified switch.

@@ -11,6 +11,7 @@
 
 #
 import logging
+from argparse import ArgumentParser
 from typing import List
 
 from . import CliBaseTMCC, DataAction, CliBase
@@ -22,7 +23,7 @@ from ..protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
-from ..utils.argument_parser import ArgumentParser
+from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ AUX_COMMAND_MAP = {
 class EngineCli(CliBaseTMCC):
     @classmethod
     def command_parser(cls) -> ArgumentParser:
-        engine_parser = ArgumentParser(add_help=False)
+        engine_parser = PyTrainArgumentParser(add_help=False)
         engine_parser.add_argument("engine", metavar="Engine/Train", type=int, help="Engine/Train to operate")
 
         ops = engine_parser.add_mutually_exclusive_group()
@@ -235,7 +236,7 @@ class EngineCli(CliBaseTMCC):
         sp = engine_parser.add_subparsers(dest="sub_command", help="Engine/train sub-commands")
 
         # Bell operations
-        bell = sp.add_parser("bell", aliases=["be"], help="Bell operations")
+        bell = sp.add_parser("bell", aliases=["be"], help="Bell operations", parent=engine_parser)
         bell_group = bell.add_mutually_exclusive_group()
         bell_group.add_argument(
             "-r",
@@ -276,7 +277,7 @@ class EngineCli(CliBaseTMCC):
         )
 
         # Horn operations
-        horn = sp.add_parser("horn", aliases=["ho"], help="Horn operations")
+        horn = sp.add_parser("horn", aliases=["ho"], help="Horn operations", parent=engine_parser)
         horn_group = horn.add_mutually_exclusive_group()
         horn_group.add_argument(
             "-1",
@@ -313,7 +314,7 @@ class EngineCli(CliBaseTMCC):
         )
 
         # Momentum operations
-        momentum = sp.add_parser("momentum", aliases=["mo"], help="Momentum operations")
+        momentum = sp.add_parser("momentum", aliases=["mo"], help="Momentum operations", parent=engine_parser)
         mom_group = momentum.add_mutually_exclusive_group()
         mom_group.add_argument(
             "-l",
@@ -352,7 +353,7 @@ class EngineCli(CliBaseTMCC):
         )
 
         # Smoke operations
-        smoke = sp.add_parser("smoke", aliases=["sm"], help="Smoke operations")
+        smoke = sp.add_parser("smoke", aliases=["sm"], help="Smoke operations", parent=engine_parser)
         smoke_group = smoke.add_mutually_exclusive_group()
         smoke_group.add_argument(
             "-l",
@@ -382,7 +383,7 @@ class EngineCli(CliBaseTMCC):
         )
         smoke_group.add_argument("-off", action="store_const", const="SMOKE_OFF", dest="option", help="Set smoke off")
 
-        sound = sp.add_parser("sound", aliases=["so"], help="Sound operations")
+        sound = sp.add_parser("sound", aliases=["so"], help="Sound operations", parent=engine_parser)
         sound_group = sound.add_mutually_exclusive_group()
         sound_group.add_argument(
             "-a", "--auger", action="store_const", const="AUGER", dest="option", help="Auger sound"
@@ -453,7 +454,7 @@ class EngineCli(CliBaseTMCC):
             "Engine/Train speed: 0 - 199 (Legacy) or 0 - 31 (TMCC) or stop, roll, restricted, "
             "slow, medium, limited, normal, or highball"
         )
-        speed = sp.add_parser("speed", aliases=["sp"], help="Speed of engine/train")
+        speed = sp.add_parser("speed", aliases=["sp"], help="Speed of engine/train", parent=engine_parser)
         speed.add_argument(
             "data", type=CliBase._validate_speed, action="store", metavar=sp_metavar, help="Absolute/Relative speed"
         )
@@ -491,7 +492,7 @@ class EngineCli(CliBaseTMCC):
         speed_group.set_defaults(option="RAMPED_SPEED_SEQ")
 
         # construct final parser with all components in order
-        return ArgumentParser(
+        return PyTrainArgumentParser(
             "Control specified engine/train (1 - 99)",
             parents=[
                 engine_parser,

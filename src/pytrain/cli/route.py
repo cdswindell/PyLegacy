@@ -10,12 +10,13 @@
 #
 
 import logging
+from argparse import ArgumentParser
 from typing import List
 
 from . import CliBaseTMCC
 from ..protocol.tmcc1.route_cmd import RouteCmd as RouteCmdTMCC1
 from ..protocol.tmcc2.route_cmd import RouteCmd as RouteCmdTMCC2
-from ..utils.argument_parser import ArgumentParser
+from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -23,9 +24,9 @@ log = logging.getLogger(__name__)
 class RouteCli(CliBaseTMCC):
     @classmethod
     def command_parser(cls):
-        route_parser = ArgumentParser(add_help=False)
+        route_parser = PyTrainArgumentParser(add_help=False)
         route_parser.add_argument("route", metavar="Route", type=int, help="route to fire")
-        return ArgumentParser(
+        return PyTrainArgumentParser(
             "Fire specified route (1 - 99)", parents=[route_parser, cls.command_format_parser(), cls.cli_parser()]
         )
 

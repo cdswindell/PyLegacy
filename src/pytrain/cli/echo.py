@@ -10,13 +10,13 @@
 #
 
 import logging
+from argparse import ArgumentParser
 from datetime import datetime
 from typing import List
 
 from . import CliBase
 from ..comm.command_listener import CommandListener
 from ..protocol.command_req import CommandReq
-from ..utils.argument_parser import ArgumentParser
 
 log = logging.getLogger(__name__)
 

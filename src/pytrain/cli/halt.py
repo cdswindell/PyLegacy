@@ -11,13 +11,14 @@
 
 #
 import logging
+from argparse import ArgumentParser
 from typing import List
 
 from . import CliBaseTMCC
 from ..protocol.constants import CommandSyntax
 from ..protocol.tmcc1.halt_cmd import HaltCmd as HaltCmdTMCC1
 from ..protocol.tmcc2.halt_cmd import HaltCmd as HaltCmdTMCC2
-from ..utils.argument_parser import ArgumentParser
+from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ log = logging.getLogger(__name__)
 class HaltCli(CliBaseTMCC):
     @classmethod
     def command_parser(cls):
-        return ArgumentParser(
+        return PyTrainArgumentParser(
             "Emergency halt; stop all engines and trains",
             parents=[cls.train_parser(), cls.command_format_parser(CommandSyntax.TMCC), cls.cli_parser()],
         )

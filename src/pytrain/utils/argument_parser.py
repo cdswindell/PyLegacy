@@ -7,34 +7,77 @@
 #
 #
 
-import argparse
-from typing import List
+from argparse import ArgumentParser, HelpFormatter, ArgumentError
+from threading import Lock
+from typing import List, cast
 
 
-class ArgumentParser(argparse.ArgumentParser):
+class PyTrainArgumentParser(ArgumentParser):
     def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+        self._parent = kwargs.pop("parent", None)
+        self._exit_on_error: bool = True
         self._error_message: str | None = None
+        self._lock = Lock()
+        if "parents" in kwargs:
+            parents = kwargs["parents"].copy()
+        else:
+            parents = []
+        super().__init__(*args, **kwargs)
+        for parent in parents:
+            parent._parent = self
+
+    @property
+    def parent(self) -> ArgumentParser:
+        return self._parent
+
+    @property
+    def is_exit_on_error(self) -> bool:
+        if self._exit_on_error is True and self.parent and isinstance(self.parent, PyTrainArgumentParser):
+            return cast(PyTrainArgumentParser, self.parent).is_exit_on_error
+        return self._exit_on_error
 
     def error(self, message: str) -> None:
         self._error_message = message
-        super().error(message)
+        if self.is_exit_on_error is True:
+            super().error(message)
+        else:
+            raise ArgumentError(None, message)
+
+    def exit(self, status: int = 0, message: str = None) -> None:
+        self._error_message = message
+        if self.is_exit_on_error is True:
+            super().exit(status, message)
+        else:
+            raise ArgumentError(None, message)
 
     @property
     def error_message(self) -> str | None:
         return self._error_message
 
-    def validate_args(self, args=None, namespace=None):
+    # noinspection PyArgumentList
+    def validate_args(self, args=None):
         msg = None
-        try:
-            args, argv = self.parse_known_args(args, namespace)
-            if argv:
-                msg = "Unrecognized arguments: %s" % " ".join(argv)
-        except SystemExit:
-            msg = self._error_message
-        except argparse.ArgumentError as e:
-            msg = e.message
-        return args, msg
+        with self._lock:
+            eoe = self._exit_on_error
+            try:
+                self._exit_on_error = False
+                args = self.parse_args(args)
+            except ArgumentError as e:
+                msg = e.message
+            except Exception as e:
+                msg = str(e)
+            finally:
+                if eoe is not None:
+                    self._exit_on_error = eoe
+            return args, msg
+
+    def clear_exit_on_error(self) -> None:
+        with self._lock:
+            self._exit_on_error = False
+
+    def reset_exit_on_error(self) -> None:
+        with self._lock:
+            self._exit_on_error = True
 
     # noinspection PyProtectedMember
     def remove_args(self, args: List[str]) -> None:
@@ -53,7 +96,7 @@ class ArgumentParser(argparse.ArgumentParser):
                         break
 
 
-class StripPrefixesHelpFormatter(argparse.HelpFormatter):
+class StripPrefixesHelpFormatter(HelpFormatter):
     """
     For help within PyTrain, we need to strip the "-" characters
     off of the names of the arguments, as the user doesn't need to

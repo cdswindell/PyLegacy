@@ -10,12 +10,13 @@
 #
 
 import logging
+from argparse import ArgumentParser
 from typing import List
 
 from . import CliBaseTMCC
 from ..protocol.multibyte.effects_cmd import EffectsCmd
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ..utils.argument_parser import ArgumentParser
+from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ log = logging.getLogger(__name__)
 class EffectsCli(CliBaseTMCC):
     @classmethod
     def command_parser(cls):
-        effects_parser = ArgumentParser(add_help=False)
+        effects_parser = PyTrainArgumentParser(add_help=False)
         effects_parser.add_argument("engine", metavar="Engine/Train", type=int, help="Engine/Train to control")
         sp = effects_parser.add_subparsers(dest="sub_command", help="Engine/train sub-commands")
         smoke = sp.add_parser("smoke", aliases=["sm"], help="Smoke system options")
@@ -160,7 +161,7 @@ class EffectsCli(CliBaseTMCC):
         )
         # TODO: Coal and stock car options
 
-        return ArgumentParser(
+        return PyTrainArgumentParser(
             "Engine/train/car effects control",
             parents=[effects_parser, cls.multi_parser(), cls.train_parser(), cls.cli_parser()],
         )

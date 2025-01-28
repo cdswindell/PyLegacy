@@ -10,12 +10,13 @@
 #
 
 import logging
+from argparse import ArgumentParser
 from typing import List
 
 from . import CliBaseTMCC
 from ..protocol.multibyte.lighting_cmd import LightingCmd
 from ..protocol.multibyte.multibyte_constants import TMCC2LightingControl
-from ..utils.argument_parser import ArgumentParser
+from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ log = logging.getLogger(__name__)
 class LightingCli(CliBaseTMCC):
     @classmethod
     def command_parser(cls):
-        lighting_parser = ArgumentParser(add_help=False)
+        lighting_parser = PyTrainArgumentParser(add_help=False)
         lighting_parser.add_argument("engine", metavar="Engine/Train", type=int, help="Engine/Train to control")
         sp = lighting_parser.add_subparsers(dest="sub_command", help="Engine/train sub-commands")
         cab = sp.add_parser("cab", help="Cab lighting options")
@@ -266,7 +267,7 @@ class LightingCli(CliBaseTMCC):
             "-auto", action="store_const", const=TMCC2LightingControl.WORK_AUTO, dest="option", help="Work lights auto"
         )
 
-        return ArgumentParser(
+        return PyTrainArgumentParser(
             "Lighting control", parents=[lighting_parser, cls.multi_parser(), cls.train_parser(), cls.cli_parser()]
         )
 

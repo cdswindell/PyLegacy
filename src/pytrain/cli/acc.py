@@ -8,12 +8,13 @@
 #
 #
 import logging
+from argparse import ArgumentParser
 from typing import List
 
 from . import CliBase, DataAction
 from ..protocol.tmcc1.acc_cmd import AccCmd
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
-from ..utils.argument_parser import ArgumentParser
+from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ AUX_OPTIONS_MAP = {
 class AccCli(CliBase):
     @classmethod
     def command_parser(cls) -> ArgumentParser:
-        acc_parser = ArgumentParser(add_help=False)
+        acc_parser = PyTrainArgumentParser(add_help=False)
         acc_parser.add_argument("acc", metavar="Accessory Number", type=int, help="accessory to fire")
 
         aux_group = acc_parser.add_mutually_exclusive_group()
@@ -68,7 +69,7 @@ class AccCli(CliBase):
             help="Set accessory address",
         )
         # fire command
-        return ArgumentParser("Operate specified accessory (1 - 99)", parents=[acc_parser, cls.cli_parser()])
+        return PyTrainArgumentParser("Operate specified accessory (1 - 99)", parents=[acc_parser, cls.cli_parser()])
 
     """
         Issue Accessory Commands.

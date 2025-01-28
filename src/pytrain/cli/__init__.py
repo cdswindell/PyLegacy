@@ -6,10 +6,10 @@
 #
 #
 
-import argparse
 import logging
 import sys
 from abc import ABC, ABCMeta
+from argparse import ArgumentParser, Namespace, ArgumentTypeError, Action
 from typing import List, Any
 
 from ..protocol.command_base import CommandBase
@@ -17,7 +17,7 @@ from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, C
 from ..protocol.constants import DEFAULT_VALID_BAUDRATES
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
-from ..utils.argument_parser import ArgumentParser
+from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class CliBase(ABC):
         can inherit from this parser to add other command-specific options.
         """
         # define arguments common to all Legacy CLI commands
-        parser = ArgumentParser(add_help=False)
+        parser = PyTrainArgumentParser(add_help=False)
 
         parser.add_argument(
             "-baudrate",
@@ -64,7 +64,7 @@ class CliBase(ABC):
         Add options to allow command repetition and delay
         """
         # define arguments common to all Legacy CLI commands
-        parser = ArgumentParser(add_help=False)
+        parser = PyTrainArgumentParser(add_help=False)
         parser.add_argument(
             "-repeat",
             action="store",
@@ -87,7 +87,7 @@ class CliBase(ABC):
         """
         Add command_def to run command using TMCC1 command syntax
         """
-        parser = ArgumentParser(add_help=False)
+        parser = PyTrainArgumentParser(add_help=False)
         group = parser.add_mutually_exclusive_group()
         group.add_argument(
             "-tmcc",
@@ -113,7 +113,7 @@ class CliBase(ABC):
         """
         Add command_def to run command TMCC2 command as train rather than engine
         """
-        parser = ArgumentParser(add_help=False)
+        parser = PyTrainArgumentParser(add_help=False)
         parser.add_argument(
             "-train",
             action="store_const",
@@ -162,7 +162,7 @@ class CliBase(ABC):
         return self._command_line
 
     @property
-    def args(self) -> argparse.Namespace:
+    def args(self) -> Namespace:
         return self._args
 
     @property
@@ -193,7 +193,7 @@ class CliBase(ABC):
             if "-tmcc" in sys.argv or "-tmcc1" in sys.argv:
                 return TMCC1_SPEED_MAP[uc_arg]
             return TMCC2_SPEED_MAP[uc_arg]
-        raise argparse.ArgumentTypeError("Speed must be between 0 and 199 (0 and 31, for tmcc)")
+        raise ArgumentTypeError("Speed must be between 0 and 199 (0 and 31, for tmcc)")
 
     @staticmethod
     def _validate_delay(arg: Any) -> float:
@@ -203,7 +203,7 @@ class CliBase(ABC):
                 return arg
         except ValueError:
             pass
-        raise argparse.ArgumentTypeError("Delay must be 0.0 or greater")
+        raise ArgumentTypeError("Delay must be 0.0 or greater")
 
     @staticmethod
     def _validate_repeat(arg: Any) -> int:
@@ -213,7 +213,7 @@ class CliBase(ABC):
                 return arg
         except ValueError:
             pass
-        raise argparse.ArgumentTypeError("Delay must be 1 or greater")
+        raise ArgumentTypeError("Delay must be 1 or greater")
 
 
 class CliBaseTMCC(CliBase):
@@ -235,7 +235,7 @@ class CliBaseTMCC(CliBase):
             return bool(self._args.train)
 
 
-class DataAction(argparse.Action):
+class DataAction(Action):
     """
     Custom action that sets both the command_def and data fields
     with the command_def value specified by 'const', and the data value

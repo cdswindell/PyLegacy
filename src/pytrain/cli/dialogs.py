@@ -10,12 +10,13 @@
 #
 
 import logging
+from argparse import ArgumentParser
 from typing import List
 
 from . import CliBaseTMCC
 from ..protocol.multibyte.dialog_cmd import DialogCmd
 from ..protocol.multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
-from ..utils.argument_parser import ArgumentParser
+from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ log = logging.getLogger(__name__)
 class DialogsCli(CliBaseTMCC):
     @classmethod
     def command_parser(cls):
-        dialog_parser = ArgumentParser(add_help=False)
+        dialog_parser = PyTrainArgumentParser(add_help=False)
         dialog_parser.add_argument("engine", metavar="Engine/Train/Car", type=int, help="Engine/Train/Car to control")
         dialog_parser.add_argument(
             "-sd",
@@ -462,7 +463,7 @@ class DialogsCli(CliBaseTMCC):
             help="Conductor: all aboard",
         )
 
-        return ArgumentParser(
+        return PyTrainArgumentParser(
             "Engine/train/car dialogs",
             parents=[dialog_parser, cls.multi_parser(), cls.train_parser(), cls.cli_parser()],
         )

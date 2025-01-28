@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import argparse
 import logging.config
 import os
 import readline
@@ -20,6 +19,7 @@ import socket
 import subprocess
 import sys
 import threading
+from argparse import ArgumentParser, ArgumentError, SUPPRESS
 from datetime import datetime, timedelta
 from queue import Queue, Empty
 from time import sleep
@@ -67,7 +67,7 @@ from ..protocol.constants import (
     DEFAULT_QUEUE_SIZE,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
-from ..utils.argument_parser import ArgumentParser, StripPrefixesHelpFormatter
+from ..utils.argument_parser import StripPrefixesHelpFormatter, PyTrainArgumentParser
 from ..utils.dual_logging import set_up_logging
 from ..utils.ip_tools import get_ip_address, find_base_address
 
@@ -310,9 +310,11 @@ class PyTrain:
                                 for line in f:
                                     try:
                                         self._handle_command(line)
-                                    except SystemExit:
+                                    except SystemExit as se:
+                                        print("******", se)
                                         pass
-                                    except argparse.ArgumentError:
+                                    except ArgumentError as ae:
+                                        print("******", ae)
                                         pass
                         else:
                             log.warning(f'Replay file "{self._replay_file}" not found, continuing...')
@@ -333,7 +335,7 @@ class PyTrain:
                         self._handle_command(ui)
                 except SystemExit:
                     pass
-                except argparse.ArgumentError:
+                except ArgumentError:
                     pass
                 except KeyboardInterrupt:
                     self.shutdown()
@@ -379,7 +381,7 @@ class PyTrain:
 
     def command_line_parser(self) -> ArgumentParser:
         prog = "pytrain" if is_package() else "pytrain.py"
-        parser = ArgumentParser(
+        parser = PyTrainArgumentParser(
             prog=prog,
             description="Send TMCC and Legacy-formatted commands to a Lionel Base 3 and/or LCS Ser2",
         )
@@ -425,7 +427,7 @@ class PyTrain:
         )
         ser2_opts.add_argument("-ser2", action="store_true", help="Send or receive TMCC commands from an LCS Ser2")
         misc_opts = parser.add_argument_group("Miscellaneous options")
-        misc_opts.add_argument("-api", action="store_true", help=argparse.SUPPRESS)
+        misc_opts.add_argument("-api", action="store_true", help=SUPPRESS)
         misc_opts.add_argument(
             "-buttons_file",
             type=str,
@@ -770,7 +772,7 @@ class PyTrain:
         # call _handle_command to do the command parsing
         return self._handle_command(command_line, parse_only=True)
 
-    def _handle_command(self, ui: str, parse_only: bool = False) -> str | None:
+    def _handle_command(self, ui: str, parse_only: bool = False) -> str | CommandReq | None:
         """
         Parse the user's input, reusing the individual CLI command parsers.
         If a valid command is specified, send it to the Lionel LCS SER2.
@@ -786,6 +788,7 @@ class PyTrain:
             ui_parts = ui.split()
             if ui_parts[0]:
                 # parse the first token
+                ui_parser = None
                 try:
                     # if the keyboard input starts with a valid command, args.command
                     # is set to the corresponding CLI command class, or the verb 'quit'
@@ -842,21 +845,22 @@ class PyTrain:
                                 break  # we're into a subparser
                         if has_train_arg is False:
                             ui_parts.insert(2, "-train")
-                    if parse_only is True:
+                    if parse_only is True and isinstance(ui_parser, PyTrainArgumentParser):
                         # TODO: provide tool to get usage text
-                        parser = args.command.command_parser()
-                        cmd_args, argv = parser.validate_args(ui_parts[1:])
-                        return argv
-                    else:
-                        cli_cmd = args.command(ui_parser, ui_parts[1:], False)
-                        if cli_cmd.command is None:
-                            raise argparse.ArgumentError(None, f"'{ui}' is not a valid command")
-                        cli_cmd.send()
-                except argparse.ArgumentError as e:
-                    e.message = e.message.replace(": -", ": ")
+                        ui_parser.clear_exit_on_error()
+                    cli_cmd = args.command(ui_parser, ui_parts[1:], False)
+                    if cli_cmd.command is None:
+                        raise ArgumentError(None, f"'{ui}' is not a valid command")
+                    if parse_only is True and isinstance(ui_parser, PyTrainArgumentParser):
+                        return cli_cmd.command.command_req
+                    cli_cmd.send()
+                except ArgumentError as e:
                     if parse_only is True:
                         return e.message
                     log.warning(e)
+                finally:
+                    if ui_parser and parse_only is True:
+                        ui_parser.reset_exit_on_error()
 
     def _get_system_state(self):
         self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
@@ -987,7 +991,7 @@ class PyTrain:
         """
         Parse the first token of the user's input
         """
-        command_parser = ArgumentParser(
+        command_parser = PyTrainArgumentParser(
             prog="",
             description="Valid commands:",
             epilog="Commands can be abbreviated, so long as they are unique; e.g., 'en', "

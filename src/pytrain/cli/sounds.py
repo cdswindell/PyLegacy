@@ -10,12 +10,13 @@
 #
 
 import logging
+from argparse import ArgumentParser
 from typing import List
 
 from . import CliBaseTMCC
 from ..protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
 from ..protocol.multibyte.sound_effects_cmd import SoundEffectsCmd
-from ..utils.argument_parser import ArgumentParser
+from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ log = logging.getLogger(__name__)
 class SoundEffectsCli(CliBaseTMCC):
     @classmethod
     def command_parser(cls):
-        sounds_parser = ArgumentParser(add_help=False)
+        sounds_parser = PyTrainArgumentParser(add_help=False)
         sounds_parser.add_argument("engine", metavar="Engine/Train", type=int, help="Engine/Train to control")
         sounds_parser.add_argument(
             "-add_fuel",
@@ -217,7 +218,7 @@ class SoundEffectsCli(CliBaseTMCC):
             help="Standby warning bell on",
         )
 
-        return ArgumentParser(
+        return PyTrainArgumentParser(
             "RailSounds sound controls",
             parents=[sounds_parser, cls.multi_parser(), cls.train_parser(), cls.cli_parser()],
         )
