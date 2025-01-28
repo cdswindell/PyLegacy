@@ -11,10 +11,10 @@ class GradeCrossingReq(SequenceReq):
     def __init__(self, address: int, data: int, scope: CommandScope = CommandScope.ENGINE) -> None:
         super().__init__(SequenceCommandEnum.GRADE_CROSSING_SEQ, address, scope)
         self._data = data
-        req15 = CommandReq(TMCC2EngineCommandEnum.QUILLING_HORN_INTENSITY, address, 15, scope)
-        req8 = CommandReq(TMCC2EngineCommandEnum.QUILLING_HORN_INTENSITY, address, 8, scope)
-        req4 = CommandReq(TMCC2EngineCommandEnum.QUILLING_HORN_INTENSITY, address, 4, scope)
-        req0 = CommandReq(TMCC2EngineCommandEnum.QUILLING_HORN_INTENSITY, address, 0, scope)
+        req15 = CommandReq(TMCC2EngineCommandEnum.QUILLING_HORN, address, 15, scope)
+        req8 = CommandReq(TMCC2EngineCommandEnum.QUILLING_HORN, address, 8, scope)
+        req4 = CommandReq(TMCC2EngineCommandEnum.QUILLING_HORN, address, 4, scope)
+        req0 = CommandReq(TMCC2EngineCommandEnum.QUILLING_HORN, address, 0, scope)
         # first blast
         for _ in range(5):
             self.add(req15)

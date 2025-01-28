@@ -286,7 +286,7 @@ class EngineCli(CliBaseTMCC):
             const="BLOW_HORN_ONE",
             dest="option",
             default="BLOW_HORN_ONE",
-            help="Blow horn One",
+            help="Blow horn one",
         )
         horn_group.add_argument(
             "-2", "--blow_horn_two", action="store_const", const="BLOW_HORN_TWO", dest="option", help="Blow horn two"
@@ -309,7 +309,7 @@ class EngineCli(CliBaseTMCC):
             type=int,
             nargs="?",
             default=1,
-            const="QUILLING_HORN_INTENSITY",
+            const="QUILLING_HORN",
             help="Quilling horn intensity",
         )
 
