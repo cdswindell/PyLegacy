@@ -300,8 +300,10 @@ class ComponentState(ABC):
 
     @property
     def last_updated_ago(self) -> float:
-        if self._last_updated:
+        if self._last_updated is not None:
             return time() - self._last_updated
+        else:
+            return BIG_NUMBER
 
     @staticmethod
     def time_delta(last_updated: float, recv_time: float) -> float:
@@ -847,6 +849,7 @@ class EngineState(ComponentState):
         # in the lionel ecosystem, as commands are frequently sent twice or even 3 times
         # consecutively.
         if command is None or (command == self._last_command and self.last_updated_ago < 1):
+            print(f"Skipping update: {command}")
             return
         with self._cv:
             super().update(command)
