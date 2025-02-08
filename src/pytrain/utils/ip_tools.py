@@ -8,14 +8,26 @@
 #
 
 import socket
+import subprocess
 from multiprocessing import Pool, cpu_count
 from typing import List
+
 
 from ..protocol.constants import DEFAULT_BASE_PORT
 
 
 def get_ip_address(max_attempts: int = 32) -> List[str]:
-    # Step 1: Get the local hostname.
+    from .. import is_linux
+
+    # if on linux, use hostname to get IP addr
+    if is_linux():
+        result = subprocess.run("hostname -I".split(), capture_output=True, text=True)
+        if result.returncode == 0:
+            output = result.stdout.strip().split()
+            if output and output[0]:
+                return list(output[0])
+
+    # Otherwise, use socket technique
     hostname = socket.gethostname()
     hostname = hostname if hostname.endswith(".local") else hostname + ".local"
 
