@@ -25,7 +25,6 @@ def get_ip_address(max_attempts: int = 32) -> List[str]:
         if result.returncode == 0:
             output = result.stdout.strip().split()
             if output and output[0]:
-                print("******", output[0])
                 return [output[0]]
 
     # Otherwise, use socket technique
