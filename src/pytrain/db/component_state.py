@@ -1139,7 +1139,7 @@ class EngineState(ComponentState):
         return self._max_speed
 
     @property
-    def speed_max(self) -> int:
+    def speed_max(self) -> int | None:
         if self.max_speed and self.speed_limit:
             return min(self.max_speed, self.speed_limit)
         elif self._speed_limit and self.speed_limit != 255:
@@ -1288,10 +1288,10 @@ class EngineState(ComponentState):
                 d[elem] = val if val is not None and val != 255 else None
         d["direction"] = self.direction.name.lower() if self.direction else None
         d["smoke"] = self.smoke.name.lower() if self.smoke else None
-        d["control"] = self.control_type_label.lower()
-        d["sound_type"] = self.sound_type_label.lower()
-        d["engine_type"] = self.engine_type_label.lower()
-        d["engine_class"] = self.engine_class_label.lower()
+        d["control"] = self.control_type_label.lower() if self.control_type else None
+        d["sound_type"] = self.sound_type_label.lower() if self.sound_type else None
+        d["engine_type"] = self.engine_type_label.lower() if self.engine_type else None
+        d["engine_class"] = self.engine_class_label.lower() if self.engine_class else None
         return d
 
 
