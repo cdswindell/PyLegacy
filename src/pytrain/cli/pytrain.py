@@ -379,7 +379,8 @@ class PyTrain:
     def tmcc_buffer(self) -> CommBuffer:
         return self._tmcc_buffer
 
-    def command_line_parser(self) -> ArgumentParser:
+    @classmethod
+    def command_line_parser(cls) -> ArgumentParser:
         prog = "pytrain" if is_package() else "pytrain.py"
         parser = PyTrainArgumentParser(
             prog=prog,
@@ -450,7 +451,7 @@ class PyTrain:
         misc_opts.add_argument(
             "-version",
             action="version",
-            version=f"{self.__class__.__name__} {get_version()}",
+            version=f"{cls.__class__.__name__} {get_version()}",
             help="Show version and exit",
         )
         return parser
