@@ -451,7 +451,7 @@ class PyTrain:
         misc_opts.add_argument(
             "-version",
             action="version",
-            version=f"{cls.__class__.__name__} {get_version()}",
+            version=f"{cls.__qualname__} {get_version()}",
             help="Show version and exit",
         )
         return parser
