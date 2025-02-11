@@ -162,7 +162,7 @@ class EnqueueProxyRequests(Thread):
                 if (client_ip, port) in self.client_sessions:
                     log.error(f"Can not restart client at {client_ip}:{port}; port in use")
                 else:
-                    from src.pytrain.comm.command_listener import CommandDispatcher
+                    from .command_listener import CommandDispatcher
 
                     CommandDispatcher.get().signal_clients(TMCC1SyncCommandEnum.RESTART, client_ip, port)
 
@@ -175,7 +175,7 @@ class EnqueueProxyRequests(Thread):
             return {(k[0], k[1]) for k, v in self._clients.items()}
 
     def run(self) -> None:
-        from src.pytrain.comm.command_listener import CommandDispatcher
+        from .command_listener import CommandDispatcher
 
         """
         Simplified TCP/IP Server listens for command requests from client and executes them
@@ -199,8 +199,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         super().__init__(request, client_address, server)
 
     def handle(self):
-        from src.pytrain.comm.command_listener import CommandDispatcher
-        from src.pytrain.pdi.constants import PDI_SOP
+        from .command_listener import CommandDispatcher
+        from ..pdi.constants import PDI_SOP
 
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
