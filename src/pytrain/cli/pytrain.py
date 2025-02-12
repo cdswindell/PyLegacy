@@ -136,6 +136,7 @@ class PyTrain:
             base_pieces = base.split(":")
             self._base_addr = args.base = base_pieces[0]
             self._base_port = base_pieces[1] if len(base_pieces) > 1 else DEFAULT_BASE_PORT
+            self._client = False  # disable client mode
         elif self._server is None and args.client is True:
             # use avahi/zeroconf to locate a PyTrain server on the local network
             # raise exception and exit if none found
@@ -149,6 +150,8 @@ class PyTrain:
         else:
             if args.ser2 is False:
                 raise AttributeError(f"{PROGRAM_NAME} requires either an LCS SER2 and/or Base 2/3 connection")
+            else:
+                self._client = False
             self._base_addr = self._base_port = None
 
         # Based on the arguments, we are either connecting to an LCS Ser 2 or a named PyTrain server
@@ -310,11 +313,9 @@ class PyTrain:
                                 for line in f:
                                     try:
                                         self._handle_command(line)
-                                    except SystemExit as se:
-                                        print("******", se)
+                                    except SystemExit:
                                         pass
-                                    except ArgumentError as ae:
-                                        print("******", ae)
+                                    except ArgumentError:
                                         pass
                         else:
                             log.warning(f'Replay file "{self._replay_file}" not found, continuing...')
@@ -495,10 +496,6 @@ class PyTrain:
     @property
     def is_api_active(self) -> bool:
         return self._api is True and self._command_queue is not None and self._api_thread is not None
-
-    # @property
-    # def buffer(self) -> CommBuffer:
-    #     return self._tmcc_buffer
 
     def shutdown(self):
         try:
