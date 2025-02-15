@@ -57,6 +57,74 @@ class EngineBits(Mixins, IntEnum):
     MOMENTUM = 23
 
 
+@unique
+class UnitBits(Mixins, IntEnum):
+    SINGLE = 0b0
+    HEAD = 0b1
+    MIDDLE = 0b10
+    TAIL = 0b11
+
+
+class ConsistComponent:
+    def __init__(self, flags: int, tmcc_id: int) -> None:
+        self.flags = flags
+        self.tmcc_id = tmcc_id
+
+    def __repr__(self) -> str:
+        d = "F" if self.is_forward else "R"
+        t = " TL" if self.is_train_linked else ""
+        a = " A" if self.is_accessory else ""
+        return f"[Engine {self.tmcc_id} {self.unit_type.name.title()} {d}{t}{a} (0b{bin(self.flags)})]"
+
+    @property
+    def unit_type(self) -> UnitBits:
+        return UnitBits(self.flags & 0b11)
+
+    @property
+    def is_single(self) -> bool:
+        return 0b11 & self.flags == 0b0
+
+    @property
+    def is_head(self) -> bool:
+        return 0b11 & self.flags == 0b1
+
+    @property
+    def is_middle(self) -> bool:
+        return 0b11 & self.flags == 0b10
+
+    @property
+    def is_tail(self) -> bool:
+        return 0b11 & self.flags == 0b11
+
+    @property
+    def is_forward(self) -> bool:
+        return 0b100 & self.flags == 0b000
+
+    @property
+    def is_reverse(self) -> bool:
+        return 0b100 & self.flags == 0b100
+
+    @property
+    def is_train_linked(self) -> bool:
+        return 0b100 & self.flags == 0b1000
+
+    @property
+    def is_horn_masked(self) -> bool:
+        return 0b100 & self.flags == 0b10000
+
+    @property
+    def is_dialog_masked(self) -> bool:
+        return 0b100 & self.flags == 0b100000
+
+    @property
+    def is_tmcc2(self) -> bool:
+        return 0b100 & self.flags == 0b1000000
+
+    @property
+    def is_accessory(self) -> bool:
+        return 0b100 & self.flags == 0b10000000
+
+
 ENGINE_WRITE_MAP = {
     "ABSOLUTE_SPEED": (11, 56, None),
     "STOP_IMMEDIATE": (11, 56, lambda t: 0),
@@ -181,7 +249,7 @@ class BaseReq(PdiReq):
                     data = scaler(rpm, labor)
                 else:
                     cls.update_eng(cmd, address, data, scope, use_0x26=False)
-                    return
+                    return None
             else:
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(
@@ -272,6 +340,8 @@ class BaseReq(PdiReq):
         self._fuel_level = self._water_level = self._last_train_id = self._train_pos = None
         self._train_brake = self._train_brake_tmcc = None
         self._smoke_level = self._ditch_lights = self._momentum = self._momentum_tmcc = None
+        self._tr_hybrid_behavior_flags = None
+        self._consist_comps = []
         self._state = state
         self._valid1 = self._valid2 = None
         self._spare_1 = None
@@ -314,6 +384,14 @@ class BaseReq(PdiReq):
                 self._train_brake_tmcc = round(self._data[67] / 2.143) if data_len > 67 else None
                 self._momentum = self._data[68] if data_len > 68 else None
                 self._momentum_tmcc = floor(self._data[68] / 16) if data_len > 68 else None
+                if self.pdi_command == PdiCommand.BASE_TRAIN:
+                    self._tr_hybrid_behavior_flags = self._data[69] if data_len > 69 else None
+                    for i in range(70, 102, 2):
+                        if data_len > i:
+                            if self._data[i] != 0xFF and self._data[i + 1] != 0xFF:
+                                self._consist_comps.insert(0, ConsistComponent(self._data[i], self._data[i + 1]))
+                        else:
+                            break
             elif self.pdi_command in {PdiCommand.BASE_ACC, PdiCommand.BASE_SWITCH, PdiCommand.BASE_ROUTE}:
                 if self.pdi_command == PdiCommand.BASE_ACC:
                     self.scope = CommandScope.ACC
@@ -427,6 +505,10 @@ class BaseReq(PdiReq):
     @property
     def last_train_id(self) -> int:
         return self._last_train_id
+
+    @property
+    def train_pos(self) -> int:
+        return self._train_pos
 
     @property
     def flags(self) -> int:
@@ -626,9 +708,16 @@ class BaseReq(PdiReq):
                 sm = f" Smoke: {self._smoke_level}" if self._smoke_level is not None else ""
                 m = f" Momentum: {self.momentum} ({self.momentum_tmcc})" if self.momentum is not None else ""
                 b = f" Brake: {self._train_brake}" if self._train_brake is not None else ""
+                ti = f"Train ID: {self._last_train_id} {self._train_pos} " if self._last_train_id is not None else ""
+                if self.pdi_command == PdiCommand.BASE_TRAIN and self._consist_comps:
+                    tc = " "
+                    for c in self._consist_comps:
+                        tc += f"{c} "
+                else:
+                    tc = ""
                 return (
-                    f"# {tmcc}{na}{no}{ct}{st}{lt}{lc}{sp}{sl}{ms}{fl}{wl}{rl}{el}{sm}{m}{b} "
-                    f"flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl} "
+                    f"# {tmcc}{na}{no}{ct}{st}{lt}{lc}{sp}{sl}{ms}{fl}{wl}{rl}{el}{sm}{m}{b}\n"
+                    f"{ti}{tc}flags: {f} status: {s} valid: {v}{v2}{fwl}{rvl}\n"
                     f"({self.packet})"
                 )
             if self.pdi_command in [PdiCommand.BASE_ACC, PdiCommand.BASE_ROUTE, PdiCommand.BASE_SWITCH]:

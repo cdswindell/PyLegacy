@@ -107,6 +107,9 @@ class PyTrain:
         self._ser2 = args.ser2
         self._no_wait = args.no_wait
         self._service_info = None
+        self._api = False
+        self._api_thread = None
+        self._command_queue = None
         self._zeroconf = None
         self._pytrain_servers: List[ServiceInfo] = []
         self._server_discovered = threading.Event()
@@ -274,9 +277,6 @@ class PyTrain:
             self._api_thread.daemon = True
             self._api_thread.start()
         else:
-            self._api = False
-            self._api_thread = None
-            self._command_queue = None
             self.run()
 
     def run(self) -> None:
