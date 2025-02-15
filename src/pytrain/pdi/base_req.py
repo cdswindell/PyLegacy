@@ -7,8 +7,7 @@ from typing import Dict, List, Tuple
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
-from ..db.component_state import ComponentState, RouteState
-from ..db.component_state_store import ComponentStateStore
+from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS, Mixins
@@ -220,6 +219,8 @@ class BaseReq(PdiReq):
             # special case numeric commands
             if state.name == "NUMERIC":
                 if data in {3, 6}:  # RPM up/down
+                    from ..db.component_state_store import ComponentStateStore
+
                     state = TMCC2EngineCommandEnum.DIESEL_RPM
                     cur_state = ComponentStateStore.build().get_state(scope, address, False)
                     if cur_state and cur_state.rpm is not None:
@@ -238,6 +239,8 @@ class BaseReq(PdiReq):
         if state.name in BASE_MEMORY_WRITE_MAP and use_0x26 is True:
             offset, data_len, scaler = BASE_MEMORY_WRITE_MAP[state.name]
             if state.name in {"DIESEL_RPM", "ENGINE_LABOR"}:
+                from ..db.component_state_store import ComponentStateStore
+
                 comp_state = ComponentStateStore.get_state(scope, address, False)
                 if comp_state:
                     if state.name == "DIESEL_RPM":
@@ -440,7 +443,7 @@ class BaseReq(PdiReq):
                 self._data_length = data_length
                 self._data_bytes = data_bytes
             elif state:
-                from ..db.component_state import EngineState, TrainState, BaseState
+                from ..db.component_state import EngineState, TrainState, BaseState, RouteState
 
                 self._status = 0
                 self._spare_1 = state.spare_1

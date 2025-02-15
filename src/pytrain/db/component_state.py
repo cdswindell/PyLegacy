@@ -10,7 +10,6 @@ from typing import Dict, Tuple, TypeVar, Set, Any, List
 
 from ..comm.comm_buffer import CommBuffer
 from ..pdi.asc2_req import Asc2Req
-from ..pdi.base_req import ConsistComponent
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Asc2Action, PdiCommand, Bpc2Action, IrdaAction
 from ..pdi.irda_req import IrdaReq, IrdaSequence
@@ -755,6 +754,8 @@ class AccessoryState(TmccState):
 
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
+        from ..pdi.base_req import ConsistComponent
+
         if scope not in {CommandScope.ENGINE, CommandScope.TRAIN}:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
         super().__init__(scope)
@@ -834,8 +835,7 @@ class EngineState(ComponentState):
             for cc in self._consist_comp:
                 c += f" {cc}"
         return (
-            f"{self.scope.title} {self._address:02}{sp}{rl}{lb}{mom}{tb}{sm}{dr}{nu}{aux}{name}{num}"
-            f"{lt}{ct}{yr}{ss}{c}"
+            f"{self.scope.title} {self._address:02}{sp}{rl}{lb}{mom}{tb}{sm}{dr}{nu}{aux}{name}{num}{lt}{ct}{yr}{ss}{c}"
         )
 
     def decode_speed_info(self, speed_info):
@@ -1309,6 +1309,8 @@ class EngineState(ComponentState):
 
 
 class TrainState(EngineState):
+    from ..pdi.base_req import ConsistComponent
+
     def __init__(self, scope: CommandScope = CommandScope.TRAIN) -> None:
         if scope != CommandScope.TRAIN:
             raise ValueError(f"Invalid scope: {scope}, expected {CommandScope.TRAIN.name}")
