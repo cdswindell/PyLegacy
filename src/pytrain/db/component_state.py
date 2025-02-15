@@ -754,6 +754,8 @@ class AccessoryState(TmccState):
 
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
+        from src.pytrain.pdi.base_req import ConsistComponent
+
         if scope not in {CommandScope.ENGINE, CommandScope.TRAIN}:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
         super().__init__(scope)
@@ -783,9 +785,11 @@ class EngineState(ComponentState):
         self._last_aux1_opt1 = None
         self._last_aux2_opt1 = None
         self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
+        self._consist_comp: None | List[ConsistComponent] = None
+        self._consist_flags: int | None = None
 
     def __repr__(self) -> str:
-        sp = dr = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = ""
+        sp = dr = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = ""
         if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
             dr = " FWD"
         elif self._direction in {TMCC1EngineCommandEnum.REVERSE_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION}:
@@ -826,10 +830,14 @@ class EngineState(ComponentState):
             aux = f" Aux2: {self._aux2.name.split('_')[-1]}"
         if self._smoke_level is not None:
             sm = f" Smoke: {self._smoke_level.name.split('_')[-1].lower()}"
-        # if self.engine_class is not None:
-        #     cl = f" Class: {LOCO_CLASS.get(self.engine_class, 'NA')}"
         ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
-        return f"{self.scope.title} {self._address:02}{sp}{rl}{lb}{mom}{tb}{sm}{dr}{nu}{aux}{name}{num}{lt}{ct}{yr}{ss}"
+        if self._consist_comp:
+            for cc in self._consist_comp:
+                c += f" {cc}"
+        return (
+            f"{self.scope.title} {self._address:02}{sp}{rl}{lb}{mom}{tb}{sm}{dr}{nu}{aux}{name}{num}"
+            f"{lt}{ct}{yr}{ss}{c}"
+        )
 
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
@@ -1078,6 +1086,9 @@ class EngineState(ComponentState):
                         self._smoke_level = command.smoke
                     if command.is_valid(EngineBits.TRAIN_BRAKE):
                         self._train_brake = command.train_brake
+                    if command.pdi_command == PdiCommand.BASE_TRAIN:
+                        self._consist_comp = command.consist_components
+                        self._consist_flags = command.consist_flags
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
             self.changed.set()
@@ -1292,6 +1303,9 @@ class EngineState(ComponentState):
         d["sound_type"] = self.sound_type_label.lower() if self.sound_type else None
         d["engine_type"] = self.engine_type_label.lower() if self.engine_type else None
         d["engine_class"] = self.engine_class_label.lower() if self.engine_class else None
+        if isinstance(self, TrainState):
+            d["consist_flags"] = self._consist_flags
+            d["components"] = {c.tmcc_id: c for c in self._consist_comp}
         return d
 
 

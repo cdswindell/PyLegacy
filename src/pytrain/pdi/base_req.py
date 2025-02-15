@@ -641,6 +641,14 @@ class BaseReq(PdiReq):
         return self._loco_class
 
     @property
+    def consist_components(self) -> List[ConsistComponent]:
+        return self._consist_comps
+
+    @property
+    def consist_flags(self) -> int:
+        return self._tr_hybrid_behavior_flags
+
+    @property
     def components(self) -> List[int]:
         return self._route_components
 
