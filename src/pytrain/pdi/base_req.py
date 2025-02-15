@@ -340,7 +340,7 @@ class BaseReq(PdiReq):
         self._fuel_level = self._water_level = self._last_train_id = self._train_pos = None
         self._train_brake = self._train_brake_tmcc = None
         self._smoke_level = self._ditch_lights = self._momentum = self._momentum_tmcc = None
-        self._tr_hybrid_behavior_flags = None
+        self._consist_flags = None
         self._consist_comps = []
         self._state = state
         self._valid1 = self._valid2 = None
@@ -385,7 +385,7 @@ class BaseReq(PdiReq):
                 self._momentum = self._data[68] if data_len > 68 else None
                 self._momentum_tmcc = floor(self._data[68] / 16) if data_len > 68 else None
                 if self.pdi_command == PdiCommand.BASE_TRAIN:
-                    self._tr_hybrid_behavior_flags = self._data[69] if data_len > 69 else None
+                    self._consist_flags = self._data[69] if data_len > 69 else None
                     for i in range(70, 102, 2):
                         if data_len > i:
                             if self._data[i] != 0xFF and self._data[i + 1] != 0xFF:
@@ -440,7 +440,7 @@ class BaseReq(PdiReq):
                 self._data_length = data_length
                 self._data_bytes = data_bytes
             elif state:
-                from ..db.component_state import EngineState, BaseState
+                from ..db.component_state import EngineState, TrainState, BaseState
 
                 self._status = 0
                 self._spare_1 = state.spare_1
@@ -482,6 +482,9 @@ class BaseReq(PdiReq):
                         self._sound_type = state.sound_type
                         self._loco_type = state.engine_type
                         self._loco_class = state.engine_class
+                        if isinstance(state, TrainState):
+                            self._consist_flags = state.consist_flags
+                            self._consist_comps = state.consist_components
                     elif isinstance(state, RouteState):
                         # copy over component switches
                         raw = state.components_raw
@@ -646,7 +649,7 @@ class BaseReq(PdiReq):
 
     @property
     def consist_flags(self) -> int:
-        return self._tr_hybrid_behavior_flags
+        return self._consist_flags
 
     @property
     def components(self) -> List[int]:
@@ -795,6 +798,9 @@ class BaseReq(PdiReq):
                     byte_str += (0).to_bytes(6, byteorder="little")
                     byte_str += self._train_brake.to_bytes(1, byteorder="little")
                     byte_str += self._momentum.to_bytes(1, byteorder="little")
+                    if self.pdi_command == PdiCommand.BASE_TRAIN:
+                        cf = self._consist_flags if self._consist_flags else 0
+                        byte_str += cf.to_bytes(1, byteorder="little")
                 elif self.pdi_command == PdiCommand.BASE_ROUTE:
                     for sw in self._route_components:
                         byte_str += sw.to_bytes(2, byteorder="big")

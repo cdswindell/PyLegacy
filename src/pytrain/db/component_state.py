@@ -10,6 +10,7 @@ from typing import Dict, Tuple, TypeVar, Set, Any, List
 
 from ..comm.comm_buffer import CommBuffer
 from ..pdi.asc2_req import Asc2Req
+from ..pdi.base_req import ConsistComponent
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Asc2Action, PdiCommand, Bpc2Action, IrdaAction
 from ..pdi.irda_req import IrdaReq, IrdaSequence
@@ -754,8 +755,6 @@ class AccessoryState(TmccState):
 
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
-        from src.pytrain.pdi.base_req import ConsistComponent
-
         if scope not in {CommandScope.ENGINE, CommandScope.TRAIN}:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
         super().__init__(scope)
@@ -1317,6 +1316,14 @@ class TrainState(EngineState):
         # hard code TMCC2, for now
         self._is_legacy = True
         self._control_type = 2
+
+    @property
+    def consist_flags(self) -> int:
+        return self._consist_flags
+
+    @property
+    def consist_components(self) -> List[ConsistComponent]:
+        return self._consist_comp
 
 
 class IrdaState(LcsState):
