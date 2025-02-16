@@ -77,6 +77,7 @@ class ConsistComponent:
         a = " A" if self.is_accessory else ""
         return f"[Engine {self.tmcc_id} {self.unit_type.name.title()} {d}{hm}{dm}{tl}{a} (0b{bin(self.flags)})]"
 
+    @property
     def info(self) -> str:
         d = "F" if self.is_forward else "R"
         tl = " T" if self.is_train_linked else ""
