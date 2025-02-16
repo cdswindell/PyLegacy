@@ -834,7 +834,7 @@ class EngineState(ComponentState):
         if self._consist_comp:
             c = "\n"
             for cc in self._consist_comp:
-                c += f" {cc}"
+                c += f"{cc} "
         return (
             f"{self.scope.title} {self._address:02}{sp}{rl}{lb}{mom}{tb}{sm}{dr}{nu}{aux}{name}{num}{lt}{ct}{yr}{ss}{c}"
         )
