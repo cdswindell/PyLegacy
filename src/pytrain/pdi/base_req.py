@@ -77,6 +77,14 @@ class ConsistComponent:
         a = " A" if self.is_accessory else ""
         return f"[Engine {self.tmcc_id} {self.unit_type.name.title()} {d}{hm}{dm}{tl}{a} (0b{bin(self.flags)})]"
 
+    def info(self) -> str:
+        d = "F" if self.is_forward else "R"
+        tl = " T" if self.is_train_linked else ""
+        hm = " H" if self.is_horn_masked else ""
+        dm = " D" if self.is_dialog_masked else ""
+        a = " A" if self.is_accessory else ""
+        return f"{self.unit_type.name.title()[0]} {d}{hm}{dm}{tl}{a} {self.flags}]"
+
     @property
     def unit_type(self) -> UnitBits:
         return UnitBits(self.flags & 0b11)
