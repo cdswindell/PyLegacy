@@ -71,9 +71,11 @@ class ConsistComponent:
 
     def __repr__(self) -> str:
         d = "F" if self.is_forward else "R"
-        t = " TL" if self.is_train_linked else ""
+        tl = " T" if self.is_train_linked else ""
+        hm = " H" if self.is_horn_masked else ""
+        dm = " D" if self.is_dialog_masked else ""
         a = " A" if self.is_accessory else ""
-        return f"[Engine {self.tmcc_id} {self.unit_type.name.title()} {d}{t}{a} (0b{bin(self.flags)})]"
+        return f"[Engine {self.tmcc_id} {self.unit_type.name.title()} {d}{hm}{dm}{tl}{a} (0b{bin(self.flags)})]"
 
     @property
     def unit_type(self) -> UnitBits:
@@ -105,23 +107,23 @@ class ConsistComponent:
 
     @property
     def is_train_linked(self) -> bool:
-        return 0b100 & self.flags == 0b1000
+        return 0b1000 & self.flags == 0b1000
 
     @property
     def is_horn_masked(self) -> bool:
-        return 0b100 & self.flags == 0b10000
+        return 0b10000 & self.flags == 0b10000
 
     @property
     def is_dialog_masked(self) -> bool:
-        return 0b100 & self.flags == 0b100000
+        return 0b100000 & self.flags == 0b100000
 
     @property
     def is_tmcc2(self) -> bool:
-        return 0b100 & self.flags == 0b1000000
+        return 0b1000000 & self.flags == 0b1000000
 
     @property
     def is_accessory(self) -> bool:
-        return 0b100 & self.flags == 0b10000000
+        return 0b10000000 & self.flags == 0b10000000
 
 
 ENGINE_WRITE_MAP = {
