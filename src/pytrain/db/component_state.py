@@ -832,6 +832,7 @@ class EngineState(ComponentState):
             sm = f" Smoke: {self._smoke_level.name.split('_')[-1].lower()}"
         ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
         if self._consist_comp:
+            c = "\n"
             for cc in self._consist_comp:
                 c += f" {cc}"
         return (
