@@ -801,9 +801,17 @@ class BaseReq(PdiReq):
                     byte_str += (0).to_bytes(6, byteorder="little")
                     byte_str += self._train_brake.to_bytes(1, byteorder="little")
                     byte_str += self._momentum.to_bytes(1, byteorder="little")
-                    if self.pdi_command == PdiCommand.BASE_TRAIN:
+                    if self.pdi_command == PdiCommand.BASE_TRAIN and self._consist_comps:
+                        ff = (0xFF).to_bytes(1, byteorder="little")
                         cf = self._consist_flags if self._consist_flags else 0
                         byte_str += cf.to_bytes(1, byteorder="little")
+                        byte_str += 2 * ff
+                        i = 15
+                        for c in reversed(self.consist_components):
+                            byte_str += c.flags.to_bytes(1, byteorder="little")
+                            byte_str += c.tmcc_id.to_bytes(1, byteorder="little")
+                            i -= 1
+                        byte_str += (max(i, 0) * 2) * ff
                 elif self.pdi_command == PdiCommand.BASE_ROUTE:
                     for sw in self._route_components:
                         byte_str += sw.to_bytes(2, byteorder="big")
