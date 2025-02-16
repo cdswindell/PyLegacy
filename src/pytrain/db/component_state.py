@@ -1305,7 +1305,7 @@ class EngineState(ComponentState):
         d["engine_class"] = self.engine_class_label.lower() if self.engine_class else None
         if isinstance(self, TrainState):
             d["consist_flags"] = self._consist_flags
-            d["components"] = {c.tmcc_id: c for c in self._consist_comp}
+            d["components"] = {c.tmcc_id: c.flags for c in self._consist_comp}
         return d
 
 
