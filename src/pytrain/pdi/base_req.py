@@ -83,7 +83,7 @@ class ConsistComponent:
         hm = " H" if self.is_horn_masked else ""
         dm = " D" if self.is_dialog_masked else ""
         a = " A" if self.is_accessory else ""
-        return f"{self.unit_type.name.title()[0]} {d}{hm}{dm}{tl}{a} {self.flags}]"
+        return f"{self.unit_type.name.title()[0]} {d}{hm}{dm}{tl}{a} {self.flags}"
 
     @property
     def unit_type(self) -> UnitBits:
