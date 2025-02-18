@@ -150,7 +150,7 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
     @property
     def is_sendable(self) -> bool:
-        return self.is_get or self.is_set
+        return self.is_base or self.is_get or self.is_set
 
     @property
     def is_irda(self) -> bool:
