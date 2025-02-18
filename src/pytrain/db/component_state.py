@@ -1341,13 +1341,23 @@ class IrdaState(LcsState):
         self._sequence: IrdaSequence | None = None
         self._loco_rl: int | None = 255
         self._loco_lr: int | None = 255
+        self._last_train_id = self._last_engine_id = self._last_dir = None
 
     def __repr__(self) -> str:
-        rle = f"{self._loco_rl}" if self._loco_rl and self._loco_rl != 255 else "Any"
-        lre = f"{self._loco_lr}" if self._loco_lr and self._loco_lr != 255 else "Any"
-        rl = f" When Engine ID (R -> L): {rle}"
-        lr = f" When Engine ID (L -> R): {lre}"
-        return f"Sensor Track {self.address}: Sequence: {self.sequence_str}{rl}{lr}"
+        if self.sequence and self.sequence != IrdaSequence.NONE:
+            rle = f"{self._loco_rl}" if self._loco_rl and self._loco_rl != 255 else "Any"
+            lre = f"{self._loco_lr}" if self._loco_lr and self._loco_lr != 255 else "Any"
+            rl = f" When Engine ID (R -> L): {rle}"
+            lr = f" When Engine ID (L -> R): {lre}"
+        else:
+            rl = lr = ""
+        le = f" Last Engine ID: {self._last_engine_id}" if self._last_engine_id else ""
+        lt = f" Last Train ID: {self._last_train_id}" if self._last_train_id else ""
+        if self._last_dir is not None:
+            ld = " L --> R" if self._last_dir == 1 else " R --> L"
+        else:
+            ld = ""
+        return f"Sensor Track {self.address}: Sequence: {self.sequence_str}{rl}{lr}{le}{lt}{ld}"
 
     def update(self, command: P) -> None:
         from .component_state_store import ComponentStateStore
@@ -1364,6 +1374,9 @@ class IrdaState(LcsState):
                         self._sequence = command.sequence
                     elif command.action == IrdaAction.DATA:
                         # change engine/train speed, based on direction of travel
+                        self._last_engine_id = command.engine_id
+                        self._last_train_id = command.train_id
+                        self._last_dir = command.direction
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"IRDA {self.address} Sequence: {self.sequence} Command: {command}")
                         if (
@@ -1420,6 +1433,18 @@ class IrdaState(LcsState):
     def sequence_str(self) -> str | None:
         return self.sequence.name.title() if self.sequence else "NA"
 
+    @property
+    def last_direction(self) -> int:
+        return self._last_dir
+
+    @property
+    def last_engine_id(self) -> int:
+        return self._last_engine_id
+
+    @property
+    def last_train_id(self) -> int:
+        return self._last_train_id
+
     def as_bytes(self) -> bytes:
         if self.is_known:
             return IrdaReq(
@@ -1435,9 +1460,10 @@ class IrdaState(LcsState):
 
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
-        d["sequence"] = self.sequence.name.lower() if self.sequence else None
-        d["last_loco_rl"] = self._loco_rl
-        d["last_loco_lr"] = self._loco_lr
+        d["last_direction"] = self.last_direction
+        d["last_engine_id"] = self.last_engine_id
+        d["last_train_id"] = self.last_train_id
+        d["sequence"] = self.sequence.name.lower() if self.sequence else "none"
         return d
 
 

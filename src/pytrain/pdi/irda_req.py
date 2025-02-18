@@ -148,6 +148,10 @@ class IrdaReq(LcsReq):
         return True if self._dir == 1 else False
 
     @property
+    def direction(self) -> int:
+        return self._dir
+
+    @property
     def sequence(self) -> IrdaSequence:
         return self._sequence
 
