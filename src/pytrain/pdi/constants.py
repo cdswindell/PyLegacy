@@ -141,6 +141,18 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
         }
 
     @property
+    def is_get(self) -> bool:
+        return self.name.endswith("_GET")
+
+    @property
+    def is_set(self) -> bool:
+        return self.name.endswith("_SET")
+
+    @property
+    def is_sendable(self) -> bool:
+        return self.is_get or self.is_set
+
+    @property
     def is_irda(self) -> bool:
         return self.value in {IRDA_GET, IRDA_SET, IRDA_RX}
 

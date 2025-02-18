@@ -483,7 +483,7 @@ class PyTrain:
 
     @property
     def is_server(self) -> bool:
-        return isinstance(self.tmcc_buffer, CommBufferSingleton)
+        return isinstance(self._tmcc_buffer, CommBufferSingleton)
 
     @property
     def is_client(self) -> bool:
@@ -918,8 +918,8 @@ class PyTrain:
         self._echo = True
 
     def _do_pdi(self, param: List[str]) -> None:
-        if self._pdi_buffer is None:
-            raise AttributeError("Not connected to a Lionel Base 3, PDI commands not enabled...")
+        # if self._pdi_buffer is None:
+        #     raise AttributeError("Not connected to a Lionel Base 3, PDI commands not enabled...")
         param_len = len(param)
         agr = None
         if param_len == 1:
@@ -983,9 +983,13 @@ class PyTrain:
         else:
             agr = AllReq()
         if agr is not None:
-            self._pdi_buffer.enqueue_command(agr)
+            if self.is_server:
+                self._pdi_buffer.enqueue_command(agr)
+            else:
+                self._tmcc_buffer.enqueue_command(agr.as_bytes)
 
-    def _command_parser(self) -> ArgumentParser:
+    @staticmethod
+    def _command_parser() -> ArgumentParser:
         """
         Parse the first token of the user's input
         """
@@ -1034,8 +1038,7 @@ class PyTrain:
             dest="command",
             help="Issue engine/train lighting effects commands",
         )
-        if self.is_server:
-            group.add_argument("-pdi", action="store_const", const="pdi", dest="command", help="Sent PDI commands")
+        group.add_argument("-pdi", action="store_const", const="pdi", dest="command", help="Sent PDI commands")
         group.add_argument("-quit", action="store_const", const="quit", dest="command", help=f"Quit {PROGRAM_NAME}")
         group.add_argument(
             "-reboot",

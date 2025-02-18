@@ -30,7 +30,7 @@ KEEP_ALIVE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.KEEP_ALIVE).as_bytes
 
 
 class ProxyServer(socketserver.ThreadingTCPServer):
-    __slots__ = "base3_addr", "ack", "dispatcher", "enqueue_proxy"
+    __slots__ = "base3_addr", "ack", "dispatcher", "enqueue_proxy", "base3_dispatcher"
 
 
 class EnqueueProxyRequests(Thread):
@@ -176,6 +176,7 @@ class EnqueueProxyRequests(Thread):
 
     def run(self) -> None:
         from .command_listener import CommandDispatcher
+        from ..pdi.base3_buffer import Base3Buffer
 
         """
         Simplified TCP/IP Server listens for command requests from client and executes them
@@ -190,6 +191,7 @@ class EnqueueProxyRequests(Thread):
             else:
                 server.ack = str.encode("ack")
             server.dispatcher = CommandDispatcher.get()
+            server.base3_dispatcher = Base3Buffer.get()
             server.enqueue_proxy = self
             server.serve_forever()
 
@@ -200,7 +202,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         from .command_listener import CommandDispatcher
-        from ..pdi.constants import PDI_SOP
+        from ..pdi.base3_buffer import Base3Buffer
+        from ..pdi.constants import PDI_SOP, PdiCommand
 
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
@@ -216,9 +219,14 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
 
         if len(byte_stream) == 0:
             return
-        elif byte_stream[0] == PDI_SOP:
-            # This is an error, we should not be receiving PDI commands here
-            log.error(f"EnqueueHandler received PDI command: {byte_stream.hex(' ')}")
+        elif byte_stream[0] == PDI_SOP and len(byte_stream) > 0:
+            pdi_cmd = PdiCommand.by_value(byte_stream[1], raise_exception=False)
+            if pdi_cmd and pdi_cmd.is_sendable:
+                # Forward PDI commands to Base3Buffer
+                base3_dispatcher: Base3Buffer = cast(ProxyServer, self.server).base3_dispatcher
+                base3_dispatcher.enqueue_command(byte_stream)
+            else:
+                log.error(f"Ignoring request to proxy unsendable PDI command: {byte_stream.hex()}")
             return
         # we use TMCC1 syntax to pass special commands to control operating nodes,
         # to reduce overhead, only do the special processing if necessary
