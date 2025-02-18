@@ -184,6 +184,9 @@ class PyTrain:
                 listeners.append(self._pdi_buffer)
                 self.tmcc_buffer.is_use_base3 = True
 
+                if self._receiver:
+                    self._receiver.base3_dispatcher = self._pdi_buffer
+
             if self._ser2 is True:
                 print("Listening for Lionel LCS Ser2 broadcasts...")
 

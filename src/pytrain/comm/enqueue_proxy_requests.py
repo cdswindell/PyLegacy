@@ -176,7 +176,6 @@ class EnqueueProxyRequests(Thread):
 
     def run(self) -> None:
         from .command_listener import CommandDispatcher
-        from ..pdi.base3_buffer import Base3Buffer
 
         """
         Simplified TCP/IP Server listens for command requests from client and executes them
@@ -191,7 +190,7 @@ class EnqueueProxyRequests(Thread):
             else:
                 server.ack = str.encode("ack")
             server.dispatcher = CommandDispatcher.get()
-            server.base3_dispatcher = Base3Buffer.get()
+            server.base3_dispatcher = None
             server.enqueue_proxy = self
             server.serve_forever()
 
@@ -224,6 +223,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             if pdi_cmd and pdi_cmd.is_sendable:
                 # Forward PDI commands to Base3Buffer
                 base3_dispatcher: Base3Buffer = cast(ProxyServer, self.server).base3_dispatcher
+                if base3_dispatcher is None:
+                    base3_dispatcher = cast(ProxyServer, self.server).base3_dispatcher = Base3Buffer.get()
                 base3_dispatcher.enqueue_command(byte_stream)
             else:
                 log.error(f"Ignoring request to proxy unsendable PDI command: {byte_stream.hex()}")
