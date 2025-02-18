@@ -684,6 +684,14 @@ class AccessoryState(TmccState):
         )
 
     @property
+    def is_power_district(self) -> bool:
+        return self._block_power
+
+    @property
+    def is_sensor_track(self) -> bool:
+        return self._sensor_track
+
+    @property
     def aux_state(self) -> Aux:
         return self._aux_state
 
