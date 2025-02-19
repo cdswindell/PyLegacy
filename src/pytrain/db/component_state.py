@@ -591,15 +591,18 @@ class AccessoryState(TmccState):
         elif self._sensor_track:
             aux = "Sensor Track"
         else:
-            if self.aux_state == Aux.AUX1_OPT_ONE:
-                aux = "Aux 1"
-            elif self.aux_state == Aux.AUX2_OPT_ONE:
-                aux = "Aux 2"
+            if self.is_lcs_component:
+                aux = "Asc2 " + "ON" if self._aux_state == Aux.AUX1_OPT_ONE else "OFF"
             else:
-                aux = "Unknown"
-            aux1 = f" Aux1: {self.aux1_state.name if self.aux1_state is not None else 'Unknown'}"
-            aux2 = f" Aux2: {self.aux2_state.name if self.aux2_state is not None else 'Unknown'}"
-            aux_num = f" Aux Num: {self._number if self._number is not None else 'NA'}"
+                if self.aux_state == Aux.AUX1_OPT_ONE:
+                    aux = "Aux 1"
+                elif self.aux_state == Aux.AUX2_OPT_ONE:
+                    aux = "Aux 2"
+                else:
+                    aux = "Unknown"
+                aux1 = f" Aux1: {self.aux1_state.name if self.aux1_state is not None else 'Unknown'}"
+                aux2 = f" Aux2: {self.aux2_state.name if self.aux2_state is not None else 'Unknown'}"
+                aux_num = f" Aux Num: {self._number if self._number is not None else 'NA'}"
         name = num = ""
         if self.road_name is not None:
             name = f" {self.road_name}"
@@ -696,6 +699,10 @@ class AccessoryState(TmccState):
         return self._sensor_track
 
     @property
+    def is_lcs_component(self) -> bool:
+        return self._pdi_source
+
+    @property
     def aux_state(self) -> Aux:
         return self._aux_state
 
@@ -725,21 +732,23 @@ class AccessoryState(TmccState):
         byte_str = BaseReq(self.address, PdiCommand.BASE_ACC, state=self).as_bytes
         if self._sensor_track:
             byte_str += IrdaReq(self.address, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC).as_bytes
-        elif self._block_power:
-            if isinstance(self._first_pdi_command, Asc2Action):
+        elif self.is_lcs_component:
+            if isinstance(self._first_pdi_action, Asc2Action):
                 byte_str += Asc2Req(
                     self.address,
                     self._first_pdi_command,
                     self._first_pdi_action,
                     values=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
-            else:
+            elif isinstance(self._first_pdi_action, Bpc2Action):
                 byte_str += Bpc2Req(
                     self.address,
                     self._first_pdi_command,
                     self._first_pdi_action,
                     state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
+            else:
+                log.error(f"State req for lcs device: {self._first_pdi_command.name} {self._first_pdi_action.name}")
         else:
             if self._aux_state is not None:
                 byte_str += CommandReq.build(self.aux_state, self.address).as_bytes
