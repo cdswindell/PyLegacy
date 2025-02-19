@@ -29,6 +29,7 @@ from typing import List, Tuple, Dict, Any
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
 from .acc import AccCli
+from .asc2 import Asc2Cli
 from .dialogs import DialogsCli
 from .effects import EffectsCli
 from .engine import EngineCli
@@ -909,7 +910,7 @@ class PyTrain:
         print("TMCC command echoing DISABLED...")
         if self._pdi_buffer:
             self._pdi_buffer.unsubscribe(self, BROADCAST_TOPIC)
-            print("PDI command echoing DISABLED")
+        print("PDI command echoing DISABLED")
         self._echo = False
 
     def _enable_echo(self):
@@ -917,7 +918,7 @@ class PyTrain:
         print("TMCC command echoing ENABLED..")
         if self._pdi_buffer:
             self._pdi_buffer.listen_for(self, BROADCAST_TOPIC)
-            print("PDI command echoing ENABLED")
+        print("PDI command echoing ENABLED")
         self._echo = True
 
     def _do_pdi(self, param: List[str]) -> None:
@@ -1010,6 +1011,7 @@ class PyTrain:
         group.add_argument(
             "-accessory", action="store_const", const=AccCli, dest="command", help="Issue accessory commands"
         )
+        group.add_argument("-asc2", action="store_const", const=Asc2Cli, dest="command", help="Issue Asc2 commands")
         group.add_argument(
             "-db", action="store_const", const="db", dest="command", help="Query engine/train/switch/accessory state"
         )

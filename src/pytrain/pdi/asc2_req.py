@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from .lcs_req import LcsReq
 from .constants import PdiCommand, Asc2Action, PDI_SOP, PDI_EOP
+from .lcs_req import LcsReq
 from ..protocol.constants import CommandScope
 
 
@@ -113,7 +113,7 @@ class Asc2Req(LcsReq):
             if self.action == Asc2Action.CONFIG:
                 return f"Mode: {self.mode} Debug: {self.debug} Delay: {self.delay} ({self.packet})"
             elif self.action == Asc2Action.CONTROL1:
-                time = f" for {self.time:.2f} s" if self.time is not None else ""
+                time = f" for {self.time:.2f} s" if self.values == 1 and self.time else ""
                 return f"Relay: {'ON' if self.values == 1 else 'OFF'}{time} ({self.packet})"
             elif self.action == Asc2Action.CONTROL2:
                 return f"Relays: {self.values} Valids: {self.valids} ({self.packet})"
@@ -150,7 +150,7 @@ class Asc2Req(LcsReq):
         elif self._action == Asc2Action.CONTROL1:
             if self.pdi_command != PdiCommand.ASC2_GET:
                 values = self.values if self.values is not None else 0
-                time = int(round((self.time * 100))) if self.time is not None else 0
+                time = min(int(round((self.time * 100))), 255) if self.time is not None else 0
                 byte_str += values.to_bytes(1, byteorder="big")
                 byte_str += time.to_bytes(1, byteorder="big")
         elif self._action == Asc2Action.CONTROL2:
@@ -163,7 +163,7 @@ class Asc2Req(LcsReq):
             if self.pdi_command != PdiCommand.ASC2_GET:
                 if self.pdi_command == PdiCommand.ASC2_SET:
                     values = self.sub_id if self.values is not None else 1
-                    time = int(round((self.time * 100))) if self.time is not None else 0
+                    time = min(int(round((self.time * 100))), 255) if self.time is not None else 0
                     if time == 1:
                         time = 0
                     valids = time
@@ -175,7 +175,7 @@ class Asc2Req(LcsReq):
         elif self._action == Asc2Action.CONTROL4:
             if self.pdi_command != PdiCommand.ASC2_GET:
                 values = self.values if self.values is not None else 0
-                time = int(round((self.time * 100))) if self.time is not None else 0
+                time = min(int(round((self.time * 100))), 255) if self.time is not None else 0
                 if time == 1:
                     time = 0
                 byte_str += values.to_bytes(1, byteorder="big")

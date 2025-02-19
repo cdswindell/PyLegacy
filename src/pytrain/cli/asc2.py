@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+import logging
+from argparse import ArgumentParser
+from typing import List
+
+from . import CliBase
+from .. import CommandScope, PROGRAM_NAME
+from ..pdi.asc2_req import Asc2Req
+from ..pdi.constants import PdiCommand, Asc2Action
+from ..protocol.command_base import CommandBase
+from ..utils.argument_parser import PyTrainArgumentParser
+
+log = logging.getLogger(__name__)
+
+
+class Asc2Cmd(CommandBase):
+    def __init__(self, tmcc_id: int, req: Asc2Req, server: str = None) -> None:
+        if tmcc_id < 1 or tmcc_id > 99:
+            raise ValueError("Asc2 ID must be between 1 and 99")
+        super().__init__(None, req, tmcc_id, CommandScope.ASC2, server=server)
+        self._command = self._build_command()
+
+    def _build_command(self) -> bytes | None:
+        return self.command_req.as_bytes
+
+    def _command_prefix(self) -> bytes | None:
+        pass
+
+    def _encode_address(self, command_op: int) -> bytes | None:
+        pass
+
+
+class Asc2Cli(CliBase):
+    """
+    Issue Asc2 Commands.
+    """
+
+    @classmethod
+    def command_parser(cls) -> ArgumentParser:
+        asc2_parser = PyTrainArgumentParser(add_help=False)
+        asc2_parser.add_argument("asc2", metavar="Asc2 TMCC ID", type=int, help="Asc2 to fire")
+
+        group = asc2_parser.add_mutually_exclusive_group()
+        group.add_argument(
+            "-on",
+            nargs="?",
+            type=float,
+            const=0.0,
+            help="Turn Asc2 on",
+        )
+        group.add_argument(
+            "-off",
+            action="store_true",
+            help="Turn Asc2 off",
+        )
+
+        asc2_parser.add_argument(
+            "-server",
+            action="store",
+            help=f"IP Address of {PROGRAM_NAME} server, if client. Server communicates with Base 3/LCS SER2",
+        )
+        # fire command
+        return PyTrainArgumentParser("Operate specified Asc2 (1 - 99)", parents=[asc2_parser])
+
+    def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+        super().__init__(arg_parser, cmd_line, do_fire)
+        self._asc2 = self._args.asc2
+        self._time = self._args.on if self._args.on else 0.0
+        self._state = 0 if self._args.off is True else 1
+        req = Asc2Req(self._asc2, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=self._state, time=self._time)
+
+        try:
+            cmd = Asc2Cmd(self._asc2, req, server=self._server)
+            if self.do_fire:
+                cmd.fire(server=self._server)
+            self._command = cmd
+        except ValueError as ve:
+            log.exception(ve)

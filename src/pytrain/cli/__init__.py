@@ -233,6 +233,8 @@ class CliBaseTMCC(CliBase):
     def is_train_command(self) -> bool:
         if "train" in self._args:
             return bool(self._args.train)
+        else:
+            return False
 
 
 class DataAction(Action):

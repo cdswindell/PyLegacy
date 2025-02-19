@@ -1,12 +1,16 @@
 import abc
 from abc import ABC
 from ipaddress import IPv4Address, IPv6Address
+from typing import TypeVar
 
+from .command_def import CommandDef, CommandDefEnum
 from .command_req import CommandReq
 from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
-from .command_def import CommandDef, CommandDefEnum
-from ..utils.validations import Validations
 from ..comm.comm_buffer import CommBuffer
+from ..pdi.pdi_req import PdiReq
+from ..utils.validations import Validations
+
+R = TypeVar("R", bound=CommandReq | PdiReq)
 
 
 class CommandBase(ABC):
@@ -14,8 +18,8 @@ class CommandBase(ABC):
 
     def __init__(
         self,
-        command: CommandDefEnum,
-        command_req: CommandReq,
+        command: CommandDefEnum | None,
+        command_req: R,
         address: int = 99,
         data: int = 0,
         scope: CommandScope = None,
@@ -38,7 +42,7 @@ class CommandBase(ABC):
 
         # persist command information
         self._command_def_enum: CommandDefEnum = command
-        self._command_def: CommandDef = command.value
+        self._command_def: CommandDef = command.value if command else None
         self._command_req: CommandReq = command_req
         self._data: int = data
         self._scope: CommandScope = scope
@@ -52,7 +56,7 @@ class CommandBase(ABC):
 
     @property
     def bits(self) -> int:
-        return self._command_req.bits
+        return self._command_req.bits if isinstance(self._command_req, CommandReq) else 0
 
     @property
     def address(self) -> int:

@@ -128,6 +128,7 @@ class OfficialRRSpeeds(Mixins, Enum):
 class CommandSyntax(Mixins, Enum):
     TMCC = 1
     LEGACY = 2
+    PDI = 3
 
 
 @unique

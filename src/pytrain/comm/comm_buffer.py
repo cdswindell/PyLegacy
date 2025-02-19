@@ -251,12 +251,21 @@ class CommBufferSingleton(CommBuffer, Thread):
                     self._tmcc_dispatcher = CommandDispatcher.get()
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
+        from src.pytrain.pdi.constants import PDI_SOP
+
         if command:
             log.debug(f"Enqueue command 0x{command.hex()}")
             if delay > 0:
                 self._scheduler.schedule(delay, command)
             else:
-                self._queue.put(command)
+                if command[0] == PDI_SOP:
+                    # send to Base 3, if one is available
+                    if self._base3:
+                        self._base3.send(command)
+                    else:
+                        log.error(f"Request to send packet to Base 3, but no Base 3 available: {command.hex()}")
+                else:
+                    self._queue.put(command)
 
     def shutdown(self, immediate: bool = False) -> None:
         if immediate:

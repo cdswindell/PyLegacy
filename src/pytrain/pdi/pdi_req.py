@@ -5,6 +5,8 @@ import sys
 from abc import ABC
 from typing import Tuple, TypeVar, List
 
+from ..utils.validations import Validations
+
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
@@ -224,6 +226,27 @@ class PdiReq(ABC):
             return "0x" + self.as_bytes.hex(" ").upper()
         else:
             return "0x" + self._data.hex(" ").upper()
+
+    def send(
+        self,
+        repeat: int = 1,
+        delay: float = 0.0,
+        baudrate: int = None,
+        port: str | int = None,
+        server: str = None,
+    ) -> None:
+        """
+        Send PDI command bytes to TMCC Buffer for dispatch; the TMCC buffer
+        will dispatch to the appropriate sender (tmcc or pdi)
+        """
+        from ..comm.comm_buffer import CommBuffer
+
+        repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
+        delay = Validations.validate_float(delay, min_value=0, label="delay")
+
+        buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
+        for rep_no in range(repeat):
+            buffer.enqueue_command(self.as_bytes, delay=delay)
 
 
 class TmccReq(PdiReq):
