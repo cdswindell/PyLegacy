@@ -581,6 +581,7 @@ class AccessoryState(TmccState):
         self._aux_state: Aux | None = None
         self._block_power = False
         self._sensor_track = False
+        self._pdi_source = False
         self._number: int | None = None
 
     def __repr__(self) -> str:
@@ -613,7 +614,7 @@ class AccessoryState(TmccState):
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(command)
                 super().update(command)
-                if isinstance(command, CommandReq):
+                if isinstance(command, CommandReq) and self._pdi_source is False:
                     if command.command != Aux.SET_ADDRESS:
                         if command.command == TMCC1HaltCommandEnum.HALT:
                             self._aux1_state = Aux.AUX1_OFF
@@ -655,8 +656,11 @@ class AccessoryState(TmccState):
                     if self._first_pdi_action is None:
                         self._first_pdi_action = command.action
                     if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
+                        self._pdi_source = True
                         if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                             self._block_power = True
+                        else:
+                            self._block_power = False
                         if command.state == 1:
                             self._aux1_state = Aux.AUX1_ON
                             self._aux2_state = Aux.AUX2_ON
