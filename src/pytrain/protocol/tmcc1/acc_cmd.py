@@ -1,7 +1,7 @@
 from .tmcc1_command import TMCC1Command
+from .tmcc1_constants import TMCC1AuxCommandEnum
 from ..command_req import CommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT
-from .tmcc1_constants import TMCC1AuxCommandEnum
 
 
 class AccCmd(TMCC1Command):

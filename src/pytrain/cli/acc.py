@@ -52,7 +52,7 @@ class AccCli(CliBase):
         aux_group.add_argument(
             "-n",
             action=DataAction,
-            dest="data",
+            dest="command",
             choices=range(0, 10),
             metavar="0 - 9",
             type=int,
@@ -62,6 +62,17 @@ class AccCli(CliBase):
             help="Numeric value",
         )
         aux_group.add_argument(
+            "-speed",
+            action=DataAction,
+            dest="command",
+            choices=range(-5, 6),
+            metavar="-5 - 5",
+            type=int,
+            nargs="?",
+            const=TMCC1AuxCommandEnum.RELATIVE_SPEED,
+            help="Relative speed",
+        )
+        aux_group.add_argument(
             "-address",
             action="store_const",
             const=TMCC1AuxCommandEnum.SET_ADDRESS,
@@ -69,7 +80,10 @@ class AccCli(CliBase):
             help="Set accessory address",
         )
         # fire command
-        return PyTrainArgumentParser("Operate specified accessory (1 - 99)", parents=[acc_parser, cls.cli_parser()])
+        return PyTrainArgumentParser(
+            "Operate specified accessory (1 - 99)",
+            parents=[acc_parser, cls.cli_parser(), cls.multi_parser()],
+        )
 
     """
         Issue Accessory Commands.
@@ -82,6 +96,7 @@ class AccCli(CliBase):
         self._acc = self._args.acc
         self._command = self._args.command
         self._data = self._args.data if "data" in self._args else 0
+        self._speed = self._args.speed if "speed" in self._args else 0
         self._aux1 = self._args.aux1
         self._aux2 = self._args.aux2
         if self._args.aux1 and self._args.aux1 in AUX_OPTIONS_MAP:
@@ -95,7 +110,13 @@ class AccCli(CliBase):
                 self._acc, self._command, self._data, baudrate=self._baudrate, port=self._port, server=self._server
             )
             if self.do_fire:
-                cmd.fire(baudrate=self._baudrate, port=self._port, server=self._server)
+                cmd.fire(
+                    repeat=self._args.repeat,
+                    delay=self._args.delay,
+                    baudrate=self._baudrate,
+                    port=self._port,
+                    server=self._server,
+                )
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)

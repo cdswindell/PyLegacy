@@ -284,9 +284,7 @@ class TMCC1AuxCommandEnum(TMCC1Enum):
     BOOST = TMCC1CommandDef(TMCC1_ACC_BOOST_COMMAND, TMCC1CommandIdentifier.ACC)
     BRAKE = TMCC1CommandDef(TMCC1_ACC_BRAKE_COMMAND, TMCC1CommandIdentifier.ACC)
     RELATIVE_SPEED = TMCC1CommandDef(
-        TMCC1_ACC_RELATIVE_SPEED_COMMAND,
-        TMCC1CommandIdentifier.ACC,
-        d_map=RELATIVE_SPEED_MAP,
+        TMCC1_ACC_RELATIVE_SPEED_COMMAND, TMCC1CommandIdentifier.ACC, d_map=RELATIVE_SPEED_MAP
     )
 
 

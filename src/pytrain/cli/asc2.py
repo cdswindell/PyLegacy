@@ -68,7 +68,10 @@ class Asc2Cli(CliBase):
             help=f"IP Address of {PROGRAM_NAME} server, if client. Server communicates with Base 3/LCS SER2",
         )
         # fire command
-        return PyTrainArgumentParser("Operate specified Asc2 (1 - 99)", parents=[asc2_parser])
+        return PyTrainArgumentParser(
+            "Operate specified Asc2 (1 - 99)",
+            parents=[asc2_parser, cls.multi_parser()],
+        )
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
