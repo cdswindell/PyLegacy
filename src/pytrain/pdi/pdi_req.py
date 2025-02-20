@@ -231,6 +231,7 @@ class PdiReq(ABC):
         self,
         repeat: int = 1,
         delay: float = 0.0,
+        duration: float = 0.0,
         baudrate: int = None,
         port: str | int = None,
         server: str = None,
@@ -247,6 +248,11 @@ class PdiReq(ABC):
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
         for rep_no in range(repeat):
             buffer.enqueue_command(self.as_bytes, delay=delay)
+            if duration > 0:
+                # convert duration into milliseconds, then queue a command to fire
+                # every 100 msec for the duration
+                for d in range(1, int(round(duration * 1000)), 50):
+                    buffer.enqueue_command(self.as_bytes, delay + (d / 1000.0))
 
 
 class TmccReq(PdiReq):

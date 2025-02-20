@@ -18,7 +18,6 @@ from ..protocol.constants import (
     DEFAULT_BASE_PORT,
     DEFAULT_QUEUE_SIZE,
     CommandScope,
-    DEFAULT_BASE_THROTTLE_DELAY,
     PROGRAM_NAME,
 )
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
@@ -149,9 +148,9 @@ class Base3Buffer(Thread):
                                 if sock == self._send_queue:
                                     received = None
                                     sending = sock.get()
-                                    millis_since_last_output = self._current_milli_time() - self._last_output_at
-                                    if millis_since_last_output < DEFAULT_BASE_THROTTLE_DELAY:
-                                        time.sleep((DEFAULT_BASE_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
+                                    # millis_since_last_output = self._current_milli_time() - self._last_output_at
+                                    # if millis_since_last_output < DEFAULT_BASE_THROTTLE_DELAY:
+                                    #     time.sleep((DEFAULT_BASE_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
                                     s.sendall(sending.hex().upper().encode())
                                     self._last_output_at = self._current_milli_time()
                                     # update base3 of new state; required if command is a tmcc_tx

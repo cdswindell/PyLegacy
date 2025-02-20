@@ -85,13 +85,14 @@ class CommandReq:
         scope: CommandScope = None,
         repeat: int = 1,
         delay: float = 0,
+        duration: float = 0,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> None:
         # build_req & queue
         req = cls.build(command, address, data, scope)
-        cls._enqueue_command(req.as_bytes, repeat, delay, baudrate, port, server)
+        cls._enqueue_command(req.as_bytes, repeat, delay, duration, baudrate, port, server)
 
     @classmethod
     def build_action(
@@ -161,6 +162,7 @@ class CommandReq:
         cmd: bytes,
         repeat: int,
         delay: float,
+        duration: float,
         baudrate: int,
         port: str | int,
         server: str | None,
@@ -170,13 +172,15 @@ class CommandReq:
     ) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
-        # send command to comm buffer
+        duration = Validations.validate_float(duration, min_value=0, label="duration")
 
+        # send command to comm buffer
         if buffer is None:
             from ..comm.comm_buffer import CommBuffer
 
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
         delay = 0 if delay is None else delay
+        duration = 0 if duration is None else duration
         for rep_no in range(repeat):
             buffer.enqueue_command(cmd, delay)
             # does this command cause any other state changes?
@@ -189,6 +193,11 @@ class CommandReq:
                     else:
                         continue  # we shouldn't ever get here
                     buffer.enqueue_command(effect_cmd.as_bytes, delay)
+            if duration > 0:
+                # convert duration into milliseconds, then queue a command to fire
+                # every 100 msec for the duration
+                for d in range(1, int(round(duration * 1000)), 50):
+                    buffer.enqueue_command(cmd, delay + (d / 1000.0))
 
     @staticmethod
     def results_in(command: CommandReq) -> Set[E]:
@@ -393,11 +402,12 @@ class CommandReq:
         self,
         repeat: int = 1,
         delay: float = 0,
+        duration: float = 0,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> None:
-        self._enqueue_command(self.as_bytes, repeat, delay, baudrate, port, server, request=self)
+        self._enqueue_command(self.as_bytes, repeat, delay, duration, baudrate, port, server, request=self)
 
     @property
     def as_bytes(self) -> bytes:
@@ -414,6 +424,7 @@ class CommandReq:
         self,
         repeat: int = 1,
         delay: float = 0,
+        duration: float = 0,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
@@ -432,6 +443,7 @@ class CommandReq:
                 self.as_bytes,
                 repeat=repeat,
                 delay=delay,
+                duration=duration,
                 baudrate=baudrate,
                 port=port,
                 server=server,

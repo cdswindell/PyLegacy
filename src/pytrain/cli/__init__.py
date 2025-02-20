@@ -76,9 +76,17 @@ class CliBase(ABC):
         parser.add_argument(
             "-delay",
             action="store",
-            type=CliBase._validate_delay,
+            type=CliBase._validate_time_interval,
             default=0.0,
             help="Second(s) to delay between repeated commands (default: 0)",
+        )
+
+        parser.add_argument(
+            "-duration",
+            action="store",
+            type=CliBase._validate_time_interval,
+            default=0.0,
+            help="Second(s) to continue firing the command",
         )
         return parser
 
@@ -151,7 +159,15 @@ class CliBase(ABC):
     def send(self) -> None:
         repeat = self._args.repeat if "repeat" in self._args else 1
         delay = self._args.delay if "delay" in self._args else 0
-        self.command.send(repeat=repeat, delay=delay, baudrate=self._baudrate, port=self._port, server=self._server)
+        duration = self._args.duration if "duration" in self._args else 0
+        self.command.send(
+            repeat=repeat,
+            delay=delay,
+            duration=duration,
+            baudrate=self._baudrate,
+            port=self._port,
+            server=self._server,
+        )
 
     @property
     def command(self) -> CommandBase:
@@ -196,24 +212,24 @@ class CliBase(ABC):
         raise ArgumentTypeError("Speed must be between 0 and 199 (0 and 31, for tmcc)")
 
     @staticmethod
-    def _validate_delay(arg: Any) -> float:
+    def _validate_time_interval(arg: Any) -> float:
         try:
             arg = float(arg)  # try convert to float
-            if arg >= 0:
+            if arg >= 0.0:
                 return arg
         except ValueError:
             pass
-        raise ArgumentTypeError("Delay must be 0.0 or greater")
+        raise ArgumentTypeError("Delay/Duration must be >= 0.0")
 
     @staticmethod
     def _validate_repeat(arg: Any) -> int:
         try:
             arg = int(arg)  # try convert to int
-            if arg > 0:
+            if arg >= 1:
                 return arg
         except ValueError:
             pass
-        raise ArgumentTypeError("Delay must be 1 or greater")
+        raise ArgumentTypeError("Repeat must be >= 1")
 
 
 class CliBaseTMCC(CliBase):

@@ -90,6 +90,7 @@ class CommandBase(ABC):
         self,
         repeat: int = None,
         delay: float = None,
+        duration: float = None,
         shutdown: bool = False,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
@@ -100,7 +101,8 @@ class CommandBase(ABC):
         """
         Validations.validate_int(repeat, min_value=1)
         Validations.validate_float(delay, min_value=0)
-        self.command_req.send(repeat, delay, baudrate, port, server)
+        Validations.validate_float(duration, min_value=0)
+        self.command_req.send(repeat, delay, duration, baudrate, port, server)
         if shutdown:
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
             buffer.shutdown()
