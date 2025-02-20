@@ -17,7 +17,7 @@ def find_dir(target: str, places: Tuple = (".", "../")) -> str | None:
                 if root.startswith("./.") or root.startswith("./venv/"):
                     continue
                 for cd in dirs:
-                    if cd.startswith(".") or cd in ["__pycache__"]:
+                    if cd.startswith(".") or cd in ["__pycache__", ".tox", ".github"]:
                         continue
                     if cd == target:
                         return f"{root}/{cd}"
