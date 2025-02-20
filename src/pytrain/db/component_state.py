@@ -617,7 +617,7 @@ class AccessoryState(TmccState):
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(command)
                 super().update(command)
-                if isinstance(command, CommandReq) and self._pdi_source is False:
+                if isinstance(command, CommandReq):
                     if command.command != Aux.SET_ADDRESS:
                         if command.command == TMCC1HaltCommandEnum.HALT:
                             self._aux1_state = Aux.AUX1_OFF
@@ -625,32 +625,33 @@ class AccessoryState(TmccState):
                             self._aux_state = Aux.AUX2_OPT_ONE
                             self._number = None
                         else:
-                            if command.command in {Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE}:
-                                self._aux_state = command.command
-                            if command.command == Aux.AUX1_OPT_ONE:
-                                if self.time_delta(self._last_updated, self._last_aux1_opt1) > 1:
-                                    self._aux1_state = self.update_aux_state(
-                                        self._aux1_state,
-                                        Aux.AUX1_ON,
-                                        Aux.AUX1_OPT_ONE,
-                                        Aux.AUX1_OFF,
-                                    )
-                                self._last_aux1_opt1 = self.last_updated
-                            elif command.command in {Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO}:
-                                self._aux1_state = command.command
-                                self._last_aux1_opt1 = self.last_updated
-                            elif command.command == Aux.AUX2_OPT_ONE:
-                                if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
-                                    self._aux2_state = self.update_aux_state(
-                                        self._aux2_state,
-                                        Aux.AUX2_ON,
-                                        Aux.AUX2_OPT_ONE,
-                                        Aux.AUX2_OFF,
-                                    )
-                                self._last_aux2_opt1 = self.last_updated
-                            elif command.command in {Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO}:
-                                self._aux2_state = command.command
-                                self._last_aux2_opt1 = self.last_updated
+                            if self._pdi_source is False:
+                                if command.command in {Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE}:
+                                    self._aux_state = command.command
+                                if command.command == Aux.AUX1_OPT_ONE:
+                                    if self.time_delta(self._last_updated, self._last_aux1_opt1) > 1:
+                                        self._aux1_state = self.update_aux_state(
+                                            self._aux1_state,
+                                            Aux.AUX1_ON,
+                                            Aux.AUX1_OPT_ONE,
+                                            Aux.AUX1_OFF,
+                                        )
+                                    self._last_aux1_opt1 = self.last_updated
+                                elif command.command in {Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO}:
+                                    self._aux1_state = command.command
+                                    self._last_aux1_opt1 = self.last_updated
+                                elif command.command == Aux.AUX2_OPT_ONE:
+                                    if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
+                                        self._aux2_state = self.update_aux_state(
+                                            self._aux2_state,
+                                            Aux.AUX2_ON,
+                                            Aux.AUX2_OPT_ONE,
+                                            Aux.AUX2_OFF,
+                                        )
+                                    self._last_aux2_opt1 = self.last_updated
+                                elif command.command in {Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO}:
+                                    self._aux2_state = command.command
+                                    self._last_aux2_opt1 = self.last_updated
                             if command.command == Aux.NUMERIC:
                                 self._number = command.data
                 elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req):
