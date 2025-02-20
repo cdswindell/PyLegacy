@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Sequence
 from time import sleep
 from typing import List, Callable, TypeVar, Tuple
-
-import sys
 
 from ..multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
 
@@ -138,6 +137,7 @@ class SequenceReq(CommandReq, Sequence):
         self,
         repeat: int = None,
         delay: float = None,
+        duration: float = None,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
@@ -146,24 +146,27 @@ class SequenceReq(CommandReq, Sequence):
             request = sqr.request
             req_repeat = sqr.repeat if sqr.repeat is not None else repeat
             req_delay = sqr.delay if sqr.delay is not None else delay
-            request.send(req_repeat, req_delay, baudrate, port, server)
+            req_duration = sqr.duration if sqr.duration is not None else duration
+            request.send(req_repeat, req_delay, req_duration, baudrate, port, server)
             sleep(0.001)
 
     def fire(
         self,
         repeat: int = None,
         delay: float = None,
+        duration: float = None,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> None:
-        self.send(repeat, delay, baudrate, port, server)
+        self.send(repeat, delay, duration, baudrate, port, server)
         CommBuffer.build().shutdown()
 
     def as_action(
         self,
         repeat: int = 1,
         delay: float = 0,
+        duration: float = 0,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
@@ -181,6 +184,7 @@ class SequenceReq(CommandReq, Sequence):
                     request.as_bytes,
                     repeat=sq_request.repeat,
                     delay=sq_request.delay,
+                    duration=sq_request.duration,
                     baudrate=baudrate,
                     port=port,
                     server=server,
@@ -257,13 +261,14 @@ class SequenceReq(CommandReq, Sequence):
 
 
 class SequencedReq:
-    def __init__(self, request: CommandReq, repeat: int = None, delay: float = None) -> None:
+    def __init__(self, request: CommandReq, repeat: int = None, delay: float = None, duration: float = None) -> None:
         self.request: CommandReq = request
         self.repeat: int = repeat
         self.delay: float = delay
+        self.duration = duration
 
     def __repr__(self) -> str:
-        return f"< {self.request} repeat: {self.repeat} delay: {self.delay} >"
+        return f"< {self.request} repeat: {self.repeat} delay: {self.delay} duration: {self.duration}>"
 
     @property
     def as_bytes(self) -> bytes:
