@@ -51,15 +51,20 @@ class Asc2Cli(CliBase):
         group = asc2_parser.add_mutually_exclusive_group()
         group.add_argument(
             "-on",
-            nargs="?",
-            type=float,
-            const=0.0,
+            action="store_true",
             help="Turn Asc2 on",
         )
         group.add_argument(
             "-off",
             action="store_true",
             help="Turn Asc2 off",
+        )
+        group.add_argument(
+            "-hold",
+            nargs="?",
+            type=float,
+            const=1.0,
+            help="Turn Asc2 on for specified time",
         )
 
         asc2_parser.add_argument(
@@ -76,8 +81,17 @@ class Asc2Cli(CliBase):
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
         self._asc2 = self._args.asc2
-        self._time = self._args.on if self._args.on else 0.0
+        self._time = self._args.hold if self._args.hold else 0.0
         self._state = 0 if self._args.off is True else 1
+        # adjust time and duration parameters
+        if self._state == 1:
+            if self._time > 2.5:
+                self.args.duration = self._time
+                self._time = 0.15
+            elif self._args.duration and self._time <= 0.0:
+                self._time = 0.15
+        else:
+            self._time = self._args.duration = 0.0
         req = Asc2Req(self._asc2, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=self._state, time=self._time)
 
         try:

@@ -81,6 +81,7 @@ class TMCC1CommandDef(CommandDef):
         alias: str = None,
         data: int = None,
         filtered: bool = False,
+        interval: int = None,
     ) -> None:
         super().__init__(
             command_bits,
@@ -93,6 +94,7 @@ class TMCC1CommandDef(CommandDef):
             alias=alias,
             data=data,
             filtered=filtered,
+            interval=interval,
         )
         self._command_ident = command_ident
 
@@ -403,8 +405,8 @@ class TMCC1EngineCommandEnum(TMCC1Enum):
     AUX2_OPTION_ONE = TMCC1CommandDef(TMCC1_ENG_AUX2_OPTION_ONE_COMMAND)
     AUX2_OPTION_TWO = TMCC1CommandDef(TMCC1_ENG_AUX2_OPTION_TWO_COMMAND)
     AUX3_OPTION_ONE = TMCC1CommandDef(TMCC1_ENG_AUX3_OPTION_ONE_COMMAND)
-    BLOW_HORN_ONE = TMCC1CommandDef(TMCC1_ENG_BLOW_HORN_ONE_COMMAND)
-    BLOW_HORN_TWO = TMCC1CommandDef(TMCC1_ENG_BLOW_HORN_TWO_COMMAND)
+    BLOW_HORN_ONE = TMCC1CommandDef(TMCC1_ENG_BLOW_HORN_ONE_COMMAND, interval=100)
+    BLOW_HORN_TWO = TMCC1CommandDef(TMCC1_ENG_BLOW_HORN_TWO_COMMAND, interval=100)
     BOOST_SPEED = TMCC1CommandDef(TMCC1_ENG_BOOST_SPEED_COMMAND)
     BRAKE_SPEED = TMCC1CommandDef(TMCC1_ENG_BRAKE_SPEED_COMMAND)
     CLEAR_CONSIST = TMCC1CommandDef(TMCC1_ENG_CLEAR_CONSIST_COMMAND)

@@ -18,6 +18,7 @@ class SequenceDef(TMCC2CommandDef):
         d_min: int = 0,
         d_max: int = 0,
         d_map: Dict[int, int] = None,
+        interval: int = None,
         cmd_class: S = None,
     ) -> None:
         super().__init__(
@@ -27,6 +28,7 @@ class SequenceDef(TMCC2CommandDef):
             d_min=d_min,
             d_max=d_max,
             d_map=d_map,
+            interval=interval,
         )
         self._cmd_class = cmd_class
 

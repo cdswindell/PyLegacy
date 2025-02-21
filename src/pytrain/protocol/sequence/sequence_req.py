@@ -15,7 +15,12 @@ elif sys.version_info >= (3, 9):
 
 from ..command_def import CommandDefEnum
 from ..command_req import CommandReq
-from ..constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT, OfficialRRSpeeds
+from ..constants import (
+    DEFAULT_ADDRESS,
+    DEFAULT_BAUDRATE,
+    DEFAULT_PORT,
+    OfficialRRSpeeds,
+)
 from ..constants import CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1RRSpeedsEnum
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
@@ -138,6 +143,7 @@ class SequenceReq(CommandReq, Sequence):
         repeat: int = None,
         delay: float = None,
         duration: float = None,
+        interval: int = None,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
@@ -147,7 +153,16 @@ class SequenceReq(CommandReq, Sequence):
             req_repeat = sqr.repeat if sqr.repeat is not None else repeat
             req_delay = sqr.delay if sqr.delay is not None else delay
             req_duration = sqr.duration if sqr.duration is not None else duration
-            request.send(req_repeat, req_delay, req_duration, baudrate, port, server)
+            req_interval = sqr.interval if sqr.interval is not None else interval
+            request.send(
+                repeat=req_repeat,
+                delay=req_delay,
+                duration=req_duration,
+                interval=req_interval,
+                baudrate=baudrate,
+                port=port,
+                server=server,
+            )
             sleep(0.001)
 
     def fire(
@@ -155,11 +170,20 @@ class SequenceReq(CommandReq, Sequence):
         repeat: int = None,
         delay: float = None,
         duration: float = None,
+        interval: int = None,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> None:
-        self.send(repeat, delay, duration, baudrate, port, server)
+        self.send(
+            repeat=repeat,
+            delay=delay,
+            duration=duration,
+            interval=interval,
+            baudrate=baudrate,
+            port=port,
+            server=server,
+        )
         CommBuffer.build().shutdown()
 
     def as_action(
@@ -167,6 +191,7 @@ class SequenceReq(CommandReq, Sequence):
         repeat: int = 1,
         delay: float = 0,
         duration: float = 0,
+        interval: int = None,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
@@ -185,6 +210,7 @@ class SequenceReq(CommandReq, Sequence):
                     repeat=sq_request.repeat,
                     delay=sq_request.delay,
                     duration=sq_request.duration,
+                    interval=sq_request.interval,
                     baudrate=baudrate,
                     port=port,
                     server=server,
@@ -261,14 +287,24 @@ class SequenceReq(CommandReq, Sequence):
 
 
 class SequencedReq:
-    def __init__(self, request: CommandReq, repeat: int = None, delay: float = None, duration: float = None) -> None:
+    def __init__(
+        self,
+        request: CommandReq,
+        repeat: int = None,
+        delay: float = None,
+        duration: float = None,
+        interval: int = None,
+    ) -> None:
         self.request: CommandReq = request
         self.repeat: int = repeat
         self.delay: float = delay
-        self.duration = duration
+        self.duration: float = duration
+        self.interval: int = interval
 
     def __repr__(self) -> str:
-        return f"< {self.request} repeat: {self.repeat} delay: {self.delay} duration: {self.duration}>"
+        rtn = f"<{self.request} repeat: {self.repeat} delay: {self.delay} "
+        rtn += f"duration: {self.duration} interval: {self.interval}>"
+        return rtn
 
     @property
     def as_bytes(self) -> bytes:

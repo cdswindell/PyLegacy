@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import abc
 import math
+import sys
 from abc import ABC
 from enum import Enum
 from typing import Dict, Any, Tuple, TypeVar
-
-import sys
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -37,6 +36,7 @@ class CommandDef(ABC):
         alias: str = None,
         data: int = None,
         filtered: bool = False,
+        interval: int = None,
     ) -> None:
         self._command_bits: int = command_bits
         self._is_addressable = is_addressable
@@ -53,6 +53,7 @@ class CommandDef(ABC):
         elif d_map is not None:
             self._d_bits = math.ceil(math.log2(max(d_map.values())))
         self._filtered = filtered
+        self._interval = interval
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__} 0x{self.bits:04x}: {self.num_data_bits} data bits"
@@ -76,6 +77,10 @@ class CommandDef(ABC):
     @property
     def is_filtered(self) -> bool:
         return self._filtered
+
+    @property
+    def interval(self) -> int:
+        return self._interval
 
     def is_valid_data(self, candidate: int, from_bytes: bool = False) -> bool:
         """

@@ -5,7 +5,7 @@ from typing import TypeVar
 
 from .command_def import CommandDef, CommandDefEnum
 from .command_req import CommandReq
-from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
+from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, MINIMUM_DURATION_INTERVAL_MSEC
 from ..comm.comm_buffer import CommBuffer
 from ..pdi.pdi_req import PdiReq
 from ..utils.validations import Validations
@@ -91,6 +91,7 @@ class CommandBase(ABC):
         repeat: int = None,
         delay: float = None,
         duration: float = None,
+        interval: int = None,
         shutdown: bool = False,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
@@ -100,9 +101,18 @@ class CommandBase(ABC):
         Send the command to the LCS SER2 and keep comm buffer alive.
         """
         Validations.validate_int(repeat, min_value=1)
+        Validations.validate_int(interval, min_value=MINIMUM_DURATION_INTERVAL_MSEC, allow_none=True)
         Validations.validate_float(delay, min_value=0)
         Validations.validate_float(duration, min_value=0)
-        self.command_req.send(repeat, delay, duration, baudrate, port, server)
+        self.command_req.send(
+            repeat=repeat,
+            delay=delay,
+            duration=duration,
+            interval=interval,
+            baudrate=baudrate,
+            port=port,
+            server=server,
+        )
         if shutdown:
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
             buffer.shutdown()

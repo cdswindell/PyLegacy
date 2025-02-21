@@ -10,7 +10,16 @@
 
 class Validations:
     @classmethod
-    def validate_int(cls, value: int, min_value: int = None, max_value: int = None, label: str = None) -> int:
+    def validate_int(
+        cls,
+        value: int,
+        min_value: int = None,
+        max_value: int = None,
+        label: str = None,
+        allow_none: bool = False,
+    ) -> int | None:
+        if value is None and allow_none is True:
+            return value
         if label is None:
             label = f"'{str(value)}'"
             suffix = ""
@@ -30,7 +39,16 @@ class Validations:
         return value
 
     @classmethod
-    def validate_float(cls, value: float, min_value: float = None, max_value: float = None, label: str = None) -> float:
+    def validate_float(
+        cls,
+        value: float,
+        min_value: float = None,
+        max_value: float = None,
+        label: str = None,
+        allow_none: bool = False,
+    ) -> float | None:
+        if value is None and allow_none is True:
+            return value
         if label is None:
             label = f"'{str(value)}'"
             suffix = ""

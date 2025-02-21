@@ -13,7 +13,14 @@ from argparse import ArgumentParser, Namespace, ArgumentTypeError, Action
 from typing import List, Any
 
 from ..protocol.command_base import CommandBase
-from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, CommandSyntax, PROGRAM_NAME
+from ..protocol.constants import (
+    DEFAULT_BAUDRATE,
+    DEFAULT_PORT,
+    CommandScope,
+    CommandSyntax,
+    PROGRAM_NAME,
+    DEFAULT_DURATION_INTERVAL_MSEC,
+)
 from ..protocol.constants import DEFAULT_VALID_BAUDRATES
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
@@ -76,7 +83,7 @@ class CliBase(ABC):
         parser.add_argument(
             "-delay",
             action="store",
-            type=CliBase._validate_time_interval,
+            type=CliBase._validate_time,
             default=0.0,
             help="Second(s) to delay between repeated commands (default: 0)",
         )
@@ -84,9 +91,17 @@ class CliBase(ABC):
         parser.add_argument(
             "-duration",
             action="store",
-            type=CliBase._validate_time_interval,
+            type=CliBase._validate_time,
             default=0.0,
             help="Second(s) to continue firing the command",
+        )
+
+        parser.add_argument(
+            "-interval",
+            action="store",
+            type=CliBase._validate_interval,
+            default=None,
+            help=f"Milliseconds to pause between commands with -duration (default: {DEFAULT_DURATION_INTERVAL_MSEC})",
         )
         return parser
 
@@ -160,10 +175,12 @@ class CliBase(ABC):
         repeat = self._args.repeat if "repeat" in self._args else 1
         delay = self._args.delay if "delay" in self._args else 0
         duration = self._args.duration if "duration" in self._args else 0
+        interval = self._args.interval if "interval" in self._args and self._args.interval else None
         self.command.send(
             repeat=repeat,
             delay=delay,
             duration=duration,
+            interval=interval,
             baudrate=self._baudrate,
             port=self._port,
             server=self._server,
@@ -212,7 +229,7 @@ class CliBase(ABC):
         raise ArgumentTypeError("Speed must be between 0 and 199 (0 and 31, for tmcc)")
 
     @staticmethod
-    def _validate_time_interval(arg: Any) -> float:
+    def _validate_time(arg: Any) -> float:
         try:
             arg = float(arg)  # try convert to float
             if arg >= 0.0:
@@ -220,6 +237,16 @@ class CliBase(ABC):
         except ValueError:
             pass
         raise ArgumentTypeError("Delay/Duration must be >= 0.0")
+
+    @staticmethod
+    def _validate_interval(arg: Any) -> int:
+        try:
+            arg = int(arg)  # try convert to float
+            if arg >= DEFAULT_DURATION_INTERVAL_MSEC:
+                return arg
+        except ValueError:
+            pass
+        raise ArgumentTypeError(f"Interval must be >= {DEFAULT_DURATION_INTERVAL_MSEC}")
 
     @staticmethod
     def _validate_repeat(arg: Any) -> int:

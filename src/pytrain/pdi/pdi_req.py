@@ -13,7 +13,7 @@ elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
 from .constants import PDI_SOP, PDI_EOP, PDI_STF, CommonAction, PdiAction, PdiCommand
-from ..protocol.constants import CommandScope
+from ..protocol.constants import CommandScope, MINIMUM_DURATION_INTERVAL_MSEC
 
 T = TypeVar("T", bound=PdiAction)
 
@@ -232,6 +232,7 @@ class PdiReq(ABC):
         repeat: int = 1,
         delay: float = 0.0,
         duration: float = 0.0,
+        interval: int = None,
         baudrate: int = None,
         port: str | int = None,
         server: str = None,
@@ -245,14 +246,25 @@ class PdiReq(ABC):
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
         duration = Validations.validate_float(duration, min_value=0, label="duration")
+        interval = Validations.validate_int(
+            interval,
+            min_value=MINIMUM_DURATION_INTERVAL_MSEC,
+            label="interval",
+            allow_none=True,
+        )
 
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
         for rep_no in range(repeat):
             buffer.enqueue_command(self.as_bytes, delay=delay)
             if duration > 0:
+                interval = (
+                    interval
+                    if interval and interval >= MINIMUM_DURATION_INTERVAL_MSEC
+                    else MINIMUM_DURATION_INTERVAL_MSEC
+                )
                 # convert duration into milliseconds, then queue a command to fire
                 # every 100 msec for the duration
-                for d in range(1, int(round(duration * 1000)), 50):
+                for d in range(interval, int(round(duration * 1000)), interval):
                     buffer.enqueue_command(self.as_bytes, delay + (d / 1000.0))
 
 

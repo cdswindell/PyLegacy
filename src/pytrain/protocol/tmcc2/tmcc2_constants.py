@@ -74,6 +74,7 @@ class TMCC2CommandDef(CommandDef):
         alias: str = None,
         data: int = None,
         filtered=False,
+        interval: int = None,
     ) -> None:
         super().__init__(
             command_bits,
@@ -84,6 +85,7 @@ class TMCC2CommandDef(CommandDef):
             alias=alias,
             data=data,
             filtered=filtered,
+            interval=interval,
         )
         self._scope = scope
 
@@ -272,10 +274,10 @@ class TMCC2EngineCommandEnum(TMCC2Enum):
     AUX3_OPTION_ONE = TMCC2CommandDef(TMCC2_AUX3_OPTION_ONE_COMMAND)
     BELL_OFF = TMCC2CommandDef(TMCC2_BELL_OFF_COMMAND)
     BELL_ON = TMCC2CommandDef(TMCC2_BELL_ON_COMMAND)
-    BELL_ONE_SHOT_DING = TMCC2CommandDef(TMCC2_BELL_ONE_SHOT_DING_COMMAND, d_max=3)
+    BELL_ONE_SHOT_DING = TMCC2CommandDef(TMCC2_BELL_ONE_SHOT_DING_COMMAND, d_max=3, interval=1000)
     BELL_SLIDER_POSITION = TMCC2CommandDef(TMCC2_BELL_SLIDER_POSITION_COMMAND, d_min=2, d_max=5)
-    BLOW_HORN_ONE = TMCC2CommandDef(TMCC2_BLOW_HORN_ONE_COMMAND)
-    BLOW_HORN_TWO = TMCC2CommandDef(TMCC2_BLOW_HORN_TWO_COMMAND)
+    BLOW_HORN_ONE = TMCC2CommandDef(TMCC2_BLOW_HORN_ONE_COMMAND, interval=100)
+    BLOW_HORN_TWO = TMCC2CommandDef(TMCC2_BLOW_HORN_TWO_COMMAND, interval=100)
     BOOST_LEVEL = TMCC2CommandDef(TMCC2_SET_BOOST_LEVEL_COMMAND, d_max=7)
     BOOST_SPEED = TMCC2CommandDef(TMCC2_BOOST_SPEED_COMMAND)
     BRAKE_AIR_RELEASE = TMCC2CommandDef(TMCC2_ENG_BRAKE_AIR_RELEASE_SOUND_COMMAND)
@@ -300,7 +302,7 @@ class TMCC2EngineCommandEnum(TMCC2Enum):
     MOTION_STOP = TMCC2CommandDef(TMCC2_MOTION_STOP_COMMAND)
     NUMERIC = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND, d_max=9)
     POP_OFF = TMCC2CommandDef(TMCC2_ENG_POP_OFF_SOUND_COMMAND)
-    QUILLING_HORN = TMCC2CommandDef(TMCC2_QUILLING_HORN_COMMAND, d_max=15)
+    QUILLING_HORN = TMCC2CommandDef(TMCC2_QUILLING_HORN_COMMAND, d_max=15, interval=100)
     REAR_COUPLER = TMCC2CommandDef(TMCC2_OPEN_REAR_COUPLER_COMMAND)
     REFUELLING = TMCC2CommandDef(TMCC2_ENG_REFUELLING_SOUND_COMMAND)
     RELATIVE_SPEED = TMCC2CommandDef(TMCC2_SET_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)

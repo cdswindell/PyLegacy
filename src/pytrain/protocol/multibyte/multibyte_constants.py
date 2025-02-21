@@ -5,7 +5,6 @@ from enum import IntEnum, unique
 from typing import List
 
 from ..command_def import Mixins
-
 from ..tmcc2.tmcc2_constants import (
     TMCC2_SOUND_OFF_COMMAND,
     TMCC2_SOUND_ON_COMMAND,
@@ -66,8 +65,8 @@ class TMCC2ParameterIndex(Mixins, IntEnum):
 class MultiByteCommandDef(TMCC2CommandDef):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, command_bits: int, d_min: int = 0, d_max: int = 0) -> None:
-        super().__init__(command_bits, d_min=d_min, d_max=d_max)
+    def __init__(self, command_bits: int, d_min: int = 0, d_max: int = 0, interval: int = None) -> None:
+        super().__init__(command_bits, d_min=d_min, d_max=d_max, interval=interval)
         self._first_byte = TMCC2CommandPrefix.ENGINE
 
 

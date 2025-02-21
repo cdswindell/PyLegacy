@@ -6,14 +6,14 @@ import threading
 from collections import defaultdict
 from typing import List, TypeVar, Set, Tuple
 
-from ..db.client_state_listener import ClientStateListener
-from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl as Effects
 from .component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Topic, Subscriber
+from ..db.client_state_listener import ClientStateListener
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
+from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl as Effects
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as Engine1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
@@ -411,8 +411,6 @@ class DependencyCache:
             Engine2.BELL_OFF,
             Engine2.DIESEL_RPM,
             Engine2.ENGINE_LABOR_DEFAULT,
-            Engine2.AUX1_OFF,
-            Engine2.AUX2_OFF,
             Engine2.NUMERIC,
         )
         self.causes(
@@ -457,8 +455,6 @@ class DependencyCache:
             Engine1.SPEED_STOP_HOLD,
             Engine1.FORWARD_DIRECTION,
             Engine1.RPM_DOWN,
-            Engine1.AUX1_OFF,
-            Engine1.AUX2_OFF,
             Engine1.NUMERIC,
         )
         self.causes(Engine1.FORWARD_DIRECTION, Engine1.SPEED_STOP_HOLD)

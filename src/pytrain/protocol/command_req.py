@@ -8,7 +8,13 @@ if sys.version_info >= (3, 11):
 elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
-from .constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT
+from .constants import (
+    DEFAULT_ADDRESS,
+    DEFAULT_BAUDRATE,
+    DEFAULT_PORT,
+    DEFAULT_DURATION_INTERVAL_MSEC,
+    MINIMUM_DURATION_INTERVAL_MSEC,
+)
 from .constants import CommandScope, CommandSyntax
 from .tmcc2.tmcc2_constants import TMCC2Enum, TMCC2CommandPrefix, LEGACY_ENGINE_COMMAND_PREFIX
 from .tmcc2.tmcc2_constants import TMCC2RouteCommandEnum, TMCC2HaltCommandEnum, TMCC2EngineCommandEnum
@@ -169,10 +175,14 @@ class CommandReq:
         buffer=None,
         request: CommandReq | None = None,
         trigger_effects: bool = True,
+        interval: int = None,
     ) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
         duration = Validations.validate_float(duration, min_value=0, label="duration")
+        interval = Validations.validate_int(
+            interval, min_value=MINIMUM_DURATION_INTERVAL_MSEC, label="interval", allow_none=True
+        )
 
         # send command to comm buffer
         if buffer is None:
@@ -196,7 +206,8 @@ class CommandReq:
             if duration > 0:
                 # convert duration into milliseconds, then queue a command to fire
                 # every 100 msec for the duration
-                for d in range(1, int(round(duration * 1000)), 50):
+                interval = interval if interval else DEFAULT_DURATION_INTERVAL_MSEC
+                for d in range(interval, int(round(duration * 1000)), interval):
                     buffer.enqueue_command(cmd, delay + (d / 1000.0))
 
     @staticmethod
@@ -403,11 +414,23 @@ class CommandReq:
         repeat: int = 1,
         delay: float = 0,
         duration: float = 0,
+        interval: int = None,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> None:
-        self._enqueue_command(self.as_bytes, repeat, delay, duration, baudrate, port, server, request=self)
+        interval = self.command_def.interval if self.command_def.interval else interval
+        self._enqueue_command(
+            self.as_bytes,
+            repeat,
+            delay,
+            duration,
+            baudrate,
+            port,
+            server,
+            request=self,
+            interval=interval,
+        )
 
     @property
     def as_bytes(self) -> bytes:
