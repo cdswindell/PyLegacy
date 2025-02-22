@@ -173,7 +173,7 @@ class CliBase(ABC):
 
         # are we a server or a client, or do we just not know?
         if CommBuffer.is_built:
-            self._is_server = CommBuffer.is_server
+            self._is_server = CommBuffer.is_server()
         else:
             self._is_server = False
         log.debug(self._args)
