@@ -12,7 +12,7 @@ from abc import ABC, ABCMeta
 from argparse import ArgumentParser, Namespace, ArgumentTypeError, Action
 from typing import List, Any
 
-from src.pytrain.comm.comm_buffer import CommBuffer
+from ..comm.comm_buffer import CommBuffer
 from ..protocol.command_base import CommandBase
 from ..protocol.constants import (
     DEFAULT_BAUDRATE,
