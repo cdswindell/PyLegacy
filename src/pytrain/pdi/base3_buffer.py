@@ -116,7 +116,7 @@ class Base3Buffer(Thread):
                 # as 3 3 byte packets, using PdiCommand.TMCC_RX
                 for packet in TmccReq.as_packets(tmcc_cmd):
                     self.send(packet)  # recursive call
-                    time.sleep(0.01)
+                    time.sleep(0.001)
                 # do a sync_state on the complete command
                 self.sync_state(tmcc_cmd.as_bytes)
             else:
