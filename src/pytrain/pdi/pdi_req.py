@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import sys
 from abc import ABC
+from time import sleep
 from typing import Tuple, TypeVar, List
 
 from ..utils.validations import Validations
@@ -260,8 +261,11 @@ class PdiReq(ABC):
                 interval = interval if interval else DEFAULT_DURATION_INTERVAL_MSEC
                 # convert duration into milliseconds, then queue a command to fire
                 # every 100 msec for the duration
+                pause = 0
                 for d in range(interval, int(round(duration * 1000)), interval):
-                    buffer.enqueue_command(self.as_bytes, delay + (d / 1000.0))
+                    buffer.enqueue_command(self.as_bytes, delay + (d / 1000.0) - pause)
+                    pause += 0.002
+                    sleep(0.002)
 
 
 class TmccReq(PdiReq):
