@@ -13,7 +13,7 @@ elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
 from .constants import PDI_SOP, PDI_EOP, PDI_STF, CommonAction, PdiAction, PdiCommand
-from ..protocol.constants import CommandScope, MINIMUM_DURATION_INTERVAL_MSEC
+from ..protocol.constants import CommandScope, MINIMUM_DURATION_INTERVAL_MSEC, DEFAULT_DURATION_INTERVAL_MSEC
 
 T = TypeVar("T", bound=PdiAction)
 
@@ -257,11 +257,7 @@ class PdiReq(ABC):
         for rep_no in range(repeat):
             buffer.enqueue_command(self.as_bytes, delay=delay)
             if duration > 0:
-                interval = (
-                    interval
-                    if interval and interval >= MINIMUM_DURATION_INTERVAL_MSEC
-                    else MINIMUM_DURATION_INTERVAL_MSEC
-                )
+                interval = interval if interval else DEFAULT_DURATION_INTERVAL_MSEC
                 # convert duration into milliseconds, then queue a command to fire
                 # every 100 msec for the duration
                 for d in range(interval, int(round(duration * 1000)), interval):
