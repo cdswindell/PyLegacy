@@ -16,7 +16,6 @@ from .. import CommandScope, PROGRAM_NAME
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import PdiCommand, Asc2Action
 from ..protocol.command_base import CommandBase
-from ..protocol.constants import DEFAULT_DURATION_INTERVAL_MSEC
 from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
@@ -91,7 +90,7 @@ class Asc2Cli(CliBase):
                 time = self._time if self._time else 0
                 duration = self._args.duration if self._args.duration else 0
                 self._args.duration = max(time, duration)
-                self._time = (DEFAULT_DURATION_INTERVAL_MSEC * 4) / 1000.0
+                self._time = 0.250 if self.is_server else 0.600
                 self._args.duration -= self._time
                 self._args.duration = self._args.duration if self._args.duration > 0.0 else 0.0
             elif self._args.duration and self._args.duration <= 2.55:

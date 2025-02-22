@@ -12,6 +12,7 @@ from abc import ABC, ABCMeta
 from argparse import ArgumentParser, Namespace, ArgumentTypeError, Action
 from typing import List, Any
 
+from src.pytrain.comm.comm_buffer import CommBuffer
 from ..protocol.command_base import CommandBase
 from ..protocol.constants import (
     DEFAULT_BAUDRATE,
@@ -169,6 +170,12 @@ class CliBase(ABC):
             self._server = self._args.server
         else:
             self._server = None
+
+        # are we a server or a client, or do we just not know?
+        if CommBuffer.is_built:
+            self._is_server = CommBuffer.is_server
+        else:
+            self._is_server = False
         log.debug(self._args)
 
     def send(self) -> None:
@@ -213,6 +220,10 @@ class CliBase(ABC):
     @property
     def command_format(self) -> CommandSyntax:
         return self._command_format
+
+    @property
+    def is_server(self) -> bool:
+        return self._is_server
 
     @staticmethod
     def _validate_speed(arg: Any) -> int:
