@@ -126,7 +126,6 @@ class PyTrain:
         self._base_addr = self._base_port = None
         self._dispatcher = None
         self._started_at = timer()
-        self._exit_signalled = threading.Event()
         self._exit_status = None
         self._version = get_version()
 
@@ -311,7 +310,7 @@ class PyTrain:
             if self._headless is False:
                 # provide limited command line recall and editing
                 readline.set_auto_history(True)
-            while True and self._exit_signalled.is_set() is False:
+            while True:
                 try:
                     if processed_replay is False and self._replay_file:
                         processed_replay = True
@@ -352,8 +351,6 @@ class PyTrain:
         finally:
             if self._headless is False and self._api is False:
                 readline.write_history_file(DEFAULT_HISTORY_FILE)
-            if self._exit_signalled.is_set() is True:
-                self.shutdown()
             self.shutdown_service()
             if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
                 if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
@@ -491,7 +488,6 @@ class PyTrain:
                     self.shutdown()
                 if self.is_api:
                     self._exit_status = PyTrainExitStatus.by_name(self._admin_action.name, raise_exception=False)
-                    # self._exit_signalled.set()
                 os.kill(os.getpid(), signal.SIGINT)
 
     def __repr__(self) -> str:
