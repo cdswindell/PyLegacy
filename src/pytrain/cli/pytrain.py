@@ -491,9 +491,8 @@ class PyTrain:
                     self.shutdown()
                 if self.is_api:
                     self._exit_status = PyTrainExitStatus.by_name(self._admin_action.name, raise_exception=False)
-                    self._exit_signalled.set()
-                else:
-                    os.kill(os.getpid(), signal.SIGINT)
+                    # self._exit_signalled.set()
+                os.kill(os.getpid(), signal.SIGINT)
 
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
