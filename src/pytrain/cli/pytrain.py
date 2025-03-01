@@ -126,6 +126,8 @@ class PyTrain:
         self._base_addr = self._base_port = None
         self._dispatcher = None
         self._started_at = timer()
+        self._exit_signalled = threading.Event()
+        self._exit_status = None
         self._version = get_version()
 
         #
@@ -309,7 +311,7 @@ class PyTrain:
             if self._headless is False:
                 # provide limited command line recall and editing
                 readline.set_auto_history(True)
-            while True:
+            while True and self._exit_signalled.is_set() is False:
                 try:
                     if processed_replay is False and self._replay_file:
                         processed_replay = True
@@ -350,6 +352,8 @@ class PyTrain:
         finally:
             if self._headless is False and self._api is False:
                 readline.write_history_file(DEFAULT_HISTORY_FILE)
+            if self._exit_signalled.is_set() is True:
+                self.shutdown()
             self.shutdown_service()
             if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
                 if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
@@ -369,6 +373,10 @@ class PyTrain:
                 self._command_queue.put(cmd)
             else:
                 self._handle_command(cmd)
+
+    @property
+    def exit_status(self) -> PyTrainExitStatus:
+        return self._exit_status
 
     @property
     def tid(self) -> int:
@@ -481,7 +489,11 @@ class PyTrain:
                 self._admin_action = cmd.command
                 if self._api_thread:
                     self.shutdown()
-                os.kill(os.getpid(), signal.SIGINT)
+                if self.is_api:
+                    self._exit_status = PyTrainExitStatus.by_name(self._admin_action.name, raise_exception=False)
+                    self._exit_signalled.set()
+                else:
+                    os.kill(os.getpid(), signal.SIGINT)
 
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
@@ -603,7 +615,8 @@ class PyTrain:
         log.info(f"{'Server' if self.is_server else 'Client'} {msg}...")
         # are we running in API mode? if so, send signal
         if self.is_api:
-            sys.exit(PyTrainExit.REBOOT.value if reboot is True else PyTrainExit.SHUTDOWN.value)
+            self._exit_status = PyTrainExitStatus.REBOOT if reboot is True else PyTrainExitStatus.SHUTDOWN
+            raise PyTrainExitException(PyTrainExitStatus.REBOOT if reboot is True else PyTrainExitStatus.SHUTDOWN)
         if reboot is True:
             opt = " -r"
         else:
@@ -615,7 +628,7 @@ class PyTrain:
             log.info(f"{'Server' if self.is_server else 'Client'} restarting...")
         except KeyboardInterrupt:
             pass
-        self.relaunch(PyTrainExit.RESTART)
+        self.relaunch(PyTrainExitStatus.RESTART)
 
     def update(self, do_inform: bool = True) -> None:
         if do_inform:
@@ -623,7 +636,8 @@ class PyTrain:
         # always update pip
         os.system(f"cd {os.getcwd()}; pip install -U pip")
         if self.is_api:
-            sys.exit(PyTrainExit.UPDATE.value)
+            self._exit_status = PyTrainExitStatus.UPDATE
+            raise PyTrainExitException(PyTrainExitStatus.UPDATE)
         if is_package():
             # upgrade from Pypi
             os.system(f"cd {os.getcwd()}; pip install -U {PROGRAM_PACKAGE}")
@@ -631,7 +645,7 @@ class PyTrain:
             # upgrade from github
             os.system(f"cd {os.getcwd()}; git pull")
             os.system(f"cd {os.getcwd()}; pip install -r requirements.txt")
-        self.relaunch(PyTrainExit.UPDATE)
+        self.relaunch(PyTrainExitStatus.UPDATE)
 
     def upgrade(self) -> None:
         log.info(f"{'Server' if self.is_server else 'Client'} upgrading...")
@@ -640,17 +654,19 @@ class PyTrain:
             sleep(1)
             os.system("sudo apt upgrade -y")
         if self.is_api:
-            sys.exit(PyTrainExit.UPDATE.value)
+            self._exit_status = PyTrainExitStatus.UPDATE
+            raise PyTrainExitException(PyTrainExitStatus.UPDATE)
         self.update(do_inform=False)
 
-    def relaunch(self, exit_status: PyTrainExit, delay: bool = True) -> None:
+    def relaunch(self, exit_status: PyTrainExitStatus, delay: bool = True) -> None:
         # if we're a client, we need to give the server time to respond, otherwise, we
         # will connect to it as it is shutting down
         if self.is_client is True and delay is True:
             sleep(10)
         # are we running in API mode? if so, send signal
         if self.is_api:
-            sys.exit(exit_status.value)
+            self._exit_status = exit_status
+            raise PyTrainExitException(exit_status)
         # are we a service or run from the commandline?
         if self.is_service is True:
             # restart service
@@ -1146,13 +1162,19 @@ class ButtonsFileLoader(threading.Thread):
             log.warning(f'Buttons file "{self._buttons_file}" not found, continuing...')
 
 
-class PyTrainExit(Mixins):
+class PyTrainExitStatus(Mixins):
     QUIT = 0
-    RESTART = 10
-    UPDATE = 11
-    REBOOT = 12
+    REBOOT = 11
+    RESTART = 12
     SHUTDOWN = 13
-    UPGRADE = 14
+    UPDATE = 14
+    UPGRADE = 15
+
+
+class PyTrainExitException(Exception):
+    def __init__(self, reason: PyTrainExitStatus) -> None:
+        super().__init__(f"PyTrain Exiting: {reason.name}")
+        self.reason = reason
 
 
 set_up_logging()
