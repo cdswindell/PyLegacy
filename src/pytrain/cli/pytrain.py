@@ -1148,11 +1148,11 @@ class ButtonsFileLoader(threading.Thread):
 
 class PyTrainExit(Mixins):
     QUIT = 0
-    RESTART = 1
-    UPDATE = 2
-    REBOOT = 3
-    SHUTDOWN = 4
-    UPGRADE = 5
+    RESTART = 10
+    UPDATE = 11
+    REBOOT = 12
+    SHUTDOWN = 13
+    UPGRADE = 14
 
 
 set_up_logging()
