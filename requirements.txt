@@ -3,9 +3,9 @@ colorzero>=2.0
 gpiozero>=2.0.1
 pyserial>=3.5
 range-key-dict>=1.1
-setuptools>=75.6.0
-setuptools_scm>=8.1
+setuptools>=75.8.2
+setuptools_scm>=8.2.0
 smbus2>=0.5.0
-zeroconf>=0.145.0
+zeroconf>=0.145.1
 lgpio>=0.2.2.0; sys_platform == 'linux'
 typing_extensions; python_version < '3.11'

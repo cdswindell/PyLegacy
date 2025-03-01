@@ -67,6 +67,7 @@ from ..protocol.constants import (
     DEFAULT_BAUDRATE,
     DEFAULT_PORT,
     DEFAULT_QUEUE_SIZE,
+    Mixins,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import StripPrefixesHelpFormatter, PyTrainArgumentParser
@@ -600,6 +601,9 @@ class PyTrain:
         else:
             msg = "shutting down"
         log.info(f"{'Server' if self.is_server else 'Client'} {msg}...")
+        # are we running in API mode? if so, send signal
+        if self.is_api:
+            sys.exit(PyTrainExit.REBOOT.value if reboot is True else PyTrainExit.SHUTDOWN.value)
         if reboot is True:
             opt = " -r"
         else:
@@ -611,13 +615,15 @@ class PyTrain:
             log.info(f"{'Server' if self.is_server else 'Client'} restarting...")
         except KeyboardInterrupt:
             pass
-        self.relaunch()
+        self.relaunch(PyTrainExit.RESTART)
 
     def update(self, do_inform: bool = True) -> None:
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
         # always update pip
         os.system(f"cd {os.getcwd()}; pip install -U pip")
+        if self.is_api:
+            sys.exit(PyTrainExit.UPDATE.value)
         if is_package():
             # upgrade from Pypi
             os.system(f"cd {os.getcwd()}; pip install -U {PROGRAM_PACKAGE}")
@@ -625,7 +631,7 @@ class PyTrain:
             # upgrade from github
             os.system(f"cd {os.getcwd()}; git pull")
             os.system(f"cd {os.getcwd()}; pip install -r requirements.txt")
-        self.relaunch()
+        self.relaunch(PyTrainExit.UPDATE)
 
     def upgrade(self) -> None:
         log.info(f"{'Server' if self.is_server else 'Client'} upgrading...")
@@ -633,13 +639,18 @@ class PyTrain:
             os.system("sudo apt update")
             sleep(1)
             os.system("sudo apt upgrade -y")
+        if self.is_api:
+            sys.exit(PyTrainExit.UPDATE.value)
         self.update(do_inform=False)
 
-    def relaunch(self, delay: bool = True) -> None:
+    def relaunch(self, exit_status: PyTrainExit, delay: bool = True) -> None:
         # if we're a client, we need to give the server time to respond, otherwise, we
         # will connect to it as it is shutting down
         if self.is_client is True and delay is True:
             sleep(10)
+        # are we running in API mode? if so, send signal
+        if self.is_api:
+            sys.exit(exit_status.value)
         # are we a service or run from the commandline?
         if self.is_service is True:
             # restart service
@@ -1133,6 +1144,15 @@ class ButtonsFileLoader(threading.Thread):
                     log.exception(e)
         else:
             log.warning(f'Buttons file "{self._buttons_file}" not found, continuing...')
+
+
+class PyTrainExit(Mixins):
+    QUIT = 0
+    RESTART = 1
+    UPDATE = 2
+    REBOOT = 3
+    SHUTDOWN = 4
+    UPGRADE = 5
 
 
 set_up_logging()
