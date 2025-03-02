@@ -11,7 +11,11 @@ import platform
 import sys
 from importlib.metadata import PackageNotFoundError
 
-from .cli.pytrain import PyTrain
+from .cli.pytrain import (
+    PyTrain,
+    PyTrainExitStatus,  # noqa: F401
+    PyTrainExitException,  # noqa: F401
+)
 from .gpio.gpio_handler import (
     GpioHandler,  # noqa: F401
     PotHandler,  # noqa: F401
