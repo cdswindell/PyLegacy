@@ -12,10 +12,10 @@ from argparse import ArgumentParser
 from typing import List
 
 from . import CliBase
-from .. import CommandScope, PROGRAM_NAME
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import PdiCommand, Asc2Action
 from ..protocol.command_base import CommandBase
+from ..protocol.constants import CommandScope
 from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
@@ -45,6 +45,8 @@ class Asc2Cli(CliBase):
 
     @classmethod
     def command_parser(cls) -> ArgumentParser:
+        from . import PROGRAM_NAME
+
         asc2_parser = PyTrainArgumentParser(add_help=False)
         asc2_parser.add_argument("asc2", metavar="Asc2 TMCC ID", type=int, help="Asc2 to fire")
 

@@ -12,10 +12,10 @@ from argparse import ArgumentParser
 from typing import List
 
 from . import CliBase
-from .. import CommandScope, PROGRAM_NAME
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import PdiCommand, Bpc2Action
 from ..protocol.command_base import CommandBase
+from ..protocol.constants import CommandScope, PROGRAM_NAME
 from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)

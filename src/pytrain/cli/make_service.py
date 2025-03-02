@@ -20,13 +20,14 @@ from pathlib import Path
 from typing import Dict
 
 from .pytrain import DEFAULT_BUTTONS_FILE
-from .pytrain import PROGRAM_NAME, is_package, get_version
 from .. import is_linux
 from ..utils.path_utils import find_dir, find_file
 
 
 class MakeService:
     def __init__(self, cmd_line: list[str] = None) -> None:
+        from .. import is_package
+
         self._user = getpass.getuser()
         self._home = Path.home()
         self._cwd = Path.cwd()
@@ -129,6 +130,8 @@ class MakeService:
         return path
 
     def install_service(self) -> str | None:
+        from .. import PROGRAM_NAME
+
         if is_linux() is False:
             print(f"\nPlease run {self._prog} from a Raspberry Pi. Exiting")
             return None
@@ -218,6 +221,8 @@ class MakeService:
         return cmd_line
 
     def confirm_environment(self) -> bool:
+        from .. import PROGRAM_NAME
+
         print(f"\nInstalling {PROGRAM_NAME} as a systemd service with these settings:")
         print(f"  Mode: {'Client' if self._args.mode == 'client' else 'Server'}")
         if self._args.mode == "server":
@@ -249,6 +254,8 @@ class MakeService:
             return False
 
     def command_line_parser(self) -> ArgumentParser:
+        from .. import PROGRAM_NAME, get_version
+
         parser = ArgumentParser(
             prog=self._prog,
             description=f"Launch {PROGRAM_NAME} as a systemd service when your Raspberry Pi is powered on",

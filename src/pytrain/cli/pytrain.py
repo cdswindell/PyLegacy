@@ -39,7 +39,6 @@ from .lighting import LightingCli
 from .route import RouteCli
 from .sounds import SoundEffectsCli
 from .switch import SwitchCli
-from .. import get_version, is_package, PROGRAM_PACKAGE, is_linux
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandListener, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -91,6 +90,8 @@ ACTION_TO_ADMIN_COMMAND_MAP: Dict[CommandDefEnum, str] = {v: k for k, v in ADMIN
 
 class PyTrain:
     def __init__(self, cmd_line: List[str] = None) -> None:
+        from .. import get_version
+
         if cmd_line:
             args = self.command_line_parser().parse_args(cmd_line)
         else:
@@ -393,6 +394,8 @@ class PyTrain:
 
     @classmethod
     def command_line_parser(cls) -> ArgumentParser:
+        from .. import is_package, get_version
+
         prog = "pytrain" if is_package() else "pytrain.py"
         parser = PyTrainArgumentParser(
             prog=prog,
@@ -626,6 +629,8 @@ class PyTrain:
         self.relaunch(PyTrainExitStatus.RESTART)
 
     def update(self, do_inform: bool = True) -> None:
+        from .. import is_package, PROGRAM_PACKAGE
+
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
         # always update pip
@@ -633,6 +638,7 @@ class PyTrain:
         if self.is_api:
             self._exit_status = PyTrainExitStatus.UPDATE
             raise PyTrainExitException(PyTrainExitStatus.UPDATE)
+
         if is_package():
             # upgrade from Pypi
             os.system(f"cd {os.getcwd()}; pip install -U {PROGRAM_PACKAGE}")
@@ -676,6 +682,8 @@ class PyTrain:
 
     @property
     def is_service(self) -> bool:
+        from .. import is_linux
+
         if is_linux() is False:
             return False
         service = f"pytrain_{'server' if self.is_server else 'client'}.service"

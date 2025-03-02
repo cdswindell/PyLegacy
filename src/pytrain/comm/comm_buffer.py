@@ -251,7 +251,7 @@ class CommBufferSingleton(CommBuffer, Thread):
                     self._tmcc_dispatcher = CommandDispatcher.get()
 
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
-        from src.pytrain.pdi.constants import PDI_SOP
+        from ..pdi.constants import PDI_SOP
 
         if command:
             log.debug(f"Enqueue command 0x{command.hex()}")

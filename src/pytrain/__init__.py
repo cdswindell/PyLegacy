@@ -11,6 +11,7 @@ import platform
 import sys
 from importlib.metadata import PackageNotFoundError
 
+from .cli.pytrain import PyTrain
 from .gpio.gpio_handler import (
     GpioHandler,  # noqa: F401
     PotHandler,  # noqa: F401
@@ -62,8 +63,6 @@ def main(args: list[str] | None = None) -> int:
     if args is None:
         args = sys.argv[1:]
     try:
-        from .cli.pytrain import PyTrain
-
         PyTrain(args)
         return 0
     except Exception as e:
