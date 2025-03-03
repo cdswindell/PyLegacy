@@ -560,9 +560,9 @@ class RouteState(TmccState):
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
         if self._components:
-            sw = {c.address: c.command.name.lower() for c in self._components}
+            sw = [{"switch": c.address, "position": c.command.name.lower()} for c in self._components]
         else:
-            sw = dict()
+            sw = list()
         d["switches"] = sw
         return d
 
