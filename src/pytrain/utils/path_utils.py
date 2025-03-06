@@ -9,6 +9,14 @@
 import os
 from typing import Tuple
 
+EXCLUDE = {
+    "__pycache__",
+    ".tox",
+    ".github",
+    ".idea",
+    ".git",
+}
+
 
 def find_dir(target: str, places: Tuple = (".", "../")) -> str | None:
     for d in places:
@@ -17,7 +25,7 @@ def find_dir(target: str, places: Tuple = (".", "../")) -> str | None:
                 if root.startswith("./.") or root.startswith("./venv/"):
                     continue
                 for cd in dirs:
-                    if cd.startswith(".") or cd in ["__pycache__", ".tox", ".github"]:
+                    if cd.startswith(".") or cd in EXCLUDE:
                         continue
                     if cd == target:
                         return f"{root}/{cd}"
@@ -30,8 +38,10 @@ def find_file(target: str, places: Tuple = (".", "../")) -> str | None:
             for root, dirs, files in os.walk(d):
                 if root.startswith("./.") or root.startswith("./venv/"):
                     continue
+                if set(root.split("/")) & EXCLUDE:
+                    continue
                 for file in files:
-                    if file.startswith(".") or file in ["__pycache__"]:
+                    if file.startswith(".") or file in EXCLUDE:
                         continue
                     if file == target:
                         return f"{root}/{file}"
