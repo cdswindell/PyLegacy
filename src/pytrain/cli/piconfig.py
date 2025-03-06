@@ -15,8 +15,8 @@ import textwrap
 from argparse import ArgumentParser
 from typing import List, Set, Tuple
 
-from .pytrain import PROGRAM_NAME, get_version
-from .. import is_package, is_linux
+from .pytrain import PROGRAM_NAME
+from .. import is_package, is_linux, get_version
 
 SETTINGS = {
     "net_names": 0,
@@ -63,6 +63,7 @@ PACKAGES = [
     "labwc",
     "mailcap",
     "mailutils",
+    "mesa-libgallium",
     "modemmanager",
     "packagekit",
     "pipewire",
