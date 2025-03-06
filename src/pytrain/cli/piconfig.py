@@ -63,6 +63,7 @@ PACKAGES = [
     "cups",
     "cups-browsed",
     "dbus-org.freedesktop.ModemManager1",
+    "firefox",
     "labwc",
     "mailcap",
     "mailutils",
