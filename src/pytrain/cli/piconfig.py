@@ -55,6 +55,9 @@ SERVICES = [
 
 PACKAGES = [
     "squeekboard",  # must be removed before labwc...
+    "libgl1",
+    "libegl1",
+    "mesa-libgallium",
     "bluez",
     "colord",
     "cups",
@@ -63,7 +66,6 @@ PACKAGES = [
     "labwc",
     "mailcap",
     "mailutils",
-    "mesa-libgallium",
     "modemmanager",
     "packagekit",
     "pipewire",
