@@ -178,6 +178,8 @@ class PyTrain:
             # clients and servers both have
             self._tmcc_buffer.base3_address = self._base_addr
             self._tmcc_listener = CommandListener.build(
+                baudrate=self._baudrate,
+                port=self._port,
                 ser2_receiver=self._ser2,
                 base3_receiver=self._base_addr is not None,
             )
