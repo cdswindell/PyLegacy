@@ -16,17 +16,18 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 log = logging.getLogger(__name__)
 
-REGISTER_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.REGISTER).as_bytes
 DISCONNECT_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.DISCONNECT).as_bytes
-SYNC_STATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_REQUEST).as_bytes
-SYNC_BEGIN_RESPONSE: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_BEGIN).as_bytes
-SYNC_COMPLETE_RESPONSE: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_COMPLETE).as_bytes
-UPDATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.UPDATE).as_bytes
-UPGRADE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.UPGRADE).as_bytes
+KEEP_ALIVE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.KEEP_ALIVE).as_bytes
+QUIT_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.QUIT).as_bytes
 REBOOT_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.REBOOT).as_bytes
+REGISTER_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.REGISTER).as_bytes
 RESTART_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.RESTART).as_bytes
 SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
-KEEP_ALIVE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.KEEP_ALIVE).as_bytes
+SYNC_BEGIN_RESPONSE: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_BEGIN).as_bytes
+SYNC_COMPLETE_RESPONSE: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_COMPLETE).as_bytes
+SYNC_STATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_REQUEST).as_bytes
+UPDATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.UPDATE).as_bytes
+UPGRADE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.UPGRADE).as_bytes
 
 
 class ProxyServer(socketserver.ThreadingTCPServer):
@@ -258,11 +259,12 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             elif byte_stream == KEEP_ALIVE_REQUEST:
                 enqueue_proxy.client_alive(client_ip, client_port, client_id)
             elif byte_stream in {
-                UPDATE_REQUEST,
-                UPGRADE_REQUEST,
+                QUIT_REQUEST,
                 REBOOT_REQUEST,
                 RESTART_REQUEST,
                 SHUTDOWN_REQUEST,
+                UPDATE_REQUEST,
+                UPGRADE_REQUEST,
             }:
                 # admin request, signal all clients
                 if client_scope:
