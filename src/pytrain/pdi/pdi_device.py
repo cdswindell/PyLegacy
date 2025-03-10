@@ -3,10 +3,11 @@ from __future__ import annotations
 import abc
 from abc import ABC
 from collections import defaultdict
-
 from enum import unique, Enum
 from typing import TypeVar, List
 
+from .asc2_req import Asc2Req
+from .bpc2_req import Bpc2Req
 from .constants import (
     FriendlyMixins,
     PdiCommand,
@@ -19,11 +20,9 @@ from .constants import (
     CommonAction,
     PdiAction,
 )
-from .asc2_req import Asc2Req
-from .bpc2_req import Bpc2Req
 from .irda_req import IrdaReq
-from .stm2_req import Stm2Req
 from .pdi_req import PdiReq
+from .stm2_req import Stm2Req
 from ..protocol.constants import Mixins, CommandScope
 
 T = TypeVar("T", bound=PdiReq)
@@ -181,37 +180,37 @@ class DeviceWrapper:
         else:
             return self.req_class(data, action=action)
 
-    def firmware(self, tmcc_id: int) -> T:
+    def firmware(self, tmcc_id: int) -> T | None:
         if self.get is not None:
             enum = self.enums.by_name("FIRMWARE")
             return self.req_class(tmcc_id, self.get, enum)
 
-    def status(self, tmcc_id: int) -> T:
+    def status(self, tmcc_id: int) -> T | None:
         if self.get is not None:
             enum = self.enums.by_name("STATUS")
             return self.req_class(tmcc_id, self.get, enum)
 
-    def info(self, tmcc_id: int) -> T:
+    def info(self, tmcc_id: int) -> T | None:
         if self.get is not None:
             enum = self.enums.by_name("INFO")
             return self.req_class(tmcc_id, self.get, enum)
 
-    def config(self, tmcc_id: int) -> T:
+    def config(self, tmcc_id: int) -> T | None:
         if self.get is not None:
             enum = self.enums.by_name("CONFIG")
             return self.req_class(tmcc_id, self.get, enum)
 
-    def clear_errors(self, tmcc_id: int) -> T:
+    def clear_errors(self, tmcc_id: int) -> T | None:
         if self.set is not None:
             enum = self.enums.by_name("CLEAR_ERRORS")
             return self.req_class(tmcc_id, self.set, enum)
 
-    def reset(self, tmcc_id: int) -> T:
+    def reset(self, tmcc_id: int) -> T | None:
         if self.set is not None:
             enum = self.enums.by_name("RESET")
             return self.req_class(tmcc_id, self.set, enum)
 
-    def identify(self, tmcc_id: int, ident: int = 1) -> T:
+    def identify(self, tmcc_id: int, ident: int = 1) -> T | None:
         if self.set is not None:
             enum = self.enums.by_name("IDENTIFY")
             return self.req_class(tmcc_id, self.set, enum, ident)

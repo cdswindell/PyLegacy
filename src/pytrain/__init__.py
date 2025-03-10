@@ -16,11 +16,13 @@ from .cli.pytrain import (
     PyTrainExitStatus,  # noqa: F401
     PyTrainExitException,  # noqa: F401
 )
+from .db.component_state import ComponentState  # noqa: F401
 from .gpio.gpio_handler import (
     GpioHandler,  # noqa: F401
     PotHandler,  # noqa: F401
     JoyStickHandler,  # noqa: F401
 )
+from .protocol.command_def import CommandDefEnum  # noqa: F401
 from .protocol.command_req import CommandReq  # noqa: F401
 from .protocol.constants import (
     PROGRAM_NAME,
@@ -58,6 +60,10 @@ from .protocol.tmcc2.tmcc2_constants import (
     TMCC2HaltCommandEnum,  # noqa: F401
     TMCC2RouteCommandEnum,  # noqa: F401
     TMCC2EngineCommandEnum,  # noqa: F401
+)
+from .utils.path_utils import (
+    find_dir,  # noqa: F401
+    find_file,  # noqa: F401
 )
 
 PROGRAM_PACKAGE = "pytrain-ogr"

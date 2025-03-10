@@ -37,6 +37,7 @@ class WiFiReq(LcsReq):
             for i in range(0, len(payload), 2):
                 the_clients.append(f"{prefix}{payload[i + 1]}")
             return the_clients
+        return []
 
     @property
     def payload(self) -> str | None:
