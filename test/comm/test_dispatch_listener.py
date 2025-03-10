@@ -71,6 +71,7 @@ class TestCommandDispatcher(TestBase):
     def test_command_dispatcher_singleton(self) -> None:
         assert CommandDispatcher.is_built() is False
         dispatcher = CommandDispatcher()
+        time.sleep(0.25)
         assert dispatcher.is_built
         assert dispatcher.is_running() is True
         assert isinstance(dispatcher, CommandDispatcher)

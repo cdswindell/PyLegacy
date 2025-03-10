@@ -832,6 +832,12 @@ class PyTrain:
                         # if server, signal clients to disconnect
                         if self.is_server:
                             self._dispatcher.signal_clients()
+                        elif self.is_client and len(ui_parts) > 1 and ui_parts[1] == "server":
+                            # signal server to quit
+                            print(f"Sending Quit request to {PROGRAM_NAME} server...")
+                            cmd = ADMIN_COMMAND_TO_ACTION_MAP.get("quit")
+                            self._tmcc_buffer.enqueue_command(cmd.as_bytes)
+                            return None
                         # if client quits, remaining nodes continue to run
                         raise KeyboardInterrupt()
                     elif parse_only is False and args.command in ADMIN_COMMAND_TO_ACTION_MAP:
