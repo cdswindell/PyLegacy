@@ -29,7 +29,7 @@ class HostInfo:
         # do pi-specific stuff
         result = subprocess.run("cat /proc/device-tree/model".split(), capture_output=True, text=True)
         if result.returncode == 0:
-            self._pi_model = result.stdout.strip()
+            self._pi_model = result.stdout.strip().rstrip("\x00")
         else:
             self._pi_model = None
 
