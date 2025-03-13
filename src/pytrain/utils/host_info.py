@@ -45,11 +45,13 @@ class HostInfo:
     def is_windows(self) -> bool:
         return self._system == "Windows"
 
+    @property
     def is_macosx(self) -> bool:
         return self._system == "Darwin"
 
+    @property
     def is_pi(self) -> bool:
-        return self._pi_model and self._pi_model.lower().startswith("raspberry pi")
+        return self.pi_model is not None and self.pi_model.lower().startswith("raspberry pi")
 
     @property
     def pi_model(self) -> str:
