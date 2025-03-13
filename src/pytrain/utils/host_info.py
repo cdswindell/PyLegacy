@@ -7,6 +7,7 @@
 #
 #
 import platform
+import subprocess
 
 from .singleton import singleton
 
@@ -25,8 +26,16 @@ class HostInfo:
         self._machine = platform.machine()
         self._node = platform.node()
 
+        # do pi-specific stuff
+        result = subprocess.run("cat /proc/device-tree/model".split(), capture_output=True, text=True)
+        if result.returncode == 0:
+            self._pi_model = result.stdout.strip()
+        else:
+            self._pi_model = None
+
     def __repr__(self) -> str:
-        return f"{self._system} {self._release} {self._machine} {self._node}"
+        pm = f"{self.pi_model} " if self.pi_model else ""
+        return f"{pm}{self._system} {self._release} {self._machine} {self._node}"
 
     @property
     def is_linux(self) -> bool:
@@ -40,4 +49,8 @@ class HostInfo:
         return self._system == "Darwin"
 
     def is_pi(self) -> bool:
-        return False
+        return self._pi_model and self._pi_model.lower().startswith("raspberry pi")
+
+    @property
+    def pi_model(self) -> str:
+        return self._pi_model
