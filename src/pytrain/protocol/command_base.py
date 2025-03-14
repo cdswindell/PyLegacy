@@ -103,7 +103,7 @@ class CommandBase(ABC):
         Validations.validate_int(repeat, min_value=1)
         Validations.validate_int(interval, min_value=MINIMUM_DURATION_INTERVAL_MSEC, allow_none=True)
         Validations.validate_float(delay, min_value=0)
-        Validations.validate_float(duration, min_value=0)
+        Validations.validate_float(duration, min_value=0, allow_none=True)
         self.command_req.send(
             repeat=repeat,
             delay=delay,

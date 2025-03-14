@@ -179,7 +179,7 @@ class CommandReq:
     ) -> None:
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
-        duration = Validations.validate_float(duration, min_value=0, label="duration")
+        duration = Validations.validate_float(duration, min_value=0, label="duration", allow_none=True)
         interval = Validations.validate_int(
             interval, min_value=MINIMUM_DURATION_INTERVAL_MSEC, label="interval", allow_none=True
         )
