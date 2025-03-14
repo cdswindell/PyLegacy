@@ -56,6 +56,9 @@ class Block:
             self._current_motive = ComponentStateStore.get_state(CommandScope.TRAIN, self.sensor_track.last_train_id)
         else:
             self._current_motive = ComponentStateStore.get_state(CommandScope.ENGINE, self.sensor_track.last_engine_id)
+        if self._current_motive:
+            self._original_speed = self._current_motive.speed
+        print(f"{self._current_motive}")
 
     @property
     def block_name(self) -> str:
@@ -87,7 +90,7 @@ class Block:
     def signal_slowdown(self) -> None:
         from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
-        if self.is_occupied is True and self._current_motive:
+        if self._current_motive:
             self._original_speed = self._current_motive.speed
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
@@ -98,7 +101,10 @@ class Block:
             self._current_motive = None
 
     def signal_stop_immediate(self) -> None:
-        if self._current_motive and self._original_speed:
+        print("signal_stop_immediate")
+        if self._current_motive:
+            if self._original_speed is None:
+                self._original_speed = self._current_motive.speed
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
             if self._current_motive.is_tmcc is True:
