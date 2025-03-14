@@ -16,7 +16,10 @@ from .cli.pytrain import (
     PyTrainExitStatus,  # noqa: F401
     PyTrainExitException,  # noqa: F401
 )
-from .db.component_state import ComponentState  # noqa: F401
+from .db.component_state import (
+    ComponentState,  # noqa: F401
+)
+from .db.component_state_store import ComponentStateStore  # noqa: F401
 from .gpio.gpio_handler import (
     GpioHandler,  # noqa: F401
     PotHandler,  # noqa: F401

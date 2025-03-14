@@ -1364,6 +1364,7 @@ class IrdaState(LcsState):
         self._loco_rl: int | None = 255
         self._loco_lr: int | None = 255
         self._last_train_id = self._last_engine_id = self._last_dir = None
+        self._block = None
 
     def __repr__(self) -> str:
         if self.sequence and self.sequence != IrdaSequence.NONE:
@@ -1380,6 +1381,14 @@ class IrdaState(LcsState):
         else:
             ld = ""
         return f"Sensor Track {self.address}: Sequence: {self.sequence_str}{rl}{lr}{le}{lt}{ld}"
+
+    @property
+    def block(self):
+        return self._block
+
+    @block.setter
+    def block(self, block):
+        self._block = block
 
     def update(self, command: P) -> None:
         from .component_state_store import ComponentStateStore
@@ -1440,6 +1449,12 @@ class IrdaState(LcsState):
                             finally:
                                 command.scope = orig_scope
                                 command.tmcc_id = orig_tmcc_id
+                    # I'd lie to use type hits here to make this less mysterious,
+                    # but I can't figure out how to clear a circular dependency
+                    # Make callback to block to inform it of new entering engine/train
+                    if self._block:
+                        self.block()
+
                 self.changed.set()
                 self._cv.notify_all()
 
@@ -1466,6 +1481,14 @@ class IrdaState(LcsState):
     @property
     def last_train_id(self) -> int:
         return self._last_train_id
+
+    @property
+    def is_engine(self) -> bool:
+        return self.is_train is False and self._last_engine_id and self._last_engine_id > 0
+
+    @property
+    def is_train(self) -> bool:
+        return self._last_train_id and self._last_train_id > 0
 
     def as_bytes(self) -> bytes:
         if self.is_known:
@@ -1654,7 +1677,37 @@ SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
 }
 
 
-class SystemStateDict(defaultdict):
+class ThreadSafeDefaultDict(defaultdict):
+    def __init__(self) -> None:
+        super().__init__(None)
+        self._lock = threading.RLock()
+
+    def __getitem__(self, key):
+        with self._lock:
+            return super().__getitem__(key)
+
+    def __setitem__(self, key, value: Any) -> None:
+        with self._lock:
+            super().__setitem__(key, value)
+
+    def __delitem__(self, key) -> None:
+        with self._lock:
+            super().__delitem__(key)
+
+    def __len__(self) -> int:
+        with self._lock:
+            return super().__len__()
+
+    def __contains__(self, key):
+        with self._lock:
+            return super().__contains__(key)
+
+    def get(self, key, default=None) -> Any:
+        with self._lock:
+            return super().get(key, default)
+
+
+class SystemStateDict(ThreadSafeDefaultDict):
     """
     Maintains a dictionary of CommandScope to ComponentStateDict
     """
@@ -1668,17 +1721,17 @@ class SystemStateDict(defaultdict):
         else:
             raise KeyError(f"Invalid scope key: {key}")
         # create the component state dict for this key
-        self[key] = ComponentStateDict(scope)
-        return self[key]
+        with self._lock:
+            self[key] = ComponentStateDict(scope)
+            return self[key]
 
 
-class ComponentStateDict(defaultdict):
+class ComponentStateDict(ThreadSafeDefaultDict):
     def __init__(self, scope: CommandScope):
-        super().__init__(None)  # base class doesn't get a factory
+        super().__init__()  # base class doesn't get a factory
         if scope not in SCOPE_TO_STATE_MAP:
             raise ValueError(f"Invalid scope: {scope}")
         self._scope = scope
-        self._lock = threading.Lock()
 
     @property
     def scope(self) -> CommandScope:
