@@ -12,6 +12,7 @@ from gpiozero import Button
 
 from ..db.component_state import IrdaState, EngineState, TrainState
 from ..db.component_state_store import ComponentStateStore
+from ..gpio.gpio_handler import DEFAULT_BOUNCE_TIME
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
@@ -36,9 +37,9 @@ class Block:
         else:
             # noinspection PyTypeChecker
             self._sensor_track = None
-        self._occupancy_btn = Button(occupancy_pin)
-        self._slow_btn = Button(slow_pin)
-        self._stop_btn = Button(stop_pin)
+        self._occupancy_btn = Button(occupancy_pin, bounce_time=DEFAULT_BOUNCE_TIME)
+        self._slow_btn = Button(slow_pin, bounce_time=DEFAULT_BOUNCE_TIME)
+        self._stop_btn = Button(stop_pin, bounce_time=DEFAULT_BOUNCE_TIME)
         self._prev_block: Block | None = None
         self._next_block: Block | None = None
         self._current_motive: EngineState | TrainState | None = None
@@ -75,6 +76,26 @@ class Block:
     @property
     def is_occupied(self) -> bool:
         return self._occupancy_btn.is_active or self._slow_btn.is_active or self._stop_btn.is_active
+
+    @property
+    def prev_block(self) -> Block | None:
+        return self._prev_block
+
+    @prev_block.setter
+    def prev_block(self, block: Block) -> None:
+        self._prev_block = block
+        if block and block.next_block != self:
+            block.next_block = self
+
+    @property
+    def next_block(self) -> Block | None:
+        return self._next_block
+
+    @next_block.setter
+    def next_block(self, block: Block) -> None:
+        self._next_block = block
+        if block and block.prev_block != self:
+            block.prev_block = self
 
     def next_block_clear(self, signaling_block: Block) -> None:
         from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
