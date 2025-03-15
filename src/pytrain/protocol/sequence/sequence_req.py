@@ -237,7 +237,9 @@ class SequenceReq(CommandReq, Sequence):
         group.add_argument("-hi", "-high", "-highball", action="store_const", const=cde.SPEED_HIGHBALL, dest="command")
         return command_parser
 
-    def decode_rr_speed(self, speed, is_tmcc) -> Tuple[CommandDefEnum, CommandDefEnum, int, CommandDefEnum]:
+    def decode_rr_speed(
+        self, speed: OfficialRRSpeeds | int | str, is_tmcc: bool
+    ) -> Tuple[CommandDefEnum, CommandDefEnum, int, CommandDefEnum]:
         base = None
         speed_enum = None
         speed_int = None

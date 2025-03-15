@@ -17,8 +17,8 @@ from ..db.component_state_store import ComponentStateStore
 from ..gpio.gpio_handler import GpioHandler, P
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1_RESTRICTED_SPEED
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_RESTRICTED_SPEED
 
 
 class Block(Thread):
@@ -180,12 +180,14 @@ class Block(Thread):
             from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
             if self._current_motive:
+                restricted_speed = TMCC2_RESTRICTED_SPEED if self._current_motive.is_legacy else TMCC1_RESTRICTED_SPEED
                 self._original_speed = self._current_motive.speed
-                scope = self._current_motive.scope
-                tmcc_id = self._current_motive.tmcc_id
-                is_tmcc = self._current_motive.is_tmcc
-                req = RampedSpeedReq(tmcc_id, "restricted", scope, is_tmcc)
-                req.send()
+                if self._original_speed > restricted_speed:
+                    scope = self._current_motive.scope
+                    tmcc_id = self._current_motive.tmcc_id
+                    is_tmcc = self._current_motive.is_tmcc
+                    req = RampedSpeedReq(tmcc_id, "restricted", scope, is_tmcc)
+                    req.send()
 
     def signal_stop_immediate(self) -> None:
         print(f"Block {self.block_id} signal_stop_immediate")
