@@ -27,7 +27,7 @@ class Block(Thread):
         block_id: int,
         block_name: str = None,
         sensor_track_id: int = None,
-        occupancy_pin: int | str = None,
+        occupied_pin: int | str = None,
         slow_pin: int | str = None,
         stop_pin: int | str = None,
     ) -> None:
@@ -35,11 +35,10 @@ class Block(Thread):
         self._block_name = block_name
         if sensor_track_id:
             self._sensor_track: IrdaState = ComponentStateStore.get_state(CommandScope.IRDA, sensor_track_id)
-            # self.sensor_track.block = self
         else:
             # noinspection PyTypeChecker
             self._sensor_track = None
-        self._occupancy_btn = Button(occupancy_pin, bounce_time=DEFAULT_BOUNCE_TIME) if occupancy_pin else None
+        self._occupied_btn = Button(occupied_pin, bounce_time=DEFAULT_BOUNCE_TIME) if occupied_pin else None
         self._slow_btn = Button(slow_pin, bounce_time=DEFAULT_BOUNCE_TIME) if slow_pin else None
         self._stop_btn = Button(stop_pin, bounce_time=DEFAULT_BOUNCE_TIME) if stop_pin else None
         self._prev_block: Block | None = None
@@ -48,7 +47,7 @@ class Block(Thread):
         self._original_speed: int | None = None
 
         # add handlers for state change
-        if self._occupancy_btn:
+        if self._slow_btn:
             self._slow_btn.when_activated = self.signal_slowdown
         if self._stop_btn:
             self._stop_btn.when_activated = self.signal_stop_immediate
@@ -60,6 +59,10 @@ class Block(Thread):
         super().__init__(daemon=True, name=f"Block {self.block_id} Occupied: {self.is_occupied}")
         if self.sensor_track:
             self.start()
+
+    def __repr__(self) -> str:
+        nm = f" {self.block_name}" if self.block_name else ""
+        return f"Block{nm} #{self.block_id} Occupied: {self.is_occupied}"
 
     def run(self) -> None:
         while self.sensor_track and True:
@@ -99,8 +102,8 @@ class Block(Thread):
     @property
     def is_occupied(self) -> bool:
         return (
-            (self._occupancy_btn and self._occupancy_btn.is_active)
-            or (self._slow_btn.is_active and self._slow_btn.is_active)
+            (self._occupied_btn and self._occupied_btn.is_active)
+            or (self._slow_btn and self._slow_btn.is_active)
             or (self._stop_btn and self._stop_btn.is_active)
         )
 
