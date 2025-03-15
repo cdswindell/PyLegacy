@@ -30,6 +30,7 @@ class Block(Thread):
         occupied_pin: int | str = None,
         slow_pin: int | str = None,
         stop_pin: int | str = None,
+        left_to_right: bool = True,
     ) -> None:
         self._block_id = block_id
         self._block_name = block_name
@@ -45,6 +46,7 @@ class Block(Thread):
         self._next_block: Block | None = None
         self._current_motive: EngineState | TrainState | None = None
         self._original_speed: int | None = None
+        self._left_to_right = left_to_right if left_to_right is not None else True
 
         # add handlers for state change
         if self._slow_btn:
@@ -75,16 +77,29 @@ class Block(Thread):
         self._cache_motive()
 
     def _cache_motive(self) -> None:
-        print(f"{self.sensor_track} Engine? {self.sensor_track.is_engine} ID: {self.sensor_track.last_engine_id}")
-        # called from ComponentState when engine/train passes sensor
-        if self.sensor_track.is_train is True and self.sensor_track.last_train_id:
-            self._current_motive = ComponentStateStore.get_state(CommandScope.TRAIN, self.sensor_track.last_train_id)
-        elif self.sensor_track.is_engine is True and self.sensor_track.last_engine_id:
-            self._current_motive = ComponentStateStore.get_state(CommandScope.ENGINE, self.sensor_track.last_engine_id)
+        scope = "Train" if self.sensor_track.is_train else "Engine"
+        last_id = self.sensor_track.last_engine_id
+        ld = "L -> R" if self.is_left_to_right else "R -> L"
+        print(f"{self.sensor_track} {scope} {last_id} {ld}")
+
+        dir_int = 1 if self.is_left_to_right else 0
+        if dir_int == self.sensor_track.last_direction:
+            if self.sensor_track.is_train is True and self.sensor_track.last_train_id:
+                self._current_motive = ComponentStateStore.get_state(
+                    CommandScope.TRAIN, self.sensor_track.last_train_id
+                )
+            elif self.sensor_track.is_engine is True and self.sensor_track.last_engine_id:
+                self._current_motive = ComponentStateStore.get_state(
+                    CommandScope.ENGINE, self.sensor_track.last_engine_id
+                )
+            else:
+                self._current_motive = None
         else:
             self._current_motive = None
         if self._current_motive:
             self._original_speed = self._current_motive.speed
+        else:
+            self._original_speed = None
         print(f"{self._current_motive}")
 
     @property
@@ -126,6 +141,14 @@ class Block(Thread):
         self._next_block = block
         if block and block.prev_block != self:
             block.prev_block = self
+
+    @property
+    def is_left_to_right(self) -> bool:
+        return self._left_to_right
+
+    @property
+    def is_right_to_left(self) -> bool:
+        return not self._left_to_right
 
     def next_block_clear(self, signaling_block: Block) -> None:
         from ..protocol.sequence.ramped_speed_req import RampedSpeedReq

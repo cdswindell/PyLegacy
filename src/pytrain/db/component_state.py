@@ -1460,6 +1460,14 @@ class IrdaState(LcsState):
         return self._last_dir
 
     @property
+    def is_left_to_right(self) -> bool:
+        return self.last_direction == 1
+
+    @property
+    def is_right_to_left(self) -> bool:
+        return self.last_direction == 0
+
+    @property
     def last_engine_id(self) -> int:
         return self._last_engine_id
 
