@@ -26,6 +26,7 @@ class Block(Thread):
     def button(cls, pin: P) -> Button:
         return GpioHandler.make_button(pin)
 
+    # noinspection PyTypeChecker
     def __init__(
         self,
         block_id: int,
@@ -35,20 +36,14 @@ class Block(Thread):
         slow_pin: P = None,
         stop_pin: P = None,
         left_to_right: bool = True,
-        switch_id: int = None,
     ) -> None:
         self._block_id = block_id
         self._block_name = block_name
         if sensor_track_id:
             self._sensor_track: IrdaState = ComponentStateStore.get_state(CommandScope.IRDA, sensor_track_id)
         else:
-            # noinspection PyTypeChecker
             self._sensor_track = None
-        if switch_id:
-            self._switch: SwitchState = ComponentStateStore.get_state(CommandScope.SWITCH, switch_id)
-        else:
-            # noinspection PyTypeChecker
-            self._switch = None
+
         self._occupied_btn = self.button(occupied_pin) if occupied_pin else None
         self._slow_btn = self.button(slow_pin) if slow_pin else None
         self._stop_btn = self.button(stop_pin) if stop_pin else None
@@ -57,59 +52,36 @@ class Block(Thread):
         self._next_block: Block | None = None
         self._current_motive: EngineState | TrainState | None = None
         self._original_speed: int | None = None
+        self._switch: SwitchState = None
+        self._thru_block: Block = None
+        self._out_block: Block = None
         self._left_to_right = left_to_right if left_to_right is not None else True
 
         # add handlers for state change
         if self._slow_btn:
             self._slow_btn.when_activated = self.signal_slowdown
         if self._stop_btn:
-            self._stop_btn.when_activated = self.signal_stop_immediate
+            self._stop_btn.when_activated = self.signal_stop
             self._stop_btn.when_deactivated = self.signal_block_clear
 
         # start thread if sensor track specified, we also delay calling super until
         # buttons have been created
         super().__init__(daemon=True, name=f"Block {self.block_id} Occupied: {self.is_occupied}")
         if self.sensor_track:
-            self.start()
+            self._watch_sensor_track = Thread(target=self.watch_sensor_track, daemon=True)
+            self._watch_sensor_track.run()
+        print("*****")
 
     def __repr__(self) -> str:
         nm = f" {self.block_name}" if self.block_name else ""
         return f"Block{nm} #{self.block_id} Occupied: {self.is_occupied}"
 
-    def run(self) -> None:
+    def watch_sensor_track(self) -> None:
         while self.sensor_track and True:
             self.sensor_track.changed.wait()
             self.sensor_track.changed.clear()
             with self.sensor_track.synchronizer:
                 self._cache_motive()
-
-    def __call__(self, *args, **kwargs) -> None:
-        self._cache_motive()
-
-    def _cache_motive(self) -> None:
-        scope = "Train" if self.sensor_track.is_train else "Engine"
-        last_id = self.sensor_track.last_engine_id
-        ld = "L -> R" if self.is_left_to_right else "R -> L"
-        print(f"{self.sensor_track.tmcc_id} {scope} {last_id} {ld} {self.sensor_track.last_direction}")
-
-        dir_int = 1 if self.is_left_to_right else 0
-        if dir_int == self.sensor_track.last_direction:
-            if self.sensor_track.is_train is True and self.sensor_track.last_train_id:
-                self._current_motive = ComponentStateStore.get_state(
-                    CommandScope.TRAIN, self.sensor_track.last_train_id
-                )
-            elif self.sensor_track.is_engine is True and self.sensor_track.last_engine_id:
-                self._current_motive = ComponentStateStore.get_state(
-                    CommandScope.ENGINE, self.sensor_track.last_engine_id
-                )
-            else:
-                self._current_motive = None
-        else:
-            self._current_motive = None
-        if self._current_motive:
-            self._original_speed = self._current_motive.speed
-        else:
-            self._original_speed = None
 
     @property
     def block_name(self) -> str:
@@ -122,6 +94,10 @@ class Block(Thread):
     @property
     def sensor_track(self) -> IrdaState:
         return self._sensor_track
+
+    @property
+    def switch(self) -> SwitchState:
+        return self._switch
 
     @property
     def is_occupied(self) -> bool:
@@ -159,6 +135,27 @@ class Block(Thread):
     def is_right_to_left(self) -> bool:
         return not self._left_to_right
 
+    def next_switch(self, switch_tmcc_id, thru_block: Block, out_block: Block) -> None:
+        if switch_tmcc_id:
+            self._switch: SwitchState = ComponentStateStore.get_state(CommandScope.SWITCH, switch_tmcc_id)
+
+    def signal_slowdown(self) -> None:
+        print(f"Block {self.block_id} signal_slow_down")
+        self.slow_down()
+
+    def signal_stop(self) -> None:
+        print(f"Block {self.block_id} signal_stop")
+        # if next block is occupied, stop train in this block immediately
+        if self.next_block and self.next_block.is_occupied:
+            self.stop_immediate()
+
+    def signal_block_clear(self) -> None:
+        print(f"Block {self.block_id} signal_block_clear")
+        self._original_speed = None
+        self._current_motive = None
+        if self._prev_block and self.is_occupied is False:
+            self._prev_block.next_block_clear(self)
+
     def next_block_clear(self, signaling_block: Block) -> None:
         from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
@@ -170,10 +167,6 @@ class Block(Thread):
             is_tmcc = self._current_motive.is_tmcc
             req = RampedSpeedReq(tmcc_id, self._original_speed, scope, is_tmcc)
             req.send()
-
-    def signal_slowdown(self) -> None:
-        print(f"Block {self.block_id} signal_slow_down")
-        self.slow_down()
 
     def slow_down(self):
         if self.next_block and self.next_block.is_occupied:
@@ -189,12 +182,6 @@ class Block(Thread):
                     req = RampedSpeedReq(tmcc_id, "restricted", scope, is_tmcc)
                     req.send()
 
-    def signal_stop_immediate(self) -> None:
-        print(f"Block {self.block_id} signal_stop_immediate")
-        # if next block is occupied, stop train in this block immediately
-        if self.next_block and self.next_block.is_occupied:
-            self.stop_immediate()
-
     def stop_immediate(self):
         if self._current_motive:
             if self._original_speed is None:
@@ -207,9 +194,27 @@ class Block(Thread):
                 req = CommandReq(TMCC2EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
             req.send()
 
-    def signal_block_clear(self) -> None:
-        print(f"Block {self.block_id} signal_block_clear")
-        self._original_speed = None
-        self._current_motive = None
-        if self._prev_block and self.is_occupied is False:
-            self._prev_block.next_block_clear(self)
+    def _cache_motive(self) -> None:
+        scope = "Train" if self.sensor_track.is_train else "Engine"
+        last_id = self.sensor_track.last_engine_id
+        ld = "L -> R" if self.is_left_to_right else "R -> L"
+        print(f"{self.sensor_track.tmcc_id} {scope} {last_id} {ld} {self.sensor_track.last_direction}")
+
+        dir_int = 1 if self.is_left_to_right else 0
+        if dir_int == self.sensor_track.last_direction:
+            if self.sensor_track.is_train is True and self.sensor_track.last_train_id:
+                self._current_motive = ComponentStateStore.get_state(
+                    CommandScope.TRAIN, self.sensor_track.last_train_id
+                )
+            elif self.sensor_track.is_engine is True and self.sensor_track.last_engine_id:
+                self._current_motive = ComponentStateStore.get_state(
+                    CommandScope.ENGINE, self.sensor_track.last_engine_id
+                )
+            else:
+                self._current_motive = None
+        else:
+            self._current_motive = None
+        if self._current_motive:
+            self._original_speed = self._current_motive.speed
+        else:
+            self._original_speed = None
