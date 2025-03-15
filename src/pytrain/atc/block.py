@@ -75,11 +75,11 @@ class Block(Thread):
         self._cache_motive()
 
     def _cache_motive(self) -> None:
-        print(f"{self.sensor_track}")
+        print(f"{self.sensor_track} Engine? {self.sensor_track.is_engine} ID: {self.sensor_track.last_engine_id}")
         # called from ComponentState when engine/train passes sensor
-        if self.sensor_track.is_train and self.sensor_track.last_train_id:
+        if self.sensor_track.is_train is True and self.sensor_track.last_train_id:
             self._current_motive = ComponentStateStore.get_state(CommandScope.TRAIN, self.sensor_track.last_train_id)
-        elif self.sensor_track.is_engine and self.sensor_track.last_engine_id:
+        elif self.sensor_track.is_engine is True and self.sensor_track.last_engine_id:
             self._current_motive = ComponentStateStore.get_state(CommandScope.ENGINE, self.sensor_track.last_engine_id)
         else:
             self._current_motive = None
