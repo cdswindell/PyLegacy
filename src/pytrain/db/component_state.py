@@ -1364,7 +1364,6 @@ class IrdaState(LcsState):
         self._loco_rl: int | None = 255
         self._loco_lr: int | None = 255
         self._last_train_id = self._last_engine_id = self._last_dir = None
-        self._block = None
 
     def __repr__(self) -> str:
         if self.sequence and self.sequence != IrdaSequence.NONE:
@@ -1381,14 +1380,6 @@ class IrdaState(LcsState):
         else:
             ld = ""
         return f"Sensor Track {self.address}: Sequence: {self.sequence_str}{rl}{lr}{le}{lt}{ld}"
-
-    @property
-    def block(self):
-        return self._block
-
-    @block.setter
-    def block(self, block):
-        self._block = block
 
     def update(self, command: P) -> None:
         from .component_state_store import ComponentStateStore
@@ -1449,14 +1440,8 @@ class IrdaState(LcsState):
                             finally:
                                 command.scope = orig_scope
                                 command.tmcc_id = orig_tmcc_id
-                    # I'd lie to use type hits here to make this less mysterious,
-                    # but I can't figure out how to clear a circular dependency
-                    # Make callback to block to inform it of new entering engine/train
-                    if self._block:
-                        self.block()
-
-                self.changed.set()
-                self._cv.notify_all()
+                    self.changed.set()
+                    self._cv.notify_all()
 
     @property
     def is_known(self) -> bool:

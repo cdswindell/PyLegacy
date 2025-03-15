@@ -64,6 +64,7 @@ class Block(Thread):
     def run(self) -> None:
         while self.sensor_track and True:
             self.sensor_track.changed.wait()
+            self.sensor_track.changed.clear()
             with self.sensor_track.synchronizer:
                 self._cache_motive()
 
