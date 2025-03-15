@@ -14,7 +14,7 @@ from gpiozero import Button
 
 from ..db.component_state import IrdaState, EngineState, TrainState, SwitchState
 from ..db.component_state_store import ComponentStateStore
-from ..gpio.gpio_handler import DEFAULT_BOUNCE_TIME
+from ..gpio.gpio_handler import GpioHandler, P
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
@@ -22,14 +22,19 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
 class Block(Thread):
+    @classmethod
+    def button(cls, pin: P) -> Button:
+        _, btn, _ = GpioHandler.make_button(pin)
+        return btn
+
     def __init__(
         self,
         block_id: int,
         block_name: str = None,
         sensor_track_id: int = None,
-        occupied_pin: int | str = None,
-        slow_pin: int | str = None,
-        stop_pin: int | str = None,
+        occupied_pin: P = None,
+        slow_pin: P = None,
+        stop_pin: P = None,
         left_to_right: bool = True,
         switch_id: int = None,
     ) -> None:
@@ -45,9 +50,10 @@ class Block(Thread):
         else:
             # noinspection PyTypeChecker
             self._switch = None
-        self._occupied_btn = Button(occupied_pin, bounce_time=DEFAULT_BOUNCE_TIME) if occupied_pin else None
-        self._slow_btn = Button(slow_pin, bounce_time=DEFAULT_BOUNCE_TIME) if slow_pin else None
-        self._stop_btn = Button(stop_pin, bounce_time=DEFAULT_BOUNCE_TIME) if stop_pin else None
+        self._occupied_btn = self.button(occupied_pin) if occupied_pin else None
+        self._slow_btn = self.button(slow_pin) if slow_pin else None
+        self._stop_btn = self.button(stop_pin) if stop_pin else None
+
         self._prev_block: Block | None = None
         self._next_block: Block | None = None
         self._current_motive: EngineState | TrainState | None = None
