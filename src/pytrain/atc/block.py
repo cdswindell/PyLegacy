@@ -163,6 +163,7 @@ class Block(Thread):
         from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
         # resume original speed
+        print(f"Block {self.block_id} NBC speed: {self._original_speed} {signaling_block.is_occupied}")
         if self._current_motive and self._original_speed and signaling_block.is_occupied is False:
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
