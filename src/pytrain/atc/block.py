@@ -39,21 +39,25 @@ class Block(Thread):
         else:
             # noinspection PyTypeChecker
             self._sensor_track = None
-        super().__init__(daemon=True, name=f"Block {self.block_id} Occupied: {self.is_occupied}")
-        self._occupancy_btn = Button(occupancy_pin, bounce_time=DEFAULT_BOUNCE_TIME)
-        self._slow_btn = Button(slow_pin, bounce_time=DEFAULT_BOUNCE_TIME)
-        self._stop_btn = Button(stop_pin, bounce_time=DEFAULT_BOUNCE_TIME)
+        self._occupancy_btn = Button(occupancy_pin, bounce_time=DEFAULT_BOUNCE_TIME) if occupancy_pin else None
+        self._slow_btn = Button(slow_pin, bounce_time=DEFAULT_BOUNCE_TIME) if slow_pin else None
+        self._stop_btn = Button(stop_pin, bounce_time=DEFAULT_BOUNCE_TIME) if stop_pin else None
         self._prev_block: Block | None = None
         self._next_block: Block | None = None
         self._current_motive: EngineState | TrainState | None = None
         self._original_speed: int | None = None
 
         # add handlers for state change
-        self._slow_btn.when_activated = self.signal_slowdown
-        self._stop_btn.when_activated = self.signal_stop_immediate
-        self._stop_btn.when_deactivated = self.block_clear
+        if self._occupancy_btn:
+            self._slow_btn.when_activated = self.signal_slowdown
+        if self._stop_btn:
+            self._stop_btn.when_activated = self.signal_stop_immediate
+        if self._slow_btn:
+            self._stop_btn.when_deactivated = self.block_clear
 
-        # start thread if sensor track specified
+        # start thread if sensor track specified, we also delay calling super until
+        # buttons have been created
+        super().__init__(daemon=True, name=f"Block {self.block_id} Occupied: {self.is_occupied}")
         if self.sensor_track:
             self.start()
 
@@ -91,7 +95,11 @@ class Block(Thread):
 
     @property
     def is_occupied(self) -> bool:
-        return self._occupancy_btn.is_active or self._slow_btn.is_active or self._stop_btn.is_active
+        return (
+            (self._occupancy_btn and self._occupancy_btn.is_active)
+            or (self._slow_btn.is_active and self._slow_btn.is_active)
+            or (self._stop_btn and self._stop_btn.is_active)
+        )
 
     @property
     def prev_block(self) -> Block | None:
