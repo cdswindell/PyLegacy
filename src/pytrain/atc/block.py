@@ -100,7 +100,6 @@ class Block(Thread):
             self._original_speed = self._current_motive.speed
         else:
             self._original_speed = None
-        print(f"{self._current_motive}")
 
     @property
     def block_name(self) -> str:
@@ -164,7 +163,7 @@ class Block(Thread):
     def signal_slowdown(self) -> None:
         from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
-        print("signal_slow_down")
+        print(f"Block {self.block_id} signal_slow_down")
         if self.next_block and self.next_block.is_occupied:
             if self._current_motive:
                 self._original_speed = self._current_motive.speed
@@ -175,7 +174,7 @@ class Block(Thread):
                 req.send()
 
     def signal_stop_immediate(self) -> None:
-        print("signal_stop_immediate")
+        print(f"Block {self.block_id} signal_stop_immediate")
         if self.next_block and self.next_block.is_occupied:
             if self._current_motive:
                 if self._original_speed is None:
@@ -189,6 +188,7 @@ class Block(Thread):
                 req.send()
 
     def block_clear(self) -> None:
+        print(f"Block {self.block_id} signal_block_clear")
         self._original_speed = None
         self._current_motive = None
         if self._prev_block and self.is_occupied is False:
