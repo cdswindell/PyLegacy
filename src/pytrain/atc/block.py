@@ -8,6 +8,8 @@
 #
 from __future__ import annotations
 
+from threading import Thread
+
 from gpiozero import Button
 
 from ..db.component_state import IrdaState, EngineState, TrainState
@@ -19,24 +21,25 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
-class Block:
+class Block(Thread):
     def __init__(
         self,
-        block_name: str,
         block_id: int,
-        sensor_track_id: int,
-        occupancy_pin: int | str,
-        slow_pin: int | str,
-        stop_pin: int | str,
+        block_name: str = None,
+        sensor_track_id: int = None,
+        occupancy_pin: int | str = None,
+        slow_pin: int | str = None,
+        stop_pin: int | str = None,
     ) -> None:
-        self._block_name = block_name
         self._block_id = block_id
+        self._block_name = block_name
         if sensor_track_id:
             self._sensor_track: IrdaState = ComponentStateStore.get_state(CommandScope.IRDA, sensor_track_id)
-            self.sensor_track.block = self
+            # self.sensor_track.block = self
         else:
             # noinspection PyTypeChecker
             self._sensor_track = None
+        super().__init__(daemon=True, name=f"Block {self.block_id} Occupied: {self.is_occupied}")
         self._occupancy_btn = Button(occupancy_pin, bounce_time=DEFAULT_BOUNCE_TIME)
         self._slow_btn = Button(slow_pin, bounce_time=DEFAULT_BOUNCE_TIME)
         self._stop_btn = Button(stop_pin, bounce_time=DEFAULT_BOUNCE_TIME)
@@ -50,7 +53,20 @@ class Block:
         self._stop_btn.when_activated = self.signal_stop_immediate
         self._stop_btn.when_deactivated = self.block_clear
 
+        # start thread if sensor track specified
+        if self.sensor_track:
+            self.start()
+
+    def run(self) -> None:
+        while self.sensor_track and True:
+            self.sensor_track.changed.wait()
+            with self.sensor_track.synchronizer:
+                self._cache_motive()
+
     def __call__(self, *args, **kwargs) -> None:
+        self._cache_motive()
+
+    def _cache_motive(self) -> None:
         print(f"{self.sensor_track}")
         # called from ComponentState when engine/train passes sensor
         if self.sensor_track.is_train:
@@ -111,28 +127,29 @@ class Block:
     def signal_slowdown(self) -> None:
         from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
-        if self._current_motive:
-            self._original_speed = self._current_motive.speed
-            scope = self._current_motive.scope
-            tmcc_id = self._current_motive.tmcc_id
-            is_tmcc = self._current_motive.is_tmcc
-            req = RampedSpeedReq(tmcc_id, "restricted", scope, is_tmcc)
-            req.send()
-        else:
-            self._current_motive = None
+        print("signal_slow_down")
+        if self.next_block and self.next_block.is_occupied:
+            if self._current_motive:
+                self._original_speed = self._current_motive.speed
+                scope = self._current_motive.scope
+                tmcc_id = self._current_motive.tmcc_id
+                is_tmcc = self._current_motive.is_tmcc
+                req = RampedSpeedReq(tmcc_id, "restricted", scope, is_tmcc)
+                req.send()
 
     def signal_stop_immediate(self) -> None:
         print("signal_stop_immediate")
-        if self._current_motive:
-            if self._original_speed is None:
-                self._original_speed = self._current_motive.speed
-            scope = self._current_motive.scope
-            tmcc_id = self._current_motive.tmcc_id
-            if self._current_motive.is_tmcc is True:
-                req = CommandReq(TMCC1EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
-            else:
-                req = CommandReq(TMCC2EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
-            req.send()
+        if self.next_block and self.next_block.is_occupied:
+            if self._current_motive:
+                if self._original_speed is None:
+                    self._original_speed = self._current_motive.speed
+                scope = self._current_motive.scope
+                tmcc_id = self._current_motive.tmcc_id
+                if self._current_motive.is_tmcc is True:
+                    req = CommandReq(TMCC1EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
+                else:
+                    req = CommandReq(TMCC2EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
+                req.send()
 
     def block_clear(self) -> None:
         self._original_speed = None
