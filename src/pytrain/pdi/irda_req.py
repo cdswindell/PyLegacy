@@ -264,6 +264,9 @@ class IrdaReq(LcsReq):
             if self.pdi_command == PdiCommand.IRDA_SET:
                 if self._sequence is not None:
                     byte_str += self._sequence.value.to_bytes(1, byteorder="big")
+        elif self._action == IrdaAction.IDENTIFY:
+            if self.pdi_command == PdiCommand.IRDA_SET:
+                byte_str += (self.ident if self.ident is not None else 0).to_bytes(1, byteorder="big")
         if len(byte_str) > bs_len:
             byte_str, checksum = self._calculate_checksum(byte_str)
             byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str

@@ -213,7 +213,7 @@ class DeviceWrapper:
     def identify(self, tmcc_id: int, ident: int = 1) -> T | None:
         if self.set is not None:
             enum = self.enums.by_name("IDENTIFY")
-            return self.req_class(tmcc_id, self.set, enum, ident)
+            return self.req_class(tmcc_id, self.set, enum, ident=ident)
 
     def _harvest_command(self, suffix: str) -> PdiCommand | None:
         suffix = suffix.strip().upper()

@@ -1008,7 +1008,7 @@ class PyTrain:
                 if tmcc_id < 0:
                     ident = 0
                     tmcc_id = -tmcc_id
-                agr = dev.identify(tmcc_id, ident)
+                agr = dev.identify(tmcc_id, ident=ident)
             elif ca == CommonAction.CLEAR_ERRORS:
                 agr = dev.clear_errors(tmcc_id)
             elif ca == CommonAction.RESET:

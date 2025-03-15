@@ -12,7 +12,7 @@ from threading import Thread
 
 from gpiozero import Button
 
-from ..db.component_state import IrdaState, EngineState, TrainState
+from ..db.component_state import IrdaState, EngineState, TrainState, SwitchState
 from ..db.component_state_store import ComponentStateStore
 from ..gpio.gpio_handler import DEFAULT_BOUNCE_TIME
 from ..protocol.command_req import CommandReq
@@ -31,6 +31,7 @@ class Block(Thread):
         slow_pin: int | str = None,
         stop_pin: int | str = None,
         left_to_right: bool = True,
+        switch_id: int = None,
     ) -> None:
         self._block_id = block_id
         self._block_name = block_name
@@ -39,6 +40,11 @@ class Block(Thread):
         else:
             # noinspection PyTypeChecker
             self._sensor_track = None
+        if switch_id:
+            self._switch: SwitchState = ComponentStateStore.get_state(CommandScope.SWITCH, switch_id)
+        else:
+            # noinspection PyTypeChecker
+            self._switch = None
         self._occupied_btn = Button(occupied_pin, bounce_time=DEFAULT_BOUNCE_TIME) if occupied_pin else None
         self._slow_btn = Button(slow_pin, bounce_time=DEFAULT_BOUNCE_TIME) if slow_pin else None
         self._stop_btn = Button(stop_pin, bounce_time=DEFAULT_BOUNCE_TIME) if stop_pin else None
@@ -54,7 +60,7 @@ class Block(Thread):
         if self._stop_btn:
             self._stop_btn.when_activated = self.signal_stop_immediate
         if self._slow_btn:
-            self._stop_btn.when_deactivated = self.block_clear
+            self._stop_btn.when_deactivated = self.signal_block_clear
 
         # start thread if sensor track specified, we also delay calling super until
         # buttons have been created
@@ -161,10 +167,13 @@ class Block(Thread):
             req.send()
 
     def signal_slowdown(self) -> None:
-        from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
-
         print(f"Block {self.block_id} signal_slow_down")
+        self.slow_down()
+
+    def slow_down(self):
         if self.next_block and self.next_block.is_occupied:
+            from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
+
             if self._current_motive:
                 self._original_speed = self._current_motive.speed
                 scope = self._current_motive.scope
@@ -175,19 +184,23 @@ class Block(Thread):
 
     def signal_stop_immediate(self) -> None:
         print(f"Block {self.block_id} signal_stop_immediate")
+        # if next block is occupied, stop train in this block immediately
         if self.next_block and self.next_block.is_occupied:
-            if self._current_motive:
-                if self._original_speed is None:
-                    self._original_speed = self._current_motive.speed
-                scope = self._current_motive.scope
-                tmcc_id = self._current_motive.tmcc_id
-                if self._current_motive.is_tmcc is True:
-                    req = CommandReq(TMCC1EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
-                else:
-                    req = CommandReq(TMCC2EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
-                req.send()
+            self.stop_immediate()
 
-    def block_clear(self) -> None:
+    def stop_immediate(self):
+        if self._current_motive:
+            if self._original_speed is None:
+                self._original_speed = self._current_motive.speed
+            scope = self._current_motive.scope
+            tmcc_id = self._current_motive.tmcc_id
+            if self._current_motive.is_tmcc is True:
+                req = CommandReq(TMCC1EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
+            else:
+                req = CommandReq(TMCC2EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
+            req.send()
+
+    def signal_block_clear(self) -> None:
         print(f"Block {self.block_id} signal_block_clear")
         self._original_speed = None
         self._current_motive = None
