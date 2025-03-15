@@ -69,7 +69,7 @@ class Block(Thread):
         super().__init__(daemon=True, name=f"Block {self.block_id} Occupied: {self.is_occupied}")
         if self.sensor_track:
             self._watch_sensor_track = Thread(target=self.watch_sensor_track, daemon=True)
-            self._watch_sensor_track.run()
+            self._watch_sensor_track.start()
         print("*****")
 
     def __repr__(self) -> str:
