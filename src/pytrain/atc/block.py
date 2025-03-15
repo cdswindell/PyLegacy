@@ -24,8 +24,7 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 class Block(Thread):
     @classmethod
     def button(cls, pin: P) -> Button:
-        _, btn, _ = GpioHandler.make_button(pin)
-        return btn
+        return GpioHandler.make_button(pin)
 
     def __init__(
         self,
