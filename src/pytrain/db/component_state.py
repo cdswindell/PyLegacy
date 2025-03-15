@@ -1469,11 +1469,11 @@ class IrdaState(LcsState):
 
     @property
     def is_engine(self) -> bool:
-        return self.is_train is False and self._last_engine_id and self._last_engine_id > 0
+        return (self.is_train is False) and (self._last_engine_id is not None) and (self._last_engine_id > 0)
 
     @property
     def is_train(self) -> bool:
-        return self._last_train_id and self._last_train_id > 0
+        return (self._last_train_id is not None) and (self._last_train_id > 0)
 
     def as_bytes(self) -> bytes:
         if self.is_known:
