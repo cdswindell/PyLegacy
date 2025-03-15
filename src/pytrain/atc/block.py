@@ -80,7 +80,7 @@ class Block(Thread):
         scope = "Train" if self.sensor_track.is_train else "Engine"
         last_id = self.sensor_track.last_engine_id
         ld = "L -> R" if self.is_left_to_right else "R -> L"
-        print(f"{self.sensor_track} {scope} {last_id} {ld}")
+        print(f"{self.sensor_track.tmcc_id} {scope} {last_id} {ld} {self.sensor_track.last_direction}")
 
         dir_int = 1 if self.is_left_to_right else 0
         if dir_int == self.sensor_track.last_direction:
