@@ -64,7 +64,6 @@ class Block(Thread):
             self._slow_btn.when_activated = self.signal_slowdown
         if self._stop_btn:
             self._stop_btn.when_activated = self.signal_stop_immediate
-        if self._slow_btn:
             self._stop_btn.when_deactivated = self.signal_block_clear
 
         # start thread if sensor track specified, we also delay calling super until
