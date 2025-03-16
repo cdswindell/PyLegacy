@@ -500,8 +500,8 @@ class Mcp23017:
                     else:
                         active = capture_bit == 0
                     print(
-                        f"itp {i} active: {active} pull: {pull_up} cb: {capture_bit} state: {state} client: {client} "
-                        f"bounce: {bounce_time}"
+                        f"itp {i} active: {active} pull: {pull_up} cb: {capture_bit} state: {state} "
+                        f"bounce: {bounce_time} client: {type(client)}"
                     )
                     client._signal_event(active)
             # if a bounce time was specified, wait for this amount of time before enabling interrupts
