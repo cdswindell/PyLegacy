@@ -6,7 +6,6 @@ from gpiozero import GPIOPinInUse, PinInvalidPin, Button, Device
 
 from .i2c import I2C
 from .i2c_device import I2CDevice
-from ..gpio_handler import DEFAULT_BOUNCE_TIME
 
 IODIRA = 0x00  # Pin direction register
 IODIRB = 0x01  # Pin direction register
@@ -481,6 +480,8 @@ class Mcp23017:
             interrupts = self.interrupted_pins
             state = None
             for i in interrupts:
+                from ..gpio_handler import DEFAULT_BOUNCE_TIME
+
                 bounce_time = DEFAULT_BOUNCE_TIME
                 # for every pin that generated an interrupt, if there is a
                 # client associated with this pin, fire event
