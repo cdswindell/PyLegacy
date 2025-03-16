@@ -8,6 +8,7 @@
 #
 from __future__ import annotations
 
+import logging
 from threading import Thread
 
 from gpiozero import Button
@@ -19,6 +20,8 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1_RESTRICTED_SPEED
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_RESTRICTED_SPEED
+
+log = logging.getLogger(__name__)
 
 
 class Block:
@@ -70,7 +73,6 @@ class Block:
         if self.sensor_track:
             self._watch_sensor_track_thread = Thread(target=self.watch_sensor_track, daemon=True)
             self._watch_sensor_track_thread.start()
-        print("*****")
 
     def __repr__(self) -> str:
         nm = f" {self.block_name}" if self.block_name else ""
@@ -159,17 +161,17 @@ class Block:
             pass
 
     def signal_slowdown(self) -> None:
-        print(f"Block {self.block_id} signal_slow_down")
+        log.info(f"Block {self.block_id} signal_slow_down")
         self.slow_down()
 
     def signal_stop(self) -> None:
-        print(f"Block {self.block_id} signal_stop")
+        log.info(f"Block {self.block_id} signal_stop")
         # if next block is occupied, stop train in this block immediately
         if self.next_block and self.next_block.is_occupied:
             self.stop_immediate()
 
     def signal_block_clear(self) -> None:
-        print(f"Block {self.block_id} signal_block_clear")
+        log.info(f"Block {self.block_id} signal_block_clear")
         self._original_speed = None
         self._current_motive = None
         if self._prev_block and self.is_occupied is False:
@@ -179,7 +181,7 @@ class Block:
         from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
         # resume original speed
-        print(f"Block {self.block_id} NBC speed: {self._original_speed} {signaling_block.is_occupied}")
+        log.info(f"Block {self.block_id} NBC speed: {self._original_speed} {signaling_block.is_occupied}")
         if self._current_motive and self._original_speed and signaling_block.is_occupied is False:
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
@@ -217,7 +219,7 @@ class Block:
         scope = "Train" if self.sensor_track.is_train else "Engine"
         last_id = self.sensor_track.last_engine_id
         ld = "L -> R" if self.is_left_to_right else "R -> L"
-        print(f"{self.sensor_track.tmcc_id} {scope} {last_id} {ld} {self.sensor_track.last_direction}")
+        log.info(f"{self.sensor_track.tmcc_id} {scope} {last_id} {ld} {self.sensor_track.last_direction}")
 
         dir_int = 1 if self.is_left_to_right else 0
         if dir_int == self.sensor_track.last_direction:
@@ -239,16 +241,18 @@ class Block:
             self._original_speed = None
 
     def _reset_next_block(self) -> None:
-        if self.switch.is_through:
-            self.next_block = self._thru_block
-        elif self.switch.is_out:
-            self.next_block = self._out_block
-        else:
-            return
-        if self.next_block.is_occupied is False:
-            self.next_block.signal_block_clear()
-        else:
-            if self._stop_btn.is_active:
-                self.signal_stop()
-            elif self._slow_btn.is_active:
-                self.signal_slowdown()
+        if self.switch:
+            log.info(f"{self.switch} Thru: {self._thru_block} Out: {self._out_block}")
+            if self.switch.is_through:
+                self.next_block = self._thru_block
+            elif self.switch.is_out:
+                self.next_block = self._out_block
+            else:
+                return
+            if self.next_block.is_occupied is False:
+                self.next_block.signal_block_clear()
+            else:
+                if self._stop_btn.is_active:
+                    self.signal_stop()
+                elif self._slow_btn.is_active:
+                    self.signal_slowdown()
