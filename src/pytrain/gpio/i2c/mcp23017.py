@@ -491,7 +491,7 @@ class Mcp23017:
                     if hasattr(client, "bounce_time") and client.bounce_time is not None:
                         bounce_time = client.bounce_time
                     if bounce_time > 0:
-                        time.sleep(bounce_time * 3)
+                        time.sleep(bounce_time)
                     if state is None:
                         state = self.captures  # clears interrupts, enabling !!
                     capture_bit = 1 if (state & (1 << i)) != 0 else 0
@@ -503,9 +503,8 @@ class Mcp23017:
                         f"itp {i} active: {active} pull: {pull_up} cb: {capture_bit} state: {state} "
                         f"bounce: {bounce_time} client: {client}"
                     )
-                    last_active = client.is_active
-                    print(f"Client active: {last_active} now: {active}")
-                    client._signal_event(active)
+                    if active == client.is_active:
+                        client._signal_event(active)
             if state is None:
                 # make sure interrupts are always reset, either because we processed
                 # them above or here
