@@ -482,7 +482,7 @@ class Mcp23017:
             state = None
             for i in interrupts:
                 # for every pin that generated an interrupt, if there is a
-                # client associated with this pin, fire events
+                # client associated with this pin, fire event
                 if i in self._clients:
                     if state is None:
                         state = self.captures  # clears interrupts, enabling !!
@@ -499,7 +499,9 @@ class Mcp23017:
                         active = capture_bit == 1
                     else:
                         active = capture_bit == 0
-                    print(f"itp {i} active: {active} pull_up: {pull_up} cb: {capture_bit} state: {state}")
+                    print(
+                        f"itp {i} active: {active} pull_up: {pull_up} cb: {capture_bit} state: {state} client: {client}"
+                    )
                     client._signal_event(active)
             # if a bounce time was specified, wait for this amount of time before enabling interrupts
             if bounce_time > 0:
