@@ -205,6 +205,9 @@ class Block:
                     req.send()
 
     def stop_immediate(self):
+        log.info(
+            f"Block {self.block_id} stop_immediate {self._current_motive} {self._original_speed} {self.is_occupied}"
+        )
         if self._current_motive:
             if self._original_speed is None:
                 self._original_speed = self._current_motive.speed
