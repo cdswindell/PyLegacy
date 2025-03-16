@@ -15,6 +15,7 @@ from gpiozero import Button
 
 from ..db.component_state import IrdaState, EngineState, TrainState, SwitchState
 from ..db.component_state_store import ComponentStateStore
+from ..db.watchable import Watchable
 from ..gpio.gpio_handler import GpioHandler, P
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
@@ -24,7 +25,7 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_RESTR
 log = logging.getLogger(__name__)
 
 
-class Block:
+class Block(Watchable):
     @classmethod
     def button(cls, pin: P) -> Button:
         return GpioHandler.make_button(pin)
@@ -101,12 +102,24 @@ class Block:
         return self._block_id
 
     @property
+    def scope(self) -> CommandScope:
+        return CommandScope.BLOCK
+
+    @property
+    def address(self) -> int:
+        return self._block_id
+
+    @property
     def sensor_track(self) -> IrdaState:
         return self._sensor_track
 
     @property
     def switch(self) -> SwitchState:
         return self._switch
+
+    @property
+    def occupied_by(self) -> EngineState | TrainState | None:
+        return self._current_motive
 
     @property
     def is_occupied(self) -> bool:
@@ -164,12 +177,16 @@ class Block:
     def signal_slowdown(self) -> None:
         log.info(f"Block {self.block_id} signal_slow_down")
         self.slow_down()
+        with self.synchronizer:
+            self.synchronizer.notify_all()
 
     def signal_stop(self) -> None:
         log.info(f"Block {self.block_id} signal_stop")
         # if next block is occupied, stop train in this block immediately
         if self.next_block and self.next_block.is_occupied:
             self.stop_immediate()
+        with self.synchronizer:
+            self.synchronizer.notify_all()
 
     def signal_block_clear(self) -> None:
         log.info(f"Block {self.block_id} signal_block_clear")
@@ -177,6 +194,8 @@ class Block:
         self._current_motive = None
         if self._prev_block and self.is_occupied is False:
             self._prev_block.next_block_clear(self)
+        with self.synchronizer:
+            self.synchronizer.notify_all()
 
     def next_block_clear(self, signaling_block: Block) -> None:
         from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
@@ -226,6 +245,7 @@ class Block:
         log.info(f"{self.sensor_track.tmcc_id} {scope} {last_id} {ld} {self.sensor_track.last_direction}")
 
         dir_int = 1 if self.is_left_to_right else 0
+        last_motive = self.occupied_by
         if dir_int == self.sensor_track.last_direction:
             if self.sensor_track.is_train is True and self.sensor_track.last_train_id:
                 self._current_motive = ComponentStateStore.get_state(
@@ -243,6 +263,9 @@ class Block:
             self._original_speed = self._current_motive.speed
         else:
             self._original_speed = None
+        if last_motive != self.occupied_by:
+            with self.synchronizer:
+                self.synchronizer.notify_all()
 
     def respond_to_thrown_switch(self) -> None:
         if self.switch:

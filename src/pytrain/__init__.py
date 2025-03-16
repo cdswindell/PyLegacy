@@ -11,13 +11,21 @@ import platform
 import sys
 from importlib.metadata import PackageNotFoundError
 
+from .atc.block import Block  # noqa: F401
 from .cli.pytrain import (
     PyTrain,
     PyTrainExitStatus,  # noqa: F401
     PyTrainExitException,  # noqa: F401
 )
 from .db.component_state import (
+    AccessoryState,  # noqa: F401
     ComponentState,  # noqa: F401
+    EngineState,  # noqa: F401
+    IrdaState,  # noqa: F401
+    RouteState,  # noqa: F401
+    SwitchState,  # noqa: F401
+    SyncState,  # noqa: F401
+    TrainState,  # noqa: F401
 )
 from .db.component_state_store import ComponentStateStore  # noqa: F401
 from .gpio.gpio_handler import (

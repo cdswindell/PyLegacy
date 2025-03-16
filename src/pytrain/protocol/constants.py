@@ -148,6 +148,7 @@ class CommandScope(Mixins, Enum):
     STM2 = 11
     BASE = 12
     SYNC = 13
+    BLOCK = 14
 
 
 class CommandPrefix(Mixins, IntEnum):

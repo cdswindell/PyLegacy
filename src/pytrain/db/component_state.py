@@ -8,6 +8,7 @@ from collections import defaultdict
 from time import time
 from typing import Dict, Tuple, TypeVar, Set, Any, List
 
+from .watchable import Watchable
 from ..comm.comm_buffer import CommBuffer
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
@@ -141,7 +142,7 @@ BIG_NUMBER = float("inf")
 
 
 # noinspection PyUnresolvedReferences
-class ComponentState(ABC):
+class ComponentState(Watchable, ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, scope: CommandScope = None) -> None:
@@ -155,7 +156,6 @@ class ComponentState(ABC):
         self._address: int | None = None
         self._spare_1: int | None = None
         self._ev = threading.Event()
-        self._cv = threading.Condition()
 
         from .component_state_store import DependencyCache
 
@@ -222,10 +222,6 @@ class ComponentState(ABC):
         return self._ev
 
     @property
-    def synchronizer(self) -> threading.Condition:
-        return self._cv
-
-    @property
     def road_name(self) -> str | None:
         return self._road_name
 
@@ -281,6 +277,7 @@ class ComponentState(ABC):
                 if hasattr(command, "name") and command.name:
                     self._road_name = title(command.name)
                 if hasattr(command, "number") and command.number:
+                    self._road_number = command.number
                     self._road_number = command.number
                     # support lookup by road number
                     if self.road_number:
@@ -439,7 +436,7 @@ class SwitchState(TmccState):
         from ..pdi.base_req import BaseReq
 
         if command:
-            with self._cv:
+            with self.synchronizer:
                 super().update(command)
                 if command.command == TMCC1HaltCommandEnum.HALT:
                     return
@@ -453,7 +450,7 @@ class SwitchState(TmccState):
                 else:
                     log.warning(f"Unhandled Switch State Update received: {command}")
                 self.changed.set()
-                self._cv.notify_all()
+                self.synchronizer.notify_all()
 
     @property
     def state(self) -> Switch:

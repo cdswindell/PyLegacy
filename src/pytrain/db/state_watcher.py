@@ -3,14 +3,14 @@ from queue import Queue
 from threading import Thread
 from typing import Callable
 
-from ..db.component_state import ComponentState
+from .watchable import Watchable
 from ..protocol.constants import PROGRAM_NAME
 
 log = logging.getLogger(__name__)
 
 
 class StateWatcher(Thread):
-    def __init__(self, state: ComponentState, action: Callable) -> None:
+    def __init__(self, state: Watchable, action: Callable) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} State Watcher {state.scope.label} {state.address}")
         self._state = state
         self._action = action
