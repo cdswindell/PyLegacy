@@ -21,7 +21,7 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1_RESTR
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_RESTRICTED_SPEED
 
 
-class Block(Thread):
+class Block:
     @classmethod
     def button(cls, pin: P) -> Button:
         return GpioHandler.make_button(pin)
@@ -66,10 +66,10 @@ class Block(Thread):
 
         # start thread if sensor track specified, we also delay calling super until
         # buttons have been created
-        super().__init__(daemon=True, name=f"Block {self.block_id} Occupied: {self.is_occupied}")
+        self._watch_sensor_track_thread = self._watch_switch_thread = None
         if self.sensor_track:
-            self._watch_sensor_track = Thread(target=self.watch_sensor_track, daemon=True)
-            self._watch_sensor_track.start()
+            self._watch_sensor_track_thread = Thread(target=self.watch_sensor_track, daemon=True)
+            self._watch_sensor_track_thread.start()
         print("*****")
 
     def __repr__(self) -> str:
@@ -82,6 +82,13 @@ class Block(Thread):
             self.sensor_track.changed.clear()
             with self.sensor_track.synchronizer:
                 self._cache_motive()
+
+    def watch_switch(self) -> None:
+        while self.switch and True:
+            self.switch.changed.wait()
+            self.switch.changed.clear()
+            with self.switch.synchronizer:
+                self._reset_next_block()
 
     @property
     def block_name(self) -> str:
@@ -137,7 +144,19 @@ class Block(Thread):
 
     def next_switch(self, switch_tmcc_id, thru_block: Block, out_block: Block) -> None:
         if switch_tmcc_id:
+            if thru_block is None or out_block is None:
+                raise AttributeError("Thru and Out blocks cannot be None")
+            if self == thru_block or self == out_block or thru_block == out_block:
+                raise AttributeError("Thru and Out blocks cannot be the same block")
             self._switch: SwitchState = ComponentStateStore.get_state(CommandScope.SWITCH, switch_tmcc_id)
+            self._thru_block = thru_block
+            self._out_block = out_block
+            with self.switch.synchronizer:
+                self._reset_next_block()
+            self._watch_switch_thread = Thread(target=self.watch_switch, daemon=True)
+            self._watch_switch_thread.start()
+        else:
+            pass
 
     def signal_slowdown(self) -> None:
         print(f"Block {self.block_id} signal_slow_down")
@@ -218,3 +237,18 @@ class Block(Thread):
             self._original_speed = self._current_motive.speed
         else:
             self._original_speed = None
+
+    def _reset_next_block(self) -> None:
+        if self.switch.is_through:
+            self.next_block = self._thru_block
+        elif self.switch.is_out:
+            self.next_block = self._out_block
+        else:
+            return
+        if self.next_block.is_occupied is False:
+            self.next_block.signal_block_clear()
+        else:
+            if self._stop_btn.is_active:
+                self.signal_stop()
+            elif self._slow_btn.is_active:
+                self.signal_slowdown()
