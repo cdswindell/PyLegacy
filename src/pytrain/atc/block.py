@@ -215,6 +215,10 @@ class Block:
             else:
                 req = CommandReq(TMCC2EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
             req.send()
+        elif self.is_occupied is True:
+            # send a stop to all engines, as otherwise, we could have a crash
+            CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, 99).send()
+            CommandReq(TMCC1EngineCommandEnum.STOP_IMMEDIATE, 99).send()
 
     def _cache_motive(self) -> None:
         scope = "Train" if self.sensor_track.is_train else "Engine"
