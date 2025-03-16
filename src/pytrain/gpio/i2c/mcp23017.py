@@ -323,12 +323,12 @@ class Mcp23017:
             self.i2c.read_from(self.address, INTCAPB)
 
     def enable_interrupt(self, gpio) -> None:
-        self._set_interrupt(gpio, True)
+        self._enable_interrupt(gpio, True)
 
     def disable_interrupt(self, gpio) -> None:
-        self._set_interrupt(gpio, False)
+        self._enable_interrupt(gpio, False)
 
-    def _set_interrupt(self, gpio, enabled: bool = True) -> None:
+    def _enable_interrupt(self, gpio, enabled: bool = True) -> None:
         """
         Enables or disables the interrupt of a given GPIO
         :param gpio: the GPIO where the interrupt needs to be set,
@@ -483,6 +483,7 @@ class Mcp23017:
                 from ..gpio_handler import DEFAULT_BOUNCE_TIME
 
                 bounce_time = DEFAULT_BOUNCE_TIME
+                elapsed_bounce_time = 0
                 # for every pin that generated an interrupt, if there is a
                 # client associated with this pin, fire event
                 if i in self._clients:
@@ -494,10 +495,12 @@ class Mcp23017:
                     # at the same time, this may mean we debounce more than we should,
                     # but we need to make sure each individual button has settled
                     # before we decide if its state has changed
-                    if bounce_time > 0:
+                    if bounce_time > elapsed_bounce_time:
+                        bounce_time -= elapsed_bounce_time
+                        elapsed_bounce_time += bounce_time
                         time.sleep(bounce_time)
                     if state is None:
-                        state = self.captures  # clears interrupts, re-enabling !!
+                        state = self.captures  # clears interrupts, re-enabling them!!
                     capture_bit = 1 if (state & (1 << i)) != 0 else 0
                     if pull_up is True:
                         active = capture_bit == 1
@@ -512,8 +515,8 @@ class Mcp23017:
                     if active == client.is_active:
                         client._signal_event(active)
             if state is None:
-                # make sure interrupts are always reset, either because we processed
-                # them above or here
+                # make sure interrupts are always reset, either because
+                # we processed them above or here
                 self._clear_interrupts()
 
     def create_interrupt_handler(self, pin, interrupt_pin) -> None:
