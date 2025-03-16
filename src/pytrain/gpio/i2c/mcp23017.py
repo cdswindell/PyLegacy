@@ -490,19 +490,25 @@ class Mcp23017:
                     client = self._clients[i]
                     if hasattr(client, "bounce_time") and client.bounce_time is not None:
                         bounce_time = client.bounce_time
+                    # do the bounce time here; if multiple I2C buttons were pressed
+                    # at the same time, this may mean we debounce more than we should,
+                    # but we need to make sure each individual button has settled
+                    # before we decide if its state has changed
                     if bounce_time > 0:
                         time.sleep(bounce_time)
                     if state is None:
-                        state = self.captures  # clears interrupts, enabling !!
+                        state = self.captures  # clears interrupts, re-enabling !!
                     capture_bit = 1 if (state & (1 << i)) != 0 else 0
                     if pull_up is True:
                         active = capture_bit == 1
                     else:
                         active = capture_bit == 0
-                    print(
-                        f"itp {i} active: {active} pull: {pull_up} cb: {capture_bit} state: {state} "
-                        f"bounce: {bounce_time} client: {client}"
-                    )
+                    # print(
+                    #     f"itp {i} active: {active} pull: {pull_up} cb: {capture_bit} state: {state} "
+                    #     f"bounce: {bounce_time} client: {client}"
+                    # )
+                    # this is part of debouncing; current button state must match
+                    # state at interrupt time if we are to consider it a new event
                     if active == client.is_active:
                         client._signal_event(active)
             if state is None:
