@@ -90,7 +90,7 @@ class Block:
             self.switch.changed.wait()
             self.switch.changed.clear()
             with self.switch.synchronizer:
-                self._reset_next_block()
+                self.respond_to_thrown_switch()
 
     @property
     def block_name(self) -> str:
@@ -157,7 +157,7 @@ class Block:
             self._watch_switch_thread = Thread(target=self.watch_switch, daemon=True)
             self._watch_switch_thread.start()
             if was_clear is True:
-                self._reset_next_block()
+                self.respond_to_thrown_switch()
         else:
             pass
 
@@ -205,19 +205,15 @@ class Block:
                     req.send()
 
     def stop_immediate(self):
-        log.info(
-            f"Block {self.block_id} stop_immediate {self._current_motive} {self._original_speed} {self.is_occupied}"
-        )
         if self._current_motive:
             if self._original_speed is None:
                 self._original_speed = self._current_motive.speed
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
             if self._current_motive.is_tmcc is True:
-                req = CommandReq(TMCC1EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
+                CommandReq(TMCC1EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope).send()
             else:
-                req = CommandReq(TMCC2EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope)
-            req.send()
+                CommandReq(TMCC2EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope).send()
         elif self.is_occupied is True:
             # send a stop to all engines, as otherwise, we could have a crash
             CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, 99).send()
@@ -248,12 +244,12 @@ class Block:
         else:
             self._original_speed = None
 
-    def _reset_next_block(self) -> None:
+    def respond_to_thrown_switch(self) -> None:
         if self.switch:
             log.info(f"{self.switch} Thru: {self._thru_block} Out: {self._out_block}")
-            if self.switch.is_through:
+            if self.switch.is_through and self.next_block != self._thru_block:
                 self.next_block = self._thru_block
-            elif self.switch.is_out:
+            elif self.switch.is_out and self.next_block != self._out_block:
                 self.next_block = self._out_block
             else:
                 return
