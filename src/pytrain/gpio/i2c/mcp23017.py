@@ -514,7 +514,7 @@ class Mcp23017:
             with self._lock:
                 self._int_pin = interrupt_pin
                 self._int_btn = Button(interrupt_pin)
-                self._int_btn.when_pressed = self.handle_interrupt
+                self._int_btn.when_activated = self.handle_interrupt
                 self._clear_interrupts()  # public method is locked, would deadlock
         else:
             raise TypeError("pin must be one of GPAn or GPBn. See description for help")
