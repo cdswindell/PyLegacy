@@ -153,10 +153,11 @@ class Block:
             self._switch: SwitchState = ComponentStateStore.get_state(CommandScope.SWITCH, switch_tmcc_id)
             self._thru_block = thru_block
             self._out_block = out_block
-            with self.switch.synchronizer:
-                self._reset_next_block()
+            was_clear = True if self.switch.changed.is_set() is False else False
             self._watch_switch_thread = Thread(target=self.watch_switch, daemon=True)
             self._watch_switch_thread.start()
+            if was_clear is True:
+                self._reset_next_block()
         else:
             pass
 
