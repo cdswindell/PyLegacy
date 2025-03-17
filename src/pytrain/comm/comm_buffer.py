@@ -14,6 +14,7 @@ from queue import Queue, Empty
 from threading import Thread
 
 from ..db.component_state import ComponentState
+from ..pdi.pdi_req import PdiReq
 from ..protocol.command_req import CommandReq
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
@@ -179,12 +180,6 @@ class CommBuffer(abc.ABC):
 
 
 class CommBufferSingleton(CommBuffer, Thread):
-    def update_state(self, state: ComponentState | bytes) -> None:
-        if isinstance(state, ComponentState):
-            print(state)
-        elif isinstance(state, bytes):
-            print(state.hex())
-
     def __init__(
         self,
         queue_size: int = DEFAULT_QUEUE_SIZE,
@@ -221,6 +216,28 @@ class CommBufferSingleton(CommBuffer, Thread):
         # start the consumer threads
         self._scheduler = DelayHandler(self)
         self.start()
+
+    def update_state(self, state: ComponentState | CommandReq | PdiReq | bytes) -> None:
+        """
+        Force a state update thru the system. Used to handle
+        non-Lionel actors, like automatic train control blocks.
+        """
+        # if we got a state, remember it, otherwise, we have to
+        # parse the byte stream and convert
+        if isinstance(state, ComponentState):
+            state = state.as_bytes
+        if isinstance(state, bytes):
+            # this is the hard one, the byte stream could be a mixture of PDI and TMCC
+            # commands; we have to go thru and dispatch to the correct listener
+            pass
+        elif isinstance(state, CommandReq):
+            from .command_listener import CommandDispatcher
+
+            CommandDispatcher.get().offer(state)
+        elif isinstance(state, PdiReq):
+            from ..pdi.pdi_listener import PdiDispatcher
+
+            PdiDispatcher.get().offer(state)
 
     def start_heart_beat(self, port: int = DEFAULT_SERVER_PORT):
         raise NotImplementedError
