@@ -249,6 +249,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             # sync commands
             if len(byte_stream) > 5 and byte_stream[2] == SENDING_STATE_REQUEST[2]:
                 byte_stream = byte_stream[3:]
+                print(f"Server: {byte_stream.hex()}")
                 CommBuffer.get().update_state(byte_stream)
                 return
 

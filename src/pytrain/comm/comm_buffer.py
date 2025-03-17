@@ -393,24 +393,6 @@ class CommBufferProxy(CommBuffer):
 
     from ..db.component_state import ComponentState
 
-    def update_state(self, state: ComponentState | bytes) -> None:
-        """
-        Allow a state update to be sent to server and all clients.
-        Implemented to support automatic train control Blocks
-        but could support other IPC state updates that are not of
-        Lionel origin in the future.
-        """
-        from .enqueue_proxy_requests import SENDING_STATE_REQUEST
-
-        if state:
-            if isinstance(state, ComponentState):
-                state_bytes = state.as_bytes
-            elif isinstance(state, bytes):
-                state_bytes = state
-            else:
-                raise ValueError(f"Invalid state: {state}")
-            self.enqueue_command(SENDING_STATE_REQUEST + state_bytes)
-
     @classmethod
     def server_port(cls) -> int | None:
         # noinspection PyProtectedMember
@@ -488,6 +470,25 @@ class CommBufferProxy(CommBuffer):
                             time.sleep(1)
                         continue
                     raise oe
+
+    def update_state(self, state: ComponentState | bytes) -> None:
+        """
+        Allow a state update to be sent to server and all clients.
+        Implemented to support automatic train control Blocks
+        but could support other IPC state updates that are not of
+        Lionel origin in the future.
+        """
+        from .enqueue_proxy_requests import SENDING_STATE_REQUEST
+
+        if state:
+            if isinstance(state, ComponentState):
+                state_bytes = state.as_bytes
+            elif isinstance(state, bytes):
+                state_bytes = state
+            else:
+                raise ValueError(f"Invalid state: {state}")
+            print(f"Client: {state.hex()}")
+            self.enqueue_command(SENDING_STATE_REQUEST + state_bytes)
 
     def register(self, port: int = DEFAULT_SERVER_PORT) -> None:
         from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
