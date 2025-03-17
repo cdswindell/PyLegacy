@@ -244,6 +244,12 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         if byte_stream[0] == 0xFE and byte_stream[1] == 0xF0:
             from .command_listener import CommandDispatcher
 
+            # if this is a send state request, deal with it and exit, as it is in a different format
+            if len(byte_stream) > 5 and byte_stream[2] == SENDING_STATE_REQUEST[2]:
+                byte_stream = byte_stream[3:]
+                CommBuffer.get().update_state(byte_stream)
+                return
+
             # Appended to the admin/sync byte sequence is the port that the server
             # must use to send state updates back to the client. Decode it here
             # client_scope is set if the scope of a command are all the clients
@@ -281,9 +287,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 else:
                     dispatcher.signal_clients(cmd)
                     dispatcher.publish(CommandScope.SYNC, cmd)
-            elif len(byte_stream) > 5 and byte_stream[2] == SENDING_STATE_REQUEST[2]:
-                byte_stream = byte_stream[3:]
-                CommBuffer.get().update_state(byte_stream)
             else:
                 log.error(f"Unhandled {cmd} received from {client_ip}:{client_port}")
             # do not send the special PyTrain commands to the Lionel Base 3 or Ser2
