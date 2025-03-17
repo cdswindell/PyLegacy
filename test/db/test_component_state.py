@@ -24,6 +24,7 @@ def run_before_and_after_tests(tmpdir) -> None:
     """
     # Setup: fill with any logic you want
 
+    # noinspection PyTypeChecker
     yield  # this is where the testing happens
 
     # Teardown : fill with any logic you want

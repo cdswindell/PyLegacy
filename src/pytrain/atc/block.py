@@ -9,12 +9,12 @@
 from __future__ import annotations
 
 import logging
-from threading import Thread
 
 from gpiozero import Button
 
-from ..db.component_state import IrdaState, EngineState, TrainState, SwitchState
+from ..db.component_state import IrdaState, EngineState, TrainState, SwitchState, BlockState
 from ..db.component_state_store import ComponentStateStore
+from ..db.state_watcher import StateWatcher
 from ..db.watchable import Watchable
 from ..gpio.gpio_handler import GpioHandler, P
 from ..protocol.command_req import CommandReq
@@ -70,28 +70,16 @@ class Block(Watchable):
 
         # start thread if sensor track specified, we also delay calling super until
         # buttons have been created
-        self._watch_sensor_track_thread = self._watch_switch_thread = None
+        self._sensor_track_watcher = self._switch_watcher = None
         if self.sensor_track:
-            self._watch_sensor_track_thread = Thread(target=self.watch_sensor_track, daemon=True)
-            self._watch_sensor_track_thread.start()
+            self._sensor_track_watcher = StateWatcher(self.sensor_track, self._cache_motive)
+
+        # finally, update corresponding state record on all nodes
+        self.update_state()
 
     def __repr__(self) -> str:
         nm = f" {self.name}" if self.name else ""
         return f"Block{nm} #{self.block_id} Occupied: {self.is_occupied}"
-
-    def watch_sensor_track(self) -> None:
-        while self.sensor_track and True:
-            self.sensor_track.changed.wait()
-            self.sensor_track.changed.clear()
-            with self.sensor_track.synchronizer:
-                self._cache_motive()
-
-    def watch_switch(self) -> None:
-        while self.switch and True:
-            self.switch.changed.wait()
-            self.switch.changed.clear()
-            with self.switch.synchronizer:
-                self.respond_to_thrown_switch()
 
     @property
     def name(self) -> str:
@@ -165,6 +153,10 @@ class Block(Watchable):
     def is_right_to_left(self) -> bool:
         return not self._left_to_right
 
+    @property
+    def state(self) -> BlockState:
+        return self._block_state
+
     def next_switch(self, switch_tmcc_id, thru_block: Block, out_block: Block) -> None:
         if switch_tmcc_id:
             if thru_block is None or out_block is None:
@@ -175,8 +167,7 @@ class Block(Watchable):
             self._thru_block = thru_block
             self._out_block = out_block
             was_clear = True if self.switch.changed.is_set() is False else False
-            self._watch_switch_thread = Thread(target=self.watch_switch, daemon=True)
-            self._watch_switch_thread.start()
+            self._switch_watcher = StateWatcher(self.switch, self.respond_to_thrown_switch)
             if was_clear is True:
                 self.respond_to_thrown_switch()
         else:
@@ -291,3 +282,11 @@ class Block(Watchable):
                     self.signal_stop()
                 elif self._slow_btn.is_active:
                     self.signal_slowdown()
+
+    def update_state(self):
+        from src.pytrain.pdi.block_req import BlockReq
+
+        block_req = BlockReq(self)
+
+        self._block_state = ComponentStateStore.get_state(CommandScope.BLOCK, self.block_id)
+        self._block_state.update(block_req)

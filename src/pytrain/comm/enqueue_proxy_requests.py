@@ -23,6 +23,7 @@ REBOOT_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.REBOOT).as_bytes
 REGISTER_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.REGISTER).as_bytes
 RESTART_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.RESTART).as_bytes
 SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
+SENDING_STATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SENDING_STATE).as_bytes
 SYNC_BEGIN_RESPONSE: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_BEGIN).as_bytes
 SYNC_COMPLETE_RESPONSE: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_COMPLETE).as_bytes
 SYNC_STATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_REQUEST).as_bytes
@@ -31,7 +32,7 @@ UPGRADE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.UPGRADE).as_bytes
 
 
 class ProxyServer(socketserver.ThreadingTCPServer):
-    __slots__ = "base3_addr", "ack", "dispatcher", "enqueue_proxy", "base3_dispatcher"
+    __slots__ = "base3_addr", "ack", "dispatcher", "enqueue_proxy", "base3_dispatcher", "pdi_dispatcher"
 
 
 class EnqueueProxyRequests(Thread):
@@ -192,6 +193,7 @@ class EnqueueProxyRequests(Thread):
                 server.ack = str.encode("ack")
             server.dispatcher = CommandDispatcher.get()
             server.base3_dispatcher = None
+            server.pdi_dispatcher = None
             server.enqueue_proxy = self
             server.serve_forever()
 
@@ -204,6 +206,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         from .command_listener import CommandDispatcher
         from ..pdi.base3_buffer import Base3Buffer
         from ..pdi.constants import PDI_SOP, PdiCommand
+        from ..pdi.pdi_listener import PdiDispatcher
 
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
@@ -227,6 +230,12 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 if base3_dispatcher is None:
                     base3_dispatcher = cast(ProxyServer, self.server).base3_dispatcher = Base3Buffer.get()
                 base3_dispatcher.enqueue_command(byte_stream)
+            elif pdi_cmd and pdi_cmd.is_receivable:
+                # forward received state command to PdiDispatcher
+                pdi_dispatcher: PdiDispatcher = cast(ProxyServer, self.server).pdi_dispatcher
+                if pdi_dispatcher is None:
+                    pdi_dispatcher = cast(ProxyServer, self.server).pdi_dispatcher = PdiDispatcher.get()
+                pdi_dispatcher.offer(byte_stream)
             else:
                 log.error(f"Ignoring request to proxy unsendable PDI command: {byte_stream.hex()}")
             return
@@ -272,6 +281,9 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 else:
                     dispatcher.signal_clients(cmd)
                     dispatcher.publish(CommandScope.SYNC, cmd)
+            elif len(byte_stream) > 5 and byte_stream[2] == SENDING_STATE_REQUEST[2]:
+                byte_stream = byte_stream[3:]
+                CommBuffer.get().update_state(byte_stream)
             else:
                 log.error(f"Unhandled {cmd} received from {client_ip}:{client_port}")
             # do not send the special PyTrain commands to the Lionel Base 3 or Ser2

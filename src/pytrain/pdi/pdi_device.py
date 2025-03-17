@@ -241,6 +241,7 @@ class PdiDevice(Mixins, FriendlyMixins):
     from .stm2_req import Stm2Req
     from .irda_req import IrdaReq
     from .lcs_req import Ser2Req
+    from .block_req import BlockReq
 
     BASE = DeviceWrapper(BaseReq)
     PING = DeviceWrapper(PingReq)
@@ -249,6 +250,7 @@ class PdiDevice(Mixins, FriendlyMixins):
     TMCC4 = DeviceWrapper(TmccReq, PdiCommand.TMCC4_TX, PdiCommand.TMCC4_RX)
     WIFI = DeviceWrapper(WiFiReq, PdiCommand.WIFI_GET, PdiCommand.WIFI_SET, PdiCommand.WIFI_RX, enums=WiFiAction)
     SER2 = DeviceWrapper(Ser2Req, PdiCommand.SER2_GET, PdiCommand.SER2_SET, PdiCommand.SER2_RX, enums=Ser2Action)
+    BLOCK = DeviceWrapper(BlockReq, PdiCommand.BLOCK_GET, PdiCommand.BLOCK_SET, PdiCommand.BLOCK_RX)
     IRDA = DeviceWrapper(
         IrdaReq,
         PdiCommand.IRDA_GET,

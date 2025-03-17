@@ -219,6 +219,12 @@ class PdiDispatcher(Thread):
         return cls._instance is not None
 
     @classmethod
+    def get(cls) -> PdiDispatcher:
+        if cls._instance is None:
+            raise AttributeError("PdiDispatcher has not been initialized")
+        return cls._instance
+
+    @classmethod
     def is_running(cls) -> bool:
         # noinspection PyProtectedMember
         return cls._instance is not None and cls._instance._is_running is True
@@ -320,15 +326,20 @@ class PdiDispatcher(Thread):
                 log.warning(f"Exception while sending PDI state update {command} to {client}")
                 log.exception(e)
 
-    def offer(self, pdi_req: PdiReq) -> None:
+    def offer(self, pdi_req: PdiReq | bytes) -> None:
         """
         Receive a command from the listener thread and dispatch it to subscribers.
         We do this in a separate thread so that the listener thread doesn't fall behind
         """
-        if isinstance(pdi_req, PdiReq) and not pdi_req.is_ping and not pdi_req.is_ack:
-            with self._cv:
-                self._queue.put(pdi_req)
-                self._cv.notify()  # wake up receiving thread
+        try:
+            if isinstance(pdi_req, bytes):
+                pdi_req = PdiReq.from_bytes(pdi_req)
+            if isinstance(pdi_req, PdiReq) and not pdi_req.is_ping and not pdi_req.is_ack:
+                with self._cv:
+                    self._queue.put(pdi_req)
+                    self._cv.notify()  # wake up receiving thread
+        except Exception as e:
+            log.error(e)
 
     def shutdown(self) -> None:
         with self._cv:

@@ -8,7 +8,6 @@ from queue import Queue
 from threading import Thread
 from typing import Generic, List, Protocol, Tuple, TypeVar, runtime_checkable, cast
 
-from .enqueue_proxy_requests import SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE, EnqueueProxyRequests
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
@@ -210,6 +209,8 @@ class CommandListener(Thread):
             self._dispatcher.shutdown()
 
     def offer(self, data: bytes) -> None:
+        from .enqueue_proxy_requests import SYNC_BEGIN_RESPONSE, SYNC_COMPLETE_RESPONSE
+
         if data:
             with self._cv:
                 if log.isEnabledFor(logging.DEBUG):
@@ -369,6 +370,8 @@ class CommandDispatcher(Thread):
             return
         else:
             self._initialized = True
+        from .enqueue_proxy_requests import EnqueueProxyRequests
+
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} TMCC Command Dispatcher")
         self._is_ser2_receiver = ser2_receiver
         self._is_base3_receiver = base3_receiver
@@ -485,6 +488,8 @@ class CommandDispatcher(Thread):
     def signal_clients_on(
         self, option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT, client: str = None
     ) -> None:
+        from .enqueue_proxy_requests import EnqueueProxyRequests
+
         if isinstance(option, TMCC1SyncCommandEnum):
             option = CommandReq(option)
         for client_ip, port in EnqueueProxyRequests.clients():
@@ -500,6 +505,8 @@ class CommandDispatcher(Thread):
         Update all PyTrain clients with the dispatched command. Used to keep
         client states in sync with server
         """
+        from .enqueue_proxy_requests import EnqueueProxyRequests
+
         if client is None:
             clients = EnqueueProxyRequests.clients()
         else:
@@ -533,6 +540,7 @@ class CommandDispatcher(Thread):
         client_port = client_port if client_port else self._server_port
         if client_port is not None:
             from ..db.component_state_store import ComponentStateStore
+            from .enqueue_proxy_requests import EnqueueProxyRequests
 
             # send starting state sync message
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_begin_response())

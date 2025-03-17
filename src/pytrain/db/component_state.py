@@ -9,7 +9,6 @@ from time import time
 from typing import Dict, Tuple, TypeVar, Set, Any, List
 
 from .watchable import Watchable
-from ..comm.comm_buffer import CommBuffer
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Asc2Action, PdiCommand, Bpc2Action, IrdaAction
@@ -231,8 +230,8 @@ class ComponentState(Watchable, ABC):
 
     @property
     def name(self) -> str:
-        the_name = "#" + self.road_number if self.road_number else ""
-        the_name = self.road_name + " " + the_name if self.road_name else "NA"
+        the_name = " #" + self.road_number if self.road_number else ""
+        the_name = self.road_name + the_name if self.road_name else "NA"
         return the_name
 
     @property
@@ -254,10 +253,12 @@ class ComponentState(Watchable, ABC):
     @abc.abstractmethod
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
-        from ..atc.block import Block
+        from ..pdi.block_req import BlockReq
 
         self.changed.clear()
-        if command and command.command != TMCC1HaltCommandEnum.HALT:
+        if command and hasattr(command, "command") and command.command == TMCC1HaltCommandEnum.HALT:
+            pass
+        else:
             if self._address is None and command.address != BROADCAST_ADDRESS:
                 self._address = command.address
             # invalid states
@@ -277,7 +278,7 @@ class ComponentState(Watchable, ABC):
             if (
                 (isinstance(command, BaseReq) and command.status == 0)
                 or isinstance(command, IrdaReq)
-                or isinstance(command, Block)
+                or isinstance(command, BlockReq)
             ):
                 if hasattr(command, "name") and command.name:
                     self._road_name = title(command.name)
@@ -1384,6 +1385,7 @@ class IrdaState(LcsState):
 
     def update(self, command: P) -> None:
         from .component_state_store import ComponentStateStore
+        from ..comm.comm_buffer import CommBuffer
 
         if command:
             with self._cv:
@@ -1665,36 +1667,52 @@ class BlockState(ComponentState):
     """
 
     def __init__(self, scope: CommandScope = CommandScope.BLOCK) -> None:
-        if scope != CommandScope.SYNC:
+        if scope != CommandScope.BLOCK:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
-        self._block = None
+        self._block_req = None
+        self._block_id = None
+        self._prev_block = None
+        self._next_block = None
+        self._is_occupied = None
         self._occupied_by: EngineState | TrainState | None = None
         self._occupied: bool = False
+        self._flags: int = 0
         self._sensor_track: IrdaState | None = None
+        self._switch: SwitchState | None = None
 
     def __repr__(self) -> str:
-        msg = ""
-        return f"{PROGRAM_NAME} {msg}"
+        msg = f"{self.block_id if self.block_id else 'NA'}"
+        msg += f" Occupied: {'Yes' if self.is_occupied is True else 'No'}"
+        return f"Block {msg}"
 
     def update(self, command: L | P) -> None:
-        from ..atc.block import Block
+        from ..pdi.block_req import BlockReq
+        from .component_state_store import ComponentStateStore
 
-        if isinstance(command, Block):
-            self._ev.clear()
+        if command:
             with self._cv:
-                if self._block is None:
-                    self._block = command
-                if self._sensor_track is None:
-                    self._sensor_track = command.sensor_track
-                self._occupied = command.is_occupied
-                self._occupied_by = command.occupied_by
-                self.changed.set()
-                self._cv.notify_all()
+                super().update(command)
+                if isinstance(command, BlockReq):
+                    self._block_req = command
+                    self._block_id = command.block_id
+                    self._flags = command.flags
+                    self._is_occupied = command.is_occupied
+                    self._occupied = command.is_occupied
+                    if self._sensor_track is None and command.sensor_track_id:
+                        self._sensor_track = ComponentStateStore.get_state(CommandScope.IRDA, command.sensor_track_id)
+                    if self._switch is None and command.switch_id:
+                        self._switch = ComponentStateStore.get_state(CommandScope.SWITCH, command.switch_id)
+                    if command.motive_id:
+                        self._occupied_by = ComponentStateStore.get_state(command.motive_scope, command.motive_id)
+                    else:
+                        self._occupied_by = None
+                    self.changed.set()
+                    self._cv.notify_all()
 
     @property
     def is_known(self) -> bool:
-        return self._block is not None
+        return self._block_req is not None
 
     @property
     def is_tmcc(self) -> bool:
@@ -1709,23 +1727,41 @@ class BlockState(ComponentState):
         return False
 
     @property
-    def block_id(self) -> int | None:
-        from ..atc.block import Block
-
-        if isinstance(self._block, Block):
-            return self._block.block_id
-        return None
+    def block_id(self) -> int:
+        return self._block_id
 
     @property
-    def is_occupied(self) -> bool | None:
-        from ..atc.block import Block
+    def flags(self) -> int:
+        return self._flags
 
-        if isinstance(self._block, Block):
-            return self._block.is_occupied
-        return None
+    @property
+    def is_occupied(self) -> bool:
+        return self._is_occupied
+
+    @property
+    def occupied_by(self) -> TrainState | EngineState:
+        return self._occupied_by
+
+    @property
+    def sensor_track(self) -> IrdaState:
+        return self._sensor_track
+
+    @property
+    def switch(self) -> SwitchState:
+        return self._switch
+
+    @property
+    def prev_block(self) -> BlockState:
+        return self._prev_block
+
+    @property
+    def next_block(self) -> BlockState:
+        return self._next_block
 
     def as_bytes(self) -> bytes:
-        return bytes()
+        from ..pdi.block_req import BlockReq
+
+        return BlockReq(self).as_bytes
 
     def as_dict(self) -> Dict[str, Any]:
         return {

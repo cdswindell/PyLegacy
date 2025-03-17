@@ -230,6 +230,7 @@ class PyTrain:
         self._state_store.listen_for(CommandScope.IRDA)
         self._state_store.listen_for(CommandScope.BASE)
         self._state_store.listen_for(CommandScope.SYNC)
+        self._state_store.listen_for(CommandScope.BLOCK)
 
         # Subscribe this instance of PyTrain to sync updates so we can receive
         # Update and Reboot command directives from clients

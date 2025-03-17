@@ -13,6 +13,7 @@ from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
 from threading import Thread
 
+from ..db.component_state import ComponentState
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 if sys.version_info >= (3, 11):
@@ -37,6 +38,8 @@ log = logging.getLogger(__name__)
 
 
 class CommBuffer(abc.ABC):
+    from ..db.component_state import ComponentState
+
     __metaclass__ = abc.ABCMeta
 
     _instance = None
@@ -92,6 +95,12 @@ class CommBuffer(abc.ABC):
             return CommBufferProxy(server, int(port))
 
     @classmethod
+    def get(cls) -> CommBuffer:
+        if cls._instance is None:
+            raise AttributeError("CommBuffer has not been initialized")
+        return cls._instance
+
+    @classmethod
     def stop(cls) -> None:
         with cls._lock:
             if cls._instance is not None:
@@ -131,6 +140,13 @@ class CommBuffer(abc.ABC):
         ...
 
     @abc.abstractmethod
+    def update_state(self, state: ComponentState | bytes) -> None:
+        """
+        Update all nodes with given state
+        """
+        ...
+
+    @abc.abstractmethod
     def shutdown(self, immediate: bool = False) -> None: ...
 
     @abc.abstractmethod
@@ -162,6 +178,9 @@ class CommBuffer(abc.ABC):
 
 
 class CommBufferSingleton(CommBuffer, Thread):
+    def update_state(self, state: ComponentState | bytes) -> None:
+        pass
+
     def __init__(
         self,
         queue_size: int = DEFAULT_QUEUE_SIZE,
@@ -351,6 +370,12 @@ class CommBufferProxy(CommBuffer):
     """
     Allows a Raspberry Pi to "slave" to another so only one serial connection is needed
     """
+
+    from ..db.component_state import ComponentState
+
+    def update_state(self, state: ComponentState) -> None:
+        if state:
+            self.enqueue_command(state.as_bytes())
 
     @classmethod
     def server_port(cls) -> int | None:

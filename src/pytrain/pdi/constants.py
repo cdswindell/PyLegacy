@@ -72,6 +72,10 @@ RF_RX = 0x72
 
 BLE_RX = 0x76
 
+BLOCK_GET: int = 0x90
+BLOCK_SET: int = 0x91
+BLOCK_RX: int = 0x92
+
 
 class FriendlyMixins(Enum):
     @property
@@ -117,6 +121,9 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     STM2_RX = STM2_RX
     RF_RX = RF_RX
     BLE_RX = BLE_RX
+    BLOCK_GET = BLOCK_GET
+    BLOCK_SET = BLOCK_SET
+    BLOCK_RX = BLOCK_RX
 
     @property
     def is_ping(self) -> bool:
@@ -149,8 +156,16 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
         return self.name.endswith("_SET")
 
     @property
+    def is_receive(self) -> bool:
+        return self.name.endswith("_RX")
+
+    @property
     def is_sendable(self) -> bool:
         return self.is_base or self.is_get or self.is_set
+
+    @property
+    def is_receivable(self) -> bool:
+        return self.is_receive
 
     @property
     def is_irda(self) -> bool:
@@ -175,6 +190,10 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     @property
     def is_bpc2(self) -> bool:
         return self.value in {BPC2_GET, BPC2_SET, BPC2_RX}
+
+    @property
+    def is_block(self) -> bool:
+        return self.value in {BLOCK_GET, BLOCK_SET, BLOCK_RX}
 
     @property
     def is_lcs(self) -> bool:
