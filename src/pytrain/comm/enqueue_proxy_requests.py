@@ -298,6 +298,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         client_ip: str | None = None
         client_port: int = DEFAULT_SERVER_PORT
         try:
+            if len(byte_stream) > 5 and byte_stream[2] == SENDING_STATE_REQUEST[2]:
+                byte_stream = byte_stream[3:]  # strip off sending state prefix
             if len(byte_stream) > 18:  # port and UUID as bytes
                 client_port = int.from_bytes(byte_stream[3:5], "big")
                 client_uuid = uuid.UUID(bytes=byte_stream[5:])
