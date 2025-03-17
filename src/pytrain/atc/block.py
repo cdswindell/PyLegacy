@@ -293,5 +293,4 @@ class Block(Watchable):
         from ..comm.comm_buffer import CommBuffer
 
         block_req = BlockReq(self)
-        self._block_state.update(block_req)
-        CommBuffer.get().update_state(self._block_state)
+        CommBuffer.get().update_state(block_req.as_bytes)
