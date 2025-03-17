@@ -244,7 +244,9 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         if byte_stream[0] == 0xFE and byte_stream[1] == 0xF0:
             from .command_listener import CommandDispatcher
 
-            # if this is a send state request, deal with it and exit, as it is in a different format
+            # if this is a send state request, deal with it and exit;
+            # it has a completely different format than the other
+            # sync commands
             if len(byte_stream) > 5 and byte_stream[2] == SENDING_STATE_REQUEST[2]:
                 byte_stream = byte_stream[3:]
                 CommBuffer.get().update_state(byte_stream)
@@ -301,9 +303,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         client_ip: str | None = None
         client_port: int = DEFAULT_SERVER_PORT
         try:
-            print(byte_stream[2], SENDING_STATE_REQUEST[2])
-            if len(byte_stream) > 5 and byte_stream[2] == SENDING_STATE_REQUEST[2]:
-                byte_stream = byte_stream[3:]  # strip off sending state prefix
             if len(byte_stream) > 18:  # port and UUID as bytes
                 client_port = int.from_bytes(byte_stream[3:5], "big")
                 client_uuid = uuid.UUID(bytes=byte_stream[5:])
