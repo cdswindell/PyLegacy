@@ -75,7 +75,8 @@ class Block(Watchable):
             self._sensor_track_watcher = StateWatcher(self.sensor_track, self._cache_motive)
 
         # finally, update corresponding state record on all nodes
-        self.update_state()
+        self._block_state = ComponentStateStore.get_state(CommandScope.BLOCK, self.block_id)
+        self.broadcast_state()
 
     def __repr__(self) -> str:
         nm = f" {self.name}" if self.name else ""
@@ -177,6 +178,7 @@ class Block(Watchable):
         log.info(f"Block {self.block_id} signal_slow_down")
         self.slow_down()
         with self.synchronizer:
+            self.broadcast_state()
             self.synchronizer.notify_all()
 
     def signal_stop(self) -> None:
@@ -185,6 +187,7 @@ class Block(Watchable):
         if self.next_block and self.next_block.is_occupied:
             self.stop_immediate()
         with self.synchronizer:
+            self.broadcast_state()
             self.synchronizer.notify_all()
 
     def signal_block_clear(self) -> None:
@@ -194,6 +197,7 @@ class Block(Watchable):
         if self._prev_block and self.is_occupied is False:
             self._prev_block.next_block_clear(self)
         with self.synchronizer:
+            self.broadcast_state()
             self.synchronizer.notify_all()
 
     def next_block_clear(self, signaling_block: Block) -> None:
@@ -264,6 +268,7 @@ class Block(Watchable):
             self._original_speed = None
         if last_motive != self.occupied_by:
             with self.synchronizer:
+                self.broadcast_state()
                 self.synchronizer.notify_all()
 
     def respond_to_thrown_switch(self) -> None:
@@ -283,10 +288,10 @@ class Block(Watchable):
                 elif self._slow_btn.is_active:
                     self.signal_slowdown()
 
-    def update_state(self):
-        from src.pytrain.pdi.block_req import BlockReq
+    def broadcast_state(self):
+        from ..pdi.block_req import BlockReq
+        from ..comm.comm_buffer import CommBuffer
 
         block_req = BlockReq(self)
-
-        self._block_state = ComponentStateStore.get_state(CommandScope.BLOCK, self.block_id)
         self._block_state.update(block_req)
+        CommBuffer.get().update_state(self._block_state)

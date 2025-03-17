@@ -14,6 +14,7 @@ from queue import Queue, Empty
 from threading import Thread
 
 from ..db.component_state import ComponentState
+from ..protocol.command_req import CommandReq
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 if sys.version_info >= (3, 11):
@@ -179,7 +180,10 @@ class CommBuffer(abc.ABC):
 
 class CommBufferSingleton(CommBuffer, Thread):
     def update_state(self, state: ComponentState | bytes) -> None:
-        pass
+        if isinstance(state, ComponentState):
+            print(state)
+        elif isinstance(state, bytes):
+            print(state.hex())
 
     def __init__(
         self,
@@ -343,7 +347,6 @@ class CommBufferSingleton(CommBuffer, Thread):
             log.exception(se)
 
     def base3_send(self, data: bytes):
-        from ..protocol.command_req import CommandReq
         from ..pdi.constants import PdiCommand
         from ..pdi.pdi_req import TmccReq
 
@@ -374,8 +377,10 @@ class CommBufferProxy(CommBuffer):
     from ..db.component_state import ComponentState
 
     def update_state(self, state: ComponentState) -> None:
+        from .enqueue_proxy_requests import SENDING_STATE_REQUEST
+
         if state:
-            self.enqueue_command(state.as_bytes())
+            self.enqueue_command(SENDING_STATE_REQUEST + state.as_bytes())
 
     @classmethod
     def server_port(cls) -> int | None:
