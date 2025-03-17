@@ -391,6 +391,7 @@ class TestComponentState(TestBase):
                 CommandScope.IRDA,
                 CommandScope.BASE,
                 CommandScope.SYNC,
+                CommandScope.BLOCK,
             ]:
                 continue
             with pytest.raises(KeyError, match=f"Invalid scope key: {key}"):
@@ -433,6 +434,7 @@ class TestComponentState(TestBase):
                 CommandScope.IRDA,
                 CommandScope.BASE,
                 CommandScope.SYNC,
+                CommandScope.BLOCK,
             ]:
                 continue
             with pytest.raises(ValueError, match=f"Invalid scope: {key}"):

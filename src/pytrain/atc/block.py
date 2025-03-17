@@ -76,7 +76,7 @@ class Block(Watchable):
             self._watch_sensor_track_thread.start()
 
     def __repr__(self) -> str:
-        nm = f" {self.block_name}" if self.block_name else ""
+        nm = f" {self.name}" if self.name else ""
         return f"Block{nm} #{self.block_id} Occupied: {self.is_occupied}"
 
     def watch_sensor_track(self) -> None:
@@ -94,7 +94,7 @@ class Block(Watchable):
                 self.respond_to_thrown_switch()
 
     @property
-    def block_name(self) -> str:
+    def name(self) -> str:
         return self._block_name
 
     @property
@@ -128,6 +128,14 @@ class Block(Watchable):
             or (self._slow_btn and self._slow_btn.is_active)
             or (self._stop_btn and self._stop_btn.is_active)
         )
+
+    @property
+    def is_slowed(self) -> bool:
+        return self._slow_btn.is_active if self._slow_btn else None
+
+    @property
+    def is_stopped(self) -> bool:
+        return self._stop_btn.is_active if self._stop_btn else None
 
     @property
     def prev_block(self) -> Block | None:

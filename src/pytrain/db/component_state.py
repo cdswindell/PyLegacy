@@ -254,6 +254,7 @@ class ComponentState(Watchable, ABC):
     @abc.abstractmethod
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
+        from ..atc.block import Block
 
         self.changed.clear()
         if command and command.command != TMCC1HaltCommandEnum.HALT:
@@ -273,11 +274,14 @@ class ComponentState(Watchable, ABC):
             if self.scope != command.scope:
                 scope = command.scope.name.title()
                 raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
-            if (isinstance(command, BaseReq) and command.status == 0) or isinstance(command, IrdaReq):
+            if (
+                (isinstance(command, BaseReq) and command.status == 0)
+                or isinstance(command, IrdaReq)
+                or isinstance(command, Block)
+            ):
                 if hasattr(command, "name") and command.name:
                     self._road_name = title(command.name)
                 if hasattr(command, "number") and command.number:
-                    self._road_number = command.number
                     self._road_number = command.number
                     # support lookup by road number
                     if self.road_number:
@@ -1655,9 +1659,86 @@ class SyncState(ComponentState):
         return {"state": state}
 
 
+class BlockState(ComponentState):
+    """
+    Maintain the state of a Block section
+    """
+
+    def __init__(self, scope: CommandScope = CommandScope.BLOCK) -> None:
+        if scope != CommandScope.SYNC:
+            raise ValueError(f"Invalid scope: {scope}")
+        super().__init__(scope)
+        self._block = None
+        self._occupied_by: EngineState | TrainState | None = None
+        self._occupied: bool = False
+        self._sensor_track: IrdaState | None = None
+
+    def __repr__(self) -> str:
+        msg = ""
+        return f"{PROGRAM_NAME} {msg}"
+
+    def update(self, command: L | P) -> None:
+        from ..atc.block import Block
+
+        if isinstance(command, Block):
+            self._ev.clear()
+            with self._cv:
+                if self._block is None:
+                    self._block = command
+                if self._sensor_track is None:
+                    self._sensor_track = command.sensor_track
+                self._occupied = command.is_occupied
+                self._occupied_by = command.occupied_by
+                self.changed.set()
+                self._cv.notify_all()
+
+    @property
+    def is_known(self) -> bool:
+        return self._block is not None
+
+    @property
+    def is_tmcc(self) -> bool:
+        return False
+
+    @property
+    def is_legacy(self) -> bool:
+        return False
+
+    @property
+    def is_lcs(self) -> bool:
+        return False
+
+    @property
+    def block_id(self) -> int | None:
+        from ..atc.block import Block
+
+        if isinstance(self._block, Block):
+            return self._block.block_id
+        return None
+
+    @property
+    def is_occupied(self) -> bool | None:
+        from ..atc.block import Block
+
+        if isinstance(self._block, Block):
+            return self._block.is_occupied
+        return None
+
+    def as_bytes(self) -> bytes:
+        return bytes()
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "block_id": self.block_id,
+            "name": self.road_name,
+            "is_occupied": self.is_occupied,
+        }
+
+
 SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
     CommandScope.ACC: AccessoryState,
     CommandScope.BASE: BaseState,
+    CommandScope.BLOCK: BlockState,
     CommandScope.ENGINE: EngineState,
     CommandScope.IRDA: IrdaState,
     CommandScope.ROUTE: RouteState,
