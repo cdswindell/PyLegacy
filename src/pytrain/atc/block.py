@@ -24,7 +24,36 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_RESTR
 log = logging.getLogger(__name__)
 
 
+# noinspection PyUnresolvedReferences
 class Block:
+    """
+    Represents a Block entity in a railway system simulation.
+
+    The Block class models a segment of track in a railway system. It provides mechanisms
+    to monitor and control the state of the block, including occupancy detection, speed
+    control, and signaling. The class supports the integration of track components (such as
+    switches and sensors) for automating block management and ensuring safe train operations.
+
+    Attributes:
+        state (BlockState): Retrieves the current state of the block.
+        name (str | None): The optional name of the block.
+        block_id (int): The unique identifier for the block.
+        scope (CommandScope): Returns the command scope for the block.
+        address (int): Alias for block_id, representing the block's address.
+        sensor_track (IrdaState | None): The associated sensor track state, if any.
+        switch (SwitchState | None): The associated switch state, if configured.
+        occupied_by (EngineState | TrainState | None): The motive entity occupying the block.
+        occupied_direction (Direction | None): Direction of the motive occupying the block.
+        is_occupied (bool): True if the block is occupied, False otherwise.
+        is_slowed (bool | None): Indicates if the block is being slowed (can be None if not applicable).
+        is_stopped (bool | None): Indicates if the block is stopped (can be None if not applicable).
+        prev_block (Block | None): Adjacent block in the "previous" direction, if configured.
+        next_block (Block | None): Adjacent block in the "next" direction, if configured.
+        is_left_to_right (bool): Indicates whether the block is oriented from left to right.
+        is_right_to_left (bool): Indicates whether the block is oriented from right to left.
+        direction (Direction): Represents the direction of the block based on its orientation.
+    """
+
     @classmethod
     def button(cls, pin: P) -> Button:
         return GpioHandler.make_button(pin)

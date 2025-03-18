@@ -67,7 +67,7 @@ class BlockReq(PdiReq):
 
     @property
     def payload(self) -> str | None:
-        oc = f" Occupied: {self.is_occupied()}"
+        oc = f" Occupied: {self.is_occupied}"
         nm = f"  {self.name}" if self.name else ""
         return f"Block Id: {self.block_id}{nm}{oc} {self.packet}"
 
@@ -132,5 +132,6 @@ class BlockReq(PdiReq):
     def flags(self) -> int:
         return self._flags
 
+    @property
     def is_occupied(self) -> bool:
         return self._flags & (1 << 0) != 0
