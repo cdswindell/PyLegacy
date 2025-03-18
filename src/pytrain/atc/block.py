@@ -12,7 +12,7 @@ import logging
 
 from gpiozero import Button
 
-from ..db.component_state import IrdaState, EngineState, TrainState, SwitchState
+from ..db.component_state import IrdaState, EngineState, TrainState, SwitchState, BlockState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler, P
@@ -75,12 +75,17 @@ class Block:
             self._sensor_track_watcher = StateWatcher(self.sensor_track, self._cache_motive)
         # finally, update corresponding state record on all nodes
         self.broadcast_state()
+        self._block_state = ComponentStateStore.get_state(CommandScope.BLOCK, self.block_id)
 
     def __repr__(self) -> str:
         nm = f" {self.name}" if self.name else ""
         oc = f" Occupied: {self.is_occupied if self.is_occupied is not None else 'Unknown'}"
         dr = f" Direction: {self.direction.name}" if self.direction else ""
         return f"Block{nm} #{self.block_id}{oc}{dr}"
+
+    @property
+    def state(self) -> BlockState:
+        return self._block_state
 
     @property
     def name(self) -> str:

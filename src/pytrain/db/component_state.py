@@ -1783,10 +1783,21 @@ class BlockState(ComponentState):
         return BlockReq(self).as_bytes
 
     def as_dict(self) -> Dict[str, Any]:
+        if self.occupied_by:
+            motive = {
+                "scope": self.occupied_by.scope.name.lower(),
+                "address": self.occupied_by.address,
+            }
+        else:
+            motive = None
         return {
             "block_id": self.block_id,
             "name": self.road_name,
+            "direction": self.direction.name.lower(),
+            "sensor_track": self.sensor_track.address if self.sensor_track else None,
+            "switch": self.switch.address if self.switch else None,
             "is_occupied": self.is_occupied,
+            "occupied_by": motive,
         }
 
 
