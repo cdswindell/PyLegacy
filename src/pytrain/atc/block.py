@@ -64,7 +64,7 @@ class Block:
         block_id: int,
         block_name: str = None,
         sensor_track_id: int = None,
-        occupied_pin: P = None,
+        enter_pin: P = None,
         slow_pin: P = None,
         stop_pin: P = None,
         left_to_right: bool = True,
@@ -76,7 +76,7 @@ class Block:
         else:
             self._sensor_track = None
 
-        self._occupied_btn = self.button(occupied_pin) if occupied_pin else None
+        self._enter_btn = self.button(enter_pin) if enter_pin else None
         self._slow_btn = self.button(slow_pin) if slow_pin else None
         self._stop_btn = self.button(stop_pin) if stop_pin else None
 
@@ -89,13 +89,19 @@ class Block:
         self._thru_block: Block = None
         self._out_block: Block = None
         self._left_to_right = left_to_right if left_to_right is not None else True
+        self._order_activated = []
+        self._order_deactivated = []
 
         # add handlers for state change
+        if self._enter_btn:
+            self._enter_btn.when_activated = self.signal_occupied_enter
+            self._enter_btn.when_activated = self.signal_occupied_exit
         if self._slow_btn:
-            self._slow_btn.when_activated = self.signal_slowdown
+            self._slow_btn.when_activated = self.signal_slowdown_entered
+            self._slow_btn.when_deactivated = self.signal_slowdown_exited
         if self._stop_btn:
-            self._stop_btn.when_activated = self.signal_stop
-            self._stop_btn.when_deactivated = self.signal_block_clear
+            self._stop_btn.when_activated = self.signal_stop_entered
+            self._stop_btn.when_deactivated = self.signal_stop_exited
 
         # start thread if sensor track specified, we also delay calling super until
         # buttons have been created
@@ -151,10 +157,15 @@ class Block:
     @property
     def is_occupied(self) -> bool:
         return (
-            (self._occupied_btn and self._occupied_btn.is_active)
-            or (self._slow_btn and self._slow_btn.is_active)
-            or (self._stop_btn and self._stop_btn.is_active)
+            (self.occupied_by and self.occupied_direction == self.direction)
+            or self.is_entered is True
+            or self.is_slowed is True
+            or self.is_stopped is True
         )
+
+    @property
+    def is_entered(self) -> bool:
+        return self._enter_btn.is_active if self._enter_btn else None
 
     @property
     def is_slowed(self) -> bool:
@@ -219,22 +230,56 @@ class Block:
         else:
             pass
 
-    def signal_slowdown(self) -> None:
+    def signal_occupied_enter(self) -> None:
+        log.info(f"Block {self.block_id} enter")
+        if 1 not in self._order_activated:
+            self._order_activated.append(1)
+        if self.motive_direction and self.motive_direction == self.direction:
+            self.broadcast_state()
+
+    def signal_occupied_exit(self) -> None:
+        log.info(f"Block {self.block_id} check")
+        if 1 not in self._order_deactivated:
+            self._order_deactivated.append(1)
+        # if we are traversing this block in reverse, which we know
+        # because the motive direction differs from the defined block
+        # direction, clear the motive info
+        if self.motive_direction and self.motive_direction != self.direction:
+            self._original_speed = None
+            self._current_motive = None
+            self._motive_direction = None
+            self.broadcast_state()
+
+    def signal_slowdown_entered(self) -> None:
         log.info(f"Block {self.block_id} signal_slow_down")
-        self.slow_down()
+        if 2 not in self._order_activated:
+            self._order_activated.append(2)
+        if self.motive_direction and self.motive_direction == self.direction:
+            self.broadcast_state()
+            self.slow_down()
         self.broadcast_state()
 
-    def signal_stop(self) -> None:
-        log.info(f"Block {self.block_id} signal_stop")
+    def signal_stop_entered(self) -> None:
+        log.info(f"Block {self.block_id} signal_stop_entered")
+        if 3 not in self._order_activated:
+            self._order_activated.append(3)
         # if next block is occupied, stop train in this block immediately
-        if self.next_block and self.next_block.is_occupied:
-            self.stop_immediate()
+        if self.motive_direction and self.motive_direction == self.direction:
+            if self.motive_direction and self.motive_direction == self.direction:
+                if self.next_block and self.next_block.is_occupied:
+                    self.stop_immediate()
         self.broadcast_state()
 
-    def signal_block_clear(self) -> None:
-        log.info(f"Block {self.block_id} signal_block_clear")
+    def signal_stop_exited(self) -> None:
+        log.info(f"Block {self.block_id} signal_stop_exited")
+        if 3 not in self._order_deactivated:
+            self._order_deactivated.append(3)
+        # if exit was fired in the correct order, clear the block
         self._original_speed = None
         self._current_motive = None
+        self._motive_direction = None
+        self._order_activated.clear()
+        self._order_deactivated.clear()
         if self._prev_block and self.is_occupied is False:
             self._prev_block.next_block_clear(self)
         self.broadcast_state()
@@ -288,11 +333,10 @@ class Block:
             f"Cache Motive called,  {self.sensor_track.tmcc_id} {scope} {last_id} "
             f"{ld} {self.sensor_track.last_direction}"
         )
-        last_motive = self.occupied_by
-
         # we want to record the info on the train in the block whether it
         # is coming or going; although if it is going, we have to figure out
         # how to clear it...
+        last_motive = self.occupied_by
         if self.sensor_track.is_train is True and self.sensor_track.last_train_id:
             self._current_motive = ComponentStateStore.get_state(CommandScope.TRAIN, self.sensor_track.last_train_id)
         elif self.sensor_track.is_engine is True and self.sensor_track.last_engine_id:
@@ -321,9 +365,9 @@ class Block:
             else:
                 return
             if self.next_block.is_occupied is False:
-                self.next_block.signal_block_clear()
+                self.next_block.signal_stop_exited()
             else:
                 if self._stop_btn.is_active:
-                    self.signal_stop()
+                    self.signal_stop_entered()
                 elif self._slow_btn.is_active:
-                    self.signal_slowdown()
+                    self.signal_slowdown_entered()

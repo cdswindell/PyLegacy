@@ -27,7 +27,7 @@ class BlockReq(PdiReq):
             self._motive_scope = CommandScope.by_value(self._data[9]) if data_len > 9 else None
             self._motive_direction = Direction.by_value(self._data[10]) if data_len > 10 else None
             self._name = self.decode_text(self._data[11:44]) if data_len > 11 else None
-            self._direction = Direction.L2R if (self.flags & 0x08 > 0) else Direction.R2L
+            self._direction = Direction.L2R if (self.flags & 0x10 > 0) else Direction.R2L
         elif isinstance(data, Block):
             self._block_id = self._tmcc_id = data.block_id
             self._prev_block_id = data.prev_block.block_id if data.prev_block else None
@@ -45,7 +45,9 @@ class BlockReq(PdiReq):
                 self._motive_scope = None
                 self._motive_direction = None
             flags = 0
-            for i, flag in enumerate([data.is_occupied, data.is_slowed, data.is_stopped, data.is_left_to_right]):
+            for i, flag in enumerate(
+                [data.is_occupied, data.is_entered, data.is_slowed, data.is_stopped, data.is_left_to_right]
+            ):
                 flags |= (1 << i) if flag is True else 0
             self._flags = flags
         elif isinstance(data, BlockState):

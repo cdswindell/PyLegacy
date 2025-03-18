@@ -1793,7 +1793,7 @@ class BlockState(ComponentState):
         if self.occupied_by:
             motive = {
                 "scope": self.occupied_by.scope.name.lower(),
-                "address": self.occupied_by.address,
+                "tmcc_id": self.occupied_by.address,
             }
         else:
             motive = None
