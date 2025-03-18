@@ -273,6 +273,13 @@ class PdiDispatcher(Thread):
                     log.debug(cmd)
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
+                    from .block_req import BlockReq
+
+                    if isinstance(cmd, BlockReq):
+                        print(cmd)
+                        print(cmd.block_id)
+                        print(cmd.tmcc_id)
+                        print(self._channels)
                     if isinstance(cmd, BaseReq):
                         # on the PyTrain server, we need to know when the initial
                         # roster sync is complete; we do this by looking for the

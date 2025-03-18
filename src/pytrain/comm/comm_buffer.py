@@ -250,7 +250,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         else:
             raise AttributeError(f"Invalid state: {state}")
         for state_cmd in state_cmds:
-            print(f"Server: {state_cmd}")
+            print(f"Server: {state_cmd} {type(state_cmd)}")
             if isinstance(state, CommandReq):
                 CommandDispatcher.get().offer(state_cmd)
             elif isinstance(state, PdiReq):
@@ -498,7 +498,7 @@ class CommBufferProxy(CommBuffer):
         from .enqueue_proxy_requests import SENDING_STATE_REQUEST
 
         if state:
-            if isinstance(state, ComponentState):
+            if isinstance(state, ComponentState) or isinstance(state, CommandReq) or isinstance(state, PdiReq):
                 state_bytes = state.as_bytes
             elif isinstance(state, bytes):
                 state_bytes = state
