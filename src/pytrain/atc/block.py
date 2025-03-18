@@ -12,7 +12,7 @@ import logging
 
 from gpiozero import Button
 
-from ..db.component_state import IrdaState, EngineState, TrainState, SwitchState, BlockState
+from ..db.component_state import IrdaState, EngineState, TrainState, SwitchState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..db.watchable import Watchable
@@ -152,9 +152,10 @@ class Block(Watchable):
     def is_right_to_left(self) -> bool:
         return not self._left_to_right
 
-    @property
-    def state(self) -> BlockState:
-        return self._block_state
+    #
+    # @property
+    # def state(self) -> BlockState:
+    #     return self._block_state
 
     def next_switch(self, switch_tmcc_id, thru_block: Block, out_block: Block) -> None:
         if switch_tmcc_id:
