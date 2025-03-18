@@ -250,10 +250,10 @@ class CommBufferSingleton(CommBuffer, Thread):
         else:
             raise AttributeError(f"Invalid state: {state}")
         for state_cmd in state_cmds:
-            print(f"Server: {state_cmd} {type(state_cmd)}")
             if isinstance(state, CommandReq):
                 CommandDispatcher.get().offer(state_cmd)
             elif isinstance(state, PdiReq):
+                print(f"Server: {state_cmd} {type(state_cmd)}")
                 PdiDispatcher.get().offer(state_cmd)
 
     def start_heart_beat(self, port: int = DEFAULT_SERVER_PORT):
