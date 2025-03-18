@@ -4,7 +4,7 @@ from .constants import PdiCommand, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
 from ..atc.block import Block
 from ..db.component_state import BlockState
-from ..protocol.constants import CommandScope
+from ..protocol.constants import CommandScope, Direction
 
 
 class BlockReq(PdiReq):
@@ -25,7 +25,8 @@ class BlockReq(PdiReq):
             self._switch_id = self._data[6] if data_len > 6 else None
             self._motive_id = int.from_bytes(self._data[7:9], byteorder="little") if data_len > 7 else None
             self._motive_scope = CommandScope.by_value(self._data[9]) if data_len > 9 else None
-            self._name = self.decode_text(self._data[10:43]) if data_len > 10 else None
+            self._motive_direction = Direction.by_value(self._data[10]) if data_len > 10 else None
+            self._name = self.decode_text(self._data[11:44]) if data_len > 11 else None
         elif isinstance(data, Block):
             self._block_id = self._tmcc_id = data.block_id
             self._prev_block_id = data.prev_block.block_id if data.prev_block else None
@@ -36,9 +37,11 @@ class BlockReq(PdiReq):
             if data.occupied_by:
                 self._motive_id = data.occupied_by.address
                 self._motive_scope = data.occupied_by.scope
+                self._motive_direction = data.direction
             else:
                 self._motive_id = None
                 self._motive_scope = None
+                self._motive_direction = None
             flags = 0
             for i, flag in enumerate([data.is_occupied, data.is_slowed, data.is_stopped, data.is_left_to_right]):
                 flags |= (1 << i) if flag is True else 0
@@ -53,9 +56,11 @@ class BlockReq(PdiReq):
             if data.occupied_by:
                 self._motive_id = data.occupied_by.address
                 self._motive_scope = data.occupied_by.scope
+                self._motive_direction = data.direction
             else:
                 self._motive_id = None
                 self._motive_scope = None
+                self._motive_direction = None
             self._flags = data.flags
         else:
             raise AttributeError(f"Unsupported argument: {data}")
@@ -79,6 +84,7 @@ class BlockReq(PdiReq):
         byte_str += (self._switch_id if self._switch_id else 0).to_bytes(1, byteorder="big")
         byte_str += (self._motive_id if self._motive_id else 0).to_bytes(2, byteorder="little")
         byte_str += (self._motive_scope.value if self._motive_scope else 0).to_bytes(1, byteorder="big")
+        byte_str += (self._motive_direction.value if self._motive_direction else 0).to_bytes(1, byteorder="big")
         byte_str += self.encode_text(self._name, 33)
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
@@ -117,6 +123,10 @@ class BlockReq(PdiReq):
     @property
     def motive_scope(self) -> CommandScope:
         return self._motive_scope
+
+    @property
+    def motive_direction(self) -> Direction:
+        return self._motive_direction
 
     @property
     def flags(self) -> int:

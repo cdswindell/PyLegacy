@@ -21,6 +21,10 @@ class StateWatcher(Thread):
     def action(self) -> None:
         self._action()
 
+    @property
+    def watched(self) -> Watchable:
+        return self._state
+
     def shutdown(self) -> None:
         self._is_running = False
         if self._notifier:

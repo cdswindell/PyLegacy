@@ -18,7 +18,7 @@ from ..db.state_watcher import StateWatcher
 from ..db.watchable import Watchable
 from ..gpio.gpio_handler import GpioHandler, P
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
+from ..protocol.constants import CommandScope, Direction
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1_RESTRICTED_SPEED
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_RESTRICTED_SPEED
 
@@ -55,6 +55,7 @@ class Block(Watchable):
         self._prev_block: Block | None = None
         self._next_block: Block | None = None
         self._current_motive: EngineState | TrainState | None = None
+        self._motive_direction = None
         self._original_speed: int | None = None
         self._switch: SwitchState = None
         self._thru_block: Block = None
@@ -107,6 +108,10 @@ class Block(Watchable):
     @property
     def occupied_by(self) -> EngineState | TrainState | None:
         return self._current_motive
+
+    @property
+    def direction(self) -> Direction:
+        return self._motive_direction
 
     @property
     def is_occupied(self) -> bool:
@@ -244,27 +249,30 @@ class Block(Watchable):
         scope = "Train" if self.sensor_track.is_train else "Engine"
         last_id = self.sensor_track.last_engine_id
         ld = "L -> R" if self.is_left_to_right else "R -> L"
-        log.info(f"{self.sensor_track.tmcc_id} {scope} {last_id} {ld} {self.sensor_track.last_direction}")
-
-        dir_int = 1 if self.is_left_to_right else 0
+        log.info(
+            f"Cache Motive called,  {self.sensor_track.tmcc_id} {scope} {last_id} "
+            f"{ld} {self.sensor_track.last_direction}"
+        )
         last_motive = self.occupied_by
-        if dir_int == self.sensor_track.last_direction:
-            if self.sensor_track.is_train is True and self.sensor_track.last_train_id:
-                self._current_motive = ComponentStateStore.get_state(
-                    CommandScope.TRAIN, self.sensor_track.last_train_id
-                )
-            elif self.sensor_track.is_engine is True and self.sensor_track.last_engine_id:
-                self._current_motive = ComponentStateStore.get_state(
-                    CommandScope.ENGINE, self.sensor_track.last_engine_id
-                )
-            else:
-                self._current_motive = None
+
+        # we want to record the info on the train in the block whether it
+        # is coming or going; although if it is going, we have to figure out
+        # how to clear it...
+        if self.sensor_track.is_train is True and self.sensor_track.last_train_id:
+            self._current_motive = ComponentStateStore.get_state(CommandScope.TRAIN, self.sensor_track.last_train_id)
+        elif self.sensor_track.is_engine is True and self.sensor_track.last_engine_id:
+            self._current_motive = ComponentStateStore.get_state(CommandScope.ENGINE, self.sensor_track.last_engine_id)
         else:
+            # a train is passing out of this block
             self._current_motive = None
+            self._motive_direction = None
+
         if self._current_motive:
             self._original_speed = self._current_motive.speed
+            self._motive_direction = self.sensor_track.last_direction
         else:
             self._original_speed = None
+            self._motive_direction = None
         if last_motive != self.occupied_by:
             with self.synchronizer:
                 self.broadcast_state()

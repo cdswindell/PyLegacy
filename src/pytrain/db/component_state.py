@@ -29,6 +29,7 @@ from ..protocol.constants import (
     PROGRAM_NAME,
     RPM_TYPE,
     STEAM_TYPE,
+    Direction,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux, TMCC1SyncCommandEnum
@@ -1459,8 +1460,13 @@ class IrdaState(LcsState):
         return self.sequence.name.title() if self.sequence else "NA"
 
     @property
-    def last_direction(self) -> int:
-        return self._last_dir
+    def last_direction(self) -> Direction:
+        if self._last_dir == 1:
+            return Direction.L2R
+        elif self._last_dir == 0:
+            return Direction.R2L
+        else:
+            return Direction.UNKNOWN
 
     @property
     def is_left_to_right(self) -> bool:
@@ -1487,6 +1493,7 @@ class IrdaState(LcsState):
         return (self._last_train_id is not None) and (self._last_train_id > 0)
 
     def as_bytes(self) -> bytes:
+        # TODO: return IrdaAction.DATA
         if self.is_known:
             return IrdaReq(
                 self.address,
@@ -1501,7 +1508,7 @@ class IrdaState(LcsState):
 
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
-        d["last_direction"] = self.last_direction
+        d["last_direction"] = self.last_direction.name.lower()
         d["last_engine_id"] = self.last_engine_id
         d["last_train_id"] = self.last_train_id
         d["sequence"] = self.sequence.name.lower() if self.sequence else "none"
@@ -1674,8 +1681,8 @@ class BlockState(ComponentState):
         self._block_id = None
         self._prev_block = None
         self._next_block = None
-        self._is_occupied = None
         self._occupied_by: EngineState | TrainState | None = None
+        self._direction = None
         self._occupied: bool = False
         self._flags: int = 0
         self._sensor_track: IrdaState | None = None
@@ -1685,6 +1692,7 @@ class BlockState(ComponentState):
         msg = f"{self.block_id if self.block_id else 'NA'}"
         msg += f" Occupied: {'Yes' if self.is_occupied is True else 'No'}"
         msg += f" {self.occupied_by.scope.label} {self.occupied_by.address}" if self.occupied_by else ""
+        msg += f" {self.direction.name.lower()}" if self.direction else ""
         return f"Block {msg}"
 
     def update(self, command: L | P) -> None:
@@ -1698,8 +1706,8 @@ class BlockState(ComponentState):
                     self._block_req = command
                     self._block_id = command.block_id
                     self._flags = command.flags
-                    self._is_occupied = command.is_occupied
                     self._occupied = command.is_occupied
+                    self._direction = command.motive_direction
                     if self._sensor_track is None and command.sensor_track_id:
                         self._sensor_track = ComponentStateStore.get_state(CommandScope.IRDA, command.sensor_track_id)
                     if self._switch is None and command.switch_id:
@@ -1737,11 +1745,15 @@ class BlockState(ComponentState):
 
     @property
     def is_occupied(self) -> bool:
-        return self._is_occupied
+        return self._occupied
 
     @property
     def occupied_by(self) -> TrainState | EngineState:
         return self._occupied_by
+
+    @property
+    def direction(self) -> Direction:
+        return self._direction
 
     @property
     def sensor_track(self) -> IrdaState:

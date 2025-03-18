@@ -151,6 +151,13 @@ class CommandScope(Mixins, Enum):
     BLOCK = 14
 
 
+@unique
+class Direction(Mixins, Enum):
+    UNKNOWN = 0
+    L2R = 1
+    R2L = 2
+
+
 class CommandPrefix(Mixins, IntEnum):
     """
     Marker interface for Command Prefix enums
