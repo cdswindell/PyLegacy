@@ -5,10 +5,10 @@ import logging
 import threading
 from abc import ABC
 from collections import defaultdict
+from threading import Event, Lock, RLock, Condition
 from time import time
 from typing import Dict, Tuple, TypeVar, Set, Any, List
 
-from .watchable import Watchable
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Asc2Action, PdiCommand, Bpc2Action, IrdaAction
@@ -142,10 +142,14 @@ BIG_NUMBER = float("inf")
 
 
 # noinspection PyUnresolvedReferences
-class ComponentState(Watchable, ABC):
+class ComponentState(ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, scope: CommandScope = None) -> None:
+        from .component_state_store import DependencyCache
+
+        # noinspection PyTypeChecker
+        self._lock: Lock = RLock()
         self._scope = scope
         self._last_command: CommandReq | None = None
         self._last_command_bytes = None
@@ -155,11 +159,9 @@ class ComponentState(Watchable, ABC):
         self._number = None
         self._address: int | None = None
         self._spare_1: int | None = None
-        self._ev = threading.Event()
-
-        from .component_state_store import DependencyCache
-
         self._dependencies = DependencyCache.build()
+        self._ev = Event()
+        self._cv: Condition = Condition(self._lock)
 
     def __repr__(self) -> str:
         return f"{self.scope.name} {self._address}"
@@ -216,6 +218,10 @@ class ComponentState(Watchable, ABC):
     @property
     def last_updated(self) -> float:
         return self._last_updated
+
+    @property
+    def synchronizer(self) -> Condition:
+        return self._cv
 
     @property
     def changed(self) -> threading.Event:

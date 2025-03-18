@@ -15,7 +15,6 @@ from gpiozero import Button
 from ..db.component_state import IrdaState, EngineState, TrainState, SwitchState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
-from ..db.watchable import Watchable
 from ..gpio.gpio_handler import GpioHandler, P
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, Direction
@@ -25,7 +24,7 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_RESTR
 log = logging.getLogger(__name__)
 
 
-class Block(Watchable):
+class Block:
     @classmethod
     def button(cls, pin: P) -> Button:
         return GpioHandler.make_button(pin)
@@ -181,18 +180,14 @@ class Block(Watchable):
     def signal_slowdown(self) -> None:
         log.info(f"Block {self.block_id} signal_slow_down")
         self.slow_down()
-        with self.synchronizer:
-            self.broadcast_state()
-            self.synchronizer.notify_all()
+        self.broadcast_state()
 
     def signal_stop(self) -> None:
         log.info(f"Block {self.block_id} signal_stop")
         # if next block is occupied, stop train in this block immediately
         if self.next_block and self.next_block.is_occupied:
             self.stop_immediate()
-        with self.synchronizer:
-            self.broadcast_state()
-            self.synchronizer.notify_all()
+        self.broadcast_state()
 
     def signal_block_clear(self) -> None:
         log.info(f"Block {self.block_id} signal_block_clear")
@@ -200,9 +195,7 @@ class Block(Watchable):
         self._current_motive = None
         if self._prev_block and self.is_occupied is False:
             self._prev_block.next_block_clear(self)
-        with self.synchronizer:
-            self.broadcast_state()
-            self.synchronizer.notify_all()
+        self.broadcast_state()
 
     def next_block_clear(self, signaling_block: Block) -> None:
         from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
@@ -274,9 +267,7 @@ class Block(Watchable):
             self._original_speed = None
             self._motive_direction = None
         if last_motive != self.occupied_by:
-            with self.synchronizer:
-                self.broadcast_state()
-                self.synchronizer.notify_all()
+            self.broadcast_state()
 
     def respond_to_thrown_switch(self) -> None:
         if self.switch:
