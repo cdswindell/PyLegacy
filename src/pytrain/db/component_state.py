@@ -1680,6 +1680,7 @@ class BlockState(ComponentState):
         self._flags: int = 0
         self._sensor_track: IrdaState | None = None
         self._switch: SwitchState | None = None
+        print("BlockState init")
 
     def __repr__(self) -> str:
         msg = f"{self.block_id if self.block_id else 'NA'}"
@@ -1690,6 +1691,7 @@ class BlockState(ComponentState):
         from ..pdi.block_req import BlockReq
         from .component_state_store import ComponentStateStore
 
+        print(f"State: {command}")
         if command:
             with self._cv:
                 super().update(command)

@@ -87,7 +87,7 @@ class Bpc2Req(LcsReq):
     def payload(self) -> str | None:
         if self.is_error:
             return super().payload
-        if self.pdi_command != PdiCommand.ASC2_GET:
+        if self.pdi_command != PdiCommand.BPC2_GET:
             if self.action == Bpc2Action.CONFIG:
                 return f"Mode: {self.mode} Debug: Restore: {self.restore} {self.debug} ({self.packet})"
             elif self.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
