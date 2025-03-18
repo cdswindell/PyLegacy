@@ -78,7 +78,8 @@ class Block:
 
     def __repr__(self) -> str:
         nm = f" {self.name}" if self.name else ""
-        return f"Block{nm} #{self.block_id} Occupied: {self.is_occupied}"
+        dr = f"Direction: {self.direction.name}" if self.direction else ""
+        return f"Block{nm} #{self.block_id} Occupied: {self.is_occupied}{dr}"
 
     @property
     def name(self) -> str:
@@ -109,7 +110,7 @@ class Block:
         return self._current_motive
 
     @property
-    def direction(self) -> Direction:
+    def occupied_direction(self) -> Direction:
         return self._motive_direction
 
     @property
@@ -156,10 +157,16 @@ class Block:
     def is_right_to_left(self) -> bool:
         return not self._left_to_right
 
-    #
-    # @property
-    # def state(self) -> BlockState:
-    #     return self._block_state
+    @property
+    def direction(self) -> Direction:
+        return Direction.L2R if self.is_left_to_right else Direction.R2L
+
+    def broadcast_state(self):
+        from ..pdi.block_req import BlockReq
+        from ..comm.comm_buffer import CommBuffer
+
+        block_req = BlockReq(self)
+        CommBuffer.get().update_state(block_req)
 
     def next_switch(self, switch_tmcc_id, thru_block: Block, out_block: Block) -> None:
         if switch_tmcc_id:
@@ -285,10 +292,3 @@ class Block:
                     self.signal_stop()
                 elif self._slow_btn.is_active:
                     self.signal_slowdown()
-
-    def broadcast_state(self):
-        from ..pdi.block_req import BlockReq
-        from ..comm.comm_buffer import CommBuffer
-
-        block_req = BlockReq(self)
-        CommBuffer.get().update_state(block_req)

@@ -37,7 +37,7 @@ class BlockReq(PdiReq):
             if data.occupied_by:
                 self._motive_id = data.occupied_by.address
                 self._motive_scope = data.occupied_by.scope
-                self._motive_direction = data.direction
+                self._motive_direction = data.occupied_direction
             else:
                 self._motive_id = None
                 self._motive_scope = None
