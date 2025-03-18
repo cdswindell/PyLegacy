@@ -1716,6 +1716,7 @@ class BlockState(ComponentState):
                         self._occupied_by = ComponentStateStore.get_state(command.motive_scope, command.motive_id)
                     else:
                         self._occupied_by = None
+                    print("BlockStateUpdate called...")
                     self.changed.set()
                     self._cv.notify_all()
 
