@@ -63,7 +63,8 @@ class BlockReq(PdiReq):
     @property
     def payload(self) -> str | None:
         oc = f" Occupied: {self.is_occupied()}"
-        return f"Block Id: {self.block_id}{oc} {self.packet}"
+        nm = f"  {self.name}" if self.name else ""
+        return f"Block Id: {self.block_id}{nm}{oc} {self.packet}"
 
     @property
     def as_bytes(self) -> bytes:

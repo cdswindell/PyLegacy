@@ -142,7 +142,7 @@ class CommBuffer(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def update_state(self, state: ComponentState | bytes) -> None:
+    def update_state(self, state: ComponentState | CommandReq | PdiReq | bytes) -> None:
         """
         Update all nodes with given state
         """
@@ -488,7 +488,7 @@ class CommBufferProxy(CommBuffer):
                         continue
                     raise oe
 
-    def update_state(self, state: ComponentState | bytes) -> None:
+    def update_state(self, state: ComponentState | CommandReq | PdiReq | bytes) -> None:
         """
         Allow a state update to be sent to server and all clients.
         Implemented to support automatic train control Blocks

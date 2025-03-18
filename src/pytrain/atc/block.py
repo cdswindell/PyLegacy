@@ -73,9 +73,7 @@ class Block(Watchable):
         self._sensor_track_watcher = self._switch_watcher = None
         if self.sensor_track:
             self._sensor_track_watcher = StateWatcher(self.sensor_track, self._cache_motive)
-
         # finally, update corresponding state record on all nodes
-        self._block_state = ComponentStateStore.get_state(CommandScope.BLOCK, self.block_id)
         self.broadcast_state()
 
     def __repr__(self) -> str:
@@ -293,4 +291,4 @@ class Block(Watchable):
         from ..comm.comm_buffer import CommBuffer
 
         block_req = BlockReq(self)
-        CommBuffer.get().update_state(block_req.as_bytes)
+        CommBuffer.get().update_state(block_req)
