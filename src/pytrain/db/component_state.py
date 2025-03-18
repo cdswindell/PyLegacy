@@ -1700,7 +1700,11 @@ class BlockState(ComponentState):
         msg += f" {self.direction.name.lower()}" if self.direction else ""
         msg += f" Occupied: {'Yes' if self.is_occupied is True else 'No'}"
         msg += f" {self.occupied_by.scope.label} {self.occupied_by.address}" if self.occupied_by else ""
-        msg += f" {self.occupied_direction.label}" if self.occupied_direction else ""
+        msg += (
+            f" {self.occupied_direction.label}"
+            if self.occupied_direction and self.occupied_direction != Direction.UNKNOWN
+            else ""
+        )
         return f"Block {msg}"
 
     def update(self, command: L | P) -> None:
