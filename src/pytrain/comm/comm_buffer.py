@@ -222,22 +222,39 @@ class CommBufferSingleton(CommBuffer, Thread):
         Force a state update thru the system. Used to handle
         non-Lionel actors, like automatic train control blocks.
         """
+        from .command_listener import CommandDispatcher
+        from ..pdi.pdi_listener import PdiDispatcher
+        from ..pdi.constants import PDI_SOP, PDI_EOP
+
         # if we got a state, remember it, otherwise, we have to
         # parse the byte stream and convert
         if isinstance(state, ComponentState):
             state = state.as_bytes
+
+        state_cmds = []
         if isinstance(state, bytes):
             # this is the hard one, the byte stream could be a mixture of PDI and TMCC
-            # commands; we have to go thru and dispatch to the correct listener
-            pass
+            # commands; we have to go thru and dispatch to the correct listener. With
+            # that said, as a simplification, we will assume that consumers of this
+            # method are not mixed modal and the byte stream will either be a CommandReq
+            # or a PdiReq
+            # TODO: parse mixed modal stream
+            if state[0] == PDI_SOP and state[-1] == PDI_EOP:
+                state_cmds.append(PdiReq.from_bytes(state))
+            else:
+                state_cmds.append(CommandReq.from_bytes(state))
         elif isinstance(state, CommandReq):
-            from .command_listener import CommandDispatcher
-
-            CommandDispatcher.get().offer(state)
+            state_cmds.append(state)
         elif isinstance(state, PdiReq):
-            from ..pdi.pdi_listener import PdiDispatcher
-
-            PdiDispatcher.get().offer(state)
+            state_cmds.append(state)
+        else:
+            raise AttributeError(f"Invalid state: {state}")
+        for state_cmd in state_cmds:
+            print(f"Server: {state_cmd}")
+            if isinstance(state, CommandReq):
+                CommandDispatcher.get().offer(state_cmd)
+            elif isinstance(state, PdiReq):
+                PdiDispatcher.get().offer(state_cmd)
 
     def start_heart_beat(self, port: int = DEFAULT_SERVER_PORT):
         raise NotImplementedError
@@ -487,7 +504,6 @@ class CommBufferProxy(CommBuffer):
                 state_bytes = state
             else:
                 raise ValueError(f"Invalid state: {state}")
-            print(f"Client: {state.hex()}")
             self.enqueue_command(SENDING_STATE_REQUEST + state_bytes)
 
     def register(self, port: int = DEFAULT_SERVER_PORT) -> None:
