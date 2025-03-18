@@ -37,6 +37,7 @@ class StateWatcher(Thread):
             with self._state.synchronizer:
                 self._state.synchronizer.wait()
             if self._is_running:
+                print(f"{self.watched} notify all called")
                 self._notifier.update_request()
 
 
