@@ -1680,18 +1680,17 @@ class BlockState(ComponentState):
         self._flags: int = 0
         self._sensor_track: IrdaState | None = None
         self._switch: SwitchState | None = None
-        print("BlockState init")
 
     def __repr__(self) -> str:
         msg = f"{self.block_id if self.block_id else 'NA'}"
         msg += f" Occupied: {'Yes' if self.is_occupied is True else 'No'}"
+        msg += f" {self.occupied_by.scope.label} {self.occupied_by.address}" if self.occupied_by else ""
         return f"Block {msg}"
 
     def update(self, command: L | P) -> None:
         from ..pdi.block_req import BlockReq
         from .component_state_store import ComponentStateStore
 
-        print(f"State: {command}")
         if command:
             with self._cv:
                 super().update(command)

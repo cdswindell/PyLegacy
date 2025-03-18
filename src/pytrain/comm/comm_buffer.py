@@ -253,7 +253,6 @@ class CommBufferSingleton(CommBuffer, Thread):
             if isinstance(state_cmd, CommandReq):
                 CommandDispatcher.get().offer(state_cmd)
             elif isinstance(state_cmd, PdiReq):
-                print(f"Server: {state_cmd} {type(state_cmd)}")
                 PdiDispatcher.get().offer(state_cmd)
 
     def start_heart_beat(self, port: int = DEFAULT_SERVER_PORT):

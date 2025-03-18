@@ -273,13 +273,6 @@ class PdiDispatcher(Thread):
                     log.debug(cmd)
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
-                    from .block_req import BlockReq
-
-                    if isinstance(cmd, BlockReq):
-                        print(cmd)
-                        print(cmd.block_id)
-                        print(cmd.tmcc_id)
-                        print(self._channels)
                     if isinstance(cmd, BaseReq):
                         # on the PyTrain server, we need to know when the initial
                         # roster sync is complete; we do this by looking for the
@@ -292,11 +285,6 @@ class PdiDispatcher(Thread):
                     if isinstance(cmd, TmccReq):
                         self._tmcc_dispatcher.offer(cmd.tmcc_command, from_pdi=True)
                     elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
-                        from .block_req import BlockReq
-
-                        if isinstance(cmd, BlockReq):
-                            print(cmd)
-                            print(self._channels)
                         if hasattr(cmd, "action"):
                             self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
                         self.publish((cmd.scope, cmd.tmcc_id), cmd)
