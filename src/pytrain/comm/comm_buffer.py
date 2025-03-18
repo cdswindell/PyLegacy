@@ -250,9 +250,9 @@ class CommBufferSingleton(CommBuffer, Thread):
         else:
             raise AttributeError(f"Invalid state: {state}")
         for state_cmd in state_cmds:
-            if isinstance(state, CommandReq):
+            if isinstance(state_cmd, CommandReq):
                 CommandDispatcher.get().offer(state_cmd)
-            elif isinstance(state, PdiReq):
+            elif isinstance(state_cmd, PdiReq):
                 print(f"Server: {state_cmd} {type(state_cmd)}")
                 PdiDispatcher.get().offer(state_cmd)
 
