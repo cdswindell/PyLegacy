@@ -27,6 +27,7 @@ class BlockReq(PdiReq):
             self._motive_scope = CommandScope.by_value(self._data[9]) if data_len > 9 else None
             self._motive_direction = Direction.by_value(self._data[10]) if data_len > 10 else None
             self._name = self.decode_text(self._data[11:44]) if data_len > 11 else None
+            self._direction = Direction.L2R if (self.flags & 0x08 > 0) else Direction.R2L
         elif isinstance(data, Block):
             self._block_id = self._tmcc_id = data.block_id
             self._prev_block_id = data.prev_block.block_id if data.prev_block else None
@@ -34,6 +35,7 @@ class BlockReq(PdiReq):
             self._sensor_track_id = data.sensor_track.address if data.sensor_track else None
             self._switch_id = data.switch.address if data.switch else None
             self._name = data.name
+            self._direction = data.direction
             if data.occupied_by:
                 self._motive_id = data.occupied_by.address
                 self._motive_scope = data.occupied_by.scope
@@ -53,10 +55,11 @@ class BlockReq(PdiReq):
             self._sensor_track_id = data.sensor_track.address if data.sensor_track else None
             self._switch_id = data.switch.address if data.switch else None
             self._name = data.name
+            self._direction = data.direction
             if data.occupied_by:
                 self._motive_id = data.occupied_by.address
                 self._motive_scope = data.occupied_by.scope
-                self._motive_direction = data.direction
+                self._motive_direction = data.occupied_direction
             else:
                 self._motive_id = None
                 self._motive_scope = None
@@ -99,6 +102,10 @@ class BlockReq(PdiReq):
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def direction(self) -> Direction:
+        return self._direction
 
     @property
     def prev_block_id(self) -> int:

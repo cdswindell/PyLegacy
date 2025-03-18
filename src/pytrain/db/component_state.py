@@ -1688,6 +1688,7 @@ class BlockState(ComponentState):
         self._prev_block = None
         self._next_block = None
         self._occupied_by: EngineState | TrainState | None = None
+        self._occupied_direction = None
         self._direction = None
         self._occupied: bool = False
         self._flags: int = 0
@@ -1712,8 +1713,9 @@ class BlockState(ComponentState):
                     self._block_req = command
                     self._block_id = command.block_id
                     self._flags = command.flags
+                    self._direction = command.direction
                     self._occupied = command.is_occupied
-                    self._direction = command.motive_direction
+                    self._occupied_direction = command.motive_direction
                     if self._sensor_track is None and command.sensor_track_id:
                         self._sensor_track = ComponentStateStore.get_state(CommandScope.IRDA, command.sensor_track_id)
                     if self._switch is None and command.switch_id:
@@ -1756,6 +1758,10 @@ class BlockState(ComponentState):
     @property
     def occupied_by(self) -> TrainState | EngineState:
         return self._occupied_by
+
+    @property
+    def occupied_direction(self) -> Direction:
+        return self._occupied_direction
 
     @property
     def direction(self) -> Direction:
