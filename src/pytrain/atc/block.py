@@ -78,8 +78,9 @@ class Block:
 
     def __repr__(self) -> str:
         nm = f" {self.name}" if self.name else ""
-        dr = f"Direction: {self.direction.name}" if self.direction else ""
-        return f"Block{nm} #{self.block_id} Occupied: {self.is_occupied}{dr}"
+        oc = f" Occupied: {self.is_occupied if self.is_occupied is not None else 'Unknown'}"
+        dr = f" Direction: {self.direction.name}" if self.direction else ""
+        return f"Block{nm} #{self.block_id}{oc}{dr}"
 
     @property
     def name(self) -> str:
