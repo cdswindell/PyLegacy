@@ -14,6 +14,7 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from test.test_base import TestBase
 
 
+# noinspection PyTypeChecker
 @pytest.fixture(autouse=True)
 def run_before_and_after_tests(tmpdir) -> None:
     """

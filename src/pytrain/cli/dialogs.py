@@ -27,6 +27,13 @@ class DialogsCli(CliBaseTMCC):
         dialog_parser = PyTrainArgumentParser(add_help=False)
         dialog_parser.add_argument("engine", metavar="Engine/Train/Car", type=int, help="Engine/Train/Car to control")
         dialog_parser.add_argument(
+            "-emergency",
+            action="store_const",
+            dest="option",
+            const=TMCC2RailSoundsDialogControl.EMERGENCY_CONTEXT_DEPENDENT,
+            help="Emergency context-dependent dialog",
+        )
+        dialog_parser.add_argument(
             "-sd",
             "-conventional_shutdown",
             action="store_const",

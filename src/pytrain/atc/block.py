@@ -12,14 +12,16 @@ import logging
 
 from gpiozero import Button
 
-from ..db.component_state import IrdaState, EngineState, TrainState, SwitchState, BlockState
+from ..db.component_state import BlockState, EngineState, IrdaState, SwitchState, TrainState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler, P
+from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, Direction
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1_RESTRICTED_SPEED
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_RESTRICTED_SPEED
+from ..protocol.tmcc1.tmcc1_constants import TMCC1_RESTRICTED_SPEED, TMCC1EngineCommandEnum
+from ..protocol.tmcc2.tmcc2_constants import TMCC2_RESTRICTED_SPEED, TMCC2EngineCommandEnum
+from ..protocol.multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +71,7 @@ class Block:
         slow_pin: P = None,
         stop_pin: P = None,
         left_to_right: bool = True,
+        dialog: bool = True,
     ) -> None:
         self._block_id = block_id
         self._block_name = block_name
@@ -90,6 +93,7 @@ class Block:
         self._thru_block: Block = None
         self._out_block: Block = None
         self._left_to_right = left_to_right if left_to_right is not None else True
+        self._dialog = dialog
         self._order_activated = []
         self._order_deactivated = []
 
@@ -165,6 +169,10 @@ class Block:
         )
 
     @property
+    def is_clear(self) -> bool:
+        return self.is_occupied is False
+
+    @property
     def is_entered(self) -> bool:
         return self._enter_btn.is_active if self._enter_btn else None
 
@@ -175,6 +183,14 @@ class Block:
     @property
     def is_stopped(self) -> bool:
         return self._stop_btn.is_active if self._stop_btn else None
+
+    @property
+    def is_dialog(self) -> bool:
+        return self._dialog
+
+    @is_dialog.setter
+    def is_dialog(self, dialog: bool) -> None:
+        self._dialog = dialog
 
     @property
     def prev_block(self) -> Block | None:
@@ -209,8 +225,8 @@ class Block:
         return Direction.L2R if self.is_left_to_right else Direction.R2L
 
     def broadcast_state(self):
-        from ..pdi.block_req import BlockReq
         from ..comm.comm_buffer import CommBuffer
+        from ..pdi.block_req import BlockReq
 
         block_req = BlockReq(self)
         CommBuffer.get().update_state(block_req)
@@ -273,6 +289,9 @@ class Block:
         if self.occupied_direction == self.direction:
             if self.next_block and self.next_block.is_occupied:
                 self.stop_immediate()
+            # do dialog, if enabled
+            elif self.is_dialog and self.next_block and self.next_block.is_clear:
+                self.do_dialog(TMCC2RailSoundsDialogControl.SHORT_HORN)
         self.broadcast_state()
 
     def signal_stop_exit(self) -> None:
@@ -281,7 +300,7 @@ class Block:
             self._order_deactivated.append(3)
         # if exit was fired in the correct order, clear the block
         self.clear_block_info()
-        if self._prev_block and self.is_occupied is False:
+        if self._prev_block and self.is_clear:
             self._prev_block.next_block_clear(self)
         self.broadcast_state()
 
@@ -305,6 +324,7 @@ class Block:
                 restricted_speed = TMCC2_RESTRICTED_SPEED if self._current_motive.is_legacy else TMCC1_RESTRICTED_SPEED
                 self._original_speed = self._current_motive.speed
                 if self._original_speed > restricted_speed:
+                    self.do_dialog(TMCC2RailSoundsDialogControl.TOWER_SPEED_RESTRICTED)
                     scope = self._current_motive.scope
                     tmcc_id = self._current_motive.tmcc_id
                     is_tmcc = self._current_motive.is_tmcc
@@ -316,6 +336,7 @@ class Block:
             if self._original_speed is None:
                 self._original_speed = self._current_motive.speed
             log.info(f"Immediate stop; previous speed: {self._original_speed}")
+            self.do_dialog(5)
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
             if self._current_motive.is_tmcc is True:
@@ -335,7 +356,19 @@ class Block:
             tmcc_id = self._current_motive.tmcc_id
             is_tmcc = self._current_motive.is_tmcc
             log.info(f"Resume Speed: {self._original_speed} for {scope.title} {tmcc_id}")
+            self.do_dialog(TMCC2RailSoundsDialogControl.TOWER_DEPARTURE_GRANTED)
             req = RampedSpeedReq(tmcc_id, self._original_speed, scope, is_tmcc)
+            req.send()
+
+    def do_dialog(self, dialog: CommandDefEnum | int) -> None:
+        if self.is_dialog and self._current_motive:
+            scope = self._current_motive.scope
+            tmcc_id = self._current_motive.tmcc_id
+            if isinstance(dialog, int):
+                req = CommandReq.build(TMCC2EngineCommandEnum, tmcc_id, data=dialog, scope=scope)
+            else:
+                log.info(f"Do dialog {dialog.title} for {scope.title} {tmcc_id}")
+                req = CommandReq.build(dialog, tmcc_id, scope=scope)
             req.send()
 
     def _cache_motive(self) -> None:
@@ -366,6 +399,7 @@ class Block:
             self._motive_direction = None
 
         if self._current_motive:
+            log.info(f"Is Legacy: {self._current_motive.is_legacy}")
             self._original_speed = self._current_motive.speed
             self._motive_direction = self.sensor_track.last_direction
         else:

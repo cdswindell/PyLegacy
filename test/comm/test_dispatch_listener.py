@@ -22,6 +22,7 @@ from test.test_base import TestBase
 CALLBACK_DICT = {}
 
 
+# noinspection PyTypeChecker
 @pytest.fixture(autouse=True)
 def run_before_and_after_tests(tmpdir) -> None:
     """
