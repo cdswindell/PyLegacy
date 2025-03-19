@@ -254,7 +254,6 @@ class Block:
         if 2 not in self._order_activated:
             self._order_activated.append(2)
         if self.occupied_direction and self.occupied_direction == self.direction:
-            self.broadcast_state()
             self.slow_down()
         self.broadcast_state()
 
@@ -266,7 +265,7 @@ class Block:
         if 3 not in self._order_activated:
             self._order_activated.append(3)
         # if next block is occupied, stop train in this block immediately
-        if self.occupied_direction and self.occupied_direction == self.direction:
+        if self.occupied_direction == self.direction:
             if self.next_block and self.next_block.is_occupied:
                 self.stop_immediate()
         self.broadcast_state()
@@ -355,6 +354,7 @@ class Block:
         if self._current_motive:
             self._original_speed = self._current_motive.speed
             self._motive_direction = self.sensor_track.last_direction
+            log.info(f"O dir: {self.occupied_direction.title} M dir: {self.direction.title}")
         else:
             self._original_speed = None
             self._motive_direction = None
