@@ -45,8 +45,9 @@ class Block:
         occupied_by (EngineState | TrainState | None): The motive entity occupying the block.
         occupied_direction (Direction | None): Direction of the motive occupying the block.
         is_occupied (bool): True if the block is occupied, False otherwise.
-        is_slowed (bool | None): Indicates if the block is being slowed (can be None if not applicable).
-        is_stopped (bool | None): Indicates if the block is stopped (can be None if not applicable).
+        is_entered (bool | None): Indicates if the block has been entered (can be None if not defined).
+        is_slowed (bool | None): Indicates if the "slow down" block has been entered (can be None if not defined).
+        is_stopped (bool | None): Indicates if the "stop" block has been entered (can be None if not defined).
         prev_block (Block | None): Adjacent block in the "previous" direction, if configured.
         next_block (Block | None): Adjacent block in the "next" direction, if configured.
         is_left_to_right (bool): Indicates whether the block is oriented from left to right.
@@ -97,11 +98,11 @@ class Block:
             self._enter_btn.when_activated = self.signal_occupied_enter
             self._enter_btn.when_activated = self.signal_occupied_exit
         if self._slow_btn:
-            self._slow_btn.when_activated = self.signal_slowdown_entered
-            self._slow_btn.when_deactivated = self.signal_slowdown_exited
+            self._slow_btn.when_activated = self.signal_slow_enter
+            self._slow_btn.when_deactivated = self.signal_slow_exit
         if self._stop_btn:
-            self._stop_btn.when_activated = self.signal_stop_entered
-            self._stop_btn.when_deactivated = self.signal_stop_exited
+            self._stop_btn.when_activated = self.signal_stop_enter
+            self._stop_btn.when_deactivated = self.signal_stop_exit
 
         # start thread if sensor track specified, we also delay calling super until
         # buttons have been created
@@ -250,7 +251,7 @@ class Block:
             self._motive_direction = None
             self.broadcast_state()
 
-    def signal_slowdown_entered(self) -> None:
+    def signal_slow_enter(self) -> None:
         log.info(f"Block {self.block_id} signal_slow_down")
         if 2 not in self._order_activated:
             self._order_activated.append(2)
@@ -259,7 +260,10 @@ class Block:
             self.slow_down()
         self.broadcast_state()
 
-    def signal_stop_entered(self) -> None:
+    def signal_slow_exit(self) -> None:
+        self.broadcast_state()
+
+    def signal_stop_enter(self) -> None:
         log.info(f"Block {self.block_id} signal_stop_entered")
         if 3 not in self._order_activated:
             self._order_activated.append(3)
@@ -270,8 +274,8 @@ class Block:
                     self.stop_immediate()
         self.broadcast_state()
 
-    def signal_stop_exited(self) -> None:
-        log.info(f"Block {self.block_id} signal_stop_exited")
+    def signal_stop_exit(self) -> None:
+        log.info(f"Block {self.block_id} signal_stop_exit")
         if 3 not in self._order_deactivated:
             self._order_deactivated.append(3)
         # if exit was fired in the correct order, clear the block
@@ -365,9 +369,9 @@ class Block:
             else:
                 return
             if self.next_block.is_occupied is False:
-                self.next_block.signal_stop_exited()
+                self.next_block.signal_stop_exit()
             else:
                 if self._stop_btn.is_active:
-                    self.signal_stop_entered()
+                    self.signal_stop_enter()
                 elif self._slow_btn.is_active:
-                    self.signal_slowdown_entered()
+                    self.signal_slow_enter()
