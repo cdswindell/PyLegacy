@@ -340,7 +340,7 @@ class Block:
 
     def _cache_motive(self) -> None:
         scope = "Train" if self.sensor_track.is_train else "Engine"
-        last_id = self.sensor_track.last_engine_id
+        last_id = self.sensor_track.last_engine_id if scope == "Engine" else self.sensor_track.last_train_id
         ld = "L -> R" if self.is_left_to_right else "R -> L"
         log.info(
             f"Cache Motive called,  {self.sensor_track.tmcc_id} {scope} {last_id} "
