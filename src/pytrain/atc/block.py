@@ -235,13 +235,13 @@ class Block:
             raise AttributeError("Switch TMCC ID cannot be None")
 
     def signal_occupied_enter(self) -> None:
-        log.info(f"Block {self.block_id} enter")
+        log.info(f"Block {self.block_id} occupied enter")
         if 1 not in self._order_activated:
             self._order_activated.append(1)
         self.broadcast_state()
 
     def signal_occupied_exit(self) -> None:
-        log.info(f"Block {self.block_id} check")
+        log.info(f"Block {self.block_id} occupied exit")
         if 1 not in self._order_deactivated:
             self._order_deactivated.append(1)
         # if we are traversing this block in reverse, which we know
@@ -254,18 +254,19 @@ class Block:
         self.broadcast_state()
 
     def signal_slow_enter(self) -> None:
-        log.info(f"Block {self.block_id} signal_slow_down")
+        log.info(f"Block {self.block_id} slow enter")
         if 2 not in self._order_activated:
             self._order_activated.append(2)
-        if self.occupied_direction and self.occupied_direction == self.direction:
+        if self.occupied_direction == self.direction:
             self.slow_down()
         self.broadcast_state()
 
     def signal_slow_exit(self) -> None:
+        log.info(f"Block {self.block_id} slow exit")
         self.broadcast_state()
 
     def signal_stop_enter(self) -> None:
-        log.info(f"Block {self.block_id} signal_stop_entered")
+        log.info(f"Block {self.block_id} stop enter")
         if 3 not in self._order_activated:
             self._order_activated.append(3)
         # if next block is occupied, stop train in this block immediately
@@ -275,22 +276,24 @@ class Block:
         self.broadcast_state()
 
     def signal_stop_exit(self) -> None:
-        log.info(f"Block {self.block_id} signal_stop_exit {self.prev_block}")
+        log.info(f"Block {self.block_id} stop exit")
         if 3 not in self._order_deactivated:
             self._order_deactivated.append(3)
         # if exit was fired in the correct order, clear the block
+        self.clear_block_info()
+        if self._prev_block and self.is_occupied is False:
+            self._prev_block.next_block_clear(self)
+        self.broadcast_state()
+
+    def clear_block_info(self):
         self._original_speed = None
         self._current_motive = None
         self._motive_direction = None
         self._order_activated.clear()
         self._order_deactivated.clear()
-        if self._prev_block and self.is_occupied is False:
-            self._prev_block.next_block_clear(self)
-        self.broadcast_state()
 
     def next_block_clear(self, signaling_block: Block) -> None:
-        # resume original speed
-        log.info(f"Block {self.block_id} NBC speed: {self._original_speed} {signaling_block.is_occupied}")
+        log.info(f"Block {self.block_id} orig speed: {self._original_speed} Block {signaling_block.block_id} Clear")
         if signaling_block.is_occupied is False:
             self.resume_speed()
 
@@ -312,7 +315,7 @@ class Block:
         if self._current_motive:
             if self._original_speed is None:
                 self._original_speed = self._current_motive.speed
-            log.info(f"Immediate stop speed: {self._original_speed}")
+            log.info(f"Immediate stop; previous speed: {self._original_speed}")
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
             if self._current_motive.is_tmcc is True:
@@ -370,14 +373,16 @@ class Block:
             log.info(f"{self.switch} Thru: {self._thru_block} Out: {self._out_block}")
             if self.switch.is_through:
                 self.next_block = self._thru_block
+                self._out_block.prev_block = None
             elif self.switch.is_out:
                 self.next_block = self._out_block
+                self._thru_block.prev_block = None
             else:
                 return
-            if self.next_block.is_occupied is False:
-                self.next_block.signal_stop_exit()
-            else:
+            if self.next_block.is_occupied is True:
                 if self._stop_btn.is_active:
                     self.signal_stop_enter()
                 elif self._slow_btn.is_active:
                     self.signal_slow_enter()
+            else:
+                self.next_block.signal_stop_exit()
