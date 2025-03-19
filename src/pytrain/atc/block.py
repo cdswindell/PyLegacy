@@ -430,6 +430,6 @@ class Block:
                     self.signal_stop_enter()
                 elif self._slow_btn.is_active:
                     self.signal_slow_enter()
-            else:
+            elif self.next_block.is_clear:
                 self.next_block_clear(self.next_block)
             self.broadcast_state()
