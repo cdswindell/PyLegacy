@@ -224,10 +224,9 @@ class Block:
             self._switch: SwitchState = ComponentStateStore.get_state(CommandScope.SWITCH, switch_tmcc_id)
             self._thru_block = thru_block
             self._out_block = out_block
-            was_clear = True if self.switch.changed.is_set() is False else False
             self._switch_watcher = StateWatcher(self.switch, self.respond_to_thrown_switch)
-            if was_clear is True:
-                self.respond_to_thrown_switch()
+            # force call to method that sets next_block
+            self.respond_to_thrown_switch()
         else:
             pass
 
