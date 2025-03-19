@@ -274,7 +274,10 @@ class Block:
         if 2 not in self._order_activated:
             self._order_activated.append(2)
         if self.occupied_direction == self.direction:
-            self.slow_down()
+            if self.next_block and self.next_block.is_occupied:
+                self.slow_down()
+            elif self.next_block and self.next_block.is_clear:
+                self.do_dialog(TMCC2RailSoundsDialogControl.ENGINEER_ALL_CLEAR)
         self.broadcast_state()
 
     def signal_slow_exit(self) -> None:
@@ -290,8 +293,8 @@ class Block:
             if self.next_block and self.next_block.is_occupied:
                 self.stop_immediate()
             # do dialog, if enabled
-            elif self.is_dialog and self.next_block and self.next_block.is_clear:
-                self.do_dialog(TMCC2RailSoundsDialogControl.SHORT_HORN)
+            elif self.next_block and self.next_block.is_clear:
+                self.do_dialog(TMCC2RailSoundsDialogControl.ENGINEER_ALL_CLEAR)
         self.broadcast_state()
 
     def signal_stop_exit(self) -> None:
@@ -336,7 +339,7 @@ class Block:
             if self._original_speed is None:
                 self._original_speed = self._current_motive.speed
             log.info(f"Immediate stop; previous speed: {self._original_speed}")
-            self.do_dialog(5)
+            self.do_dialog(TMCC2RailSoundsDialogControl.TOWER_SPEED_STOP_HOLD)
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
             if self._current_motive.is_tmcc is True:
@@ -345,7 +348,10 @@ class Block:
                 CommandReq(TMCC2EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope).send()
         elif self.is_occupied is True:
             # send a stop to all engines, as otherwise, we could have a crash
-            CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, 99).send()
+            if self.is_dialog:
+                self.do_dialog(5)
+            else:
+                CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, 99).send()
             CommandReq(TMCC1EngineCommandEnum.STOP_IMMEDIATE, 99).send()
 
     def resume_speed(self) -> None:
