@@ -269,14 +269,13 @@ class Block:
         if 3 not in self._order_activated:
             self._order_activated.append(3)
         # if next block is occupied, stop train in this block immediately
-        log.info(f"dir match: {self.occupied_direction == self.direction} NBO: {self.next_block.is_occupied}")
         if self.occupied_direction == self.direction:
             if self.next_block and self.next_block.is_occupied:
                 self.stop_immediate()
         self.broadcast_state()
 
     def signal_stop_exit(self) -> None:
-        log.info(f"Block {self.block_id} signal_stop_exit")
+        log.info(f"Block {self.block_id} signal_stop_exit {self.prev_block}")
         if 3 not in self._order_deactivated:
             self._order_deactivated.append(3)
         # if exit was fired in the correct order, clear the block
@@ -313,6 +312,7 @@ class Block:
         if self._current_motive:
             if self._original_speed is None:
                 self._original_speed = self._current_motive.speed
+            log.info(f"Immediate stop speed: {self._original_speed}")
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
             if self._current_motive.is_tmcc is True:
@@ -359,7 +359,6 @@ class Block:
         if self._current_motive:
             self._original_speed = self._current_motive.speed
             self._motive_direction = self.sensor_track.last_direction
-            log.info(f"O dir: {self.occupied_direction.title} M dir: {self.direction.title}")
         else:
             self._original_speed = None
             self._motive_direction = None
