@@ -286,16 +286,10 @@ class Block:
         self.broadcast_state()
 
     def next_block_clear(self, signaling_block: Block) -> None:
-        from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
-
         # resume original speed
         log.info(f"Block {self.block_id} NBC speed: {self._original_speed} {signaling_block.is_occupied}")
-        if self._current_motive and self._original_speed and signaling_block.is_occupied is False:
-            scope = self._current_motive.scope
-            tmcc_id = self._current_motive.tmcc_id
-            is_tmcc = self._current_motive.is_tmcc
-            req = RampedSpeedReq(tmcc_id, self._original_speed, scope, is_tmcc)
-            req.send()
+        if signaling_block.is_occupied is False:
+            self.resume_speed()
 
     def slow_down(self):
         if self.next_block and self.next_block.is_occupied:
@@ -325,6 +319,16 @@ class Block:
             # send a stop to all engines, as otherwise, we could have a crash
             CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, 99).send()
             CommandReq(TMCC1EngineCommandEnum.STOP_IMMEDIATE, 99).send()
+
+    def resume_speed(self) -> None:
+        from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
+
+        if self._current_motive and self._original_speed:
+            scope = self._current_motive.scope
+            tmcc_id = self._current_motive.tmcc_id
+            is_tmcc = self._current_motive.is_tmcc
+            req = RampedSpeedReq(tmcc_id, self._original_speed, scope, is_tmcc)
+            req.send()
 
     def _cache_motive(self) -> None:
         scope = "Train" if self.sensor_track.is_train else "Engine"
