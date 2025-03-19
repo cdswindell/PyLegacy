@@ -235,8 +235,7 @@ class Block:
         log.info(f"Block {self.block_id} enter")
         if 1 not in self._order_activated:
             self._order_activated.append(1)
-        if self.motive_direction and self.motive_direction == self.direction:
-            self.broadcast_state()
+        self.broadcast_state()
 
     def signal_occupied_exit(self) -> None:
         log.info(f"Block {self.block_id} check")
@@ -249,7 +248,7 @@ class Block:
             self._original_speed = None
             self._current_motive = None
             self._motive_direction = None
-            self.broadcast_state()
+        self.broadcast_state()
 
     def signal_slow_enter(self) -> None:
         log.info(f"Block {self.block_id} signal_slow_down")
