@@ -1722,6 +1722,14 @@ class BlockState(ComponentState):
                 if isinstance(command, BlockReq):
                     self._block_req = command
                     self._block_id = command.block_id
+                    if command.prev_block_id:
+                        self._prev_block = ComponentStateStore.get_state(CommandScope.BLOCK, command.prev_block_id)
+                    else:
+                        self._prev_block = None
+                    if command.next_block_id:
+                        self._next_block = ComponentStateStore.get_state(CommandScope.BLOCK, command.next_block_id)
+                    else:
+                        self._next_block = None
                     self._flags = command.flags
                     self._direction = command.direction
                     self._occupied = command.is_occupied
@@ -1812,6 +1820,8 @@ class BlockState(ComponentState):
             "direction": self.direction.name.lower(),
             "sensor_track": self.sensor_track.address if self.sensor_track else None,
             "switch": self.switch.address if self.switch else None,
+            "previous_block_id": self.prev_block.block_id if self.prev_block else None,
+            "next_block_id": self.next_block.block_id if self.next_block else None,
             "is_occupied": self.is_occupied,
             "occupied_by": motive,
         }
