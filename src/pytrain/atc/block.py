@@ -253,7 +253,7 @@ class Block:
         log.info(f"Block {self.block_id} signal_slow_down")
         if 2 not in self._order_activated:
             self._order_activated.append(2)
-        if self.motive_direction and self.motive_direction == self.direction:
+        if self.occupied_direction and self.occupied_direction == self.direction:
             self.broadcast_state()
             self.slow_down()
         self.broadcast_state()
@@ -266,10 +266,9 @@ class Block:
         if 3 not in self._order_activated:
             self._order_activated.append(3)
         # if next block is occupied, stop train in this block immediately
-        if self.motive_direction and self.motive_direction == self.direction:
-            if self.motive_direction and self.motive_direction == self.direction:
-                if self.next_block and self.next_block.is_occupied:
-                    self.stop_immediate()
+        if self.occupied_direction and self.occupied_direction == self.direction:
+            if self.next_block and self.next_block.is_occupied:
+                self.stop_immediate()
         self.broadcast_state()
 
     def signal_stop_exit(self) -> None:
