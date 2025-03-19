@@ -342,14 +342,14 @@ class Block:
         scope = "Train" if self.sensor_track.is_train else "Engine"
         if scope == "Train":
             last_id = self.sensor_track.last_train_id
-            prod_type = f" {self.sensor_track.product_type}" if self.sensor_track.product_type != "NA" else " Engine"
+            prod_type = f" {self.sensor_track.product_type} " if self.sensor_track.product_type != "NA" else " Engine "
             eid = f" ({prod_type}{self.sensor_track.last_engine_id})"
         else:
             last_id = self.sensor_track.last_engine_id
             eid = ""
         ld = "L -> R" if self.is_left_to_right else "R -> L"
         log.info(
-            f"Cache Motive called,  {self.sensor_track.tmcc_id} {scope} {last_id}{eid} "
+            f"Cache Motive called, {self.sensor_track.tmcc_id} {scope} {last_id}{eid} "
             f"{ld} {self.sensor_track.last_direction}"
         )
         # we want to record the info on the train in the block whether it
