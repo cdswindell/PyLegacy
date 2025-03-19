@@ -265,6 +265,7 @@ class Block:
         if 3 not in self._order_activated:
             self._order_activated.append(3)
         # if next block is occupied, stop train in this block immediately
+        log.info(f"dir match: {self.occupied_direction == self.direction} NBO: {self.next_block.is_occupied}")
         if self.occupied_direction == self.direction:
             if self.next_block and self.next_block.is_occupied:
                 self.stop_immediate()
