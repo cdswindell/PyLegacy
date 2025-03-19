@@ -327,6 +327,7 @@ class Block:
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
             is_tmcc = self._current_motive.is_tmcc
+            log.info(f"Resume Speed: {self._original_speed} for {scope.title} {tmcc_id}")
             req = RampedSpeedReq(tmcc_id, self._original_speed, scope, is_tmcc)
             req.send()
 
