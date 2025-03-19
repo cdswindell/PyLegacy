@@ -342,7 +342,7 @@ class Block:
         scope = "Train" if self.sensor_track.is_train else "Engine"
         if scope == "Train":
             last_id = self.sensor_track.last_train_id
-            prod_type = f" {self.sensor_track.product_type} " if self.sensor_track.product_type != "NA" else " Engine "
+            prod_type = f"{self.sensor_track.product_type} " if self.sensor_track.product_type != "NA" else " Engine "
             eid = f" ({prod_type}{self.sensor_track.last_engine_id})"
         else:
             last_id = self.sensor_track.last_engine_id
