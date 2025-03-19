@@ -216,19 +216,23 @@ class Block:
         CommBuffer.get().update_state(block_req)
 
     def next_switch(self, switch_tmcc_id, thru_block: Block, out_block: Block) -> None:
+        if thru_block is None or out_block is None:
+            raise AttributeError("Thru and Out blocks cannot be None")
         if switch_tmcc_id:
             if thru_block is None or out_block is None:
                 raise AttributeError("Thru and Out blocks cannot be None")
             if self == thru_block or self == out_block or thru_block == out_block:
                 raise AttributeError("Thru and Out blocks cannot be the same block")
             self._switch: SwitchState = ComponentStateStore.get_state(CommandScope.SWITCH, switch_tmcc_id)
+            if self._switch is None:
+                raise AttributeError(f"Switch {switch_tmcc_id} not found")
             self._thru_block = thru_block
             self._out_block = out_block
             self._switch_watcher = StateWatcher(self.switch, self.respond_to_thrown_switch)
             # force call to method that sets next_block
             self.respond_to_thrown_switch()
         else:
-            pass
+            raise AttributeError("Switch TMCC ID cannot be None")
 
     def signal_occupied_enter(self) -> None:
         log.info(f"Block {self.block_id} enter")
@@ -365,9 +369,9 @@ class Block:
     def respond_to_thrown_switch(self) -> None:
         if self.switch:
             log.info(f"{self.switch} Thru: {self._thru_block} Out: {self._out_block}")
-            if self.switch.is_through and self.next_block != self._thru_block:
+            if self.switch.is_through:
                 self.next_block = self._thru_block
-            elif self.switch.is_out and self.next_block != self._out_block:
+            elif self.switch.is_out:
                 self.next_block = self._out_block
             else:
                 return
