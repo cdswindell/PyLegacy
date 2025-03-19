@@ -1372,7 +1372,7 @@ class IrdaState(LcsState):
         self._sequence: IrdaSequence | None = None
         self._loco_rl: int | None = 255
         self._loco_lr: int | None = 255
-        self._last_train_id = self._last_engine_id = self._last_dir = None
+        self._last_train_id = self._last_engine_id = self._last_dir = self._product_id = None
 
     def __repr__(self) -> str:
         if self.sequence and self.sequence != IrdaSequence.NONE:
@@ -1409,6 +1409,7 @@ class IrdaState(LcsState):
                         self._last_engine_id = command.engine_id
                         self._last_train_id = command.train_id
                         self._last_dir = command.direction
+                        self._product_id = command.product_id
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"IRDA {self.address} Sequence: {self.sequence} Command: {command}")
                         if (
@@ -1493,6 +1494,10 @@ class IrdaState(LcsState):
     @property
     def is_engine(self) -> bool:
         return (self.is_train is False) and (self._last_engine_id is not None) and (self._last_engine_id > 0)
+
+    @property
+    def product_type(self) -> str:
+        return self._product_id
 
     @property
     def is_train(self) -> bool:
