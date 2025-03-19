@@ -244,7 +244,7 @@ class Block:
         # if we are traversing this block in reverse, which we know
         # because the motive direction differs from the defined block
         # direction, clear the motive info
-        if self.motive_direction and self.motive_direction != self.direction:
+        if self.occupied_direction and self.occupied_direction != self.direction:
             self._original_speed = None
             self._current_motive = None
             self._motive_direction = None
