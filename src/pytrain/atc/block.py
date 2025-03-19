@@ -365,7 +365,7 @@ class Block:
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
             if isinstance(dialog, int):
-                req = CommandReq.build(TMCC2EngineCommandEnum, tmcc_id, data=dialog, scope=scope)
+                req = CommandReq.build(TMCC2EngineCommandEnum.NUMERIC, tmcc_id, data=dialog, scope=scope)
             else:
                 log.info(f"Do dialog {dialog.title} for {scope.title} {tmcc_id}")
                 req = CommandReq.build(dialog, tmcc_id, scope=scope)
