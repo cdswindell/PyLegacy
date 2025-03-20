@@ -19,9 +19,9 @@ from ..gpio.gpio_handler import GpioHandler, P
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, Direction
+from ..protocol.multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_RESTRICTED_SPEED, TMCC1EngineCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_RESTRICTED_SPEED, TMCC2EngineCommandEnum
-from ..protocol.multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
 
 log = logging.getLogger(__name__)
 
@@ -124,10 +124,6 @@ class Block:
         return f"Block{nm} #{self.block_id}{oc}{dr}"
 
     @property
-    def state(self) -> BlockState:
-        return self._block_state
-
-    @property
     def name(self) -> str:
         return self._block_name
 
@@ -136,31 +132,41 @@ class Block:
         return self._block_id
 
     @property
-    def scope(self) -> CommandScope:
-        return CommandScope.BLOCK
-
-    @property
-    def address(self) -> int:
-        return self._block_id
-
-    @property
     def sensor_track(self) -> IrdaState:
+        """
+        Return the IrdaState at the end of the block, if any.
+        Required to control the specific engine/train in the block
+        """
         return self._sensor_track
 
     @property
     def switch(self) -> SwitchState:
+        """
+        Return the SwitchState at the end of the block, if any
+        """
         return self._switch
 
     @property
     def occupied_by(self) -> EngineState | TrainState | None:
+        """
+        Return the EngineState or TrainState of the entity
+        currently traversing or stopped in the block
+        """
         return self._current_motive
 
     @property
     def occupied_direction(self) -> Direction:
+        """
+        What direction is the train in the block moving,
+        L to R or R to L.
+        """
         return self._motive_direction
 
     @property
     def is_occupied(self) -> bool:
+        """
+        Is the block occupied?
+        """
         return (
             (self.occupied_by and self.occupied_direction == self.direction)
             or self.is_entered is True
@@ -170,22 +176,38 @@ class Block:
 
     @property
     def is_clear(self) -> bool:
+        """
+        Is the block unoccupied?
+        """
         return self.is_occupied is False
 
     @property
     def is_entered(self) -> bool:
+        """
+        Is the "entered" block portion occupied?
+        """
         return self._enter_btn.is_active if self._enter_btn else None
 
     @property
     def is_slowed(self) -> bool:
+        """
+        Is the "slow" block portion occupied?
+        """
         return self._slow_btn.is_active if self._slow_btn else None
 
     @property
     def is_stopped(self) -> bool:
+        """
+        Is the "stopped" block portion occupied?
+        """
         return self._stop_btn.is_active if self._stop_btn else None
 
     @property
     def is_dialog(self) -> bool:
+        """
+        Returns True if tower/Engineer dialogs are given in
+        response to block events in this block
+        """
         return self._dialog
 
     @is_dialog.setter
@@ -222,9 +244,26 @@ class Block:
 
     @property
     def direction(self) -> Direction:
+        """
+        Block directionality. Can be L to R (default) or R to L.
+        The IR Sensor track must be at the beginning of the block,
+        so for an L to R block, the sensor track is placed to the
+        left of the block entrance.
+        """
         return Direction.L2R if self.is_left_to_right else Direction.R2L
 
+    @property
+    def state(self) -> BlockState:
+        """
+        Return the BlockState associated with this block
+        """
+        return self._block_state
+
     def broadcast_state(self):
+        """
+        Send current block state to PyTrain server and from
+        there to all clients
+        """
         from ..comm.comm_buffer import CommBuffer
         from ..pdi.block_req import BlockReq
 
@@ -405,7 +444,6 @@ class Block:
             self._motive_direction = None
 
         if self._current_motive:
-            log.info(f"Is Legacy: {self._current_motive.is_legacy}")
             self._original_speed = self._current_motive.speed
             self._motive_direction = self.sensor_track.last_direction
         else:
