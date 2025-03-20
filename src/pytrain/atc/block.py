@@ -22,6 +22,7 @@ from ..protocol.constants import CommandScope, Direction
 from ..protocol.multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_RESTRICTED_SPEED, TMCC1EngineCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_RESTRICTED_SPEED, TMCC2EngineCommandEnum
+from ..utils.validations import Validations
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +67,22 @@ class Block:
         left_to_right: bool = True,
         dialog: bool = True,
     ) -> None:
+        # check if block_id is valid
+        Validations.validate_int(
+            block_id,
+            min_value=1,
+            max_value=99,
+            label="Block ID",
+        )
+        Validations.validate_int(
+            sensor_track_id,
+            min_value=1,
+            max_value=99,
+            label="Sensor Track TMCC ID",
+            allow_none=True,
+        )
+        if ComponentStateStore.get_state(CommandScope.Block, block_id, create=False) is None:
+            raise AttributeError(f"Block ID {block_id} is in use")
         self._block_id = block_id
         self._block_name = block_name
         if sensor_track_id:
@@ -264,6 +281,12 @@ class Block:
         CommBuffer.get().update_state(block_req)
 
     def next_switch(self, switch_tmcc_id, thru_block: Block, out_block: Block) -> None:
+        Validations.validate_int(
+            switch_tmcc_id,
+            min_value=1,
+            max_value=99,
+            label="Switch TMCC ID",
+        )
         if thru_block is None or out_block is None:
             raise AttributeError("Thru and Out blocks cannot be None")
         if switch_tmcc_id:
