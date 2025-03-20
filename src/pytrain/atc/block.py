@@ -26,35 +26,28 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2_RESTRICTED_SPEED, TMCC2Engine
 log = logging.getLogger(__name__)
 
 
-# noinspection PyUnresolvedReferences
 class Block:
     """
-    Represents a Block entity in a railway system simulation.
+    This class represents a Block, a section of a railway network, and manages its state and status.
 
-    The Block class models a segment of track in a railway system. It provides mechanisms
-    to monitor and control the state of the block, including occupancy detection, speed
-    control, and signaling. The class supports the integration of track components (such as
-    switches and sensors) for automating block management and ensuring safe train operations.
+    The Block is designed to monitor presence and state information for engines or trains traversing through it.
+    It integrates with sensors and other components to track occupancy, direction, and events like entering
+    or exiting a portion of the Block. Blocks can also be linked together to form a sequence in the network,
+    with support for directionality and connections to adjacent Blocks. Furthermore, Blocks interact with switches
+    to handle diverging or converging paths and broadcast their state to external systems.
 
-    Attributes:
-        state (BlockState): Retrieves the current state of the block.
-        name (str | None): The optional name of the block.
-        block_id (int): The unique identifier for the block.
-        scope (CommandScope): Returns the command scope for the block.
-        address (int): Alias for block_id, representing the block's address.
-        sensor_track (IrdaState | None): The associated sensor track state, if any.
-        switch (SwitchState | None): The associated switch state, if configured.
-        occupied_by (EngineState | TrainState | None): The motive entity occupying the block.
-        occupied_direction (Direction | None): Direction of the motive occupying the block.
-        is_occupied (bool): True if the block is occupied, False otherwise.
-        is_entered (bool | None): Indicates if the block has been entered (can be None if not defined).
-        is_slowed (bool | None): Indicates if the "slow down" block has been entered (can be None if not defined).
-        is_stopped (bool | None): Indicates if the "stop" block has been entered (can be None if not defined).
-        prev_block (Block | None): Adjacent block in the "previous" direction, if configured.
-        next_block (Block | None): Adjacent block in the "next" direction, if configured.
-        is_left_to_right (bool): Indicates whether the block is oriented from left to right.
-        is_right_to_left (bool): Indicates whether the block is oriented from right to left.
-        direction (Direction): Represents the direction of the block based on its orientation.
+    Args:
+        block_id (int): Unique identifier for the block.
+        block_name (Optional[str]): Name of the block, if any.
+        sensor_track_id (Optional[int]): Unique identifier for the IRDA sensor used to track trains in the block.
+        enter_pin (Optional[P]): Pin for the entry button used to mark the block as occupied.
+        slow_pin (Optional[P]): Pin for the slow section button in the block.
+        stop_pin (Optional[P]): Pin for the stop section button in the block.
+        left_to_right (bool): Default directionality of the block (left to right if True).
+        dialog (bool): Determines whether dialogs are triggered for block events (default is True).
+
+    Errors:
+        AttributeError: Raised in situations such as invalid block id, missing switches, or incorrect configuration.
     """
 
     @classmethod
