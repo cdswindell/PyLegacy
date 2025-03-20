@@ -11,7 +11,7 @@ class TestBlock(TestBase):
             mk_get_state.return_value = None
             with mock.patch.object(Block, "broadcast_state") as mk_broadcast_state:
                 b = Block(1, "test block")
-                mk_get_state.assert_called_once()
+                assert mk_get_state.call_count == 2
                 mk_broadcast_state.assert_called_once()
                 assert b is not None
                 assert b.block_id == 1

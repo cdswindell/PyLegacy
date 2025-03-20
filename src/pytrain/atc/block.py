@@ -81,7 +81,7 @@ class Block:
             label="Sensor Track TMCC ID",
             allow_none=True,
         )
-        if ComponentStateStore.get_state(CommandScope.Block, block_id, create=False) is None:
+        if ComponentStateStore.get_state(CommandScope.BLOCK, block_id, create=False):
             raise AttributeError(f"Block ID {block_id} is in use")
         self._block_id = block_id
         self._block_name = block_name
