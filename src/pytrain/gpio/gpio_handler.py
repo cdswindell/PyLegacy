@@ -977,6 +977,11 @@ class GpioHandler:
         bo_pin: P = None,
         bh_pin: P = None,
         sh_pin: P = None,
+        fl_pin: P = None,
+        rl_pin: P = None,
+        or_pin: P = None,
+        fc_pin: P = None,
+        rc_pin: P = None,
         bo_led_pin: P = None,
         bh_led_pin: P = None,
         sh_led_pin: P = None,
@@ -1075,100 +1080,65 @@ class GpioHandler:
             if sh_led:
                 cls.cache_handler(EngineStateSource(address, sh_led, lambda x: x.numeric == 3))
 
-        return cab_left_btn, cab_right_btn, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
-
-    @classmethod
-    def crane_car_xxx(
-        cls,
-        address: int,
-        cab_pin_1: P,
-        cab_pin_2: P,
-        bo_chn: P = 0,
-        bo_pin: P = None,
-        bh_pin: P = None,
-        sh_pin: P = None,
-        bo_led_pin: P = None,
-        bh_led_pin: P = None,
-        sh_led_pin: P = None,
-        use_12bit: bool = True,
-        cathode: bool = True,
-    ) -> Tuple[RotaryEncoder, JoyStickHandler, Button, LED, Button, LED, Button, LED]:
-        # use rotary encoder to control crane cab
-        cab_prefix = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, 1)
-        turn_right = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, 1)
-        turn_left = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, -1)
-        cab_ctrl = cls.when_rotary_encoder(
-            cab_pin_1,
-            cab_pin_2,
-            turn_right,
-            counterclockwise_cmd=turn_left,
-            prefix=cab_prefix,
+        # front/rear lights
+        fl_cmd, fl_btn, _ = cls.make_button(
+            fl_pin,
+            command=TMCC1EngineCommandEnum.NUMERIC,
+            address=address,
+            data=4,
+            scope=CommandScope.ENGINE,
         )
+        fl_btn.when_pressed = fl_cmd.as_action()
 
-        # set up joystick for boom lift
-        lift_cmd = CommandReq.build(TMCC1EngineCommandEnum.BOOST_SPEED, address)
-        drop_cmd = CommandReq.build(TMCC1EngineCommandEnum.BRAKE_SPEED, address)
-        cmd_map = {}
-        for i in range(-20, -1, 1):
-            cmd_map[i] = drop_cmd
-        cmd_map[-1] = cmd_map[0] = cmd_map[1] = None  # no action
-        for i in range(2, 21, 1):
-            cmd_map[i] = lift_cmd
-        bo_cntr = cls.when_joystick(
-            channel=bo_chn,
-            use_12bit=use_12bit,
-            data_min=-20,
-            data_max=20,
-            delay=0.2,
-            cmds=cmd_map,
+        rl_cmd, rl_btn, _ = cls.make_button(
+            rl_pin,
+            command=TMCC1EngineCommandEnum.NUMERIC,
+            address=address,
+            data=5,
+            scope=CommandScope.ENGINE,
         )
+        rl_btn.when_pressed = rl_cmd.as_action()
 
-        # boom control
-        bo_btn = bo_led = None
-        if bo_pin is not None:
-            cmd, bo_btn, bo_led = cls.when_button_pressed(
-                bo_pin,
-                TMCC1EngineCommandEnum.NUMERIC,
-                address,
-                data=1,
-                scope=CommandScope.ENGINE,
-                led_pin=bo_led_pin,
-                cathode=cathode,
-            )
-            if bo_led:
-                cls.cache_handler(EngineStateSource(address, bo_led, lambda x: x.numeric == 1))
+        or_cmd, or_btn, _ = cls.make_button(
+            or_pin,
+            command=TMCC1EngineCommandEnum.NUMERIC,
+            address=address,
+            data=6,
+            scope=CommandScope.ENGINE,
+        )
+        or_btn.when_pressed = or_cmd.as_action()
 
-        # large hook control
-        bh_btn = bh_led = None
-        if bh_pin is not None:
-            cmd, bh_btn, bh_led = cls.when_button_pressed(
-                bh_pin,
-                TMCC1EngineCommandEnum.NUMERIC,
-                address,
-                data=2,
-                scope=CommandScope.ENGINE,
-                led_pin=bh_led_pin,
-                cathode=cathode,
-            )
-            if bh_led:
-                cls.cache_handler(EngineStateSource(address, bh_led, lambda x: x.numeric == 2))
+        # front/rear coupler
+        fc_cmd, fc_btn, _ = cls.make_button(
+            fc_pin,
+            command=TMCC1EngineCommandEnum.FRONT_COUPLER,
+            address=address,
+            scope=CommandScope.ENGINE,
+        )
+        fc_btn.when_pressed = fc_cmd.as_action()
 
-        # small hook control
-        sh_btn = sh_led = None
-        if sh_pin is not None:
-            cmd, sh_btn, sh_led = cls.when_button_pressed(
-                sh_pin,
-                TMCC1EngineCommandEnum.NUMERIC,
-                address,
-                data=3,
-                scope=CommandScope.ENGINE,
-                led_pin=sh_led_pin,
-                cathode=cathode,
-            )
-            if sh_led:
-                cls.cache_handler(EngineStateSource(address, sh_led, lambda x: x.numeric == 3))
+        rc_cmd, rc_btn, _ = cls.make_button(
+            rc_pin,
+            command=TMCC1EngineCommandEnum.REAR_COUPLER,
+            address=address,
+            scope=CommandScope.ENGINE,
+        )
+        rc_btn.when_pressed = rc_cmd.as_action()
 
-        return cab_ctrl, bo_cntr, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
+        return (
+            cab_left_btn,
+            cab_right_btn,
+            down_btn,
+            up_btn,
+            bo_btn,
+            bo_led,
+            bh_btn,
+            bh_led,
+            sh_btn,
+            sh_led,
+            fc_btn,
+            rc_btn,
+        )
 
     @classmethod
     def rocket_launcher(
