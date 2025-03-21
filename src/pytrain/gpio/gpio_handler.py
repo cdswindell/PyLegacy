@@ -32,7 +32,7 @@ from .keypad import KEYPAD_PCF8574_ADDRESS
 
 log = logging.getLogger(__name__)
 
-DEFAULT_BOUNCE_TIME: float = 0.02  # button debounce threshold
+DEFAULT_BOUNCE_TIME: float = 0.015  # button debounce threshold
 DEFAULT_VARIANCE: float = 0.001  # pot difference variance
 
 T = TypeVar("T", bound=CommandReq)
@@ -990,7 +990,7 @@ class GpioHandler:
             data=-1,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.05,
+            hold_time=0.02,
         )
         cab_left_btn.when_pressed = left_cmd.as_action()
         cab_left_btn.when_held = left_cmd.as_action()
@@ -999,10 +999,10 @@ class GpioHandler:
             cab_right_pin,
             command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
             address=address,
-            data=3,
+            data=1,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.05,
+            hold_time=0.02,
         )
         cab_right_btn.when_pressed = right_cmd.as_action()
         cab_right_btn.when_held = right_cmd.as_action()
@@ -1014,7 +1014,7 @@ class GpioHandler:
             address=address,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.05,
+            hold_time=0.02,
         )
         down_btn.when_pressed = down_cmd.as_action()
         down_btn.when_held = down_cmd.as_action()
@@ -1025,7 +1025,7 @@ class GpioHandler:
             address=address,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.05,
+            hold_time=0.02,
         )
         up_btn.when_pressed = up_cmd.as_action()
         up_btn.when_held = up_cmd.as_action()
