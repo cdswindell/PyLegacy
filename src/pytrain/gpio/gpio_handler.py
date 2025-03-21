@@ -990,7 +990,7 @@ class GpioHandler:
             data=-1,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.05,
+            hold_time = 0.05,
         )
         _, cab_right_btn, _ = cls.make_button(
             cab_right_pin,
@@ -999,7 +999,7 @@ class GpioHandler:
             data=1,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.05,
+            hold_time = 0.05,
         )
 
         # set up for boom lift
@@ -1009,7 +1009,7 @@ class GpioHandler:
             address=address,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.05,
+            hold_time = 0.05,
         )
         _, up_btn, _ = cls.make_button(
             bo_up_pin,
@@ -1017,7 +1017,7 @@ class GpioHandler:
             address=address,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.05,
+            hold_time = 0.05,
         )
 
         # boom control
@@ -1065,7 +1065,7 @@ class GpioHandler:
             if sh_led:
                 cls.cache_handler(EngineStateSource(address, sh_led, lambda x: x.numeric == 3))
 
-        return cab_left_btn, cab_right_btn, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
+        return  cab_left_btn, cab_right_btn, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
 
     @classmethod
     def crane_car_xxx(
