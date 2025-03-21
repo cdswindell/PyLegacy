@@ -1136,6 +1136,9 @@ class GpioHandler:
             bh_led,
             sh_btn,
             sh_led,
+            fl_btn,
+            rl_btn,
+            or_btn,
             fc_btn,
             rc_btn,
         )
