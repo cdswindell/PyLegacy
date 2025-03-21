@@ -999,7 +999,7 @@ class GpioHandler:
             cab_right_pin,
             command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
             address=address,
-            data=1,
+            data=3,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
             hold_time=0.05,
