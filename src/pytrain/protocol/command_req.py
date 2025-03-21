@@ -451,6 +451,8 @@ class CommandReq:
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
+        address: int = None,
+        data: int = None,
     ) -> Callable:
         from ..comm.comm_buffer import CommBuffer
 
@@ -459,8 +461,13 @@ class CommandReq:
         def send_func(new_address: int = None, new_data: int = None, trigger_effects: bool = True) -> None:
             if new_address and new_address != self.address:
                 self.address = new_address
-            if self.num_data_bits and new_data is not None and new_data != self.data:
-                self.data = new_data
+            elif address and address != self.address:
+                self.address = address
+            if self.num_data_bits:
+                if new_data is not None and new_data != self.data:
+                    self.data = new_data
+                elif data is not None and data != self.data:
+                    self.data = data
 
             self._enqueue_command(
                 self.as_bytes,

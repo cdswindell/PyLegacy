@@ -4,32 +4,31 @@ import sched
 import threading
 import time
 from threading import Thread
-from typing import Tuple, Callable, Dict, TypeVar, List, Union
+from typing import Callable, Dict, List, Tuple, TypeVar, Union
 
-from gpiozero import Button, LED, MCP3008, MCP3208, RotaryEncoder, Device, AnalogInputDevice, PingServer
+from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device, PingServer, RotaryEncoder
 
+from ..comm.comm_buffer import CommBuffer
+from ..comm.command_listener import Message
+from ..db.component_state_store import ComponentStateStore, DependencyCache
+from ..gpio.state_source import AccessoryStateSource, EngineStateSource, SwitchStateSource
+from ..protocol.command_def import CommandDefEnum
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
+from ..protocol.tmcc1.tmcc1_constants import (
+    TMCC1AuxCommandEnum,
+    TMCC1EngineCommandEnum,
+    TMCC1RouteCommandEnum,
+    TMCC1SwitchCommandEnum,
+    TMCC1SyncCommandEnum,
+)
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+from ..utils.ip_tools import find_base_address
 from .controller import Controller, ControllerI2C
 from .i2c.ads_1x15 import Ads1115
 from .i2c.button_i2c import ButtonI2C
 from .i2c.led_i2c import LEDI2C
 from .keypad import KEYPAD_PCF8574_ADDRESS
-from ..comm.comm_buffer import CommBuffer
-from ..comm.command_listener import Message
-from ..db.component_state_store import DependencyCache, ComponentStateStore
-from ..gpio.state_source import SwitchStateSource, AccessoryStateSource, EngineStateSource
-from ..protocol.command_def import CommandDefEnum
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, PROGRAM_NAME
-from ..protocol.constants import DEFAULT_ADDRESS
-from ..protocol.tmcc1.tmcc1_constants import (
-    TMCC1SwitchCommandEnum,
-    TMCC1AuxCommandEnum,
-    TMCC1EngineCommandEnum,
-    TMCC1RouteCommandEnum,
-    TMCC1SyncCommandEnum,
-)
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
-from ..utils.ip_tools import find_base_address
 
 log = logging.getLogger(__name__)
 
@@ -969,6 +968,107 @@ class GpioHandler:
 
     @classmethod
     def crane_car(
+        cls,
+        address: int,
+        cab_left_pin: P = None,
+        cab_right_pin: P = None,
+        bo_down_pin: P = None,
+        bo_up_pin: P = None,
+        bo_pin: P = None,
+        bh_pin: P = None,
+        sh_pin: P = None,
+        bo_led_pin: P = None,
+        bh_led_pin: P = None,
+        sh_led_pin: P = None,
+        cathode: bool = True,
+    ) -> tuple:
+        # use momentary contact switch to rotate cab
+        _, cab_left_btn, _ = cls.make_button(
+            cab_left_pin,
+            command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
+            address=address,
+            data=-1,
+            scope=CommandScope.ENGINE,
+            hold_repeat=True,
+            hold_time=0.05,
+        )
+        _, cab_right_btn, _ = cls.make_button(
+            cab_right_pin,
+            command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
+            address=address,
+            data=1,
+            scope=CommandScope.ENGINE,
+            hold_repeat=True,
+            hold_time=0.05,
+        )
+
+        # set up for boom lift
+        _, down_btn, _ = cls.make_button(
+            bo_down_pin,
+            command=TMCC1EngineCommandEnum.BRAKE_SPEED,
+            address=address,
+            scope=CommandScope.ENGINE,
+            hold_repeat=True,
+            hold_time=0.05,
+        )
+        _, up_btn, _ = cls.make_button(
+            bo_up_pin,
+            command=TMCC1EngineCommandEnum.BRAKE_SPEED,
+            address=address,
+            scope=CommandScope.ENGINE,
+            hold_repeat=True,
+            hold_time=0.05,
+        )
+
+        # boom control
+        bo_btn = bo_led = None
+        if bo_pin is not None:
+            cmd, bo_btn, bo_led = cls.when_button_pressed(
+                bo_pin,
+                TMCC1EngineCommandEnum.NUMERIC,
+                address,
+                data=1,
+                scope=CommandScope.ENGINE,
+                led_pin=bo_led_pin,
+                cathode=cathode,
+            )
+            if bo_led:
+                cls.cache_handler(EngineStateSource(address, bo_led, lambda x: x.numeric == 1))
+
+        # large hook control
+        bh_btn = bh_led = None
+        if bh_pin is not None:
+            cmd, bh_btn, bh_led = cls.when_button_pressed(
+                bh_pin,
+                TMCC1EngineCommandEnum.NUMERIC,
+                address,
+                data=2,
+                scope=CommandScope.ENGINE,
+                led_pin=bh_led_pin,
+                cathode=cathode,
+            )
+            if bh_led:
+                cls.cache_handler(EngineStateSource(address, bh_led, lambda x: x.numeric == 2))
+
+        # small hook control
+        sh_btn = sh_led = None
+        if sh_pin is not None:
+            cmd, sh_btn, sh_led = cls.when_button_pressed(
+                sh_pin,
+                TMCC1EngineCommandEnum.NUMERIC,
+                address,
+                data=3,
+                scope=CommandScope.ENGINE,
+                led_pin=sh_led_pin,
+                cathode=cathode,
+            )
+            if sh_led:
+                cls.cache_handler(EngineStateSource(address, sh_led, lambda x: x.numeric == 3))
+
+        return cab_left_btn, cab_right_btn, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
+
+    @classmethod
+    def crane_car_xxx(
         cls,
         address: int,
         cab_pin_1: P,
