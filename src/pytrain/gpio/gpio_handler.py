@@ -1008,7 +1008,7 @@ class GpioHandler:
         cab_right_btn.when_held = right_cmd.as_action()
 
         # set up for boom lift
-        _, down_btn, _ = cls.make_button(
+        down_cmd, down_btn, _ = cls.make_button(
             bo_down_pin,
             command=TMCC1EngineCommandEnum.BRAKE_SPEED,
             address=address,
@@ -1016,7 +1016,10 @@ class GpioHandler:
             hold_repeat=True,
             hold_time=0.05,
         )
-        _, up_btn, _ = cls.make_button(
+        down_btn.when_pressed = down_cmd.as_action()
+        down_btn.when_held = down_cmd.as_action()
+
+        up_cmd, up_btn, _ = cls.make_button(
             bo_up_pin,
             command=TMCC1EngineCommandEnum.BOOST_SPEED,
             address=address,
@@ -1024,6 +1027,8 @@ class GpioHandler:
             hold_repeat=True,
             hold_time=0.05,
         )
+        up_btn.when_pressed = up_cmd.as_action()
+        up_btn.when_held = up_cmd.as_action()
 
         # boom control
         bo_btn = bo_led = None
