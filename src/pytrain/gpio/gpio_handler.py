@@ -983,24 +983,29 @@ class GpioHandler:
         cathode: bool = True,
     ) -> tuple:
         # use momentary contact switch to rotate cab
-        _, cab_left_btn, _ = cls.make_button(
+        left_cmd, cab_left_btn, _ = cls.make_button(
             cab_left_pin,
             command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
             address=address,
             data=-1,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time = 0.05,
+            hold_time=0.05,
         )
-        _, cab_right_btn, _ = cls.make_button(
+        cab_left_btn.when_pressed = left_cmd.as_action()
+        cab_left_btn.when_held = left_cmd.as_action()
+
+        right_cmd, cab_right_btn, _ = cls.make_button(
             cab_right_pin,
             command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
             address=address,
             data=1,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time = 0.05,
+            hold_time=0.05,
         )
+        cab_right_btn.when_pressed = right_cmd.as_action()
+        cab_right_btn.when_held = right_cmd.as_action()
 
         # set up for boom lift
         _, down_btn, _ = cls.make_button(
@@ -1009,15 +1014,15 @@ class GpioHandler:
             address=address,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time = 0.05,
+            hold_time=0.05,
         )
         _, up_btn, _ = cls.make_button(
             bo_up_pin,
-            command=TMCC1EngineCommandEnum.BRAKE_SPEED,
+            command=TMCC1EngineCommandEnum.BOOST_SPEED,
             address=address,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time = 0.05,
+            hold_time=0.05,
         )
 
         # boom control
@@ -1065,7 +1070,7 @@ class GpioHandler:
             if sh_led:
                 cls.cache_handler(EngineStateSource(address, sh_led, lambda x: x.numeric == 3))
 
-        return  cab_left_btn, cab_right_btn, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
+        return cab_left_btn, cab_right_btn, bo_btn, bo_led, bh_btn, bh_led, sh_btn, sh_led
 
     @classmethod
     def crane_car_xxx(
