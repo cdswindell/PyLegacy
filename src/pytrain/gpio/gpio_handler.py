@@ -1121,6 +1121,37 @@ class GpioHandler:
         else:
             bh_up_btn = None
 
+        # small hook up/down
+        if sh_down_pin:
+            _, sh_down_btn, _ = cls.make_button(
+                sh_down_pin,
+                down_cmd,
+                hold_repeat=True,
+                hold_time=0.02,
+            )
+            if bo_down_pin or bh_down_pin:
+                sh_down_btn.when_pressed = cls.with_prefix_action(sh_sel_cmd, down_cmd)
+            else:
+                sh_down_btn.when_pressed = down_cmd.as_action()
+            sh_down_btn.when_held = down_cmd.as_action()
+        else:
+            sh_down_btn = None
+
+        if sh_up_pin:
+            _, sh_up_btn, _ = cls.make_button(
+                sh_up_pin,
+                up_cmd,
+                hold_repeat=True,
+                hold_time=0.02,
+            )
+            if bo_up_pin or bh_up_pin:
+                sh_up_btn.when_pressed = cls.with_prefix_action(sh_sel_cmd, up_cmd)
+            else:
+                sh_up_btn.when_pressed = up_cmd.as_action()
+            sh_up_btn.when_held = up_cmd.as_action()
+        else:
+            sh_up_btn = None
+
         # front/rear lights
         if fl_pin:
             fl_cmd, fl_btn, _ = cls.make_button(
@@ -1188,6 +1219,8 @@ class GpioHandler:
             up_btn,
             bh_down_btn,
             bh_up_btn,
+            sh_down_btn,
+            sh_up_btn,
             bo_btn,
             bo_led,
             bh_btn,
