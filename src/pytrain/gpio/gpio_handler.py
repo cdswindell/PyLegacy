@@ -1087,49 +1087,64 @@ class GpioHandler:
         up_btn.when_held = up_cmd.as_action()
 
         # front/rear lights
-        fl_cmd, fl_btn, _ = cls.make_button(
-            fl_pin,
-            command=TMCC1EngineCommandEnum.NUMERIC,
-            address=address,
-            data=4,
-            scope=CommandScope.ENGINE,
-        )
-        fl_btn.when_pressed = fl_cmd.as_action()
+        if fl_pin:
+            fl_cmd, fl_btn, _ = cls.make_button(
+                fl_pin,
+                command=TMCC1EngineCommandEnum.NUMERIC,
+                address=address,
+                data=4,
+                scope=CommandScope.ENGINE,
+            )
+            fl_btn.when_pressed = fl_cmd.as_action()
+        else:
+            fl_btn = None
 
-        rl_cmd, rl_btn, _ = cls.make_button(
-            rl_pin,
-            command=TMCC1EngineCommandEnum.NUMERIC,
-            address=address,
-            data=5,
-            scope=CommandScope.ENGINE,
-        )
-        rl_btn.when_pressed = rl_cmd.as_action()
+        if rl_pin:
+            rl_cmd, rl_btn, _ = cls.make_button(
+                rl_pin,
+                command=TMCC1EngineCommandEnum.NUMERIC,
+                address=address,
+                data=5,
+                scope=CommandScope.ENGINE,
+            )
+            rl_btn.when_pressed = rl_cmd.as_action()
+        else:
+            rl_btn = None
 
-        or_cmd, or_btn, _ = cls.make_button(
-            or_pin,
-            command=TMCC1EngineCommandEnum.NUMERIC,
-            address=address,
-            data=6,
-            scope=CommandScope.ENGINE,
-        )
-        or_btn.when_pressed = or_cmd.as_action()
+        if or_pin:
+            or_cmd, or_btn, _ = cls.make_button(
+                or_pin,
+                command=TMCC1EngineCommandEnum.NUMERIC,
+                address=address,
+                data=6,
+                scope=CommandScope.ENGINE,
+            )
+            or_btn.when_pressed = or_cmd.as_action()
+        else:
+            or_btn = None
 
         # front/rear coupler
-        fc_cmd, fc_btn, _ = cls.make_button(
-            fc_pin,
-            command=TMCC1EngineCommandEnum.FRONT_COUPLER,
-            address=address,
-            scope=CommandScope.ENGINE,
-        )
-        fc_btn.when_pressed = fc_cmd.as_action()
+        if fc_pin:
+            fc_cmd, fc_btn, _ = cls.make_button(
+                fc_pin,
+                command=TMCC1EngineCommandEnum.FRONT_COUPLER,
+                address=address,
+                scope=CommandScope.ENGINE,
+            )
+            fc_btn.when_pressed = fc_cmd.as_action()
+        else:
+            fc_btn = None
 
-        rc_cmd, rc_btn, _ = cls.make_button(
-            rc_pin,
-            command=TMCC1EngineCommandEnum.REAR_COUPLER,
-            address=address,
-            scope=CommandScope.ENGINE,
-        )
-        rc_btn.when_pressed = rc_cmd.as_action()
+        if rc_pin:
+            rc_cmd, rc_btn, _ = cls.make_button(
+                rc_pin,
+                command=TMCC1EngineCommandEnum.REAR_COUPLER,
+                address=address,
+                scope=CommandScope.ENGINE,
+            )
+            rc_btn.when_pressed = rc_cmd.as_action()
+        else:
+            rc_btn = None
 
         return (
             cab_left_btn,
