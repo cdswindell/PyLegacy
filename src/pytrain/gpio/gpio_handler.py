@@ -974,6 +974,10 @@ class GpioHandler:
         cab_right_pin: P = None,
         bo_down_pin: P = None,
         bo_up_pin: P = None,
+        bh_down_pin: P = None,
+        bh_up_pin: P = None,
+        sh_down_pin: P = None,
+        sh_up_pin: P = None,
         bo_pin: P = None,
         bh_pin: P = None,
         sh_pin: P = None,
@@ -1012,7 +1016,48 @@ class GpioHandler:
         cab_right_btn.when_pressed = right_cmd.as_action()
         cab_right_btn.when_held = right_cmd.as_action()
 
-        # set up for boom lift
+        # boom control
+        boom_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ENGINE)
+        bo_btn = bo_led = None
+        if bo_pin is not None:
+            cmd, bo_btn, bo_led = cls.when_button_pressed(
+                bo_pin,
+                boom_sel_cmd,
+                led_pin=bo_led_pin,
+                cathode=cathode,
+            )
+            if bo_led:
+                cls.cache_handler(EngineStateSource(address, bo_led, lambda x: x.numeric == 1))
+
+        # large hook control
+        bh_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=2, scope=CommandScope.ENGINE)
+        bh_btn = bh_led = None
+        if bh_pin is not None:
+            cmd, bh_btn, bh_led = cls.when_button_pressed(
+                bh_pin,
+                bh_sel_cmd,
+                led_pin=bh_led_pin,
+                cathode=cathode,
+            )
+            if bh_led:
+                cls.cache_handler(EngineStateSource(address, bh_led, lambda x: x.numeric == 2))
+
+        # small hook control
+        sh_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=3, scope=CommandScope.ENGINE)
+        sh_btn = sh_led = None
+        if sh_pin is not None:
+            cmd, sh_btn, sh_led = cls.when_button_pressed(
+                sh_pin,
+                sh_sel_cmd,
+                led_pin=sh_led_pin,
+                cathode=cathode,
+            )
+            if sh_led:
+                cls.cache_handler(EngineStateSource(address, sh_led, lambda x: x.numeric == 3))
+
+        # set up for boom lift/drop
+        # we can either press a selector button to force crane mode or
+        # send the prefix command along with the boom down command
         down_cmd, down_btn, _ = cls.make_button(
             bo_down_pin,
             command=TMCC1EngineCommandEnum.BRAKE_SPEED,
@@ -1021,7 +1066,10 @@ class GpioHandler:
             hold_repeat=True,
             hold_time=0.02,
         )
-        down_btn.when_pressed = down_cmd.as_action()
+        if bh_down_pin and sh_down_pin:
+            down_btn.when_pressed = cls.with_prefix_action(boom_sel_cmd, down_cmd)
+        else:
+            down_btn.when_pressed = down_cmd.as_action()
         down_btn.when_held = down_cmd.as_action()
 
         up_cmd, up_btn, _ = cls.make_button(
@@ -1032,53 +1080,11 @@ class GpioHandler:
             hold_repeat=True,
             hold_time=0.02,
         )
-        up_btn.when_pressed = up_cmd.as_action()
+        if bh_up_pin and sh_up_pin:
+            up_btn.when_pressed = cls.with_prefix_action(boom_sel_cmd, up_cmd)
+        else:
+            up_btn.when_pressed = up_cmd.as_action()
         up_btn.when_held = up_cmd.as_action()
-
-        # boom control
-        bo_btn = bo_led = None
-        if bo_pin is not None:
-            cmd, bo_btn, bo_led = cls.when_button_pressed(
-                bo_pin,
-                TMCC1EngineCommandEnum.NUMERIC,
-                address,
-                data=1,
-                scope=CommandScope.ENGINE,
-                led_pin=bo_led_pin,
-                cathode=cathode,
-            )
-            if bo_led:
-                cls.cache_handler(EngineStateSource(address, bo_led, lambda x: x.numeric == 1))
-
-        # large hook control
-        bh_btn = bh_led = None
-        if bh_pin is not None:
-            cmd, bh_btn, bh_led = cls.when_button_pressed(
-                bh_pin,
-                TMCC1EngineCommandEnum.NUMERIC,
-                address,
-                data=2,
-                scope=CommandScope.ENGINE,
-                led_pin=bh_led_pin,
-                cathode=cathode,
-            )
-            if bh_led:
-                cls.cache_handler(EngineStateSource(address, bh_led, lambda x: x.numeric == 2))
-
-        # small hook control
-        sh_btn = sh_led = None
-        if sh_pin is not None:
-            cmd, sh_btn, sh_led = cls.when_button_pressed(
-                sh_pin,
-                TMCC1EngineCommandEnum.NUMERIC,
-                address,
-                data=3,
-                scope=CommandScope.ENGINE,
-                led_pin=sh_led_pin,
-                cathode=cathode,
-            )
-            if sh_led:
-                cls.cache_handler(EngineStateSource(address, sh_led, lambda x: x.numeric == 3))
 
         # front/rear lights
         fl_cmd, fl_btn, _ = cls.make_button(
@@ -1737,5 +1743,23 @@ class GpioHandler:
             byte_str += command.as_bytes * 2
             tmcc_command_buffer.enqueue_command(byte_str)
             last_rotation_at = cls.current_milli_time()
+
+        return func
+
+    @classmethod
+    def with_prefix_action(
+        cls,
+        prefix: CommandReq,
+        command: CommandReq,
+    ) -> Callable:
+        tmcc_command_buffer = CommBuffer.build()
+
+        def func() -> None:
+            nonlocal tmcc_command_buffer
+
+            byte_str = bytes()
+            byte_str += prefix.as_bytes * 2
+            byte_str += command.as_bytes
+            tmcc_command_buffer.enqueue_command(byte_str)
 
         return func
