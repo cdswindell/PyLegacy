@@ -1093,7 +1093,7 @@ class GpioHandler:
         # big hook up/down
         if bh_down_pin:
             _, bh_down_btn, _ = cls.make_button(
-                bo_down_pin,
+                bh_down_pin,
                 down_cmd,
                 hold_repeat=True,
                 hold_time=0.02,
