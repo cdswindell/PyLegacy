@@ -1114,10 +1114,10 @@ class GpioHandler:
                 hold_time=0.02,
             )
             if bo_up_pin and sh_up_pin:
-                bh_up_pin.when_pressed = cls.with_prefix_action(bh_sel_cmd, up_cmd)
+                bh_up_btn.when_pressed = cls.with_prefix_action(bh_sel_cmd, up_cmd)
             else:
-                bh_up_pin.when_pressed = up_cmd.as_action()
-            bh_up_pin.when_held = up_cmd.as_action()
+                bh_up_btn.when_pressed = up_cmd.as_action()
+            bh_up_btn.when_held = up_cmd.as_action()
         else:
             bh_up_btn = None
 
