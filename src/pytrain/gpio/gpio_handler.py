@@ -1058,33 +1058,68 @@ class GpioHandler:
         # set up for boom lift/drop
         # we can either press a selector button to force crane mode or
         # send the prefix command along with the boom down command
-        down_cmd, down_btn, _ = cls.make_button(
-            bo_down_pin,
-            command=TMCC1EngineCommandEnum.BRAKE_SPEED,
-            address=address,
-            scope=CommandScope.ENGINE,
-            hold_repeat=True,
-            hold_time=0.02,
-        )
-        if bh_down_pin and sh_down_pin:
-            down_btn.when_pressed = cls.with_prefix_action(boom_sel_cmd, down_cmd)
+        down_cmd = CommandReq.build(TMCC1EngineCommandEnum.BRAKE_SPEED, address)
+        if bo_down_pin:
+            _, down_btn, _ = cls.make_button(
+                bo_down_pin,
+                down_cmd,
+                hold_repeat=True,
+                hold_time=0.02,
+            )
+            if bh_down_pin and sh_down_pin:
+                down_btn.when_pressed = cls.with_prefix_action(boom_sel_cmd, down_cmd)
+            else:
+                down_btn.when_pressed = down_cmd.as_action()
+            down_btn.when_held = down_cmd.as_action()
         else:
-            down_btn.when_pressed = down_cmd.as_action()
-        down_btn.when_held = down_cmd.as_action()
+            down_btn = None
 
-        up_cmd, up_btn, _ = cls.make_button(
-            bo_up_pin,
-            command=TMCC1EngineCommandEnum.BOOST_SPEED,
-            address=address,
-            scope=CommandScope.ENGINE,
-            hold_repeat=True,
-            hold_time=0.02,
-        )
-        if bh_up_pin and sh_up_pin:
-            up_btn.when_pressed = cls.with_prefix_action(boom_sel_cmd, up_cmd)
+        up_cmd = CommandReq.build(TMCC1EngineCommandEnum.BOOST_SPEED, address)
+        if bo_up_pin:
+            _, up_btn, _ = cls.make_button(
+                bo_up_pin,
+                up_cmd,
+                hold_repeat=True,
+                hold_time=0.02,
+            )
+            if bh_up_pin and sh_up_pin:
+                up_btn.when_pressed = cls.with_prefix_action(boom_sel_cmd, up_cmd)
+            else:
+                up_btn.when_pressed = up_cmd.as_action()
+            up_btn.when_held = up_cmd.as_action()
         else:
-            up_btn.when_pressed = up_cmd.as_action()
-        up_btn.when_held = up_cmd.as_action()
+            up_btn = None
+
+        # big hook up/down
+        if bh_down_pin:
+            _, bh_down_btn, _ = cls.make_button(
+                bo_down_pin,
+                down_cmd,
+                hold_repeat=True,
+                hold_time=0.02,
+            )
+            if bo_down_pin and sh_down_pin:
+                bh_down_btn.when_pressed = cls.with_prefix_action(bh_sel_cmd, down_cmd)
+            else:
+                bh_down_btn.when_pressed = down_cmd.as_action()
+            bh_down_btn.when_held = down_cmd.as_action()
+        else:
+            bh_down_btn = None
+
+        if bh_up_pin:
+            _, bh_up_btn, _ = cls.make_button(
+                bh_up_pin,
+                up_cmd,
+                hold_repeat=True,
+                hold_time=0.02,
+            )
+            if bo_up_pin and sh_up_pin:
+                bh_up_pin.when_pressed = cls.with_prefix_action(bh_sel_cmd, up_cmd)
+            else:
+                bh_up_pin.when_pressed = up_cmd.as_action()
+            bh_up_pin.when_held = up_cmd.as_action()
+        else:
+            bh_up_btn = None
 
         # front/rear lights
         if fl_pin:
@@ -1151,6 +1186,8 @@ class GpioHandler:
             cab_right_btn,
             down_btn,
             up_btn,
+            bh_down_btn,
+            bh_up_btn,
             bo_btn,
             bo_led,
             bh_btn,
