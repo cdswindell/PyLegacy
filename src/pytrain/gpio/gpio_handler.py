@@ -1066,7 +1066,7 @@ class GpioHandler:
                 hold_repeat=True,
                 hold_time=0.02,
             )
-            if bh_down_pin and sh_down_pin:
+            if bh_down_pin or sh_down_pin:
                 down_btn.when_pressed = cls.with_prefix_action(boom_sel_cmd, down_cmd)
             else:
                 down_btn.when_pressed = down_cmd.as_action()
@@ -1082,7 +1082,7 @@ class GpioHandler:
                 hold_repeat=True,
                 hold_time=0.02,
             )
-            if bh_up_pin and sh_up_pin:
+            if bh_up_pin or sh_up_pin:
                 up_btn.when_pressed = cls.with_prefix_action(boom_sel_cmd, up_cmd)
             else:
                 up_btn.when_pressed = up_cmd.as_action()
@@ -1098,7 +1098,7 @@ class GpioHandler:
                 hold_repeat=True,
                 hold_time=0.02,
             )
-            if bo_down_pin and sh_down_pin:
+            if bo_down_pin or sh_down_pin:
                 bh_down_btn.when_pressed = cls.with_prefix_action(bh_sel_cmd, down_cmd)
             else:
                 bh_down_btn.when_pressed = down_cmd.as_action()
@@ -1113,7 +1113,7 @@ class GpioHandler:
                 hold_repeat=True,
                 hold_time=0.02,
             )
-            if bo_up_pin and sh_up_pin:
+            if bo_up_pin or sh_up_pin:
                 bh_up_btn.when_pressed = cls.with_prefix_action(bh_sel_cmd, up_cmd)
             else:
                 bh_up_btn.when_pressed = up_cmd.as_action()
