@@ -6,6 +6,8 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
+from ..db.component_state_store import ComponentStateStore
+from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from .gpio_device import GpioDevice, P
 from .state_source import AccessoryStateSource
@@ -26,8 +28,12 @@ class PowerDistrict(GpioDevice):
         as an LCS BP2 configured in "Acc" mode.
         """
         if initial_state is None:
-            # TODO: query initial state
-            initial_state = TMCC1AuxCommandEnum.AUX2_OPT_ONE
+            state = ComponentStateStore.get_state(CommandScope.ACC, address, create=False)
+            if state:
+                initial_state = state.aux_state
+            if initial_state is None:
+                # last resort, assume district is off
+                initial_state = TMCC1AuxCommandEnum.AUX2_OPT_ONE
 
         # make the CommandReqs
         on_req, self.on_btn, self.on_led = self.make_button(
