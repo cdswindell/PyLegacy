@@ -101,6 +101,14 @@ class GpioDevice:
         )
 
     @staticmethod
+    def with_on_action(action: Callable, led: LED, *impacted_leds: LED) -> Callable:
+        return GpioHandler.with_on_action(action, led, *impacted_leds)
+
+    @staticmethod
+    def with_off_action(action: Callable, led: LED, *impacted_leds: LED) -> Callable:
+        return GpioHandler.with_off_action(action, led, *impacted_leds)
+
+    @staticmethod
     def with_prefix_action(
         prefix: CommandReq,
         command: CommandReq,

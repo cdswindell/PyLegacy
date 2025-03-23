@@ -13,7 +13,6 @@ from ..utils.ip_tools import find_base_address
 from .gpio_device import GpioDevice, P
 
 
-# noinspection PyUnresolvedReferences
 class BaseWatcher(GpioDevice):
     """
     BaseWatcher class monitors connectivity to a Lionel Base 3 and controls GPIO devices accordingly.

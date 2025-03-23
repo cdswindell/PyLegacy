@@ -37,6 +37,7 @@ from .gpio.gpio_handler import (
 )
 from .gpio.power_watcher import PowerWatcher  # noqa: F401
 from .gpio.route import Route  # noqa: F401
+from .gpio.switch import Switch  # noqa: F401
 from .gpio.sys_admin import SystemAdmin  # noqa: F401
 from .protocol.command_def import CommandDefEnum  # noqa: F401
 from .protocol.command_req import CommandReq  # noqa: F401

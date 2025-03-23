@@ -6,7 +6,7 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
-from .. import TMCC1RouteCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1RouteCommandEnum
 from .gpio_device import GpioDevice, P
 
 

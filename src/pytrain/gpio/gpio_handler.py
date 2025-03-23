@@ -11,14 +11,13 @@ from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device, R
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
 from ..db.component_state_store import ComponentStateStore, DependencyCache
-from ..gpio.state_source import AccessoryStateSource, EngineStateSource, SwitchStateSource
+from ..gpio.state_source import AccessoryStateSource, EngineStateSource
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,
     TMCC1EngineCommandEnum,
-    TMCC1SwitchCommandEnum,
 )
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from .controller import Controller, ControllerI2C
@@ -525,63 +524,6 @@ class GpioHandler:
         return c
 
     @classmethod
-    def switch(
-        cls,
-        address: int,
-        thru_pin: P,
-        out_pin: P,
-        thru_led_pin: P = None,
-        out_led_pin: P = None,
-        cathode: bool = True,
-        initial_state: TMCC1SwitchCommandEnum = None,
-    ) -> Tuple[Button, Button] | Tuple[Button, Button, LED, LED]:
-        """
-        Control a switch/turnout that responds to TMCC1 switch commands, such
-        as Lionel Command/Control-equipped turnouts or turnouts connected to
-        an LCS ACS 2 configured in "Switch" mode.
-
-        Optionally, manage LEDs to reflect turnout state; thru or out. Also
-        supports bi-color LEDs with either common cathode or anode.
-        """
-        if initial_state is None:
-            state = ComponentStateStore.get_state(CommandScope.SWITCH, address, create=False)
-            if state:
-                initial_state = state.state
-            if initial_state is None:
-                initial_state = TMCC1SwitchCommandEnum.THRU
-
-        # make the CommandReqs
-        thru_req, thru_btn, thru_led = cls.make_button(
-            thru_pin,
-            TMCC1SwitchCommandEnum.THRU,
-            address,
-            led_pin=thru_led_pin,
-            initially_on=initial_state == TMCC1SwitchCommandEnum.THRU,
-            cathode=cathode,
-        )
-        out_req, out_btn, out_led = cls.make_button(
-            out_pin,
-            TMCC1SwitchCommandEnum.OUT,
-            address,
-            led_pin=out_led_pin,
-            initially_on=initial_state == TMCC1SwitchCommandEnum.OUT,
-            cathode=cathode,
-        )
-        # bind actions to buttons
-        thru_action = thru_req.as_action(repeat=2)
-        out_action = out_req.as_action(repeat=2)
-
-        thru_btn.when_pressed = cls._with_on_action(thru_action, thru_led, out_led)
-        out_btn.when_pressed = cls._with_on_action(out_action, out_led, thru_led)
-
-        if thru_led is not None and out_led is not None:
-            cls.cache_handler(SwitchStateSource(address, thru_led, out_led))
-            return thru_btn, out_btn, thru_led, out_led
-        else:
-            # return created objects
-            return thru_btn, out_btn
-
-    @classmethod
     def power_district(
         cls,
         address: int,
@@ -619,8 +561,8 @@ class GpioHandler:
         on_action = on_req.as_action(repeat=2)
         off_action = off_req.as_action(repeat=2)
 
-        on_btn.when_pressed = cls._with_on_action(on_action, on_led)
-        off_btn.when_pressed = cls._with_off_action(off_action, on_led)
+        on_btn.when_pressed = cls.with_on_action(on_action, on_led)
+        off_btn.when_pressed = cls.with_off_action(off_action, on_led)
 
         if on_led is None:
             # return created objects
@@ -1039,8 +981,8 @@ class GpioHandler:
         off_action = off_command.as_action()
         on_action = on_command.as_action()
         if led is not None:
-            off_button.when_pressed = cls._with_off_action(off_action, led)
-            on_button.when_pressed = cls._with_on_action(on_action, led)
+            off_button.when_pressed = cls.with_off_action(off_action, led)
+            on_button.when_pressed = cls.with_on_action(on_action, led)
 
             def func_off(_: Message) -> None:
                 led.off()
@@ -1346,7 +1288,7 @@ class GpioHandler:
         return toggle_action
 
     @classmethod
-    def _with_off_action(cls, action: Callable, led: LED = None, *impacted_leds: LED) -> Callable:
+    def with_off_action(cls, action: Callable, led: LED = None, *impacted_leds: LED) -> Callable:
         def off_action() -> None:
             action()
             if led is not None:
@@ -1358,7 +1300,7 @@ class GpioHandler:
         return off_action
 
     @classmethod
-    def _with_on_action(cls, action: Callable, led: LED, *impacted_leds: LED) -> Callable:
+    def with_on_action(cls, action: Callable, led: LED, *impacted_leds: LED) -> Callable:
         def on_action() -> None:
             action()
             if led is not None:
