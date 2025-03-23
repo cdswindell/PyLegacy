@@ -1,6 +1,6 @@
-from threading import Thread, RLock
+from threading import RLock, Thread
 from time import sleep
-from typing import Dict, Callable
+from typing import Callable, Dict
 
 from gpiozero import RotaryEncoder
 
@@ -23,6 +23,7 @@ class PyRotaryEncoder(RotaryEncoder):
         steps_to_data: Callable[[int], int] = None,
         data_to_steps: Callable[[int], int] = None,
         pause_for: float = 0.25,
+        reset_after_motion: bool = False,
     ):
         super().__init__(pin_1, pin_2, wrap=wrap, max_steps=max_steps)
         if initial_step is not None:
@@ -38,7 +39,7 @@ class PyRotaryEncoder(RotaryEncoder):
         self._last_steps = self.steps
         self._lock = RLock()
         self._pins = (pin_1, pin_2)
-        self._handler = PyRotaryEncoderHandler(self, pause_for=pause_for)
+        self._handler = PyRotaryEncoderHandler(self, pause_for=pause_for, reset_after_motion=reset_after_motion)
         if command:
             self._handler.start()
 
@@ -104,7 +105,7 @@ class PyRotaryEncoder(RotaryEncoder):
 
 
 class PyRotaryEncoderHandler(Thread):
-    def __init__(self, re: PyRotaryEncoder, pause_for: float = 0.25) -> None:
+    def __init__(self, re: PyRotaryEncoder, pause_for: float = 0.25, reset_after_motion: bool = False) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Rotary Encoder Handler pins: {re.pins}")
         self._re = re
         self._command = None
@@ -112,6 +113,9 @@ class PyRotaryEncoderHandler(Thread):
         self._is_started = False
         self._last_step = None
         self._pause_for = pause_for
+        self._reset_after_motion = reset_after_motion
+        if reset_after_motion is True:
+            self._re.steps = 0
 
     def start(self) -> None:
         with self._re.lock:
@@ -140,6 +144,8 @@ class PyRotaryEncoderHandler(Thread):
                 else:
                     num_neg_max_steps = 3
                 self._re.fire_action(cur_step)
+                if self._reset_after_motion:
+                    self._re.steps = cur_step = 0
                 self._last_step = cur_step
             sleep(self._pause_for)
 
