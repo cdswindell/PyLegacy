@@ -524,56 +524,6 @@ class GpioHandler:
         return c
 
     @classmethod
-    def power_district(
-        cls,
-        address: int,
-        on_pin: P,
-        off_pin: P,
-        on_led_pin: P = None,
-        cathode: bool = True,
-        initial_state: TMCC1AuxCommandEnum | bool = None,
-    ) -> Tuple[Button, Button] | Tuple[Button, Button, LED]:
-        """
-        Control a power district that responds to TMCC1 accessory commands, such
-        as an LCS BP2 configured in "Acc" mode.
-        """
-        if initial_state is None:
-            # TODO: query initial state
-            initial_state = TMCC1AuxCommandEnum.AUX2_OPT_ONE
-
-        # make the CommandReqs
-        on_req, on_btn, on_led = cls.make_button(
-            on_pin,
-            TMCC1AuxCommandEnum.AUX1_OPT_ONE,
-            address,
-            led_pin=on_led_pin,
-            cathode=cathode,
-            initially_on=initial_state == TMCC1AuxCommandEnum.AUX1_OPT_ONE,
-        )
-        off_req, off_btn, off_led = cls.make_button(
-            off_pin,
-            TMCC1AuxCommandEnum.AUX2_OPT_ONE,
-            address,
-            cathode=cathode,
-            initially_on=initial_state == TMCC1AuxCommandEnum.AUX2_OPT_ONE,
-        )
-        # bind actions to buttons
-        on_action = on_req.as_action(repeat=2)
-        off_action = off_req.as_action(repeat=2)
-
-        on_btn.when_pressed = cls.with_on_action(on_action, on_led)
-        off_btn.when_pressed = cls.with_off_action(off_action, on_led)
-
-        if on_led is None:
-            # return created objects
-            return on_btn, off_btn
-        else:
-            # listen for external state changes
-            cls.cache_handler(AccessoryStateSource(address, on_led, aux_state=TMCC1AuxCommandEnum.AUX1_OPT_ONE))
-            # return created objects
-            return on_btn, off_btn, on_led
-
-    @classmethod
     def accessory(
         cls,
         address: int,
@@ -608,7 +558,7 @@ class GpioHandler:
         aux1_action = aux1_req.as_action()
         aux2_action = aux2_req.as_action()
 
-        aux1_btn.when_pressed = cls._with_held_action(aux1_action, aux1_btn)
+        aux1_btn.when_pressed = cls.with_held_action(aux1_action, aux1_btn)
         aux2_btn.when_pressed = aux2_action
 
         if aux2_led is None:
@@ -1031,7 +981,7 @@ class GpioHandler:
         # create a command function to fire when button pressed
         action = command.as_action()
         if led_pin is not None and led_pin != 0:
-            button.when_pressed = cls._with_toggle_action(action, led, auto_timeout)
+            button.when_pressed = cls.with_toggle_action(action, led, auto_timeout)
             led.source = None  # want led to stay lit when button pressed
             if initial_state is True:
                 led.on()
@@ -1256,7 +1206,7 @@ class GpioHandler:
         return led
 
     @classmethod
-    def _with_held_action(cls, action: Callable, button: Button, delay: float = 0.10) -> Callable:
+    def with_held_action(cls, action: Callable, button: Button, delay: float = 0.10) -> Callable:
         def held_action() -> None:
             while button.is_active:
                 action()
@@ -1265,7 +1215,7 @@ class GpioHandler:
         return held_action
 
     @classmethod
-    def _with_toggle_action(cls, action: Callable, led: LED, auto_timeout: int = None) -> Callable:
+    def with_toggle_action(cls, action: Callable, led: LED, auto_timeout: int = None) -> Callable:
         if cls.GPIO_DELAY_HANDLER is None:
             cls.GPIO_DELAY_HANDLER = GpioDelayHandler()
             cls.cache_handler(cls.GPIO_DELAY_HANDLER)
