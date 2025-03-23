@@ -527,20 +527,6 @@ class GpioHandler:
         return c
 
     @classmethod
-    def power_watcher(
-        cls,
-        power_on_pin: P,
-        cathode: bool = True,
-    ) -> LED:
-        """
-        Illuminates a LED as long as the attached Pi has power
-        """
-        power_led = cls.make_led(power_on_pin, cathode=cathode)
-        power_led.value = 1
-        cls.cache_device(power_led)
-        return power_led
-
-    @classmethod
     def system_shutdown(
         cls,
         shutdown_pin: P,

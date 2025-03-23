@@ -35,6 +35,7 @@ from .gpio.gpio_handler import (
     JoyStickHandler,  # noqa: F401
     PotHandler,  # noqa: F401
 )
+from .gpio.power_watcher import PowerWatcher  # noqa: F401
 from .protocol.command_def import CommandDefEnum  # noqa: F401
 from .protocol.command_req import CommandReq  # noqa: F401
 from .protocol.constants import (

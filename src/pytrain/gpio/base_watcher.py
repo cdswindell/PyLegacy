@@ -13,7 +13,37 @@ from ..utils.ip_tools import find_base_address
 from .gpio_device import GpioDevice, P
 
 
+# noinspection PyUnresolvedReferences
 class BaseWatcher(GpioDevice):
+    """
+    BaseWatcher class monitors connectivity to a Lionel Base 3 and controls GPIO devices accordingly.
+
+    This class is designed to interface with a server and orchestrates the behavior of active
+    and inactive LEDs based on the server's availability. The class determines the server's
+    address if not explicitly provided, utilizes a PingServer to monitor server activity, and
+    associates GPIO-based LEDs to visually reflect the activity status of the server.
+
+    Attributes:
+        active_led (Optional[GpioLED]): LED to indicate active server status.
+        inactive_led (Optional[GpioLED]): LED to indicate inactive server status.
+
+    Parameters:
+        server (str, optional): The Base 3's address to monitor. If None,
+            it attempts to find the address automatically.
+        active_pin (P, optional): GPIO pin for the active state LED. None if
+            not specified.
+        inactive_pin (P, optional): GPIO pin for the inactive state LED. None if
+            not specified.
+        cathode (bool): If True, sets up the LEDs in cathode configuration.
+            Defaults to True.
+        delay (float): Delay in seconds between Base 3 status checks.
+            Defaults to 10.
+
+    Raises:
+        ValueError: If the Base 3's address cannot be determined and no `server`
+            parameter is provided.
+    """
+
     def __init__(
         self,
         server: str = None,
