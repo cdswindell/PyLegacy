@@ -47,6 +47,7 @@ class CraneCar(GpioDevice):
                 cab_right_pin,
                 cmd,
                 wrap=False,
+                initial_step=0,
                 max_steps=180,
                 steps_to_data=lambda s: 1 if s > 0 else -1 if s < 0 else 0,
                 pause_for=0.1,
