@@ -20,7 +20,7 @@ P = TypeVar("P", bound=Union[int, str, tuple[int], tuple[int, int], tuple[int, i
 
 class GpioDevice:
     def close(self):
-        for k, v in self.__dict__.items():
+        for k,v in self.__dict__.items():
             if isinstance(v, Device):
                 v.close()
             if isinstance(v, PyRotaryEncoder):
@@ -60,7 +60,7 @@ class GpioDevice:
 
     @staticmethod
     def when_button_pressed(
-        pin: P,
+            pin: P,
         command: CommandReq | CommandDefEnum,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
@@ -80,7 +80,7 @@ class GpioDevice:
 
     @staticmethod
     def with_prefix_action(
-        prefix: CommandReq,
+            prefix: CommandReq,
         command: CommandReq,
     ) -> Callable:
         return GpioHandler.with_prefix_action(prefix, command)
