@@ -990,31 +990,47 @@ class GpioHandler:
         bh_led_pin: P = None,
         sh_led_pin: P = None,
         cathode: bool = True,
+        cab_rotary_encoder: bool = False,
     ) -> tuple:
-        # use momentary contact switch to rotate cab
-        left_cmd, cab_left_btn, _ = cls.make_button(
-            cab_left_pin,
-            command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
-            address=address,
-            data=-1,
-            scope=CommandScope.ENGINE,
-            hold_repeat=True,
-            hold_time=0.1,
-        )
-        cab_left_btn.when_pressed = left_cmd.as_action()
-        cab_left_btn.when_held = left_cmd.as_action()
+        if cab_rotary_encoder is True:
+            from .py_rotary_encoder import PyRotaryEncoder
 
-        right_cmd, cab_right_btn, _ = cls.make_button(
-            cab_right_pin,
-            command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
-            address=address,
-            data=1,
-            scope=CommandScope.ENGINE,
-            hold_repeat=True,
-            hold_time=0.1,
-        )
-        cab_right_btn.when_pressed = right_cmd.as_action()
-        cab_right_btn.when_held = right_cmd.as_action()
+            cab_left_btn = cab_right_btn = None
+            cmd = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, data=0, scope=CommandScope.ENGINE)
+            cab_re = PyRotaryEncoder(
+                cab_left_pin,
+                cab_right_pin,
+                cmd,
+                wrap=False,
+                max_steps=180,
+                steps_to_data=lambda s: 1 if s >= 0 else -1,
+            )
+        else:
+            # use momentary contact switch to rotate cab
+            cab_re = None
+            left_cmd, cab_left_btn, _ = cls.make_button(
+                cab_left_pin,
+                command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
+                address=address,
+                data=-1,
+                scope=CommandScope.ENGINE,
+                hold_repeat=True,
+                hold_time=0.05,
+            )
+            cab_left_btn.when_pressed = left_cmd.as_action()
+            cab_left_btn.when_held = left_cmd.as_action()
+
+            right_cmd, cab_right_btn, _ = cls.make_button(
+                cab_right_pin,
+                command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
+                address=address,
+                data=1,
+                scope=CommandScope.ENGINE,
+                hold_repeat=True,
+                hold_time=0.05,
+            )
+            cab_right_btn.when_pressed = right_cmd.as_action()
+            cab_right_btn.when_held = right_cmd.as_action()
 
         # boom control
         boom_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ENGINE)
@@ -1064,7 +1080,7 @@ class GpioHandler:
                 bo_down_pin,
                 down_cmd,
                 hold_repeat=True,
-                hold_time=0.02,
+                hold_time=0.05,
             )
             if bh_down_pin or sh_down_pin:
                 down_btn.when_pressed = cls.with_prefix_action(boom_sel_cmd, down_cmd)
@@ -1080,7 +1096,7 @@ class GpioHandler:
                 bo_up_pin,
                 up_cmd,
                 hold_repeat=True,
-                hold_time=0.02,
+                hold_time=0.05,
             )
             if bh_up_pin or sh_up_pin:
                 up_btn.when_pressed = cls.with_prefix_action(boom_sel_cmd, up_cmd)
@@ -1096,7 +1112,7 @@ class GpioHandler:
                 bh_down_pin,
                 down_cmd,
                 hold_repeat=True,
-                hold_time=0.02,
+                hold_time=0.05,
             )
             if bo_down_pin or sh_down_pin:
                 bh_down_btn.when_pressed = cls.with_prefix_action(bh_sel_cmd, down_cmd)
@@ -1111,7 +1127,7 @@ class GpioHandler:
                 bh_up_pin,
                 up_cmd,
                 hold_repeat=True,
-                hold_time=0.02,
+                hold_time=0.05,
             )
             if bo_up_pin or sh_up_pin:
                 bh_up_btn.when_pressed = cls.with_prefix_action(bh_sel_cmd, up_cmd)
@@ -1215,6 +1231,7 @@ class GpioHandler:
         return (
             cab_left_btn,
             cab_right_btn,
+            cab_re,
             down_btn,
             up_btn,
             bh_down_btn,
