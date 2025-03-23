@@ -18,9 +18,7 @@ from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,
     TMCC1EngineCommandEnum,
-    TMCC1RouteCommandEnum,
     TMCC1SwitchCommandEnum,
-    TMCC1SyncCommandEnum,
 )
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from .controller import Controller, ControllerI2C
@@ -525,74 +523,6 @@ class GpioHandler:
             )
         cls.cache_handler(c)
         return c
-
-    @classmethod
-    def system_shutdown(
-        cls,
-        shutdown_pin: P,
-        hold_time: float = 2.5,
-    ) -> Button:
-        """
-        Send the system shutdown command to all nodes
-        """
-        cmd, shutdown_btn, led = cls.make_button(shutdown_pin, TMCC1SyncCommandEnum.SHUTDOWN, hold_time=hold_time)
-        shutdown_btn.when_held = cmd.as_action()
-        return shutdown_btn
-
-    @classmethod
-    def system_restart(
-        cls,
-        restart_pin: P,
-        hold_time: float = 2.5,
-    ) -> Button:
-        """
-        Send the system restart command to all nodes
-        """
-        cmd, restart_btn, led = cls.make_button(restart_pin, TMCC1SyncCommandEnum.RESTART, hold_time=hold_time)
-        restart_btn.when_held = cmd.as_action()
-        return restart_btn
-
-    @classmethod
-    def system_update(
-        cls,
-        update_pin: P,
-        hold_time: float = 2.5,
-    ) -> Button:
-        """
-        Send the system update command to all nodes
-        """
-        cmd, update_btn, led = cls.make_button(update_pin, TMCC1SyncCommandEnum.UPDATE, hold_time=hold_time)
-        update_btn.when_held = cmd.as_action()
-        return update_btn
-
-    @classmethod
-    def route(
-        cls,
-        address: int,
-        btn_pin: P,
-        led_pin: P = None,
-        cathode: bool = True,
-    ) -> Button | Tuple[Button, LED]:
-        """
-        Fire a TMCC2/Legacy Route, throwing all incorporated turnouts to the correct state
-        """
-        # make the CommandReq
-        req, btn, led = cls.make_button(
-            btn_pin,
-            TMCC1RouteCommandEnum.FIRE,
-            address,
-            led_pin=led_pin,
-            bind=True,
-            cathode=cathode,
-        )
-        # bind actions to buttons
-        btn.when_pressed = req.as_action(repeat=2)
-
-        # return created objects
-        if led is not None:
-            return btn, led
-        else:
-            return btn
 
     @classmethod
     def switch(
