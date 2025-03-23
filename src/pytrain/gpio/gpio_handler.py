@@ -999,7 +999,7 @@ class GpioHandler:
             data=-1,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.02,
+            hold_time=0.1,
         )
         cab_left_btn.when_pressed = left_cmd.as_action()
         cab_left_btn.when_held = left_cmd.as_action()
@@ -1011,7 +1011,7 @@ class GpioHandler:
             data=1,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.02,
+            hold_time=0.1,
         )
         cab_right_btn.when_pressed = right_cmd.as_action()
         cab_right_btn.when_held = right_cmd.as_action()
