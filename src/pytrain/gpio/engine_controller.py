@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from random import randint
-from typing import TypeVar, Union, Tuple, Dict
+from typing import Dict, Tuple, TypeVar, Union
 
 from gpiozero import Button
 
@@ -12,8 +12,8 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.sequence.abs_speed_rpm import AbsoluteSpeedRpm
-from ..protocol.sequence.labor_effect import LaborEffectUpReq, LaborEffectDownReq
-from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1EngineCommandEnum
+from ..protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, int, int]])
@@ -75,7 +75,9 @@ class EngineController:
         self._held_frequency = held_frequency
         # define a base watcher, if requested
         if base_online_pin is not None or base_offline_pin:
-            self._base_watcher = GpioHandler.base_watcher(
+            from .base_watcher import BaseWatcher
+
+            self._base_watcher = BaseWatcher(
                 active_pin=base_online_pin,
                 inactive_pin=base_offline_pin,
                 cathode=base_cathode,

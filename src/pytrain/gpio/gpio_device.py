@@ -26,6 +26,7 @@ class GpioDevice:
             if isinstance(v, Device):
                 v.close()
             if isinstance(v, PyRotaryEncoder):
+                v.close()
                 v.reset()
 
     @staticmethod
@@ -57,8 +58,27 @@ class GpioDevice:
         )
 
     @staticmethod
+    def make_led(
+        pin: P,
+        initially_on: bool = False,
+        cathode: bool = True,
+    ) -> LED:
+        return GpioHandler.make_led(
+            pin=pin,
+            initially_on=initially_on,
+            cathode=cathode,
+        )
+
+    @staticmethod
     def cache_handler(handler: Thread) -> None:
         GpioHandler.GPIO_HANDLER_CACHE.add(handler)
+
+    @staticmethod
+    def cache_device(device: Device) -> None:
+        """
+        Keep devices around after creation so they remain in scope
+        """
+        GpioHandler.GPIO_DEVICE_CACHE.add(device)
 
     @staticmethod
     def when_button_pressed(

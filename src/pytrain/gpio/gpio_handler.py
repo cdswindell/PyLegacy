@@ -6,7 +6,7 @@ import time
 from threading import Thread
 from typing import Callable, Dict, List, Tuple, TypeVar, Union
 
-from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device, PingServer, RotaryEncoder
+from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device, RotaryEncoder
 
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
@@ -23,7 +23,6 @@ from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1SyncCommandEnum,
 )
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
-from ..utils.ip_tools import find_base_address
 from .controller import Controller, ControllerI2C
 from .i2c.ads_1x15 import Ads1115
 from .i2c.button_i2c import ButtonI2C
@@ -526,59 +525,6 @@ class GpioHandler:
             )
         cls.cache_handler(c)
         return c
-
-    @classmethod
-    def base_watcher(
-        cls, server: str = None, active_pin: P = None, inactive_pin: P = None, cathode: bool = True, delay: float = 10
-    ) -> Tuple[PingServer, LED, LED]:
-        # if server isn't specified, try to figure it out
-        if server is None:
-            server = CommBuffer().base3_address
-        if server is None:
-            print("Looking for Base 3 on local network...")
-            server = find_base_address()
-            if server is None:
-                raise ValueError("Could not determine base address")
-
-        # set up a ping server, treat it as a device
-        ping_server = PingServer(server, event_delay=delay)
-        cls.cache_device(ping_server)
-
-        # set up active led, if any
-        active_led = None
-        if active_pin:
-            active_led = cls.make_led(active_pin, cathode=cathode)
-            active_led.value = 1 if ping_server.is_active else 0
-            cls.cache_device(active_led)
-
-        inactive_led = None
-        if inactive_pin:
-            inactive_led = cls.make_led(inactive_pin, cathode=cathode)
-            inactive_led.value = 0 if ping_server.is_active else 1
-            cls.cache_device(inactive_led)
-
-        # set ping server state change actions
-        if active_led and inactive_led:
-            # we have to toggle the leds; we need a custom function
-            def on_active() -> None:
-                active_led.on()
-                inactive_led.off()
-
-            ping_server.when_activated = on_active
-
-            def on_inactive() -> None:
-                active_led.off()
-                inactive_led.on()
-
-            ping_server.when_deactivated = on_inactive
-        elif active_led:
-            ping_server.when_activated = active_led.on
-            ping_server.when_deactivated = active_led.off
-        elif inactive_led:
-            ping_server.when_activated = inactive_led.off
-            ping_server.when_deactivated = inactive_led.on
-
-        return ping_server, active_led, inactive_led
 
     @classmethod
     def power_watcher(
