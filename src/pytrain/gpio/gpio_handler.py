@@ -11,7 +11,6 @@ from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device, R
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
-from ..gpio.state_source import AccessoryStateSource
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
@@ -563,33 +562,6 @@ class GpioHandler:
             return aux1_btn, aux2_btn
         else:
             return aux1_btn, aux2_btn, aux1_led
-
-    @classmethod
-    def culvert_loader(
-        cls,
-        address: int,
-        cycle_pin: P,
-        # lights_pin: P = None,
-        cycle_led_pin: P = None,
-        command_control: bool = True,
-        cathode: bool = True,
-    ) -> Button | Tuple[Button, LED]:
-        if command_control is True:
-            cycle_req, cycle_btn, cycle_led = cls.make_button(
-                cycle_pin,
-                TMCC1AuxCommandEnum.AUX2_OPT_ONE,
-                address,
-                led_pin=cycle_led_pin,
-                cathode=cathode,
-            )
-            cycle_btn.when_pressed = cycle_req.as_action(repeat=2)
-        else:
-            raise NotImplementedError
-        if cycle_led is None:
-            return cycle_btn
-        else:
-            cls.cache_handler(AccessoryStateSource(address, cycle_led, aux2_state=TMCC1AuxCommandEnum.AUX2_ON))
-            return cycle_btn, cycle_led
 
     @classmethod
     def rocket_launcher(
