@@ -51,7 +51,7 @@ class CraneCar(GpioDevice):
                 wrap=False,
                 initial_step=0,
                 max_steps=180,
-                steps_to_data=self.ramped_speed,
+                steps_to_data=self.fast_speed,
                 pause_for=0.05,
                 reset_after_motion=True,
             )
