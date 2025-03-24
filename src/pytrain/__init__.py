@@ -38,6 +38,7 @@ from .gpio.gpio_handler import (
     JoyStickHandler,  # noqa: F401
     PotHandler,  # noqa: F401
 )
+from .gpio.launch_pad import LaunchPad  # noqa: F401
 from .gpio.power_district import PowerDistrict  # noqa: F401
 from .gpio.power_watcher import PowerWatcher  # noqa: F401
 from .gpio.route import Route  # noqa: F401

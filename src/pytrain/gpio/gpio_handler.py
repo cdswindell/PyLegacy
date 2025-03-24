@@ -432,24 +432,6 @@ class GpioHandler:
             return aux1_btn, aux2_btn, aux1_led
 
     @classmethod
-    def rocket_launcher(
-        cls,
-        address: int,
-        gantry_chanel: P = 0,
-        launch_seq_pin: P = None,
-        launch_now_pin: P = None,
-        launch_15_pin: P = None,
-        abort_pin: P = None,
-        siren_pin: P = None,
-        klaxon_pin: P = None,
-        ground_crew_pin: P = None,
-        mission_control_pin: P = None,
-        flicker_on_pin: P = None,
-        flicker_off_pin: P = None,
-    ):
-        pass
-
-    @classmethod
     def make_button(
         cls,
         pin: P,
@@ -480,13 +462,11 @@ class GpioHandler:
         # create a LED, if asked, and tie its source to the button
         if led_pin is not None:
             led = cls.make_led(led_pin, initially_on, cathode)
-        else:
-            led = None
-
-        if led:
             cls.cache_device(led)
             if bind is True:
                 led.source = button
+        else:
+            led = None
 
         if command is None:
             return button
