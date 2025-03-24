@@ -70,29 +70,26 @@ class SmokeFluidLoader(GpioDevice):
                 self.boom_right_btn.when_pressed = right_cmd.as_action()
                 self.boom_right_btn.when_held = right_cmd.as_action()
 
-            lights_on_req, self.lights_on_btn, self.lights_on_led = self.make_button(
+            lights_on_req, self.lights_on_btn, _ = self.make_button(
                 lights_on_pin,
                 TMCC1AuxCommandEnum.NUMERIC,
                 address,
                 data=9,
-                cathode=cathode,
             )
             self.lights_on_btn.when_pressed = lights_on_req.as_action(repeat=2)
 
-            lights_off_req, self.lights_off_btn, self.lights_off_led = self.make_button(
+            lights_off_req, self.lights_off_btn, _ = self.make_button(
                 lights_off_pin,
                 TMCC1AuxCommandEnum.NUMERIC,
                 address,
                 data=8,
-                cathode=cathode,
             )
             self.lights_off_btn.when_pressed = lights_off_req.as_action(repeat=2)
 
-            dispense_req, self.dispense_btn, self.dispense_led = self.make_button(
+            dispense_req, self.dispense_btn, _ = self.make_button(
                 dispense_pin,
                 TMCC1AuxCommandEnum.BRAKE,
                 address,
-                cathode=cathode,
             )
             self.dispense_btn.when_pressed = dispense_req.as_action(repeat=2)
         else:
