@@ -11,7 +11,7 @@ from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device, R
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
 from ..db.component_state_store import ComponentStateStore, DependencyCache
-from ..gpio.state_source import AccessoryStateSource, EngineStateSource
+from ..gpio.state_source import AccessoryStateSource
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
@@ -592,80 +592,6 @@ class GpioHandler:
         else:
             cls.cache_handler(AccessoryStateSource(address, cycle_led, aux2_state=TMCC1AuxCommandEnum.AUX2_ON))
             return cycle_btn, cycle_led
-
-    @classmethod
-    def gantry_crane(
-        cls,
-        address: int,
-        cab_pin_1: P,
-        cab_pin_2: P,
-        lift_chn: P = 0,
-        roll_chn: P = 1,
-        mag_pin: P = None,
-        led_pin: P = None,
-        use_12bit: bool = True,
-        cathode: bool = True,
-    ) -> Tuple[RotaryEncoder, JoyStickHandler, JoyStickHandler, Button, LED]:
-        # use rotary encoder to control crane cab
-        cab_prefix = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, 1)
-        turn_right = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, 2)
-        turn_left = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, -2)
-        cab_ctrl = cls.when_rotary_encoder(
-            cab_pin_1,
-            cab_pin_2,
-            turn_right,
-            counterclockwise_cmd=turn_left,
-            prefix=cab_prefix,
-        )
-
-        # set up joystick for boom lift
-        lift_cmd = CommandReq.build(TMCC1EngineCommandEnum.BOOST_SPEED, address)
-        drop_cmd = CommandReq.build(TMCC1EngineCommandEnum.BRAKE_SPEED, address)
-        cmd_map = {}
-        for i in range(-20, -2, 1):
-            cmd_map[i] = drop_cmd
-        cmd_map[-2] = cmd_map[-1] = cmd_map[0] = cmd_map[1] = cmd_map[2] = None  # no action
-        for i in range(3, 21, 1):
-            cmd_map[i] = lift_cmd
-        lift_cntr = cls.when_joystick(
-            channel=lift_chn,
-            use_12bit=use_12bit,
-            data_min=-20,
-            data_max=20,
-            delay=0.10,
-            cmds=cmd_map,
-        )
-
-        # set up for crane track motion
-        scale = {-x: -2 for x in range(9, 21)} | {-x: -1 for x in range(2, 9)}
-        scale |= {-1: 0, 0: 0, 1: 0} | {x: 1 for x in range(2, 9)} | {x: 2 for x in range(9, 21)}
-        move_prefix = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, 2)
-        move_cmd = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address)
-        move_cntr = cls.when_joystick(
-            move_cmd,
-            channel=roll_chn,
-            use_12bit=use_12bit,
-            data_min=-20,
-            data_max=20,
-            delay=0.10,
-            scale=scale,
-            prefix=move_prefix,
-        )
-
-        btn = led = None
-        if mag_pin is not None:
-            btn, led = cls.when_toggle_button_pressed(
-                mag_pin,
-                TMCC1EngineCommandEnum.AUX2_OPTION_ONE,
-                address,
-                led_pin=led_pin,
-                auto_timeout=59,
-                cathode=cathode,
-            )
-            led.blink()
-            cls.cache_handler(EngineStateSource(address, led, lambda x: x.is_aux2))
-
-        return cab_ctrl, lift_cntr, move_cntr, btn, led
 
     @classmethod
     def rocket_launcher(

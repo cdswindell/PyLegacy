@@ -30,6 +30,7 @@ from .db.component_state import (
 from .db.component_state_store import ComponentStateStore  # noqa: F401
 from .gpio.base_watcher import BaseWatcher  # noqa: F401
 from .gpio.crane_car import CraneCar  # noqa: F401
+from .gpio.gantry_crane import GantryCrane  # noqa: F401
 from .gpio.gpio_handler import (
     GpioHandler,  # noqa: F401
     JoyStickHandler,  # noqa: F401

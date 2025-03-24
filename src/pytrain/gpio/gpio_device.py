@@ -128,6 +128,30 @@ class GpioDevice:
         )
 
     @staticmethod
+    def when_toggle_button_pressed(
+        pin: P,
+        command: CommandReq | CommandDefEnum,
+        address: int = DEFAULT_ADDRESS,
+        data: int = 0,
+        scope: CommandScope = None,
+        led_pin: P = None,
+        initial_state: bool = False,
+        auto_timeout: int = None,
+        cathode: bool = True,
+    ) -> tuple[Button, LED]:
+        return GpioHandler.when_toggle_button_pressed(
+            pin=pin,
+            command=command,
+            address=address,
+            data=data,
+            scope=scope,
+            led_pin=led_pin,
+            initial_state=initial_state,
+            auto_timeout=auto_timeout,
+            cathode=cathode,
+        )
+
+    @staticmethod
     def with_on_action(action: Callable, led: LED, *impacted_leds: LED) -> Callable:
         return GpioHandler.with_on_action(action, led, *impacted_leds)
 
