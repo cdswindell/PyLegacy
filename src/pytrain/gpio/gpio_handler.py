@@ -594,59 +594,6 @@ class GpioHandler:
             return cycle_btn, cycle_led
 
     @classmethod
-    def smoke_fluid_loader(
-        cls,
-        address: int,
-        channel: int,
-        dispense_pin: P,
-        lights_on_pin: P = None,
-        lights_off_pin: P = None,
-        command_control: bool = True,
-        cathode: bool = True,
-    ) -> Tuple[Button, Button]:
-        if command_control is True:
-            scale = {0: 0} | {x: 1 for x in range(1, 9)} | {x: 2 for x in range(9, 11)}
-            scale |= {-x: -1 for x in range(1, 9)} | {-x: -2 for x in range(9, 11)}
-            rotate_boom_req = CommandReq.build(TMCC1AuxCommandEnum.RELATIVE_SPEED, address)
-            knob = JoyStickHandler(
-                rotate_boom_req,
-                channel,
-                data_min=-10,
-                data_max=10,
-                delay=0.2,
-                scale=scale,
-            )
-            cls.cache_handler(knob)
-            cls.cache_device(knob.pot)
-
-            lights_on_req, lights_on_btn, lights_on_led = cls.make_button(
-                lights_on_pin,
-                TMCC1AuxCommandEnum.NUMERIC,
-                address,
-                data=9,
-                cathode=cathode,
-            )
-            lights_off_req, lights_off_btn, lights_off_led = cls.make_button(
-                lights_off_pin,
-                TMCC1AuxCommandEnum.NUMERIC,
-                address,
-                data=8,
-                cathode=cathode,
-            )
-            dispense_req, dispense_btn, dispense_led = cls.make_button(
-                dispense_pin,
-                TMCC1AuxCommandEnum.BRAKE,
-                address,
-                cathode=cathode,
-            )
-            dispense_btn.when_pressed = dispense_req.as_action(repeat=2)
-            lights_on_btn.when_pressed = lights_on_req.as_action(repeat=2)
-            lights_off_btn.when_pressed = lights_off_req.as_action(repeat=2)
-        else:
-            raise NotImplementedError
-        return lights_on_btn, lights_off_btn
-
-    @classmethod
     def gantry_crane(
         cls,
         address: int,

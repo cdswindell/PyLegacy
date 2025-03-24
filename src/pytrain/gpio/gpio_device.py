@@ -30,6 +30,29 @@ class GpioDevice:
                 v.reset()
 
     @staticmethod
+    def ramped_speed(step_no: int, max_steps: int = 180) -> int:
+        speed = 0
+        if step_no < 0:
+            mag = -1
+            step_no = abs(step_no)
+        else:
+            mag = 1
+        if step_no > 0:
+            third = max_steps / 3
+            if step_no <= third:
+                speed = 1
+            elif step_no <= 2 * third:
+                speed = 2
+            else:
+                speed = 3
+        return speed * mag
+
+    # noinspection PyUnusedLocal
+    @staticmethod
+    def simple_speed(step_no: int, max_steps: int = 180) -> int:
+        return 1 if step_no > 0 else -1 if step_no < 0 else 0
+
+    @staticmethod
     def make_button(
         pin: P,
         command: CommandReq | CommandDefEnum = None,

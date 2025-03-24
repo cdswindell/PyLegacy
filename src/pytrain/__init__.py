@@ -38,6 +38,7 @@ from .gpio.gpio_handler import (
 from .gpio.power_district import PowerDistrict  # noqa: F401
 from .gpio.power_watcher import PowerWatcher  # noqa: F401
 from .gpio.route import Route  # noqa: F401
+from .gpio.smoke_fluid_loader import SmokeFluidLoader  # noqa: F401
 from .gpio.switch import Switch  # noqa: F401
 from .gpio.sys_admin import SystemAdmin  # noqa: F401
 from .protocol.command_def import CommandDefEnum  # noqa: F401
