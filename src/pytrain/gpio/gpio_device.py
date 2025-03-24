@@ -45,12 +45,16 @@ class GpioDevice:
                 speed = 2
             else:
                 speed = 3
+        print(step_no * mag)
         return speed * mag
 
-    # noinspection PyUnusedLocal
     @staticmethod
-    def simple_speed(step_no: int, max_steps: int = 180) -> int:
+    def simple_speed(step_no: int) -> int:
         return 1 if step_no > 0 else -1 if step_no < 0 else 0
+
+    @staticmethod
+    def fast_speed(step_no: int) -> int:
+        return 3 if step_no > 0 else -3 if step_no < 0 else 0
 
     @staticmethod
     def make_button(
