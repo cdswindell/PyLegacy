@@ -14,6 +14,53 @@ from .state_source import AccessoryStateSource
 
 
 class GantryCrane(GpioDevice):
+    """
+    Represents a Gantry Crane device with multiple configurable controls and states.
+
+    This class extends the functionality of a GPIO-based device to provide a set of commands
+    and configurations for controlling various parts of a gantry crane. These include movement
+    of the crane's cab, boom, roll, and magnetic operations. The class allows interaction through
+    different input pins and can integrate additional features like rotary encoders, LEDs, and
+    accessory states for comprehensive control.
+
+    Attributes:
+        cab_left_btn (Union[Button, None]): Represents the button control for rotating the cab left.
+        cab_right_btn (Union[Button, None]): Represents the button control for rotating the cab right.
+        cab_re (Union[PyRotaryEncoder, None]): Represents the rotary encoder for cab rotation
+            if enabled, otherwise None.
+        ro_left_btn (Union[Button, None]): Represents the button control for rolling left,
+            if configured.
+        ro_right_btn (Union[Button, None]): Represents the button control for rolling right,
+            if configured.
+        down_btn (Union[Button, None]): Represents the button control for moving the boom
+            downward, if configured.
+        up_btn (Union[Button, None]): Represents the button control for lifting the boom,
+            if configured.
+        mag_btn (Union[Button, None]): Represents the toggle button for magnetic operation,
+            if configured.
+        mag_led (Union[LED, None]): Represents the LED linked to magnetic operation,
+            if configured.
+
+    Args:
+        address (int): The unique address of the gantry crane device.
+        cab_left_pin (P): GPIO pin assigned for the cab rotation left control.
+        cab_right_pin (P): GPIO pin assigned for the cab rotation right control.
+        ro_left_pin (P): Optional; GPIO pin assigned for rolling left control. Default is None.
+        ro_right_pin (P): Optional; GPIO pin assigned for rolling right control. Default is None.
+        bo_down_pin (P): Optional; GPIO pin assigned for moving the boom downward. Default is None.
+        bo_up_pin (P): Optional; GPIO pin assigned for lifting the boom. Default is None.
+        mag_pin (P): Optional; GPIO pin assigned for the magnetic operation control. Default is None.
+        led_pin (P): Optional; GPIO pin assigned for the LED connected to the magnetic operation.
+            Default is None.
+        cathode (bool): Optional; Specifies whether the LED uses common cathode configuration.
+            Default is True.
+        cab_rotary_encoder (bool): Optional; Determines if a rotary encoder is used for
+            cab rotation. Default is False.
+
+    Raises:
+        No raised errors are explicitly documented.
+    """
+
     def __init__(
         self,
         address: int,
