@@ -17,12 +17,11 @@ class SmokeFluidLoader(GpioDevice):
     def __init__(
         self,
         address: int,
-        boom_left_pin: P = None,
-        boom_right_pin: P = None,
-        dispense_pin: P = None,
+        boom_left_pin: P,
+        boom_right_pin: P,
+        dispense_pin: P,
         lights_on_pin: P = None,
         lights_off_pin: P = None,
-        cathode: bool = True,
         command_control: bool = True,
         boom_rotary_encoder: bool = False,
     ) -> None:
@@ -70,27 +69,33 @@ class SmokeFluidLoader(GpioDevice):
                 self.boom_right_btn.when_pressed = right_cmd.as_action()
                 self.boom_right_btn.when_held = right_cmd.as_action()
 
-            lights_on_req, self.lights_on_btn, _ = self.make_button(
-                lights_on_pin,
-                TMCC1AuxCommandEnum.NUMERIC,
-                address,
-                data=9,
-            )
-            self.lights_on_btn.when_pressed = lights_on_req.as_action(repeat=2)
-
-            lights_off_req, self.lights_off_btn, _ = self.make_button(
-                lights_off_pin,
-                TMCC1AuxCommandEnum.NUMERIC,
-                address,
-                data=8,
-            )
-            self.lights_off_btn.when_pressed = lights_off_req.as_action(repeat=2)
-
             dispense_req, self.dispense_btn, _ = self.make_button(
                 dispense_pin,
                 TMCC1AuxCommandEnum.BRAKE,
                 address,
             )
             self.dispense_btn.when_pressed = dispense_req.as_action(repeat=2)
+
+            if lights_on_pin:
+                lights_on_req, self.lights_on_btn, _ = self.make_button(
+                    lights_on_pin,
+                    TMCC1AuxCommandEnum.NUMERIC,
+                    address,
+                    data=9,
+                )
+                self.lights_on_btn.when_pressed = lights_on_req.as_action(repeat=2)
+            else:
+                self.lights_on_btn = None
+
+            if lights_off_pin:
+                lights_off_req, self.lights_off_btn, _ = self.make_button(
+                    lights_off_pin,
+                    TMCC1AuxCommandEnum.NUMERIC,
+                    address,
+                    data=8,
+                )
+                self.lights_off_btn.when_pressed = lights_off_req.as_action(repeat=2)
+            else:
+                self.lights_off_btn = None
         else:
             raise NotImplementedError
