@@ -10,16 +10,14 @@ from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device, R
 
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
-from ..db.component_state_store import ComponentStateStore, DependencyCache
+from ..db.component_state_store import DependencyCache
 from ..gpio.state_source import AccessoryStateSource
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,
-    TMCC1EngineCommandEnum,
 )
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from .controller import Controller, ControllerI2C
 from .i2c.ads_1x15 import Ads1115
 from .i2c.button_i2c import ButtonI2C
@@ -610,85 +608,6 @@ class GpioHandler:
         flicker_off_pin: P = None,
     ):
         pass
-
-    @classmethod
-    def engine(
-        cls,
-        address: int,
-        speed_pin_1: P = None,
-        speed_pin_2: P = None,
-        fwd_pin: P = None,
-        rev_pin: P = None,
-        is_legacy: bool = True,
-        scope: CommandScope = CommandScope.ENGINE,
-        cathode: bool = True,
-    ) -> Tuple[RotaryEncoder, Button, Button]:
-        fwd_btn = rev_btn = None
-        fwd_cmd = rev_cmd = None
-        if is_legacy is True:
-            max_steps = 200
-            speed_cmd = CommandReq.build(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, address, 0, scope)
-            if fwd_pin is not None:
-                fwd_cmd, fwd_btn, _ = cls.make_button(
-                    fwd_pin,
-                    TMCC2EngineCommandEnum.FORWARD_DIRECTION,
-                    address,
-                    scope=scope,
-                    cathode=cathode,
-                )
-            if rev_pin is not None:
-                rev_cmd, rev_btn, _ = cls.make_button(
-                    rev_pin,
-                    TMCC2EngineCommandEnum.REVERSE_DIRECTION,
-                    address,
-                    scope=scope,
-                    cathode=cathode,
-                )
-        else:
-            max_steps = 32
-            speed_cmd = CommandReq.build(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, address, 0, scope)
-            if fwd_pin is not None:
-                fwd_cmd, fwd_btn, _ = cls.make_button(
-                    fwd_pin,
-                    TMCC1EngineCommandEnum.FORWARD_DIRECTION,
-                    address,
-                    scope=scope,
-                    cathode=cathode,
-                )
-            if rev_pin is not None:
-                rev_cmd, rev_btn, _ = cls.make_button(
-                    rev_pin,
-                    TMCC1EngineCommandEnum.REVERSE_DIRECTION,
-                    address,
-                    scope=scope,
-                    cathode=cathode,
-                )
-
-        # get the initial speed of the engine/train
-        state = ComponentStateStore.get_state(scope, address)
-        if state and state.speed:
-            initial_step = int(max(state.speed - max_steps, int(-max_steps / 2)))
-        else:
-            initial_step = int(-max_steps / 2)
-        # make a RE to handle speed
-        speed_ctrl = cls.when_rotary_encoder(
-            speed_pin_1,
-            speed_pin_2,
-            speed_cmd,
-            wrap=False,
-            max_steps=int(max_steps / 2),
-            initial_step=initial_step,
-            scaler=lambda x: int(max(min(x + (max_steps / 2), max_steps - 1), 0)),
-            use_steps=True,
-        )
-
-        # assign button actions
-        if fwd_btn is not None:
-            fwd_btn.when_pressed = fwd_cmd.as_action()
-        if rev_btn is not None:
-            rev_btn.when_pressed = rev_cmd.as_action()
-        # return objects
-        return speed_ctrl, fwd_btn, rev_btn
 
     @classmethod
     def when_button_pressed(
