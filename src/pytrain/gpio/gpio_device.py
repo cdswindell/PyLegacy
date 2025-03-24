@@ -49,11 +49,11 @@ class GpioDevice:
         return speed * mag
 
     @staticmethod
-    def slow_speed(step_no: int) -> int:
+    def std_step_to_data(step_no: int) -> int:
         return 1 if step_no > 0 else -1 if step_no < 0 else 0
 
     @staticmethod
-    def fast_speed(step_no: int) -> int:
+    def fast_step_to_data(step_no: int) -> int:
         return 3 if step_no > 0 else -3 if step_no < 0 else 0
 
     @staticmethod

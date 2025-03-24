@@ -13,10 +13,10 @@ import logging
 from argparse import ArgumentParser
 from typing import List
 
-from . import CliBaseTMCC
 from ..protocol.multibyte.dialog_cmd import DialogCmd
 from ..protocol.multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
 from ..utils.argument_parser import PyTrainArgumentParser
+from . import CliBaseTMCC
 
 log = logging.getLogger(__name__)
 
@@ -231,7 +231,7 @@ class DialogsCli(CliBaseTMCC):
         )
         eng_group.add_argument(
             "-ss",
-            "-slow_speed",
+            "-std_step_to_data",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_SLOW,
             dest="option",
@@ -314,7 +314,7 @@ class DialogsCli(CliBaseTMCC):
         )
         tower_group.add_argument(
             "-ss",
-            "-slow_speed",
+            "-std_step_to_data",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.TOWER_SPEED_SLOW,
             dest="option",
