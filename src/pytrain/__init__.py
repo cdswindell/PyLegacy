@@ -29,6 +29,7 @@ from .db.component_state import (
 )
 from .db.component_state_store import ComponentStateStore  # noqa: F401
 from .gpio.base_watcher import BaseWatcher  # noqa: F401
+from .gpio.controller import Controller  # noqa: F401
 from .gpio.crane_car import CraneCar  # noqa: F401
 from .gpio.culvert_loader import CulvertLoader, CulvertUnloader  # noqa: F401
 from .gpio.gantry_crane import GantryCrane  # noqa: F401
