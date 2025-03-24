@@ -6,7 +6,7 @@ import time
 from threading import Thread
 from typing import Callable, Dict, Tuple, TypeVar, Union
 
-from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device, RotaryEncoder
+from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device
 
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
@@ -450,6 +450,64 @@ class GpioHandler:
         pass
 
     @classmethod
+    def make_button(
+        cls,
+        pin: P,
+        command: CommandReq | CommandDefEnum = None,
+        address: int = DEFAULT_ADDRESS,
+        data: int = None,
+        scope: CommandScope = None,
+        led_pin: P = None,
+        hold_repeat: bool = False,
+        hold_time: float = 1,
+        initially_on: bool = False,
+        bind: bool = False,
+        cathode: bool = True,
+    ) -> Button | Tuple[CommandReq, Button, LED]:
+        # if command is actually a CommandDefEnum, build_req a CommandReq
+        if isinstance(command, CommandDefEnum):
+            command = CommandReq.build(command, address=address, data=data, scope=scope)
+
+        # create the button object we will associate an action with
+        hold_time = hold_time if hold_time is not None and hold_time > 0 else 1.0
+        if isinstance(pin, tuple):
+            # noinspection PyTypeChecker
+            button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
+        else:
+            button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
+        cls.cache_device(button)
+
+        # create a LED, if asked, and tie its source to the button
+        if led_pin is not None:
+            led = cls.make_led(led_pin, initially_on, cathode)
+        else:
+            led = None
+
+        if led:
+            cls.cache_device(led)
+            if bind is True:
+                led.source = button
+
+        if command is None:
+            return button
+        else:
+            return command, button, led
+
+    @classmethod
+    def make_led(
+        cls,
+        pin: P,
+        initially_on: bool = False,
+        cathode: bool = True,
+    ) -> LED:
+        if isinstance(pin, tuple):
+            # noinspection PyTypeChecker
+            led = LEDI2C(pin, cathode=cathode, initial_value=initially_on)
+        else:
+            led = LED(pin, active_high=cathode, initial_value=initially_on)
+        return led
+
+    @classmethod
     def when_button_pressed(
         cls,
         pin: P,
@@ -692,66 +750,6 @@ class GpioHandler:
         return joystick
 
     @classmethod
-    def when_rotary_encoder(
-        cls,
-        pin_1: P,
-        pin_2: P,
-        clockwise_cmd: CommandReq | CommandDefEnum,
-        address: int = DEFAULT_ADDRESS,
-        data: int = None,
-        scope: CommandScope = None,
-        initial_step=None,
-        counterclockwise_cmd: CommandReq | CommandDefEnum = None,
-        cc_data: int = None,
-        max_steps: int = 100,
-        ramp: Dict[int, int] = None,
-        prefix: CommandReq = None,
-        scaler: Callable[[int], int] = None,
-        use_steps: bool = False,
-        wrap: bool = True,
-    ) -> RotaryEncoder:
-        print(f"Init Steps: {initial_step} max_steps: {max_steps}")
-        re = RotaryEncoder(pin_1, pin_2, wrap=wrap, max_steps=max_steps)
-        if initial_step is not None:
-            re.steps = initial_step
-        cls.cache_device(re)
-
-        # make commands
-        if isinstance(clockwise_cmd, CommandDefEnum):
-            clockwise_cmd = CommandReq.build(clockwise_cmd, address=address, data=data, scope=scope)
-        if counterclockwise_cmd is None:
-            counterclockwise_cmd = clockwise_cmd
-        elif isinstance(counterclockwise_cmd, CommandDefEnum):
-            counterclockwise_cmd = CommandReq.build(counterclockwise_cmd, address=address, data=cc_data, scope=scope)
-
-        # construct ramp
-        if ramp is None:
-            ramp = {
-                50: 3,
-                250: 2,
-                500: 1,
-            }
-        # bind commands
-        re.when_rotated_clockwise = cls._with_re_action(
-            clockwise_cmd.address,
-            clockwise_cmd,
-            ramp,
-            prefix if prefix else None,
-            scaler=scaler,
-            re=re if use_steps else None,
-        )
-        re.when_rotated_counter_clockwise = cls._with_re_action(
-            clockwise_cmd.address,
-            counterclockwise_cmd,
-            ramp,
-            prefix if prefix else None,
-            scaler=scaler,
-            re=re if use_steps else None,
-        )
-        # return rotary encoder
-        return re
-
-    @classmethod
     def reset_all(cls) -> None:
         for handler in cls.GPIO_HANDLER_CACHE:
             handler.reset()
@@ -778,64 +776,6 @@ class GpioHandler:
     def release_device(cls, device: Device) -> None:
         device.close()
         cls.GPIO_DEVICE_CACHE.remove(device)
-
-    @classmethod
-    def make_button(
-        cls,
-        pin: P,
-        command: CommandReq | CommandDefEnum = None,
-        address: int = DEFAULT_ADDRESS,
-        data: int = None,
-        scope: CommandScope = None,
-        led_pin: P = None,
-        hold_repeat: bool = False,
-        hold_time: float = 1,
-        initially_on: bool = False,
-        bind: bool = False,
-        cathode: bool = True,
-    ) -> Button | Tuple[CommandReq, Button, LED]:
-        # if command is actually a CommandDefEnum, build_req a CommandReq
-        if isinstance(command, CommandDefEnum):
-            command = CommandReq.build(command, address=address, data=data, scope=scope)
-
-        # create the button object we will associate an action with
-        hold_time = hold_time if hold_time is not None and hold_time > 0 else 1.0
-        if isinstance(pin, tuple):
-            # noinspection PyTypeChecker
-            button = ButtonI2C(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
-        else:
-            button = Button(pin, bounce_time=DEFAULT_BOUNCE_TIME, hold_repeat=hold_repeat, hold_time=hold_time)
-        cls.cache_device(button)
-
-        # create a LED, if asked, and tie its source to the button
-        if led_pin is not None:
-            led = cls.make_led(led_pin, initially_on, cathode)
-        else:
-            led = None
-
-        if led:
-            cls.cache_device(led)
-            if bind is True:
-                led.source = button
-
-        if command is None:
-            return button
-        else:
-            return command, button, led
-
-    @classmethod
-    def make_led(
-        cls,
-        pin: P,
-        initially_on: bool = False,
-        cathode: bool = True,
-    ) -> LED:
-        if isinstance(pin, tuple):
-            # noinspection PyTypeChecker
-            led = LEDI2C(pin, cathode=cathode, initial_value=initially_on)
-        else:
-            led = LED(pin, active_high=cathode, initial_value=initially_on)
-        return led
 
     @classmethod
     def with_held_action(cls, action: Callable, button: Button, delay: float = 0.10) -> Callable:
@@ -893,61 +833,6 @@ class GpioHandler:
                         impacted_led.off()
 
         return on_action
-
-    @classmethod
-    def _with_re_action(
-        cls,
-        address: int,
-        command: CommandReq,
-        ramp: Dict[int, int] = None,
-        prefix: CommandReq = None,
-        cc: bool = False,
-        scaler: Callable[[int], int] = None,
-        re: RotaryEncoder = None,
-    ) -> Callable:
-        tmcc_command_buffer = CommBuffer.build()
-        last_rotation_at = cls.current_milli_time()
-        last_steps = None
-
-        def func() -> None:
-            nonlocal last_rotation_at
-            nonlocal tmcc_command_buffer
-            nonlocal last_steps
-            nonlocal cc
-            last_rotated = cls.current_milli_time() - last_rotation_at
-            if re:
-                data = re.steps
-                if last_steps is not None:
-                    cc = data >= last_steps
-                last_steps = data
-            else:
-                data = 1 if cc is False else -1
-            adj = 0
-            if ramp:
-                for ramp_val, data_val in ramp.items():
-                    if last_rotated <= ramp_val:
-                        adj = data_val if cc is False else -data_val
-                        break
-            # apply adjustment
-            if re:
-                data += adj
-            else:
-                data = adj
-            byte_str = bytes()
-            if prefix:
-                if GpioHandler.engine_numeric(address) == prefix.data:
-                    pass
-                else:
-                    byte_str += prefix.as_bytes * 2
-            if scaler:
-                print(f"Steps: {data} New speed: {scaler(data)}")
-                data = scaler(data)
-            command.data = data
-            byte_str += command.as_bytes * 2
-            tmcc_command_buffer.enqueue_command(byte_str)
-            last_rotation_at = cls.current_milli_time()
-
-        return func
 
     @classmethod
     def with_prefix_action(
