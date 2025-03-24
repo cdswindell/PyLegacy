@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from threading import Thread, RLock
+from threading import RLock, Thread
 from time import sleep
-from typing import List, TypeVar, Union, Tuple
+from typing import List
 
-from .engine_controller import EngineController
-from .keypad import Keypad, KeyPadI2C, KEYPAD_PCF8574_ADDRESS
-from ..gpio.i2c.lcd import Lcd, LCD_PCF8574_ADDRESS
-from ..db.state_watcher import StateWatcher
-from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..db.component_state_store import ComponentStateStore
+from ..db.state_watcher import StateWatcher
+from ..gpio.i2c.lcd import LCD_PCF8574_ADDRESS, Lcd
+from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+from .engine_controller import EngineController
+from .gpio_device import GpioDevice, P
+from .keypad import KEYPAD_PCF8574_ADDRESS, Keypad, KeyPadI2C
 
 COMMANDS_OF_INTEREST = {
     TMCC1EngineCommandEnum.ABSOLUTE_SPEED,
@@ -30,10 +31,137 @@ COMMANDS_OF_INTEREST = {
     TMCC2EngineCommandEnum.TRAIN_BRAKE,
 }
 
-P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, int, int]])
 
+class Controller(GpioDevice):
+    @classmethod
+    def build(
+        cls,
+        lcd_address: int = 0x27,
+        lcd_rows: int = 4,
+        lcd_cols: int = 20,
+        keypad_address: int | None = KEYPAD_PCF8574_ADDRESS,
+        row_pins: List[int | str] = None,
+        column_pins: List[int | str] = None,
+        base_online_pin: P = None,
+        base_offline_pin: P = None,
+        base_cathode: bool = True,
+        base_ping_freq: int = 5,
+        speed_pins: List[int | str] = None,
+        halt_pin: P = None,
+        reset_pin: P = None,
+        fwd_pin: P = None,
+        rev_pin: P = None,
+        front_coupler_pin: P = None,
+        rear_coupler_pin: P = None,
+        start_up_pin: P = None,
+        shutdown_pin: P = None,
+        boost_pin: P = None,
+        brake_pin: P = None,
+        bell_pin: P = None,
+        horn_pin: P = None,
+        rpm_up_pin: P = None,
+        rpm_down_pin: P = None,
+        labor_up_pin: P = None,
+        labor_down_pin: P = None,
+        vol_up_pin: P = None,
+        vol_down_pin: P = None,
+        smoke_on_pin: P = None,
+        smoke_off_pin: P = None,
+        tower_dialog_pin: P = None,
+        engr_dialog_pin: P = None,
+        aux1_pin: P = None,
+        aux2_pin: P = None,
+        aux3_pin: P = None,
+        stop_immediate_pin: P = None,
+        i2c_adc_address: int = 0x48,
+        train_brake_chn: int = None,
+        quilling_horn_chn: int = None,
+    ) -> Controller:
+        if row_pins and column_pins:
+            c = Controller(
+                lcd_address=lcd_address,
+                lcd_rows=lcd_rows,
+                lcd_cols=lcd_cols,
+                row_pins=row_pins,
+                column_pins=column_pins,
+                base_online_pin=base_online_pin,
+                base_offline_pin=base_offline_pin,
+                base_cathode=base_cathode,
+                base_ping_freq=base_ping_freq,
+                speed_pins=speed_pins,
+                halt_pin=halt_pin,
+                reset_pin=reset_pin,
+                fwd_pin=fwd_pin,
+                rev_pin=rev_pin,
+                front_coupler_pin=front_coupler_pin,
+                rear_coupler_pin=rear_coupler_pin,
+                start_up_pin=start_up_pin,
+                shutdown_pin=shutdown_pin,
+                boost_pin=boost_pin,
+                brake_pin=brake_pin,
+                bell_pin=bell_pin,
+                horn_pin=horn_pin,
+                rpm_up_pin=rpm_up_pin,
+                rpm_down_pin=rpm_down_pin,
+                labor_up_pin=labor_up_pin,
+                labor_down_pin=labor_down_pin,
+                vol_up_pin=vol_up_pin,
+                vol_down_pin=vol_down_pin,
+                smoke_on_pin=smoke_on_pin,
+                smoke_off_pin=smoke_off_pin,
+                tower_dialog_pin=tower_dialog_pin,
+                engr_dialog_pin=engr_dialog_pin,
+                aux1_pin=aux1_pin,
+                aux2_pin=aux2_pin,
+                aux3_pin=aux3_pin,
+                stop_immediate_pin=stop_immediate_pin,
+                i2c_adc_address=i2c_adc_address,
+                train_brake_chn=train_brake_chn,
+                quilling_horn_chn=quilling_horn_chn,
+            )
+        else:
+            c = ControllerI2C(
+                lcd_address=lcd_address,
+                lcd_rows=lcd_rows,
+                lcd_cols=lcd_cols,
+                keypad_address=keypad_address,
+                base_online_pin=base_online_pin,
+                base_offline_pin=base_offline_pin,
+                base_cathode=base_cathode,
+                base_ping_freq=base_ping_freq,
+                speed_pins=speed_pins,
+                halt_pin=halt_pin,
+                reset_pin=reset_pin,
+                fwd_pin=fwd_pin,
+                rev_pin=rev_pin,
+                front_coupler_pin=front_coupler_pin,
+                rear_coupler_pin=rear_coupler_pin,
+                start_up_pin=start_up_pin,
+                shutdown_pin=shutdown_pin,
+                boost_pin=boost_pin,
+                brake_pin=brake_pin,
+                bell_pin=bell_pin,
+                horn_pin=horn_pin,
+                rpm_up_pin=rpm_up_pin,
+                rpm_down_pin=rpm_down_pin,
+                labor_up_pin=labor_up_pin,
+                labor_down_pin=labor_down_pin,
+                vol_up_pin=vol_up_pin,
+                vol_down_pin=vol_down_pin,
+                smoke_on_pin=smoke_on_pin,
+                smoke_off_pin=smoke_off_pin,
+                tower_dialog_pin=tower_dialog_pin,
+                engr_dialog_pin=engr_dialog_pin,
+                aux1_pin=aux1_pin,
+                aux2_pin=aux2_pin,
+                aux3_pin=aux3_pin,
+                stop_immediate_pin=stop_immediate_pin,
+                i2c_adc_address=i2c_adc_address,
+                train_brake_chn=train_brake_chn,
+                quilling_horn_chn=quilling_horn_chn,
+            )
+        return c
 
-class Controller(Thread):
     def __init__(
         self,
         row_pins: List[P] = None,
@@ -77,7 +205,6 @@ class Controller(Thread):
         lcd_cols: int = 20,
         keypad: Keypad | KeyPadI2C = None,
     ):
-        super().__init__(name=f"{PROGRAM_NAME} Controller", daemon=True)
         self._lock = RLock()
         if lcd_address:
             self._lcd = Lcd(address=lcd_address, rows=lcd_rows, cols=lcd_cols)
@@ -142,6 +269,7 @@ class Controller(Thread):
         # check for state synchronization
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+        self._controller_thread = None
         if self._sync_state and self._sync_state.is_synchronized:
             self._sync_watcher = None
             self.on_sync()
@@ -193,7 +321,9 @@ class Controller(Thread):
                 self._sync_watcher.shutdown()
             self._synchronized = True
             self.update_display()
-            self.start()
+            self._controller_thread = Thread(target=self.run, daemon=True, name=f"{PROGRAM_NAME} Controller")
+            self._controller_thread.start()
+            self.cache_handler(self._controller_thread)
 
     def on_state_update(self) -> None:
         cur_speed = self._state.speed if self._state else None

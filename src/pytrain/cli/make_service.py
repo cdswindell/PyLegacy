@@ -19,9 +19,8 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Dict
 
-from .pytrain import DEFAULT_BUTTONS_FILE
-from .. import is_linux
 from ..utils.path_utils import find_dir, find_file
+from .pytrain import DEFAULT_BUTTONS_FILE
 
 
 class MakeService:
@@ -132,7 +131,7 @@ class MakeService:
     def install_service(self) -> str | None:
         from .. import PROGRAM_NAME
 
-        if is_linux() is False:
+        if platform.system().lower() != "linux":
             print(f"\nPlease run {self._prog} from a Raspberry Pi. Exiting")
             return None
         template = find_file("pytrain.service.template", (".", "../", "src"))

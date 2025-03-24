@@ -1,6 +1,7 @@
 from unittest import mock
 
-from src.pytrain import ComponentStateStore, Block
+from src.pytrain.atc.block import Block
+from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.protocol.constants import Direction
 from test.test_base import TestBase
 

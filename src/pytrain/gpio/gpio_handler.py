@@ -4,7 +4,7 @@ import sched
 import threading
 import time
 from threading import Thread
-from typing import Callable, Dict, List, Tuple, TypeVar, Union
+from typing import Callable, Dict, Tuple, TypeVar, Union
 
 from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device, RotaryEncoder
 
@@ -17,11 +17,9 @@ from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,
 )
-from .controller import Controller, ControllerI2C
 from .i2c.ads_1x15 import Ads1115
 from .i2c.button_i2c import ButtonI2C
 from .i2c.led_i2c import LEDI2C
-from .keypad import KEYPAD_PCF8574_ADDRESS
 
 log = logging.getLogger(__name__)
 
@@ -389,136 +387,6 @@ class GpioHandler:
                 is_running = False
         print(f" X center range: {min_x} - {max_x}; average: {sum_x / cycle}")
         print(f" Y center range: {min_y} - {max_y}; average: {sum_y / cycle}")
-
-    @classmethod
-    def controller(
-        cls,
-        lcd_address: int = 0x27,
-        lcd_rows: int = 4,
-        lcd_cols: int = 20,
-        keypad_address: int | None = KEYPAD_PCF8574_ADDRESS,
-        row_pins: List[int | str] = None,
-        column_pins: List[int | str] = None,
-        base_online_pin: P = None,
-        base_offline_pin: P = None,
-        base_cathode: bool = True,
-        base_ping_freq: int = 5,
-        speed_pins: List[int | str] = None,
-        halt_pin: P = None,
-        reset_pin: P = None,
-        fwd_pin: P = None,
-        rev_pin: P = None,
-        front_coupler_pin: P = None,
-        rear_coupler_pin: P = None,
-        start_up_pin: P = None,
-        shutdown_pin: P = None,
-        boost_pin: P = None,
-        brake_pin: P = None,
-        bell_pin: P = None,
-        horn_pin: P = None,
-        rpm_up_pin: P = None,
-        rpm_down_pin: P = None,
-        labor_up_pin: P = None,
-        labor_down_pin: P = None,
-        vol_up_pin: P = None,
-        vol_down_pin: P = None,
-        smoke_on_pin: P = None,
-        smoke_off_pin: P = None,
-        tower_dialog_pin: P = None,
-        engr_dialog_pin: P = None,
-        aux1_pin: P = None,
-        aux2_pin: P = None,
-        aux3_pin: P = None,
-        stop_immediate_pin: P = None,
-        i2c_adc_address: int = 0x48,
-        train_brake_chn: int = None,
-        quilling_horn_chn: int = None,
-    ) -> Controller:
-        if row_pins and column_pins:
-            c = Controller(
-                lcd_address=lcd_address,
-                lcd_rows=lcd_rows,
-                lcd_cols=lcd_cols,
-                row_pins=row_pins,
-                column_pins=column_pins,
-                base_online_pin=base_online_pin,
-                base_offline_pin=base_offline_pin,
-                base_cathode=base_cathode,
-                base_ping_freq=base_ping_freq,
-                speed_pins=speed_pins,
-                halt_pin=halt_pin,
-                reset_pin=reset_pin,
-                fwd_pin=fwd_pin,
-                rev_pin=rev_pin,
-                front_coupler_pin=front_coupler_pin,
-                rear_coupler_pin=rear_coupler_pin,
-                start_up_pin=start_up_pin,
-                shutdown_pin=shutdown_pin,
-                boost_pin=boost_pin,
-                brake_pin=brake_pin,
-                bell_pin=bell_pin,
-                horn_pin=horn_pin,
-                rpm_up_pin=rpm_up_pin,
-                rpm_down_pin=rpm_down_pin,
-                labor_up_pin=labor_up_pin,
-                labor_down_pin=labor_down_pin,
-                vol_up_pin=vol_up_pin,
-                vol_down_pin=vol_down_pin,
-                smoke_on_pin=smoke_on_pin,
-                smoke_off_pin=smoke_off_pin,
-                tower_dialog_pin=tower_dialog_pin,
-                engr_dialog_pin=engr_dialog_pin,
-                aux1_pin=aux1_pin,
-                aux2_pin=aux2_pin,
-                aux3_pin=aux3_pin,
-                stop_immediate_pin=stop_immediate_pin,
-                i2c_adc_address=i2c_adc_address,
-                train_brake_chn=train_brake_chn,
-                quilling_horn_chn=quilling_horn_chn,
-            )
-        else:
-            c = ControllerI2C(
-                lcd_address=lcd_address,
-                lcd_rows=lcd_rows,
-                lcd_cols=lcd_cols,
-                keypad_address=keypad_address,
-                base_online_pin=base_online_pin,
-                base_offline_pin=base_offline_pin,
-                base_cathode=base_cathode,
-                base_ping_freq=base_ping_freq,
-                speed_pins=speed_pins,
-                halt_pin=halt_pin,
-                reset_pin=reset_pin,
-                fwd_pin=fwd_pin,
-                rev_pin=rev_pin,
-                front_coupler_pin=front_coupler_pin,
-                rear_coupler_pin=rear_coupler_pin,
-                start_up_pin=start_up_pin,
-                shutdown_pin=shutdown_pin,
-                boost_pin=boost_pin,
-                brake_pin=brake_pin,
-                bell_pin=bell_pin,
-                horn_pin=horn_pin,
-                rpm_up_pin=rpm_up_pin,
-                rpm_down_pin=rpm_down_pin,
-                labor_up_pin=labor_up_pin,
-                labor_down_pin=labor_down_pin,
-                vol_up_pin=vol_up_pin,
-                vol_down_pin=vol_down_pin,
-                smoke_on_pin=smoke_on_pin,
-                smoke_off_pin=smoke_off_pin,
-                tower_dialog_pin=tower_dialog_pin,
-                engr_dialog_pin=engr_dialog_pin,
-                aux1_pin=aux1_pin,
-                aux2_pin=aux2_pin,
-                aux3_pin=aux3_pin,
-                stop_immediate_pin=stop_immediate_pin,
-                i2c_adc_address=i2c_adc_address,
-                train_brake_chn=train_brake_chn,
-                quilling_horn_chn=quilling_horn_chn,
-            )
-        cls.cache_handler(c)
-        return c
 
     @classmethod
     def accessory(
