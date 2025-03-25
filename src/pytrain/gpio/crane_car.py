@@ -38,6 +38,7 @@ class CraneCar(GpioDevice):
         sh_led_pin: P = None,
         cathode: bool = True,
         cab_rotary_encoder: bool = False,
+        hold_time: float = 0.02,
     ) -> None:
         if cab_rotary_encoder is True:
             from .py_rotary_encoder import PyRotaryEncoder
@@ -52,7 +53,7 @@ class CraneCar(GpioDevice):
                 initial_step=0,
                 max_steps=180,
                 steps_to_data=self.std_step_to_data,
-                pause_for=0.05,
+                pause_for=hold_time,
                 reset_after_motion=True,
             )
         else:
@@ -65,7 +66,7 @@ class CraneCar(GpioDevice):
                 data=-1,
                 scope=CommandScope.ENGINE,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=hold_time,
             )
             self.cab_left_btn.when_pressed = left_cmd.as_action()
             self.cab_left_btn.when_held = left_cmd.as_action()
@@ -77,7 +78,7 @@ class CraneCar(GpioDevice):
                 data=1,
                 scope=CommandScope.ENGINE,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=hold_time,
             )
             self.cab_right_btn.when_pressed = right_cmd.as_action()
             self.cab_right_btn.when_held = right_cmd.as_action()
@@ -130,7 +131,7 @@ class CraneCar(GpioDevice):
                 bo_down_pin,
                 down_cmd,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=hold_time,
             )
             if bh_down_pin or sh_down_pin:
                 self.down_btn.when_pressed = self.with_prefix_action(boom_sel_cmd, down_cmd)
@@ -146,7 +147,7 @@ class CraneCar(GpioDevice):
                 bo_up_pin,
                 up_cmd,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=hold_time,
             )
             if bh_up_pin or sh_up_pin:
                 self.up_btn.when_pressed = self.with_prefix_action(boom_sel_cmd, up_cmd)
@@ -162,7 +163,7 @@ class CraneCar(GpioDevice):
                 bh_down_pin,
                 down_cmd,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=hold_time,
             )
             if bo_down_pin or sh_down_pin:
                 self.bh_down_btn.when_pressed = self.with_prefix_action(bh_sel_cmd, down_cmd)
@@ -177,7 +178,7 @@ class CraneCar(GpioDevice):
                 bh_up_pin,
                 up_cmd,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=hold_time,
             )
             if bo_up_pin or sh_up_pin:
                 self.bh_up_btn.when_pressed = self.with_prefix_action(bh_sel_cmd, up_cmd)
@@ -193,7 +194,7 @@ class CraneCar(GpioDevice):
                 sh_down_pin,
                 down_cmd,
                 hold_repeat=True,
-                hold_time=0.02,
+                hold_time=hold_time,
             )
             if bo_down_pin or bh_down_pin:
                 self.sh_down_btn.when_pressed = self.with_prefix_action(sh_sel_cmd, down_cmd)
@@ -208,7 +209,7 @@ class CraneCar(GpioDevice):
                 sh_up_pin,
                 up_cmd,
                 hold_repeat=True,
-                hold_time=0.02,
+                hold_time=hold_time,
             )
             if bo_up_pin or bh_up_pin:
                 self.sh_up_btn.when_pressed = self.with_prefix_action(sh_sel_cmd, up_cmd)
