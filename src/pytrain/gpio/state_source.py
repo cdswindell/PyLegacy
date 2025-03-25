@@ -151,5 +151,4 @@ class EngineStateSource(StateSource):
 
     @property
     def is_active(self) -> bool:
-        print(self._func(self._component) if self._func else False)
         return self._func(self._component) if self._func else False
