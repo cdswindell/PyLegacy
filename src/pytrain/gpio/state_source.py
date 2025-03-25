@@ -4,14 +4,14 @@ import abc
 from abc import ABC
 from threading import Thread
 from time import sleep
-from typing import TypeVar, Protocol
+from typing import Protocol, TypeVar
 
 from gpiozero import LED, PingServer
 
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum, TMCC1AuxCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1SwitchCommandEnum
 
 T = TypeVar("T", bound=ComponentState)
 
@@ -151,4 +151,5 @@ class EngineStateSource(StateSource):
 
     @property
     def is_active(self) -> bool:
+        print(self._func(self._component) if self._func else False)
         return self._func(self._component) if self._func else False
