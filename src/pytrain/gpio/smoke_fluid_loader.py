@@ -10,6 +10,7 @@
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+from ..utils.validations import Validations
 from .gpio_device import GpioDevice, P
 
 
@@ -24,8 +25,9 @@ class SmokeFluidLoader(GpioDevice):
         lights_off_pin: P = None,
         command_control: bool = True,
         boom_rotary_encoder: bool = False,
-        hold_time: float = 0.02,
+        repeat_every: float = 0.02,
     ) -> None:
+        Validations.validate_float(repeat_every, 0.005, 1, label="repeat_every")
         if command_control is True:
             if boom_rotary_encoder is True:
                 from .py_rotary_encoder import PyRotaryEncoder
@@ -40,7 +42,7 @@ class SmokeFluidLoader(GpioDevice):
                     initial_step=0,
                     max_steps=180,
                     steps_to_data=self.fast_step_to_data,
-                    pause_for=hold_time,
+                    pause_for=repeat_every,
                     reset_after_motion=True,
                 )
             else:
@@ -53,7 +55,7 @@ class SmokeFluidLoader(GpioDevice):
                     data=-1,
                     scope=CommandScope.ACC,
                     hold_repeat=True,
-                    hold_time=hold_time,
+                    hold_time=repeat_every,
                 )
                 self.boom_left_btn.when_pressed = left_cmd.as_action()
                 self.boom_left_btn.when_held = left_cmd.as_action()
@@ -65,7 +67,7 @@ class SmokeFluidLoader(GpioDevice):
                     data=1,
                     scope=CommandScope.ACC,
                     hold_repeat=True,
-                    hold_time=hold_time,
+                    hold_time=repeat_every,
                 )
                 self.boom_right_btn.when_pressed = right_cmd.as_action()
                 self.boom_right_btn.when_held = right_cmd.as_action()
