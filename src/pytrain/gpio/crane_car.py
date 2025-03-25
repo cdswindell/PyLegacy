@@ -9,9 +9,9 @@
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from ..utils.validations import Validations
 from .gpio_device import GpioDevice, P
 from .state_source import EngineStateSource
-from ..utils.validations import Validations
 
 
 class CraneCar(GpioDevice):
