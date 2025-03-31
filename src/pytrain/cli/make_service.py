@@ -37,16 +37,6 @@ class MakeService:
             args = self.command_line_parser().parse_args()
         self._args = args
 
-        self._template_dir = find_dir("installation", (".", "../", "src"))
-        if self._template_dir is None:
-            print("\nUnable to locate directory with installation templates. Exiting")
-            return
-
-        self._activate_cmd = find_file("activate", (".", "../"))
-        if self._activate_cmd is None:
-            print("\nUnable to locate virtual environment 'activate' command. Exiting")
-            return
-
         # verify username
         self._user = args.user
         if self._user is None:
@@ -54,6 +44,22 @@ class MakeService:
             return
         elif self.validate_username(self._user) is False:
             print(f"\nUser '{self._user}' does not exist on this system. Exiting.")
+            return
+
+        if args.remove is True:
+            self.deactivate_and_remove_services()
+            return
+
+        # verify template directory exists
+        self._template_dir = find_dir("installation", (".", "../", "src"))
+        if self._template_dir is None:
+            print("\nUnable to locate directory with installation templates. Exiting")
+            return
+
+        # verify we can activate the virtual environment
+        self._activate_cmd = find_file("activate", (".", "../"))
+        if self._activate_cmd is None:
+            print("\nUnable to locate virtual environment 'activate' command. Exiting")
             return
 
         # if server, verify a base 3 and/or ser2 is specified
@@ -252,6 +258,53 @@ class MakeService:
         except ValueError:
             return False
 
+    @staticmethod
+    def is_service_present(service: str) -> bool:
+        cmd = f"sudo systemctl status {service}.service"
+        result = subprocess.run(cmd.split(), capture_output=True)
+        if result.returncode == 4 or os.path.exists(f"/etc/systemd/system/{service}.service") is False:
+            return False
+        else:
+            return True
+
+    @staticmethod
+    def deactivate_service(service: str) -> None:
+        subprocess.run(f"sudo systemctl stop {service}.service".split())
+        subprocess.run(f"sudo systemctl disable {service}.service".split())
+        Path("/etc/systemd/system/", f"{service}.service").unlink(missing_ok=True)
+        subprocess.run("sudo systemctl daemon-reload".split())
+        subprocess.run("sudo systemctl reset-failed".split())
+
+    @property
+    def is_server_present(self) -> bool:
+        return self.is_service_present("pytrain_server")
+
+    @property
+    def is_client_present(self) -> bool:
+        return self.is_service_present("pytrain_client")
+
+    def deactivate_and_remove_services(self):
+        from .. import PROGRAM_NAME
+
+        if platform.system().lower() != "linux":
+            print(f"\nPlease run {self._prog} from a Raspberry Pi. Exiting")
+            return
+
+        if self.is_server_present:
+            mode = "Server"
+        elif self.is_client_present:
+            mode = "Client"
+        else:
+            print(f"\nNo {PROGRAM_NAME} server or client is currently running. Exiting")
+            return
+        if self.confirm(f"Are you sure you want to deactivate and remove {PROGRAM_NAME} {mode}?") is True:
+            path = Path(self._home, "pytrain_server.bash" if mode == "Server" else "pytrain_client.bash")
+            if path.exists():
+                print(f"\nRemoving {path}...")
+                path.unlink(missing_ok=True)
+            print(f"\nDeactivating {PROGRAM_NAME} {mode} service...")
+            self.deactivate_service("pytrain_server" if mode == "Server" else "pytrain_client")
+
     def command_line_parser(self) -> ArgumentParser:
         from .. import PROGRAM_NAME, get_version
 
@@ -273,6 +326,11 @@ class MakeService:
             const="server",
             dest="mode",
             help=f"Configure this node as a {PROGRAM_NAME} server",
+        )
+        mode_group.add_argument(
+            "-remove",
+            action="store_true",
+            help="Deactivate and remove any existing {PROGRAM_NAME} service",
         )
         server_opts = parser.add_argument_group("Server options")
         server_opts.add_argument(
