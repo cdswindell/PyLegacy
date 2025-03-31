@@ -74,6 +74,7 @@ class GantryCrane(GpioDevice):
         led_pin: P = None,
         cathode: bool = True,
         cab_rotary_encoder: bool = False,
+        repeat_every: float = 0.02,
     ) -> None:
         cab_sel_cmd = CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ACC)
         if cab_rotary_encoder is True:
@@ -89,7 +90,7 @@ class GantryCrane(GpioDevice):
                 initial_step=0,
                 max_steps=180,
                 steps_to_data=self.std_step_to_data,
-                pause_for=0.05,
+                pause_for=repeat_every,
                 reset_after_motion=True,
             )
         else:
@@ -102,7 +103,7 @@ class GantryCrane(GpioDevice):
                 data=-1,
                 scope=CommandScope.ACC,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=repeat_every,
             )
             self.cab_left_btn.when_pressed = self.with_prefix_action(cab_sel_cmd, left_cmd)
             self.cab_left_btn.when_held = left_cmd.as_action()
@@ -114,7 +115,7 @@ class GantryCrane(GpioDevice):
                 data=1,
                 scope=CommandScope.ACC,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=repeat_every,
             )
             self.cab_right_btn.when_pressed = self.with_prefix_action(cab_sel_cmd, right_cmd)
             self.cab_right_btn.when_held = right_cmd.as_action()
@@ -130,7 +131,7 @@ class GantryCrane(GpioDevice):
                 data=-1,
                 scope=CommandScope.ACC,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=repeat_every,
             )
             self.ro_left_btn.when_pressed = self.with_prefix_action(ro_sel_cmd, ro_left_cmd)
             self.ro_left_btn.when_held = ro_left_cmd.as_action()
@@ -146,7 +147,7 @@ class GantryCrane(GpioDevice):
                 data=1,
                 scope=CommandScope.ACC,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=repeat_every,
             )
             self.ro_right_btn.when_pressed = self.with_prefix_action(ro_sel_cmd, ro_right_cmd)
             self.ro_right_btn.when_held = ro_right_cmd.as_action()
@@ -160,7 +161,7 @@ class GantryCrane(GpioDevice):
                 TMCC1AuxCommandEnum.BRAKE_SPEED,
                 address,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=repeat_every,
             )
             self.down_btn.when_pressed = down_cmd.as_action()
             self.down_btn.when_held = down_cmd.as_action()
@@ -174,7 +175,7 @@ class GantryCrane(GpioDevice):
                 TMCC1AuxCommandEnum.BOOST_SPEED,
                 address,
                 hold_repeat=True,
-                hold_time=0.05,
+                hold_time=repeat_every,
             )
             self.up_btn.when_pressed = up_cmd.as_action()
             self.up_btn.when_held = up_cmd.as_action()

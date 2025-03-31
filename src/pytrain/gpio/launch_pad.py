@@ -27,6 +27,7 @@ class LaunchPad(GpioDevice):
         mission_control_pin: P = None,
         flicker_on_pin: P = None,
         flicker_off_pin: P = None,
+        repeat_every: float = 0.02,
     ):
         # use momentary contact switch to move gantry
         left_cmd, self.gantry_fwd_btn, _ = self.make_button(
@@ -36,7 +37,7 @@ class LaunchPad(GpioDevice):
             data=-1,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.05,
+            hold_time=repeat_every,
         )
         self.gantry_fwd_btn.when_pressed = left_cmd.as_action()
         self.gantry_fwd_btn.when_held = left_cmd.as_action()
@@ -48,7 +49,7 @@ class LaunchPad(GpioDevice):
             data=1,
             scope=CommandScope.ENGINE,
             hold_repeat=True,
-            hold_time=0.05,
+            hold_time=repeat_every,
         )
         self.gantry_bck_btn.when_pressed = right_cmd.as_action()
         self.gantry_bck_btn.when_held = right_cmd.as_action()

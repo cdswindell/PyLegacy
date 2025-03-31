@@ -2,9 +2,9 @@ import random
 from typing import TypeVar
 
 from src.pytrain.protocol.command_req import CommandReq
+from src.pytrain.protocol.multibyte.multibyte_constants import *
 from src.pytrain.protocol.tmcc1.tmcc1_constants import *
 from src.pytrain.protocol.tmcc2.tmcc2_constants import *
-from src.pytrain.protocol.multibyte.multibyte_constants import *
 from src.pytrain.utils.validations import Validations
 
 T = TypeVar("T", TMCC1Enum, TMCC2Enum)

@@ -6,6 +6,7 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
+from abc import ABC, ABCMeta, abstractmethod
 from threading import Thread
 from typing import Callable, TypeVar, Union
 
@@ -20,7 +21,13 @@ from .py_rotary_encoder import PyRotaryEncoder
 P = TypeVar("P", bound=Union[int, str, tuple[int], tuple[int, int], tuple[int, int, int]])
 
 
-class GpioDevice:
+class GpioDevice(ABC):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def __init__(self):
+        pass
+
     def close(self):
         for k, v in self.__dict__.items():
             if isinstance(v, Device):
