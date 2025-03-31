@@ -32,7 +32,7 @@ COMMANDS_OF_INTEREST = {
 }
 
 
-class Controller(GpioDevice):
+class Controller(Thread, GpioDevice):
     @classmethod
     def build(
         cls,
@@ -269,7 +269,7 @@ class Controller(GpioDevice):
         # check for state synchronization
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        self._controller_thread = None
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Controller")
         if self._sync_state and self._sync_state.is_synchronized:
             self._sync_watcher = None
             self.on_sync()
@@ -321,9 +321,8 @@ class Controller(GpioDevice):
                 self._sync_watcher.shutdown()
             self._synchronized = True
             self.update_display()
-            self._controller_thread = Thread(target=self.run, daemon=True, name=f"{PROGRAM_NAME} Controller")
-            self._controller_thread.start()
-            self.cache_handler(self._controller_thread)
+            self.start()
+            self.cache_handler(self)
 
     def on_state_update(self) -> None:
         cur_speed = self._state.speed if self._state else None
