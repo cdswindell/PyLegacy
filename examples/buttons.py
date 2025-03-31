@@ -41,7 +41,7 @@ from src.pytrain import Controller
 #     lcd_rows=4,
 #     lcd_cols=20,
 # )
-c=Controller.build(
+Controller.build(
     keypad_address=0x20,
     speed_pins=[17, 27],
     halt_pin=10,
@@ -69,4 +69,3 @@ c=Controller.build(
     lcd_rows=4,
     lcd_cols=20,
 )
-print(f"*** has reset: {hasattr(c, 'reset')}")
