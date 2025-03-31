@@ -65,17 +65,19 @@ class BaseWatcher(GpioDevice):
         self.cache_device(ping_server)
 
         # set up active led, if any
-        active_led = None
         if active_pin:
             self.active_led = self.make_led(active_pin, cathode=cathode)
-            active_led.value = 1 if ping_server.is_active else 0
+            self.active_led.value = 1 if ping_server.is_active else 0
             self.cache_device(self.active_led)
+        else:
+            self.active_led = None
 
-        inactive_led = None
         if inactive_pin:
             self.inactive_led = self.make_led(inactive_pin, cathode=cathode)
-            inactive_led.value = 0 if ping_server.is_active else 1
+            self.inactive_led.value = 0 if ping_server.is_active else 1
             self.cache_device(self.inactive_led)
+        else:
+            self.inactive_led = None
 
         # set ping server state change actions
         if self.active_led and self.inactive_led:
