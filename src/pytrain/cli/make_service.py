@@ -271,7 +271,7 @@ class MakeService:
     def deactivate_service(service: str) -> None:
         subprocess.run(f"sudo systemctl stop {service}.service".split())
         subprocess.run(f"sudo systemctl disable {service}.service".split())
-        Path("/etc/systemd/system/", f"{service}.service").unlink(missing_ok=True)
+        subprocess.run(f"rm -fr /etc/systemd/system/{service}.service".split())
         subprocess.run("sudo systemctl daemon-reload".split())
         subprocess.run("sudo systemctl reset-failed".split())
 
