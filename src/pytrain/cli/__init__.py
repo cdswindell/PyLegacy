@@ -118,7 +118,7 @@ class CliBase(ABC):
             "--tmcc1",
             action="store_const",
             const=CommandSyntax.TMCC,
-            dest="fmt",
+            dest="format",
             help="Use TMCC1 command syntax.",
         )
         group.add_argument(
@@ -126,7 +126,7 @@ class CliBase(ABC):
             "--tmcc2",
             action="store_const",
             const=CommandSyntax.LEGACY,
-            dest="fmt",
+            dest="format",
             help="Use TMCC2/Legacy command syntax.",
         )
         group.set_defaults(format=default)
@@ -275,7 +275,7 @@ class CliBaseTMCC(CliBase):
 
     def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
-        if "fmt" in self._args and self._args.format:
+        if "format" in self._args and self._args.format:
             self._command_format = self._args.format
         else:
             self._command_format = CommandSyntax.LEGACY

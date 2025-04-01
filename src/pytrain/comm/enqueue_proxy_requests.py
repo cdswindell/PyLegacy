@@ -245,7 +245,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             from .command_listener import CommandDispatcher
 
             # if this is a send state request, deal with it and exit;
-            # it has a completely different fmt than the other
+            # it has a completely different format than the other
             # sync commands
             if len(byte_stream) > 5 and byte_stream[2] == SENDING_STATE_REQUEST[2]:
                 byte_stream = byte_stream[3:]

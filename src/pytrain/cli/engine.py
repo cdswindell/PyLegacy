@@ -547,7 +547,7 @@ class EngineCli(CliBaseTMCC):
         """
         Decode the 'option' argument, if present, into a valid
         TMCC1EngineCommandDef, TMCC2EngineCommandDef, or one of the multiword TMCC2
-        parameter enums. Use the specified command fmt, if present, to help resolve,
+        parameter enums. Use the specified command format, if present, to help resolve,
         as the enum classes share element names
         """
         if "option" not in self._args:

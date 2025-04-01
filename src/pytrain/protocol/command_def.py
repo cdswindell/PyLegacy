@@ -21,7 +21,7 @@ class CommandDef(ABC):
     __metaclass__ = abc.ABCMeta
     """
         Marker class for TMCC1 and TMCC2 Command Defs, allowing the CLI layer
-        to work with them in a command fmt agnostic manner.
+        to work with them in a command format agnostic manner.
     """
 
     def __init__(

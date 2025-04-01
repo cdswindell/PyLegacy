@@ -88,7 +88,7 @@ class AccCli(CliBase):
     """
         Issue Accessory Commands.
 
-        Currently only available via the TMCC1 command fmt
+        Currently only available via the TMCC1 command format
     """
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
