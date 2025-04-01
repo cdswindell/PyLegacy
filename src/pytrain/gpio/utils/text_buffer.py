@@ -3,6 +3,7 @@ from threading import Condition, RLock
 
 class TextBuffer:
     def __init__(self, rows: int = 4, cols: int = 20) -> None:
+        super().__init__()
         self._rows = rows
         self._cols = cols
         self._cursor_pos = (0, 0)
