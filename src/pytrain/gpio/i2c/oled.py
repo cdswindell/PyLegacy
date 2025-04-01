@@ -55,4 +55,5 @@ class Oled(Thread, TextBuffer):
         with self.synchronizer:
             with canvas(self._oled_device) as draw:
                 for i, row in enumerate(self._buffer):
+                    print(i, row)
                     draw.text(i * 16, 2, row, "white", self._font)
