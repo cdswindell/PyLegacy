@@ -46,6 +46,10 @@ class Oled(Thread, TextBuffer):
         return self._oled_device.height
 
     @property
+    def mode(self) -> str:
+        return self._oled_device.mode
+
+    @property
     def width(self) -> int:
         return self._oled_device.width
 
