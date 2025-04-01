@@ -37,12 +37,27 @@ class Oled(Thread, TextBuffer):
         self._is_running = True
         self.start()
 
+    @property
+    def size(self) -> tuple[int, int]:
+        return self._oled_device.width, self._oled_device.height
+
+    @property
+    def height(self) -> int:
+        return self._oled_device.height
+
+    @property
+    def width(self) -> int:
+        return self._oled_device.width
+
     def clear(self, notify: bool = False) -> None:
         super().clear(notify)
         self._oled_device.clear()
 
     def show(self) -> None:
         self._oled_device.show()
+
+    def hide(self) -> None:
+        self._oled_device.hide()
 
     def run(self) -> None:
         while self._is_running:
