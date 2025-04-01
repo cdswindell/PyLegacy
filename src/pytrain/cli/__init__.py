@@ -9,20 +9,20 @@
 import logging
 import sys
 from abc import ABC, ABCMeta
-from argparse import ArgumentParser, Namespace, ArgumentTypeError, Action
-from typing import List, Any
+from argparse import Action, ArgumentParser, ArgumentTypeError, Namespace
+from typing import Any, List
 
 from ..comm.comm_buffer import CommBuffer
 from ..protocol.command_base import CommandBase
 from ..protocol.constants import (
     DEFAULT_BAUDRATE,
+    DEFAULT_DURATION_INTERVAL_MSEC,
     DEFAULT_PORT,
+    DEFAULT_VALID_BAUDRATES,
+    PROGRAM_NAME,
     CommandScope,
     CommandSyntax,
-    PROGRAM_NAME,
-    DEFAULT_DURATION_INTERVAL_MSEC,
 )
-from ..protocol.constants import DEFAULT_VALID_BAUDRATES
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
 from ..utils.argument_parser import PyTrainArgumentParser
@@ -118,7 +118,7 @@ class CliBase(ABC):
             "--tmcc1",
             action="store_const",
             const=CommandSyntax.TMCC,
-            dest="format",
+            dest="fmt",
             help="Use TMCC1 command syntax.",
         )
         group.add_argument(
@@ -126,7 +126,7 @@ class CliBase(ABC):
             "--tmcc2",
             action="store_const",
             const=CommandSyntax.LEGACY,
-            dest="format",
+            dest="fmt",
             help="Use TMCC2/Legacy command syntax.",
         )
         group.set_defaults(format=default)
@@ -275,7 +275,7 @@ class CliBaseTMCC(CliBase):
 
     def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
-        if "format" in self._args and self._args.format:
+        if "fmt" in self._args and self._args.format:
             self._command_format = self._args.format
         else:
             self._command_format = CommandSyntax.LEGACY

@@ -11,10 +11,10 @@ import logging
 from argparse import ArgumentParser
 from typing import List
 
-from . import CliBase, DataAction
 from ..protocol.tmcc1.acc_cmd import AccCmd
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.argument_parser import PyTrainArgumentParser
+from . import CliBase, DataAction
 
 log = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ class AccCli(CliBase):
     """
         Issue Accessory Commands.
 
-        Currently only available via the TMCC1 command format
+        Currently only available via the TMCC1 command fmt
     """
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:

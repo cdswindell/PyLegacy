@@ -5,14 +5,14 @@ import math
 import sys
 from abc import ABC
 from enum import Enum
-from typing import Dict, Any, Tuple, TypeVar
+from typing import Any, Dict, Tuple, TypeVar
 
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
-from .constants import CommandSyntax, CommandScope, Mixins
+from .constants import CommandScope, CommandSyntax, Mixins
 
 E = TypeVar("E", bound="CommandDefEnum")
 
@@ -21,7 +21,7 @@ class CommandDef(ABC):
     __metaclass__ = abc.ABCMeta
     """
         Marker class for TMCC1 and TMCC2 Command Defs, allowing the CLI layer
-        to work with them in a command format agnostic manner.
+        to work with them in a command fmt agnostic manner.
     """
 
     def __init__(

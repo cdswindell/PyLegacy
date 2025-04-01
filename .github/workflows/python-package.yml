@@ -31,9 +31,9 @@ jobs:
           python -m pip install ruff pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Lint with ruff
-        run: ruff check --output-format=github --target-version=py310
+        run: ruff check --output-fmt=github --target-version=py310
       - name: check code formatting
-        run: ruff format --diff --target-version=py310
+        run: ruff fmt --diff --target-version=py310
       - name: Test with pytest
         run: pytest
     

@@ -7,11 +7,11 @@ import threading
 import uuid
 from threading import Thread
 from time import time
-from typing import cast, Tuple, Set, Dict
+from typing import Dict, Set, Tuple, cast
 
 from ..comm.comm_buffer import CommBuffer
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import DEFAULT_SERVER_PORT, CommandScope, PROGRAM_NAME
+from ..protocol.constants import DEFAULT_SERVER_PORT, PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 log = logging.getLogger(__name__)
@@ -203,10 +203,10 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         super().__init__(request, client_address, server)
 
     def handle(self):
-        from .command_listener import CommandDispatcher
         from ..pdi.base3_buffer import Base3Buffer
         from ..pdi.constants import PDI_SOP, PdiCommand
         from ..pdi.pdi_listener import PdiDispatcher
+        from .command_listener import CommandDispatcher
 
         byte_stream = bytes()
         ack = cast(ProxyServer, self.server).ack
@@ -245,7 +245,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             from .command_listener import CommandDispatcher
 
             # if this is a send state request, deal with it and exit;
-            # it has a completely different format than the other
+            # it has a completely different fmt than the other
             # sync commands
             if len(byte_stream) > 5 and byte_stream[2] == SENDING_STATE_REQUEST[2]:
                 byte_stream = byte_stream[3:]

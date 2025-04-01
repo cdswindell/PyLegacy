@@ -14,16 +14,20 @@ import logging
 from argparse import ArgumentParser
 from typing import List
 
-from . import CliBaseTMCC, DataAction, CliBase
-from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
-from ..protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum, TMCC2RailSoundsDialogControl
-from ..protocol.multibyte.multibyte_constants import TMCC2RailSoundsEffectsControl
+from ..protocol.multibyte.multibyte_constants import (
+    TMCC2EffectsControl,
+    TMCC2LightingControl,
+    TMCC2MultiByteEnum,
+    TMCC2RailSoundsDialogControl,
+    TMCC2RailSoundsEffectsControl,
+)
 from ..protocol.sequence.sequence_constants import SequenceCommandEnum
 from ..protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from ..utils.argument_parser import PyTrainArgumentParser
+from . import CliBase, CliBaseTMCC, DataAction
 
 log = logging.getLogger(__name__)
 
@@ -543,7 +547,7 @@ class EngineCli(CliBaseTMCC):
         """
         Decode the 'option' argument, if present, into a valid
         TMCC1EngineCommandDef, TMCC2EngineCommandDef, or one of the multiword TMCC2
-        parameter enums. Use the specified command format, if present, to help resolve,
+        parameter enums. Use the specified command fmt, if present, to help resolve,
         as the enum classes share element names
         """
         if "option" not in self._args:
