@@ -129,8 +129,8 @@ class Oled(Thread, TextBuffer):
 
 class ScrollingHotspot(hotspot):
     def __init__(self, oled: Oled, width, height, text, scroll_speed):
-        super().__init__(oled._device, width, height)
-        self.device = oled._device
+        super().__init__(oled, width, height)
+        self.device = oled
         self.width = width
         self.height = height
         self.font_size = oled.font_size
