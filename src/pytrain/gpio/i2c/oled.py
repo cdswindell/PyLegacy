@@ -56,6 +56,7 @@ class Oled(Thread, TextBuffer):
 
     def clear(self, notify: bool = False) -> None:
         super().clear(notify)
+        self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
         self._device.display(self._image)
 
     def show(self) -> None:
