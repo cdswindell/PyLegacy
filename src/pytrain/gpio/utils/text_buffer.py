@@ -28,7 +28,7 @@ class TextBuffer:
 
     def __setitem__(self, index: int, value: str):
         with self._cv:
-            if self.rows > index > len(self._buffer):
+            if self.rows > index >= len(self._buffer):
                 for _ in range(index - len(self._buffer) + 1):
                     self._buffer.append("")
             if 0 <= index < self.rows:
