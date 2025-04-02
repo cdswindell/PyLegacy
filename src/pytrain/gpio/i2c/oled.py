@@ -83,9 +83,9 @@ class Oled(Thread, TextBuffer):
 
     def measure_text(self, text: str) -> tuple[int, int]:
         im = Image.new(self._device.mode, self._device.size, "black")
-        with ImageDraw.Draw(im) as draw:
-            left, top, right, bottom = draw.textbbox((0, 0), text, font=self._font)
-            return right - left, bottom - top
+        draw = ImageDraw.Draw(im)
+        left, top, right, bottom = draw.textbbox((0, 0), text, font=self._font)
+        return int(right - left), int(bottom - top)
 
     def run(self) -> None:
         while self._is_running:
