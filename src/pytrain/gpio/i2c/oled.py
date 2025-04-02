@@ -56,7 +56,6 @@ class Oled(Thread, TextBuffer):
 
     def clear(self, notify: bool = False) -> None:
         super().clear(notify)
-        self._canvas.fill("black")
         self._device.display(self._image)
 
     def show(self) -> None:
