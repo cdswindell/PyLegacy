@@ -124,7 +124,7 @@ class Oled(Thread, TextBuffer):
                     if w <= self._device.width:
                         self._canvas.text((self._x_offset, (i * fs) - 3), self[i], "white", self._font)
                     else:
-                        s = ScrollingHotspot(self, self[i], row=i, scroll_speed=1).render(self._image)
+                        s = ScrollingHotspot(self, self[i], row=i)
                         self._hotspots[i] = s
                         s.start()
             self._device.display(self._image)
