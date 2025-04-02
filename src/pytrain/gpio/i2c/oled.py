@@ -170,6 +170,7 @@ class ScrollingHotspot(Thread, hotspot):
         self.x_offset = 0
         self._ev = Event()
         self._is_running = True
+        self._running_thread = self
         self.start()
 
     def stop(self):
@@ -195,13 +196,16 @@ class ScrollingHotspot(Thread, hotspot):
 
     def pause(self) -> None:
         if self.is_alive():
+            print(self._running_thread)
+            print(dir(self._running_thread))
             self.stop()
 
     def resume(self) -> None:
         if self._is_running is False:
             self._ev.clear()
             self._is_running = True
-            Thread(target=self.run, daemon=True).start()
+            self._running_thread = Thread(target=self.run, daemon=True)
+            self._running_thread.start()
 
     def run(self) -> None:
         while self._is_running and self._ev.is_set() is False:
