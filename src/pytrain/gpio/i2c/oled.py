@@ -114,6 +114,18 @@ class Oled(Thread, TextBuffer):
                 if self._is_running:
                     self.update_display()
 
+    def pause(self) -> None:
+        with self.synchronizer:
+            for hs in self._hotspots.values():
+                hs.pause()
+            self.synchronizer.notify_all()
+
+    def resume(self) -> None:
+        with self.synchronizer:
+            for hs in self._hotspots.values():
+                hs.resume()
+            self.synchronizer.notify_all()
+
     def update_display(self, clear: bool = True, selective: bool = True) -> None:
         with self.synchronizer:
             fs = self.font_size
@@ -180,6 +192,16 @@ class ScrollingHotspot(Thread, hotspot):
             self.x_offset = 0
 
         return image
+
+    def pause(self) -> None:
+        if self.is_alive():
+            self.stop()
+
+    def resume(self) -> None:
+        if self._is_running is False:
+            self._ev.clear()
+            self._is_running = True
+            Thread(target=self.run, daemon=True).start()
 
     def run(self) -> None:
         while self._is_running and self._ev.is_set() is False:
