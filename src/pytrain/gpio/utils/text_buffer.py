@@ -12,7 +12,70 @@ class TextBuffer:
         self._changed_rows: set[int] = set()
 
     def __repr__(self) -> str:
-        return "\n".join(self._buffer)
+        with self._cv:
+            return "\n".join(self._buffer)
+
+    def __len__(self) -> int:
+        with self._cv:
+            return len(self._buffer)
+
+    def __getitem__(self, index: int):
+        with self._cv:
+            if 0 <= index < len(self._buffer):
+                return self._buffer[index]
+            else:
+                raise IndexError(f"Index {index} out of range")
+
+    def __setitem__(self, index: int, value: str):
+        with self._cv:
+            if self.rows > index > len(self._buffer):
+                for _ in range(index - len(self._buffer)):
+                    self._buffer.append("")
+            if 0 <= index < self.rows:
+                self._buffer[index] = value
+                self._changed_rows.add(index)
+                self._cv.notify_all()
+            else:
+                raise IndexError(f"Index {index} out of range")
+
+    def __delitem__(self, index: int | slice):
+        with self._cv:
+            del self._buffer[index]
+            self._changed_rows = set(range(len(self._buffer)))
+            self._cv.notify_all()
+
+    def __iter__(self):
+        return iter(self._buffer)
+
+    def index(self, item, start=0, end=None):
+        with self._cv:
+            return self._buffer.index(item, start, end if end is not None else len(self._buffer))
+
+    def count(self, item: str):
+        with self._cv:
+            return self._buffer.count(item)
+
+    def __contains__(self, item: str):
+        with self._cv:
+            return item in self._buffer
+
+    def reverse(self):
+        with self._cv:
+            self._buffer.reverse()
+            self._changed_rows = set(range(len(self._buffer)))
+            self._cv.notify_all()
+
+    def append(self, item: str):
+        self.add(item)
+
+    def copy(self):
+        raise NotImplementedError
+
+    def pop(self, index=-1):
+        raise NotImplementedError
+
+    def extend(self, iterable):
+        raise NotImplementedError
 
     @property
     def rows(self) -> int:
@@ -77,10 +140,15 @@ class TextBuffer:
                 self._cv.notify_all()
 
     def add(self, row: str) -> bool:
-        if len(self._buffer) < self.rows:
-            self._buffer.append(row)
-            return True
-        return False
+        with self._cv:
+            if len(self._buffer) < self.rows:
+                self._buffer.append(row)
+                row_no = len(self._buffer) - 1
+                self._cursor_pos = (row_no, len(row))
+                self._changed_rows.add(row_no)
+                self._cv.notify_all()
+                return True
+            return False
 
     def write_chr(self, int_chr: int, at: tuple[int, int] = None) -> None:
         if isinstance(int_chr, int) and 0 <= int_chr <= 255:

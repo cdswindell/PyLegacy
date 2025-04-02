@@ -20,26 +20,23 @@ class Oled(Thread, TextBuffer):
         rows: int = 4,
         cols: int = 20,
         address: int = 0x3C,
-        oled_device: OledDevice = OledDevice.ssd1309,
-        font_size: int = 16,
+        oled_device: OledDevice | str = OledDevice.ssd1309,
+        font_size: int = 15,
     ) -> None:
         super().__init__()
         Thread.__init__(self, daemon=True)
         TextBuffer.__init__(self, rows, cols)
-        self._serial = i2c(port=1, address=address)
-        self._device = oled_device.value(self._serial)
+        self._serial = i2c(port=1, address=address)  # i2c bus & address
+        self._device = oled_device.value(self._serial)  # i2c oled device
         self._image = Image.new(self._device.mode, self._device.size, "black")
         self._canvas = ImageDraw.Draw(self._image)
         self._font_size = font_size
-        self._font = ImageFont.truetype(
-            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-            font_size,
-            encoding="unic",
-        )
         self._font = ImageFont.load_default(font_size)
-        self.clear()
         self._is_running = True
         self.start()
+
+    def __repr__(self) -> str:
+        return super(TextBuffer, self).__repr__()
 
     @property
     def font_size(self) -> int:
@@ -49,7 +46,7 @@ class Oled(Thread, TextBuffer):
     def font_size(self, font_size: int) -> None:
         self._font_size = font_size
         self._font = ImageFont.load_default(font_size)
-        self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
+        self._clear_image()
         self.update_display(clear=False, selective=False)
 
     @property
@@ -70,7 +67,7 @@ class Oled(Thread, TextBuffer):
 
     def clear(self, notify: bool = False) -> None:
         super().clear(notify)
-        self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
+        self._clear_image()
         self._device.display(self._image)
 
     def show(self) -> None:
@@ -98,3 +95,6 @@ class Oled(Thread, TextBuffer):
                     self._canvas.rectangle((0, i * fs, self._device.width - 1, ((i + 1) * fs) - 1), "black")
                 self._canvas.text((2, i * fs), self._buffer[i], "white", self._font)
             self._device.display(self._image)
+
+    def _clear_image(self) -> None:
+        self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
