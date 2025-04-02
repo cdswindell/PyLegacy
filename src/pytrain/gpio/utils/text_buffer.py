@@ -49,7 +49,7 @@ class TextBuffer:
 
     def insert(self, index, item):
         with self._cv:
-            if index >= self.rows or index < 0 or (len(self) + 1) >= self.rows:
+            if index >= self.rows or index < 0 or (len(self) + 1) > self.rows:
                 raise IndexError(f"Index {index} out of range")
             self._buffer.insert(index, item)
             self._changed_rows = set(range(index, self.rows))
