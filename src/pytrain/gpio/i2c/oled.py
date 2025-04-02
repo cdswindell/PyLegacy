@@ -195,10 +195,11 @@ class ScrollingHotspot(Thread, hotspot):
         return image
 
     def pause(self) -> None:
-        if self.is_alive():
+        if self._running_thread and self._running_thread.is_alive():
             print(self._running_thread)
             print(dir(self._running_thread))
-            self.stop()
+            self._running_thread.stop()
+            self._running_thread = None
 
     def resume(self) -> None:
         if self._is_running is False:
