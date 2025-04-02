@@ -21,6 +21,7 @@ class Oled(Thread, TextBuffer):
         cols: int = 20,
         address: int = 0x3C,
         oled_device: OledDevice = OledDevice.ssd1309,
+        font_size: int = 16,
     ) -> None:
         super().__init__()
         Thread.__init__(self, daemon=True)
@@ -29,14 +30,27 @@ class Oled(Thread, TextBuffer):
         self._device = oled_device.value(self._serial)
         self._image = Image.new(self._device.mode, self._device.size, "black")
         self._canvas = ImageDraw.Draw(self._image)
+        self._font_size = font_size
         self._font = ImageFont.truetype(
             "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-            16,
+            font_size,
             encoding="unic",
         )
+        self._font = ImageFont.load_default(font_size)
         self.clear()
         self._is_running = True
         self.start()
+
+    @property
+    def font_size(self) -> int:
+        return self._font_size
+
+    @font_size.setter
+    def font_size(self, font_size: int) -> None:
+        self._font_size = font_size
+        self._font = ImageFont.load_default(font_size)
+        self.clear()
+        self.update_display()
 
     @property
     def size(self) -> tuple[int, int]:
@@ -74,7 +88,8 @@ class Oled(Thread, TextBuffer):
 
     def update_display(self):
         with self.synchronizer:
+            fs = self.font_size
             for i in self.changed_rows:
-                self._canvas.rectangle((0, i * 16, self._device.width - 1, ((i + 1) * 16) - 1), "black")
-                self._canvas.text((2, i * 16), self._buffer[i], "white", self._font)
+                self._canvas.rectangle((0, i * fs, self._device.width - 1, ((i + 1) * fs) - 1), "black")
+                self._canvas.text((2, i * fs), self._buffer[i], "white", self._font)
             self._device.display(self._image)
