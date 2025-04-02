@@ -23,6 +23,7 @@ class Oled(Thread, TextBuffer):
         address: int = 0x3C,
         oled_device: OledDevice | str = OledDevice.ssd1309,
         font_size: int = 15,
+        x_offset: int = 2,
     ) -> None:
         super().__init__()
         Thread.__init__(self, daemon=True)
@@ -33,6 +34,8 @@ class Oled(Thread, TextBuffer):
         self._canvas = ImageDraw.Draw(self._image)
         self._font_size = font_size
         self._font = ImageFont.load_default(font_size)
+        self._x_offset = x_offset
+        self._temp_draw = ImageDraw.Draw(Image.new(self._device.mode, self._device.size, "black"))
         self._is_running = True
         self.start()
 
@@ -82,9 +85,7 @@ class Oled(Thread, TextBuffer):
         self._device.hide()
 
     def measure_text(self, text: str) -> tuple[int, int]:
-        im = Image.new(self._device.mode, self._device.size, "black")
-        draw = ImageDraw.Draw(im)
-        left, top, right, bottom = draw.textbbox((0, 0), text, font=self._font)
+        left, top, right, bottom = self._temp_draw.textbbox((0, 0), text, font=self._font)
         return int(right - left), int(bottom - top)
 
     def run(self) -> None:
@@ -105,7 +106,7 @@ class Oled(Thread, TextBuffer):
                 if clear is True:
                     self._canvas.rectangle((0, (i * fs), self._device.width - 1, ((i + 1) * fs) - 1), "black")
                 if i < len(self):
-                    self._canvas.text((0, (i * fs) - 3), self._buffer[i], "white", self._font)
+                    self._canvas.text((self._x_offset, (i * fs) - 3), self._buffer[i], "white", self._font)
             self._device.display(self._image)
 
     def _clear_image(self) -> None:
