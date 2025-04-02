@@ -149,7 +149,7 @@ class ScrollingHotspot(hotspot):
     def render(self, image):
         draw = ImageDraw.Draw(image)
         # Clear the hotspot area
-        draw.rectangle((0, (self.row * self.font_size), self.width, self.height + 2), fill="black")
+        draw.rectangle((0, (self.row * self.font_size), self.width, (self.row + 1) * self.font_size + 2), fill="black")
 
         # Draw the scrolling text
         draw.text((self.x_offset, (self.row * self.font_size)), self.text, font=self.font, fill="white")
