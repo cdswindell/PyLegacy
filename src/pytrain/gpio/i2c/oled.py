@@ -136,8 +136,8 @@ class ScrollingHotspot(hotspot):
         super().__init__(oled.width, oled.font_size + 1)
         self.device = oled
         self.width = oled.width
-        self.height = oled.font_size + 1
-        self.font_size = oled.font_size
+        self.height = oled.font_size
+        self.font_size = oled.font_size + 1
         self.text = text + " " + text
         self.scroll_speed = scroll_speed
         self.font = oled.font
@@ -151,11 +151,11 @@ class ScrollingHotspot(hotspot):
         draw.rectangle((0, 0, self.width, self.height), fill=0)
 
         # Draw the scrolling text
-        draw.text((0, 0), self.text, font=self.font, fill="white")
+        draw.text((self.x_offset, 0), self.text, font=self.font, fill="white")
 
         # Scroll the text
         self.x_offset -= self.scroll_speed
         if self.x_offset + self.text_width < 0:
-            self.x_offset = 0
+            self.x_offset = self.width
 
         return image
