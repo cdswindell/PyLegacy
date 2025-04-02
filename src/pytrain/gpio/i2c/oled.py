@@ -103,12 +103,7 @@ class Oled(Thread, TextBuffer):
                 rows = range(self.rows)
             for i in rows:
                 if clear is True:
-                    self._canvas.rectangle(
-                        (0, (i * fs), self._device.width - 1, ((i + 1) * fs) - 1),
-                        "black",
-                        "white",
-                        width=1,
-                    )
+                    self._canvas.rectangle((0, (i * fs), self._device.width - 1, ((i + 1) * fs) - 1), "black")
                 if i < len(self):
                     self._canvas.text((2, (i * fs) - 3), self._buffer[i], "white", self._font)
             self._device.display(self._image)
@@ -136,12 +131,12 @@ class ScrollingHotspot(hotspot):
         draw = ImageDraw.Draw(image)
         # Clear the hotspot area
         draw.rectangle(
-            (0, (self.row * self.font_size) - 1, self.width - 1, ((self.row + 1) * self.font_size)),
+            (0, self.row * self.font_size, self.width - 1, ((self.row + 1) * self.font_size) - 1),
             fill="black",
         )
 
         # Draw the scrolling text
-        draw.text((self.x_offset, (self.row * self.font_size)), self.text, font=self.font, fill="white")
+        draw.text((self.x_offset, (self.row * self.font_size) - 3), self.text, font=self.font, fill="white")
 
         # Scroll the text
         self.x_offset -= self.scroll_speed
