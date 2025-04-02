@@ -74,6 +74,7 @@ class Oled(Thread, TextBuffer):
 
     def update_display(self):
         with self.synchronizer:
-            for i, row in enumerate(self._buffer):
-                self._canvas.text((2, i * 16), row, "white", self._font)
+            for i in self.changed_rows:
+                self._canvas.rectangle((0, i * 16, self._device.width, (i + 1) * 16), "black")
+                self._canvas.text((2, i * 16), self._buffer[i], "white", self._font)
             self._device.display(self._image)
