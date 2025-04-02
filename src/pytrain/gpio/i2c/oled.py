@@ -111,7 +111,7 @@ class Oled(Thread, TextBuffer):
         w, h = self.measure_text(msg)
 
         x = self._device.width
-        virtual = viewport(self._device, width=w + x + x, height=self._font_size)
+        virtual = viewport(self._device, width=w + x + x, height=self._device.width)
 
         with canvas(virtual) as draw:
             draw.text((x, y_offset), msg, font=self._font, fill="white")
