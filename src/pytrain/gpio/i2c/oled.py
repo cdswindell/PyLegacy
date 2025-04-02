@@ -49,8 +49,8 @@ class Oled(Thread, TextBuffer):
     def font_size(self, font_size: int) -> None:
         self._font_size = font_size
         self._font = ImageFont.load_default(font_size)
-        self.clear()
-        self.update_display()
+        self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
+        self.update_display(clear=False, selective=False)
 
     @property
     def size(self) -> tuple[int, int]:
@@ -86,10 +86,15 @@ class Oled(Thread, TextBuffer):
                 if self._is_running:
                     self.update_display()
 
-    def update_display(self):
+    def update_display(self, clear: bool = True, selective: bool = True) -> None:
         with self.synchronizer:
             fs = self.font_size
-            for i in self.changed_rows:
-                self._canvas.rectangle((0, i * fs, self._device.width - 1, ((i + 1) * fs) - 1), "black")
+            if selective is True:
+                rows = self.changed_rows
+            else:
+                rows = range(self.rows)
+            for i in rows:
+                if clear is True:
+                    self._canvas.rectangle((0, i * fs, self._device.width - 1, ((i + 1) * fs) - 1), "black")
                 self._canvas.text((2, i * fs), self._buffer[i], "white", self._font)
             self._device.display(self._image)
