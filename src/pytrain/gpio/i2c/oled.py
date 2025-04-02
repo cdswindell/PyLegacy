@@ -19,7 +19,7 @@ class Oled(Thread, TextBuffer):
     def __init__(
         self,
         rows: int = 4,
-        cols: int = 20,
+        cols: int = 25,
         address: int = 0x3C,
         oled_device: OledDevice | str = OledDevice.ssd1309,
         font_size: int = 15,
@@ -98,13 +98,14 @@ class Oled(Thread, TextBuffer):
 
     def stop(self):
         with self.synchronizer:
-            self._is_running = False
-            self.join()
             for i in self._hotspots:
                 if self._hotspots[i]:
                     self._hotspots[i].stop()
                     self._hotspots[i] = None
             self._hotspots.clear()
+            self._is_running = False
+            self.synchronizer.notify_all()
+            self.join()
 
     def run(self) -> None:
         while self._is_running:
