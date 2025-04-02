@@ -1,9 +1,8 @@
 from threading import Thread
 
 from luma.core.interface.serial import i2c
-from luma.core.render import canvas
 from luma.oled.device import ssd1306, ssd1309, ssd1362
-from PIL import ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 from ...protocol.constants import Mixins
 from ..utils.text_buffer import TextBuffer
@@ -27,7 +26,9 @@ class Oled(Thread, TextBuffer):
         Thread.__init__(self, daemon=True)
         TextBuffer.__init__(self, rows, cols)
         self._serial = i2c(port=1, address=address)
-        self._oled_device = oled_device.value(self._serial)
+        self._device = oled_device.value(self._serial)
+        self._image = Image.new(self._device.mode, self._device.size, "black")
+        self._canvas = ImageDraw.Draw(self._image)
         self._font = ImageFont.truetype(
             "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
             16,
@@ -39,29 +40,30 @@ class Oled(Thread, TextBuffer):
 
     @property
     def size(self) -> tuple[int, int]:
-        return self._oled_device.width, self._oled_device.height
+        return self._device.width, self._device.height
 
     @property
     def height(self) -> int:
-        return self._oled_device.height
+        return self._device.height
 
     @property
     def mode(self) -> str:
-        return self._oled_device.mode
+        return self._device.mode
 
     @property
     def width(self) -> int:
-        return self._oled_device.width
+        return self._device.width
 
     def clear(self, notify: bool = False) -> None:
         super().clear(notify)
-        self._oled_device.clear()
+        self._canvas.fill("black")
+        self._device.display(self._image)
 
     def show(self) -> None:
-        self._oled_device.show()
+        self._device.show()
 
     def hide(self) -> None:
-        self._oled_device.hide()
+        self._device.hide()
 
     def run(self) -> None:
         while self._is_running:
@@ -72,6 +74,6 @@ class Oled(Thread, TextBuffer):
 
     def update_display(self):
         with self.synchronizer:
-            with canvas(self._oled_device) as draw:
-                for i, row in enumerate(self._buffer):
-                    draw.text((2, i * 16), row, "white", self._font)
+            for i, row in enumerate(self._buffer):
+                self._canvas.text((2, i * 16), row, "white", self._font)
+            self._device.display(self._image)
