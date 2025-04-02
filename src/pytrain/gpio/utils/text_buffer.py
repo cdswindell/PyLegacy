@@ -41,7 +41,7 @@ class TextBuffer:
     def __delitem__(self, index: int | slice):
         with self._cv:
             del self._buffer[index]
-            self._changed_rows = set(range(len(self._buffer)))
+            self._changed_rows = set(range(self.rows))
             self._cv.notify_all()
 
     def __iter__(self):
