@@ -42,6 +42,10 @@ class Oled(Thread, TextBuffer):
         return super(TextBuffer, self).__repr__()
 
     @property
+    def font(self):
+        return self._font
+
+    @property
     def font_size(self) -> int:
         return self._font_size
 
@@ -128,15 +132,15 @@ class Oled(Thread, TextBuffer):
 
 
 class ScrollingHotspot(hotspot):
-    def __init__(self, oled: Oled, text, scroll_speed = 1):
-        super().__init__(oled, oled.width, oled.font_size)
+    def __init__(self, oled: Oled, text, scroll_speed=1):
+        super().__init__(oled.width, oled.font_size)
         self.device = oled
         self.width = oled.width
         self.height = oled.font_size
         self.font_size = oled.font_size
         self.text = text
         self.scroll_speed = scroll_speed
-        self.font = oled._font
+        self.font = oled.font
         w, h = oled.measure_text(text)
         self.text_width = w
         self.x_offset = 0
