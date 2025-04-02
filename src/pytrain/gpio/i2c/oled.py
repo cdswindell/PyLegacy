@@ -105,7 +105,7 @@ class Oled(Thread, TextBuffer):
                 if clear is True:
                     self._canvas.rectangle((0, (i * fs), self._device.width - 1, ((i + 1) * fs) - 1), "black")
                 if i < len(self):
-                    self._canvas.text((2, (i * fs) - 3), self._buffer[i], "white", self._font)
+                    self._canvas.text((0, (i * fs) - 3), self._buffer[i], "white", self._font)
             self._device.display(self._image)
 
     def _clear_image(self) -> None:
