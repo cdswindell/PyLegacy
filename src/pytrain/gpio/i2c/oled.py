@@ -132,12 +132,13 @@ class Oled(Thread, TextBuffer):
 
 
 class ScrollingHotspot(hotspot):
-    def __init__(self, oled: Oled, text, scroll_speed=1):
+    def __init__(self, oled: Oled, text, row: int = 0, scroll_speed=1):
         super().__init__(oled.width, oled.font_size)
         self.device = oled
         self.width = oled.width
         self.height = oled.font_size
         self.font_size = oled.font_size
+        self.row = row
         self.text = text + " " + text
         self.scroll_speed = scroll_speed
         self.font = oled.font
@@ -148,10 +149,10 @@ class ScrollingHotspot(hotspot):
     def render(self, image):
         draw = ImageDraw.Draw(image)
         # Clear the hotspot area
-        draw.rectangle((0, 0, self.width, self.height + 2), fill="black")
+        draw.rectangle((0, (self.row * self.font_size), self.width, self.height + 2), fill="black")
 
         # Draw the scrolling text
-        draw.text((self.x_offset, 0), self.text, font=self.font, fill="white")
+        draw.text((self.x_offset, (self.row * self.font_size)), self.text, font=self.font, fill="white")
 
         # Scroll the text
         self.x_offset -= self.scroll_speed
