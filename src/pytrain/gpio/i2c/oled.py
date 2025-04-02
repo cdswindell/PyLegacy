@@ -1,7 +1,6 @@
 from threading import Thread
 
 from luma.core.interface.serial import i2c
-from luma.core.render import canvas
 from luma.core.virtual import hotspot
 from luma.oled.device import ssd1306, ssd1309, ssd1362
 from PIL import Image, ImageDraw, ImageFont
@@ -83,7 +82,8 @@ class Oled(Thread, TextBuffer):
         self._device.hide()
 
     def measure_text(self, text: str) -> tuple[int, int]:
-        with canvas(self._device) as draw:
+        im = Image.new(self._device.mode, self._device.size, "black")
+        with ImageDraw.Draw(im) as draw:
             left, top, right, bottom = draw.textbbox((0, 0), text, font=self._font)
             return right - left, bottom - top
 
