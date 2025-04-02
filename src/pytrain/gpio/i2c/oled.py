@@ -156,6 +156,6 @@ class ScrollingHotspot(hotspot):
         # Scroll the text
         self.x_offset -= self.scroll_speed
         if self.x_offset + self.text_width < 0:
-            self.x_offset = self.width
+            self.x_offset = 0
 
         return image
