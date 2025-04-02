@@ -1,4 +1,4 @@
-from threading import Thread
+from threading import Event, Thread
 
 from luma.core.interface.serial import i2c
 from luma.core.virtual import hotspot
@@ -36,6 +36,7 @@ class Oled(Thread, TextBuffer):
         self._font = ImageFont.load_default(font_size)
         self._x_offset = x_offset
         self._temp_draw = ImageDraw.Draw(Image.new(self._device.mode, self._device.size, "black"))
+        self._hotspots = dict()
         self._is_running = True
         self.start()
 
@@ -88,6 +89,16 @@ class Oled(Thread, TextBuffer):
         left, top, right, bottom = self._temp_draw.textbbox((0, 0), text, font=self._font)
         return int(right - left), int(bottom - top)
 
+    def stop(self):
+        with self.synchronizer:
+            self._is_running = False
+            self.join()
+            for i in self._hotspots:
+                if self._hotspots[i]:
+                    self._hotspots[i].stop()
+                    self._hotspots[i] = None
+            self._hotspots.clear()
+
     def run(self) -> None:
         while self._is_running:
             with self.synchronizer:
@@ -106,20 +117,27 @@ class Oled(Thread, TextBuffer):
                 if clear is True:
                     self._canvas.rectangle((0, (i * fs), self._device.width - 1, ((i + 1) * fs) - 1), "black")
                 if i < len(self):
+                    if i in self._hotspots:
+                        self._hotspots[i].stop()
+                        del self._hotspots[i]
                     w, h = self.measure_text(self[i])
                     if w <= self._device.width:
                         self._canvas.text((self._x_offset, (i * fs) - 3), self[i], "white", self._font)
                     else:
-                        ScrollingHotspot(self, self[i], row=i, scroll_speed=1).render(self._image)
+                        s = ScrollingHotspot(self, self[i], row=i, scroll_speed=1).render(self._image)
+                        self._hotspots[i] = s
+                        s.start()
             self._device.display(self._image)
 
     def _clear_image(self) -> None:
         self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
 
 
-class ScrollingHotspot(hotspot):
+class ScrollingHotspot(Thread, hotspot):
     def __init__(self, oled: Oled, text, row: int = 0, scroll_speed=1):
-        super().__init__(oled.width, oled.font_size)
+        super().__init__()
+        Thread.__init__(self, daemon=True)
+        hotspot.__init__(self, oled.width, oled.font_size)
         self.device = oled
         self.width = oled.width
         self.height = oled.font_size
@@ -131,6 +149,13 @@ class ScrollingHotspot(hotspot):
         w, h = oled.measure_text(text)
         self.text_width = w
         self.x_offset = 0
+        self._ev = Event()
+        self._is_running = True
+
+    def stop(self):
+        self._ev.set()
+        self._is_running = False
+        self.join()
 
     def render(self, image):
         draw = ImageDraw.Draw(image)
@@ -149,3 +174,8 @@ class ScrollingHotspot(hotspot):
             self.x_offset = 0
 
         return image
+
+    def run(self) -> None:
+        while self._is_running and self._ev.is_set() is False:
+            self.device._device.display(self.render(self.device._image))
+            self._ev.wait(0.01)
