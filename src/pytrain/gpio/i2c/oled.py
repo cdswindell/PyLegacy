@@ -1,6 +1,9 @@
 from threading import Thread
 
 from luma.core.interface.serial import i2c
+from luma.core.render import canvas
+from luma.core.sprite_system import framerate_regulator
+from luma.core.virtual import viewport
 from luma.oled.device import ssd1306, ssd1309, ssd1362
 from PIL import Image, ImageDraw, ImageFont
 
@@ -76,6 +79,11 @@ class Oled(Thread, TextBuffer):
     def hide(self) -> None:
         self._device.hide()
 
+    def measure_text(self, text: str) -> tuple[int, int]:
+        with canvas(self._device) as draw:
+            left, top, right, bottom = draw.textbbox((0, 0), text, font=self._font)
+            return right - left, bottom - top
+
     def run(self) -> None:
         while self._is_running:
             with self.synchronizer:
@@ -96,6 +104,23 @@ class Oled(Thread, TextBuffer):
                 if i < len(self):
                     self._canvas.text((2, i * fs), self._buffer[i], "white", self._font)
             self._device.display(self._image)
+
+    def show_message(self, msg, y_offset=0, scroll_delay=0.03):
+        fps = 0 if scroll_delay == 0 else 1.0 / scroll_delay
+        regulator = framerate_regulator(fps)
+        w, h = self.measure_text(msg)
+
+        x = self._device.width
+        virtual = viewport(self._device, width=w + x + x, height=self._font_size)
+
+        with canvas(virtual) as draw:
+            draw.text((x, y_offset), msg, font=self._font, fill="white")
+
+        i = 0
+        while i <= w + x:
+            with regulator:
+                virtual.set_position((i, 0))
+                i += 1
 
     def _clear_image(self) -> None:
         self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
