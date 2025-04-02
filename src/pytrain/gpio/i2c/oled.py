@@ -106,7 +106,11 @@ class Oled(Thread, TextBuffer):
                 if clear is True:
                     self._canvas.rectangle((0, (i * fs), self._device.width - 1, ((i + 1) * fs) - 1), "black")
                 if i < len(self):
-                    self._canvas.text((self._x_offset, (i * fs) - 3), self._buffer[i], "white", self._font)
+                    w, h = self.measure_text(self[i])
+                    if w <= self._device.width:
+                        self._canvas.text((self._x_offset, (i * fs) - 3), self[i], "white", self._font)
+                    else:
+                        ScrollingHotspot(self, self[i], row=i, scroll_speed=1).render(self._image)
             self._device.display(self._image)
 
     def _clear_image(self) -> None:
