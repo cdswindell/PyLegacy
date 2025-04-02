@@ -105,7 +105,7 @@ class Oled(Thread, TextBuffer):
             self._hotspots.clear()
             self._is_running = False
             self.synchronizer.notify_all()
-            self.join()
+        self.join()
 
     def run(self) -> None:
         while self._is_running:
