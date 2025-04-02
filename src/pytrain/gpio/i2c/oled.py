@@ -2,8 +2,7 @@ from threading import Thread
 
 from luma.core.interface.serial import i2c
 from luma.core.render import canvas
-from luma.core.sprite_system import framerate_regulator
-from luma.core.virtual import hotspot, viewport
+from luma.core.virtual import hotspot
 from luma.oled.device import ssd1306, ssd1309, ssd1362
 from PIL import Image, ImageDraw, ImageFont
 
@@ -109,24 +108,6 @@ class Oled(Thread, TextBuffer):
                     self._canvas.text((2, i * fs), self._buffer[i], "white", self._font)
             self._device.display(self._image)
 
-    def show_message(self, msg, y_offset=0, scroll_delay=0.03):
-        fps = 0 if scroll_delay == 0 else 1.0 / scroll_delay
-        regulator = framerate_regulator(fps)
-        w, h = self.measure_text(msg)
-
-        x = self._device.width
-        virtual = viewport(self._device, width=w + x + x, height=self._device.width)
-        virtual._backing_image = self._image
-
-        with canvas(virtual) as draw:
-            draw.text((x, y_offset), msg, font=self._font, fill="white")
-
-        i = 0
-        while i <= w + x:
-            with regulator:
-                virtual.set_position((i, 0))
-                i += 1
-
     def _clear_image(self) -> None:
         self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
 
@@ -149,7 +130,10 @@ class ScrollingHotspot(hotspot):
     def render(self, image):
         draw = ImageDraw.Draw(image)
         # Clear the hotspot area
-        draw.rectangle((0, (self.row * self.font_size), self.width, (self.row + 1) * self.font_size + 2), fill="black")
+        draw.rectangle(
+            (0, (self.row * self.font_size), self.width - 1, ((self.row + 1) * self.font_size) - 1),
+            fill="black",
+        )
 
         # Draw the scrolling text
         draw.text((self.x_offset, (self.row * self.font_size)), self.text, font=self.font, fill="white")
