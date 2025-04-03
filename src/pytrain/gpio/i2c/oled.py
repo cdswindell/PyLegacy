@@ -206,6 +206,10 @@ class Oled(Thread, TextBuffer):
 
 
 class ScrollingHotspot(Thread, hotspot):
+    """
+    Support Scrolling Text
+    """
+
     def __init__(self, oled: Oled, text, row: int = 0):
         super().__init__()
         Thread.__init__(self, daemon=True)
@@ -219,7 +223,7 @@ class ScrollingHotspot(Thread, hotspot):
         self._text_width, _ = oled.measure_text(text)
         self._x_offset = oled.x_offset
         x, y = oled.measure_text(" ")
-        self._x_offset_reset = int(round(x * 2 /3))
+        self._x_offset_reset = int(x * 2 / 3)
         self._ev = Event()
         self._resume_ev = Event()
         self._pause_request = False
