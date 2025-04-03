@@ -70,7 +70,7 @@ class Oled(Thread, TextBuffer):
         self._is_running = True
         self.show()
         self.start()
-        atexit.register(self.stop)
+        atexit.register(self.close)
 
     def __repr__(self) -> str:
         return super(TextBuffer, self).__repr__()
@@ -163,9 +163,10 @@ class Oled(Thread, TextBuffer):
                     self._hotspots[i].stop()
                     self._hotspots[i] = None
             self._hotspots.clear()
-            self._is_running = False
             self.clear(notify=False)
+            self._is_running = False
             self.synchronizer.notify_all()
+            print("Exiting oled display thread... ")
         self.join()
 
     def reset(self) -> None:
@@ -178,6 +179,7 @@ class Oled(Thread, TextBuffer):
         while self._is_running:
             with self.synchronizer:
                 self.synchronizer.wait()
+                print(f"Is Running: {self._is_running}")
                 if self._is_running:
                     self.update_display()
 
