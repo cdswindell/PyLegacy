@@ -223,7 +223,6 @@ class ScrollingHotspot(Thread, hotspot):
         self._text_width, _ = oled.measure_text(text)
         self._x_offset = oled.x_offset
         x, y = oled.measure_text(" ")
-        self._x_offset_reset = x
         self._text_width += x
         self._ev = Event()
         self._resume_ev = Event()
@@ -249,7 +248,7 @@ class ScrollingHotspot(Thread, hotspot):
         # Scroll the text
         self._x_offset -= self._scroll_speed
         if self._x_offset + self._text_width < 0:
-            self._x_offset = 0
+            self._x_offset = 1
         return image
 
     def pause(self) -> None:
