@@ -169,12 +169,14 @@ class ScrollingHotspot(Thread, hotspot):
         self.text_height = h
         self.x_offset = 0
         self._ev = Event()
+        self._resume_ev = Event()
+        self._pause_request = False
         self._is_running = True
-        self._running_thread = self
         self.start()
 
     def stop(self):
         self._ev.set()
+        self._resume_ev.set()
         self._is_running = False
         self.join()
 
@@ -195,20 +197,18 @@ class ScrollingHotspot(Thread, hotspot):
         return image
 
     def pause(self) -> None:
-        if self._running_thread and self._running_thread.is_alive():
-            print(self._running_thread)
-            print(dir(self._running_thread))
-            self._running_thread.stop()
-            self._running_thread = None
+        if self.is_alive() and self._pause_request is False:
+            self._pause_request = True
 
     def resume(self) -> None:
-        if self._is_running is False:
-            self._ev.clear()
-            self._is_running = True
-            self._running_thread = Thread(target=self.run, daemon=True)
-            self._running_thread.start()
+        if self.is_alive() and self._pause_request is True:
+            self._pause_request = False
+            self._resume_ev.set()
 
     def run(self) -> None:
         while self._is_running and self._ev.is_set() is False:
             self.device.display(self.render(self.device.image))
             self._ev.wait(0.01)
+            if self._pause_request:
+                self._resume_ev.wait()
+                self._resume_ev.clear()
