@@ -86,10 +86,8 @@ class EngineStatus(Thread, GpioDevice):
             if self._monitored_state:
                 pass
             else:
-                if len(self.display) == 0 or self.display[0] != self.railroad:
-                    if len(self.display) != 0:
-                        clear = True
-                    self.display[0] = self.railroad
+                print(f"no monitored state... {self.railroad}")
+                self.display[0] = self.railroad
             self.display.refresh_display(clear=clear)
 
     def on_sync(self) -> None:
@@ -97,7 +95,7 @@ class EngineStatus(Thread, GpioDevice):
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
             self._synchronized = True
-            self.update_display()
+            self.update_display(clear=True)
             self.start()
             self.cache_handler(self)
 
