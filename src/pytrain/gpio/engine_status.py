@@ -80,16 +80,16 @@ class EngineStatus(Thread, GpioDevice):
         while self._is_running:
             self._ev.wait(0.1)
 
-    def update_display(self, clear_display: bool = True) -> None:
+    def update_display(self, clear: bool = False) -> None:
         with self._lock:
             if self._monitored_state:
                 pass
             else:
                 if len(self.display) == 0 or self.display[0] != self.railroad:
                     if len(self.display) != 0:
-                        self.display.clear()
+                        clear = True
                     self.display[0] = self.railroad
-            self.display.refresh_display()
+            self.display.refresh_display(clear=clear)
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
@@ -121,4 +121,4 @@ class EngineStatus(Thread, GpioDevice):
         cur_speed = self._monitored_state.speed if self._monitored_state else None
         if cur_speed is not None and self._last_known_speed != cur_speed:
             self._last_known_speed = cur_speed
-        self.update_display(clear_display=False)
+        self.update_display(clear=False)
