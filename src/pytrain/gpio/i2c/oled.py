@@ -38,6 +38,7 @@ class Oled(Thread, TextBuffer):
         self._temp_draw = ImageDraw.Draw(Image.new(self._device.mode, self._device.size, "black"))
         self._hotspots = dict()
         self._is_running = True
+        self.show()
         self.start()
 
     def __repr__(self) -> str:
@@ -104,6 +105,7 @@ class Oled(Thread, TextBuffer):
 
     def stop(self):
         with self.synchronizer:
+            self.hide()
             for i in self._hotspots:
                 if self._hotspots[i]:
                     self._hotspots[i].stop()
