@@ -211,10 +211,8 @@ class Oled(Thread, TextBuffer):
                         self._hotspots[i] = ScrollingHotspot(self, self[i], row=i)
             self._device.display(self._image)
 
-    def refresh_display(self, clear: bool = False) -> None:
+    def refresh_display(self) -> None:
         with self.synchronizer:
-            if clear is True:
-                self.clear()
             if self._changed_rows:
                 self.update_display(clear=False, selective=True)
 

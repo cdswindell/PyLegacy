@@ -86,12 +86,14 @@ class EngineStatus(Thread, GpioDevice):
 
     def update_display(self, clear: bool = False) -> None:
         with self._lock:
+            if clear is True:
+                self.display.clear()
             if self._monitored_state:
                 pass
             else:
                 print(f"no monitored state... {self.railroad} {self.is_synchronized}")
                 self.display[0] = self.railroad
-            self.display.refresh_display(clear=clear)
+            self.display.refresh_display()
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
