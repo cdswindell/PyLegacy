@@ -200,6 +200,7 @@ class Oled(Thread, TextBuffer):
                 rows = self.changed_rows
             else:
                 rows = range(self.rows)
+            print(rows, self._buffer)
             for i in rows:
                 if clear is True:
                     self._canvas.rectangle((0, (i * fs), self._device.width - 1, ((i + 1) * fs) - 1), "black")
@@ -218,7 +219,7 @@ class Oled(Thread, TextBuffer):
         with self.synchronizer:
             print(self._changed_rows)
             if self.is_dirty is True:
-                self.update_display(clear=False, selective=True)
+                self.update_display()
 
     def _clear_image(self) -> None:
         self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
