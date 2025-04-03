@@ -69,6 +69,16 @@ class Oled(Thread, TextBuffer):
         return super(TextBuffer, self).__repr__()
 
     @property
+    def x_offset(self) -> int:
+        return self._x_offset
+
+    @x_offset.setter
+    def x_offset(self, x_offset: int) -> None:
+        self._x_offset = x_offset
+        self._clear_image()
+        self.update_display(clear=False, selective=False)
+
+    @property
     def font(self):
         return self._font
 
@@ -211,7 +221,7 @@ class ScrollingHotspot(Thread, hotspot):
         w, h = oled.measure_text(text)
         self.text_width = w
         self.text_height = h
-        self.x_offset = 0
+        self.x_offset = oled.x_offset
         self._ev = Event()
         self._resume_ev = Event()
         self._pause_request = False
@@ -236,8 +246,8 @@ class ScrollingHotspot(Thread, hotspot):
         # Scroll the text
         self.x_offset -= self.scroll_speed
         if self.x_offset + self.text_width < 0:
-            self.x_offset = 0
-
+            print(self.x_offset, self.text_width)
+            self.x_offset = self.device.x_offset + self.scroll_speed
         return image
 
     def pause(self) -> None:
