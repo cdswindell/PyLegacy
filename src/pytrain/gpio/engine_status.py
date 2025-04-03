@@ -111,8 +111,10 @@ class EngineStatus(Thread, GpioDevice):
                 dr = self._monitored_state.direction_label
                 row += f" {dr}"
                 self.display[2] = row
-            else:
+            elif self.is_synchronized is True:
                 self.display[0] = self.railroad
+            else:
+                self.display[0] = "Synchronizing..."
             self.display.refresh_display()
 
     def on_sync(self) -> None:
