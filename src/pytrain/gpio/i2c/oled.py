@@ -223,7 +223,7 @@ class ScrollingHotspot(Thread, hotspot):
         self._text_width, _ = oled.measure_text(text)
         self._x_offset = oled.x_offset
         x, y = oled.measure_text(" ")
-        self._x_offset_reset = int(x * 2 / 3)
+        self._x_offset_reset = int(x * 2 / 3) * 2
         self._ev = Event()
         self._resume_ev = Event()
         self._pause_request = False
