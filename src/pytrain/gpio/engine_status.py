@@ -1,12 +1,14 @@
-from threading import Thread
+from threading import Event, RLock, Thread
 
 from .. import ComponentStateStore
 from ..db.component_state import EngineState
+from ..db.state_watcher import StateWatcher
 from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
+from .gpio_device import GpioDevice
 from .i2c.oled import Oled, OledDevice
 
 
-class EngineStatus(Thread):
+class EngineStatus(Thread, GpioDevice):
     def __init__(
         self,
         tmcc_id: int | EngineState = DEFAULT_ADDRESS,
@@ -16,8 +18,10 @@ class EngineStatus(Thread):
         address: int = 0x3C,
         oled_device: OledDevice | str = OledDevice.ssd1309,
     ) -> None:
+        self._lock = RLock()
         super().__init__(daemon=False, name=f"{PROGRAM_NAME} Engine Status Oled")
         self._oled = Oled(rows, cols, address, oled_device, auto_update=False)
+        self._state_store = ComponentStateStore.get()
         if isinstance(tmcc_id, EngineState):
             self._monitored_state = tmcc_id
             self._tmcc_id = tmcc_id.address
@@ -26,14 +30,30 @@ class EngineStatus(Thread):
             self._tmcc_id = tmcc_id
             self._scope = scope
             if tmcc_id != 99:
-                self._monitored_state = ComponentStateStore.get_state(scope, tmcc_id)
+                self._monitored_state = self._state_store.get_state(scope, tmcc_id)
             else:
                 self._monitored_state = None
         else:
             raise ValueError(f"Invalid tmcc_id: {tmcc_id} or scope: {scope}")
 
+        self._is_running = True
+        self._ev = Event()
+        self._railroad = None
+        self._last_known_speed = self._monitored_state.speed if self._monitored_state else None
+        self._state_watcher = None
+
+        # check for state synchronization
+        self._synchronized = False
+        self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+        if self._sync_state and self._sync_state.is_synchronized:
+            self._sync_watcher = None
+            self.on_sync()
+        else:
+            self.update_display()
+            self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
+
     @property
-    def oled(self) -> Oled:
+    def display(self) -> Oled:
         return self._oled
 
     @property
@@ -43,3 +63,61 @@ class EngineStatus(Thread):
     @property
     def scope(self) -> CommandScope:
         return self._scope
+
+    @property
+    def is_synchronized(self) -> bool:
+        return self._synchronized
+
+    @property
+    def railroad(self) -> str:
+        if self._railroad is None:
+            base_state = self._state_store.get_state(CommandScope.BASE, 0, False)
+            if base_state and base_state.base_name:
+                self._railroad = base_state.base_name.title()
+        return self._railroad if self._railroad is not None else "Loading Engine Roster..."
+
+    def run(self) -> None:
+        while self._is_running:
+            self._ev.wait(0.1)
+
+    def update_display(self, clear_display: bool = True) -> None:
+        with self._lock:
+            if self._monitored_state:
+                pass
+            else:
+                if self.display[0] != self.railroad:
+                    self.display.clear()
+                    self.display[0] = self.railroad
+            self.display.refresh_display()
+
+    def on_sync(self) -> None:
+        if self._sync_state.is_synchronized:
+            if self._sync_watcher:
+                self._sync_watcher.shutdown()
+            self._synchronized = True
+            self.update_display()
+            self.start()
+            self.cache_handler(self)
+
+    def reset(self) -> None:
+        self.display.reset()
+        if self._state_watcher:
+            self._state_watcher.shutdown()
+            self._state_watcher = None
+        self._is_running = False
+        self._ev.set()
+        self.join()
+
+    def close(self) -> None:
+        self.reset()
+
+    def _monitor_state_updates(self):
+        if self._state_watcher:
+            self._state_watcher.shutdown()
+        self._state_watcher = StateWatcher(self._monitored_state, self.on_state_update)
+
+    def on_state_update(self) -> None:
+        cur_speed = self._monitored_state.speed if self._monitored_state else None
+        if cur_speed is not None and self._last_known_speed != cur_speed:
+            self._last_known_speed = cur_speed
+        self.update_display(clear_display=False)

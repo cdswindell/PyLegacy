@@ -33,10 +33,10 @@ class TextBuffer:
                 for _ in range(index - len(self._buffer) + 1):
                     self._buffer.append("")
             if 0 <= index < self.rows:
-                self._buffer[index] = value
-                self._changed_rows.add(index)
-                self._cursor_pos = (index, len(value))
-                self.__do_notify()
+                if self._buffer[index] != value:
+                    self._changed_rows.add(index)
+                    self._cursor_pos = (index, len(value))
+                    self.__do_notify()
             else:
                 raise IndexError(f"Index {index} out of range")
 
@@ -194,17 +194,18 @@ class TextBuffer:
             if fmt is not None:
                 s = f"{s:{fmt}}"
             # append new data to buffer
-            row = self._buffer[at[0]]
+            row = orig_row = self._buffer[at[0]]
             if len(row) <= at[1]:
                 row += " " * (at[1] - len(self._buffer[at[0]])) + s
             elif at[1] + len(s) > len(row):
                 row = row[: at[1]] + s
             else:
                 row = row[: at[1]] + s + row[at[1] + len(s) :]
-            self._buffer[at[0]] = row
-            self._cursor_pos = (at[0], len(row))
-            self._changed_rows.add(at[0])
-            self.__do_notify()
+            if row != orig_row:
+                self._buffer[at[0]] = row
+                self._cursor_pos = (at[0], len(row))
+                self._changed_rows.add(at[0])
+                self.__do_notify()
 
     def __do_notify(self) -> None:
         """

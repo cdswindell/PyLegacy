@@ -216,7 +216,7 @@ class Controller(Thread, GpioDevice):
             self._keypad = keypad
         self._key_queue = self._keypad.key_queue
         self._last_listener = None
-        self._state_store = ComponentStateStore.build()
+        self._state_store = ComponentStateStore.get()
         self._state = None
         self._scope = CommandScope.ENGINE
         self._tmcc_id = None

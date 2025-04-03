@@ -168,6 +168,9 @@ class Oled(Thread, TextBuffer):
             self.synchronizer.notify_all()
         self.join()
 
+    def reset(self) -> None:
+        self.stop()
+
     def run(self) -> None:
         while self._is_running:
             with self.synchronizer:
@@ -207,6 +210,11 @@ class Oled(Thread, TextBuffer):
                     else:
                         self._hotspots[i] = ScrollingHotspot(self, self[i], row=i)
             self._device.display(self._image)
+
+    def refresh_display(self) -> None:
+        with self.synchronizer:
+            if self._changed_rows:
+                self.update_display(clear=False, selective=True)
 
     def _clear_image(self) -> None:
         self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
