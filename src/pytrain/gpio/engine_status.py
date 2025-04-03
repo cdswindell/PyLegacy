@@ -42,6 +42,7 @@ class EngineStatus(Thread, GpioDevice):
         self._railroad = None
         self._last_known_speed = self._monitored_state.speed if self._monitored_state else None
         self._state_watcher = None
+        atexit.register(self.reset)
 
         # check for state synchronization
         self._synchronized = False
@@ -52,7 +53,6 @@ class EngineStatus(Thread, GpioDevice):
         else:
             self.update_display()
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
-        atexit.register(self.close)
 
     @property
     def display(self) -> Oled:
