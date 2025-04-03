@@ -79,9 +79,15 @@ class Oled(Thread, TextBuffer):
         return self._image
 
     def clear(self, notify: bool = False) -> None:
-        super().clear(notify)
-        self._clear_image()
-        self._device.display(self._image)
+        with self.synchronizer:
+            for i in self._hotspots:
+                if self._hotspots[i]:
+                    self._hotspots[i].stop()
+                    self._hotspots[i] = None
+            self._hotspots.clear()
+            super().clear(notify)
+            self._clear_image()
+            self._device.display(self._image)
 
     def show(self) -> None:
         self._device.show()
@@ -104,6 +110,7 @@ class Oled(Thread, TextBuffer):
                     self._hotspots[i] = None
             self._hotspots.clear()
             self._is_running = False
+            self.clear(notify=False)
             self.synchronizer.notify_all()
         self.join()
 
