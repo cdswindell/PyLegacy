@@ -1,3 +1,4 @@
+from pathlib import Path
 from threading import Event, Thread
 
 from luma.core.interface.serial import i2c
@@ -7,6 +8,11 @@ from PIL import Image, ImageDraw, ImageFont
 
 from ...protocol.constants import Mixins
 from ..utils.text_buffer import TextBuffer
+
+
+def make_font(name, size: int = 15) -> ImageFont:
+    font_path = str(Path(__file__).resolve().parent.joinpath("fonts", name))
+    return ImageFont.truetype(font_path, size)
 
 
 class OledDevice(Mixins):
@@ -29,7 +35,12 @@ class Oled(Thread, TextBuffer):
         Thread.__init__(self, daemon=True)
         TextBuffer.__init__(self, rows, cols)
         self._serial = i2c(port=1, address=address)  # i2c bus & address
-        self._device = oled_device.value(self._serial)  # i2c oled device
+        if isinstance(oled_device, str):
+            oled_device = OledDevice.by_name(oled_device, raise_exception=True)
+        if isinstance(oled_device, OledDevice):
+            self._device = oled_device.value(self._serial)  # i2c oled device
+        else:
+            raise ValueError(f"Unsupported Luma OLED device: {oled_device}")
         self._image = Image.new(self._device.mode, self._device.size, "black")
         self._canvas = ImageDraw.Draw(self._image)
         self._font_size = font_size
