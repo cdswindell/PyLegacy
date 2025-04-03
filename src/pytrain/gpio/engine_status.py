@@ -83,14 +83,33 @@ class EngineStatus(Thread, GpioDevice):
         while self._is_running:
             self._ev.wait(0.1)
 
+    def update_engine(self, tmcc_id: int, scope: CommandScope) -> None:
+        self._tmcc_id = tmcc_id
+        self._scope = scope
+        if tmcc_id != 99:
+            self._monitored_state = self._state_store.get_state(scope, tmcc_id)
+        else:
+            self._monitored_state = None
+        self._monitor_state_updates()
+        self.update_display(clear=True)
+
     def update_display(self, clear: bool = False) -> None:
         with self._lock:
             if clear is True:
                 self.display.clear()
             if self._monitored_state:
-                pass
+                rname = self._monitored_state.road_name if self._monitored_state.road_name else "No Information"
+                rnum = f"#{self._monitored_state.road_number} " if self._monitored_state.road_number else ""
+                self.display[0] = f"{rnum}{rname}"
+
+                tmp = f"{self._scope.label}: "
+                row = f"{tmp:<8}"
+                row += f"{self._tmcc_id:04}"
+                self.display[1] = row
+
+                row = f"Speed: {self._monitored_state.speed:03d}"
+                self.display[2] = row
             else:
-                print(f"no monitored state... {self.railroad} {self.is_synchronized}")
                 self.display[0] = self.railroad
             self.display.refresh_display()
 
@@ -103,6 +122,12 @@ class EngineStatus(Thread, GpioDevice):
             self.update_display(clear=True)
             self.start()
             self.cache_handler(self)
+
+    def on_state_update(self) -> None:
+        cur_speed = self._monitored_state.speed if self._monitored_state else None
+        if cur_speed is not None and self._last_known_speed != cur_speed:
+            self._last_known_speed = cur_speed
+        self.update_display()
 
     def reset(self) -> None:
         self.display.reset()
@@ -121,10 +146,7 @@ class EngineStatus(Thread, GpioDevice):
     def _monitor_state_updates(self):
         if self._state_watcher:
             self._state_watcher.shutdown()
-        self._state_watcher = StateWatcher(self._monitored_state, self.on_state_update)
+            self._state_watcher = None
 
-    def on_state_update(self) -> None:
-        cur_speed = self._monitored_state.speed if self._monitored_state else None
-        if cur_speed is not None and self._last_known_speed != cur_speed:
-            self._last_known_speed = cur_speed
-        self.update_display()
+        if self._monitored_state:
+            self._state_watcher = StateWatcher(self._monitored_state, self.on_state_update)
