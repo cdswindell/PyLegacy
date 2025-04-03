@@ -217,7 +217,7 @@ class ScrollingHotspot(Thread, hotspot):
         self._device = oled
         self._font_size = oled.font_size
         self._row = row
-        self._text = text + " " + text
+        self._text = text + "  " + text
         self._scroll_speed = 1
         self._font = oled.font
         self._text_width, _ = oled.measure_text(text)
