@@ -59,9 +59,17 @@ class EngineStatus(Thread, GpioDevice):
     def tmcc_id(self) -> int:
         return self._tmcc_id
 
+    @tmcc_id.setter
+    def tmcc_id(self, value: int) -> None:
+        self.update_engine(value, self.scope)
+
     @property
     def scope(self) -> CommandScope:
         return self._scope
+
+    @scope.setter
+    def scope(self, value: CommandScope) -> None:
+        self.update_engine(self.tmcc_id, value)
 
     @property
     def is_synchronized(self) -> bool:
