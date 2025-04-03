@@ -113,8 +113,8 @@ class EngineStatus(Thread, GpioDevice):
             self._state_watcher.shutdown()
             self._state_watcher = None
         self._is_running = False
+        print(self._sync_watcher, self._state_watcher)
         self._ev.set()
-        self.join()
 
     def close(self) -> None:
         self.reset()
@@ -128,4 +128,4 @@ class EngineStatus(Thread, GpioDevice):
         cur_speed = self._monitored_state.speed if self._monitored_state else None
         if cur_speed is not None and self._last_known_speed != cur_speed:
             self._last_known_speed = cur_speed
-        self.update_display(clear=False)
+        self.update_display()
