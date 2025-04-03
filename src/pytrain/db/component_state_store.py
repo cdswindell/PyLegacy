@@ -44,6 +44,12 @@ class ComponentStateStore:
         return ComponentStateStore(topics, listeners, is_base=is_base, is_ser2=is_ser2)
 
     @classmethod
+    def get(cls) -> ComponentStateStore:
+        if cls._instance is None:
+            raise AttributeError("ComponentStateStore not built")
+        return cls._instance
+
+    @classmethod
     def is_built(cls) -> bool:
         return cls._instance is not None
 

@@ -1,10 +1,11 @@
 import atexit
+from enum import unique
 from pathlib import Path
 from threading import Event, Thread
 
 from luma.core.interface.serial import i2c
 from luma.core.virtual import hotspot
-from luma.oled.device import ssd1306, ssd1309, ssd1362
+from luma.oled.device import ssd1306, ssd1309, ssd1322, ssd1325, ssd1362
 from PIL import Image, ImageDraw, ImageFont
 
 from ...protocol.constants import Mixins
@@ -22,9 +23,12 @@ def make_font(name: str, size: int) -> ImageFont:
         return ImageFont.truetype(font_path, size)
 
 
+@unique
 class OledDevice(Mixins):
     ssd1306 = ssd1306
     ssd1309 = ssd1309
+    ssd1322 = ssd1322
+    ssd1325 = ssd1325
     ssd1362 = ssd1362
 
 
@@ -38,10 +42,9 @@ class Oled(Thread, TextBuffer):
         font_size: int = 15,
         font_family: str = "DejaVuSansMono.ttf",
         x_offset: int = 2,
+        auto_update: bool = True,
     ) -> None:
         super().__init__()
-        Thread.__init__(self, daemon=True)
-        TextBuffer.__init__(self, rows, cols)
         self._serial = i2c(port=1, address=address)  # i2c bus & address
         if isinstance(oled_device, str):
             oled_device = OledDevice.by_name(oled_device, raise_exception=True)
@@ -49,6 +52,10 @@ class Oled(Thread, TextBuffer):
             self._device = oled_device.value(self._serial)  # i2c oled device
         else:
             raise ValueError(f"Unsupported Luma OLED device: {oled_device}")
+
+        Thread.__init__(self, daemon=True)
+        TextBuffer.__init__(self, rows, cols, auto_update=auto_update)
+
         self._image = Image.new(self._device.mode, self._device.size, "black")
         self._canvas = ImageDraw.Draw(self._image)
         self._font_size = font_size
@@ -215,13 +222,13 @@ class ScrollingHotspot(Thread, hotspot):
         Thread.__init__(self, daemon=True)
         hotspot.__init__(self, oled.width, oled.font_size)
         self._device = oled
+        self._x_offset = oled.x_offset
         self._font_size = oled.font_size
+        self._font = oled.font
         self._row = row
         self._text = text + " " + text
         self._scroll_speed = 1
-        self._font = oled.font
         self._text_width, _ = oled.measure_text(text)
-        self._x_offset = oled.x_offset
         x, y = oled.measure_text(" ")
         self._text_width += x
         self._ev = Event()

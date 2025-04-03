@@ -2,13 +2,14 @@ from threading import Condition, RLock
 
 
 class TextBuffer:
-    def __init__(self, rows: int = 4, cols: int = 20) -> None:
+    def __init__(self, rows: int = 4, cols: int = 20, auto_update: bool = True) -> None:
         super().__init__()
         self._rows = rows
         self._cols = cols
         self._cursor_pos = (0, 0)
         self._buffer: list[str] = list()
         self._cv = Condition(RLock())
+        self._auto_update = auto_update
         self._changed_rows: set[int] = set()
 
     def __repr__(self) -> str:
@@ -35,7 +36,7 @@ class TextBuffer:
                 self._buffer[index] = value
                 self._changed_rows.add(index)
                 self._cursor_pos = (index, len(value))
-                self._cv.notify_all()
+                self.__do_notify()
             else:
                 raise IndexError(f"Index {index} out of range")
 
@@ -43,7 +44,7 @@ class TextBuffer:
         with self._cv:
             del self._buffer[index]
             self._changed_rows = set(range(self.rows))
-            self._cv.notify_all()
+            self.__do_notify()
 
     def __iter__(self):
         return iter(self._buffer)
@@ -54,7 +55,7 @@ class TextBuffer:
                 raise IndexError(f"Index {index} out of range")
             self._buffer.insert(index, item)
             self._changed_rows = set(range(index, self.rows))
-            self._cv.notify_all()
+            self.__do_notify()
 
     def index(self, item, start=0, end=None):
         with self._cv:
@@ -72,7 +73,7 @@ class TextBuffer:
         with self._cv:
             self._buffer.reverse()
             self._changed_rows = set(range(len(self._buffer)))
-            self._cv.notify_all()
+            self.__do_notify()
 
     def append(self, item: str):
         self.add(item)
@@ -85,6 +86,14 @@ class TextBuffer:
 
     def extend(self, iterable):
         raise NotImplementedError
+
+    @property
+    def auto_update(self) -> bool:
+        return self._auto_update
+
+    @auto_update.setter
+    def auto_update(self, value: bool) -> None:
+        self._auto_update = value
 
     @property
     def rows(self) -> int:
@@ -146,7 +155,7 @@ class TextBuffer:
             self._buffer.clear()
             self._cursor_pos = (0, 0)
             if notify is True:
-                self._cv.notify_all()
+                self.__do_notify()
 
     def add(self, row: str) -> bool:
         with self._cv:
@@ -155,7 +164,7 @@ class TextBuffer:
                 row_no = len(self._buffer) - 1
                 self._cursor_pos = (row_no, len(row))
                 self._changed_rows.add(row_no)
-                self._cv.notify_all()
+                self.__do_notify()
                 return True
             return False
 
@@ -195,4 +204,12 @@ class TextBuffer:
             self._buffer[at[0]] = row
             self._cursor_pos = (at[0], len(row))
             self._changed_rows.add(at[0])
+            self.__do_notify()
+
+    def __do_notify(self) -> None:
+        """
+        Notify all waiting threads that the buffer has changed.
+        Must be called from within the synchronizer's lock.
+        """
+        if self._auto_update is True:
             self._cv.notify_all()

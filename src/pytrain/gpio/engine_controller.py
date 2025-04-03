@@ -6,7 +6,6 @@ from typing import Dict, Tuple, TypeVar, Union
 from gpiozero import Button
 
 from ..db.component_state import EngineState
-from ..db.component_state_store import ComponentStateStore
 from ..pdi.base3_buffer import Base3Buffer
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType
@@ -83,10 +82,6 @@ class EngineController:
                 cathode=base_cathode,
                 delay=base_ping_freq,
             )
-        # save a reference to the ComponentStateStore; it must be built and initialized
-        # (or initializing) prior to creating an EngineController instance
-        # we will use this info when switching engines to initialize speed
-        self._store = ComponentStateStore.build()
 
         # set up for numeric commands
         self._tmcc1_numeric_cmd = CommandReq(TMCC1EngineCommandEnum.NUMERIC)
