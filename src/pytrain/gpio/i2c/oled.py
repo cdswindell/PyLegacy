@@ -246,8 +246,7 @@ class ScrollingHotspot(Thread, hotspot):
         # Scroll the text
         self.x_offset -= self.scroll_speed
         if self.x_offset + self.text_width < 0:
-            self._ev.wait(5.01)
-            self.x_offset = self.device.x_offset + 2*self.scroll_speed
+            self.x_offset = self.device.x_offset + 2 * self.scroll_speed
         return image
 
     def pause(self) -> None:
@@ -262,7 +261,7 @@ class ScrollingHotspot(Thread, hotspot):
     def run(self) -> None:
         while self._is_running and self._ev.is_set() is False:
             self.device.display(self.render(self.device.image))
-            self._ev.wait(0.01)
+            self._ev.wait(0.05)
             if self._pause_request:
                 self._resume_ev.wait()
                 self._resume_ev.clear()
