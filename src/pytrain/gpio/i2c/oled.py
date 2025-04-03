@@ -12,7 +12,7 @@ from ..utils.text_buffer import TextBuffer
 
 
 def make_font(name: str, size: int) -> ImageFont:
-    if name is None or name.strip() == "" or name.strip() == "default":
+    if name is None or name.strip() == "" or name.strip() == "default" or name.strip() == 'Aileron':
         return ImageFont.load_default(size)
     else:
         name = name.replace(" ", "")
