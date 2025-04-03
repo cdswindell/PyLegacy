@@ -99,6 +99,7 @@ class EngineStatus(Thread, GpioDevice):
         if self._sync_state.is_synchronized:
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
+                self._sync_watcher = None
             self._synchronized = True
             self.update_display(clear=True)
             self.start()
@@ -106,15 +107,14 @@ class EngineStatus(Thread, GpioDevice):
 
     def reset(self) -> None:
         self.display.reset()
+        self._is_running = False
+        self._ev.set()
         if self._sync_watcher:
             self._sync_watcher.shutdown()
             self._sync_watcher = None
         if self._state_watcher:
             self._state_watcher.shutdown()
             self._state_watcher = None
-        self._is_running = False
-        print(self._sync_watcher, self._state_watcher)
-        self._ev.set()
 
     def close(self) -> None:
         self.reset()

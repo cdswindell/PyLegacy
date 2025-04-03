@@ -171,6 +171,9 @@ class Oled(Thread, TextBuffer):
     def reset(self) -> None:
         self.stop()
 
+    def close(self) -> None:
+        self.stop()
+
     def run(self) -> None:
         while self._is_running:
             with self.synchronizer:
