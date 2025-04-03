@@ -85,8 +85,9 @@ class EngineStatus(Thread, GpioDevice):
             if self._monitored_state:
                 pass
             else:
-                if self.display[0] != self.railroad:
-                    self.display.clear()
+                if len(self.display) == 0 or self.display[0] != self.railroad:
+                    if len(self.display) != 0:
+                        self.display.clear()
                     self.display[0] = self.railroad
             self.display.refresh_display()
 
