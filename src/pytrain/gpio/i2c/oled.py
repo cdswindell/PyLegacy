@@ -216,6 +216,7 @@ class Oled(Thread, TextBuffer):
 
     def refresh_display(self) -> None:
         with self.synchronizer:
+            print(self._changed_rows)
             if self.is_dirty is True:
                 self.update_display(clear=False, selective=True)
 
