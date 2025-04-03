@@ -166,7 +166,7 @@ class Oled(Thread, TextBuffer):
             self.clear(notify=False)
             self._is_running = False
             self.synchronizer.notify_all()
-            print("Exiting oled display thread... ")
+            print("Exiting oled display thread... ", flush=True)
         self.join()
 
     def reset(self) -> None:

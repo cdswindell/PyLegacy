@@ -134,6 +134,7 @@ class EngineStatus(Thread, GpioDevice):
         self.update_display()
 
     def reset(self) -> None:
+        print("Exiting Engine Status thread", flush=True)
         self.display.reset()
         self._is_running = False
         self._ev.set()
