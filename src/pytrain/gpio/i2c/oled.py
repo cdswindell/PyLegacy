@@ -12,7 +12,7 @@ from ..utils.text_buffer import TextBuffer
 
 
 def make_font(name: str, size: int) -> ImageFont:
-    if name is None or name.strip() == "" or name.strip() == "default" or name.strip() == 'Aileron':
+    if name is None or name.strip() == "" or name.strip() == "default" or name.strip() == "Aileron":
         return ImageFont.load_default(size)
     else:
         name = name.replace(" ", "")
@@ -56,7 +56,7 @@ class Oled(Thread, TextBuffer):
             self._font = ImageFont.load_default(font_size)
         else:
             self._font = make_font(font_family, font_size)
-        self._font_family = self.font.family
+        self._font_family = self.font.font.family
         self._x_offset = x_offset
         self._temp_draw = ImageDraw.Draw(Image.new(self._device.mode, self._device.size, "black"))
         self._hotspots = dict()
@@ -79,13 +79,20 @@ class Oled(Thread, TextBuffer):
     @font_size.setter
     def font_size(self, font_size: int) -> None:
         self._font_size = font_size
-        self._font = ImageFont.load_default(font_size)
+        self._font = make_font(self.font_family, font_size)
         self._clear_image()
         self.update_display(clear=False, selective=False)
 
     @property
     def font_family(self) -> str:
         return self._font_family
+
+    @font_family.setter
+    def font_family(self, font_family: str) -> None:
+        self._font = make_font(font_family, self.font_size)
+        self._font_family = self.font.font.family
+        self._clear_image()
+        self.update_display(clear=False, selective=False)
 
     @property
     def size(self) -> tuple[int, int]:
