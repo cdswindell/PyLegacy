@@ -1,3 +1,4 @@
+import atexit
 from pathlib import Path
 from threading import Event, Thread
 
@@ -51,6 +52,7 @@ class Oled(Thread, TextBuffer):
         self._is_running = True
         self.show()
         self.start()
+        atexit.register(self.stop)
 
     def __repr__(self) -> str:
         return super(TextBuffer, self).__repr__()
