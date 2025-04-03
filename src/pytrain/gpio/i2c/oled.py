@@ -11,9 +11,15 @@ from ...protocol.constants import Mixins
 from ..utils.text_buffer import TextBuffer
 
 
-def make_font(name, size: int = 15) -> ImageFont:
-    font_path = str(Path(__file__).resolve().parent.joinpath("fonts", name))
-    return ImageFont.truetype(font_path, size)
+def make_font(name: str, size: int) -> ImageFont:
+    if name is None or name.strip() == "" or name.strip() == "default":
+        return ImageFont.load_default(size)
+    else:
+        name = name.replace(" ", "")
+        if name.endswith(".ttf") is False:
+            name += ".ttf"
+        font_path = str(Path(__file__).resolve().parent.joinpath("fonts", name))
+        return ImageFont.truetype(font_path, size)
 
 
 class OledDevice(Mixins):
@@ -30,6 +36,7 @@ class Oled(Thread, TextBuffer):
         address: int = 0x3C,
         oled_device: OledDevice | str = OledDevice.ssd1309,
         font_size: int = 15,
+        font_family: str = "DejaVuSansMono.ttf",
         x_offset: int = 2,
     ) -> None:
         super().__init__()
@@ -45,7 +52,11 @@ class Oled(Thread, TextBuffer):
         self._image = Image.new(self._device.mode, self._device.size, "black")
         self._canvas = ImageDraw.Draw(self._image)
         self._font_size = font_size
-        self._font = ImageFont.load_default(font_size)
+        if font_family is None or font_family == "default":
+            self._font = ImageFont.load_default(font_size)
+        else:
+            self._font = make_font(font_family, font_size)
+        self._font_family = self.font.family
         self._x_offset = x_offset
         self._temp_draw = ImageDraw.Draw(Image.new(self._device.mode, self._device.size, "black"))
         self._hotspots = dict()
@@ -71,6 +82,10 @@ class Oled(Thread, TextBuffer):
         self._font = ImageFont.load_default(font_size)
         self._clear_image()
         self.update_display(clear=False, selective=False)
+
+    @property
+    def font_family(self) -> str:
+        return self._font_family
 
     @property
     def size(self) -> tuple[int, int]:
