@@ -30,10 +30,7 @@ class EngineStatus(Thread, GpioDevice):
         elif isinstance(tmcc_id, int) and 1 <= tmcc_id <= 9999 and scope in [CommandScope.ENGINE, CommandScope.TRAIN]:
             self._tmcc_id = tmcc_id
             self._scope = scope
-            if tmcc_id != 99:
-                self._monitored_state = self._state_store.get_state(scope, tmcc_id)
-            else:
-                self._monitored_state = None
+            self._monitored_state = None
         else:
             raise ValueError(f"Invalid tmcc_id: {tmcc_id} or scope: {scope}")
 
@@ -48,7 +45,6 @@ class EngineStatus(Thread, GpioDevice):
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         if self._sync_state and self._sync_state.is_synchronized is True:
-            print("Was synchronized")
             self._sync_watcher = None
             self.on_sync()
         else:
@@ -124,8 +120,10 @@ class EngineStatus(Thread, GpioDevice):
                 self._sync_watcher.shutdown()
                 self._sync_watcher = None
             self._synchronized = True
+            if self._monitored_state is None and self.tmcc_id and self.tmcc_id != 99:
+                self._monitored_state = self._state_store.get_state(self.scope, self.tmcc_id)
+            self._monitor_state_updates()
             self.update_display(clear=True)
-            # self.cache_handler(self)
 
     def on_state_update(self) -> None:
         cur_speed = self._monitored_state.speed if self._monitored_state else None
@@ -134,7 +132,6 @@ class EngineStatus(Thread, GpioDevice):
         self.update_display()
 
     def reset(self) -> None:
-        print("Exiting Engine Status thread", flush=True)
         self.display.reset()
         self._is_running = False
         self._ev.set()
