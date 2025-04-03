@@ -11,10 +11,12 @@ import os
 import time
 
 
-def get_usb_list(): return os.popen("lsusb").read().strip().split("\n")
+def get_usb_list():
+    return os.popen("lsusb").read().strip().split("\n")
 
 
-def get_dev_list(): return os.listdir("/dev")
+def get_dev_list():
+    return os.listdir("/dev")
 
 
 def changed(old, now):

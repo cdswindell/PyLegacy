@@ -7,7 +7,7 @@ from ..comm.command_listener import SYNCING, CommandDispatcher
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PdiCommand
 from ..pdi.pdi_listener import PdiListener
-from ..pdi.pdi_req import PdiReq, AllReq
+from ..pdi.pdi_req import AllReq, PdiReq
 from ..pdi.pdi_state_store import PdiStateStore
 from ..protocol.constants import PROGRAM_NAME
 

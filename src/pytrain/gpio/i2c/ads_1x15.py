@@ -1,7 +1,7 @@
+import time
 from abc import ABC, ABCMeta
 
 from smbus2 import SMBus
-import time
 
 # ADS1x15 default i2c address
 I2C_address = 0x48

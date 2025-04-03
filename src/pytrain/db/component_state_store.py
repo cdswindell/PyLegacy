@@ -4,20 +4,20 @@ import collections
 import logging
 import threading
 from collections import defaultdict
-from typing import List, TypeVar, Set, Tuple
+from typing import List, Set, Tuple, TypeVar
 
-from .component_state import ComponentStateDict, SystemStateDict, SCOPE_TO_STATE_MAP, ComponentState
 from ..comm.comm_buffer import CommBuffer
-from ..comm.command_listener import CommandListener, Message, Topic, Subscriber
+from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
 from ..db.client_state_listener import ClientStateListener
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, BROADCAST_ADDRESS
+from ..protocol.constants import BROADCAST_ADDRESS, CommandScope
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl as Effects
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as Engine1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as Engine2
+from .component_state import SCOPE_TO_STATE_MAP, ComponentState, ComponentStateDict, SystemStateDict
 
 log = logging.getLogger(__name__)
 

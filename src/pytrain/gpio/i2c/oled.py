@@ -206,22 +206,18 @@ class Oled(Thread, TextBuffer):
 
 
 class ScrollingHotspot(Thread, hotspot):
-    def __init__(self, oled: Oled, text, row: int = 0, scroll_speed=1):
+    def __init__(self, oled: Oled, text, row: int = 0):
         super().__init__()
         Thread.__init__(self, daemon=True)
         hotspot.__init__(self, oled.width, oled.font_size)
-        self.device = oled
-        self.width = oled.width
-        self.height = oled.font_size
-        self.font_size = oled.font_size
-        self.row = row
-        self.text = text + " " + text
-        self.scroll_speed = scroll_speed
-        self.font = oled.font
-        w, h = oled.measure_text(text)
-        self.text_width = w
-        self.text_height = h
-        self.x_offset = oled.x_offset
+        self._device = oled
+        self._font_size = oled.font_size
+        self._row = row
+        self._text = text + " " + text
+        self._scroll_speed = 1
+        self._font = oled.font
+        self._text_width, _ = oled.measure_text(text)
+        self._x_offset = oled.x_offset
         self._ev = Event()
         self._resume_ev = Event()
         self._pause_request = False
@@ -238,15 +234,15 @@ class ScrollingHotspot(Thread, hotspot):
         draw = ImageDraw.Draw(image)
         # Clear the hotspot area
         draw.rectangle(
-            (0, self.row * self.font_size, self.width - 1, ((self.row + 1) * self.font_size) - 1),
+            (0, self._row * self._font_size, self.width - 1, ((self._row + 1) * self._font_size) - 1),
             fill="black",
         )
         # Draw the scrolling text
-        draw.text((self.x_offset, (self.row * self.font_size) - 3), self.text, font=self.font, fill="white")
+        draw.text((self._x_offset, (self._row * self._font_size) - 3), self._text, font=self._font, fill="white")
         # Scroll the text
-        self.x_offset -= self.scroll_speed
-        if self.x_offset + self.text_width < 0:
-            self.x_offset = self.device.x_offset + 6 * self.scroll_speed
+        self._x_offset -= self._scroll_speed
+        if self._x_offset + self._text_width < 0:
+            self._x_offset = self._device.x_offset + 6  # the addition of 6 was heuristically determined
         return image
 
     def pause(self) -> None:
@@ -260,7 +256,7 @@ class ScrollingHotspot(Thread, hotspot):
 
     def run(self) -> None:
         while self._is_running and self._ev.is_set() is False:
-            self.device.display(self.render(self.device.image))
+            self._device.display(self.render(self._device.image))
             self._ev.wait(0.01)
             if self._pause_request:
                 self._resume_ev.wait()

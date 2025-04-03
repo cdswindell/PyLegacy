@@ -1,12 +1,12 @@
-from threading import RLock
 from itertools import repeat
+from threading import RLock
 from typing import Tuple
 
 from gpiozero import GPIODeviceClosed, SourceMixin
 from gpiozero.threads import GPIOThread
 
 from .i2c_device import I2CDevice
-from .mcp23017 import Mcp23017Factory, OUTPUT
+from .mcp23017 import OUTPUT, Mcp23017Factory
 
 
 class LEDI2C(I2CDevice, SourceMixin):
