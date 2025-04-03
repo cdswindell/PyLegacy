@@ -250,7 +250,7 @@ class ScrollingHotspot(Thread, hotspot):
         self._x_offset -= self._scroll_speed
         if self._x_offset + self._text_width < 0:
             print(self._x_offset, self._text_width, self._x_offset_reset)
-            self._x_offset = self._device.x_offset
+            self._x_offset = 0
         return image
 
     def pause(self) -> None:
