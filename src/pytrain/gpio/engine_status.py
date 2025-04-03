@@ -45,6 +45,7 @@ class EngineStatus(Thread, GpioDevice):
         # check for state synchronization
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+        print(f"Synchronized: {self.is_synchronized}")
         if self._sync_state and self._sync_state.is_synchronized:
             self._sync_watcher = None
             self.on_sync()
