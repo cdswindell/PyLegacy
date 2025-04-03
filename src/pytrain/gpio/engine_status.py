@@ -83,7 +83,7 @@ class EngineStatus(Thread, GpioDevice):
         while self._is_running:
             self._ev.wait(0.1)
 
-    def update_engine(self, tmcc_id: int, scope: CommandScope) -> None:
+    def update_engine(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE) -> None:
         self._tmcc_id = tmcc_id
         self._scope = scope
         if tmcc_id != 99:
