@@ -46,7 +46,6 @@ class EngineStatus(Thread, GpioDevice):
         # check for state synchronization
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        print(f"Synchronized: {self.is_synchronized}")
         if self._sync_state and self._sync_state.is_synchronized:
             self._sync_watcher = None
             self.on_sync()
@@ -105,9 +104,12 @@ class EngineStatus(Thread, GpioDevice):
                 tmp = f"{self._scope.label}: "
                 row = f"{tmp:<8}"
                 row += f"{self._tmcc_id:04}"
+
                 self.display[1] = row
 
                 row = f"Speed: {self._monitored_state.speed:03d}"
+                dr = self._monitored_state.direction_label
+                row += f" {dr}"
                 self.display[2] = row
             else:
                 self.display[0] = self.railroad
