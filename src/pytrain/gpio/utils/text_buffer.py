@@ -34,9 +34,9 @@ class TextBuffer:
                     self._buffer.append("")
             if 0 <= index < self.rows:
                 if self._buffer[index] != value:
+                    self._buffer[index] = value
                     self._changed_rows.add(index)
                     self._cursor_pos = (index, len(value))
-                    print(self._buffer[index], value)
                     self.__do_notify()
             else:
                 raise IndexError(f"Index {index} out of range")
