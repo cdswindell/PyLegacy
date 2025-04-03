@@ -48,6 +48,7 @@ class EngineStatus(Thread, GpioDevice):
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         if self._sync_state and self._sync_state.is_synchronized is True:
+            print("Was synchronized")
             self._sync_watcher = None
             self.on_sync()
         else:
@@ -124,7 +125,6 @@ class EngineStatus(Thread, GpioDevice):
                 self._sync_watcher = None
             self._synchronized = True
             self.update_display(clear=True)
-            self.start()
             # self.cache_handler(self)
 
     def on_state_update(self) -> None:
