@@ -141,6 +141,11 @@ class TextBuffer:
         return self._buffer.copy()
 
     @property
+    def is_dirty(self) -> bool:
+        with self._cv:
+            return len(self._changed_rows) > 0
+
+    @property
     def changed_rows(self) -> list[int]:
         with self._cv:
             changes = sorted(self._changed_rows)
