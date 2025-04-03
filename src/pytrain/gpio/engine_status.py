@@ -106,15 +106,20 @@ class EngineStatus(Thread, GpioDevice):
             self.cache_handler(self)
 
     def reset(self) -> None:
+        print(0)
         self.display.reset()
+        print(1)
         self._is_running = False
         self._ev.set()
+        print(2)
         if self._sync_watcher:
             self._sync_watcher.shutdown()
             self._sync_watcher = None
+        print(3)
         if self._state_watcher:
             self._state_watcher.shutdown()
             self._state_watcher = None
+        print(4)
 
     def close(self) -> None:
         self.reset()
