@@ -86,8 +86,6 @@ class EngineStatus(Thread, GpioDevice):
     def run(self) -> None:
         while self._is_running is True and self._ev.is_set() is False:
             self._ev.wait(10)
-            print(f"is ev set? {self._ev.is_set()}")
-        print("exiting...")
 
     def update_engine(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE) -> None:
         self._tmcc_id = tmcc_id
@@ -134,7 +132,6 @@ class EngineStatus(Thread, GpioDevice):
                 self._monitored_state = self._state_store.get_state(self.scope, self.tmcc_id)
             self._monitor_state_updates()
             self.update_display(clear=True)
-            self.start()
 
     def on_state_update(self) -> None:
         cur_speed = self._monitored_state.speed if self._monitored_state else None
