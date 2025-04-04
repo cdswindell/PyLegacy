@@ -19,7 +19,7 @@ class EngineStatus(Thread, GpioDevice):
         oled_device: OledDevice | str = OledDevice.ssd1309,
     ) -> None:
         self._lock = RLock()
-        super().__init__(daemon=False, name=f"{PROGRAM_NAME} Engine Status Oled")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Engine Status Oled")
         self._oled = Oled(rows, cols, address, oled_device, auto_update=False)
         self._state_store = ComponentStateStore.get()
         if isinstance(tmcc_id, EngineState):
