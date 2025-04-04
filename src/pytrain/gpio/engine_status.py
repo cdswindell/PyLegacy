@@ -83,6 +83,7 @@ class EngineStatus(Thread, GpioDevice):
         return self._railroad if self._railroad is not None else "Loading Engine Roster..."
 
     def run(self) -> None:
+        print("starting...")
         while self._is_running is True and self._ev.is_set is False:
             self._ev.wait(0.1)
         print("exiting...")
@@ -132,6 +133,7 @@ class EngineStatus(Thread, GpioDevice):
                 self._monitored_state = self._state_store.get_state(self.scope, self.tmcc_id)
             self._monitor_state_updates()
             self.update_display(clear=True)
+            self.start()
 
     def on_state_update(self) -> None:
         cur_speed = self._monitored_state.speed if self._monitored_state else None
