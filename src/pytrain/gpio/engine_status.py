@@ -2,7 +2,7 @@ import atexit
 from threading import Event, RLock, Thread
 
 from .. import ComponentStateStore
-from ..db.component_state import EngineState
+from ..db.component_state import EngineState, TrainState
 from ..db.state_watcher import StateWatcher
 from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
 from .gpio_device import GpioDevice
@@ -74,6 +74,10 @@ class EngineStatus(Thread, GpioDevice):
     @property
     def is_synchronized(self) -> bool:
         return self._synchronized
+
+    @property
+    def state(self) -> EngineState | TrainState | None:
+        return self._monitored_state
 
     @property
     def railroad(self) -> str:
