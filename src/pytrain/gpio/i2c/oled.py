@@ -175,10 +175,10 @@ class Oled(Thread, TextBuffer):
         self.stop()
 
     def run(self) -> None:
-        while self._is_running:
+        while self._is_running is True:
             with self.synchronizer:
                 self.synchronizer.wait()
-                if self._is_running:
+                if self._is_running is True:
                     self.update_display()
 
     def pause(self) -> None:

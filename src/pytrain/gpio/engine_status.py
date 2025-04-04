@@ -83,8 +83,9 @@ class EngineStatus(Thread, GpioDevice):
         return self._railroad if self._railroad is not None else "Loading Engine Roster..."
 
     def run(self) -> None:
-        while self._is_running:
+        while self._is_running is True and self._ev.is_set is False:
             self._ev.wait(0.1)
+        print("exiting...")
 
     def update_engine(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE) -> None:
         self._tmcc_id = tmcc_id
