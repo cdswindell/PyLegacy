@@ -84,7 +84,7 @@ class EngineStatus(Thread, GpioDevice):
 
     def run(self) -> None:
         print("starting...")
-        while self._is_running is True and self._ev.is_set is False:
+        while self._is_running is True and self._ev.is_set() is False:
             self._ev.wait(0.1)
         print("exiting...")
 
