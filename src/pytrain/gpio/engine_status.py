@@ -1,3 +1,4 @@
+import atexit
 from threading import Event, RLock, Thread
 
 from .. import ComponentStateStore
@@ -48,7 +49,7 @@ class EngineStatus(Thread, GpioDevice):
         else:
             self.update_display()
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
-        self.cache_handler(self)
+        atexit.register(self.close)
 
     @property
     def display(self) -> Oled:
