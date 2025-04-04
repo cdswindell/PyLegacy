@@ -108,8 +108,9 @@ class EngineStatus(Thread, GpioDevice):
             if self._monitored_state:
                 rname = self._monitored_state.road_name if self._monitored_state.road_name else "No Information"
                 rnum = f"#{self._monitored_state.road_number} " if self._monitored_state.road_number else ""
-                tmp = f" {self._monitored_state.control_type_label}" if self._monitored_state.control_type_label else ""
-                self.display[0] = f"{rnum}{rname}{tmp}"
+                ct = f" {self._monitored_state.control_type_label}" if self._monitored_state.control_type_label else ""
+                lt = f" {self._monitored_state.engine_type_label}" if self._monitored_state.engine_type_label else ""
+                self.display[0] = f"{rnum}{rname}{ct}{lt}"
 
                 tmp = f"{self._scope.label}: "
                 row = f"{tmp:<8}"
