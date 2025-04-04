@@ -2,7 +2,7 @@ from threading import Condition, RLock
 
 
 class TextBuffer:
-    def __init__(self, rows: int = 4, cols: int = 20, auto_update: bool = True) -> None:
+    def __init__(self, rows: int = 4, cols: int = 0, auto_update: bool = True) -> None:
         super().__init__()
         self._rows = rows
         self._cols = cols
@@ -124,7 +124,7 @@ class TextBuffer:
         if isinstance(pos, tuple) and len(pos) == 2:
             if pos[0] < 0 or pos[0] >= self.rows:
                 raise AttributeError(f"Invalid row position: {pos[0]}")
-            if pos[1] < 0 or pos[1] >= self.cols:
+            if self.cols and (pos[1] < 0 or pos[1] >= self.cols):
                 raise AttributeError(f"Invalid column position: {pos[1]}")
         else:
             raise AttributeError(f"Invalid cursor position: {pos}")

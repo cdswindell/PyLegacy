@@ -35,8 +35,6 @@ class OledDevice(Mixins):
 class Oled(Thread, TextBuffer):
     def __init__(
         self,
-        rows: int = 4,
-        cols: int = 25,
         address: int = 0x3C,
         oled_device: OledDevice | str = OledDevice.ssd1309,
         font_size: int = 15,
@@ -53,8 +51,12 @@ class Oled(Thread, TextBuffer):
         else:
             raise ValueError(f"Unsupported Luma OLED device: {oled_device}")
 
+        # determine maximum number of rows; we do not change this even if the
+        # font/font size is changed later on
+        self._rows = rows = int(self._device.height / font_size)
+
         Thread.__init__(self, daemon=True)
-        TextBuffer.__init__(self, rows, cols, auto_update=auto_update)
+        TextBuffer.__init__(self, rows, auto_update=auto_update)
 
         self._image = Image.new(self._device.mode, self._device.size, "black")
         self._canvas = ImageDraw.Draw(self._image)
@@ -74,6 +76,10 @@ class Oled(Thread, TextBuffer):
 
     def __repr__(self) -> str:
         return super(TextBuffer, self).__repr__()
+
+    @property
+    def rows(self) -> int:
+        return self._rows
 
     @property
     def x_offset(self) -> int:
