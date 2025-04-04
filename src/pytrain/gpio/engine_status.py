@@ -113,7 +113,7 @@ class EngineStatus(Thread, GpioDevice):
                 row += f" {tmp[0]}"
                 self.display[1] = row
 
-                row = f"Speed: {self._monitored_state.speed:03d}"
+                row = f" Speed: {self._monitored_state.speed:03d}"
                 dr = self._monitored_state.direction_label
                 row += f" {dr}"
                 self.display[2] = row
