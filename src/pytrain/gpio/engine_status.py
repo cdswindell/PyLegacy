@@ -117,6 +117,9 @@ class EngineStatus(Thread, GpioDevice):
                 dr = self._monitored_state.direction_label
                 row += f" {dr}"
                 self.display[2] = row
+
+                row = f" TB: {self._monitored_state.train_brake} Mo: {self._monitored_state.momentum}"
+                self.display[3] = row
             elif self.is_synchronized is True:
                 self.display[0] = self.railroad
             else:
