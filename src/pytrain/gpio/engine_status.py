@@ -104,7 +104,8 @@ class EngineStatus(Thread, GpioDevice):
             if self._monitored_state:
                 rname = self._monitored_state.road_name if self._monitored_state.road_name else "No Information"
                 rnum = f"#{self._monitored_state.road_number} " if self._monitored_state.road_number else ""
-                self.display[0] = f"{rnum}{rname}"
+                tmp = f" {self._monitored_state.control_type_label}" if self._monitored_state.control_type_label else ""
+                self.display[0] = f"{rnum}{rname}{tmp}"
 
                 tmp = f"{self._scope.label}: "
                 row = f"{tmp:<8}"
@@ -113,12 +114,12 @@ class EngineStatus(Thread, GpioDevice):
                 row += f" {tmp[0]}"
                 self.display[1] = row
 
-                row = f" Speed: {self._monitored_state.speed:03d}"
+                row = f"Speed: {self._monitored_state.speed:03d}"
                 dr = self._monitored_state.direction_label
                 row += f" {dr}"
                 self.display[2] = row
 
-                row = f" TB: {self._monitored_state.train_brake} Mo: {self._monitored_state.momentum}"
+                row = f"TB: {self._monitored_state.train_brake} Mo: {self._monitored_state.momentum}"
                 self.display[3] = row
             elif self.is_synchronized is True:
                 self.display[0] = self.railroad
