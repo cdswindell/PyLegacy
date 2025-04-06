@@ -3,7 +3,7 @@ from enum import unique
 from pathlib import Path
 from threading import Event, Thread
 
-from luma.core.interface.serial import i2c
+from luma.core.interface.serial import i2c, spi
 from luma.core.virtual import hotspot
 from luma.oled.device import sh1107, ssd1306, ssd1309, ssd1322, ssd1325, ssd1362
 from PIL import Image, ImageDraw, ImageFont
@@ -44,7 +44,10 @@ class Oled(Thread, TextBuffer):
         auto_update: bool = True,
     ) -> None:
         super().__init__()
-        self._serial = i2c(port=1, address=address)  # i2c bus & address
+        if address:
+            self._serial = i2c(port=1, address=address)  # i2c bus & address
+        else:
+            self._serial = spi(device=0, port=0)
         if isinstance(oled_device, str):
             oled_device = OledDevice.by_name(oled_device, raise_exception=True)
         if isinstance(oled_device, OledDevice):
