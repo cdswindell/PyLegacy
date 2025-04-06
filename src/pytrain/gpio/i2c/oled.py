@@ -3,6 +3,7 @@ from enum import unique
 from pathlib import Path
 from threading import Event, Thread
 
+from luma.core.interface.parallel import bitbang_6800
 from luma.core.interface.serial import i2c, spi
 from luma.core.virtual import hotspot
 from luma.oled.device import sh1107, ssd1306, ssd1309, ssd1322, ssd1325, ssd1362
@@ -42,12 +43,17 @@ class Oled(Thread, TextBuffer):
         font_family: str = "DejaVuSansMono.ttf",
         x_offset: int = 2,
         auto_update: bool = True,
+        use_bit_bang: bool = False,
     ) -> None:
         super().__init__()
         if address:
             self._serial = i2c(port=1, address=address)  # i2c bus & address
         else:
-            self._serial = spi(device=0, port=0)
+            if use_bit_bang is True:
+                bitbang_6800(RS=7, E=8, PINS=[25, 24, 23, 27])
+            else:
+                self._serial = spi(device=0, port=0)
+
         if isinstance(oled_device, str):
             oled_device = OledDevice.by_name(oled_device, raise_exception=True)
         if isinstance(oled_device, OledDevice):
