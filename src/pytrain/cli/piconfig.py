@@ -15,8 +15,8 @@ import textwrap
 from argparse import ArgumentParser
 from typing import List, Set, Tuple
 
+from .. import get_version, is_linux, is_package
 from .pytrain import PROGRAM_NAME
-from .. import is_package, is_linux, get_version
 
 SETTINGS = {
     "net_names": 0,

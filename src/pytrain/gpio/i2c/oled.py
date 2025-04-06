@@ -5,7 +5,7 @@ from threading import Event, Thread
 
 from luma.core.interface.serial import i2c
 from luma.core.virtual import hotspot
-from luma.oled.device import ssd1306, ssd1309, ssd1322, ssd1325, ssd1362
+from luma.oled.device import sh1107, ssd1306, ssd1309, ssd1322, ssd1325, ssd1362
 from PIL import Image, ImageDraw, ImageFont
 
 from ...protocol.constants import Mixins
@@ -30,6 +30,7 @@ class OledDevice(Mixins):
     ssd1322 = ssd1322
     ssd1325 = ssd1325
     ssd1362 = ssd1362
+    sh1107 = sh1107
 
 
 class Oled(Thread, TextBuffer):
