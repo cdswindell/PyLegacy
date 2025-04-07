@@ -146,10 +146,10 @@ SMOKE_SET = {
 SMOKE_LABEL = {
     TMCC1EngineCommandEnum.SMOKE_ON: "\u2652",
     TMCC1EngineCommandEnum.SMOKE_OFF: "\u2010",
-    TMCC2EngineCommandEnum.SMOKE_OFF: " ",
-    TMCC2EngineCommandEnum.SMOKE_LOW: "\u2581",
-    TMCC2EngineCommandEnum.SMOKE_MEDIUM: "\u2584",
-    TMCC2EngineCommandEnum.SMOKE_HIGH: "\u2586",
+    TMCC2EffectsControl.SMOKE_OFF: " ",
+    TMCC2EffectsControl.SMOKE_LOW: "\u2581",
+    TMCC2EffectsControl.SMOKE_MEDIUM: "\u2584",
+    TMCC2EffectsControl.SMOKE_HIGH: "\u2586",
 }
 
 BIG_NUMBER = float("inf")
