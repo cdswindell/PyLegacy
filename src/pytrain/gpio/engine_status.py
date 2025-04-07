@@ -128,10 +128,10 @@ class EngineStatus(Thread, GpioDevice):
                 if self._monitored_state.control_type_label:
                     if self.display.cols > 15:
                         row += self._monitored_state.control_type_label
-                        #row += " Started" if is_started is True else " Shutoff" if is_shutdown is True else ""
+                        # row += " Started" if is_started is True else " Shutoff" if is_shutdown is True else ""
                     else:
                         row += self._monitored_state.control_type_label[0]
-                        #row += " *" if is_started is True else " -" if is_shutdown is True else "  "
+                        # row += " *" if is_started is True else " -" if is_shutdown is True else "  "
                 self.display[1] = row
 
                 row = f"Speed: {self._monitored_state.speed:03d}"
