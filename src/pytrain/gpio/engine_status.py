@@ -112,6 +112,8 @@ class EngineStatus(Thread, GpioDevice):
                         if self._monitored_state.control_type_label
                         else ""
                     )
+                else:
+                    ct = ""
                 lt = f" {self._monitored_state.engine_type_label}" if self._monitored_state.engine_type_label else ""
                 self.display[0] = f"{rnum}{rname}{ct}{lt}"
 
