@@ -131,7 +131,14 @@ class EngineStatus(Thread, GpioDevice):
                 self.display[1] = row
 
                 row = f"Speed: {self._monitored_state.speed:03d}"
+                if self.display.cols > 20:
+                    row += f"/{self._monitored_state.speed_max:03d}"
                 dr = self._monitored_state.direction_label
+                if self.display.cols > 15:
+                    if dr == "FW":
+                        dr = "Fwd"
+                    elif dr == "RV":
+                        dr = "Rev"
                 row += f" {dr}"
                 self.display[2] = row
 
