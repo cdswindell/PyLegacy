@@ -10,8 +10,8 @@ from .i2c.oled import Oled, OledDevice
 
 UP = "\u25b4"
 DOWN = "\u25be"
-REV = "\u00ab "
-FWD = "\u00bb "
+REV = "\u00ab"
+FWD = "\u00bb"
 
 
 class EngineStatus(Thread, GpioDevice):
@@ -149,9 +149,9 @@ class EngineStatus(Thread, GpioDevice):
                         dr = "Rev"
                 else:
                     if dr == "FW":
-                        dr = FWD
+                        dr = "F" + FWD
                     elif dr == "RV":
-                        dr = REV
+                        dr = "R" + REV
                 row += f" {dr}"
                 if self.display.cols > 20:
                     row += " Started " + UP if is_started is True else " Shutdown" + DOWN if is_shutdown is True else ""
