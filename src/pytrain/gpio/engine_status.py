@@ -104,9 +104,11 @@ class EngineStatus(Thread, GpioDevice):
             if clear is True:
                 self.display.clear()
             if self._monitored_state:
+                is_started = self._monitored_state.is_started
+                is_shutdown = self._monitored_state.is_shutdown
                 rname = self._monitored_state.road_name if self._monitored_state.road_name else "No Information"
                 rnum = f"#{self._monitored_state.road_number} " if self._monitored_state.road_number else ""
-                if self.display.cols <= 15:
+                if self.display.cols <= 20:
                     ct = (
                         f" {self._monitored_state.control_type_label}"
                         if self._monitored_state.control_type_label
@@ -120,14 +122,13 @@ class EngineStatus(Thread, GpioDevice):
                 tmp = f"{self._scope.label}: "
                 row = f"{tmp:<8}"
                 row += f"{self._tmcc_id:04}"
-                if self._monitored_state.control_type_label:
-                    if self.display.cols > 20:
-                        if rnum:
-                            row += f" {rnum}"
-                    if self.display.cols > 15:
-                        row += f" {self._monitored_state.control_type_label}"
-                    else:
-                        row += f" {self._monitored_state.control_type_label[0]}"
+                if self.display.cols > 20:
+                    if rnum:
+                        row += f" {rnum}"
+                if self.display.cols > 15:
+                    row += " Started" if is_started is True else "  Shutoff" if is_shutdown is True else ""
+                else:
+                    row += " *" if is_started is True else " -" if is_shutdown is True else "  "
                 self.display[1] = row
 
                 row = f"Speed: {self._monitored_state.speed:03d}"

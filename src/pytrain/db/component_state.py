@@ -1190,7 +1190,7 @@ class EngineState(ComponentState):
         if self.max_speed and self.max_speed != 255 and self.speed_limit != 255:
             ms = min(self.max_speed, self.speed_limit)
         elif self._speed_limit and self.speed_limit != 255:
-            ms =  self._speed_limit
+            ms = self._speed_limit
         elif self.max_speed and self.max_speed != 255:
             ms = 199
         else:
@@ -1291,6 +1291,14 @@ class EngineState(ComponentState):
     @property
     def stop_start(self) -> CommandDefEnum | None:
         return self._start_stop
+
+    @property
+    def is_started(self) -> bool:
+        return self._start_stop in STARTUP_SET
+
+    @property
+    def is_shutdown(self) -> bool:
+        return self._start_stop in SHUTDOWN_SET
 
     @property
     def year(self) -> int:
