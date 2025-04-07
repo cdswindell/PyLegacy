@@ -148,7 +148,7 @@ class EngineStatus(Thread, GpioDevice):
                 elif self.display.cols > 15:
                     row += " Ready" if is_started is True else " Off" if is_shutdown is True else ""
                 else:
-                    row += "^" if is_started is True else "v" if is_shutdown is True else "  "
+                    row += "^" if is_started is True else "v" if is_shutdown is True else " "
                 self.display[2] = row
 
                 row = f"TB: {self._monitored_state.train_brake} Mo: {self._monitored_state.momentum}"
