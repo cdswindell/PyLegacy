@@ -127,11 +127,10 @@ class EngineStatus(Thread, GpioDevice):
                         row += f" {rnum.strip()}"
                 if self._monitored_state.control_type_label:
                     if self.display.cols > 15:
-                        row += self._monitored_state.control_type_label
-                        # row += " Started" if is_started is True else " Shutoff" if is_shutdown is True else ""
+                        row += f" {self._monitored_state.control_type_label}"
                     else:
-                        row += self._monitored_state.control_type_label[0]
-                        # row += " *" if is_started is True else " -" if is_shutdown is True else "  "
+                        row += f" {self._monitored_state.control_type_label[0]}"
+
                 self.display[1] = row
 
                 row = f"Speed: {self._monitored_state.speed:03d}"
@@ -145,7 +144,7 @@ class EngineStatus(Thread, GpioDevice):
                         dr = "Rev"
                 row += f" {dr}"
                 if self.display.cols > 20:
-                    row += " Started Up" if is_started is True else " Shutdown" if is_shutdown is True else ""
+                    row += " Started" if is_started is True else " Shutdown" if is_shutdown is True else ""
                 elif self.display.cols > 15:
                     row += " Ready" if is_started is True else " Off" if is_shutdown is True else ""
                 else:
