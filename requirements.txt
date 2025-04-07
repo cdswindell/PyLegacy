@@ -9,4 +9,5 @@ setuptools_scm>=8.2.0
 smbus2>=0.5.0
 zeroconf>=0.146.3
 lgpio>=0.2.2.0; sys_platform == 'linux'
+rpi-lgpio>=0.6; sys_platform == 'linux'
 typing_extensions; python_version < '3.11'
