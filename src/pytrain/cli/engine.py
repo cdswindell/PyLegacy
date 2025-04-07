@@ -321,8 +321,7 @@ class EngineCli(CliBaseTMCC):
         momentum = sp.add_parser("momentum", aliases=["mo"], help="Momentum operations", parent=engine_parser)
         mom_group = momentum.add_mutually_exclusive_group()
         mom_group.add_argument(
-            "-l",
-            "--low",
+            "-low",
             action="store_const",
             const="MOMENTUM_LOW",
             dest="option",
@@ -330,15 +329,20 @@ class EngineCli(CliBaseTMCC):
             help="Set momentum to low",
         )  # on first argument of mutual group
         mom_group.add_argument(
-            "-m",
-            "--medium",
+            "-medium",
             action="store_const",
             const="MOMENTUM_MEDIUM",
             dest="option",
             help="Set momentum to medium",
         )
         mom_group.add_argument(
-            "-x", "--high", action="store_const", const="MOMENTUM_HIGH", dest="option", help="Set momentum to high"
+            "-high",
+            "-maximum",
+            "-x",
+            action="store_const",
+            const="MOMENTUM_HIGH",
+            dest="option",
+            help="Set momentum to high",
         )
         mom_group.add_argument("-off", action="store_const", const="MOMENTUM", dest="option", help="Set momentum off")
 
@@ -360,8 +364,7 @@ class EngineCli(CliBaseTMCC):
         smoke = sp.add_parser("smoke", aliases=["sm"], help="Smoke operations", parent=engine_parser)
         smoke_group = smoke.add_mutually_exclusive_group()
         smoke_group.add_argument(
-            "-l",
-            "--low",
+            "-low",
             action="store_const",
             const="SMOKE_LOW",
             dest="option",
@@ -369,17 +372,16 @@ class EngineCli(CliBaseTMCC):
             help="Set smoke level to low",
         )  # on first argument of mutual group
         smoke_group.add_argument(
-            "-m",
-            "--medium",
+            "-medium",
             action="store_const",
             const="SMOKE_MEDIUM",
             dest="option",
             help="Set smoke level to medium",
         )
         smoke_group.add_argument(
+            "-high",
+            "-maximum",
             "-x",
-            "-hi",
-            "--high",
             action="store_const",
             const="SMOKE_HIGH",
             dest="option",
