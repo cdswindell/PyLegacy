@@ -8,6 +8,9 @@ from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
 from .gpio_device import GpioDevice
 from .i2c.oled import Oled, OledDevice
 
+UP = "\u25b4"
+DOWN = "\u25be"
+
 
 class EngineStatus(Thread, GpioDevice):
     def __init__(
@@ -148,7 +151,7 @@ class EngineStatus(Thread, GpioDevice):
                 elif self.display.cols > 15:
                     row += " Ready" if is_started is True else " Off" if is_shutdown is True else ""
                 else:
-                    row += "^" if is_started is True else "v" if is_shutdown is True else " "
+                    row += UP if is_started is True else DOWN if is_shutdown is True else " "
                 self.display[2] = row
 
                 row = f"TB: {self._monitored_state.train_brake} Mo: {self._monitored_state.momentum}"
