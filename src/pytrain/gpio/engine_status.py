@@ -117,9 +117,9 @@ class EngineStatus(Thread, GpioDevice):
                     if rnum:
                         row += f" #{rnum}"
                 if self.display.cols > 15:
-                    row += f" {self._monitored_state.engine_control_label}"
+                    row += f" {self._monitored_state.control_type_label}"
                 else:
-                    row += f" {self._monitored_state.engine_control_label[0]}"
+                    row += f" {self._monitored_state.control_type_label[0]}"
                 self.display[1] = row
 
                 row = f"Speed: {self._monitored_state.speed:03d}"
