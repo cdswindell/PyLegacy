@@ -167,7 +167,7 @@ class Oled(Thread, TextBuffer):
         self._device.hide()
 
     def measure_text(self, text: str) -> tuple[int, int]:
-        left, top, right, bottom = self._temp_draw.textbbox((0, 0), text, font=self._font)
+        left, top, right, bottom = self._canvas.textbbox((0, 0), text, font=self._font)
         return int(right - left), int(bottom - top)
 
     def display(self, image: Image) -> None:
