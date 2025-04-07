@@ -147,7 +147,7 @@ class EngineStatus(Thread, GpioDevice):
                         dr = "Rev"
                 row += f" {dr}"
                 if self.display.cols > 20:
-                    row += " Started" if is_started is True else " Shutdown" if is_shutdown is True else ""
+                    row += " Started " + UP if is_started is True else " Shutdown" + DOWN if is_shutdown is True else ""
                 elif self.display.cols > 15:
                     row += " Started" if is_started is True else " Off " + DOWN if is_shutdown is True else ""
                 else:
