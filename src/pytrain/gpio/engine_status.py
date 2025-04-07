@@ -12,6 +12,7 @@ UP = "\u25b4"
 DOWN = "\u25be"
 REV = "\u00ab"
 FWD = "\u00bb"
+BELL = "\u266b"
 
 
 class EngineStatus(Thread, GpioDevice):
@@ -164,7 +165,7 @@ class EngineStatus(Thread, GpioDevice):
                 self.display[2] = row
 
                 if self.display.cols > 20:
-                    rpm = f" RPM: {self._monitored_state.rpm:1d}"
+                    rpm = f" RPM: {self._monitored_state.rpm:1d}/{self._monitored_state.labor:02d}"
                 else:
                     rpm = ""
                 if self.display.cols > 15:
