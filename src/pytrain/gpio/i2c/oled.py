@@ -3,6 +3,7 @@ from enum import unique
 from pathlib import Path
 from threading import Event, Thread
 
+import luma.oled.const
 from luma.core.device import device
 from luma.core.error import DeviceDisplayModeError
 from luma.core.interface.serial import i2c, spi
@@ -38,7 +39,7 @@ class sh1122(device):
     """
 
     def __init__(self, serial_interface=None, width=64, height=256, rotate=0):
-        super(sh1122, self).__init__(ssd1306, serial_interface)
+        super(sh1122, self).__init__(luma.oled.const.sh1107, serial_interface)
         self.capabilities(width, height, rotate)
 
         self._pages = self._h // 8
