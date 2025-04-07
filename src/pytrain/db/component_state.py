@@ -143,6 +143,15 @@ SMOKE_SET = {
     TMCC2EffectsControl.SMOKE_HIGH,
 }
 
+SMOKE_LABEL = {
+    TMCC1EngineCommandEnum.SMOKE_ON: "\u2652",
+    TMCC1EngineCommandEnum.SMOKE_OFF: "\u2010",
+    TMCC2EngineCommandEnum.SMOKE_OFF: " ",
+    TMCC2EngineCommandEnum.SMOKE_LOW: "\u2581",
+    TMCC2EngineCommandEnum.SMOKE_MEDIUM: "\u2584",
+    TMCC2EngineCommandEnum.SMOKE_HIGH: "\u2586",
+}
+
 BIG_NUMBER = float("inf")
 
 
@@ -1234,6 +1243,10 @@ class EngineState(ComponentState):
     @property
     def smoke(self) -> CommandDefEnum | None:
         return self._smoke_level
+
+    @property
+    def smoke_label(self) -> str:
+        return SMOKE_LABEL.get(self._smoke_level, None)
 
     @property
     def train_brake(self) -> int:

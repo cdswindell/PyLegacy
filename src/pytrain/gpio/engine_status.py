@@ -10,6 +10,8 @@ from .i2c.oled import Oled, OledDevice
 
 UP = "\u25b4"
 DOWN = "\u25be"
+REV = "\u00ab "
+FWD = "\u00bb "
 
 
 class EngineStatus(Thread, GpioDevice):
@@ -145,6 +147,11 @@ class EngineStatus(Thread, GpioDevice):
                         dr = "Fwd"
                     elif dr == "RV":
                         dr = "Rev"
+                else:
+                    if dr == "FW":
+                        dr = FWD
+                    elif dr == "RV":
+                        dr = REV
                 row += f" {dr}"
                 if self.display.cols > 20:
                     row += " Started " + UP if is_started is True else " Shutdown" + DOWN if is_shutdown is True else ""
@@ -154,7 +161,17 @@ class EngineStatus(Thread, GpioDevice):
                     row += UP if is_started is True else DOWN if is_shutdown is True else " "
                 self.display[2] = row
 
-                row = f"TB: {self._monitored_state.train_brake} Mo: {self._monitored_state.momentum}"
+                if self.display.cols > 20:
+                    pass
+                if self.display.cols > 15:
+                    tb = f"TB: {self._monitored_state.train_brake}"
+                    mo = f"Mo: {self._monitored_state.momentum}"
+                    sm = f"Sm: {self._monitored_state.smoke_label if self._monitored_state.smoke_label else '?'}"
+                else:
+                    tb = f"B: {self._monitored_state.train_brake}"
+                    mo = f"M: {self._monitored_state.momentum}"
+                    sm = f"S: {self._monitored_state.smoke_label if self._monitored_state.smoke_label else '?'}"
+                row = f"{tb} {mo} {sm}"
                 self.display[3] = row
             elif self.is_synchronized is True:
                 self.display[0] = self.railroad
