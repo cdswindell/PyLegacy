@@ -106,20 +106,26 @@ class EngineStatus(Thread, GpioDevice):
             if self._monitored_state:
                 rname = self._monitored_state.road_name if self._monitored_state.road_name else "No Information"
                 rnum = f"#{self._monitored_state.road_number} " if self._monitored_state.road_number else ""
-                ct = f" {self._monitored_state.control_type_label}" if self._monitored_state.control_type_label else ""
+                if self.display.cols <= 15:
+                    ct = (
+                        f" {self._monitored_state.control_type_label}"
+                        if self._monitored_state.control_type_label
+                        else ""
+                    )
                 lt = f" {self._monitored_state.engine_type_label}" if self._monitored_state.engine_type_label else ""
                 self.display[0] = f"{rnum}{rname}{ct}{lt}"
 
                 tmp = f"{self._scope.label}: "
                 row = f"{tmp:<8}"
                 row += f"{self._tmcc_id:04}"
-                if self.display.cols > 20:
-                    if rnum:
-                        row += f" {rnum}"
-                if self.display.cols > 15:
-                    row += f" {self._monitored_state.control_type_label}"
-                else:
-                    row += f" {self._monitored_state.control_type_label[0]}"
+                if self._monitored_state.control_type_label:
+                    if self.display.cols > 20:
+                        if rnum:
+                            row += f" {rnum}"
+                    if self.display.cols > 15:
+                        row += f" {self._monitored_state.control_type_label}"
+                    else:
+                        row += f" {self._monitored_state.control_type_label[0]}"
                 self.display[1] = row
 
                 row = f"Speed: {self._monitored_state.speed:03d}"

@@ -1,5 +1,6 @@
 import atexit
 from enum import unique
+from multiprocessing import Process
 from pathlib import Path
 from threading import Event, Thread
 
@@ -246,14 +247,14 @@ class Oled(Thread, TextBuffer):
         return int(self.width / (w / len(sample)))
 
 
-class ScrollingHotspot(Thread, hotspot):
+class ScrollingHotspot(Process, hotspot):
     """
     Support Scrolling Text
     """
 
     def __init__(self, oled: Oled, text, row: int = 0):
         super().__init__()
-        Thread.__init__(self, daemon=True)
+        Process.__init__(self, daemon=True)
         hotspot.__init__(self, oled.width, oled.font_size)
         self._device = oled
         self._x_offset = oled.x_offset
