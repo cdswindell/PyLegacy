@@ -115,7 +115,7 @@ class EngineStatus(Thread, GpioDevice):
                 row += f"{self._tmcc_id:04}"
                 if self.display.cols > 20:
                     if rnum:
-                        row += f" #{rnum}"
+                        row += f" {rnum}"
                 if self.display.cols > 15:
                     row += f" {self._monitored_state.control_type_label}"
                 else:

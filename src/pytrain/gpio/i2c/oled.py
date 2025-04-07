@@ -73,7 +73,7 @@ class Oled(Thread, TextBuffer):
         else:
             self._font = make_font(font_family, font_size)
         self._font_family = self.font.font.family
-        self._cols = self._xxx()
+        self._cols = self._calculate_num_columns()
         self._x_offset = x_offset
         self._temp_draw = ImageDraw.Draw(Image.new(self._device.mode, self._device.size, "black"))
         self._hotspots = dict()
@@ -240,10 +240,9 @@ class Oled(Thread, TextBuffer):
     def _clear_image(self) -> None:
         self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
 
-    def _xxx(self) -> int:
+    def _calculate_num_columns(self) -> int:
         sample = "The quick brown fox jumps over the lazy dog"
-        w, h = self.measure_text(sample)
-        print(w / len(sample))
+        w, _ = self.measure_text(sample)
         return int(self.width / (w / len(sample)))
 
 
