@@ -90,7 +90,7 @@ class sh1122(greyscale_device):
         Takes a 1-bit monochrome or 24-bit RGB image and renders it
         to the greyscale OLED display. RGB pixels are converted to 8-bit
         greyscale values using a simplified Luma calculation, based on
-        *Y'=0.299R'+0.587G'+0.114B'*.
+        *Y=0.299R+0.587G+0.114B*.
         :param image: the image to render
         :type image: PIL.Image.Image
         """
@@ -107,13 +107,9 @@ class sh1122(greyscale_device):
 
             buf = bytearray(width * height >> 1)
 
-            # self.command(self._const.SETCOLLO)
-            # self.command(self._const.SETCOLHI)
-            # self.command(self._const.SETROW, 20)
             self._populate(buf, image.getdata())
             self.data(buf)
 
     def cleanup(self):
-        print("sh1122::cleanup()")
-        self.command(self._const.SET_ENTIRE_OFF)  # to be abso-fucking-lutely sure
-        super().cleanup()  # .. and this should call DISPLAYOFF command
+        self.command(self._const.SET_ENTIRE_OFF)  # to be absolutely sure
+        super().cleanup()  # and this should call DISPLAY OFF command

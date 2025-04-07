@@ -113,8 +113,13 @@ class EngineStatus(Thread, GpioDevice):
                 tmp = f"{self._scope.label}: "
                 row = f"{tmp:<8}"
                 row += f"{self._tmcc_id:04}"
-                tmp = self._monitored_state.control_type_label
-                row += f" {tmp[0]}"
+                if self.display.cols > 20:
+                    if rnum:
+                        row += f" #{rnum}"
+                if self.display.cols > 15:
+                    row += f" {self._monitored_state.engine_control_label}"
+                else:
+                    row += f" {self._monitored_state.engine_control_label[0]}"
                 self.display[1] = row
 
                 row = f"Speed: {self._monitored_state.speed:03d}"
