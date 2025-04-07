@@ -1192,7 +1192,7 @@ class EngineState(ComponentState):
         elif self._speed_limit and self.speed_limit != 255:
             ms = self._speed_limit
         elif self.max_speed and self.max_speed != 255:
-            ms = 199
+            ms = self.max_speed
         else:
             ms = 199 if self.is_legacy else 31
         if self.is_legacy is False and ms > 31:
