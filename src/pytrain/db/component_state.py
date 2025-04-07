@@ -145,8 +145,8 @@ SMOKE_SET = {
 
 SMOKE_LABEL = {
     TMCC1EngineCommandEnum.SMOKE_ON: "+",
-    TMCC1EngineCommandEnum.SMOKE_OFF: "0",
-    TMCC2EffectsControl.SMOKE_OFF: "0",
+    TMCC1EngineCommandEnum.SMOKE_OFF: "-",
+    TMCC2EffectsControl.SMOKE_OFF: "-",
     TMCC2EffectsControl.SMOKE_LOW: "L",
     TMCC2EffectsControl.SMOKE_MEDIUM: "M",
     TMCC2EffectsControl.SMOKE_HIGH: "H",
