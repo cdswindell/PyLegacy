@@ -1294,7 +1294,7 @@ class EngineState(ComponentState):
 
     @property
     def direction_label(self) -> str:
-        dr = "NA"
+        dr = "--"
         if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
             dr = "FW"
         elif self._direction in {TMCC1EngineCommandEnum.REVERSE_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION}:

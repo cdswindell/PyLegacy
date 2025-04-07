@@ -147,6 +147,8 @@ class EngineStatus(Thread, GpioDevice):
                         dr = "Fwd"
                     elif dr == "RV":
                         dr = "Rev"
+                    else:
+                        dr = "---"
                 else:
                     if dr == "FW":
                         dr = "F" + FWD
