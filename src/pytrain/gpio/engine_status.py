@@ -124,9 +124,9 @@ class EngineStatus(Thread, GpioDevice):
                 row += f"{self._tmcc_id:04}"
                 if self.display.cols > 20:
                     if rnum:
-                        row += f" {rnum}"
+                        row += f" {rnum.strip()}"
                 if self.display.cols > 15:
-                    row += " Started" if is_started is True else "  Shutoff" if is_shutdown is True else ""
+                    row += " Started" if is_started is True else " Shutoff" if is_shutdown is True else ""
                 else:
                     row += " *" if is_started is True else " -" if is_shutdown is True else "  "
                 self.display[1] = row
