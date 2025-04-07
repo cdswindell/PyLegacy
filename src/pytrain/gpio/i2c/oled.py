@@ -50,7 +50,7 @@ class Oled(Thread, TextBuffer):
             self._serial = i2c(port=1, address=address)  # i2c bus & address
         else:
             if use_bit_bang is True:
-                bitbang_6800(RS=7, E=8, PINS=[25, 24, 23, 27])
+                bitbang_6800(RS=7, E=8, PINS=[25, 24, 23, 10])
             else:
                 self._serial = spi(device=0, port=0)
 
