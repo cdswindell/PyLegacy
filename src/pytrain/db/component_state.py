@@ -5,38 +5,43 @@ import logging
 import threading
 from abc import ABC
 from collections import defaultdict
-from threading import Event, Lock, RLock, Condition
+from threading import Condition, Event, Lock, RLock
 from time import time
-from typing import Dict, Tuple, TypeVar, Set, Any, List
+from typing import Any, Dict, List, Set, Tuple, TypeVar
 
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
-from ..pdi.constants import Asc2Action, PdiCommand, Bpc2Action, IrdaAction
+from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..pdi.pdi_req import PdiReq
 from ..pdi.stm2_req import Stm2Req
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import (
-    CommandScope,
     BROADCAST_ADDRESS,
-    CommandSyntax,
-    LOCO_TYPE,
-    LOCO_TRACK_CRANE,
-    TRACK_CRANE_STATE_NUMERICS,
     CONTROL_TYPE,
     LOCO_ACCESSORY,
+    LOCO_TRACK_CRANE,
+    LOCO_TYPE,
     PROGRAM_NAME,
     RPM_TYPE,
     STEAM_TYPE,
+    TRACK_CRANE_STATE_NUMERICS,
+    CommandScope,
+    CommandSyntax,
     Direction,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux, TMCC1SyncCommandEnum
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1_COMMAND_TO_ALIAS_MAP
+from ..protocol.tmcc1.tmcc1_constants import (
+    TMCC1_COMMAND_TO_ALIAS_MAP,
+    TMCC1EngineCommandEnum,
+    TMCC1HaltCommandEnum,
+    TMCC1SyncCommandEnum,
+)
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch, TMCC1HaltCommandEnum
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2_COMMAND_TO_ALIAS_MAP
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
+from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
 from ..utils.text_utils import title
 
@@ -1182,12 +1187,17 @@ class EngineState(ComponentState):
 
     @property
     def speed_max(self) -> int | None:
-        if self.max_speed and self.speed_limit:
-            return min(self.max_speed, self.speed_limit)
+        if self.max_speed and self.max_speed != 255 and self.speed_limit != 255:
+            ms = min(self.max_speed, self.speed_limit)
         elif self._speed_limit and self.speed_limit != 255:
-            return self._speed_limit
+            ms =  self._speed_limit
         elif self.max_speed and self.max_speed != 255:
-            return 199 if self.is_legacy else 31
+            ms = 199
+        else:
+            ms = 199 if self.is_legacy else 31
+        if self.is_legacy is False and ms > 31:
+            ms = 31
+        return ms
 
     @property
     def speed_label(self) -> str:
@@ -1391,8 +1401,8 @@ class IrdaState(LcsState):
         return f"Sensor Track {self.address}: Sequence: {self.sequence_str}{rl}{lr}{le}{lt}{ld}"
 
     def update(self, command: P) -> None:
-        from .component_state_store import ComponentStateStore
         from ..comm.comm_buffer import CommBuffer
+        from .component_state_store import ComponentStateStore
 
         if command:
             with self._cv:
