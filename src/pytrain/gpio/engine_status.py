@@ -164,7 +164,9 @@ class EngineStatus(Thread, GpioDevice):
                 self.display[2] = row
 
                 if self.display.cols > 20:
-                    pass
+                    rpm = f" RPM: {self._monitored_state.rpm:1d}"
+                else:
+                    rpm = ""
                 if self.display.cols > 15:
                     tb = f"TB: {self._monitored_state.train_brake}"
                     mo = f"Mo: {self._monitored_state.momentum}"
@@ -173,7 +175,7 @@ class EngineStatus(Thread, GpioDevice):
                     tb = f"B: {self._monitored_state.train_brake}"
                     mo = f"M: {self._monitored_state.momentum}"
                     sm = f"S: {self._monitored_state.smoke_label if self._monitored_state.smoke_label else '?'}"
-                row = f"{tb} {mo} {sm}"
+                row = f"{tb} {mo} {sm}{rpm}"
                 self.display[3] = row
             elif self.is_synchronized is True:
                 self.display[0] = self.railroad
