@@ -657,6 +657,8 @@ class PyTrain:
             os.system("sudo apt update")
             sleep(1)
             os.system("sudo apt upgrade -y")
+            sleep(1)
+            os.system("sudo apt autoremove -y")
         if self.is_api:
             self._exit_status = PyTrainExitStatus.UPDATE
             raise PyTrainExitException(PyTrainExitStatus.UPDATE)
