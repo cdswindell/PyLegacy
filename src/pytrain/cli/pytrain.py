@@ -145,7 +145,7 @@ class PyTrain:
             self._base_addr = args.base = base_pieces[0]
             self._base_port = base_pieces[1] if len(base_pieces) > 1 else DEFAULT_BASE_PORT
             self._client = False  # disable client mode
-        elif self._server is None and args.client is True:
+        elif self._server is None and args.client is True and args.ser2 is False:
             # use avahi/zeroconf to locate a PyTrain server on the local network
             # raise exception and exit if none found
             info = self.get_service_info()
