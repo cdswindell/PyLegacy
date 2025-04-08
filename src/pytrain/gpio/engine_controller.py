@@ -526,6 +526,7 @@ class EngineController:
         if self.is_legacy:
             max_speed = 200
             speed_limit = 195
+            num_steps = 100
             when_pushed = self._tmcc2_when_pushed
             when_held = self._tmcc2_when_held
             when_pushed_or_held = self._tmcc2_when_pushed_or_held
@@ -536,6 +537,7 @@ class EngineController:
         else:
             max_speed = 31
             speed_limit = 27
+            num_steps = 32
             when_pushed = self._tmcc1_when_pushed
             when_held = self._tmcc1_when_held
             when_pushed_or_held = self._tmcc1_when_pushed_or_held
@@ -582,8 +584,8 @@ class EngineController:
                 cur_state.speed_limit if cur_state.speed_limit and cur_state.speed_limit != 255 else speed_limit
             )
             max_speed = min(max_speed, speed_limit)
-            steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -100, 100)
-            speed_to_steps = GpioHandler.make_interpolator(100, -100, 0, max_speed)
+            steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -num_steps, num_steps)
+            speed_to_steps = GpioHandler.make_interpolator(num_steps, -num_steps, 0, max_speed)
             self._speed_re.update_action(speed_cmd, cur_state, steps_to_speed, speed_to_steps)
 
         # reset the quilling horn
