@@ -58,6 +58,8 @@ DIRECTIONS_SET = {
     TMCC2EngineCommandEnum.FORWARD_DIRECTION,
     TMCC1EngineCommandEnum.REVERSE_DIRECTION,
     TMCC2EngineCommandEnum.REVERSE_DIRECTION,
+    TMCC1EngineCommandEnum.TOGGLE_DIRECTION,
+    TMCC2EngineCommandEnum.TOGGLE_DIRECTION,
 }
 
 MOMENTUM_SET = {
@@ -953,11 +955,11 @@ class EngineState(ComponentState):
                 # rpm, labor, and speed if direction really didn't change
                 if command.command in DIRECTIONS_SET:
                     if self._direction != command.command:
-                        self._direction = command.command
+                        self._direction = self._change_direction(command.command)
                     else:
                         return
                 elif cmd_effects & DIRECTIONS_SET:
-                    self._direction = self._harvest_effect(cmd_effects & DIRECTIONS_SET)
+                    self._direction = self._change_direction(self._harvest_effect(cmd_effects & DIRECTIONS_SET))
 
                 # handle train brake
                 if command.command in TRAIN_BRAKE_SET:
@@ -1138,6 +1140,32 @@ class EngineState(ComponentState):
                 self._prod_year = command.year
             self.changed.set()
             self._cv.notify_all()
+
+    def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
+        if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:
+            if self.direction is not None:
+                if self.is_legacy is True and self.direction in {
+                    TMCC2EngineCommandEnum.FORWARD_DIRECTION,
+                    TMCC2EngineCommandEnum.REVERSE_DIRECTION,
+                }:
+                    new_dir = (
+                        TMCC2EngineCommandEnum.FORWARD_DIRECTION
+                        if self.direction == TMCC2EngineCommandEnum.REVERSE_DIRECTION
+                        else TMCC2EngineCommandEnum.REVERSE_DIRECTION
+                    )
+                elif self.is_tmcc is True and self.direction in {
+                    TMCC1EngineCommandEnum.FORWARD_DIRECTION,
+                    TMCC1EngineCommandEnum.REVERSE_DIRECTION,
+                }:
+                    new_dir = (
+                        TMCC1EngineCommandEnum.FORWARD_DIRECTION
+                        if self.direction == TMCC1EngineCommandEnum.REVERSE_DIRECTION
+                        else TMCC1EngineCommandEnum.REVERSE_DIRECTION
+                    )
+                else:
+                    new_dir = None
+        print("***", new_dir)
+        return new_dir
 
     def as_bytes(self) -> bytes:
         from ..pdi.base_req import BaseReq

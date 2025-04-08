@@ -47,18 +47,18 @@ class EngineCli(CliBaseTMCC):
 
         ops = engine_parser.add_mutually_exclusive_group()
         ops.add_argument(
-            "-a", "--set_address", action="store_const", const="SET_ADDRESS", dest="option", help="Set engine address"
+            "-a", "-set_address", action="store_const", const="SET_ADDRESS", dest="option", help="Set engine address"
         )
 
         ops.add_argument("-aux1", dest="aux1", choices=["on", "off", "opt1", "opt2"], nargs="?", type=str, const="opt1")
         ops.add_argument("-aux2", dest="aux2", choices=["on", "off", "opt1", "opt2"], nargs="?", type=str, const="opt1")
         ops.add_argument("-aux3", dest="aux3", choices=["on", "off", "opt1", "opt2"], nargs="?", type=str, const="opt1")
         ops.add_argument(
-            "-b", "--blow_horn", action="store_const", const="BLOW_HORN_ONE", dest="option", help="Blow horn"
+            "-b", "-blow_horn", action="store_const", const="BLOW_HORN_ONE", dest="option", help="Blow horn"
         )
         ops.add_argument(
             "-bl",
-            "--boost_level",
+            "-boost_level",
             action=DataAction,
             dest="option",
             choices=range(0, 8),
@@ -70,14 +70,14 @@ class EngineCli(CliBaseTMCC):
             help="Boost level",
         )
         ops.add_argument(
-            "-br", "--brake_speed", action="store_const", const="BRAKE_SPEED", dest="option", help="Boost speed"
+            "-br", "-brake_speed", action="store_const", const="BRAKE_SPEED", dest="option", help="Boost speed"
         )
         ops.add_argument(
-            "-bs", "--boost_speed", action="store_const", const="BOOST_SPEED", dest="option", help="Brake speed"
+            "-bs", "-boost_speed", action="store_const", const="BOOST_SPEED", dest="option", help="Brake speed"
         )
         ops.add_argument(
             "-fc",
-            "--front_coupler",
+            "-front_coupler",
             action="store_const",
             const="FRONT_COUPLER",
             dest="option",
@@ -85,7 +85,7 @@ class EngineCli(CliBaseTMCC):
         )
         ops.add_argument(
             "-fwd",
-            "--forward_direction",
+            "-forward_direction",
             action="store_const",
             const="FORWARD_DIRECTION",
             dest="option",
@@ -93,7 +93,7 @@ class EngineCli(CliBaseTMCC):
         )
         ops.add_argument(
             "-hiss",
-            "--cylinder_hiss",
+            "-cylinder_hiss",
             action="store_const",
             const="CYLINDER_HISS",
             dest="option",
@@ -101,7 +101,7 @@ class EngineCli(CliBaseTMCC):
         )
         ops.add_argument(
             "-kl",
-            "--brake_level",
+            "-brake_level",
             action=DataAction,
             dest="option",
             choices=range(0, 8),
@@ -114,7 +114,7 @@ class EngineCli(CliBaseTMCC):
         )
         ops.add_argument(
             "-l",
-            "--engine_labor",
+            "-engine_labor",
             action=DataAction,
             dest="option",
             choices=range(0, 32),
@@ -138,19 +138,19 @@ class EngineCli(CliBaseTMCC):
             help="Send numeric value",
         )
         ops.add_argument(
-            "-pm", "--prime_mover", choices=["on", "off"], nargs="?", type=str, help="Prime mover sound on/off"
+            "-pm", "-prime_mover", choices=["on", "off"], nargs="?", type=str, help="Prime mover sound on/off"
         )
         ops.add_argument(
-            "-pop", "--pop_off", action="store_const", const="POP_OFF", dest="option", help="Pop off sounds"
+            "-pop", "-pop_off", action="store_const", const="POP_OFF", dest="option", help="Pop off sounds"
         )
-        ops.add_argument("-r", "--ring_bell", action="store_const", const="RING_BELL", dest="option", help="Ring bell")
+        ops.add_argument("-r", "-ring_bell", action="store_const", const="RING_BELL", dest="option", help="Ring bell")
         ops.add_argument("-reset", action="store_const", const="RESET", dest="option", help="Reset engine/train")
         ops.add_argument(
-            "-rc", "--rear_coupler", action="store_const", const="REAR_COUPLER", dest="option", help="Open rear coupler"
+            "-rc", "-rear_coupler", action="store_const", const="REAR_COUPLER", dest="option", help="Open rear coupler"
         )
         ops.add_argument(
             "-rev",
-            "--reverse_direction",
+            "-reverse_direction",
             action="store_const",
             const="REVERSE_DIRECTION",
             dest="option",
@@ -169,12 +169,12 @@ class EngineCli(CliBaseTMCC):
             help="Diesel RPM Level",
         )
         ops.add_argument(
-            "-s", "--stop_immediate", action="store_const", const="STOP_IMMEDIATE", dest="option", help="Stop immediate"
+            "-s", "-stop_immediate", action="store_const", const="STOP_IMMEDIATE", dest="option", help="Stop immediate"
         )
         ops.add_argument("-stall", action="store_const", const="STALL", dest="option", help="Set stall")
         ops.add_argument(
             "-sdd",
-            "--shutdown_delayed",
+            "-shutdown_delayed",
             action="store_const",
             const="SHUTDOWN_DELAYED",
             dest="option",
@@ -182,7 +182,7 @@ class EngineCli(CliBaseTMCC):
         )
         ops.add_argument(
             "-sdi",
-            "--shutdown_immediate",
+            "-shutdown_immediate",
             action="store_const",
             const="SHUTDOWN_IMMEDIATE",
             dest="option",
@@ -190,11 +190,11 @@ class EngineCli(CliBaseTMCC):
         )
         ops.add_argument("-sound", choices=["on", "off"], nargs="?", type=str, const="on", help="Sound on/off")
         ops.add_argument(
-            "-sq", "--sequence_control", choices=["on", "off"], nargs="?", type=str, help="Sequence control on/off"
+            "-sq", "-sequence_control", choices=["on", "off"], nargs="?", type=str, help="Sequence control on/off"
         )
         ops.add_argument(
             "-sud",
-            "--start_up_delayed",
+            "-start_up_delayed",
             action="store_const",
             const="START_UP_DELAYED",
             dest="option",
@@ -202,7 +202,7 @@ class EngineCli(CliBaseTMCC):
         )
         ops.add_argument(
             "-sui",
-            "--start_up_immediate",
+            "-start_up_immediate",
             action="store_const",
             const="START_UP_IMMEDIATE",
             dest="option",
@@ -210,7 +210,7 @@ class EngineCli(CliBaseTMCC):
         )
         ops.add_argument(
             "-t",
-            "--toggle_direction",
+            "-toggle_direction",
             action="store_const",
             const="TOGGLE_DIRECTION",
             dest="option",
@@ -218,7 +218,7 @@ class EngineCli(CliBaseTMCC):
         )
         ops.add_argument(
             "-tb",
-            "--train_brake",
+            "-train_brake",
             action=DataAction,
             dest="option",
             choices=range(0, 8),
@@ -230,10 +230,10 @@ class EngineCli(CliBaseTMCC):
             help="Train brake",
         )
         ops.add_argument(
-            "-v-", "--volume_down", action="store_const", const="VOLUME_DOWN", dest="option", help="Master volume down"
+            "-v-", "-volume_down", action="store_const", const="VOLUME_DOWN", dest="option", help="Master volume down"
         )
         ops.add_argument(
-            "-v+", "--volume_up", action="store_const", const="VOLUME_UP", dest="option", help="Master volume up"
+            "-v+", "-volume_up", action="store_const", const="VOLUME_UP", dest="option", help="Master volume up"
         )
 
         # create subparsers to handle train/engine-specific operations
@@ -244,7 +244,7 @@ class EngineCli(CliBaseTMCC):
         bell_group = bell.add_mutually_exclusive_group()
         bell_group.add_argument(
             "-r",
-            "--ring",
+            "-ring",
             action="store_const",
             const="RING_BELL",
             dest="option",
@@ -255,7 +255,7 @@ class EngineCli(CliBaseTMCC):
         bell_group.add_argument("-off", action="store_const", const="BELL_OFF", dest="option", help="Turn bell off")
         bell_group.add_argument(
             "-d",
-            "--ding",
+            "-ding",
             action=DataAction,
             dest="option",
             choices=range(0, 4),
@@ -268,7 +268,7 @@ class EngineCli(CliBaseTMCC):
         )
         bell_group.add_argument(
             "-s",
-            "--slider",
+            "-slider",
             action=DataAction,
             dest="option",
             choices=range(2, 6),
@@ -285,7 +285,7 @@ class EngineCli(CliBaseTMCC):
         horn_group = horn.add_mutually_exclusive_group()
         horn_group.add_argument(
             "-1",
-            "--blow_horn_one",
+            "-blow_horn_one",
             action="store_const",
             const="BLOW_HORN_ONE",
             dest="option",
@@ -293,11 +293,10 @@ class EngineCli(CliBaseTMCC):
             help="Blow horn one",
         )
         horn_group.add_argument(
-            "-2", "--blow_horn_two", action="store_const", const="BLOW_HORN_TWO", dest="option", help="Blow horn two"
+            "-2", "-blow_horn_two", action="store_const", const="BLOW_HORN_TWO", dest="option", help="Blow horn two"
         )
         horn_group.add_argument(
-            "-g",
-            "--grade_crossing",
+            "-grade_crossing",
             action="store_const",
             const="GRADE_CROSSING_SEQ",
             dest="option",
@@ -305,7 +304,7 @@ class EngineCli(CliBaseTMCC):
         )
         horn_group.add_argument(
             "-i",
-            "--intensity",
+            "-intensity",
             action=DataAction,
             dest="option",
             choices=range(0, 16),
@@ -347,8 +346,7 @@ class EngineCli(CliBaseTMCC):
         mom_group.add_argument("-off", action="store_const", const="MOMENTUM", dest="option", help="Set momentum off")
 
         mom_group.add_argument(
-            "-a",
-            "--absolute",
+            "-absolute",
             action=DataAction,
             dest="option",
             choices=range(0, 8),
@@ -391,15 +389,13 @@ class EngineCli(CliBaseTMCC):
 
         sound = sp.add_parser("sound", aliases=["so"], help="Sound operations", parent=engine_parser)
         sound_group = sound.add_mutually_exclusive_group()
+        sound_group.add_argument("-auger", action="store_const", const="AUGER", dest="option", help="Auger sound")
         sound_group.add_argument(
-            "-a", "--auger", action="store_const", const="AUGER", dest="option", help="Auger sound"
-        )
-        sound_group.add_argument(
-            "-b", "--brake_squeal", action="store_const", const="BRAKE_SQUEAL", dest="option", help="Brake squeal sound"
+            "-b", "-brake_squeal", action="store_const", const="BRAKE_SQUEAL", dest="option", help="Brake squeal sound"
         )
         sound_group.add_argument(
             "-r",
-            "--brake_air_release",
+            "-brake_air_release",
             action="store_const",
             const="BRAKE_AIR_RELEASE",
             dest="option",
@@ -407,7 +403,7 @@ class EngineCli(CliBaseTMCC):
         )
         sound_group.add_argument(
             "-rpm",
-            "--diesel_rpm",
+            "-diesel_rpm",
             action=DataAction,
             dest="option",
             choices=range(0, 8),
@@ -423,26 +419,25 @@ class EngineCli(CliBaseTMCC):
             "-fu",
             "-fue",
             "-fuel",
-            "--refueling",
+            "-refueling",
             action="store_const",
             const="REFUELLING",
             dest="option",
             help="Refueling sound",
         )
         sound_group.add_argument(
-            "-l", "--let_off", action="store_const", const="LET_OFF", dest="option", help="Short let-off sound"
+            "-l", "-let_off", action="store_const", const="LET_OFF", dest="option", help="Short let-off sound"
         )
         sound_group.add_argument(
             "-ll",
-            "--let_off_long",
+            "-long_let_off",
             action="store_const",
             const="LET_OFF_LONG",
             dest="option",
             help="Long let-off sound",
         )
         sound_group.add_argument(
-            "-w",
-            "--water_injector",
+            "-water_injector",
             action="store_const",
             const="WATER_INJECTOR",
             dest="option",
