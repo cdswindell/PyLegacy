@@ -1164,7 +1164,6 @@ class EngineState(ComponentState):
                     )
                 else:
                     new_dir = None
-        print("***", new_dir)
         return new_dir
 
     def as_bytes(self) -> bytes:
