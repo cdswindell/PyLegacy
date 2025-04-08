@@ -349,7 +349,7 @@ class CommBufferSingleton(CommBuffer, Thread):
             data = None
             try:
                 data = self._queue.get(block=True, timeout=0.25)
-                if self.is_use_base3 is True or self.is_ser2 is False:
+                if False and self.is_use_base3 is True or self.is_ser2 is False:
                     self.base3_send(data)
                 else:
                     self.ser2_send(data)
