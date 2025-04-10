@@ -907,6 +907,10 @@ class PyTrain:
                         ui_parser.reset_exit_on_error()
 
     def _get_system_state(self):
+        """
+        Send PDI requests to get data on all engines, trains, switches, routes, and accessories
+        from the Lionel Base 3
+        """
         self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
 
     def _do_db(self, param) -> None:
