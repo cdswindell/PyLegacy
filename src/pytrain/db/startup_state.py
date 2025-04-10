@@ -34,9 +34,29 @@ class StartupState(Thread):
                 if state_requests:
                     for state_request in state_requests:
                         self.listener.enqueue_command(state_request)
+            elif cmd.pdi_command == PdiCommand.BASE_ENGINE:
+                # send a request to the base to get the corresponding Engine memory record (0x26)
+                br = BaseReq(cmd.tmcc_id, PdiCommand.BASE_MEMORY, flags=0, start=4, data_length=2)
+                self.listener.enqueue_command(br)
 
     @staticmethod
     def _config_key(cmd: PdiReq) -> bytes:
+        """
+        Generates a unique configuration key based on the provided PdiReq command.
+
+        Summary:
+        This static method combines the byte representations of various attributes
+        from a PdiReq command object to generate a unique byte key. The resulting
+        key is composed of the PdiReq command's bytes, tmcc_id converted to a single
+        byte, and the action's bytes.
+
+        Args:
+        cmd (PdiReq): The command object containing the attributes to be used in
+        constructing the configuration key.
+
+        Returns:
+        bytes: The concatenated byte string representing the configuration key.
+        """
         byte_str = cmd.pdi_command.as_bytes
         byte_str += cmd.tmcc_id.to_bytes(1, byteorder="big")
         byte_str += cmd.action.as_bytes

@@ -706,7 +706,7 @@ class BaseReq(PdiReq):
         elif self.pdi_command == PdiCommand.BASE_MEMORY and self._start is not None:
             sc = f"Scope: {self.scope}"
             st = f"Start: {hex(self._start)} Len: {self._data_length}"
-            dt = f"Data: {self._data_bytes.hex()}"
+            dt = f"Data: {self._data_bytes.hex() if self._data_bytes else 'NA'}"
             return f"Rec # {self.record_no} {sc} flags: {f} {st} {dt} status: {s} ({self.packet})"
         elif self._valid1 is None and self._valid2 is None:  # ACK received
             return f"Rec # {self.record_no} flags: {f} status: {s} ACK ({self.packet})"
@@ -780,7 +780,8 @@ class BaseReq(PdiReq):
             byte_str += self._start.to_bytes(4, byteorder="little")
             byte_str += (2).to_bytes(1, byteorder="little")  # database EEProm
             byte_str += self._data_length.to_bytes(1, byteorder="little")
-            byte_str += self._data_bytes
+            if self._data_bytes:
+                byte_str += self._data_bytes
         elif self._state:
             byte_str += self.flags.to_bytes(1, byteorder="little")
             byte_str += self.status.to_bytes(1, byteorder="little")

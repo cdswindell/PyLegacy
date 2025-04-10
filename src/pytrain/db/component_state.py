@@ -1136,6 +1136,8 @@ class EngineState(ComponentState):
                     if command.pdi_command == PdiCommand.BASE_TRAIN:
                         self._consist_comp = command.consist_components
                         self._consist_flags = command.consist_flags
+            elif isinstance(command, BaseReq) and command.pdi_command == PdiCommand.BASE_MEMORY:
+                print(command)
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
             self.changed.set()
