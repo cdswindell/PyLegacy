@@ -384,7 +384,10 @@ class CommBufferSingleton(CommBuffer, Thread):
         from ..pdi.pdi_req import TmccReq
 
         tmcc_cmd = CommandReq.from_bytes(data)
-        pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
+        if tmcc_cmd.address > 99:
+            pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC4_TX)
+        else:
+            pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
         # also inform CommandDispatcher to update system state
         if self.is_ser2 is False:
