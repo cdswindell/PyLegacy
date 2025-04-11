@@ -842,15 +842,17 @@ class EngineState(ComponentState):
             dr = " FWD"
         elif self._direction in {TMCC1EngineCommandEnum.REVERSE_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION}:
             dr = " REV"
+        else:
+            dr = " N/A"
 
         if self._speed is not None:
-            sp = f" Speed: {self._speed}"
+            sp = f" Speed: {self._speed:03}"
             if self.speed_limit is not None:
                 speed_limit = self.decode_speed_info(self.speed_limit)
-                sp += f"/{speed_limit}"
+                sp += f"/{speed_limit:03}"
             if self.max_speed is not None:
                 max_speed = self.decode_speed_info(self.max_speed)
-                sp += f"/{max_speed}"
+                sp += f"/{max_speed:03}"
         if self._start_stop is not None:
             if self._start_stop in STARTUP_SET:
                 ss = " Started up"
@@ -863,7 +865,7 @@ class EngineState(ComponentState):
         if self._rpm is not None:
             rl = f" RPM: {self._rpm}"
         if self._labor is not None:
-            lb = f" Labor: {self._labor}"
+            lb = f" Labor: {self._labor:>2d}"
         if self._numeric is not None:
             nu = f" Num: {self._numeric}"
         if self.road_name is not None:
@@ -877,7 +879,7 @@ class EngineState(ComponentState):
         if self._aux2:
             aux = f" Aux2: {self._aux2.name.split('_')[-1]}"
         if self._smoke_level is not None:
-            sm = f" Smoke: {self._smoke_level.name.split('_')[-1].lower()}"
+            sm = f" Smoke: {self._smoke_level.name.split('_')[-1].lower():<4}"
         if self.bt_int:
             bt = f" BT: {self.bt_id}"
         ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
@@ -886,8 +888,8 @@ class EngineState(ComponentState):
             for cc in self._consist_comp:
                 c += f"{cc} "
         return (
-            f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{sm}{dr}{nu}"
-            f"{aux}{name}{num}{lt}{ct}{yr}{bt}{ss}{c}"
+            f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{sm}{dr}"
+            f"{name}{num}{lt}{ct}{yr}{bt}{ss}{nu}{aux}{c}"
         )
 
     def decode_speed_info(self, speed_info):
