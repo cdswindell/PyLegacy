@@ -441,6 +441,8 @@ class CommandReq:
         byte_str = first_byte + self._command_bits.to_bytes(2, byteorder="big")
         if self.address > 99:
             byte_str += str(self.address).zfill(4).encode()
+        if self.address > 99:
+            print(byte_str.hex())
         return byte_str
 
     def as_action(
@@ -497,7 +499,7 @@ class CommandReq:
                 self._command_bits &= TMCC1_TRAIN_COMMAND_PURIFIER
                 self._command_bits |= TMCC1_TRAIN_COMMAND_MODIFIER
         elif self.syntax == CommandSyntax.LEGACY:
-            if the_address <= 99:
+            if 1 <= the_address <= 99:
                 self._command_bits |= the_address << 9
         else:
             raise ValueError(f"Command syntax not recognized {self.syntax}")
