@@ -152,7 +152,7 @@ class CommandReq:
 
         syntax = CommandSyntax.LEGACY if enum_class == TMCC2Enum else CommandSyntax.TMCC
         min_val = 0 if scope in {CommandScope.ENGINE} and isinstance(command, TMCC2Enum) else 1
-        max_val = 9999 if scope in {CommandScope.ENGINE} and isinstance(command, TMCC2Enum) else 99
+        max_val = 9999 if scope in {CommandScope.ENGINE} and syntax == CommandSyntax.LEGACY else 99
         if syntax == CommandSyntax.TMCC and command == TMCC1RouteCommandEnum.FIRE:
             scope = TMCC1CommandIdentifier.ROUTE
             max_val = 31
