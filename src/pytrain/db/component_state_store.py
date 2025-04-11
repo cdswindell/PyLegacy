@@ -147,6 +147,12 @@ class ComponentStateStore:
                         for address in self._state[command.scope]:
                             self._state[command.scope][address].update(command)
                     else:  # update the device state (identified by scope/address)
+                        # make sure we haven't filled a slot based on a previous engine's road number
+                        if command.address > 99:
+                            state = self.query(command.scope, command.address)
+                            if state and state.address != command.address:
+                                print(f"Deleting state record: {state}")
+                                del self._state[command.scope][command.address]
                         self._state[command.scope][command.address].update(command)
             else:
                 log.warning(f"Received Unknown State Update: {command.scope} {command}")

@@ -314,7 +314,10 @@ class ComponentState(ABC):
                             from .component_state_store import ComponentStateStore
 
                             rn = int(self.road_number)
-                            if rn > 99 and ComponentStateStore.get_state(self.scope, rn, False) is None:
+                            if (
+                                rn > 99 >= self.address >= 1
+                                and ComponentStateStore.get_state(self.scope, rn, False) is None
+                            ):
                                 ComponentStateStore.set_state(self.scope, rn, self)
                         except ValueError:
                             pass
