@@ -166,6 +166,7 @@ class ComponentState(ABC):
 
         # noinspection PyTypeChecker
         self._lock: Lock = RLock()
+        self._is_known: bool = False
         self._scope = scope
         self._last_command: CommandReq | None = None
         self._last_command_bytes = None
@@ -318,6 +319,7 @@ class ComponentState(ABC):
                         except ValueError:
                             pass
             if isinstance(command, PdiReq):
+                self._is_known = True
                 if hasattr(command, "spare_1"):
                     self._spare_1 = command.spare_1
         self._last_updated = time()
@@ -350,12 +352,11 @@ class ComponentState(ABC):
         return CommandSyntax.LEGACY if self.is_legacy else CommandSyntax.TMCC
 
     @property
-    @abc.abstractmethod
     def is_known(self) -> bool:
         """
         Returns True if component's state is known, False otherwise.
         """
-        ...
+        return self._is_known
 
     @property
     @abc.abstractmethod
@@ -901,7 +902,7 @@ class EngineState(ComponentState):
         return speed_info
 
     def is_known(self) -> bool:
-        return self._direction is not None or self._start_stop is not None or self._speed is not None
+        return self._is_known
 
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
@@ -1666,10 +1667,6 @@ class BaseState(ComponentState):
     @property
     def route_throw_rate(self) -> float:
         return self._route_throw_rate
-
-    @property
-    def is_known(self) -> bool:
-        return self._base_name is not None or self._firmware is not None
 
     @property
     def is_tmcc(self) -> bool:
