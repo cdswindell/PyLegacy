@@ -1189,7 +1189,7 @@ class EngineState(ComponentState):
         if pdi:
             byte_str += pdi.as_bytes
         if self.scope == CommandScope.ENGINE and self.bt_int:
-            bts = self.bt_int.to_bytes(length=1, byteorder="little")
+            bts = self.bt_int.to_bytes(length=2, byteorder="little")
             pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, flags=0, start=4, data_length=2, data_bytes=bts)
             byte_str += pdi.as_bytes
         if self._start_stop is not None:
