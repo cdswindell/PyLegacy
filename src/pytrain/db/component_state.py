@@ -837,7 +837,7 @@ class EngineState(ComponentState):
         self._train_brake: int | None = None
 
     def __repr__(self) -> str:
-        sp = dr = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = ""
+        sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = ""
         if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
             dr = " FWD"
         elif self._direction in {TMCC1EngineCommandEnum.REVERSE_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION}:
