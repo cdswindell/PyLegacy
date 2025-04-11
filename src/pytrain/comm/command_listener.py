@@ -195,7 +195,7 @@ class CommandListener(Thread):
                         cmd_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                     # check for 4-digit addressing
                     dq_len -= 3
-                    if dq_len >= 4 and cmd_bytes[1] == 0x01:
+                    if dq_len >= 4 and cmd_bytes[1] in {0x00, 0x01}:
                         for _ in range(4):
                             cmd_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                         dq_len -= 4
