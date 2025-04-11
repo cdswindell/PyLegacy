@@ -150,7 +150,7 @@ class PyTrain:
             # raise exception and exit if none found
             info = self.get_service_info()
             if info is None:
-                raise RuntimeError(f"No {PROGRAM_NAME} servers found on the local network, exiting")
+                raise RuntimeError(f"No {PROGRAM_NAME} server(s) found on the local network, exiting")
             self._server, self._port = info
             self._server_ips = {self._server}
         elif self._server is not None:
@@ -727,6 +727,27 @@ class PyTrain:
         self._zeroconf.register_service(self._service_info)
 
     def get_service_info(self) -> Tuple[str, int] | None:
+        """
+        Attempts to discover PyTrain Servers on the local network.
+
+        This function uses the Zeroconf protocol to discover services and attempts to
+        find a suitable server by listening for services, checking specific properties
+        on the discovered services, and maintaining certain conditions on the discovery
+        process. It listens for a specified type of service, evaluates certain service
+        properties, and prioritizes servers based on the presence of certain features.
+
+        The function runs in a loop until either the desired server is found or the
+        waiting period expires. It manages the process of server selection, considering
+        a particular set of criteria to return the best match.
+
+        Errors occurring during the discovery process are logged, and any services
+        found meeting the criteria are returned.
+
+        Returns:
+            A tuple containing the address (as a string) and the port (as an integer) of
+            the discovered service, if found and meeting criteria, or None if no suitable
+            service was discovered within the waiting period.
+        """
         z = Zeroconf()
         an_info = None
         base3_info = None
@@ -734,7 +755,7 @@ class PyTrain:
             # listens for services on a background thread
             ServiceBrowser(z, [SERVICE_TYPE], handlers=[self.on_service_state_change])
             found_at = -1
-            waiting = 240
+            waiting = 480
             cursor = {0: "|", 1: "\\", 2: "-", 3: "/"}
             while waiting > 0:
                 print(f"Looking for {PROGRAM_NAME} servers {cursor[waiting % 4]}", end="\r")

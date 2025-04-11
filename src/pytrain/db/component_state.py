@@ -806,37 +806,38 @@ class EngineState(ComponentState):
         if scope not in {CommandScope.ENGINE, CommandScope.TRAIN}:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
         super().__init__(scope)
-        self._start_stop: CommandDefEnum | None = None
-        self._speed: int | None = None
-        self._speed_limit: int | None = None
-        self._max_speed: int | None = None
-        self._direction: CommandDefEnum | None = None
-        self._momentum: int | None = None
-        self._smoke_level: CommandDefEnum | None = None
-        self._train_brake: int | None = None
-        self._prod_year: int | None = None
-        self._rpm: int | None = None
-        self._labor: int | None = None
-        self._control_type: int | None = None
-        self._sound_type: int | None = None
-        self._sound_type_label: str | None = None
-        self._engine_type: int | None = None
-        self._engine_type_label: str | None = None
-        self._engine_class: int | None = None
-        self._engine_class_label: str | None = None
-        self._numeric: int | None = None
-        self._numeric_cmd: CommandDefEnum | None = None
-        self._aux: CommandDefEnum | None = None
         self._aux1: CommandDefEnum | None = None
         self._aux2: CommandDefEnum | None = None
-        self._last_aux1_opt1 = None
-        self._last_aux2_opt1 = None
-        self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
+        self._aux: CommandDefEnum | None = None
+        self._bt_id: int | None = None
         self._consist_comp: None | List[ConsistComponent] = None
         self._consist_flags: int | None = None
+        self._control_type: int | None = None
+        self._direction: CommandDefEnum | None = None
+        self._engine_class: int | None = None
+        self._engine_class_label: str | None = None
+        self._engine_type: int | None = None
+        self._engine_type_label: str | None = None
+        self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
+        self._labor: int | None = None
+        self._last_aux1_opt1 = None
+        self._last_aux2_opt1 = None
+        self._max_speed: int | None = None
+        self._momentum: int | None = None
+        self._numeric: int | None = None
+        self._numeric_cmd: CommandDefEnum | None = None
+        self._prod_year: int | None = None
+        self._rpm: int | None = None
+        self._smoke_level: CommandDefEnum | None = None
+        self._sound_type: int | None = None
+        self._sound_type_label: str | None = None
+        self._speed: int | None = None
+        self._speed_limit: int | None = None
+        self._start_stop: CommandDefEnum | None = None
+        self._train_brake: int | None = None
 
     def __repr__(self) -> str:
-        sp = dr = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = ""
+        sp = dr = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = ""
         if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
             dr = " FWD"
         elif self._direction in {TMCC1EngineCommandEnum.REVERSE_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION}:
@@ -877,13 +878,16 @@ class EngineState(ComponentState):
             aux = f" Aux2: {self._aux2.name.split('_')[-1]}"
         if self._smoke_level is not None:
             sm = f" Smoke: {self._smoke_level.name.split('_')[-1].lower()}"
+        if self.bt_int:
+            bt = f" BT: {self.bt_id}"
         ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
         if self._consist_comp:
             c = "\n"
             for cc in self._consist_comp:
                 c += f"{cc} "
         return (
-            f"{self.scope.title} {self._address:02}{sp}{rl}{lb}{mom}{tb}{sm}{dr}{nu}{aux}{name}{num}{lt}{ct}{yr}{ss}{c}"
+            f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{sm}{dr}{nu}"
+            f"{aux}{name}{num}{lt}{ct}{yr}{bt}{ss}{c}"
         )
 
     def decode_speed_info(self, speed_info):
@@ -1136,8 +1140,12 @@ class EngineState(ComponentState):
                     if command.pdi_command == PdiCommand.BASE_TRAIN:
                         self._consist_comp = command.consist_components
                         self._consist_flags = command.consist_flags
-            elif isinstance(command, BaseReq) and command.pdi_command == PdiCommand.BASE_MEMORY:
-                print(command)
+            elif isinstance(command, BaseReq) and command.pdi_command == PdiCommand.BASE_MEMORY and command.data_bytes:
+                from src.pytrain.pdi.base_req import BASE_MEMORY_READ_MAP
+
+                tpl = BASE_MEMORY_READ_MAP.get(command.start, None)
+                if isinstance(tpl, tuple):
+                    setattr(self, tpl[0], tpl[1](command.data_bytes))
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
             self.changed.set()
@@ -1179,6 +1187,10 @@ class EngineState(ComponentState):
         elif self.scope == CommandScope.TRAIN:
             pdi = BaseReq(self.address, PdiCommand.BASE_TRAIN, state=self)
         if pdi:
+            byte_str += pdi.as_bytes
+        if self.scope == CommandScope.ENGINE and self.bt_int:
+            bts = self.bt_int.to_bytes(length=1, byteorder="little")
+            pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, flags=0, start=4, data_length=2, data_bytes=bts)
             byte_str += pdi.as_bytes
         if self._start_stop is not None:
             byte_str += CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes
@@ -1240,6 +1252,17 @@ class EngineState(ComponentState):
     @property
     def speed_label(self) -> str:
         return self._as_label(self._speed)
+
+    @property
+    def bt_int(self) -> int:
+        return self._bt_id
+
+    # noinspection PyTypeChecker
+    @property
+    def bt_id(self) -> str:
+        if self.bt_int:
+            return int.to_bytes(self.bt_int, 2, "big").hex().upper()
+        return None
 
     @property
     def numeric(self) -> int:

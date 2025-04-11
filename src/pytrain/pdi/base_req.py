@@ -187,11 +187,7 @@ BASE_MEMORY_WRITE_MAP = {
 
 
 BASE_MEMORY_READ_MAP = {
-    0x07: ("_speed_step", EngineBits.SPEED.value),
-    0x09: ("_train_brake", EngineBits.TRAIN_BRAKE.value),
-    0x0C: (("_run_level", "_labor_bias"), (EngineBits.RUN_LEVEL.value, EngineBits.LABOR_BIAS.value), decode_labor_rpm),
-    0x18: ("_momentum", EngineBits.MOMENTUM.value),
-    0x69: ("_smoke_level", EngineBits.SMOKE_LEVEL.value),
+    0x04: ("_bt_id", lambda t: int.from_bytes(t, byteorder="little")),
 }
 
 RECORD_TYPE_MAP = {
@@ -436,10 +432,10 @@ class BaseReq(PdiReq):
             elif self.pdi_command == PdiCommand.BASE_MEMORY:
                 record_type = self._data[4] if data_len > 4 else None
                 self._scope = RECORD_TYPE_MAP.get(record_type, CommandScope.SYSTEM)
-                _ = self._data[5] if data_len > 5 else None  # we assume port is always 2; Database EEProm
-                self._start = int.from_bytes(self._data[6:10], byteorder="little") if data_len > 9 else None
+                self._start = int.from_bytes(self._data[5:9], byteorder="little") if data_len > 8 else None
+                _ = self._data[9] if data_len > 9 else None  # we assume port is always 2; Database EEProm
                 self._data_length = self._data[10] if data_len > 10 else None
-                self._data_bytes = self._data[11 : 11 + data_len] if data_len > 10 + data_len else None
+                self._data_bytes = self._data[11:] if data_len > 11 else None
             elif self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
                 self._speed = self._data[2] if data_len > 2 else None
                 self._valid1 = (1 << EngineBits.SPEED) if data_len > 2 else 0
@@ -472,13 +468,10 @@ class BaseReq(PdiReq):
                     self.scope = state.scope
                     if isinstance(state, EngineState):
                         if state.momentum is None:
-                            print(f"************** {self.scope} {self.tmcc_id} Momentum is None **************")
                             state._momentum = 1
                         if state.train_brake is None:
-                            print(f"************** {self.scope} {self.tmcc_id} Brake is None **************")
                             state._train_brake = 0
                         if state.labor is None:
-                            print(f"************** {self.scope} {self.tmcc_id} Labor is None **************")
                             state._labor = 12
                         self._valid1 = 0b1111100011111100
                         self._valid2 = 0b11000000
@@ -695,6 +688,18 @@ class BaseReq(PdiReq):
             if self.forward_link == 255 and self.reverse_link == 255 and not self.name and not self.number:
                 return False
         return True
+
+    @property
+    def start(self) -> int:
+        return self._start
+
+    @property
+    def data_length(self) -> int:
+        return self._data_length
+
+    @property
+    def data_bytes(self) -> bytes:
+        return self._data_bytes
 
     @property
     def payload(self) -> str:
