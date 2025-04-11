@@ -43,8 +43,9 @@ from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandListener, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..db.client_state_listener import ClientStateListener
-from ..db.component_state import ComponentState
+from ..db.component_state import ComponentState, EngineState
 from ..db.component_state_store import ComponentStateStore
+from ..db.prod_info import ProdInfo
 from ..db.startup_state import StartupState
 from ..gpio.gpio_handler import GpioHandler
 from ..pdi.base_req import BaseReq
@@ -872,6 +873,9 @@ class PyTrain:
                     if parse_only is False and args.command == "db":
                         self._do_db(ui_parts[1:])
                         return None
+                    if parse_only is False and args.command == "info":
+                        self._get_engine_info(ui_parts[1:])
+                        return None
                     if parse_only is False and args.command == "decode":
                         self.decode_command(ui_parts[1:])
                         return None
@@ -933,6 +937,22 @@ class PyTrain:
         from the Lionel Base 3
         """
         self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
+
+    def _get_engine_info(self, param) -> None:
+        try:
+            if len(param) >= 1:
+                address = int(param[0])
+                state = self._state_store.get_state(CommandScope.ENGINE, address, create=False)
+                if isinstance(state, EngineState) and state.bt_id:
+                    info = ProdInfo.get_info(state.bt_id)
+                    if info:
+                        log.info("From the Lionel product database:")
+                        for k, v in info.items():
+                            log.info(f"{k}: {v}")
+                        return
+                log.info(f"No product information available on Engine {address}...")
+        except Exception as e:
+            log.exception(e)
 
     def _do_db(self, param) -> None:
         try:
@@ -1104,6 +1124,13 @@ class PyTrain:
         )
         group.add_argument("-train", action="store_const", const=EngineCli, dest="command", help="Issue train commands")
         group.add_argument("-halt", action="store_const", const=HaltCli, dest="command", help="Emergency stop")
+        group.add_argument(
+            "-info",
+            action="store_const",
+            const="info",
+            dest="command",
+            help="Get product info from Lionel",
+        )
         group.add_argument(
             "-lighting",
             action="store_const",
