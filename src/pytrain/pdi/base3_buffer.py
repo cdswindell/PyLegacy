@@ -161,6 +161,8 @@ class Base3Buffer(Thread):
                                         # TODO: because they are packet-ized into 3-byte chunks that sync-state
                                         # TODO cannot yet handle
                                         log.debug(ve)
+                                    except Exception as e:
+                                        log.exception(e)
                                 else:
                                     sending = None
                                     received = bytes.fromhex(s.recv(512).decode(errors="ignore"))
