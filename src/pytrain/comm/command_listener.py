@@ -428,8 +428,6 @@ class CommandDispatcher(Thread):
                         if cmd.is_data is True:
                             self.publish((cmd.scope, cmd.address, cmd.command, cmd.data), cmd)
                         self.publish((cmd.scope, cmd.address, cmd.command), cmd)
-                        if cmd.address > 99:
-                            print(f"Address: {cmd.address}, {cmd}")
                         self.publish((cmd.scope, cmd.address), cmd)
                         self.publish(cmd.scope, cmd)
                     if self._broadcasts:

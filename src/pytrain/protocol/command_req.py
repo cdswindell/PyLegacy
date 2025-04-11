@@ -442,8 +442,6 @@ class CommandReq:
         byte_str = first_byte + self._command_bits.to_bytes(2, byteorder="big")
         if self.address > 99:
             byte_str += str(self.address).zfill(4).encode()
-        if self.address > 99:
-            print(byte_str.hex())
         return byte_str
 
     def as_action(

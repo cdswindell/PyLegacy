@@ -151,7 +151,6 @@ class ComponentStateStore:
                         if command.address > 99:
                             state = self.query(command.scope, command.address)
                             if state and state.address != command.address:
-                                print(f"Deleting state record: {state}")
                                 del self._state[command.scope][command.address]
                         self._state[command.scope][command.address].update(command)
             else:
