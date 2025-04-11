@@ -586,7 +586,7 @@ class CommandReq:
                         scope = CommandScope.TRAIN
                     # build_req the request and return
                     data = cmd_enum.value.data_from_bytes(param[1:3])
-                    if is_tmcc4 is True and len(param) == 7 and param[1] == 1:
+                    if is_tmcc4 is True and len(param) == 7 and param[1] == 0x01:
                         # TODO: this code looks fragile; should rethink
                         addr_str = ""
                         for i in range(3, 7):

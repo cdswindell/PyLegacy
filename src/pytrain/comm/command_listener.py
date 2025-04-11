@@ -154,6 +154,7 @@ class CommandListener(Thread):
         return self._port
 
     def run(self) -> None:
+        is_tmcc4 = False
         while self._is_running:
             # process bytes, as long as there are any
             with self._cv:
@@ -192,10 +193,18 @@ class CommandListener(Thread):
                     # assume a 3 byte command
                     for _ in range(3):
                         cmd_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
+                    # check for 4-digit addressing
+                    dq_len -= 3
+                    if dq_len >= 4 and cmd_bytes[1] == 0x01:
+                        for _ in range(4):
+                            cmd_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
+                        dq_len -= 4
+                        is_tmcc4 = True
                 if cmd_bytes:
                     try:
                         # build_req a CommandReq from the received bytes and send it to the dispatcher
-                        self._dispatcher.offer(CommandReq.from_bytes(cmd_bytes))
+                        self._dispatcher.offer(CommandReq.from_bytes(cmd_bytes, is_tmcc4=is_tmcc4))
+                        is_tmcc4 = False
                     except ValueError as ve:
                         log.exception(ve)
             elif dq_len < 3:
