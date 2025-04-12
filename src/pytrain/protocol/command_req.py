@@ -577,7 +577,7 @@ class CommandReq:
 
     @classmethod
     def build_tmcc2_command_req(cls, param: bytes, is_tmcc4: bool = False) -> R:
-        if len(param) == 3 or (is_tmcc4 is True and len(param) == 7):
+        if len(param) == 3 or (len(param) == 7 and param[1] in {0x00, 0x01}):
             value = int.from_bytes(param[1:3], byteorder="big")
             for tmcc_enum in [TMCC2HaltCommandEnum, TMCC2EngineCommandEnum, TMCC2RouteCommandEnum]:
                 cmd_enum = tmcc_enum.by_value(value)
@@ -587,7 +587,7 @@ class CommandReq:
                         scope = CommandScope.TRAIN
                     # build_req the request and return
                     data = cmd_enum.value.data_from_bytes(param[1:3])
-                    if is_tmcc4 is True and len(param) == 7 and param[1] in {0x00, 0x01}:
+                    if len(param) == 7 and param[1] in {0x00, 0x01}:
                         # TODO: this code looks fragile; should rethink
                         addr_str = ""
                         for i in range(3, 7):
