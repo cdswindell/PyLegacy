@@ -919,7 +919,7 @@ class EngineState(ComponentState):
             super().update(command)
             if isinstance(command, CommandReq):
                 if self.is_legacy is None:
-                    self._is_legacy = command.is_tmcc2
+                    self._is_legacy = command.is_tmcc2 is True or self.address > 99
 
                 # handle some aspects of halt command
                 if command.command == TMCC1HaltCommandEnum.HALT:
@@ -1405,6 +1405,9 @@ class EngineState(ComponentState):
 
     @property
     def is_legacy(self) -> bool:
+        if self._is_legacy is None:
+            if self.scope == CommandScope.ENGINE and self.address > 99:
+                self._is_legacy = True
         return self._is_legacy is True
 
     @property
