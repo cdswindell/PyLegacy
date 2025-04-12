@@ -61,7 +61,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             speed_enum = (
                 TMCC2EngineCommandEnum.ABSOLUTE_SPEED if cur_state.is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
             )
-            print("**", speed_enum, cur_state.is_legacy)
             # issue tower dialog, if requested
             if tower and dialog is True:
                 self.add(tower, address, scope=scope)
