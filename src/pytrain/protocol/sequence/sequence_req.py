@@ -191,10 +191,11 @@ class SequenceReq(CommandReq, Sequence):
         repeat: int = 1,
         delay: float = 0,
         duration: float = 0,
-        interval: int = None,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
+        address: int = None,
+        data: int = None,
     ) -> Callable:
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
 
@@ -203,6 +204,13 @@ class SequenceReq(CommandReq, Sequence):
                 self.address = new_address
             if new_data != self.data:
                 self.data = new_data
+            elif address and address != self.address:
+                self.address = address
+            if self.num_data_bits:
+                if new_data is not None and new_data != self.data:
+                    self.data = new_data
+                elif data is not None and data != self.data:
+                    self.data = data
             for sq_request in self._requests:
                 request = sq_request.request
                 request._enqueue_command(

@@ -159,6 +159,8 @@ class CommandReq:
         if scope is None:
             scope = command.scope
         if command.command_def.is_addressable:
+            if address == 4062:
+                print(f"min: {min_val} max: {max_val} syntax: {syntax} command: {command.name}")
             Validations.validate_int(address, min_value=min_val, max_value=max_val, label=scope.name.title())
         if data is not None and command.command_def.is_data:
             Validations.validate_int(data, label=scope.name.title())
