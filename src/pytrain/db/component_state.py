@@ -1640,6 +1640,7 @@ class BaseState(ComponentState):
 
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
+        from ..pdi.d4_req import D4Req
 
         if isinstance(command, BaseReq):
             with self._cv:
@@ -1653,6 +1654,9 @@ class BaseState(ComponentState):
                 self._route_throw_rate = command.route_throw_rate
                 self.changed.set()
                 self._cv.notify_all()
+        elif isinstance(command, D4Req):
+            with self._cv:
+                print(command)
 
     @property
     def base_name(self) -> str:

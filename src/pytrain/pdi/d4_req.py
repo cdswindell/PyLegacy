@@ -19,7 +19,6 @@ class D4Req(PdiReq):
         self._data_length = self._data_bytes = self._start = None
         if isinstance(data, bytes):
             data_len = len(self._data)
-            print(self._data.hex())
             self._record_no = int.from_bytes(self._data[1:3], byteorder="little") if data_len > 2 else None
             self._op = D4Op(self._data[3]) if data_len > 3 else None
             if self._op == D4Op.COUNT:
