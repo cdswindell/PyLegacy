@@ -575,8 +575,6 @@ class CommandDispatcher(Thread):
         if isinstance(state, bytes):
             packet = state
         elif isinstance(state, ComponentState):
-            if state.scope == CommandScope.BASE:
-                print("****", state, state.as_bytes().hex())
             packet = state.as_bytes()
         if packet:  # we can only send states for tracked conditions
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
