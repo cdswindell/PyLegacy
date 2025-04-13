@@ -80,6 +80,8 @@ class D4Req(PdiReq):
                 ct = f": {self.count}" if self.count is not None else ""
             elif self.action == D4Action.MAP:
                 tmcc = f" TMCC ID: {self.tmcc_id}" if self.tmcc_id else ""
+                if self.record_no == 0xFFFF:
+                    rn = " Not Found"
             sf = f" {self.suffix}" if self.suffix is not None else ""
             return f"{op}{tmcc}{rn}{ct}{sf} ({self.packet})"
         return super().payload
