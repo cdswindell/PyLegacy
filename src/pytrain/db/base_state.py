@@ -49,9 +49,9 @@ class BaseState(ComponentState):
             print(command)
             with self._cv:
                 if command.action == D4Action.COUNT:
-                    if command.pdi_command == PdiCommand.D4_ENGINES:
+                    if command.pdi_command == PdiCommand.D4_ENGINE:
                         self._d4_engines = command.count
-                    elif command.pdi_command == PdiCommand.D4_TRAINS:
+                    elif command.pdi_command == PdiCommand.D4_TRAIN:
                         self._d4_trains = command.count
                 self.changed.set()
                 self._cv.notify_all()
