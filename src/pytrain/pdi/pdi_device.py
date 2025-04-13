@@ -19,6 +19,7 @@ from .constants import (
     WiFiAction,
     CommonAction,
     PdiAction,
+    D4Action,
 )
 from .irda_req import IrdaReq
 from .pdi_req import PdiReq
@@ -152,11 +153,19 @@ class DeviceWrapper:
     T = TypeVar("T", bound=PdiReq)
     DC = TypeVar("DC", bound=PdiDeviceConfig.__class__)
 
-    def __init__(self, req_class: C, *commands: PdiCommand, enums: E = None, dev_class: DC = None) -> None:
+    def __init__(
+        self,
+        req_class: C,
+        *commands: PdiCommand,
+        enums: E = None,
+        dev_class: DC = None,
+        common_actions: bool = True,
+    ) -> None:
         self.req_class = req_class
         self.enums = enums
         self.dev_class = dev_class
         self.commands = commands
+        self.common_actions = common_actions
         self.get: PdiCommand = self._harvest_command("GET")
         self.set: PdiCommand = self._harvest_command("SET")
         self.rx: PdiCommand = self._harvest_command("RX")
@@ -215,6 +224,10 @@ class DeviceWrapper:
             enum = self.enums.by_name("IDENTIFY")
             return self.req_class(tmcc_id, self.set, enum, ident=ident)
 
+    @property
+    def is_common_actions(self) -> bool:
+        return self.common_actions
+
     def _harvest_command(self, suffix: str) -> PdiCommand | None:
         suffix = suffix.strip().upper()
         for e in self.commands:
@@ -245,7 +258,7 @@ class PdiDevice(Mixins, FriendlyMixins):
     from .block_req import BlockReq
 
     BASE = DeviceWrapper(BaseReq)
-    D4 = DeviceWrapper(D4Req)
+    D4 = DeviceWrapper(D4Req, enums=D4Action, common_actions=False)
     PING = DeviceWrapper(PingReq)
     ALL = DeviceWrapper(AllReq, PdiCommand.ALL_GET, PdiCommand.ALL_SET)
     TMCC = DeviceWrapper(TmccReq, PdiCommand.TMCC_TX, PdiCommand.TMCC_RX)

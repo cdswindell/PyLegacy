@@ -251,7 +251,7 @@ class PdiAction(Mixins, FriendlyMixins):
         opts += "g" if self.value.is_gettable else "x"
         opts += "s" if self.value.is_settable else "x"
         opts += "r" if self.value.is_responses else "x"
-        return f"{self.name.title()} [{opts}]"
+        return f"{self.title} [{opts}]"
 
     @property
     def bits(self) -> int | None:
@@ -269,14 +269,20 @@ class PdiAction(Mixins, FriendlyMixins):
         return self.bits.to_bytes(1, byteorder="big")
 
 
-OP_QUERY = 0x10
-OP_COUNT = 0x20
+ACTION_QUERY = 0x10
+ACTION_SET = 0x11
+ACTION_CLEAR = 0x13
+ACTION_MAP = 0x18
+ACTION_COUNT = 0x20
 
 
 @unique
 class D4Action(PdiAction):
-    QUERY = ActionDef(OP_QUERY, True, False, True)
-    COUNT = ActionDef(OP_COUNT, True, False, True)
+    QUERY = ActionDef(ACTION_QUERY, True, False, True)
+    SET = ActionDef(ACTION_SET, False, True, True)
+    CLEAR = ActionDef(ACTION_CLEAR, False, True, True)
+    MAP = ActionDef(ACTION_MAP, True, False, True)
+    COUNT = ActionDef(ACTION_COUNT, True, False, True)
 
 
 ACTION_FIRMWARE: int = 0x01

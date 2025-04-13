@@ -1020,6 +1020,18 @@ class PyTrain:
                 self._get_system_state()
             elif param[0].lower().startswith("ba"):
                 agr = BaseReq(0, PdiCommand.BASE)
+        elif param_len > 2 and param[0].lower().startswith("d"):  # 4-digit base commands
+            pdi = PdiCommand.by_prefix(param[0], raise_exception=True)
+            action = D4Action.by_prefix(param[1], raise_exception=True)
+            if action == D4Action.COUNT:
+                agr = D4Req(0, pdi, action=action)
+            if param_len >= 3:
+                if action == D4Action.MAP:
+                    tmcc_id = int(param[2])
+                    if tmcc_id > 99:
+                        agr = D4Req(0, pdi, action=action, tmcc_id=tmcc_id)
+                    else:
+                        raise AttributeError(f"PDI {action.label} only supported for 4-digit TMCC IDs")
         elif param_len == 2:
             if param[0].lower().startswith("e"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ENGINE)
@@ -1031,9 +1043,6 @@ class PyTrain:
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_SWITCH)
             elif param[0].lower().startswith("r"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ROUTE)
-            elif param[0].lower().startswith("d"):
-                op = D4Action.by_prefix(param[1])
-                agr = D4Req(0, PdiCommand.D4_ENGINE, action=op)
         elif param_len >= 3:
             from ..pdi.pdi_device import PdiDevice
             from ..pdi.constants import CommonAction, IrdaAction
