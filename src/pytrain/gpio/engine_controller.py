@@ -5,7 +5,7 @@ from typing import Dict, Tuple, TypeVar, Union
 
 from gpiozero import Button
 
-from ..db.component_state import EngineState
+from .. import EngineState
 from ..pdi.base3_buffer import Base3Buffer
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, ControlType

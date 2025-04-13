@@ -1,8 +1,7 @@
 import atexit
 from threading import Event, RLock, Thread
 
-from .. import ComponentStateStore
-from ..db.component_state import EngineState, TrainState
+from .. import ComponentStateStore, EngineState, TrainState
 from ..db.state_watcher import StateWatcher
 from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
 from .gpio_device import GpioDevice

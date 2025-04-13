@@ -12,7 +12,10 @@ import logging
 
 from gpiozero import Button
 
-from ..db.component_state import BlockState, EngineState, IrdaState, SwitchState, TrainState
+from ..db.component_state import SwitchState
+from ..db.engine_state import EngineState, TrainState
+from ..db.irda_state import IrdaState
+from ..db.block_state import BlockState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler, P

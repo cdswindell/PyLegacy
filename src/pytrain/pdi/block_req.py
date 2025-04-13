@@ -3,7 +3,7 @@ from __future__ import annotations
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
 from ..atc.block import Block
-from ..db.component_state import BlockState
+from ..db.block_state import BlockState
 from ..protocol.constants import CommandScope, Direction
 
 

@@ -450,7 +450,10 @@ class BaseReq(PdiReq):
                 self._data_length = data_length
                 self._data_bytes = data_bytes
             elif state:
-                from ..db.component_state import EngineState, TrainState, BaseState, RouteState
+                from ..db.component_state import RouteState
+                from .. import TrainState
+                from .. import EngineState
+                from ..db.base_state import BaseState
 
                 self._status = 0
                 self._spare_1 = state.spare_1

@@ -43,7 +43,8 @@ from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandListener, CommandDispatcher
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..db.client_state_listener import ClientStateListener
-from ..db.component_state import ComponentState, EngineState
+from ..db.component_state import ComponentState
+from ..db.engine_state import EngineState
 from ..db.component_state_store import ComponentStateStore
 from ..db.prod_info import ProdInfo
 from ..db.startup_state import StartupState
@@ -1020,7 +1021,7 @@ class PyTrain:
                 self._get_system_state()
             elif param[0].lower().startswith("ba"):
                 agr = BaseReq(0, PdiCommand.BASE)
-        elif param_len > 2 and param[0].lower().startswith("d"):  # 4-digit base commands
+        elif param_len >= 2 and param[0].lower().startswith("d"):  # 4-digit base commands
             pdi = PdiCommand.by_prefix(param[0], raise_exception=True)
             action = D4Action.by_prefix(param[1], raise_exception=True)
             if action == D4Action.COUNT:
@@ -1032,6 +1033,7 @@ class PyTrain:
                         agr = D4Req(0, pdi, action=action, tmcc_id=tmcc_id)
                     else:
                         raise AttributeError(f"PDI {action.label} only supported for 4-digit TMCC IDs")
+            print(agr)
         elif param_len == 2:
             if param[0].lower().startswith("e"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ENGINE)

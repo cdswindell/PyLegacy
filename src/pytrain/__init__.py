@@ -20,13 +20,16 @@ from .cli.pytrain import (
 from .db.component_state import (
     AccessoryState,  # noqa: F401
     ComponentState,  # noqa: F401
-    EngineState,  # noqa: F401
-    IrdaState,  # noqa: F401
+    # noqa: F401
+    # noqa: F401
     RouteState,  # noqa: F401
     SwitchState,  # noqa: F401
-    SyncState,  # noqa: F401
-    TrainState,  # noqa: F401
+    # noqa: F401
+    # noqa: F401
 )
+from .db.engine_state import EngineState, TrainState  # noqa: F401
+from .db.irda_state import IrdaState  # noqa: F401
+from .db.sync_state import SyncState  # noqa: F401
 from .db.component_state_store import ComponentStateStore  # noqa: F401
 from .gpio.base_watcher import BaseWatcher  # noqa: F401
 from .gpio.controller import Controller  # noqa: F401
