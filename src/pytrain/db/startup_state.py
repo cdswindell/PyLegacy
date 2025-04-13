@@ -67,14 +67,11 @@ class StartupState(Thread):
         self.listener.subscribe_any(self)
         self.listener.enqueue_command(AllReq())
         self.listener.enqueue_command(BaseReq(0, PdiCommand.BASE))
+        self.listener.enqueue_command(D4Req(0, PdiCommand.D4_ENGINE, D4Action.COUNT))
+        self.listener.enqueue_command(D4Req(0, PdiCommand.D4_TRAIN, D4Action.COUNT))
         # we request engine/sw/acc roster at startup; do this by asking for
         # Eng/Train/Acc/Sw #100 then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity
-        time.sleep(0.01)
-        self.listener.enqueue_command(D4Req(0, PdiCommand.D4_ENGINE, D4Action.COUNT))
-        time.sleep(0.01)
-        self.listener.enqueue_command(D4Req(0, PdiCommand.D4_TRAIN, D4Action.COUNT))
-        time.sleep(0.01)
         for tmcc_id in range(1, 99):
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ENGINE))
             time.sleep(0.05)

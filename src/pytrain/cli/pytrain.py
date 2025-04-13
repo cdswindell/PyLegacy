@@ -225,13 +225,13 @@ class PyTrain:
         # signal.signal(signal.SIGINT, self._handle_signals)
 
         print("Registering listeners...")
+        self._state_store.listen_for(CommandScope.BASE)
         self._state_store.listen_for(CommandScope.ENGINE)
         self._state_store.listen_for(CommandScope.TRAIN)
         self._state_store.listen_for(CommandScope.SWITCH)
         self._state_store.listen_for(CommandScope.ROUTE)
         self._state_store.listen_for(CommandScope.ACC)
         self._state_store.listen_for(CommandScope.IRDA)
-        self._state_store.listen_for(CommandScope.BASE)
         self._state_store.listen_for(CommandScope.SYNC)
         self._state_store.listen_for(CommandScope.BLOCK)
 
