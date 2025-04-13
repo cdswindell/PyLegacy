@@ -4,7 +4,7 @@ from typing import Dict, Any
 
 from .component_state import ComponentState, L, P, SCOPE_TO_STATE_MAP
 from ..protocol.constants import CommandScope
-from ..pdi.constants import PdiCommand
+from ..pdi.constants import PdiCommand, D4Action
 
 
 class BaseState(ComponentState):
@@ -21,6 +21,8 @@ class BaseState(ComponentState):
         self._firmware_high = None
         self._firmware_low = None
         self._route_throw_rate = None
+        self._d4_engines: int | None = None
+        self._d4_trains: int | None = None
 
     def __repr__(self) -> str:
         bn = f"Lionel Base 3: {self._base_name if self._base_name else 'NA'}"
@@ -44,8 +46,15 @@ class BaseState(ComponentState):
                 self.changed.set()
                 self._cv.notify_all()
         elif isinstance(command, D4Req):
+            print(command)
             with self._cv:
-                print(command)
+                if command.action == D4Action.COUNT:
+                    if command.pdi_command == PdiCommand.D4_ENGINES:
+                        self._d4_engines = command.count
+                    elif command.pdi_command == PdiCommand.D4_TRAINS:
+                        self._d4_trains = command.count
+                self.changed.set()
+                self._cv.notify_all()
 
     @property
     def base_name(self) -> str:
@@ -62,6 +71,14 @@ class BaseState(ComponentState):
     @property
     def firmware_low(self) -> int:
         return self._firmware_low
+
+    @property
+    def d4_engines(self) -> int:
+        return self._d4_engines
+
+    @property
+    def d4_trains(self) -> int:
+        return self._d4_trains
 
     @property
     def route_throw_rate(self) -> float:

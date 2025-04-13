@@ -1,0 +1,223 @@
+from __future__ import annotations
+
+import logging
+from typing import Dict, Any
+
+from ..protocol.constants import CommandScope
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux, TMCC1HaltCommandEnum
+from ..protocol.command_req import CommandReq
+from ..pdi.asc2_req import Asc2Req
+from ..pdi.bpc2_req import Bpc2Req
+from ..pdi.constants import Asc2Action, Bpc2Action, PdiCommand, IrdaAction
+from ..pdi.irda_req import IrdaReq
+from .component_state import TmccState, L, P, log, SCOPE_TO_STATE_MAP
+
+
+class AccessoryState(TmccState):
+    def __init__(self, scope: CommandScope = CommandScope.ACC) -> None:
+        if scope != CommandScope.ACC:
+            raise ValueError(f"Invalid scope: {scope}")
+        super().__init__(scope)
+        self._first_pdi_command = None
+        self._first_pdi_action = None
+        self._last_aux1_opt1 = None
+        self._last_aux2_opt1 = None
+        self._aux1_state: Aux | None = None
+        self._aux2_state: Aux | None = None
+        self._aux_state: Aux | None = None
+        self._block_power = False
+        self._sensor_track = False
+        self._pdi_source = False
+        self._number: int | None = None
+
+    def __repr__(self) -> str:
+        aux1 = aux2 = aux_num = ""
+        if self._block_power:
+            aux = f"Block Power {'ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
+        elif self._sensor_track:
+            aux = "Sensor Track"
+        else:
+            if self.is_lcs_component:
+                aux = "Asc2 " + "ON" if self._aux_state == Aux.AUX1_OPT_ONE else "OFF"
+            else:
+                if self.aux_state == Aux.AUX1_OPT_ONE:
+                    aux = "Aux 1"
+                elif self.aux_state == Aux.AUX2_OPT_ONE:
+                    aux = "Aux 2"
+                else:
+                    aux = "Unknown"
+                aux1 = f" Aux1: {self.aux1_state.name if self.aux1_state is not None else 'Unknown'}"
+                aux2 = f" Aux2: {self.aux2_state.name if self.aux2_state is not None else 'Unknown'}"
+                aux_num = f" Aux Num: {self._number if self._number is not None else 'NA'}"
+        name = num = ""
+        if self.road_name is not None:
+            name = f" {self.road_name}"
+        if self.road_number is not None:
+            num = f" #{self.road_number} "
+        return f"{self.scope.title} {self.address}: {aux}{aux1}{aux2}{aux_num}{name}{num}"
+
+    # noinspection DuplicatedCode
+    def update(self, command: L | P) -> None:
+        if command:
+            with self._cv:
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(command)
+                super().update(command)
+                if isinstance(command, CommandReq):
+                    if command.command != Aux.SET_ADDRESS:
+                        if command.command == TMCC1HaltCommandEnum.HALT:
+                            self._aux1_state = Aux.AUX1_OFF
+                            self._aux2_state = Aux.AUX2_OFF
+                            self._aux_state = Aux.AUX2_OPT_ONE
+                            self._number = None
+                        else:
+                            if self._pdi_source is False:
+                                if command.command in {Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE}:
+                                    self._aux_state = command.command
+                                if command.command == Aux.AUX1_OPT_ONE:
+                                    if self.time_delta(self._last_updated, self._last_aux1_opt1) > 1:
+                                        self._aux1_state = self.update_aux_state(
+                                            self._aux1_state,
+                                            Aux.AUX1_ON,
+                                            Aux.AUX1_OPT_ONE,
+                                            Aux.AUX1_OFF,
+                                        )
+                                    self._last_aux1_opt1 = self.last_updated
+                                elif command.command in {Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO}:
+                                    self._aux1_state = command.command
+                                    self._last_aux1_opt1 = self.last_updated
+                                elif command.command == Aux.AUX2_OPT_ONE:
+                                    if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
+                                        self._aux2_state = self.update_aux_state(
+                                            self._aux2_state,
+                                            Aux.AUX2_ON,
+                                            Aux.AUX2_OPT_ONE,
+                                            Aux.AUX2_OFF,
+                                        )
+                                    self._last_aux2_opt1 = self.last_updated
+                                elif command.command in {Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO}:
+                                    self._aux2_state = command.command
+                                    self._last_aux2_opt1 = self.last_updated
+                            if command.command == Aux.NUMERIC:
+                                self._number = command.data
+                elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req):
+                    if self._first_pdi_command is None:
+                        self._first_pdi_command = command.command
+                    if self._first_pdi_action is None:
+                        self._first_pdi_action = command.action
+                    if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
+                        self._pdi_source = True
+                        if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
+                            self._block_power = True
+                        else:
+                            self._block_power = False
+                        if command.state == 1:
+                            self._aux1_state = Aux.AUX1_ON
+                            self._aux2_state = Aux.AUX2_ON
+                            self._aux_state = Aux.AUX1_OPT_ONE
+                        else:
+                            self._aux1_state = Aux.AUX1_OFF
+                            self._aux2_state = Aux.AUX2_OFF
+                            self._aux_state = Aux.AUX2_OPT_ONE
+                elif isinstance(command, IrdaReq):
+                    if self._first_pdi_command is None:
+                        self._first_pdi_command = command.command
+                    if self._first_pdi_action is None:
+                        self._first_pdi_action = command.action
+                    self._sensor_track = True
+                self.changed.set()
+                self._cv.notify_all()
+
+    @property
+    def is_known(self) -> bool:
+        return (
+            self._aux_state is not None
+            or self._aux1_state is not None
+            or self._aux2_state is not None
+            or self._number is not None
+        )
+
+    @property
+    def is_power_district(self) -> bool:
+        return self._block_power
+
+    @property
+    def is_sensor_track(self) -> bool:
+        return self._sensor_track
+
+    @property
+    def is_lcs_component(self) -> bool:
+        return self._pdi_source
+
+    @property
+    def aux_state(self) -> Aux:
+        return self._aux_state
+
+    @property
+    def is_aux_on(self) -> bool:
+        return self._aux_state == Aux.AUX1_OPT_ONE
+
+    @property
+    def is_aux_off(self) -> bool:
+        return self._aux_state == Aux.AUX2_OPT_ONE
+
+    @property
+    def aux1_state(self) -> Aux:
+        return self._aux1_state
+
+    @property
+    def aux2_state(self) -> Aux:
+        return self._aux2_state
+
+    @property
+    def value(self) -> int:
+        return self._number
+
+    def as_bytes(self) -> bytes:
+        from ..pdi.base_req import BaseReq
+
+        byte_str = BaseReq(self.address, PdiCommand.BASE_ACC, state=self).as_bytes
+        if self._sensor_track:
+            byte_str += IrdaReq(self.address, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC).as_bytes
+        elif self.is_lcs_component:
+            if isinstance(self._first_pdi_action, Asc2Action):
+                byte_str += Asc2Req(
+                    self.address,
+                    self._first_pdi_command,
+                    self._first_pdi_action,
+                    values=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
+                ).as_bytes
+            elif isinstance(self._first_pdi_action, Bpc2Action):
+                byte_str += Bpc2Req(
+                    self.address,
+                    self._first_pdi_command,
+                    self._first_pdi_action,
+                    state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
+                ).as_bytes
+            else:
+                log.error(f"State req for lcs device: {self._first_pdi_command.name} {self._first_pdi_action.name}")
+        else:
+            if self._aux_state is not None:
+                byte_str += CommandReq.build(self.aux_state, self.address).as_bytes
+            if self._aux1_state is not None:
+                byte_str += CommandReq.build(self.aux1_state, self.address).as_bytes
+            if self._aux2_state is not None:
+                byte_str += CommandReq.build(self.aux2_state, self.address).as_bytes
+        return byte_str
+
+    def as_dict(self) -> Dict[str, Any]:
+        d = super()._as_dict()
+        if self._sensor_track:
+            d["type"] = "sensor track"
+        elif self._block_power:
+            d["type"] = "power district"
+            d["block"] = "on" if self._aux_state == Aux.AUX1_OPT_ONE else "off"
+        else:
+            d["type"] = "accessory"
+            d["aux"] = self._aux_state.name.lower() if self._aux_state else None
+            d["aux1"] = self.aux1_state.name.lower() if self.aux1_state else None
+            d["aux2"] = self.aux2_state.name.lower() if self.aux2_state else None
+        return d
+
+
+SCOPE_TO_STATE_MAP[CommandScope.ACC] = AccessoryState
