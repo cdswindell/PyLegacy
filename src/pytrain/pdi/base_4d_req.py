@@ -18,6 +18,7 @@ class Base4DReq(PdiReq):
         self._record_no = self._tmcc_id = self._count = self._suffix = None
         self._data_length = self._data_bytes = self._start = None
         if isinstance(data, bytes):
+            print("***", self._data.hex())
             data_len = len(self._data)
             self._record_no = int.from_bytes(self._data[1:3], byteorder="little") if data_len > 2 else None
             self._op = Base4DOp(self._data[3]) if data_len > 3 else None
