@@ -1031,9 +1031,9 @@ class PyTrain:
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_SWITCH)
             elif param[0].lower().startswith("r"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ROUTE)
-            elif param[0].lower().startswith("b"):
+            elif param[0].lower().startswith("d"):
                 op = D4Op.by_prefix(param[1])
-                agr = D4Req(0, PdiCommand.BASE_ENGINE_4D, op=op)
+                agr = D4Req(0, PdiCommand.D4_ENGINE, op=op)
         elif param_len >= 3:
             from ..pdi.pdi_device import PdiDevice
             from ..pdi.constants import CommonAction, IrdaAction
