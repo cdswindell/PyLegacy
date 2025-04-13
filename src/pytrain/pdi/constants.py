@@ -86,6 +86,7 @@ class FriendlyMixins(Enum):
         return self.name.title()
 
 
+@unique
 class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     ALL_GET = ALL_GET
     ALL_SET = ALL_SET
@@ -110,7 +111,7 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     WIFI_GET = WIFI_GET
     WIFI_SET = WIFI_SET
     WIFI_RX = WIFI_RX
-    WIFI_PING = PING
+    WIFI_PING = WIFI_PING
     ASC2_GET = ASC2_GET
     ASC2_SET = ASC2_SET
     ASC2_RX = ASC2_RX
@@ -139,16 +140,27 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
     @property
     def is_base(self) -> bool:
+        return (
+            self.value
+            in {
+                BASE_ENGINE,
+                BASE_TRAIN,
+                BASE_ACC,
+                BASE_BASE,
+                BASE_ROUTE,
+                BASE_SWITCH,
+                BASE_MEMORY,
+                UPDATE_ENGINE_SPEED,
+                UPDATE_TRAIN_SPEED,
+            }
+            or self.is_base_4d
+        )
+
+    @property
+    def is_base_4d(self) -> bool:
         return self.value in {
-            BASE_ENGINE,
-            BASE_TRAIN,
-            BASE_ACC,
-            BASE_BASE,
-            BASE_ROUTE,
-            BASE_SWITCH,
-            BASE_MEMORY,
-            UPDATE_ENGINE_SPEED,
-            UPDATE_TRAIN_SPEED,
+            BASE_ENGINE_4D,
+            BASE_TRAIN_4D,
         }
 
     @property
@@ -230,6 +242,20 @@ class ActionDef:
     @property
     def is_responses(self) -> bool:
         return self._responds
+
+
+OP_QUERY = 0x10
+OP_COUNT = 0x20
+
+
+@unique
+class Base4DOp(Mixins, FriendlyMixins):
+    QUERY = ActionDef(OP_QUERY, True, False, True)
+    COUNT = ActionDef(OP_COUNT, True, False, True)
+
+    @property
+    def as_bytes(self) -> bytes:
+        return self.value.bits.to_bytes(1, byteorder="big")
 
 
 @unique

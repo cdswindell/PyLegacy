@@ -48,8 +48,9 @@ from ..db.component_state_store import ComponentStateStore
 from ..db.prod_info import ProdInfo
 from ..db.startup_state import StartupState
 from ..gpio.gpio_handler import GpioHandler
+from ..pdi.base_4d_req import Base4DReq
 from ..pdi.base_req import BaseReq
-from ..pdi.constants import PdiCommand, PDI_SOP
+from ..pdi.constants import PdiCommand, PDI_SOP, Base4DOp
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import PdiReq, AllReq
 from ..pdi.pdi_state_store import PdiStateStore
@@ -242,6 +243,7 @@ class PyTrain:
         self._dispatcher = CommandDispatcher.get()
 
         # load roster
+        self._pdi_state_store = None
         if self._pdi_buffer is not None:
             self._pdi_state_store = PdiStateStore()
             self._get_system_state()
@@ -1029,6 +1031,9 @@ class PyTrain:
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_SWITCH)
             elif param[0].lower().startswith("r"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ROUTE)
+            elif param[0].lower().startswith("b"):
+                op = Base4DOp.by_prefix(param[1])
+                agr = Base4DReq(0, PdiCommand.BASE_ENGINE_4D, op=op)
         elif param_len >= 3:
             from ..pdi.pdi_device import PdiDevice
             from ..pdi.constants import CommonAction, IrdaAction
