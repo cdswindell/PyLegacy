@@ -562,6 +562,8 @@ class CommandDispatcher(Thread):
                         state: ComponentState = store.query(scope, address)
                         if state is not None:
                             try:
+                                if state.scope == CommandScope.BASE:
+                                    print(state)
                                 self.send_state_packet(client_ip, client_port, state)
                             except Exception as e:
                                 log.warning(f"Exception sending state update {state} to {client_ip}:{client_port}")
@@ -575,6 +577,8 @@ class CommandDispatcher(Thread):
         if isinstance(state, bytes):
             packet = state
         elif isinstance(state, ComponentState):
+            if state.scope == CommandScope.BASE:
+                print("****", state, state.as_bytes().hex())
             packet = state.as_bytes()
         if packet:  # we can only send states for tracked conditions
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
