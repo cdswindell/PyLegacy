@@ -12,6 +12,7 @@ class D4Req(PdiReq):
         error: bool = False,
         tmcc_id: int | None = None,
         post_action: int | None = None,
+        count: int | None = None,
         start: int | None = None,
         data_length: int | None = None,
         data_bytes: bytes | None = None,
@@ -48,6 +49,8 @@ class D4Req(PdiReq):
             self._data_length = data_length
             self._data_bytes = data_bytes
             self._tmcc_id = tmcc_id
+            if self.action == D4Action.COUNT:
+                self._count = count
 
     @property
     def record_no(self) -> int:

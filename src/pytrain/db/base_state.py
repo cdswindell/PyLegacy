@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Dict, Any
 
 from .component_state import ComponentState, L, P, SCOPE_TO_STATE_MAP
+from ..pdi.d4_req import D4Req
 from ..protocol.constants import CommandScope
 from ..pdi.constants import PdiCommand, D4Action
 
@@ -27,7 +28,9 @@ class BaseState(ComponentState):
     def __repr__(self) -> str:
         bn = f"Lionel Base 3: {self._base_name if self._base_name else 'NA'}"
         fw = f" Firmware: {self._firmware if self._firmware else 'NA'}"
-        return f"{bn}{fw}"
+        d4e = f" 4-digit Engines: {self._d4_engines if self._d4_engines is not None else 'NA'}"
+        d4t = f" 4-digit Trains: {self._d4_trains if self._d4_trains is not None else 'NA'}"
+        return f"{bn}{fw}{d4e}{d4t}"
 
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
@@ -100,7 +103,12 @@ class BaseState(ComponentState):
         if self.is_known:
             from ..pdi.base_req import BaseReq
 
-            return BaseReq(self.address, PdiCommand.BASE, state=self).as_bytes
+            byte_str = BaseReq(self.address, PdiCommand.BASE, state=self).as_bytes
+            if self.d4_engines is not None:
+                byte_str += D4Req(0, PdiCommand.D4_ENGINE, action=D4Action.COUNT, count=self.d4_engines).as_bytes
+            if self.d4_trains is not None:
+                byte_str += D4Req(0, PdiCommand.D4_TRAIN, action=D4Action.COUNT, count=self.d4_trains).as_bytes
+            return byte_str
         else:
             return bytes()
 
