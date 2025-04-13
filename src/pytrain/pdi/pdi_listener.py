@@ -280,6 +280,7 @@ class PdiDispatcher(Thread):
                         if cmd.pdi_command == PdiCommand.BASE_TRAIN and cmd.tmcc_id == 98:
                             CommandDispatcher.get().offer(SYNC_COMPLETE)
                         if cmd.is_ack is True or cmd.is_active is False:
+                            print("^^^", cmd)
                             continue
                     # for TMCC requests, forward to TMCC Command Dispatcher
                     if isinstance(cmd, TmccReq):

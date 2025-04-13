@@ -243,7 +243,7 @@ class PyTrain:
         # if it is not
         self._dispatcher = CommandDispatcher.get()
 
-        # load roster
+        # load roster, only if server
         self._pdi_state_store = None
         if self._pdi_buffer is not None:
             self._pdi_state_store = PdiStateStore()

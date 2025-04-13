@@ -122,6 +122,8 @@ class ComponentStateStore:
         Callback, per the Subscriber protocol in CommandListener
         """
         if command:
+            if command.scope == CommandScope.BASE:
+                print(command)
             if isinstance(command, CommandReq):
                 if command.is_halt:  # send to all known devices
                     if self._filter_updates and command.is_filtered:
