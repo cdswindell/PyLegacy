@@ -41,6 +41,7 @@ class BaseState(ComponentState):
                 # Note: super().update is explicitly not called
                 self._base_name = command.name.title() if command.name else self._base_name
                 self._firmware = command.firmware if command.firmware else self._firmware
+                self._is_known = True
                 if self.firmware:
                     version_info = self.firmware.split(".")
                     self._firmware_high = int(version_info[0])
