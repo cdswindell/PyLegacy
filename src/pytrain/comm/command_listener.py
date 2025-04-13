@@ -562,8 +562,6 @@ class CommandDispatcher(Thread):
                         state: ComponentState = store.query(scope, address)
                         if state is not None:
                             try:
-                                if state.scope == CommandScope.BASE:
-                                    print(state)
                                 self.send_state_packet(client_ip, client_port, state)
                             except Exception as e:
                                 log.warning(f"Exception sending state update {state} to {client_ip}:{client_port}")

@@ -93,8 +93,6 @@ class ClientStateListener(threading.Thread):
         if log.isEnabledFor(logging.DEBUG):
             log.debug(f"ClientStateListener Offered: {data.hex(' ')}")
         if data and data[0] == PDI_SOP:
-            if len(data) > 1 and data[1] == 0x23:
-                print("***", data.hex())
             self._pdi_listener.offer(data)
         else:
             self._tmcc_listener.offer(data)
@@ -144,6 +142,4 @@ class ClientStateHandler(socketserver.BaseRequestHandler):
                     byte_stream = byte_stream[eop_index + 1 :]
             else:
                 byte_stream = bytes()
-            if len(byte_stream) > 4 and byte_stream[1] == 0x2E and byte_stream[4] == 0x20:
-                print("$$$", byte_stream.hex())
             ClientStateListener.build().offer(command_bytes)
