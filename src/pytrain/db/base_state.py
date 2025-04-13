@@ -49,15 +49,13 @@ class BaseState(ComponentState):
                 self.changed.set()
                 self._cv.notify_all()
         elif isinstance(command, D4Req):
-            print(command)
             with self._cv:
                 if command.action == D4Action.COUNT:
                     if command.pdi_command == PdiCommand.D4_ENGINE:
                         self._d4_engines = command.count
                     elif command.pdi_command == PdiCommand.D4_TRAIN:
                         self._d4_trains = command.count
-                self.changed.set()
-                self._cv.notify_all()
+            # do not signal state update for engine and train counts
 
     @property
     def base_name(self) -> str:
