@@ -25,8 +25,8 @@ class D4Req(PdiReq):
             if self._op == D4Op.COUNT:
                 self._scope = CommandScope.BASE
                 self._tmcc_id = 0
-                self._count = int.from_bytes(self._data[4:6], byteorder="little") if data_len > 5 else None
-                self._suffix = int.from_bytes(self._data[6:8], byteorder="little") if data_len > 7 else None
+                self._count = int.from_bytes(self._data[6:8], byteorder="little") if data_len > 7 else None
+                self._suffix = int.from_bytes(self._data[8:10], byteorder="little") if data_len > 9 else None
         else:
             self._op = op
             self._record_no = int(data)
