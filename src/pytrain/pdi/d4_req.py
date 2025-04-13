@@ -53,11 +53,12 @@ class D4Req(PdiReq):
     def payload(self) -> str:
         if self.op:
             ct = ""
-            op = self.op.name.lower()
-            rn = f" {self.record_no} " if self.record_no is not None else ""
+            op = self.op.title
+            rn = f" #{self.record_no}" if self.record_no is not None else ""
             if self.op == D4Op.COUNT:
-                ct = f" {self.count} " if self.count is not None else ""
-            sf = f" {self.suffix} " if self.suffix is not None else ""
+                rn = ""
+                ct = f" Count: {self.count}" if self.count is not None else ""
+            sf = f" {self.suffix}" if self.suffix is not None else ""
             return f"{op}{rn}{ct}{sf} ({self.packet})"
         return super().payload
 
