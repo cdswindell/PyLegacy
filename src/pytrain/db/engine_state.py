@@ -39,7 +39,7 @@ from ..protocol.constants import (
     STEAM_TYPE,
     CommandScope,
 )
-from ..protocol.tmcc1.tmcc1_constants import TMCC1_COMMAND_TO_ALIAS_MAP, TMCC1EngineCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1_COMMAND_TO_ALIAS_MAP, TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
@@ -164,7 +164,7 @@ class EngineState(ComponentState):
                     self._is_legacy = command.is_tmcc2 is True or self.address > 99
 
                 # handle some aspects of halt command
-                if command.command == TMCC1.HALT:
+                if command.command == TMCC1HaltCommandEnum.HALT:
                     if self.is_legacy:
                         self._aux1 = TMCC2.AUX1_OFF
                         self._aux2 = TMCC2.AUX2_OFF
