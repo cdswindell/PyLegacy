@@ -93,7 +93,7 @@ class ClientStateListener(threading.Thread):
         if log.isEnabledFor(logging.DEBUG):
             log.debug(f"ClientStateListener Offered: {data.hex(' ')}")
         if data and data[0] == PDI_SOP:
-            if len(data) > 1 and data[1] == 0x20:
+            if len(data) > 1 and data[1] == 0x23:
                 print("***", data.hex())
             self._pdi_listener.offer(data)
         else:
