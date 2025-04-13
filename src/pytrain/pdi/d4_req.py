@@ -1,14 +1,14 @@
-from .constants import PdiCommand, Base4DOp, PDI_SOP, PDI_EOP
+from .constants import PdiCommand, D4Op, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
 from ..protocol.constants import CommandScope
 
 
-class Base4DReq(PdiReq):
+class D4Req(PdiReq):
     def __init__(
         self,
         data: bytes | int = 0,
-        pdi_command: PdiCommand = PdiCommand.BASE_ENGINE_4D,
-        op: Base4DOp = Base4DOp.QUERY,
+        pdi_command: PdiCommand = PdiCommand.D4_ENGINE,
+        op: D4Op = D4Op.QUERY,
         start: int | None = None,
         data_length: int | None = None,
         data_bytes: bytes | None = None,
@@ -21,8 +21,8 @@ class Base4DReq(PdiReq):
             print("***", self._data.hex())
             data_len = len(self._data)
             self._record_no = int.from_bytes(self._data[1:3], byteorder="little") if data_len > 2 else None
-            self._op = Base4DOp(self._data[3]) if data_len > 3 else None
-            if self._op == Base4DOp.COUNT:
+            self._op = D4Op(self._data[3]) if data_len > 3 else None
+            if self._op == D4Op.COUNT:
                 self._count = int.from_bytes(self._data[4:6], byteorder="little") if data_len > 5 else None
                 self._suffix = int.from_bytes(self._data[6:8], byteorder="little") if data_len > 7 else None
         else:
@@ -37,7 +37,7 @@ class Base4DReq(PdiReq):
         return self._record_no
 
     @property
-    def op(self) -> Base4DOp:
+    def op(self) -> D4Op:
         return self._op
 
     @property
@@ -55,7 +55,7 @@ class Base4DReq(PdiReq):
             ct = ""
             op = self.op.name.lower()
             rn = f" {self.record_no} " if self.record_no is not None else ""
-            if self.op == Base4DOp.COUNT:
+            if self.op == D4Op.COUNT:
                 ct = f" {self.count} " if self.count is not None else ""
             sf = f" {self.suffix} " if self.suffix is not None else ""
             return f"{op}{rn}{ct}{sf} ({self.packet})"
@@ -69,7 +69,7 @@ class Base4DReq(PdiReq):
         byte_str += self.record_no.to_bytes(2, byteorder="little")
         byte_str += self.op.as_bytes
         byte_str += (0).to_bytes(2, byteorder="little")
-        if self.op == Base4DOp.COUNT:
+        if self.op == D4Op.COUNT:
             byte_str += self.count.to_bytes(2, byteorder="little") if self.count is not None else bytes()
             byte_str += self.suffix.to_bytes(2, byteorder="little") if self.suffix is not None else bytes()
         byte_str, checksum = self._calculate_checksum(byte_str)

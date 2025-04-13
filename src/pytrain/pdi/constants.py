@@ -39,8 +39,8 @@ UPDATE_TRAIN_SPEED: int = 0x2B
 TMCC4_TX: int = 0x2C
 TMCC4_RX: int = 0x2D
 
-BASE_ENGINE_4D: int = 0x2E
-BASE_TRAIN_4D: int = 0x2F  # TODO: Not verified
+D4_ENGINE: int = 0x2E
+D4_TRAIN: int = 0x2F  # TODO: Not verified
 
 IRDA_GET: int = 0x30
 IRDA_SET: int = 0x31
@@ -101,7 +101,7 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     TMCC_RX = TMCC_RX
     TMCC4_TX = TMCC4_TX
     TMCC4_RX = TMCC4_RX
-    BASE_ENGINE_4D = BASE_ENGINE_4D
+    D4_ENGINE = D4_ENGINE
     PING = PING
     UPDATE_ENGINE_SPEED = UPDATE_ENGINE_SPEED
     UPDATE_TRAIN_SPEED = UPDATE_TRAIN_SPEED
@@ -140,27 +140,23 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
     @property
     def is_base(self) -> bool:
-        return (
-            self.value
-            in {
-                BASE_ENGINE,
-                BASE_TRAIN,
-                BASE_ACC,
-                BASE_BASE,
-                BASE_ROUTE,
-                BASE_SWITCH,
-                BASE_MEMORY,
-                UPDATE_ENGINE_SPEED,
-                UPDATE_TRAIN_SPEED,
-            }
-            or self.is_base_4d
-        )
+        return self.value in {
+            BASE_ENGINE,
+            BASE_TRAIN,
+            BASE_ACC,
+            BASE_BASE,
+            BASE_ROUTE,
+            BASE_SWITCH,
+            BASE_MEMORY,
+            UPDATE_ENGINE_SPEED,
+            UPDATE_TRAIN_SPEED,
+        }
 
     @property
-    def is_base_4d(self) -> bool:
+    def is_d4(self) -> bool:
         return self.value in {
-            BASE_ENGINE_4D,
-            BASE_TRAIN_4D,
+            D4_ENGINE,
+            D4_TRAIN,
         }
 
     @property
@@ -249,7 +245,7 @@ OP_COUNT = 0x20
 
 
 @unique
-class Base4DOp(Mixins, FriendlyMixins):
+class D4Op(Mixins, FriendlyMixins):
     QUERY = ActionDef(OP_QUERY, True, False, True)
     COUNT = ActionDef(OP_COUNT, True, False, True)
 

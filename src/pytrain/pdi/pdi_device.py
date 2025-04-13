@@ -238,14 +238,14 @@ class PdiDevice(Mixins, FriendlyMixins):
     from .wifi_req import WiFiReq
     from .pdi_req import AllReq, PingReq, TmccReq
     from .base_req import BaseReq
-    from .base_4d_req import Base4DReq
+    from .d4_req import D4Req
     from .stm2_req import Stm2Req
     from .irda_req import IrdaReq
     from .lcs_req import Ser2Req
     from .block_req import BlockReq
 
     BASE = DeviceWrapper(BaseReq)
-    BASE4D = DeviceWrapper(Base4DReq)
+    BASE4D = DeviceWrapper(D4Req)
     PING = DeviceWrapper(PingReq)
     ALL = DeviceWrapper(AllReq, PdiCommand.ALL_GET, PdiCommand.ALL_SET)
     TMCC = DeviceWrapper(TmccReq, PdiCommand.TMCC_TX, PdiCommand.TMCC_RX)
