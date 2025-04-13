@@ -50,9 +50,11 @@ class Base4DReq(PdiReq):
     @property
     def payload(self) -> str:
         if self.op:
+            ct = ""
             op = self.op.name.lower()
             rn = f" {self.record_no} " if self.record_no is not None else ""
-            ct = f" {self.count} " if self.count is not None else ""
+            if self.op == Base4DOp.COUNT:
+                ct = f" {self.count} " if self.count is not None else ""
             sf = f" {self.suffix} " if self.suffix is not None else ""
             return f"{op}{rn}{ct}{sf} ({self.packet})"
         return super().payload
