@@ -240,20 +240,6 @@ class ActionDef:
         return self._responds
 
 
-OP_QUERY = 0x10
-OP_COUNT = 0x20
-
-
-@unique
-class D4Op(Mixins, FriendlyMixins):
-    QUERY = ActionDef(OP_QUERY, True, False, True)
-    COUNT = ActionDef(OP_COUNT, True, False, True)
-
-    @property
-    def as_bytes(self) -> bytes:
-        return self.value.bits.to_bytes(1, byteorder="big")
-
-
 @unique
 class PdiAction(Mixins, FriendlyMixins):
     """
@@ -281,6 +267,16 @@ class PdiAction(Mixins, FriendlyMixins):
     @property
     def as_bytes(self) -> bytes:
         return self.bits.to_bytes(1, byteorder="big")
+
+
+OP_QUERY = 0x10
+OP_COUNT = 0x20
+
+
+@unique
+class D4Action(PdiAction):
+    QUERY = ActionDef(OP_QUERY, True, False, True)
+    COUNT = ActionDef(OP_COUNT, True, False, True)
 
 
 ACTION_FIRMWARE: int = 0x01

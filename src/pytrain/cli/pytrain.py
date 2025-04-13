@@ -50,7 +50,7 @@ from ..db.startup_state import StartupState
 from ..gpio.gpio_handler import GpioHandler
 from ..pdi.d4_req import D4Req
 from ..pdi.base_req import BaseReq
-from ..pdi.constants import PdiCommand, PDI_SOP, D4Op
+from ..pdi.constants import PdiCommand, PDI_SOP, D4Action
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import PdiReq, AllReq
 from ..pdi.pdi_state_store import PdiStateStore
@@ -1032,8 +1032,8 @@ class PyTrain:
             elif param[0].lower().startswith("r"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ROUTE)
             elif param[0].lower().startswith("d"):
-                op = D4Op.by_prefix(param[1])
-                agr = D4Req(0, PdiCommand.D4_ENGINE, op=op)
+                op = D4Action.by_prefix(param[1])
+                agr = D4Req(0, PdiCommand.D4_ENGINE, action=op)
         elif param_len >= 3:
             from ..pdi.pdi_device import PdiDevice
             from ..pdi.constants import CommonAction, IrdaAction

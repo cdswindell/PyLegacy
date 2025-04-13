@@ -507,7 +507,7 @@ class CommandReq:
     def _apply_data(self, new_data: int = None) -> int:
         """
         For commands that take parameters, such as engine speed and brake level,
-        apply the data bits to the command op bytes to form the complete byte
+        apply the data bits to the command action bytes to form the complete byte
         set to send to the Lionel LCS SER2.
         """
         data = new_data if new_data is not None else self.data
