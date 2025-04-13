@@ -50,6 +50,7 @@ class Base4DReq(PdiReq):
     @property
     def payload(self) -> str:
         if self.op:
+            print(self.op)
             ct = ""
             op = self.op.name.lower()
             rn = f" {self.record_no} " if self.record_no is not None else ""
