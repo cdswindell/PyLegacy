@@ -245,7 +245,7 @@ class PdiDevice(Mixins, FriendlyMixins):
     from .block_req import BlockReq
 
     BASE = DeviceWrapper(BaseReq)
-    BASE4D = DeviceWrapper(D4Req)
+    D4 = DeviceWrapper(D4Req)
     PING = DeviceWrapper(PingReq)
     ALL = DeviceWrapper(AllReq, PdiCommand.ALL_GET, PdiCommand.ALL_SET)
     TMCC = DeviceWrapper(TmccReq, PdiCommand.TMCC_TX, PdiCommand.TMCC_RX)
