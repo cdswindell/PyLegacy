@@ -46,6 +46,7 @@ class IrdaState(LcsState):
 
         if command:
             with self._cv:
+                self._is_known = True
                 super().update(command)
                 if isinstance(command, IrdaReq) and command.pdi_command == PdiCommand.IRDA_RX:
                     if command.action == IrdaAction.CONFIG:
@@ -103,10 +104,6 @@ class IrdaState(LcsState):
                                 command.tmcc_id = orig_tmcc_id
                     self.changed.set()
                     self._cv.notify_all()
-
-    @property
-    def is_known(self) -> bool:
-        return self._sequence is not None
 
     @property
     def sequence(self) -> IrdaSequence:

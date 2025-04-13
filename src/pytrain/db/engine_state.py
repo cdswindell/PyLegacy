@@ -146,15 +146,13 @@ class EngineState(ComponentState):
                 speed_info = 31
         return speed_info
 
-    def is_known(self) -> bool:
-        return self._is_known
-
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
 
         # suppress duplicate commands that are received within 1 second; dups are common
         # in the lionel ecosystem, as commands are frequently sent twice or even 3 times
         # consecutively.
+        self._is_known = True
         if command is None or (command == self._last_command and self.last_updated_ago < 1):
             return
         with self._cv:
