@@ -553,13 +553,15 @@ class CommandDispatcher(Thread):
 
             # send starting state sync message
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_begin_response())
-            store = ComponentStateStore.build()
+            store = ComponentStateStore.get()
             for scope in store.scopes():
                 if scope == CommandScope.SYNC:
                     continue
                 for address in store.addresses(scope):
                     with self._lock:
                         state: ComponentState = store.query(scope, address)
+                        if scope == CommandScope.BASE:
+                            print("***", state)
                         if state is not None:
                             try:
                                 self.send_state_packet(client_ip, client_port, state)
