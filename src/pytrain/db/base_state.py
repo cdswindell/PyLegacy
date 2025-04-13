@@ -106,6 +106,7 @@ class BaseState(ComponentState):
                 byte_str += D4Req(0, PdiCommand.D4_ENGINE, action=D4Action.COUNT, count=self.d4_engines).as_bytes
             if self.d4_trains is not None:
                 byte_str += D4Req(0, PdiCommand.D4_TRAIN, action=D4Action.COUNT, count=self.d4_trains).as_bytes
+            print(f"BaseReq: {byte_str.hex()}")
             return byte_str
         else:
             return bytes()

@@ -560,8 +560,6 @@ class CommandDispatcher(Thread):
                 for address in store.addresses(scope):
                     with self._lock:
                         state: ComponentState = store.query(scope, address)
-                        if scope == CommandScope.BASE:
-                            print("***", state)
                         if state is not None:
                             try:
                                 self.send_state_packet(client_ip, client_port, state)
