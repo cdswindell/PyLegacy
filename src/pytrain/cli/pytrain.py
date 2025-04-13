@@ -1034,7 +1034,6 @@ class PyTrain:
             elif param[0].lower().startswith("b"):
                 op = Base4DOp.by_prefix(param[1])
                 agr = Base4DReq(0, PdiCommand.BASE_ENGINE_4D, op=op)
-                print(agr)
         elif param_len >= 3:
             from ..pdi.pdi_device import PdiDevice
             from ..pdi.constants import CommonAction, IrdaAction
