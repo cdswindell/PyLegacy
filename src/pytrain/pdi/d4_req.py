@@ -9,6 +9,7 @@ class D4Req(PdiReq):
         data: bytes | int = 0,
         pdi_command: PdiCommand = PdiCommand.D4_ENGINE,
         action: D4Action = D4Action.QUERY,
+        error: bool = False,
         tmcc_id: int | None = None,
         post_action: int | None = None,
         start: int | None = None,
@@ -19,6 +20,7 @@ class D4Req(PdiReq):
         self._scope = CommandScope.ENGINE
         self._record_no = self._tmcc_id = self._count = self._post_action = self._suffix = None
         self._data_length = self._data_bytes = self._start = None
+        self._error = error
         if isinstance(data, bytes):
             data_len = len(self._data)
             self._record_no = int.from_bytes(self._data[1:3], byteorder="little") if data_len > 2 else None
