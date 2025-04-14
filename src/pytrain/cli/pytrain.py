@@ -1024,9 +1024,9 @@ class PyTrain:
         elif param_len >= 2 and param[0].lower().startswith("d"):  # 4-digit base commands
             pdi = PdiCommand.by_prefix(param[0], raise_exception=True)
             action = D4Action.by_prefix(param[1], raise_exception=True)
-            if action == D4Action.COUNT:
+            if action in {D4Action.COUNT, D4Action.FIRST_REC}:
                 agr = D4Req(0, pdi, action=action)
-            if param_len >= 3:
+            if agr is None and param_len >= 3:
                 if action == D4Action.MAP:
                     tmcc_id = int(param[2])
                     if tmcc_id > 99:
