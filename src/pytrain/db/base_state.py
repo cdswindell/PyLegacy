@@ -60,12 +60,12 @@ class BaseState(ComponentState):
                 if command.pdi_command == PdiCommand.D4_ENGINE:
                     if command.action == D4Action.COUNT:
                         self._d4_engines = command.count
-                    elif command.action == D4Action.FIRST_REC_NO:
+                    elif command.action == D4Action.FIRST_REC:
                         self._first_d4_engine_rec_no = command.record_no if command.record_no != 0xFFFF else None
                 elif command.pdi_command == PdiCommand.D4_TRAIN:
                     if command.action == D4Action.COUNT:
                         self._d4_trains = command.count
-                    elif command.action == D4Action.FIRST_REC_NO:
+                    elif command.action == D4Action.FIRST_REC:
                         self._first_d4_train_rec_no = command.record_no if command.record_no != 0xFFFF else None
             # do not signal state update for engine and train counts
 
