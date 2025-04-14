@@ -29,7 +29,9 @@ class D4Req(PdiReq):
             self._action = D4Action(self._data[3]) if data_len > 3 else None
             self._post_action = int.from_bytes(self._data[4:6]) if data_len > 5 else None
             self._suffix = int.from_bytes(self._data[8:10], byteorder="little") if data_len > 9 else None
-            if self._action == D4Action.COUNT:
+            if self._action == D4Action.QUERY:
+                pass
+            elif self._action == D4Action.COUNT:
                 self._scope = CommandScope.BASE
                 self._count = int.from_bytes(self._data[6:8], byteorder="little") if data_len > 7 else None
             elif self._action == D4Action.MAP:
