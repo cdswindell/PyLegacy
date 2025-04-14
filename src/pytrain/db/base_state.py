@@ -35,7 +35,7 @@ class BaseState(ComponentState):
             d4e += f" (@#{self._first_d4_engine_rec_no})"
         d4t = f" 4-digit Trains: {self._d4_trains if self._d4_trains is not None else 'NA'}"
         if d4t != "NA" and self._first_d4_train_rec_no is not None:
-            d4t += f" (@#{self._first_d4_train_rec_no})"
+            d4t += f" (FRN: {self._first_d4_train_rec_no})"
         return f"{bn}{fw}{d4e}{d4t}"
 
     def update(self, command: L | P) -> None:
