@@ -272,6 +272,7 @@ class PdiAction(Mixins, FriendlyMixins):
 
 ACTION_QUERY = 0x10
 ACTION_SET = 0x11
+ACTION_NEXT_REC = 0x12
 ACTION_CLEAR = 0x13
 ACTION_MAP = 0x18
 ACTION_COUNT = 0x20
@@ -281,6 +282,7 @@ ACTION_COUNT = 0x20
 class D4Action(PdiAction):
     QUERY = ActionDef(ACTION_QUERY, True, False, True)
     SET = ActionDef(ACTION_SET, False, True, True)
+    NEXT_REC = ActionDef(ACTION_NEXT_REC, True, False, True)
     CLEAR = ActionDef(ACTION_CLEAR, False, True, True)
     MAP = ActionDef(ACTION_MAP, True, False, True)
     COUNT = ActionDef(ACTION_COUNT, True, False, True)

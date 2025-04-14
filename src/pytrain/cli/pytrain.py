@@ -1033,6 +1033,9 @@ class PyTrain:
                         agr = D4Req(0, pdi, action=action, tmcc_id=tmcc_id)
                     else:
                         raise AttributeError(f"PDI {action.label} only supported for 4-digit TMCC IDs")
+                elif action == D4Action.NEXT_REC:
+                    rec_no = int(param[2])
+                    agr = D4Req(rec_no, pdi, action=D4Action.NEXT_REC)
             print(agr)
         elif param_len == 2:
             if param[0].lower().startswith("e"):

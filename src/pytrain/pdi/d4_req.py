@@ -11,10 +11,9 @@ class D4Req(PdiReq):
         action: D4Action = D4Action.QUERY,
         error: bool = False,
         tmcc_id: int | None = None,
-        post_action: int | None = None,
-        count: int | None = None,
-        start: int | None = None,
-        data_length: int | None = None,
+        post_action: int = 0,
+        start: int = 0,
+        data_length: int = 1,
         data_bytes: bytes | None = None,
     ) -> None:
         super().__init__(data, pdi_command)
@@ -41,6 +40,12 @@ class D4Req(PdiReq):
                     self._tmcc_id = int(addr_str)
                 else:
                     self._tmcc_id = 0
+            elif self._action == D4Action.NEXT_REC:
+                self._tmcc_id = 0
+                self._post_action = int.from_bytes(self._data[4:6]) if data_len > 5 else None
+                self._start = 0
+                self._data_length = self._data[7] if data_len > 7 else None
+                self._next_record_no = int.from_bytes(self._data[8:10], byteorder="little") if data_len > 9 else None
         else:
             self._action = action
             self._record_no = int(data)
@@ -49,8 +54,6 @@ class D4Req(PdiReq):
             self._data_length = data_length
             self._data_bytes = data_bytes
             self._tmcc_id = tmcc_id
-            if self.action == D4Action.COUNT:
-                self._count = count
 
     @property
     def record_no(self) -> int:
@@ -69,8 +72,20 @@ class D4Req(PdiReq):
         return self._suffix
 
     @property
+    def start(self) -> int:
+        return self._start
+
+    @property
+    def data_length(self) -> int:
+        return self._data_length
+
+    @property
     def count(self) -> int:
         return self._count
+
+    @property
+    def next_record_no(self) -> int:
+        return self._next_record_no
 
     @property
     def payload(self) -> str:
@@ -100,6 +115,12 @@ class D4Req(PdiReq):
         if self.action == D4Action.COUNT:
             byte_str += self.count.to_bytes(2, byteorder="little") if self.count is not None else bytes()
             byte_str += self.suffix.to_bytes(2, byteorder="little") if self.suffix is not None else bytes()
+        elif self.action == D4Action.NEXT_REC:
+            byte_str += self.start.to_bytes(1, byteorder="big") if self.start is not None else bytes()
+            byte_str += self.data_length.to_bytes(1, byteorder="big") if self.data_length is not None else bytes()
+            byte_str += (
+                self.next_record_no.to_bytes(2, byteorder="little") if self.next_record_no is not None else bytes()
+            )
         elif self.action == D4Action.MAP:
             if self.tmcc_id:
                 byte_str += str(self.tmcc_id).zfill(4).encode("ascii")
