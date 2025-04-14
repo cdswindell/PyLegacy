@@ -275,6 +275,7 @@ ACTION_SET = 0x11
 ACTION_NEXT_REC = 0x12
 ACTION_CLEAR = 0x13
 ACTION_MAP = 0x18
+ACTION_FIRST_REC = 0x19
 ACTION_COUNT = 0x20
 
 
@@ -285,6 +286,7 @@ class D4Action(PdiAction):
     NEXT_REC = ActionDef(ACTION_NEXT_REC, True, False, True)
     CLEAR = ActionDef(ACTION_CLEAR, False, True, True)
     MAP = ActionDef(ACTION_MAP, True, False, True)
+    FIRST_REC = ActionDef(ACTION_FIRST_REC, True, False, True)
     COUNT = ActionDef(ACTION_COUNT, True, False, True)
 
 
