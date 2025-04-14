@@ -348,7 +348,7 @@ class BaseReq(PdiReq):
         self._loco_type = self._control_type = self._sound_type = self._loco_class = None
         self._speed_step = self._speed_limit = self._max_speed = self._labor_bias = None
         self._fuel_level = self._water_level = self._last_train_id = self._train_pos = None
-        self._train_brake = self._train_brake_tmcc = None
+        self._train_brake = None
         self._smoke_level = self._ditch_lights = self._momentum = self._momentum_tmcc = None
         self._consist_flags = None
         self._consist_comps = []
@@ -391,7 +391,6 @@ class BaseReq(PdiReq):
                 self._smoke_level = self._data[65] if data_len > 65 else None
                 self._ditch_lights = self._data[66] if data_len > 66 else None
                 self._train_brake = self._data[67] if data_len > 67 else None
-                self._train_brake_tmcc = round(self._data[67] / 2.143) if data_len > 67 else None
                 self._momentum = self._data[68] if data_len > 68 else None
                 self._momentum_tmcc = floor(self._data[68] / 16) if data_len > 68 else None
                 if self.pdi_command == PdiCommand.BASE_TRAIN:
@@ -483,8 +482,7 @@ class BaseReq(PdiReq):
                         self._max_speed = state.max_speed
                         self._momentum_tmcc = state.momentum
                         self._momentum = state.momentum * 16
-                        self._train_brake = round(state.train_brake * 2.143)
-                        self._train_brake_tmcc = state.train_brake
+                        self._train_brake = min(round(state.train_brake * 2.143), 15)
                         self._run_level = state.rpm
                         self._labor_bias = state.labor - 12 if state.labor >= 12 else 20 + state.labor
                         self._scope = state.scope
@@ -591,7 +589,10 @@ class BaseReq(PdiReq):
 
     @property
     def train_brake_tmcc(self) -> int:
-        return self._train_brake_tmcc
+        if self.train_brake:
+            return min(round(self._train_brake * 0.4667), 7)
+        else:
+            return self._train_brake
 
     @property
     def run_level(self) -> int:

@@ -24,10 +24,11 @@ from .component_state import (
     SCOPE_TO_STATE_MAP,
     ComponentState,
 )
+from ..pdi.d4_req import D4Req
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.command_req import CommandReq
 from ..protocol.command_def import CommandDefEnum
-from ..pdi.constants import PdiCommand, IrdaAction
+from ..pdi.constants import PdiCommand, IrdaAction, D4Action
 from ..pdi.irda_req import IrdaReq
 from ..protocol.constants import (
     LOCO_TYPE,
@@ -81,6 +82,7 @@ class EngineState(ComponentState):
         self._speed_limit: int | None = None
         self._start_stop: CommandDefEnum | None = None
         self._train_brake: int | None = None
+        self._d4_rec_no: int | None = None
 
     def __repr__(self) -> str:
         sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = ""
@@ -382,7 +384,9 @@ class EngineState(ComponentState):
                     if command.is_valid(EngineBits.SMOKE_LEVEL) and self.is_legacy:
                         self._smoke_level = command.smoke
                     if command.is_valid(EngineBits.TRAIN_BRAKE):
-                        self._train_brake = command.train_brake
+                        self._train_brake = command.train_brake_tmcc
+                        if self._train_brake > 8:
+                            print("--- TB ---", command)
                     if command.pdi_command == PdiCommand.BASE_TRAIN:
                         self._consist_comp = command.consist_components
                         self._consist_flags = command.consist_flags
@@ -394,6 +398,17 @@ class EngineState(ComponentState):
                     setattr(self, tpl[0], tpl[1](command.data_bytes))
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
+            elif isinstance(command, D4Req):
+                if command.action == D4Action.MAP:
+                    if command.record_no == 0xFFFF:  # delete record
+                        # TODO: delete state record
+                        pass
+                    elif command.record_no is not None:
+                        self._d4_rec_no = command.record_no
+                else:
+                    print("--- D4 ---", command)
+            else:
+                print("---", command)
             self.changed.set()
             self._cv.notify_all()
 
@@ -638,6 +653,10 @@ class EngineState(ComponentState):
     @property
     def is_aux2(self) -> bool:
         return self._aux2 in {TMCC1.AUX2_ON, TMCC2.AUX2_ON}
+
+    @property
+    def record_no(self) -> int:
+        return self._d4_rec_no
 
     @property
     def is_tmcc(self) -> bool:
