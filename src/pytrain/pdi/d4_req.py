@@ -41,6 +41,8 @@ class D4Req(PdiReq):
                     self._tmcc_id = int(addr_str)
                 else:
                     self._tmcc_id = 0
+            elif self._action == D4Action.FIRST_REC:
+                self._tmcc_id = 0
             elif self._action == D4Action.NEXT_REC:
                 self._tmcc_id = 0
                 self._post_action = int.from_bytes(self._data[4:6]) if data_len > 5 else None
