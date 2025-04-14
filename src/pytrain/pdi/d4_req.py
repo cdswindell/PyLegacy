@@ -113,19 +113,21 @@ class D4Req(PdiReq):
         byte_str = self.pdi_command.as_bytes
         byte_str += self.record_no.to_bytes(2, byteorder="little")
         byte_str += self.action.as_bytes
-        byte_str += (self.post_action if self.post_action else 0).to_bytes(2, byteorder="little")
         if self.action == D4Action.COUNT:
+            byte_str += (self.post_action if self.post_action else 0).to_bytes(2, byteorder="little")
             byte_str += self.count.to_bytes(2, byteorder="little") if self.count is not None else bytes()
             byte_str += self.suffix.to_bytes(2, byteorder="little") if self.suffix is not None else bytes()
         elif self.action == D4Action.FIRST_REC:
             byte_str += (0).to_bytes(1, byteorder="big")
         elif self.action == D4Action.NEXT_REC:
+            byte_str += (self.post_action if self.post_action else 0).to_bytes(2, byteorder="little")
             byte_str += self.start.to_bytes(1, byteorder="big") if self.start is not None else bytes()
             byte_str += self.data_length.to_bytes(1, byteorder="big") if self.data_length is not None else bytes()
             byte_str += (
                 self.next_record_no.to_bytes(2, byteorder="little") if self.next_record_no is not None else bytes()
             )
         elif self.action == D4Action.MAP:
+            byte_str += (self.post_action if self.post_action else 0).to_bytes(2, byteorder="little")
             if self.tmcc_id:
                 byte_str += str(self.tmcc_id).zfill(4).encode("ascii")
         byte_str, checksum = self._calculate_checksum(byte_str)
