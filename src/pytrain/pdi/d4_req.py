@@ -50,6 +50,8 @@ class D4Req(PdiReq):
                     self._next_record_no = (
                         int.from_bytes(self._data[8:10], byteorder="little") if data_len > 9 else None
                     )
+                else:
+                    self._scope = CommandScope.BASE  # send first record information to Base
         else:
             self._action = action
             self._record_no = int(data)
