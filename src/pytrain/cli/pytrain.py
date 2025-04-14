@@ -173,10 +173,6 @@ class PyTrain:
         listeners = []
         self._pdi_buffer = None
         if isinstance(self.tmcc_buffer, CommBufferSingleton):
-            # listen for client connections; must be built before CommandListener
-            print(f"Listening for client requests on port {self._args.server_port}...")
-            self._receiver = EnqueueProxyRequests(self.tmcc_buffer, self._args.server_port)
-
             # Remember Base 3 address on the comm buffer; it is an object that both
             # clients and servers both have
             self._tmcc_buffer.base3_address = self._base_addr
@@ -187,6 +183,10 @@ class PyTrain:
                 base3_receiver=self._base_addr is not None,
             )
             listeners.append(self._tmcc_listener)
+
+            # listen for client connections; build *after* CommandListener.build
+            print(f"Listening for client requests on port {self._args.server_port}...")
+            self._receiver = EnqueueProxyRequests(self.tmcc_buffer, self._args.server_port)
 
             if self._base_addr is not None:
                 print(f"Listening for Lionel Base broadcasts on {self._base_addr}:{self._base_port}...")
