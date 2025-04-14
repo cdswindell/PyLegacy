@@ -117,6 +117,8 @@ class D4Req(PdiReq):
         if self.action == D4Action.COUNT:
             byte_str += self.count.to_bytes(2, byteorder="little") if self.count is not None else bytes()
             byte_str += self.suffix.to_bytes(2, byteorder="little") if self.suffix is not None else bytes()
+        elif self.action == D4Action.FIRST_REC:
+            byte_str += (0).to_bytes(1, byteorder="big")
         elif self.action == D4Action.NEXT_REC:
             byte_str += self.start.to_bytes(1, byteorder="big") if self.start is not None else bytes()
             byte_str += self.data_length.to_bytes(1, byteorder="big") if self.data_length is not None else bytes()
