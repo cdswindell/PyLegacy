@@ -136,7 +136,7 @@ class EngineState(ComponentState):
             for cc in self._consist_comp:
                 c += f"{cc} "
         return (
-            f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{sm}{dr}"
+            f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{dr}{sm}"
             f"{name}{num}{lt}{ct}{yr}{bt}{ss}{nu}{aux}{c}"
         )
 
