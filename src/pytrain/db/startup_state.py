@@ -40,11 +40,16 @@ class StartupState(Thread):
                 self.listener.enqueue_command(
                     BaseReq(cmd.tmcc_id, PdiCommand.BASE_MEMORY, flags=0, start=4, data_length=2)
                 )
-            elif cmd.pdi_command in {PdiCommand.D4_ENGINE, PdiCommand.D4_TRAIN}:
-                # noinspection PyUnresolvedReferences
+            elif isinstance(cmd, D4Req):
                 if cmd.action == D4Action.COUNT and cmd.count:
                     # request first record of D4 engines/trains
                     self.listener.enqueue_command(D4Req(0, cmd.pdi_command, D4Action.FIRST_REC))
+                elif cmd.action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:
+                    if cmd.next_record_no == 0xFFFF:
+                        pass
+                    elif cmd.next_record_no is not None:
+                        self.listener.enqueue_command(D4Req(cmd.next_record_no, cmd.pdi_command, D4Action.NEXT_REC))
+                        pass
 
     @staticmethod
     def _config_key(cmd: PdiReq) -> bytes:

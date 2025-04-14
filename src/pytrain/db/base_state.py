@@ -32,7 +32,7 @@ class BaseState(ComponentState):
         fw = f" Firmware: {self._firmware if self._firmware else 'NA'}"
         d4e = f" 4-digit Engines: {self._d4_engines if self._d4_engines is not None else 'NA'}"
         if d4e != "NA" and self._first_d4_engine_rec_no is not None:
-            d4e += f" (@#{self._first_d4_engine_rec_no})"
+            d4e += f" (FRN: {self._first_d4_engine_rec_no})"
         d4t = f" 4-digit Trains: {self._d4_trains if self._d4_trains is not None else 'NA'}"
         if d4t != "NA" and self._first_d4_train_rec_no is not None:
             d4t += f" (FRN: {self._first_d4_train_rec_no})"
