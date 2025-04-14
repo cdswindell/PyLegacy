@@ -24,12 +24,18 @@ class BaseState(ComponentState):
         self._route_throw_rate = None
         self._d4_engines: int | None = None
         self._d4_trains: int | None = None
+        self._first_d4_engine_rec_no: int | None = None
+        self._first_d4_train_rec_no: int | None = None
 
     def __repr__(self) -> str:
         bn = f"Lionel Base 3: {self._base_name if self._base_name else 'NA'}"
         fw = f" Firmware: {self._firmware if self._firmware else 'NA'}"
         d4e = f" 4-digit Engines: {self._d4_engines if self._d4_engines is not None else 'NA'}"
+        if d4e != "NA" and self._first_d4_engine_rec_no is not None:
+            d4e += f" (@#{self._first_d4_engine_rec_no})"
         d4t = f" 4-digit Trains: {self._d4_trains if self._d4_trains is not None else 'NA'}"
+        if d4t != "NA" and self._first_d4_train_rec_no is not None:
+            d4t += f" (@#{self._first_d4_train_rec_no})"
         return f"{bn}{fw}{d4e}{d4t}"
 
     def update(self, command: L | P) -> None:
@@ -51,11 +57,16 @@ class BaseState(ComponentState):
                 self._cv.notify_all()
         elif isinstance(command, D4Req):
             with self._cv:
-                if command.action == D4Action.COUNT:
-                    if command.pdi_command == PdiCommand.D4_ENGINE:
+                if command.pdi_command == PdiCommand.D4_ENGINE:
+                    if command.action == D4Action.COUNT:
                         self._d4_engines = command.count
-                    elif command.pdi_command == PdiCommand.D4_TRAIN:
+                    elif command.action == D4Action.FIRST_REC_NO:
+                        self._first_d4_engine_rec_no = command.record_no if command.record_no != 0xFFFF else None
+                elif command.pdi_command == PdiCommand.D4_TRAIN:
+                    if command.action == D4Action.COUNT:
                         self._d4_trains = command.count
+                    elif command.action == D4Action.FIRST_REC_NO:
+                        self._first_d4_train_rec_no = command.record_no if command.record_no != 0xFFFF else None
             # do not signal state update for engine and train counts
 
     @property
@@ -79,8 +90,16 @@ class BaseState(ComponentState):
         return self._d4_engines
 
     @property
+    def first_d4_engine_record_no(self) -> int:
+        return self._first_d4_engine_rec_no
+
+    @property
     def d4_trains(self) -> int:
         return self._d4_trains
+
+    @property
+    def first_d4_train_record_no(self) -> int:
+        return self._first_d4_train_rec_no
 
     @property
     def route_throw_rate(self) -> float:
@@ -105,8 +124,16 @@ class BaseState(ComponentState):
             byte_str = BaseReq(self.address, PdiCommand.BASE, state=self).as_bytes
             if self.d4_engines is not None:
                 byte_str += D4Req(0, PdiCommand.D4_ENGINE, action=D4Action.COUNT, count=self.d4_engines).as_bytes
+            if self.first_d4_engine_record_no is not None:
+                byte_str += D4Req(
+                    self.first_d4_engine_record_no, PdiCommand.D4_ENGINE, action=D4Action.FIRST_REC
+                ).as_bytes
             if self.d4_trains is not None:
                 byte_str += D4Req(0, PdiCommand.D4_TRAIN, action=D4Action.COUNT, count=self.d4_trains).as_bytes
+            if self.first_d4_train_record_no is not None:
+                byte_str += D4Req(
+                    self.first_d4_train_record_no, PdiCommand.D4_TRAIN, action=D4Action.FIRST_REC
+                ).as_bytes
             return byte_str
         else:
             return bytes()
