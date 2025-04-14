@@ -19,7 +19,7 @@ class D4Req(PdiReq):
     ) -> None:
         super().__init__(data, pdi_command)
         self._scope = CommandScope.TRAIN if self.pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
-        self._record_no = self._tmcc_id = self._count = self._post_action = self._suffix = None
+        self._record_no = self._next_record_no = self._tmcc_id = self._count = self._post_action = self._suffix = None
         self._data_length = self._data_bytes = self._start = None
         self._error = error
         if isinstance(data, bytes):
