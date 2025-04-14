@@ -19,7 +19,7 @@ class StartupState(Thread):
         self.listener = listener
         self.state_store = state_store
         self._processed_configs = set()
-        CommandDispatcher.build().offer(SYNCING)
+        CommandDispatcher.get().offer(SYNCING)
         self.start()
 
     def __call__(self, cmd: PdiReq) -> None:

@@ -25,7 +25,7 @@ DEFAULT_BASE_PORT: int = 50001
 DEFAULT_SERVER_PORT: int = 5110  # unassigned by IANA as of 1/1/2025
 DEFAULT_PULSE = 5  # send heartbeat periodically as proof of life
 
-DEFAULT_QUEUE_SIZE: int = 2**11  # 2,048 entries
+DEFAULT_QUEUE_SIZE: int = 2**12  # 4,096 entries
 
 DEFAULT_SER2_THROTTLE_DELAY: int = 50  # milliseconds
 DEFAULT_BASE_THROTTLE_DELAY: int = 50
