@@ -1036,7 +1036,6 @@ class PyTrain:
                 elif action == D4Action.NEXT_REC:
                     rec_no = int(param[2])
                     agr = D4Req(rec_no, pdi, action=D4Action.NEXT_REC)
-            print(agr)
         elif param_len == 2:
             if param[0].lower().startswith("e"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ENGINE)
