@@ -15,6 +15,7 @@ class D4Req(PdiReq):
         start: int = 0,
         data_length: int = 1,
         data_bytes: bytes | None = None,
+        count: int | None = None,
     ) -> None:
         super().__init__(data, pdi_command)
         self._scope = CommandScope.TRAIN if self.pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
@@ -54,6 +55,7 @@ class D4Req(PdiReq):
             self._data_length = data_length
             self._data_bytes = data_bytes
             self._tmcc_id = tmcc_id
+            self._count = count
 
     @property
     def record_no(self) -> int:
