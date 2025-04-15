@@ -79,6 +79,7 @@ class Oled(Thread, TextBuffer):
         self._hotspots = dict()
         self._is_running = True
         self.show()
+        self._initial_update = True
         self.start()
         atexit.register(self.close)
 
@@ -234,8 +235,12 @@ class Oled(Thread, TextBuffer):
 
     def refresh_display(self) -> None:
         with self.synchronizer:
-            if self.is_dirty is True:
-                self.update_display()
+            if self.is_dirty is True or self._initial_update is True:
+                if self._initial_update is True:
+                    self.update_display(clear=True, selective=False)
+                    self._initial_update = False
+                else:
+                    self.update_display()
 
     def _clear_image(self) -> None:
         self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
