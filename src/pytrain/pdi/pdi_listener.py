@@ -294,6 +294,7 @@ class PdiDispatcher(Thread):
                         # if the command is TMCC command received from the Base, as it
                         # has been handled via the call to tmcc_dispatcher.offer above
                         if self._server_port is not None:
+                            print("+++", cmd)
                             self.update_client_state(cmd)
                     # update broadcast channels, mostly used for command echoing
                     if self._broadcasts:
