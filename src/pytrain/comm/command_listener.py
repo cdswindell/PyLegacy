@@ -584,19 +584,19 @@ class CommandDispatcher(Thread):
     def send_state_packet(self, client_ip: str, client_port: int, state: ComponentState | bytes):
         client_port = client_port if client_port else self._server_port
         packet: bytes | None = None
-        if isinstance(state, bytes):
-            packet = state
-        elif isinstance(state, ComponentState):
-            packet = state.as_bytes()
-        if packet:  # we can only send states for tracked conditions
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                try:
+        try:
+            if isinstance(state, bytes):
+                packet = state
+            elif isinstance(state, ComponentState):
+                packet = state.as_bytes()
+            if packet:  # we can only send states for tracked conditions
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((client_ip, client_port))
                     s.sendall(packet)
                     _ = s.recv(32)
-                except Exception as e:
-                    log.warning(f"Exception sending TMCC state update {state} to {client_ip}:{client_port}")
-                    log.exception(e)
+        except Exception as e:
+            log.warning(f"Exception sending TMCC state update {state} to {client_ip}:{client_port}")
+            log.exception(e)
 
     @property
     def broadcasts_enabled(self) -> bool:
