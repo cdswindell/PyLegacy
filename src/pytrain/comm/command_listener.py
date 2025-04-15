@@ -463,9 +463,11 @@ class CommandDispatcher(Thread):
                         These commands are all marked as "filtered", and are excluded here as well as
                         in ComponentStateStore.
                         """
+                        print("000", cmd)
                         if self._filter_updates is True and cmd.is_filtered is True:
                             log.debug(f"Filtering client update: {cmd}")
                         else:
+                            print("111", cmd)
                             self.update_client_state(cmd)
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {cmd}; see log for details")
@@ -535,6 +537,7 @@ class CommandDispatcher(Thread):
                 port = DEFAULT_SERVER_PORT
             clients = {(client, port)}
         # noinspection PyTypeChecker
+        print(f"update_client_state: {command} {clients}")
         for client, port in clients:
             if client in self._server_ips and port == self._server_port:
                 print(f"Skipping update of {client}:{port} {command}")
