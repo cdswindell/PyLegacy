@@ -193,6 +193,7 @@ class EngineStatus(Thread, GpioDevice):
                 self._monitored_state = self._state_store.get_state(self.scope, self.tmcc_id)
             self._monitor_state_updates()
             self.update_display(clear=True)
+            self.update_display(clear=True)
 
     def on_state_update(self) -> None:
         cur_speed = self._monitored_state.speed if self._monitored_state else None
