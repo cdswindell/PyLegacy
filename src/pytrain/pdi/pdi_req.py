@@ -276,11 +276,19 @@ class TmccReq(PdiReq):
         """
         Used to decompose multibyte TMCC commands into 3-byte packets, sending each
         as a PdiCommand.TMCC_TX packet
+
+        Also support 4-digit engines and trains using PdiCommand.TMCC4_RX
         """
         byte_str = tmcc_cmd.as_bytes
+        if tmcc_cmd.address > 99:
+            pdi_cmd = PdiCommand.TMCC4_TX
+            step_size = 7
+        else:
+            pdi_cmd = PdiCommand.TMCC_TX
+            step_size = 3
         packets = []
-        for i in range(0, len(byte_str), 3):
-            packet = PdiCommand.TMCC_TX.to_bytes(1, byteorder="big") + byte_str[i : i + 3]
+        for i in range(0, len(byte_str), step_size):
+            packet = pdi_cmd.to_bytes(1, byteorder="big") + byte_str[i : i + step_size]
             packet, checksum = cls._calculate_checksum(packet)
             packet = PDI_SOP.to_bytes(1, byteorder="big") + packet
             packet += checksum
@@ -321,7 +329,7 @@ class TmccReq(PdiReq):
 
     @property
     def is_tmcc_rx(self) -> bool:
-        return self._pdi_command == PdiCommand.TMCC_RX
+        return self._pdi_command in {PdiCommand.TMCC_RX, PdiCommand.TMCC4_RX}
 
     @property
     def as_bytes(self) -> bytes:
@@ -337,6 +345,10 @@ class TmccReq(PdiReq):
     @property
     def scope(self) -> CommandScope:
         return CommandScope.SYSTEM
+
+    @property
+    def is_tmcc4(self) -> bool:
+        return self.address > 99
 
 
 class AllReq(PdiReq):

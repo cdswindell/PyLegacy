@@ -10,7 +10,7 @@ import time
 from threading import Condition, Thread
 
 from .base_req import BaseReq
-from .constants import KEEP_ALIVE_CMD, PDI_SOP, PdiCommand, TMCC_TX
+from .constants import KEEP_ALIVE_CMD, PDI_SOP, PdiCommand, TMCC_TX, TMCC4_TX
 from .pdi_listener import PdiListener
 from .pdi_req import PdiReq, TmccReq
 from ..protocol.command_req import CommandReq
@@ -20,7 +20,6 @@ from ..protocol.constants import (
     CommandScope,
     PROGRAM_NAME,
 )
-from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..utils.pollable_queue import PollableQueue
 
 log = logging.getLogger(__name__)
@@ -107,11 +106,15 @@ class Base3Buffer(Thread):
 
     def send(self, data: bytes) -> None:
         if data:
-            # If we are sending a multibyte TMCC command, we have to break it down
-            # into 3 byte packets; this needs to be done here so sync_state in the
-            # calling layer gets a complete command
-            if len(data) >= 12 and data[1] == TMCC_TX and data[5] == data[8] == LEGACY_MULTIBYTE_COMMAND_PREFIX:
-                tmcc_cmd = CommandReq.from_bytes(data[2:-2])
+            from ..protocol.multibyte.multibyte_command_req import MultiByteReq
+
+            # If we are sending a multibyte TMCC or TMCC_4D command, we have to break
+            # it down into 3 - 7 byte packets; this needs to be done here so sync_state
+            # in the calling layer gets a complete command
+            cmd_bytes = data[2:-2]
+            is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
+            if data[1] in {TMCC_TX, TMCC4_TX} and is_mvb:
+                tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
                 # this is a legacy/tmcc2 multibyte parameter command. We have to send it
                 # as 3 3 byte packets, using PdiCommand.TMCC_RX
                 for packet in TmccReq.as_packets(tmcc_cmd):

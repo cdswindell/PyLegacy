@@ -35,14 +35,20 @@ class MultiByteReq(CommandReq, ABC):
             return ParameterCommandReq.build(command, address, data, scope)
 
     @classmethod
-    def vet_bytes(cls, param: bytes, cmd_type: str) -> tuple[bool, bool]:
+    def vet_bytes(cls, param: bytes, cmd_type: str = "", raise_exception: bool = True) -> tuple[bool, bool]:
         is_vmb = False
         is_d4 = False
 
         if not param:
-            raise ValueError("Command requires at least 9 bytes")
+            if raise_exception:
+                raise ValueError("Command requires at least 9 bytes")
+            else:
+                return is_vmb, is_d4
         if len(param) < 9:
-            raise ValueError(f"{cmd_type} command requires at least 9 bytes {param.hex(':')}")
+            if raise_exception:
+                raise ValueError(f"{cmd_type} command requires at least 9 bytes {param.hex(':')}")
+            else:
+                return is_vmb, is_d4
         if (
             len(param) == 9
             and param[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX
