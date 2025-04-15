@@ -241,7 +241,7 @@ class Oled(Thread, TextBuffer):
                     self.update_display(clear=True, selective=False)
                     self._initial_update = False
                     if isinstance(self._device, ssd1322):  # fix for problems on initiation
-                        sleep(1.0)
+                        sleep(2.0)
                         self.update_display(clear=True, selective=False)
                 else:
                     self.update_display()
