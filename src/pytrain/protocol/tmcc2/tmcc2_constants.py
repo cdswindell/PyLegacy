@@ -107,8 +107,16 @@ class TMCC2CommandDef(CommandDef):
 
     def address_from_bytes(self, byte_data: bytes) -> int:
         if self.is_addressable:
-            value = int.from_bytes(byte_data, byteorder="big")
-            return (0xFFFF & (~self.address_mask & value)) >> 9
+            value = int.from_bytes(byte_data[0:2], byteorder="big")
+            address = (0xFFFF & (~self.address_mask & value)) >> 9
+            if len(byte_data) <= 2 and 1 <= address <= 99:
+                return address
+            elif len(byte_data) <= 6 and address == 0:
+                add_str = ""
+                for i in range(3, 7):
+                    add_str += chr(byte_data[i])
+                return int(add_str)
+            raise AttributeError(f"Cannot decode address from bytes: {byte_data.hex()}")
         else:
             return DEFAULT_ADDRESS
 

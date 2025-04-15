@@ -77,7 +77,10 @@ class MultiByteReq(CommandReq, ABC):
         Variable length  multibyte commands, this is always 9 bytes
         in three sets of three bytes a piece.
         """
-        return 9
+        if 1 <= self.address <= 99:
+            return 9
+        else:  # 4-digit addressing
+            return 21
 
     @property
     def as_bytes(self) -> bytes:

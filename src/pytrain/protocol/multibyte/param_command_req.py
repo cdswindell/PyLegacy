@@ -50,7 +50,19 @@ class ParameterCommandReq(MultiByteReq):
             len(param) == 9
             and param[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX
             and param[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+        ) or (
+            len(param) == 21
+            and param[7] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+            and param[14] == LEGACY_MULTIBYTE_COMMAND_PREFIX
         ):
+            if (
+                len(param) == 21
+                and param[7] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+                and param[14] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+            ):
+                is_d4 = True
+            else:
+                is_d4 = False
             index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
             try:
                 pi = TMCC2ParameterIndex(index)
@@ -58,7 +70,10 @@ class ParameterCommandReq(MultiByteReq):
                 raise ValueError(f"Invalid parameter command: : {param.hex(':')}")
             if pi in PARAMETER_INDEX_TO_ENUM_MAP:
                 param_enum = PARAMETER_INDEX_TO_ENUM_MAP[pi]
-                command = int(param[5])
+                if is_d4 is False:
+                    command = int(param[5])
+                else:  # account for 4-digit address encoded after each 3 bytes
+                    command = int(param[9])
                 cmd_enum = param_enum.by_value(command)
                 if cmd_enum is not None:
                     scope = cmd_enum.scope
@@ -66,7 +81,8 @@ class ParameterCommandReq(MultiByteReq):
                         scope = CommandScope.TRAIN
                     # build_req the request and return
                     data = 0
-                    address = cmd_enum.value.address_from_bytes(param[1:3])
+                    p_arg = param[1:3] if is_d4 is False else param[1:7]
+                    address = cmd_enum.value.address_from_bytes(p_arg)
                     cmd_req = ParameterCommandReq.build(cmd_enum, address, data, scope)
                     if from_tmcc_rx is True:
                         cmd_req._is_tmcc_rx = True

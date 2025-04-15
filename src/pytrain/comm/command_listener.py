@@ -172,6 +172,10 @@ class CommandListener(Thread):
                     dq_len >= 9
                     and self._deque[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX
                     and self._deque[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+                ) or (
+                    dq_len >= 21
+                    and self._deque[7] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+                    and self._deque[14] == LEGACY_MULTIBYTE_COMMAND_PREFIX
                 ):
                     # if dq_len > 9 and byte 3 is the Variable Command marker, go for more
                     if dq_len >= 9 and self._deque[2] == TMCC2_VARIABLE_INDEX:
@@ -182,8 +186,16 @@ class CommandListener(Thread):
                             continue  # wait for more
                         else:
                             last_byte = command_bytes
-                    else:
-                        last_byte = 9
+                    else:  # 4-digit engine/train
+                        if (
+                            dq_len >= 9
+                            and self._deque[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+                            and self._deque[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+                        ):
+                            last_byte = 9
+                        else:
+                            last_byte = 21
+                            is_tmcc4 = True
                     for _ in range(last_byte):
                         cmd_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                 elif dq_len >= 4 and self._deque[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX:
