@@ -2,6 +2,7 @@ import atexit
 from enum import unique
 from pathlib import Path
 from threading import Event, Thread
+from time import sleep
 
 from luma.core.interface.serial import i2c, spi
 from luma.core.virtual import hotspot
@@ -239,6 +240,9 @@ class Oled(Thread, TextBuffer):
                 if self._initial_update is True:
                     self.update_display(clear=True, selective=False)
                     self._initial_update = False
+                    if isinstance(self._device, ssd1322):  # fix for problems on initiation
+                        sleep(0.01)
+                        self.update_display(clear=True, selective=False)
                 else:
                     self.update_display()
 
