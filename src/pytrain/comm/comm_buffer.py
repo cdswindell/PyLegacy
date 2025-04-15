@@ -386,6 +386,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         tmcc_cmd = CommandReq.from_bytes(data)
         if tmcc_cmd.address > 99:
             pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC4_TX)
+            print(f"{pdi_cmd} {pdi_cmd.as_bytes.hex()}")
         else:
             pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
         self._base3.send(pdi_cmd.as_bytes)
