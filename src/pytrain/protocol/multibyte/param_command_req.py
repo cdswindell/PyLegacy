@@ -13,7 +13,6 @@ elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
 from ..constants import DEFAULT_ADDRESS, CommandScope
-from ..tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
 from .multibyte_constants import TMCC2ParameterIndex
 from .multibyte_constants import TMCC2RailSoundsDialogControl
@@ -42,27 +41,8 @@ class ParameterCommandReq(MultiByteReq):
 
     @classmethod
     def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
-        if not param:
-            raise ValueError("Command requires at least 9 bytes")
-        if len(param) < 9:
-            raise ValueError(f"Parameter command requires at least 9 bytes {param.hex(':')}")
-        if (
-            len(param) == 9
-            and param[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-            and param[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-        ) or (
-            len(param) == 21
-            and param[7] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-            and param[14] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-        ):
-            if (
-                len(param) == 21
-                and param[7] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-                and param[14] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-            ):
-                is_d4 = True
-            else:
-                is_d4 = False
+        is_pc, is_d4 = cls.vet_bytes(param, "Parameter")
+        if is_pc is True:
             index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
             try:
                 pi = TMCC2ParameterIndex(index)

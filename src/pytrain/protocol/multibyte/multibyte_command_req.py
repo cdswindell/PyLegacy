@@ -35,16 +35,32 @@ class MultiByteReq(CommandReq, ABC):
             return ParameterCommandReq.build(command, address, data, scope)
 
     @classmethod
-    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
+    def vet_bytes(cls, param: bytes, cmd_type: str) -> tuple[bool, bool]:
+        is_vmb = False
+        is_d4 = False
+
         if not param:
             raise ValueError("Command requires at least 9 bytes")
         if len(param) < 9:
-            raise ValueError(f"Multy-byte command requires at least 9 bytes {param.hex(':')}")
+            raise ValueError(f"{cmd_type} command requires at least 9 bytes {param.hex(':')}")
         if (
-            len(param) >= 9
+            len(param) == 9
             and param[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX
             and param[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX
         ):
+            is_vmb = True
+        elif (
+            len(param) == 21
+            and param[7] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+            and param[14] == LEGACY_MULTIBYTE_COMMAND_PREFIX
+        ):
+            is_vmb = is_d4 = True
+        return is_vmb, is_d4
+
+    @classmethod
+    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
+        is_vmb, _ = cls.vet_bytes(param, "Multy-byte")
+        if is_vmb is True:
             index = 0x00F0 & int.from_bytes(param[1:3], byteorder="big")
             prefix = TMCCPrefixEnum.by_value(index)
             if prefix == TMCCPrefixEnum.PARAMETER:
