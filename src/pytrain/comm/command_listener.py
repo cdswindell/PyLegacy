@@ -541,6 +541,7 @@ class CommandDispatcher(Thread):
                 continue
             try:
                 with self._lock:
+                    print((client, port), command)
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((client, port))
                         s.sendall(command.as_bytes)
