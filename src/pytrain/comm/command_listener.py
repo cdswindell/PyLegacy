@@ -47,6 +47,7 @@ class CommandListener(Thread):
         queue_size: int = DEFAULT_QUEUE_SIZE,
         ser2_receiver: bool = True,
         base3_receiver: bool = False,
+        server_port: int = None,
     ) -> CommandListener:
         """
         Factory method to create a CommandListener instance
@@ -57,6 +58,7 @@ class CommandListener(Thread):
             queue_size=queue_size,
             ser2_receiver=ser2_receiver,
             base3_receiver=base3_receiver,
+            server_port=server_port,
         )
 
     @classmethod
@@ -93,6 +95,7 @@ class CommandListener(Thread):
         queue_size: int = DEFAULT_QUEUE_SIZE,
         ser2_receiver: bool = True,
         base3_receiver: bool = False,
+        server_port: int = None,
     ) -> None:
         if self._initialized:
             return
@@ -108,7 +111,7 @@ class CommandListener(Thread):
         self._cv = threading.Condition()
         self._deque = deque(maxlen=DEFAULT_QUEUE_SIZE)
         self._is_running = True
-        self._dispatcher = CommandDispatcher.build(queue_size, ser2_receiver, base3_receiver)
+        self._dispatcher = CommandDispatcher.build(queue_size, ser2_receiver, base3_receiver, server_port)
 
         # get initial state from Base 3 and LCS modules
         self.sync_state()
@@ -338,11 +341,12 @@ class CommandDispatcher(Thread):
         queue_size: int = DEFAULT_QUEUE_SIZE,
         ser2_receiver: bool = False,
         base3_receiver: bool = False,
+        server_port: int = None,
     ) -> CommandDispatcher:
         """
         Factory method to create a CommandDispatcher instance
         """
-        return CommandDispatcher(queue_size, ser2_receiver, base3_receiver)
+        return CommandDispatcher(queue_size, ser2_receiver, base3_receiver, server_port)
 
     @classmethod
     def get(cls) -> CommandDispatcher:
@@ -386,6 +390,7 @@ class CommandDispatcher(Thread):
         queue_size: int = DEFAULT_QUEUE_SIZE,
         ser2_receiver: bool = False,
         base3_receiver: bool = False,
+        server_port: int = None,
     ) -> None:
         if self._initialized:
             return
@@ -404,10 +409,12 @@ class CommandDispatcher(Thread):
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
         self._is_server = ser2_receiver is True or base3_receiver is True
-        if EnqueueProxyRequests.is_built():
+        if server_port:
+            self._server_port = server_port
+        elif EnqueueProxyRequests.is_built():
             self._server_port = EnqueueProxyRequests.server_port()
         elif self._is_server is True:
-            self._server_port = None
+            self._server_port = DEFAULT_SERVER_PORT
             # TODO: this is really an error, fix tests accordingly
             # raise AttributeError("EnqueueProxyRequests not yet built")
         else:
@@ -463,11 +470,9 @@ class CommandDispatcher(Thread):
                         These commands are all marked as "filtered", and are excluded here as well as
                         in ComponentStateStore.
                         """
-                        print("000", cmd)
                         if self._filter_updates is True and cmd.is_filtered is True:
                             log.debug(f"Filtering client update: {cmd}")
                         else:
-                            print("111", cmd)
                             self.update_client_state(cmd)
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {cmd}; see log for details")
@@ -537,14 +542,12 @@ class CommandDispatcher(Thread):
                 port = DEFAULT_SERVER_PORT
             clients = {(client, port)}
         # noinspection PyTypeChecker
-        print(f"update_client_state: {command} {clients}")
         for client, port in clients:
             if client in self._server_ips and port == self._server_port:
                 print(f"Skipping update of {client}:{port} {command}")
                 continue
             try:
                 with self._lock:
-                    print((client, port), command)
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((client, port))
                         s.sendall(command.as_bytes)
