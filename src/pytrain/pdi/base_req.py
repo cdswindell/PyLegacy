@@ -243,6 +243,9 @@ class BaseReq(PdiReq):
             raise ValueError(f"Invalid option: {cmd}")
 
         cmds = []
+        # TODO: FIXME D4
+        if address > 99:
+            return cmds
         if state.name in BASE_MEMORY_WRITE_MAP and use_0x26 is True:
             offset, data_len, scaler = BASE_MEMORY_WRITE_MAP[state.name]
             if state.name in {"DIESEL_RPM", "ENGINE_LABOR"}:

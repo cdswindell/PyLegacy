@@ -121,7 +121,7 @@ class Base3Buffer(Thread):
                     self.send(packet)  # recursive call
                     time.sleep(0.001)
                 # do a sync_state on the complete command
-                self.sync_state(tmcc_cmd.as_bytes)
+                self.sync_state(data)
             else:
                 with self._send_cv:
                     self._send_queue.put(data)
@@ -206,7 +206,7 @@ class Base3Buffer(Thread):
             self._is_running = False
 
     @classmethod
-    def sync_state(cls, data: bytes) -> None:
+    def sync_state(cls, data: bytes, pdi_req: PdiReq = None) -> None:
         """
         Send State Update to Base 3, if it is available and if this
         command packet is relevant
@@ -215,11 +215,15 @@ class Base3Buffer(Thread):
             return
         if data:
             tmcc_cmds = []
-            if data[0] == PDI_SOP:  # it's a Base 3 cmd, we only care about TMCC TX
-                if len(data) > 2 and data[1] == PdiCommand.TMCC_TX:
+            if data[0] == PDI_SOP:  # it's a Base 3 cmd, we only care about TMCC TX/TMCC4_TX
+                if len(data) > 2 and data[1] in {PdiCommand.TMCC_TX, PdiCommand.TMCC4_TX}:
                     try:
-                        pdi_req = PdiReq.from_bytes(data)
-                        if isinstance(pdi_req, TmccReq) and pdi_req.pdi_command == PdiCommand.TMCC_TX:
+                        if pdi_req is None:
+                            pdi_req = PdiReq.from_bytes(data)
+                        if isinstance(pdi_req, TmccReq) and pdi_req.pdi_command in {
+                            PdiCommand.TMCC_TX,
+                            PdiCommand.TMCC4_TX,
+                        }:
                             tmcc_cmds.append(pdi_req.tmcc_command)
                     except NotImplementedError:
                         return  # ignore exceptions; most likely it's a multibyte cmd
