@@ -91,6 +91,13 @@ class MultiByteReq(CommandReq, ABC):
         byte_str += self._word_2
         byte_str += self.word_prefix
         byte_str += self.checksum(byte_str)
+        if self.address > 99:
+            # handle 4-digit address
+            address_bytes = str(self.address).zfill(4).encode()
+            tmp = bytes()
+            for i in range(0, len(byte_str), 3):
+                tmp += byte_str[i : i + 3] + address_bytes
+            byte_str = tmp
         return byte_str
 
     @property
@@ -100,7 +107,11 @@ class MultiByteReq(CommandReq, ABC):
     @property
     def address_byte(self) -> bytes:
         e_t = 1 if self.scope == CommandScope.TRAIN else 0
-        return ((self.address << 1) + e_t).to_bytes(1, "big")
+        if 1 <= self.address <= 99:
+            address = self.address
+        else:
+            address = 0  # prep for 4-digit
+        return ((address << 1) + e_t).to_bytes(1, "big")
 
     @property
     def word_prefix(self) -> bytes:
@@ -108,7 +119,11 @@ class MultiByteReq(CommandReq, ABC):
 
     @property
     def _word_1(self) -> bytes:
-        return ((self.address << 1) + 1).to_bytes(1, "big") + self.index_byte
+        if 1 <= self.address <= 99:
+            address = self.address
+        else:
+            address = 0  # prep for 4-digit
+        return ((address << 1) + 1).to_bytes(1, "big") + self.index_byte
 
     @property
     def _word_2(self) -> bytes:
