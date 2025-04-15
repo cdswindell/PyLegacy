@@ -113,8 +113,9 @@ class TMCC2CommandDef(CommandDef):
                 return address
             elif len(byte_data) <= 6 and address == 0:
                 add_str = ""
-                for i in range(3, 7):
+                for i in range(2, 6):
                     add_str += chr(byte_data[i])
+                print("***", add_str)
                 return int(add_str)
             raise AttributeError(f"Cannot decode address from bytes: {byte_data.hex()}")
         else:
