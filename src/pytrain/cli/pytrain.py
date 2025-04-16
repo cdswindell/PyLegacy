@@ -1028,7 +1028,6 @@ class PyTrain:
             if action in {D4Action.COUNT, D4Action.FIRST_REC}:
                 agr = D4Req(0, pdi, action=action)
             if agr is None and param_len >= 3:
-                print(param, pdi.name, action, agr)
                 if action == D4Action.MAP:
                     tmcc_id = int(param[2])
                     if tmcc_id > 99:

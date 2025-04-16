@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 
 from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
@@ -132,11 +133,18 @@ class D4Req(PdiReq):
         return self._timestamp
 
     @property
+    def timestamp_str(self) -> str:
+        if self.timestamp:
+            return datetime.fromtimestamp(self.timestamp + LIONEL_EPOCH).strftime("%Y-%m-%d %H:%M:%S")
+        return ""
+
+    @property
     def payload(self) -> str:
         if self.action:
-            ct = tmcc = dl = di = ""
+            ct = tmcc = dl = di = ts = ""
             op = self.action.title
             rn = f" #{self.record_no}" if self.record_no is not None else ""
+            sf = f" {self.suffix}" if self.suffix is not None else ""
             if self.action == D4Action.COUNT:
                 rn = ""
                 ct = f": {self.count}" if self.count is not None else ""
@@ -145,10 +153,11 @@ class D4Req(PdiReq):
                 if self.record_no == 0xFFFF:
                     rn = " Not Found"
             elif self.action in {D4Action.QUERY, D4Action.UPDATE}:
+                sf = ""
+                ts = self.timestamp_str
                 di = f" Index: {self.start}" if self.start is not None else ""
                 dl = f" Length: {self.data_length}" if self.data_length is not None else ""
-            sf = f" {self.suffix}" if self.suffix is not None else ""
-            return f"{op}{tmcc}{rn}{ct}{sf}{di}{dl} ({self.packet})"
+            return f"{op}{tmcc}{rn}{ct}{sf}{di}{dl}{ts} ({self.packet})"
         return super().payload
 
     @property
