@@ -48,8 +48,18 @@ class StartupState(Thread):
                     if cmd.next_record_no == 0xFFFF:
                         pass
                     elif cmd.next_record_no is not None:
+                        # query current state of 4-digit engine/train
+                        self.listener.enqueue_command(
+                            D4Req(
+                                cmd.next_record_no,
+                                cmd.pdi_command,
+                                D4Action.QUERY,
+                                start=0,
+                                data_length=0xC0,
+                            )
+                        )
+                        # get the record number of the next engine/train
                         self.listener.enqueue_command(D4Req(cmd.next_record_no, cmd.pdi_command, D4Action.NEXT_REC))
-                        pass
 
     @staticmethod
     def _config_key(cmd: PdiReq) -> bytes:

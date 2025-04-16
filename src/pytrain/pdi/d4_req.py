@@ -1,9 +1,22 @@
+import time
+
 from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
 from ..protocol.constants import CommandScope
 
+LIONEL_EPOCH: int = 1577836800  # Midnight, Jan 1 2020 UTC
+LIONEL_RECORD_LENGTH: int = 0xC0
+
 
 class D4Req(PdiReq):
+    @staticmethod
+    def lionel_timestamp(as_bytes: bool = True) -> int | bytes:
+        lts = 0xFFFF & int(time.time() - LIONEL_EPOCH)
+        if as_bytes is True:
+            return lts.to_bytes(4, byteorder="little")
+        else:
+            return lts
+
     def __init__(
         self,
         data: bytes | int = 0,
@@ -14,13 +27,14 @@ class D4Req(PdiReq):
         post_action: int = 0,
         start: int = 0,
         data_length: int = 1,
-        data_bytes: bytes | None = None,
+        data_bytes: int | str | bytes | None = None,
         count: int | None = None,
+        timestamp: int | None = None,
     ) -> None:
         super().__init__(data, pdi_command)
         self._scope = CommandScope.TRAIN if self.pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
         self._record_no = self._next_record_no = self._tmcc_id = self._count = self._post_action = self._suffix = None
-        self._data_length = self._data_bytes = self._start = None
+        self._data_length = self._data_bytes = self._start = self._timestamp = None
         self._error = error
         self._tmcc_id = tmcc_id
         if isinstance(data, bytes):
@@ -29,19 +43,19 @@ class D4Req(PdiReq):
             self._action = D4Action(self._data[3]) if data_len > 3 else None
             self._post_action = int.from_bytes(self._data[4:6]) if data_len > 5 else None
             self._suffix = int.from_bytes(self._data[8:10], byteorder="little") if data_len > 9 else None
-            if self._action == D4Action.QUERY:
+            if self.action == D4Action.QUERY:
                 pass
-            elif self._action == D4Action.COUNT:
+            elif self.action == D4Action.COUNT:
                 self._scope = CommandScope.BASE
                 self._count = int.from_bytes(self._data[6:8], byteorder="little") if data_len > 7 else None
-            elif self._action == D4Action.MAP:
+            elif self.action == D4Action.MAP:
                 self._suffix = None
                 if data_len > 9:
                     addr_str = ""
                     for i in range(6, 10):
                         addr_str += chr(self._data[i])
                     self._tmcc_id = int(addr_str)
-            elif self._action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:
+            elif self.action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:
                 if self._action == D4Action.NEXT_REC:
                     self._post_action = int.from_bytes(self._data[4:6]) if data_len > 5 else None
                     self._start = 0
@@ -52,6 +66,27 @@ class D4Req(PdiReq):
                 else:
                     self._next_record_no = self.record_no
                     self._scope = CommandScope.BASE  # send first record information to Base
+            elif self._action in {D4Action.QUERY, D4Action.UPDATE}:
+                self._start = self._data[6] if data_len > 6 else None
+                self._data_length = self._data[7] if data_len > 7 else None
+                self._timestamp = int.from_bytes(self._data[8:12], byteorder="little") if data_len > 11 else None
+                data_bytes = self._data[12:] if data_len > 12 else None
+                if data_bytes is not None:
+                    if isinstance(data_bytes, bytes):
+                        self._data_bytes = data_bytes
+                        if start == 0 and data_length == LIONEL_RECORD_LENGTH:
+                            if self.pdi_command == PdiCommand.D4_ENGINE:
+                                self._unpack_engine_data(data_bytes)
+                            elif self.pdi_command == PdiCommand.D4_TRAIN:
+                                self._unpack_train_data(data_bytes)
+                            else:
+                                raise AttributeError(f"Cannot process data for {self.pdi_command} command")
+                    elif isinstance(data_bytes, str):
+                        self._data_bytes = data_bytes[0:data_length].encode("ascii")
+                        if len(data_bytes) < data_length:
+                            self._data_bytes += bytes() * (data_length - len(data_bytes))
+                    elif isinstance(data_bytes, int):
+                        self._data_bytes = data_bytes.to_bytes(data_length, byteorder="little")
         else:
             self._action = action
             self._record_no = int(data)
@@ -60,6 +95,7 @@ class D4Req(PdiReq):
             self._data_length = data_length
             self._data_bytes = data_bytes
             self._count = count
+            self._timestamp = timestamp
 
     @property
     def record_no(self) -> int:
@@ -94,9 +130,13 @@ class D4Req(PdiReq):
         return self._next_record_no
 
     @property
+    def timestamp(self) -> int:
+        return self._timestamp
+
+    @property
     def payload(self) -> str:
         if self.action:
-            ct = tmcc = ""
+            ct = tmcc = dl = di = ""
             op = self.action.title
             rn = f" #{self.record_no}" if self.record_no is not None else ""
             if self.action == D4Action.COUNT:
@@ -106,8 +146,11 @@ class D4Req(PdiReq):
                 tmcc = f" TMCC ID: {self.tmcc_id}" if self.tmcc_id else ""
                 if self.record_no == 0xFFFF:
                     rn = " Not Found"
+            elif self.action in {D4Action.QUERY, D4Action.UPDATE}:
+                di = f" Index: {self.start}" if self.start is not None else ""
+                dl = f" Length: {self.data_length}" if self.data_length is not None else ""
             sf = f" {self.suffix}" if self.suffix is not None else ""
-            return f"{op}{tmcc}{rn}{ct}{sf} ({self.packet})"
+            return f"{op}{tmcc}{rn}{ct}{sf}{di}{dl} ({self.packet})"
         return super().payload
 
     @property
@@ -117,8 +160,9 @@ class D4Req(PdiReq):
         byte_str = self.pdi_command.as_bytes
         byte_str += self.record_no.to_bytes(2, byteorder="little")
         byte_str += self.action.as_bytes
-        if self.action == D4Action.COUNT:
+        if self.action in {D4Action.COUNT, D4Action.MAP, D4Action.NEXT_REC, D4Action.QUERY, D4Action.UPDATE}:
             byte_str += (self.post_action if self.post_action else 0).to_bytes(2, byteorder="little")
+        if self.action == D4Action.COUNT:
             byte_str += self.count.to_bytes(2, byteorder="little") if self.count is not None else bytes()
             byte_str += self.suffix.to_bytes(2, byteorder="little") if self.suffix is not None else bytes()
         elif self.action == D4Action.FIRST_REC:
@@ -126,18 +170,29 @@ class D4Req(PdiReq):
             byte_str += (0).to_bytes(1, byteorder="big")
         elif self.action == D4Action.NEXT_REC:
             self._scope = CommandScope.SYSTEM
-            byte_str += (self.post_action if self.post_action else 0).to_bytes(2, byteorder="little")
             byte_str += self.start.to_bytes(1, byteorder="big") if self.start is not None else bytes()
             byte_str += self.data_length.to_bytes(1, byteorder="big") if self.data_length is not None else bytes()
             byte_str += (
                 self.next_record_no.to_bytes(2, byteorder="little") if self.next_record_no is not None else bytes()
             )
         elif self.action == D4Action.MAP:
-            byte_str += (self.post_action if self.post_action else 0).to_bytes(2, byteorder="little")
-            if self.tmcc_id:
-                byte_str += str(self.tmcc_id).zfill(4).encode("ascii")
+            byte_str += str(self.tmcc_id).zfill(4).encode("ascii") if self.tmcc_id else bytes()
+        elif self.action in {D4Action.QUERY, D4Action.UPDATE}:
+            byte_str += self.start.to_bytes(1, byteorder="big") if self.start is not None else bytes()
+            byte_str += self.data_length.to_bytes(1, byteorder="big") if self.data_length is not None else bytes()
+            byte_str += (
+                self.timestamp.to_bytes(4, byteorder="little")
+                if self.timestamp is not None
+                else self.lionel_timestamp()
+            )
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
         byte_str += checksum
         byte_str += PDI_EOP.to_bytes(1, byteorder="big")
         return byte_str
+
+    def _unpack_engine_data(self, data_bytes):
+        pass
+
+    def _unpack_train_data(self, data_bytes):
+        pass
