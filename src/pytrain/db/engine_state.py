@@ -409,7 +409,6 @@ class EngineState(ComponentState):
                         self._d4_rec_no = command.record_no
                 elif command.action == D4Action.QUERY and command.engine_data:
                     self._update_engine_state(command.engine_data)
-                    print(f"TMCC ID {self.address} Smoke: {self.smoke}")
             else:
                 print("---", command)
             self.changed.set()
@@ -429,7 +428,6 @@ class EngineState(ComponentState):
         self._smoke_level = engine_data.smoke_tmcc
         self._speed_limit = engine_data.speed_limit
         self._max_speed = engine_data.max_speed
-        print(f"Smoke: {engine_data.smoke} {engine_data.smoke_tmcc}")
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:
