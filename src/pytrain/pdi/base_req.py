@@ -187,7 +187,7 @@ BASE_MEMORY_WRITE_MAP = {
 
 
 BASE_MEMORY_READ_MAP = {
-    0x04: ("_bt_id", lambda t: int.from_bytes(t, byteorder="little")),
+    0x04: ("_bt_id", lambda t: int.from_bytes(t, byteorder="little"), 2),
     0x07: ("_speed", lambda t: int.from_bytes(t, byteorder="little")),
     0x08: ("_target_speed", lambda t: int.from_bytes(t, byteorder="little")),
     0x09: ("_train_brake", lambda t: int.from_bytes(t, byteorder="little")),

@@ -1,7 +1,9 @@
 import time
 from datetime import datetime
 
+from .base_req import BASE_MEMORY_READ_MAP
 from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
+from .engine_data import EngineData
 from .pdi_req import PdiReq
 from ..protocol.constants import CommandScope
 
@@ -51,7 +53,6 @@ class D4Req(PdiReq):
                 data_bytes = self._data[12:] if data_len > 12 else None
                 if isinstance(data_bytes, bytes):
                     self._data_bytes = data_bytes
-                    print(data_bytes.hex() if data_bytes else "NA")
                     if start == 0 and data_length == LIONEL_RECORD_LENGTH:
                         if self.pdi_command == PdiCommand.D4_ENGINE:
                             self._unpack_engine_data(data_bytes)
@@ -209,8 +210,19 @@ class D4Req(PdiReq):
         byte_str += PDI_EOP.to_bytes(1, byteorder="big")
         return byte_str
 
-    def _unpack_engine_data(self, data: bytes):
-        pass
+    def _unpack_engine_data(self, data: bytes) -> EngineData:
+        data_len = len(data)
+        ed = EngineData()
+        for k, v in BASE_MEMORY_READ_MAP.items():
+            if isinstance(v, tuple) is False:
+                continue
+            item_len = v[2] if len(v) > 2 else 1
+            if data_len >= ((k + item_len) - 1):
+                value = v[1](data[k : k + item_len])
+                if hasattr(ed, v[0]):
+                    setattr(ed, v[0], value)
+            print(ed.__dict__)
+        return ed
 
     def _unpack_train_data(self, data: bytes):
         pass
