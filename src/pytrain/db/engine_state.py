@@ -75,6 +75,7 @@ class EngineState(ComponentState):
         self._numeric_cmd: CommandDefEnum | None = None
         self._prod_year: int | None = None
         self._rpm: int | None = None
+        self._rpm_labor: int | None = None
         self._smoke_level: CommandDefEnum | None = None
         self._sound_type: int | None = None
         self._sound_type_label: str | None = None

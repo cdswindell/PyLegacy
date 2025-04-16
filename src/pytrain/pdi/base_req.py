@@ -188,6 +188,19 @@ BASE_MEMORY_WRITE_MAP = {
 
 BASE_MEMORY_READ_MAP = {
     0x04: ("_bt_id", lambda t: int.from_bytes(t, byteorder="little")),
+    0x07: ("_speed", lambda t: int.from_bytes(t, byteorder="little")),
+    0x09: ("_train_brake", lambda t: int.from_bytes(t, byteorder="little")),
+    0x0C: ("_rpm_labor", lambda t: int.from_bytes(t, byteorder="little")),
+    0x18: ("_momentum", lambda t: int.from_bytes(t, byteorder="little")),
+    0x1F: ("_road_name", lambda t: PdiReq.decode_text(t)),
+    0x3F: ("_road_number", lambda t: PdiReq.decode_text(t)),
+    0x43: ("_engine_type", lambda t: int.from_bytes(t, byteorder="little")),
+    0x44: ("_control_type", lambda t: int.from_bytes(t, byteorder="little")),
+    0x45: ("_sound_type", lambda t: int.from_bytes(t, byteorder="little")),
+    0x46: ("_engine_class", lambda t: int.from_bytes(t, byteorder="little")),
+    0x69: ("_smoke", lambda t: int.from_bytes(t, byteorder="little")),
+    0x6A: ("_speed_limit", lambda t: int.from_bytes(t, byteorder="little")),
+    0x6B: ("_max_speed", lambda t: int.from_bytes(t, byteorder="little")),
 }
 
 RECORD_TYPE_MAP = {
