@@ -54,7 +54,6 @@ class D4Req(PdiReq):
                 if isinstance(data_bytes, bytes):
                     self._data_bytes = data_bytes
                     if self.start == 0 and self.data_length == LIONEL_RECORD_LENGTH:
-                        print(data_bytes.hex())
                         if self.pdi_command == PdiCommand.D4_ENGINE:
                             self._unpack_engine_data(data_bytes)
                         elif self.pdi_command == PdiCommand.D4_TRAIN:
@@ -220,9 +219,10 @@ class D4Req(PdiReq):
             item_len = v[2] if len(v) > 2 else 1
             if data_len >= ((k + item_len) - 1):
                 value = v[1](data[k : k + item_len])
+                print(f"{v[0]}: {value} {hasattr(ed, v[0])}")
                 if hasattr(ed, v[0]):
                     setattr(ed, v[0], value)
-            print(ed.__dict__)
+        print(ed.__dict__)
         return ed
 
     def _unpack_train_data(self, data: bytes):
