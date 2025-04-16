@@ -11,7 +11,7 @@ LIONEL_RECORD_LENGTH: int = 0xC0
 class D4Req(PdiReq):
     @staticmethod
     def lionel_timestamp(as_bytes: bool = True) -> int | bytes:
-        lts = 0xFFFF & int(time.time() - LIONEL_EPOCH)
+        lts = 0xFFFFFFFF & int(time.time() - LIONEL_EPOCH)
         if as_bytes is True:
             return lts.to_bytes(4, byteorder="little")
         else:
