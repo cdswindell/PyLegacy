@@ -1,5 +1,5 @@
 import time
-from datetime import datetime
+from datetime import datetime, UTC
 
 from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
@@ -135,7 +135,7 @@ class D4Req(PdiReq):
     @property
     def timestamp_str(self) -> str:
         if self.timestamp:
-            return datetime.fromtimestamp(self.timestamp + LIONEL_EPOCH).strftime("%Y-%m-%d %H:%M:%S")
+            return datetime.fromtimestamp(self.timestamp + LIONEL_EPOCH, UTC).strftime("%Y-%m-%d %H:%M:%S")
         return ""
 
     @property
@@ -154,7 +154,7 @@ class D4Req(PdiReq):
                     rn = " Not Found"
             elif self.action in {D4Action.QUERY, D4Action.UPDATE}:
                 sf = ""
-                ts = self.timestamp_str
+                ts = f" {self.timestamp_str}"
                 di = f" Index: {self.start}" if self.start is not None else ""
                 dl = f" Length: {self.data_length}" if self.data_length is not None else ""
             return f"{op}{tmcc}{rn}{ct}{sf}{di}{dl}{ts} ({self.packet})"
