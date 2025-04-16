@@ -57,16 +57,11 @@ class D4Req(PdiReq):
                         if self.pdi_command == PdiCommand.D4_ENGINE:
                             self._engine_data = EngineData(data_bytes)
                             self._tmcc_id = self.engine_data.tmcc_id
-                            print(
-                                f"TMCC ID: {self.tmcc_id} Momentum: {self.engine_data.momentum_tmcc} "
-                                f"({self.engine_data.momentum})"
-                            )
                         elif self.pdi_command == PdiCommand.D4_TRAIN:
                             self._train_data = TrainData(data_bytes)
                             self._tmcc_id = self.train_data.tmcc_id
                         else:
                             raise AttributeError(f"Cannot process data for {self.pdi_command} command")
-
                     elif isinstance(data_bytes, str):
                         self._data_bytes = data_bytes[0:data_length].encode("ascii")
                         if len(data_bytes) < data_length:
