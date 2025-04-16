@@ -49,16 +49,16 @@ class D4Req(PdiReq):
                 self._data_length = self._data[7] if data_len > 7 else None
                 self._timestamp = int.from_bytes(self._data[8:12], byteorder="little") if data_len > 11 else None
                 data_bytes = self._data[12:] if data_len > 12 else None
-                if data_bytes is not None:
-                    if isinstance(data_bytes, bytes):
-                        self._data_bytes = data_bytes
-                        if start == 0 and data_length == LIONEL_RECORD_LENGTH:
-                            if self.pdi_command == PdiCommand.D4_ENGINE:
-                                self._unpack_engine_data(data_bytes)
-                            elif self.pdi_command == PdiCommand.D4_TRAIN:
-                                self._unpack_train_data(data_bytes)
-                            else:
-                                raise AttributeError(f"Cannot process data for {self.pdi_command} command")
+                if isinstance(data_bytes, bytes):
+                    self._data_bytes = data_bytes
+                    print(data_bytes.hex() if data_bytes else "NA")
+                    if start == 0 and data_length == LIONEL_RECORD_LENGTH:
+                        if self.pdi_command == PdiCommand.D4_ENGINE:
+                            self._unpack_engine_data(data_bytes)
+                        elif self.pdi_command == PdiCommand.D4_TRAIN:
+                            self._unpack_train_data(data_bytes)
+                        else:
+                            raise AttributeError(f"Cannot process data for {self.pdi_command} command")
                     elif isinstance(data_bytes, str):
                         self._data_bytes = data_bytes[0:data_length].encode("ascii")
                         if len(data_bytes) < data_length:
@@ -210,7 +210,7 @@ class D4Req(PdiReq):
         return byte_str
 
     def _unpack_engine_data(self, data: bytes):
-        print(data.hex() if data else "NA")
+        pass
 
     def _unpack_train_data(self, data: bytes):
         pass
