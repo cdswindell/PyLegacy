@@ -2,7 +2,7 @@ import time
 from datetime import datetime
 
 from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
-from .engine_data import EngineData, TrainData
+from .engine_data import EngineData, TrainData, BASE_MEMORY_READ_MAP
 from .pdi_req import PdiReq
 from ..protocol.constants import CommandScope
 
@@ -152,7 +152,6 @@ class D4Req(PdiReq):
 
     @property
     def payload(self) -> str:
-        from src.pytrain.pdi.base_req import BASE_MEMORY_READ_MAP
 
         if self.action:
             ct = tmcc = dl = di = db = ts = ""
