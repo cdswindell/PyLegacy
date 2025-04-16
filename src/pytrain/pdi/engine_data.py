@@ -88,7 +88,7 @@ class EngineData:
             name = name.replace("_tmcc", "")
             tpl = CONVERSIONS[name]
             value = self.__dict__["_" + name]
-            return tpl[0](value) if value else value
+            return tpl[0](value) if value is not None else value
         else:
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
