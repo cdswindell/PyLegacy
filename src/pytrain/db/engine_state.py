@@ -425,7 +425,7 @@ class EngineState(ComponentState):
         self._engine_type = engine_data.engine_type
         self._control_type = engine_data.control_type
         self._sound_type = engine_data.sound_type
-        self._smoke_level = engine_data.smoke
+        self._smoke_level = engine_data.smoke_tmcc
         self._speed_limit = engine_data.speed_limit
         self._max_speed = engine_data.max_speed
 

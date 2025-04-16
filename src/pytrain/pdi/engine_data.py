@@ -1,8 +1,17 @@
 from typing import Any
 
 from .pdi_req import PdiReq
+from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.constants import CommandScope
 
+BASE_TO_TMCC_SMOKE_MAP = {
+    0: TMCC2EffectsControl.SMOKE_OFF,
+    1: TMCC2EffectsControl.SMOKE_LOW,
+    2: TMCC2EffectsControl.SMOKE_MEDIUM,
+    3: TMCC2EffectsControl.SMOKE_HIGH,
+}
+
+TMCC_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC_SMOKE_MAP.items()}
 
 BASE_MEMORY_READ_MAP = {
     0x04: ("_bt_id", lambda t: int.from_bytes(t, byteorder="little"), 2),
@@ -29,6 +38,10 @@ BASE_MEMORY_READ_MAP = {
 CONVERSIONS = {
     "train_brake": (lambda x: min(round(x * 0.4667), 7), lambda x: min(round(x * 2.143), 15)),
     "momentum": (lambda x: min(round(x * 0.05512), 7), lambda x: min(round(x * 18.14), 127)),
+    "smoke": (
+        lambda x: BASE_TO_TMCC_SMOKE_MAP.get(x, TMCC2EffectsControl.SMOKE_OFF),
+        lambda x: TMCC_TO_BASE_SMOKE_MAP.get(x, 0),
+    ),
 }
 
 
