@@ -26,6 +26,11 @@ BASE_MEMORY_READ_MAP = {
     0xBC: ("_timestamp", lambda t: int.from_bytes(t[0:4], byteorder="little"), 4),
 }
 
+CONVERSIONS = {
+    "train_brake": (lambda x: min(round(x * 0.4667), 7), lambda x: min(round(x * 2.143), 15)),
+    "momentum": (lambda x: min(round(x * 0.05512), 7), lambda x: min(round(x * 18.14), 127)),
+}
+
 
 class EngineData:
     def __init__(self, data: bytes) -> None:
@@ -66,6 +71,11 @@ class EngineData:
     def __getattr__(self, name: str) -> Any:
         if "_" + name in self.__dict__:
             return self.__dict__["_" + name]
+        elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
+            name = name.replace("_tmcc", "")
+            tpl = CONVERSIONS[name]
+            value = self.__dict__["_" + name]
+            return tpl[0](value) if value else value
         else:
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
