@@ -1039,8 +1039,8 @@ class PyTrain:
                     agr = D4Req(rec_no, pdi, action=D4Action.NEXT_REC)
                 elif action == D4Action.QUERY:
                     rec_no = int(param[2], 16) if "0x" in param[2] else int(param[2])
-                    start = int(param[3], 16) if "0x" in param[3] else int(param[3]) if param_len > 3 else 0
-                    length = int(param[4], 16) if "0x" in param[4] else int(param[4]) if param_len > 4 else 0xC0
+                    start = (int(param[3], 16) if "0x" in param[3] else int(param[3])) if param_len > 3 else 0
+                    length = (int(param[4], 16) if "0x" in param[4] else int(param[4])) if param_len > 4 else 0xC0
                     agr = D4Req(rec_no, pdi, action=D4Action.QUERY, start=start, data_length=length)
         elif param_len == 2:
             if param[0].lower().startswith("e"):
