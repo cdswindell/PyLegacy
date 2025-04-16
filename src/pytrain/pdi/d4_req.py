@@ -54,6 +54,7 @@ class D4Req(PdiReq):
                 if isinstance(data_bytes, bytes):
                     self._data_bytes = data_bytes
                     if self.start == 0 and self.data_length == LIONEL_RECORD_LENGTH:
+                        print(data_bytes.hex())
                         if self.pdi_command == PdiCommand.D4_ENGINE:
                             self._unpack_engine_data(data_bytes)
                         elif self.pdi_command == PdiCommand.D4_TRAIN:
