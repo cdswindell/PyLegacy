@@ -209,8 +209,8 @@ class D4Req(PdiReq):
         byte_str += PDI_EOP.to_bytes(1, byteorder="big")
         return byte_str
 
-    def _unpack_engine_data(self, data_bytes):
-        pass
+    def _unpack_engine_data(self, data: bytes):
+        print(data.hex() if data else "NA")
 
-    def _unpack_train_data(self, data_bytes):
+    def _unpack_train_data(self, data: bytes):
         pass
