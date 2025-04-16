@@ -406,6 +406,7 @@ class EngineState(ComponentState):
                         pass
                     elif command.record_no is not None:
                         self._d4_rec_no = command.record_no
+
                 else:
                     print("--- D4 ---", command)
             else:

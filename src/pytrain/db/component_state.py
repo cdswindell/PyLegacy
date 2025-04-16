@@ -263,7 +263,10 @@ class ComponentState(ABC):
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
         from ..pdi.block_req import BlockReq
+        from ..pdi.d4_req import D4Req
 
+        if isinstance(command, D4Req):
+            print("***, command")
         self.changed.clear()
         if command and hasattr(command, "command") and command.command == TMCC1HaltCommandEnum.HALT:
             pass
