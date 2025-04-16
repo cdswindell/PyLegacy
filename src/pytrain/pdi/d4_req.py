@@ -56,10 +56,13 @@ class D4Req(PdiReq):
                     if self.start == 0 and self.data_length == LIONEL_RECORD_LENGTH:
                         if self.pdi_command == PdiCommand.D4_ENGINE:
                             self._engine_data = EngineData(data_bytes)
+                            self._tmcc_id = self.engine_data.tmcc_id
                         elif self.pdi_command == PdiCommand.D4_TRAIN:
                             self._train_data = TrainData(data_bytes)
+                            self._tmcc_id = self.train_data.tmcc_id
                         else:
                             raise AttributeError(f"Cannot process data for {self.pdi_command} command")
+
                     elif isinstance(data_bytes, str):
                         self._data_bytes = data_bytes[0:data_length].encode("ascii")
                         if len(data_bytes) < data_length:
@@ -134,6 +137,14 @@ class D4Req(PdiReq):
         return self._timestamp
 
     @property
+    def engine_data(self) -> EngineData:
+        return self._engine_data
+
+    @property
+    def train_data(self) -> TrainData:
+        return self._train_data
+
+    @property
     def timestamp_str(self) -> str:
         if self.timestamp:
             return datetime.fromtimestamp(self.timestamp + LIONEL_EPOCH).strftime("%Y-%m-%d %H:%M:%S")
@@ -204,6 +215,8 @@ class D4Req(PdiReq):
                 if self.timestamp is not None
                 else self.lionel_timestamp()
             )
+            if self._data_bytes is not None:
+                byte_str += self._data_bytes
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
         byte_str += checksum

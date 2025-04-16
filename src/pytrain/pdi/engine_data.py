@@ -1,3 +1,5 @@
+from typing import Any
+
 from .base_req import BASE_MEMORY_READ_MAP
 from ..protocol.constants import CommandScope
 
@@ -32,9 +34,16 @@ class EngineData:
             item_len = v[2] if len(v) > 2 else 1
             if data_len >= ((k + item_len) - 1):
                 value = v[1](data[k : k + item_len])
-                print(f"{v[0]}: {value} {hasattr(self, v[0])}")
                 if hasattr(self, v[0]):
                     setattr(self, v[0], value)
+                else:
+                    raise AttributeError(f"'{type(self).__name__}' has no attribute '{v[0]}'")
+
+    def __getattr__(self, name: str) -> Any:
+        if "_" + name in self.__dict__:
+            return self.__dict__["_" + name]
+        else:
+            raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
 
 class TrainData(EngineData):
