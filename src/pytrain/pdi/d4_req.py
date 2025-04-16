@@ -43,30 +43,7 @@ class D4Req(PdiReq):
             self._action = D4Action(self._data[3]) if data_len > 3 else None
             self._post_action = int.from_bytes(self._data[4:6]) if data_len > 5 else None
             self._suffix = int.from_bytes(self._data[8:10], byteorder="little") if data_len > 9 else None
-            if self.action == D4Action.QUERY:
-                pass
-            elif self.action == D4Action.COUNT:
-                self._scope = CommandScope.BASE
-                self._count = int.from_bytes(self._data[6:8], byteorder="little") if data_len > 7 else None
-            elif self.action == D4Action.MAP:
-                self._suffix = None
-                if data_len > 9:
-                    addr_str = ""
-                    for i in range(6, 10):
-                        addr_str += chr(self._data[i])
-                    self._tmcc_id = int(addr_str)
-            elif self.action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:
-                if self._action == D4Action.NEXT_REC:
-                    self._post_action = int.from_bytes(self._data[4:6]) if data_len > 5 else None
-                    self._start = 0
-                    self._data_length = self._data[7] if data_len > 7 else None
-                    self._next_record_no = (
-                        int.from_bytes(self._data[8:10], byteorder="little") if data_len > 9 else None
-                    )
-                else:
-                    self._next_record_no = self.record_no
-                    self._scope = CommandScope.BASE  # send first record information to Base
-            elif self._action in {D4Action.QUERY, D4Action.UPDATE}:
+            if self._action in {D4Action.QUERY, D4Action.UPDATE}:
                 self._start = self._data[6] if data_len > 6 else None
                 self._data_length = self._data[7] if data_len > 7 else None
                 self._timestamp = int.from_bytes(self._data[8:12], byteorder="little") if data_len > 11 else None
@@ -88,6 +65,27 @@ class D4Req(PdiReq):
                             self._data_bytes += bytes() * (data_length - len(data_bytes))
                     elif isinstance(data_bytes, int):
                         self._data_bytes = data_bytes.to_bytes(data_length, byteorder="little")
+            elif self.action == D4Action.COUNT:
+                self._scope = CommandScope.BASE
+                self._count = int.from_bytes(self._data[6:8], byteorder="little") if data_len > 7 else None
+            elif self.action == D4Action.MAP:
+                self._suffix = None
+                if data_len > 9:
+                    addr_str = ""
+                    for i in range(6, 10):
+                        addr_str += chr(self._data[i])
+                    self._tmcc_id = int(addr_str)
+            elif self.action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:
+                if self._action == D4Action.NEXT_REC:
+                    self._post_action = int.from_bytes(self._data[4:6]) if data_len > 5 else None
+                    self._start = 0
+                    self._data_length = self._data[7] if data_len > 7 else None
+                    self._next_record_no = (
+                        int.from_bytes(self._data[8:10], byteorder="little") if data_len > 9 else None
+                    )
+                else:
+                    self._next_record_no = self.record_no
+                    self._scope = CommandScope.BASE  # send first record information to Base
         else:
             self._action = action
             self._record_no = int(data)
