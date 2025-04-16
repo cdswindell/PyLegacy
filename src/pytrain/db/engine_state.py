@@ -39,6 +39,7 @@ from ..protocol.constants import (
     RPM_TYPE,
     STEAM_TYPE,
     CommandScope,
+    LOCO_CLASS,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_COMMAND_TO_ALIAS_MAP, TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum
@@ -406,13 +407,27 @@ class EngineState(ComponentState):
                         pass
                     elif command.record_no is not None:
                         self._d4_rec_no = command.record_no
-
-                else:
-                    print("--- D4 ---", command)
+                elif command.action == D4Action.QUERY and command.engine_data:
+                    self._update_engine_state(command.engine_data)
             else:
                 print("---", command)
             self.changed.set()
             self._cv.notify_all()
+
+    def _update_engine_state(self, engine_data):
+        self._bt_int = engine_data.bt_id
+        self._speed = engine_data.speed
+        self._train_brake = engine_data.train_brake_tmcc
+        self._momentum = engine_data.momentum_tmcc
+        self._road_name = engine_data.road_name
+        self._road_number = engine_data.road_number
+        self._engine_class = engine_data.engine_class
+        self._engine_type = engine_data.engine_type
+        self._control_type = engine_data.control_type
+        self._sound_type = engine_data.sound_type
+        self._smoke_level = engine_data.smoke
+        self._speed_limit = engine_data.speed_limit
+        self._max_speed = engine_data.max_speed
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:
@@ -585,7 +600,7 @@ class EngineState(ComponentState):
 
     @property
     def sound_type_label(self) -> str:
-        return self._sound_type_label
+        return CONTROL_TYPE.get(self.sound_type, "NA")
 
     @property
     def engine_type(self) -> int:
@@ -593,7 +608,7 @@ class EngineState(ComponentState):
 
     @property
     def engine_type_label(self) -> str:
-        return self._engine_type_label
+        return LOCO_TYPE.get(self.engine_type, "NA")
 
     @property
     def engine_class(self) -> int:
@@ -601,7 +616,7 @@ class EngineState(ComponentState):
 
     @property
     def engine_class_label(self) -> str:
-        return self._engine_class_label
+        return LOCO_CLASS.get(self.engine_class, "NA")
 
     @property
     def direction(self) -> CommandDefEnum | None:

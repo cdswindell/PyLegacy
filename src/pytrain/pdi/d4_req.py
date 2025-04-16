@@ -142,7 +142,7 @@ class D4Req(PdiReq):
 
     @property
     def engine_data(self) -> EngineData:
-        return self._engine_data
+        return self._engine_data if self._engine_data else self.train_data
 
     @property
     def train_data(self) -> TrainData:

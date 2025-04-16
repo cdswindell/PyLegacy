@@ -33,8 +33,8 @@ CONVERSIONS = {
 
 
 class EngineData:
-    def __init__(self, data: bytes) -> None:
-        self._tmcc_id: int | None = None
+    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+        self._tmcc_id: int | None = tmcc_id
         self._bt_id: int | None = None
         self._speed: int | None = None
         self._target_speed: int | None = None
