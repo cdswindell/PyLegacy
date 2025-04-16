@@ -409,6 +409,7 @@ class EngineState(ComponentState):
                         self._d4_rec_no = command.record_no
                 elif command.action == D4Action.QUERY and command.engine_data:
                     self._update_engine_state(command.engine_data)
+                    print(f"TMCC ID {self.address} Smoke: {self.smoke}")
             else:
                 print("---", command)
             self.changed.set()
