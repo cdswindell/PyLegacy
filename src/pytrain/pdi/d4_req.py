@@ -70,6 +70,7 @@ class D4Req(PdiReq):
                 self._start = self._data[6] if data_len > 6 else None
                 self._data_length = self._data[7] if data_len > 7 else None
                 self._timestamp = int.from_bytes(self._data[8:12], byteorder="little") if data_len > 11 else None
+                print(f"***  Start: {self.start} Length: {hex(self.data_length)} Timestamp: {self.timestamp}")
                 data_bytes = self._data[12:] if data_len > 12 else None
                 if data_bytes is not None:
                     if isinstance(data_bytes, bytes):
