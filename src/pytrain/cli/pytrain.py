@@ -1041,7 +1041,8 @@ class PyTrain:
                     rec_no = int(param[2])
                     start = int(param[3]) if param_len > 3 else 0
                     length = int(param[4]) if param_len > 4 else 1
-                    D4Req(rec_no, pdi, action=D4Action.query, start=start, data_length=length)
+                    agr = D4Req(rec_no, pdi, action=D4Action.query, start=start, data_length=length)
+                    print(agr)
         elif param_len == 2:
             if param[0].lower().startswith("e"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ENGINE)
