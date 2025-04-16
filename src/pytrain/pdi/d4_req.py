@@ -144,6 +144,20 @@ class D4Req(PdiReq):
         return self._train_data
 
     @property
+    def name(self) -> str | None:
+        if self.engine_data:
+            return self.engine_data.road_name
+        else:
+            return None
+
+    @property
+    def number(self) -> str | None:
+        if self.engine_data:
+            return self.engine_data.road_number
+        else:
+            return None
+
+    @property
     def timestamp_str(self) -> str:
         if self.timestamp:
             return datetime.fromtimestamp(self.timestamp + LIONEL_EPOCH).strftime("%Y-%m-%d %H:%M:%S")

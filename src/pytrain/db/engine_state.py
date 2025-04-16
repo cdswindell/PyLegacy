@@ -419,8 +419,6 @@ class EngineState(ComponentState):
         self._speed = engine_data.speed
         self._train_brake = engine_data.train_brake_tmcc
         self._momentum = engine_data.momentum_tmcc
-        self._road_name = engine_data.road_name
-        self._road_number = engine_data.road_number
         self._engine_class = engine_data.engine_class
         self._engine_type = engine_data.engine_type
         self._control_type = engine_data.control_type
