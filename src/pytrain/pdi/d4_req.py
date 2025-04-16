@@ -1,9 +1,8 @@
 import time
 from datetime import datetime
 
-from .base_req import BASE_MEMORY_READ_MAP
 from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
-from .engine_data import EngineData
+from .engine_data import EngineData, TrainData
 from .pdi_req import PdiReq
 from ..protocol.constants import CommandScope
 
@@ -38,6 +37,7 @@ class D4Req(PdiReq):
         self._scope = CommandScope.TRAIN if self.pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
         self._record_no = self._next_record_no = self._tmcc_id = self._count = self._post_action = self._suffix = None
         self._data_length = self._data_bytes = self._start = self._timestamp = None
+        self._engine_data = self._train_data = None
         self._error = error
         self._tmcc_id = tmcc_id
         if isinstance(data, bytes):
@@ -55,9 +55,9 @@ class D4Req(PdiReq):
                     self._data_bytes = data_bytes
                     if self.start == 0 and self.data_length == LIONEL_RECORD_LENGTH:
                         if self.pdi_command == PdiCommand.D4_ENGINE:
-                            self._unpack_engine_data(data_bytes)
+                            self._engine_data = EngineData(data_bytes)
                         elif self.pdi_command == PdiCommand.D4_TRAIN:
-                            self._unpack_train_data(data_bytes)
+                            self._train_data = TrainData(data_bytes)
                         else:
                             raise AttributeError(f"Cannot process data for {self.pdi_command} command")
                     elif isinstance(data_bytes, str):
@@ -209,21 +209,3 @@ class D4Req(PdiReq):
         byte_str += checksum
         byte_str += PDI_EOP.to_bytes(1, byteorder="big")
         return byte_str
-
-    def _unpack_engine_data(self, data: bytes) -> EngineData:
-        data_len = len(data)
-        ed = EngineData()
-        for k, v in BASE_MEMORY_READ_MAP.items():
-            if isinstance(v, tuple) is False:
-                continue
-            item_len = v[2] if len(v) > 2 else 1
-            if data_len >= ((k + item_len) - 1):
-                value = v[1](data[k : k + item_len])
-                print(f"{v[0]}: {value} {hasattr(ed, v[0])}")
-                if hasattr(ed, v[0]):
-                    setattr(ed, v[0], value)
-        print(ed.__dict__)
-        return ed
-
-    def _unpack_train_data(self, data: bytes):
-        pass
