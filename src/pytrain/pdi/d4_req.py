@@ -140,6 +140,8 @@ class D4Req(PdiReq):
 
     @property
     def payload(self) -> str:
+        from src.pytrain.pdi.base_req import BASE_MEMORY_READ_MAP
+
         if self.action:
             ct = tmcc = dl = di = db = ts = ""
             op = self.action.title
@@ -157,11 +159,15 @@ class D4Req(PdiReq):
                 ts = f" {self.timestamp_str}"
                 di = f" Index: {self.start}" if self.start is not None else ""
                 dl = f" Length: {self.data_length}" if self.data_length is not None else ""
-                db = (
-                    f" Data: {self._data_bytes.hex()}"
-                    if self._data_bytes is not None and len(self._data_bytes) < 0xC0
-                    else ""
-                )
+                tpl = BASE_MEMORY_READ_MAP.get(self.start, None)
+                if isinstance(tpl, tuple):
+                    db = f" {tpl[1](self._data_bytes)}"
+                else:
+                    db = (
+                        f" Data: {self._data_bytes.hex()}"
+                        if self._data_bytes is not None and len(self._data_bytes) < 0xC0
+                        else ""
+                    )
             return f"{op}{tmcc}{rn}{ct}{sf}{di}{dl}{db}{ts} ({self.packet})"
         return super().payload
 
