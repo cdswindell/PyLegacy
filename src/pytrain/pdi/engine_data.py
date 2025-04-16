@@ -1,7 +1,30 @@
 from typing import Any
 
-from .base_req import BASE_MEMORY_READ_MAP
+from .pdi_req import PdiReq
 from ..protocol.constants import CommandScope
+
+
+BASE_MEMORY_READ_MAP = {
+    0x04: ("_bt_id", lambda t: int.from_bytes(t, byteorder="little"), 2),
+    0x07: ("_speed", lambda t: int.from_bytes(t, byteorder="little")),
+    0x08: ("_target_speed", lambda t: int.from_bytes(t, byteorder="little")),
+    0x09: ("_train_brake", lambda t: int.from_bytes(t, byteorder="little")),
+    0x0C: ("_rpm_labor", lambda t: int.from_bytes(t, byteorder="little")),
+    0x18: ("_momentum", lambda t: int.from_bytes(t, byteorder="little")),
+    0x1F: ("_road_name", lambda t: PdiReq.decode_text(t), 31),
+    0x3F: ("_road_number", lambda t: PdiReq.decode_text(t), 4),
+    0x43: ("_engine_type", lambda t: int.from_bytes(t, byteorder="little")),
+    0x44: ("_control_type", lambda t: int.from_bytes(t, byteorder="little")),
+    0x45: ("_sound_type", lambda t: int.from_bytes(t, byteorder="little")),
+    0x46: ("_engine_class", lambda t: int.from_bytes(t, byteorder="little")),
+    0x59: ("_tsdb_left", lambda t: int.from_bytes(t, byteorder="little")),
+    0x5B: ("_tsdb_right", lambda t: int.from_bytes(t, byteorder="little")),
+    0x69: ("_smoke", lambda t: int.from_bytes(t, byteorder="little")),
+    0x6A: ("_speed_limit", lambda t: int.from_bytes(t, byteorder="little")),
+    0x6B: ("_max_speed", lambda t: int.from_bytes(t, byteorder="little")),
+    0xB8: ("_tmcc_id", lambda t: int(PdiReq.decode_text(t)), 4),
+    0xBC: ("_timestamp", lambda t: int.from_bytes(t[0:4], byteorder="little"), 4),
+}
 
 
 class EngineData:
