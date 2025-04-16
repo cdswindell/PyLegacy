@@ -152,7 +152,6 @@ class D4Req(PdiReq):
 
     @property
     def payload(self) -> str:
-
         if self.action:
             ct = tmcc = dl = di = db = ts = ""
             op = self.action.title
@@ -166,6 +165,7 @@ class D4Req(PdiReq):
                 if self.record_no == 0xFFFF:
                     rn = " Not Found"
             elif self.action in {D4Action.QUERY, D4Action.UPDATE}:
+                tmcc = f" TMCC ID: {self.tmcc_id}" if self.tmcc_id else ""
                 sf = ""
                 ts = f" {self.timestamp_str}"
                 di = f" Index: {self.start}" if self.start is not None else ""
