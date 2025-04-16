@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, UTC
+from datetime import datetime
 
 from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
 from .pdi_req import PdiReq
@@ -135,7 +135,7 @@ class D4Req(PdiReq):
     @property
     def timestamp_str(self) -> str:
         if self.timestamp:
-            return datetime.fromtimestamp(self.timestamp + LIONEL_EPOCH, UTC).strftime("%Y-%m-%d %H:%M:%S")
+            return datetime.fromtimestamp(self.timestamp + LIONEL_EPOCH).strftime("%Y-%m-%d %H:%M:%S")
         return ""
 
     @property
