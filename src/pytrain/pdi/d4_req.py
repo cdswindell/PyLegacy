@@ -141,7 +141,7 @@ class D4Req(PdiReq):
     @property
     def payload(self) -> str:
         if self.action:
-            ct = tmcc = dl = di = ts = ""
+            ct = tmcc = dl = di = db = ts = ""
             op = self.action.title
             rn = f" #{self.record_no}" if self.record_no is not None else ""
             sf = f" {self.suffix}" if self.suffix is not None else ""
@@ -157,7 +157,12 @@ class D4Req(PdiReq):
                 ts = f" {self.timestamp_str}"
                 di = f" Index: {self.start}" if self.start is not None else ""
                 dl = f" Length: {self.data_length}" if self.data_length is not None else ""
-            return f"{op}{tmcc}{rn}{ct}{sf}{di}{dl}{ts} ({self.packet})"
+                db = (
+                    f" Data: {self._data_bytes.hex()}"
+                    if self._data_bytes is not None and len(self._data_bytes) < 0xC0
+                    else ""
+                )
+            return f"{op}{tmcc}{rn}{ct}{sf}{di}{dl}{db}{ts} ({self.packet})"
         return super().payload
 
     @property
