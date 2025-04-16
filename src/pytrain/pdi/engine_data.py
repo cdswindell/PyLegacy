@@ -19,6 +19,7 @@ class EngineData:
         self._control_type: int | None = None
         self._sound_type: int | None = None
         self._engine_class: int | None = None
+        self._tsdb_left: int | None = None
         self._tsdb_right: int | None = None
         self._smoke: int | None = None
         self._speed_limit: int | None = None
