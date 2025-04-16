@@ -1,5 +1,6 @@
 class EngineData:
-    _bt_id: int
-    _speed: int
-    _target_speed: int
-    _train_brake: int
+    def __init__(self) -> None:
+        self._bt_id: int | None = None
+        self._speed: int | None = None
+        self._target_speed: int | None = None
+        self._train_brake: int | None = None
