@@ -177,6 +177,11 @@ class CompData:
         # load the data from the byte string
         self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
 
+    @property
+    def as_bytes(self) -> bytes:
+        byte_str = bytes()
+        return byte_str
+
     def __getattr__(self, name: str) -> Any:
         if "_" + name in self.__dict__:
             return self.__dict__["_" + name]
@@ -190,11 +195,6 @@ class CompData:
             return tpl[0](value) if value is not None else value
         else:
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
-
-    @property
-    def as_bytes(self) -> bytes:
-        byte_str = bytes()
-        return byte_str
 
     # def __setattr__(self, name: str, value: Any) -> None:
     #     if "_" + name in self.__dict__:

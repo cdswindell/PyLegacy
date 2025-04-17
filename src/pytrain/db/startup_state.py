@@ -37,6 +37,7 @@ class StartupState(Thread):
                         self.listener.enqueue_command(state_request)
             elif cmd.pdi_command == PdiCommand.BASE_MEMORY:
                 # send a request to the base to get the next engine or train record (0x26)
+                print(cmd)
                 if cmd.tmcc_id < 99:
                     time.sleep(0.05)
                     self.listener.enqueue_command(BaseReq(cmd.tmcc_id + 1, PdiCommand.BASE_MEMORY, scope=cmd.scope))
