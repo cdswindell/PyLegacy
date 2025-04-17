@@ -346,6 +346,7 @@ class EngineState(ComponentState):
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                         self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
             elif isinstance(command, CompDataMixin) and command.is_comp_data_record is True:
+                print(command)
                 self._update_comp_data(command.comp_data)
             elif (
                 isinstance(command, BaseReq)
