@@ -53,8 +53,8 @@ class D4Req(PdiReq, CompDataMixin):
                     self._data_bytes = data_bytes
                     if self.start == 0 and self.data_length == self.LIONEL_RECORD_LENGTH:
                         self._comp_data = CompData.from_bytes(data_bytes, self.scope)
+                        self._tmcc_id = self._comp_data.tmcc_id
                         self._comp_data_record = True  # mark this req as containing a complete CompData record
-                        print("***", self)
                     elif isinstance(data_bytes, str):
                         self._data_bytes = data_bytes[0:data_length].encode("ascii")
                         if len(data_bytes) < data_length:
@@ -179,8 +179,6 @@ class D4Req(PdiReq, CompDataMixin):
                         if self._data_bytes is not None and len(self._data_bytes) < 0xC0
                         else ""
                     )
-                    print("*****************")
-                    db += f" {self.comp_data} "
             return f"{op}{tmcc}{rn}{ct}{sf}{di}{dl}{db}{ts} ({self.packet})"
         return super().payload
 
