@@ -68,7 +68,7 @@ class Base3Buffer(Thread):
         self,
         base3_addr: str,
         base3_port: int = DEFAULT_BASE_PORT,
-        buffer_size: int = DEFAULT_QUEUE_SIZE * 2,
+        buffer_size: int = DEFAULT_QUEUE_SIZE,
         listener: PdiListener = None,
     ) -> None:
         if self._initialized:
