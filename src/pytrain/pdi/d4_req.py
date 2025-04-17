@@ -177,6 +177,7 @@ class D4Req(PdiReq, CompDataMixin):
                         if self._data_bytes is not None and len(self._data_bytes) < 0xC0
                         else ""
                     )
+                    print("*****************")
                     db += f" {self.comp_data} "
             return f"{op}{tmcc}{rn}{ct}{sf}{di}{dl}{db}{ts} ({self.packet})"
         return super().payload
