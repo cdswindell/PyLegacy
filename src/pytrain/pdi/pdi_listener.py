@@ -271,6 +271,10 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             try:
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(cmd)
+                # update broadcast channels, mostly used for command echoing
+                if self._broadcasts:
+                    self.publish(BROADCAST_TOPIC, cmd)
+
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
                     if isinstance(cmd, BaseReq):
@@ -295,9 +299,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                         # has been handled via the call to tmcc_dispatcher.offer above
                         if self._server_port is not None:
                             self.update_client_state(cmd)
-                    # update broadcast channels, mostly used for command echoing
-                    if self._broadcasts:
-                        self.publish(BROADCAST_TOPIC, cmd)
             except Exception as e:
                 log.error(f"PdiDispatcher: Error publishing {cmd}")
                 log.exception(e)
