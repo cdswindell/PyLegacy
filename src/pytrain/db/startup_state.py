@@ -35,11 +35,11 @@ class StartupState(Thread):
                 if state_requests:
                     for state_request in state_requests:
                         self.listener.enqueue_command(state_request)
-            elif cmd.pdi_command == PdiCommand.BASE_ENGINE:
-                # send a request to the base to get the corresponding Engine memory record (0x26)
-                self.listener.enqueue_command(
-                    BaseReq(cmd.tmcc_id, PdiCommand.BASE_MEMORY, flags=0, start=4, data_length=2)
-                )
+            elif cmd.pdi_command == PdiCommand.BASE_MEMORY:
+                # send a request to the base to get the next engine or train record (0x26)
+                if cmd.tmcc_id < 99:
+                    time.sleep(0.05)
+                    self.listener.enqueue_command(BaseReq(cmd.tmcc_id + 1, PdiCommand.BASE_MEMORY, scope=cmd.scope))
             elif isinstance(cmd, D4Req):
                 if cmd.action == D4Action.COUNT and cmd.count:
                     # request first record of D4 engines/trains
@@ -93,10 +93,9 @@ class StartupState(Thread):
         # we request engine/sw/acc roster at startup; do this by asking for
         # Eng/Train/Acc/Sw #100 then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity
-        for tmcc_id in range(1, 99):
-            self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE))
-            time.sleep(0.05)
-            self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=CommandScope.TRAIN))
+        self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE))
+        time.sleep(0.05)
+        self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.TRAIN))
         for tmcc_id in range(1, 99):
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ACC))
             time.sleep(0.05)
