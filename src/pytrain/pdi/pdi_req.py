@@ -39,6 +39,7 @@ class PdiReq(ABC):
             raise ve
 
     def __init__(self, data: bytes | None, pdi_command: PdiCommand = None) -> None:
+        super().__init__()
         # default scope is system; override as needed in child classes
         # also change as needed when sending command updates to state handler
         self._scope = CommandScope.SYSTEM
