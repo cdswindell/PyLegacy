@@ -31,6 +31,7 @@ class D4Req(PdiReq, CompDataMixin):
         data_bytes: int | str | bytes | None = None,
         count: int | None = None,
         timestamp: int | None = None,
+        state: CompDataMixin = None,
     ) -> None:
         super().__init__(data, pdi_command)
         self._scope = CommandScope.TRAIN if self.pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
@@ -83,6 +84,8 @@ class D4Req(PdiReq, CompDataMixin):
                     self._next_record_no = self.record_no
                     self._scope = CommandScope.BASE  # send first record information to Base
         else:
+            from src.pytrain.db.engine_state import EngineState
+
             self._action = action
             self._record_no = int(data)
             self._post_action = post_action
@@ -91,6 +94,14 @@ class D4Req(PdiReq, CompDataMixin):
             self._data_bytes = data_bytes
             self._count = count
             self._timestamp = timestamp
+            self._state = state
+            if state and isinstance(state, EngineState):
+                self._tmcc_id = state.tmcc_id
+                self._start = 0
+                self._data_length = self.LIONEL_RECORD_LENGTH
+                self._timestamp = self.lionel_timestamp()
+                if isinstance(state, CompDataMixin):
+                    self._data_bytes = state.comp_data.as_bytes
 
     @property
     def record_no(self) -> int:

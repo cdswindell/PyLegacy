@@ -14,6 +14,7 @@ from ..pdi.constants import PdiCommand
 from ..pdi.irda_req import IrdaReq
 from ..pdi.pdi_req import PdiReq
 from ..pdi.stm2_req import Stm2Req
+from ..pdi.comp_data import CompDataMixin
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import (
@@ -143,12 +144,13 @@ BIG_NUMBER = float("inf")
 
 
 # noinspection PyUnresolvedReferences
-class ComponentState(ABC):
+class ComponentState(ABC, CompDataMixin):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, scope: CommandScope = None) -> None:
         from .component_state_store import DependencyCache
 
+        super().__init__()
         # noinspection PyTypeChecker
         self._lock: Lock = RLock()
         self._is_known: bool = False
@@ -379,7 +381,7 @@ class ComponentState(ABC):
         byte sequence used to trigger the corresponding action(s) when received by the
         component.
 
-        Used to synchronizer component state when client attaches to the server.
+        Used to synchronizer component state when client connects to the server.
         """
         ...
 

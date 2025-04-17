@@ -95,8 +95,8 @@ class EngineState(ComponentState):
         else:
             dr = " N/A"
 
-        if self._speed is not None:
-            sp = f" Speed: {self._speed:03}"
+        if self.speed is not None:
+            sp = f" Speed: {self.speed:03}"
             if self.speed_limit is not None:
                 speed_limit = self.decode_speed_info(self.speed_limit)
                 sp += f"/{speed_limit:03}"
@@ -175,7 +175,8 @@ class EngineState(ComponentState):
                         self._aux1 = TMCC1.AUX1_OFF
                         self._aux2 = TMCC1.AUX2_OFF
                         self._aux = TMCC1.AUX2_OPTION_ONE
-                    self._speed = 0
+                    if self.comp_data:
+                        self.comp_data.speed = 0
                     self._rpm = 0
                     self._labor = 12
                     self._numeric = None
@@ -347,6 +348,8 @@ class EngineState(ComponentState):
                         self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
             elif isinstance(command, CompDataMixin) and command.is_comp_data_record:
                 self._update_comp_data(command.comp_data)
+                if isinstance(command, D4Req):
+                    self._d4_rec_no = command.record_no
             elif (
                 isinstance(command, BaseReq)
                 and command.status == 0
@@ -360,7 +363,7 @@ class EngineState(ComponentState):
             ):
                 from ..pdi.base_req import EngineBits
 
-                if self._speed is None and command.is_valid(EngineBits.SPEED):
+                if self.speed is None and command.is_valid(EngineBits.SPEED):
                     self._speed = command.speed
                 if command.pdi_command in {PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN}:
                     if command.is_valid(EngineBits.MAX_SPEED):
@@ -432,6 +435,8 @@ class EngineState(ComponentState):
         if self.scope == CommandScope.TRAIN:
             self._consist_comp = comp_data.consist_comps
             self._consist_flags = comp_data.consist_flags
+        self._comp_data = comp_data
+        self._comp_data_record = True
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:
@@ -463,21 +468,14 @@ class EngineState(ComponentState):
 
         byte_str = bytes()
         # encode name, number, momentum, speed, and rpm using PDI command
-        pdi = None
-        if self.scope == CommandScope.ENGINE:
-            pdi = BaseReq(self.address, PdiCommand.BASE_ENGINE, state=self)
-        elif self.scope == CommandScope.TRAIN:
-            pdi = BaseReq(self.address, PdiCommand.BASE_TRAIN, state=self)
-        if pdi:
-            byte_str += pdi.as_bytes
-        if self.scope == CommandScope.ENGINE and self.bt_int:
-            bts = self.bt_int.to_bytes(length=2, byteorder="little")
-            pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, flags=0, start=4, data_length=2, data_bytes=bts)
-            byte_str += pdi.as_bytes
+        if self.tmcc_id <= 99:
+            pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, state=self)
+        else:
+            pdi_cmd = PdiCommand.D4_ENGINE if self.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
+            pdi = D4Req(self.record_no, pdi_cmd, state=self)
+        byte_str += pdi.as_bytes
         if self._start_stop is not None:
             byte_str += CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes
-        if self._smoke_level is not None:
-            byte_str += CommandReq.build(self._smoke_level, self.address, scope=self.scope).as_bytes
         if self._direction is not None:
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
             byte_str += CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes

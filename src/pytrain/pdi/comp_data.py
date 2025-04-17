@@ -44,6 +44,7 @@ BASE_MEMORY_TRAIN_READ_MAP = {
     0x6F: ("_consist_flags", lambda t: int.from_bytes(t, byteorder="little")),
     0x70: ("_consist_comps", lambda t: ConsistComponent.from_bytes(t), 32),
 }
+BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
 
 SCOPE_TO_COMP_MAP = {
     CommandScope.ENGINE: BASE_MEMORY_ENGINE_READ_MAP,
@@ -187,6 +188,25 @@ class CompData:
                 name = "rpm_labor"
             value = self.__dict__["_" + name]
             return tpl[0](value) if value is not None else value
+        else:
+            raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
+
+    @property
+    def as_bytes(self) -> bytes:
+        byte_str = bytes()
+        return byte_str
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if "_" + name in self.__dict__:
+            self.__dict__["_" + name] = value
+        elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
+            name = name.replace("_tmcc", "")
+            tpl = CONVERSIONS[name]
+            if name in {"rpm", "labor"}:
+                pass
+            # TODO: handle setting of rpm/labor
+            else:
+                self.__dict__["_" + name] = tpl[2](value) if value is not None else value
         else:
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
