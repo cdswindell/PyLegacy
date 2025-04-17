@@ -238,7 +238,7 @@ class CompDataMixin(Generic[C]):
     def __init__(self):
         super().__init__()
         self._comp_data: C | None = None
-        self._comp_data_record: bool = True
+        self._comp_data_record: bool = False
         print("*******************************")
 
     @property
