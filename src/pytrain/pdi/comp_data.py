@@ -208,7 +208,8 @@ class CompData:
             else:
                 self.__dict__["_" + name] = tpl[2](value) if value is not None else value
         else:
-            raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
+            super().__setattr__(name, value)
+            # raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
     def _parse_bytes(self, data: bytes, pmap: dict) -> None:
         data_len = len(data)
