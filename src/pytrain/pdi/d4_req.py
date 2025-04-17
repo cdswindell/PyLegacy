@@ -169,7 +169,9 @@ class D4Req(PdiReq, CompDataMixin):
                 di = f" Index: {self.start}" if self.start is not None else ""
                 dl = f" Length: {self.data_length}" if self.data_length is not None else ""
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
-                if isinstance(tpl, tuple):
+                if isinstance(tpl, tuple) and (
+                    (self.data_length == 1 and len(tpl) == 2) or (len(tpl) == 3 and self.data_length == tpl[2])
+                ):
                     db = f" {tpl[1](self._data_bytes)}"
                 else:
                     db = (
