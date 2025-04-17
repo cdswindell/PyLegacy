@@ -1,8 +1,11 @@
+from __future__ import annotations
+
+from enum import unique, IntEnum
 from typing import Any
 
 from .pdi_req import PdiReq
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ..protocol.constants import CommandScope
+from ..protocol.constants import CommandScope, Mixins
 
 BASE_TO_TMCC_SMOKE_MAP = {
     0: TMCC2EffectsControl.SMOKE_OFF,
@@ -37,7 +40,10 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0xBC: ("_timestamp", lambda t: int.from_bytes(t[0:4], byteorder="little"), 4),
 }
 
-BASE_MEMORY_TRAIN_READ_MAP = {0x00: ("_consist_flags", lambda t: int.from_bytes(t, byteorder="little"))}
+BASE_MEMORY_TRAIN_READ_MAP = {
+    0x6F: ("_consist_flags", lambda t: int.from_bytes(t, byteorder="little")),
+    0x70: ("_consist_comps", lambda t: ConsistComponent.from_bytes(t), 32),
+}
 
 CONVERSIONS = {
     "train_brake": (lambda x: min(round(x * 0.4667), 7), lambda x: min(round(x * 2.143), 15)),
@@ -52,6 +58,97 @@ CONVERSIONS = {
         lambda x: (x - 12 if x >= 12 else 20 + x) << 3,
     ),
 }
+
+
+@unique
+class UnitBits(Mixins, IntEnum):
+    SINGLE = 0b0
+    HEAD = 0b1
+    MIDDLE = 0b10
+    TAIL = 0b11
+
+
+class ConsistComponent:
+    @classmethod
+    def from_bytes(cls, data: bytes) -> list[ConsistComponent]:
+        consist_components: list[ConsistComponent] = []
+        data_len = len(data)
+        for i in range(0, 32, 2):
+            if data_len > i:
+                if data[i] != 0xFF and data[i + 1] != 0xFF:
+                    consist_components.insert(0, ConsistComponent(data[i], data[i + 1]))
+            else:
+                break
+        return consist_components
+
+    def __init__(self, flags: int, tmcc_id: int) -> None:
+        self.flags = flags
+        self.tmcc_id = tmcc_id
+
+    def __repr__(self) -> str:
+        d = "F" if self.is_forward else "R"
+        tl = " T" if self.is_train_linked else ""
+        hm = " H" if self.is_horn_masked else ""
+        dm = " D" if self.is_dialog_masked else ""
+        a = " A" if self.is_accessory else ""
+        return f"[Engine {self.tmcc_id} {self.unit_type.name.title()} {d}{hm}{dm}{tl}{a} (0b{bin(self.flags)})]"
+
+    @property
+    def info(self) -> str:
+        d = "F" if self.is_forward else "R"
+        tl = " T" if self.is_train_linked else ""
+        hm = " H" if self.is_horn_masked else ""
+        dm = " D" if self.is_dialog_masked else ""
+        a = " A" if self.is_accessory else ""
+        return f"{self.unit_type.name.title()[0]} {d}{hm}{dm}{tl}{a} {self.flags}"
+
+    @property
+    def unit_type(self) -> UnitBits:
+        return UnitBits(self.flags & 0b11)
+
+    @property
+    def is_single(self) -> bool:
+        return 0b11 & self.flags == 0b0
+
+    @property
+    def is_head(self) -> bool:
+        return 0b11 & self.flags == 0b1
+
+    @property
+    def is_middle(self) -> bool:
+        return 0b11 & self.flags == 0b10
+
+    @property
+    def is_tail(self) -> bool:
+        return 0b11 & self.flags == 0b11
+
+    @property
+    def is_forward(self) -> bool:
+        return 0b100 & self.flags == 0b000
+
+    @property
+    def is_reverse(self) -> bool:
+        return 0b100 & self.flags == 0b100
+
+    @property
+    def is_train_linked(self) -> bool:
+        return 0b1000 & self.flags == 0b1000
+
+    @property
+    def is_horn_masked(self) -> bool:
+        return 0b10000 & self.flags == 0b10000
+
+    @property
+    def is_dialog_masked(self) -> bool:
+        return 0b100000 & self.flags == 0b100000
+
+    @property
+    def is_tmcc2(self) -> bool:
+        return 0b1000000 & self.flags == 0b1000000
+
+    @property
+    def is_accessory(self) -> bool:
+        return 0b10000000 & self.flags == 0b10000000
 
 
 class EngineData:
@@ -112,6 +209,7 @@ class TrainData(EngineData):
     def __init__(self, data: bytes, tmcc_id: int = None) -> None:
         super().__init__(data, tmcc_id=tmcc_id)
         self._consist_flags: int | None = None
+        self._consist_comps: list[ConsistComponent] | None = None
         self._scope = CommandScope.TRAIN
 
         # load the data from the byte string

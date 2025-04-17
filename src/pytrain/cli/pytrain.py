@@ -573,7 +573,7 @@ class PyTrain:
             self._dispatcher.signal_clients(cmd, client=addr, port=port)
             return
 
-        # exit pytrain, signalling the exit behavior by setting
+        # exit pytrain, signaling the exit behavior by setting
         # self._admin_action to the requested operation
         self._admin_action = command
 
@@ -793,8 +793,9 @@ class PyTrain:
         except Exception as e:
             log.warning(e)
         finally:
-            z.close()
             print()
+            # noinspection PyInconsistentReturns
+            z.close()
         if an_info:
             return an_info.parsed_addresses()[0], an_info.port
         else:
@@ -845,7 +846,7 @@ class PyTrain:
             return "No command specified."
         ui = ui.lower().strip()
         if ui:
-            # show help, if user enters '?'
+            # show help if user enters '?'
             if ui == "?":
                 ui = "h"
             # the argparse library requires the argument string to be presented as a list
@@ -904,7 +905,7 @@ class PyTrain:
                     ui_parser = args.command.command_parser()
                     ui_parser.remove_args(["baudrate", "port", "server"])
                     # very hacky; should turn into a method to reduce complexity of this section
-                    # if the user entered "tr....", treat this as a train command
+                    # if the user entered "tr...", treat this as a train command
                     # normally, this is done by adding the "-train" token after the tmcc_id but
                     # before any subparsers
                     if "train".startswith(ui_parts[0].strip().lower()) and len(ui_parts) > 2:
@@ -934,6 +935,7 @@ class PyTrain:
                 finally:
                     if ui_parser and parse_only is True:
                         ui_parser.reset_exit_on_error()
+        return None
 
     def _get_system_state(self):
         """
@@ -1235,7 +1237,7 @@ class PyTrain:
 class ButtonsFileLoader(threading.Thread):
     """
     We run the startup-script reader so that we can continue with
-    main program execution while the script is loading
+    the main program while the script is loading
     """
 
     def __init__(self, buttons_file: str) -> None:

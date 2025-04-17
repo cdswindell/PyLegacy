@@ -6,7 +6,13 @@ from math import floor
 from typing import Dict, List, Tuple
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
-from .engine_data import EngineData, TrainData, BASE_MEMORY_ENGINE_READ_MAP
+from .engine_data import (
+    EngineData,
+    TrainData,
+    BASE_MEMORY_ENGINE_READ_MAP,
+    ConsistComponent,
+    BASE_MEMORY_TRAIN_READ_MAP,
+)
 from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
@@ -55,85 +61,6 @@ class EngineBits(Mixins, IntEnum):
     DITCH_LIGHT = 21
     TRAIN_BRAKE = 22
     MOMENTUM = 23
-
-
-@unique
-class UnitBits(Mixins, IntEnum):
-    SINGLE = 0b0
-    HEAD = 0b1
-    MIDDLE = 0b10
-    TAIL = 0b11
-
-
-class ConsistComponent:
-    def __init__(self, flags: int, tmcc_id: int) -> None:
-        self.flags = flags
-        self.tmcc_id = tmcc_id
-
-    def __repr__(self) -> str:
-        d = "F" if self.is_forward else "R"
-        tl = " T" if self.is_train_linked else ""
-        hm = " H" if self.is_horn_masked else ""
-        dm = " D" if self.is_dialog_masked else ""
-        a = " A" if self.is_accessory else ""
-        return f"[Engine {self.tmcc_id} {self.unit_type.name.title()} {d}{hm}{dm}{tl}{a} (0b{bin(self.flags)})]"
-
-    @property
-    def info(self) -> str:
-        d = "F" if self.is_forward else "R"
-        tl = " T" if self.is_train_linked else ""
-        hm = " H" if self.is_horn_masked else ""
-        dm = " D" if self.is_dialog_masked else ""
-        a = " A" if self.is_accessory else ""
-        return f"{self.unit_type.name.title()[0]} {d}{hm}{dm}{tl}{a} {self.flags}"
-
-    @property
-    def unit_type(self) -> UnitBits:
-        return UnitBits(self.flags & 0b11)
-
-    @property
-    def is_single(self) -> bool:
-        return 0b11 & self.flags == 0b0
-
-    @property
-    def is_head(self) -> bool:
-        return 0b11 & self.flags == 0b1
-
-    @property
-    def is_middle(self) -> bool:
-        return 0b11 & self.flags == 0b10
-
-    @property
-    def is_tail(self) -> bool:
-        return 0b11 & self.flags == 0b11
-
-    @property
-    def is_forward(self) -> bool:
-        return 0b100 & self.flags == 0b000
-
-    @property
-    def is_reverse(self) -> bool:
-        return 0b100 & self.flags == 0b100
-
-    @property
-    def is_train_linked(self) -> bool:
-        return 0b1000 & self.flags == 0b1000
-
-    @property
-    def is_horn_masked(self) -> bool:
-        return 0b10000 & self.flags == 0b10000
-
-    @property
-    def is_dialog_masked(self) -> bool:
-        return 0b100000 & self.flags == 0b100000
-
-    @property
-    def is_tmcc2(self) -> bool:
-        return 0b1000000 & self.flags == 0b1000000
-
-    @property
-    def is_accessory(self) -> bool:
-        return 0b10000000 & self.flags == 0b10000000
 
 
 ENGINE_WRITE_MAP = {
@@ -269,7 +196,7 @@ class BaseReq(PdiReq):
                     data = scaler(data)
             data_bytes = data.to_bytes(1, "little")
             if data_len > 1:
-                data_bytes = data_bytes * data_len  # speed value is repeated twice, so we just replicate first byte
+                data_bytes = data_bytes * data_len  # speed value is repeated twice, so we just replicate the first byte
             cmds.append(
                 BaseReq(
                     address,
@@ -748,6 +675,8 @@ class BaseReq(PdiReq):
             sc = f"Scope: {self.scope}"
             st = f"Start: {hex(self._start)} Len: {self.data_length}"
             tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
+            if tpl is None and self.scope == CommandScope.TRAIN:
+                tpl = BASE_MEMORY_TRAIN_READ_MAP.get(self.start, None)
             if self._data_bytes:
                 if isinstance(tpl, tuple) and (
                     (len(tpl) == 2 and self.data_length == 1) or (len(tpl) == 3 and tpl[2] == self.data_length)
