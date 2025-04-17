@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Dict, Any
-
+from typing import List, Dict, Any, TypeVar, cast
 
 from .component_state import (
     STARTUP_SET,
@@ -25,6 +24,7 @@ from .component_state import (
     ComponentState,
 )
 from ..pdi.d4_req import D4Req
+from ..pdi.comp_data import CompData, CompDataMixin
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.command_req import CommandReq
 from ..protocol.command_def import CommandDefEnum
@@ -49,7 +49,7 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
 
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
-        from ..pdi.engine_data import ConsistComponent
+        from ..pdi.comp_data import ConsistComponent
 
         if scope not in {CommandScope.ENGINE, CommandScope.TRAIN}:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
@@ -165,7 +165,7 @@ class EngineState(ComponentState):
                 if self.is_legacy is None:
                     self._is_legacy = command.is_tmcc2 is True or self.address > 99
 
-                # handle some aspects of halt command
+                # handle some aspects of the halt command
                 if command.command == TMCC1HaltCommandEnum.HALT:
                     if self.is_legacy:
                         self._aux1 = TMCC2.AUX1_OFF
@@ -206,7 +206,7 @@ class EngineState(ComponentState):
                     log.info(f"What to do? {command}: {numeric} {type(numeric)}")
 
                 # Direction changes trigger several other changes; we want to avoid resettling
-                # rpm, labor, and speed if direction really didn't change
+                # rpm, labor, and speed if the direction really didn't change
                 if command.command in DIRECTIONS_SET:
                     if self._direction != command.command:
                         self._direction = self._change_direction(command.command)
@@ -345,6 +345,8 @@ class EngineState(ComponentState):
                         self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                         self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+            elif isinstance(command, CompDataMixin) and command.is_comp_data_record is True:
+                self._update_comp_data(command.comp_data)
             elif (
                 isinstance(command, BaseReq)
                 and command.status == 0
@@ -393,7 +395,7 @@ class EngineState(ComponentState):
                         self._consist_comp = command.consist_components
                         self._consist_flags = command.consist_flags
             elif isinstance(command, BaseReq) and command.pdi_command == PdiCommand.BASE_MEMORY and command.data_bytes:
-                from ..pdi.engine_data import BASE_MEMORY_ENGINE_READ_MAP
+                from ..pdi.comp_data import BASE_MEMORY_ENGINE_READ_MAP
 
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(command.start, None)
                 if isinstance(tpl, tuple):
@@ -407,28 +409,29 @@ class EngineState(ComponentState):
                         pass
                     elif command.record_no is not None:
                         self._d4_rec_no = command.record_no
-                elif command.action == D4Action.QUERY and command.engine_data:
-                    self._update_engine_state(command.engine_data)
             else:
                 print("---", command)
             self.changed.set()
             self._cv.notify_all()
 
-    def _update_engine_state(self, engine_data):
-        self._bt_id = engine_data.bt_id
-        self._speed = engine_data.speed
-        self._rpm_labor = engine_data.rpm_labor
-        self._rpm = engine_data.rpm_tmcc
-        self._labor = engine_data.labor_tmcc
-        self._train_brake = engine_data.train_brake_tmcc
-        self._momentum = engine_data.momentum_tmcc
-        self._engine_class = engine_data.engine_class
-        self._engine_type = engine_data.engine_type
-        self._control_type = engine_data.control_type
-        self._sound_type = engine_data.sound_type
-        self._smoke_level = engine_data.smoke_tmcc
-        self._speed_limit = engine_data.speed_limit
-        self._max_speed = engine_data.max_speed
+    def _update_comp_data(self, comp_data: CompData):
+        self._bt_id = comp_data.bt_id
+        self._speed = comp_data.speed
+        self._rpm_labor = comp_data.rpm_labor
+        self._rpm = comp_data.rpm_tmcc
+        self._labor = comp_data.labor_tmcc
+        self._train_brake = comp_data.train_brake_tmcc
+        self._momentum = comp_data.momentum_tmcc
+        self._engine_class = comp_data.engine_class
+        self._engine_type = comp_data.engine_type
+        self._control_type = comp_data.control_type
+        self._sound_type = comp_data.sound_type
+        self._smoke_level = comp_data.smoke_tmcc
+        self._speed_limit = comp_data.speed_limit
+        self._max_speed = comp_data.max_speed
+        if self.scope == CommandScope.TRAIN:
+            self._consist_comp = comp_data.consist_components
+            self._consist_flags = comp_data.consist_flags
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:
@@ -710,7 +713,7 @@ class EngineState(ComponentState):
 
 
 class TrainState(EngineState):
-    from ..pdi.engine_data import ConsistComponent
+    from ..pdi.comp_data import ConsistComponent
 
     def __init__(self, scope: CommandScope = CommandScope.TRAIN) -> None:
         if scope != CommandScope.TRAIN:
@@ -729,5 +732,7 @@ class TrainState(EngineState):
         return self._consist_comp
 
 
-SCOPE_TO_STATE_MAP[CommandScope.ENGINE] = EngineState
-SCOPE_TO_STATE_MAP[CommandScope.TRAIN] = TrainState
+T = TypeVar("T", bound=ComponentState)
+
+SCOPE_TO_STATE_MAP[CommandScope.ENGINE] = cast(T, EngineState)
+SCOPE_TO_STATE_MAP[CommandScope.TRAIN] = cast(T, TrainState)

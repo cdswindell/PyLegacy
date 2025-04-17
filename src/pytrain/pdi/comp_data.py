@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import unique, IntEnum
-from typing import Any
+from typing import Any, TypeVar, Generic
 
 from .pdi_req import PdiReq
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
@@ -43,6 +43,11 @@ BASE_MEMORY_ENGINE_READ_MAP = {
 BASE_MEMORY_TRAIN_READ_MAP = {
     0x6F: ("_consist_flags", lambda t: int.from_bytes(t, byteorder="little")),
     0x70: ("_consist_comps", lambda t: ConsistComponent.from_bytes(t), 32),
+}
+
+SCOPE_TO_COMP_MAP = {
+    CommandScope.ENGINE: BASE_MEMORY_ENGINE_READ_MAP,
+    CommandScope.TRAIN: BASE_MEMORY_TRAIN_READ_MAP,
 }
 
 CONVERSIONS = {
@@ -151,33 +156,25 @@ class ConsistComponent:
         return 0b10000000 & self.flags == 0b10000000
 
 
-class EngineData:
-    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+C = TypeVar("C", bound="CompData")
+
+
+class CompData:
+    @classmethod
+    def from_bytes(cls, data: bytes, scope: CommandScope, tmcc_id: int = None) -> C:
+        if scope == CommandScope.ENGINE:
+            return EngineData(data, tmcc_id=tmcc_id)
+        elif scope == CommandScope.TRAIN:
+            return TrainData(data, tmcc_id=tmcc_id)
+        else:
+            raise ValueError(f"Invalid scope: {scope}")
+
+    def __init__(self, data: bytes, scope: CommandScope, tmcc_id: int = None) -> None:
         self._tmcc_id: int | None = tmcc_id
-        self._prev_link: int | None = None
-        self._next_link: int | None = None
-        self._bt_id: int | None = None
-        self._speed: int | None = None
-        self._target_speed: int | None = None
-        self._train_brake: int | None = None
-        self._rpm_labor: int | None = None
-        self._momentum: int | None = None
-        self._road_name: str | None = None
-        self._road_number: str | None = None
-        self._engine_type: int | None = None
-        self._control_type: int | None = None
-        self._sound_type: int | None = None
-        self._engine_class: int | None = None
-        self._tsdb_left: int | None = None
-        self._tsdb_right: int | None = None
-        self._smoke: int | None = None
-        self._speed_limit: int | None = None
-        self._max_speed: int | None = None
-        self._timestamp: int | None = None
-        self._scope = CommandScope.ENGINE
+        self._scope = scope
 
         # load the data from the byte string
-        self._parse_bytes(data, BASE_MEMORY_ENGINE_READ_MAP)
+        self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
 
     def __getattr__(self, name: str) -> Any:
         if "_" + name in self.__dict__:
@@ -205,12 +202,47 @@ class EngineData:
                     setattr(self, v[0], value)
 
 
+class EngineData(CompData):
+    def __init__(self, data: bytes, scope: CommandScope = CommandScope.ENGINE, tmcc_id: int = None) -> None:
+        self._prev_link: int | None = None
+        self._next_link: int | None = None
+        self._bt_id: int | None = None
+        self._speed: int | None = None
+        self._target_speed: int | None = None
+        self._train_brake: int | None = None
+        self._rpm_labor: int | None = None
+        self._momentum: int | None = None
+        self._road_name: str | None = None
+        self._road_number: str | None = None
+        self._engine_type: int | None = None
+        self._control_type: int | None = None
+        self._sound_type: int | None = None
+        self._engine_class: int | None = None
+        self._tsdb_left: int | None = None
+        self._tsdb_right: int | None = None
+        self._smoke: int | None = None
+        self._speed_limit: int | None = None
+        self._max_speed: int | None = None
+        self._timestamp: int | None = None
+        super().__init__(data, scope, tmcc_id=tmcc_id)
+
+
 class TrainData(EngineData):
     def __init__(self, data: bytes, tmcc_id: int = None) -> None:
-        super().__init__(data, tmcc_id=tmcc_id)
         self._consist_flags: int | None = None
         self._consist_comps: list[ConsistComponent] | None = None
-        self._scope = CommandScope.TRAIN
+        super().__init__(data, scope=CommandScope.TRAIN, tmcc_id=tmcc_id)
 
-        # load the data from the byte string
-        self._parse_bytes(data, BASE_MEMORY_TRAIN_READ_MAP)
+
+class CompDataMixin(Generic[C]):
+    def __init__(self):
+        self._comp_data: C | None = None
+        self._comp_data_record: bool = True
+
+    @property
+    def comp_data(self) -> C:
+        return self._comp_data
+
+    @property
+    def is_comp_data_record(self) -> bool:
+        return self._comp_data_record

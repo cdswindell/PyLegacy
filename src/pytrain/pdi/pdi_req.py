@@ -19,8 +19,10 @@ from ..protocol.constants import CommandScope, MINIMUM_DURATION_INTERVAL_MSEC, D
 T = TypeVar("T", bound=PdiAction)
 
 
+# noinspection GrazieInspection
 class PdiReq(ABC):
     __metaclass__ = abc.ABCMeta
+    LIONEL_RECORD_LENGTH: int = 0xC0
 
     @classmethod
     def from_bytes(cls, data: bytes) -> Self:
@@ -42,7 +44,7 @@ class PdiReq(ABC):
         self._scope = CommandScope.SYSTEM
         self._tmcc_id = 0
         if isinstance(data, bytes):
-            # first byte should be SOP, last should be EOP, if not, raise exception
+            # first byte should be SOP, last byte should be EOP, if not, raise exception
             if data[0] != PDI_SOP or data[-1] != PDI_EOP:
                 raise ValueError(f"Invalid PDI Request: {data}")
             # process the data to remove SOP, EOP, Checksum, and Stuff Bytes, if any

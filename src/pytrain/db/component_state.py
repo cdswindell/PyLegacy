@@ -583,7 +583,10 @@ class RouteState(TmccState):
         return d
 
 
-SCOPE_TO_STATE_MAP: [CommandScope, ComponentState] = {
+T = TypeVar("T", bound=ComponentState)
+
+# noinspection PyTypeChecker,PyTypeHints
+SCOPE_TO_STATE_MAP: dict[CommandScope, T] = {
     CommandScope.ROUTE: RouteState,
     CommandScope.SWITCH: SwitchState,
 }
@@ -656,6 +659,7 @@ class ComponentStateDict(ThreadSafeDefaultDict):
     def scope(self) -> CommandScope:
         return self._scope
 
+    # noinspection PyCallingNonCallable
     def __missing__(self, key: int) -> ComponentState:
         """
         generate a ComponentState object for the dictionary, based on the key

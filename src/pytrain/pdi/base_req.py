@@ -6,12 +6,12 @@ from math import floor
 from typing import Dict, List, Tuple
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
-from .engine_data import (
-    EngineData,
-    TrainData,
+from .comp_data import (
     BASE_MEMORY_ENGINE_READ_MAP,
     ConsistComponent,
     BASE_MEMORY_TRAIN_READ_MAP,
+    CompDataMixin,
+    CompData,
 )
 from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
@@ -124,7 +124,7 @@ RECORD_TYPE_MAP = {
 SCOPE_TO_RECORD_TYPE_MAP = {s: p for p, s in RECORD_TYPE_MAP.items()}
 
 
-class BaseReq(PdiReq):
+class BaseReq(PdiReq, CompDataMixin):
     @classmethod
     def update_speed(cls, address: int, speed: int, scope: CommandScope = CommandScope.ENGINE) -> BaseReq:
         if scope == CommandScope.TRAIN:
@@ -282,7 +282,6 @@ class BaseReq(PdiReq):
         self._state = state
         self._valid1 = self._valid2 = None
         self._spare_1 = None
-        self._engine_data = self._train_data = None
         self._data_length = self._data_bytes = self._start = self._record_type = None
         if isinstance(data, bytes):
             data_len = len(self._data)
@@ -362,14 +361,14 @@ class BaseReq(PdiReq):
                 _ = self._data[9] if data_len > 9 else None  # we assume port is always 2; Database EEProm
                 self._data_length = self._data[10] if data_len > 10 else None
                 self._data_bytes = self._data[11:] if data_len > 11 else None
-                if self.scope == CommandScope.ENGINE:
-                    self._engine_data = EngineData(self._data_bytes, tmcc_id=self.tmcc_id)
-                    self._name = self._engine_data.road_name
-                    self._number = self._engine_data.road_number
-                elif self.scope == CommandScope.TRAIN:
-                    self._train_data = TrainData(self._data_bytes, tmcc_id=self.tmcc_id)
-                    self._name = self._train_data.road_name
-                    self._number = self._train_data.road_number
+                if self.data_length == self.LIONEL_RECORD_LENGTH and self.scope in {
+                    CommandScope.ENGINE,
+                    CommandScope.TRAIN,
+                }:
+                    self._comp_data = CompData.from_bytes(self._data_bytes, scope=self.scope, tmcc_id=self.tmcc_id)
+                    self._name = self._comp_data.road_name
+                    self._number = self._comp_data.road_number
+                    self._comp_data_record = True  # mark this req as containing a complete CompData record
             elif self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
                 self._speed = self._data[2] if data_len > 2 else None
                 self._valid1 = (1 << EngineBits.SPEED) if data_len > 2 else 0
@@ -615,14 +614,6 @@ class BaseReq(PdiReq):
         return None
 
     @property
-    def engine_data(self) -> EngineData:
-        return self._engine_data if self._engine_data else self.train_data
-
-    @property
-    def train_data(self) -> TrainData:
-        return self._train_data
-
-    @property
     def is_ack(self) -> bool:
         return self._valid1 is None and self._valid2 is None
 
@@ -631,11 +622,11 @@ class BaseReq(PdiReq):
         if (
             self.pdi_command == PdiCommand.BASE_MEMORY
             and self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}
-            and self.data_length == 0xC0
+            and self.is_comp_data_record is True
         ):
             if (
-                self.engine_data.prev_link == 255
-                and self.engine_data.next_link == 255
+                self.comp_data.prev_link == 255
+                and self.comp_data.next_link == 255
                 and not self.name
                 and not self.number
             ):

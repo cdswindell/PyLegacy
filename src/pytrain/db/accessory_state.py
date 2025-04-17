@@ -220,4 +220,4 @@ class AccessoryState(TmccState):
         return d
 
 
-SCOPE_TO_STATE_MAP[CommandScope.ACC] = AccessoryState
+SCOPE_TO_STATE_MAP.update({CommandScope.ACC: AccessoryState})

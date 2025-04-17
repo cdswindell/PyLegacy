@@ -2,15 +2,14 @@ import time
 from datetime import datetime
 
 from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
-from .engine_data import EngineData, TrainData, BASE_MEMORY_ENGINE_READ_MAP
+from .comp_data import BASE_MEMORY_ENGINE_READ_MAP, CompData, CompDataMixin
 from .pdi_req import PdiReq
 from ..protocol.constants import CommandScope
 
 LIONEL_EPOCH: int = 1577836800  # Midnight, Jan 1 2020 UTC
-LIONEL_RECORD_LENGTH: int = 0xC0
 
 
-class D4Req(PdiReq):
+class D4Req(PdiReq, CompDataMixin):
     @staticmethod
     def lionel_timestamp(as_bytes: bool = True) -> int | bytes:
         lts = 0xFFFFFFFF & int(time.time() - LIONEL_EPOCH)
@@ -37,7 +36,6 @@ class D4Req(PdiReq):
         self._scope = CommandScope.TRAIN if self.pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
         self._record_no = self._next_record_no = self._tmcc_id = self._count = self._post_action = self._suffix = None
         self._data_length = self._data_bytes = self._start = self._timestamp = None
-        self._engine_data = self._train_data = None
         self._error = error
         self._tmcc_id = tmcc_id
         if isinstance(data, bytes):
@@ -53,15 +51,9 @@ class D4Req(PdiReq):
                 data_bytes = self._data[12:] if data_len > 12 else None
                 if isinstance(data_bytes, bytes):
                     self._data_bytes = data_bytes
-                    if self.start == 0 and self.data_length == LIONEL_RECORD_LENGTH:
-                        if self.pdi_command == PdiCommand.D4_ENGINE:
-                            self._engine_data = EngineData(data_bytes)
-                            self._tmcc_id = self.engine_data.tmcc_id
-                        elif self.pdi_command == PdiCommand.D4_TRAIN:
-                            self._train_data = TrainData(data_bytes)
-                            self._tmcc_id = self.train_data.tmcc_id
-                        else:
-                            raise AttributeError(f"Cannot process data for {self.pdi_command} command")
+                    if self.start == 0 and self.data_length == self.LIONEL_RECORD_LENGTH:
+                        self._comp_data = CompData.from_bytes(data_bytes, self.scope)
+                        self._comp_data_record = True  # mark this req as containing a complete CompData record
                     elif isinstance(data_bytes, str):
                         self._data_bytes = data_bytes[0:data_length].encode("ascii")
                         if len(data_bytes) < data_length:
@@ -136,24 +128,16 @@ class D4Req(PdiReq):
         return self._timestamp
 
     @property
-    def engine_data(self) -> EngineData:
-        return self._engine_data if self._engine_data else self.train_data
-
-    @property
-    def train_data(self) -> TrainData:
-        return self._train_data
-
-    @property
     def name(self) -> str | None:
-        if self.engine_data:
-            return self.engine_data.road_name
+        if self.comp_data:
+            return self.comp_data.road_name
         else:
             return None
 
     @property
     def number(self) -> str | None:
-        if self.engine_data:
-            return self.engine_data.road_number
+        if self.comp_data:
+            return self.comp_data.road_number
         else:
             return None
 
