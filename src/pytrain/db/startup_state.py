@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from threading import Thread
 
-from ..comm.command_listener import SYNCING, CommandDispatcher
+from ..comm.command_listener import SYNCING, CommandDispatcher, SYNC_COMPLETE
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PdiCommand, D4Action
 from ..pdi.d4_req import D4Req
@@ -40,6 +40,8 @@ class StartupState(Thread):
                 if cmd.tmcc_id < 99:
                     time.sleep(0.05)
                     self.listener.enqueue_command(BaseReq(cmd.tmcc_id + 1, PdiCommand.BASE_MEMORY, scope=cmd.scope))
+                if cmd.scope == CommandScope.TRAIN and cmd.tmcc_id == 98:
+                    CommandDispatcher.get().offer(SYNC_COMPLETE)
             elif isinstance(cmd, D4Req):
                 if cmd.action == D4Action.COUNT and cmd.count:
                     # request first record of D4 engines/trains

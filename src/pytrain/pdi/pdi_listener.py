@@ -279,12 +279,6 @@ class PdiDispatcher(Thread):
                         # response to the request for info on Train 98...
                         if cmd.pdi_command == PdiCommand.BASE_TRAIN and cmd.tmcc_id == 98:
                             CommandDispatcher.get().offer(SYNC_COMPLETE)
-                        if (
-                            cmd.pdi_command == PdiCommand.BASE_MEMORY
-                            and cmd.scope == CommandScope.TRAIN
-                            and cmd.tmcc_id == 98
-                        ):
-                            CommandDispatcher.get().offer(SYNC_COMPLETE)
                         if cmd.is_ack is True or cmd.is_active is False:
                             continue
                     # for TMCC requests, forward to TMCC Command Dispatcher
