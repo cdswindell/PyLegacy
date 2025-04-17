@@ -95,7 +95,7 @@ class StartupState(Thread):
         # we find one out of range; make a request for each discovered entity
         for tmcc_id in range(1, 99):
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE))
-            time.sleep(0.05)
+            time.sleep(1)
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=CommandScope.TRAIN))
         for tmcc_id in range(1, 99):
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ACC))
