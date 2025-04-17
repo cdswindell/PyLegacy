@@ -198,8 +198,6 @@ class CompData:
             item_len = v[2] if len(v) > 2 else 1
             if data_len >= ((k + item_len) - 1) and hasattr(self, v[0]) and getattr(self, v[0]) is None:
                 value = v[1](data[k : k + item_len])
-                if v[0] == "_smoke":
-                    print(f"***** SMOKE: {value}")
                 if hasattr(self, v[0]):
                     setattr(self, v[0], value)
 
@@ -248,4 +246,4 @@ class CompDataMixin(Generic[C]):
 
     @property
     def is_comp_data_record(self) -> bool:
-        return self._comp_data_record
+        return self.comp_data and self._comp_data_record is True

@@ -261,8 +261,8 @@ class BaseReq(PdiReq, CompDataMixin):
         speed: int = None,
         base_name: str | None = None,
         state: ComponentState = None,
-        start: int | None = None,
-        data_length: int | None = None,
+        start: int = 0,
+        data_length: int = PdiReq.LIONEL_RECORD_LENGTH,
         data_bytes: bytes | None = None,
     ) -> None:
         super().__init__(data, pdi_command)

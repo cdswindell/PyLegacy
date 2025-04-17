@@ -10,7 +10,7 @@ from ..pdi.d4_req import D4Req
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import AllReq, PdiReq
 from ..pdi.pdi_state_store import PdiStateStore
-from ..protocol.constants import PROGRAM_NAME
+from ..protocol.constants import PROGRAM_NAME, CommandScope
 
 
 class StartupState(Thread):
@@ -94,9 +94,9 @@ class StartupState(Thread):
         # Eng/Train/Acc/Sw #100 then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity
         for tmcc_id in range(1, 99):
-            self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ENGINE))
+            self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE))
             time.sleep(0.05)
-            self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_TRAIN))
+            self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=CommandScope.TRAIN))
         for tmcc_id in range(1, 99):
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ACC))
             time.sleep(0.05)
