@@ -393,9 +393,9 @@ class EngineState(ComponentState):
                         self._consist_comp = command.consist_components
                         self._consist_flags = command.consist_flags
             elif isinstance(command, BaseReq) and command.pdi_command == PdiCommand.BASE_MEMORY and command.data_bytes:
-                from ..pdi.engine_data import BASE_MEMORY_READ_MAP
+                from ..pdi.engine_data import BASE_MEMORY_ENGINE_READ_MAP
 
-                tpl = BASE_MEMORY_READ_MAP.get(command.start, None)
+                tpl = BASE_MEMORY_ENGINE_READ_MAP.get(command.start, None)
                 if isinstance(tpl, tuple):
                     setattr(self, tpl[0], tpl[1](command.data_bytes))
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:

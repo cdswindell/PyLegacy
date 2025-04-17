@@ -2,7 +2,7 @@ import time
 from datetime import datetime
 
 from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
-from .engine_data import EngineData, TrainData, BASE_MEMORY_READ_MAP
+from .engine_data import EngineData, TrainData, BASE_MEMORY_ENGINE_READ_MAP
 from .pdi_req import PdiReq
 from ..protocol.constants import CommandScope
 
@@ -183,7 +183,7 @@ class D4Req(PdiReq):
                 ts = f" {self.timestamp_str}"
                 di = f" Index: {self.start}" if self.start is not None else ""
                 dl = f" Length: {self.data_length}" if self.data_length is not None else ""
-                tpl = BASE_MEMORY_READ_MAP.get(self.start, None)
+                tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
                 if isinstance(tpl, tuple):
                     db = f" {tpl[1](self._data_bytes)}"
                 else:

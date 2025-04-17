@@ -13,7 +13,7 @@ BASE_TO_TMCC_SMOKE_MAP = {
 
 TMCC_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC_SMOKE_MAP.items()}
 
-BASE_MEMORY_READ_MAP = {
+BASE_MEMORY_ENGINE_READ_MAP = {
     0x04: ("_bt_id", lambda t: int.from_bytes(t, byteorder="little"), 2),
     0x07: ("_speed", lambda t: int.from_bytes(t, byteorder="little")),
     0x08: ("_target_speed", lambda t: int.from_bytes(t, byteorder="little")),
@@ -75,11 +75,11 @@ class EngineData:
 
         # load the data from the byte string
         data_len = len(data)
-        for k, v in BASE_MEMORY_READ_MAP.items():
+        for k, v in BASE_MEMORY_ENGINE_READ_MAP.items():
             if isinstance(v, tuple) is False:
                 continue
             item_len = v[2] if len(v) > 2 else 1
-            if data_len >= ((k + item_len) - 1):
+            if data_len >= ((k + item_len) - 1) and hasattr(self, v[0]) and getattr(self, v[0]) is None:
                 value = v[1](data[k : k + item_len])
                 if hasattr(self, v[0]):
                     setattr(self, v[0], value)
@@ -102,6 +102,6 @@ class EngineData:
 
 
 class TrainData(EngineData):
-    def __init__(self, data: bytes) -> None:
-        super().__init__(data)
+    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+        super().__init__(data, tmcc_id=tmcc_id)
         self._scope = CommandScope.TRAIN

@@ -1013,8 +1013,6 @@ class PyTrain:
         self._echo = True
 
     def _do_pdi(self, param: List[str]) -> None:
-        # if self._pdi_buffer is None:
-        #     raise AttributeError("Not connected to a Lionel Base 3, PDI commands not enabled...")
         param_len = len(param)
         agr = None
         if param_len == 1:
@@ -1042,6 +1040,13 @@ class PyTrain:
                     start = (int(param[3], 16) if "0x" in param[3] else int(param[3])) if param_len > 3 else 0
                     length = (int(param[4], 16) if "0x" in param[4] else int(param[4])) if param_len > 4 else 0xC0
                     agr = D4Req(rec_no, pdi, action=D4Action.QUERY, start=start, data_length=length)
+        elif param_len >= 2 and param[0].lower().startswith("m"):
+            pdi = PdiCommand.BASE_MEMORY
+            rec_no = int(param[1], 16) if "0x" in param[1] else int(param[1])
+            start = (int(param[2], 16) if "0x" in param[2] else int(param[2])) if param_len > 3 else 0
+            length = (int(param[3], 16) if "0x" in param[3] else int(param[3])) if param_len > 4 else 0xC0
+            scope = CommandScope.by_prefix(param[4], raise_exception=True) if param_len > 4 else CommandScope.ENGINE
+            agr = BaseReq(rec_no, pdi, scope=scope, start=start, data_length=length)
         elif param_len == 2:
             if param[0].lower().startswith("e"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ENGINE)

@@ -6,6 +6,7 @@ from math import floor
 from typing import Dict, List, Tuple
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
+from .engine_data import EngineData, TrainData, BASE_MEMORY_ENGINE_READ_MAP
 from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
@@ -354,7 +355,8 @@ class BaseReq(PdiReq):
         self._state = state
         self._valid1 = self._valid2 = None
         self._spare_1 = None
-        self._data_length = self._data_bytes = self._start = None
+        self._engine_data = self._train_data = None
+        self._data_length = self._data_bytes = self._start = self._record_type = None
         if isinstance(data, bytes):
             data_len = len(self._data)
             self._record_no = self.tmcc_id = self._data[1] if data_len > 1 else None
@@ -433,6 +435,10 @@ class BaseReq(PdiReq):
                 _ = self._data[9] if data_len > 9 else None  # we assume port is always 2; Database EEProm
                 self._data_length = self._data[10] if data_len > 10 else None
                 self._data_bytes = self._data[11:] if data_len > 11 else None
+                if self.scope == CommandScope.ENGINE:
+                    self._engine_data = EngineData(self._data_bytes, tmcc_id=self.tmcc_id)
+                elif self.scope == CommandScope.TRAIN:
+                    self._train_data = TrainData(self._data_bytes, tmcc_id=self.tmcc_id)
             elif self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
                 self._speed = self._data[2] if data_len > 2 else None
                 self._valid1 = (1 << EngineBits.SPEED) if data_len > 2 else 0
@@ -443,6 +449,7 @@ class BaseReq(PdiReq):
             self._base_name = base_name
             if self.pdi_command == PdiCommand.BASE_MEMORY:
                 self.scope = scope if scope else CommandScope.ENGINE
+                self._record_type = SCOPE_TO_RECORD_TYPE_MAP.get(self.scope, 1)
                 self._start = start
                 self._data_length = data_length
                 self._data_bytes = data_bytes
@@ -677,6 +684,14 @@ class BaseReq(PdiReq):
         return None
 
     @property
+    def engine_data(self) -> EngineData:
+        return self._engine_data if self._engine_data else self.train_data
+
+    @property
+    def train_data(self) -> TrainData:
+        return self._train_data
+
+    @property
     def is_ack(self) -> bool:
         return self._valid1 is None and self._valid2 is None
 
@@ -715,7 +730,11 @@ class BaseReq(PdiReq):
         elif self.pdi_command == PdiCommand.BASE_MEMORY and self._start is not None:
             sc = f"Scope: {self.scope}"
             st = f"Start: {hex(self._start)} Len: {self._data_length}"
-            dt = f"Data: {self._data_bytes.hex() if self._data_bytes else 'NA'}"
+            tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
+            if isinstance(tpl, tuple):
+                dt = f" {tpl[1](self._data_bytes)}"
+            else:
+                dt = f"Data: {self._data_bytes.hex() if self._data_bytes else 'NA'}"
             return f"Rec # {self.record_no} {sc} flags: {f} {st} {dt} status: {s} ({self.packet})"
         elif self._valid1 is None and self._valid2 is None:  # ACK received
             return f"Rec # {self.record_no} flags: {f} status: {s} ACK ({self.packet})"
