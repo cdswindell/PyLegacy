@@ -437,8 +437,12 @@ class BaseReq(PdiReq):
                 self._data_bytes = self._data[11:] if data_len > 11 else None
                 if self.scope == CommandScope.ENGINE:
                     self._engine_data = EngineData(self._data_bytes, tmcc_id=self.tmcc_id)
+                    self._name = self._engine_data.road_name
+                    self._number = self._engine_data.road_number
                 elif self.scope == CommandScope.TRAIN:
                     self._train_data = TrainData(self._data_bytes, tmcc_id=self.tmcc_id)
+                    self._name = self._train_data.road_name
+                    self._number = self._train_data.road_number
             elif self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
                 self._speed = self._data[2] if data_len > 2 else None
                 self._valid1 = (1 << EngineBits.SPEED) if data_len > 2 else 0
@@ -697,6 +701,18 @@ class BaseReq(PdiReq):
 
     @property
     def is_active(self) -> bool:
+        if (
+            self.pdi_command == PdiCommand.BASE_MEMORY
+            and self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}
+            and self.data_length == 0xC0
+        ):
+            if (
+                self.engine_data.prev_link == 255
+                and self.engine_data.next_link == 255
+                and not self.name
+                and not self.number
+            ):
+                return False
         if self.pdi_command in {
             PdiCommand.BASE_ENGINE,
             PdiCommand.BASE_TRAIN,
@@ -728,14 +744,20 @@ class BaseReq(PdiReq):
             scope = "Engine" if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else "Train"
             return f"{scope} #{self.tmcc_id} New Speed: {self.speed}"
         elif self.pdi_command == PdiCommand.BASE_MEMORY and self._start is not None:
+            dt = ""
             sc = f"Scope: {self.scope}"
-            st = f"Start: {hex(self._start)} Len: {self._data_length}"
+            st = f"Start: {hex(self._start)} Len: {self.data_length}"
             tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
-            if isinstance(tpl, tuple):
-                dt = f" {tpl[1](self._data_bytes)}"
+            if self._data_bytes:
+                if isinstance(tpl, tuple) and (
+                    (len(tpl) == 2 and self.data_length == 1) or (len(tpl) == 3 and tpl[2] == self.data_length)
+                ):
+                    dt = f"Data: {tpl[1](self._data_bytes)}"
+                elif self.data_length < 0xC0:
+                    dt = f"Data: 0x{self._data_bytes.hex(' ')}" if self._data_bytes else "Data: None"
             else:
-                dt = f"Data: {self._data_bytes.hex() if self._data_bytes else 'NA'}"
-            return f"Rec # {self.record_no} {sc} flags: {f} {st} {dt} status: {s} ({self.packet})"
+                dt = "Data: None"
+            return f"TMCC ID # {self.record_no} {sc} flags: {f} {st} {dt} status: {s} ({self.packet})"
         elif self._valid1 is None and self._valid2 is None:  # ACK received
             return f"Rec # {self.record_no} flags: {f} status: {s} ACK ({self.packet})"
         else:

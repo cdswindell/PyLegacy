@@ -14,6 +14,8 @@ BASE_TO_TMCC_SMOKE_MAP = {
 TMCC_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC_SMOKE_MAP.items()}
 
 BASE_MEMORY_ENGINE_READ_MAP = {
+    0x00: ("_prev_link", lambda t: int.from_bytes(t, byteorder="little")),
+    0x01: ("_next_link", lambda t: int.from_bytes(t, byteorder="little")),
     0x04: ("_bt_id", lambda t: int.from_bytes(t, byteorder="little"), 2),
     0x07: ("_speed", lambda t: int.from_bytes(t, byteorder="little")),
     0x08: ("_target_speed", lambda t: int.from_bytes(t, byteorder="little")),
@@ -35,6 +37,8 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0xBC: ("_timestamp", lambda t: int.from_bytes(t[0:4], byteorder="little"), 4),
 }
 
+BASE_MEMORY_TRAIN_READ_MAP = {0x00: ("_consist_flags", lambda t: int.from_bytes(t, byteorder="little"))}
+
 CONVERSIONS = {
     "train_brake": (lambda x: min(round(x * 0.4667), 7), lambda x: min(round(x * 2.143), 15)),
     "momentum": (lambda x: min(round(x * 0.05512), 7), lambda x: min(round(x * 18.14), 127)),
@@ -53,6 +57,8 @@ CONVERSIONS = {
 class EngineData:
     def __init__(self, data: bytes, tmcc_id: int = None) -> None:
         self._tmcc_id: int | None = tmcc_id
+        self._prev_link: int | None = None
+        self._next_link: int | None = None
         self._bt_id: int | None = None
         self._speed: int | None = None
         self._target_speed: int | None = None
@@ -74,17 +80,7 @@ class EngineData:
         self._scope = CommandScope.ENGINE
 
         # load the data from the byte string
-        data_len = len(data)
-        for k, v in BASE_MEMORY_ENGINE_READ_MAP.items():
-            if isinstance(v, tuple) is False:
-                continue
-            item_len = v[2] if len(v) > 2 else 1
-            if data_len >= ((k + item_len) - 1) and hasattr(self, v[0]) and getattr(self, v[0]) is None:
-                value = v[1](data[k : k + item_len])
-                if hasattr(self, v[0]):
-                    setattr(self, v[0], value)
-                else:
-                    raise AttributeError(f"'{type(self).__name__}' has no attribute '{v[0]}'")
+        self._parse_bytes(data, BASE_MEMORY_ENGINE_READ_MAP)
 
     def __getattr__(self, name: str) -> Any:
         if "_" + name in self.__dict__:
@@ -100,8 +96,23 @@ class EngineData:
         else:
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
+    def _parse_bytes(self, data: bytes, pmap: dict) -> None:
+        data_len = len(data)
+        for k, v in pmap.items():
+            if isinstance(v, tuple) is False:
+                continue
+            item_len = v[2] if len(v) > 2 else 1
+            if data_len >= ((k + item_len) - 1) and hasattr(self, v[0]) and getattr(self, v[0]) is None:
+                value = v[1](data[k : k + item_len])
+                if hasattr(self, v[0]):
+                    setattr(self, v[0], value)
+
 
 class TrainData(EngineData):
     def __init__(self, data: bytes, tmcc_id: int = None) -> None:
         super().__init__(data, tmcc_id=tmcc_id)
+        self._consist_flags: int | None = None
         self._scope = CommandScope.TRAIN
+
+        # load the data from the byte string
+        self._parse_bytes(data, BASE_MEMORY_TRAIN_READ_MAP)

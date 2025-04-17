@@ -204,10 +204,16 @@ class PdiReq(ABC):
     @staticmethod
     def decode_text(data: bytes) -> str | None:
         name = ""
+        num_ffs = 0
         for b in data:
             if b == 0:
                 break
-            name += chr(b)
+            elif b == 0xFF:
+                num_ffs += 1
+            else:
+                name += chr(b)
+        if num_ffs == len(data):
+            return None
         return name
 
     @staticmethod
