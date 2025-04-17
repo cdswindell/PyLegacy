@@ -430,7 +430,7 @@ class EngineState(ComponentState):
         self._speed_limit = comp_data.speed_limit
         self._max_speed = comp_data.max_speed
         if self.scope == CommandScope.TRAIN:
-            self._consist_comp = comp_data.consist_components
+            self._consist_comp = comp_data.consist_comps
             self._consist_flags = comp_data.consist_flags
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
