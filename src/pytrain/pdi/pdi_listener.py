@@ -6,7 +6,7 @@ import threading
 from collections import deque, defaultdict
 from queue import Queue
 from threading import Thread
-from typing import Tuple
+from typing import Tuple, Generic
 
 from .base_req import BaseReq
 from .constants import PDI_SOP, PDI_STF, PDI_EOP, PdiAction, PdiCommand
@@ -126,10 +126,10 @@ class PdiListener(Thread):
             # check if the first bite is in the list of allowable command prefixes
             dq_len = len(self._deque)
             while dq_len > 0 and self._is_running:  # may indicate thread is exiting
-                # we now begin a state machine where we look for an SOP/EOP pair. Throw away
+                # We now begin a state machine where we look for an SOP/EOP pair. Throw away
                 # bytes until we see an SOP
                 if self._deque[0] == PDI_SOP:
-                    # we've found the possible start of a PDI command sequence. Check if we've found
+                    # We've found the possible start of a PDI command sequence. Check if we've found
                     # a PDI_EOP byte, or a "stuff" byte; we handle each situation separately
                     # if eop_pos != -1, we have to look past eop_pos for the next possible eop
                     try:
@@ -198,7 +198,7 @@ class PdiListener(Thread):
         self._dispatcher.unsubscribe_any(subscriber)
 
 
-class PdiDispatcher(Thread):
+class PdiDispatcher(Thread, Generic[Topic, Message]):
     """
     The PdiDispatcher thread receives parsed PdiReqs from the
     PdiListener and dispatches them to subscribing listeners
@@ -290,7 +290,7 @@ class PdiDispatcher(Thread):
                         self.publish((cmd.scope, cmd.tmcc_id), cmd)
                         self.publish(cmd.scope, cmd)
 
-                        # update clients of state change. Note that we DO NOT do this
+                        # Update clients of state change. Note that we DO NOT do this
                         # if the command is TMCC command received from the Base, as it
                         # has been handled via the call to tmcc_dispatcher.offer above
                         if self._server_port is not None:

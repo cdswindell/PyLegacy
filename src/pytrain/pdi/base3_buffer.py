@@ -87,7 +87,7 @@ class Base3Buffer(Thread):
         # created when this instance is started
         self._send_queue: PollableQueue[bytes] = PollableQueue(buffer_size)
         self._send_cv = Condition()
-        # we must send a keepalive packet to the base 3 every few seconds to keep it
+        # we must send a keepalive packet to the Base 3 every few seconds to keep it
         # from closing the connection
         self._keep_alive = KeepAlive(self)
         self.start()
@@ -109,13 +109,13 @@ class Base3Buffer(Thread):
             from ..protocol.multibyte.multibyte_command_req import MultiByteReq
 
             # If we are sending a multibyte TMCC or TMCC_4D command, we have to break
-            # it down into 3 - 7 byte packets; this needs to be done here so sync_state
+            # it down into 3-7 byte packets; this needs to be done here so sync_state
             # in the calling layer gets a complete command
             cmd_bytes = data[2:-2]
             is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
             if data[1] in {TMCC_TX, TMCC4_TX} and is_mvb:
                 tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
-                # this is a legacy/tmcc2 multibyte parameter command. We have to send it
+                # This is a legacy/tmcc2 multibyte parameter command. We have to send it
                 # as 3 3 byte packets, using PdiCommand.TMCC_RX
                 for packet in TmccReq.as_packets(tmcc_cmd):
                     self.send(packet)  # recursive call
@@ -156,7 +156,7 @@ class Base3Buffer(Thread):
                                     #     time.sleep((DEFAULT_BASE_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
                                     s.sendall(sending.hex().upper().encode())
                                     self._last_output_at = self._current_milli_time()
-                                    # update base3 of new state; required if command is a tmcc_tx
+                                    # update base3 with new state; required if command is a tmcc_tx
                                     try:
                                         self.sync_state(sending)
                                     except ValueError as ve:
@@ -169,7 +169,7 @@ class Base3Buffer(Thread):
                                 else:
                                     sending = None
                                     received = bytes.fromhex(s.recv(512).decode(errors="ignore"))
-                                    # but there is more trickiness; The Base3 sends ascii characters
+                                    # but there is more trickiness; The Base 3 sends ascii characters
                                     # so when we receive: 'D12729DF', this actually is sent as eight
                                     # characters; D, 1, 2, 7, 2, 9, D, F, so we must decode the 8
                                     # received bytes into 8 ASCII characters, then interpret that
@@ -208,7 +208,7 @@ class Base3Buffer(Thread):
     @classmethod
     def sync_state(cls, data: bytes, pdi_req: PdiReq = None) -> None:
         """
-        Send State Update to Base 3, if it is available and if this
+        Send State Update to Base 3 if it is available and if this
         command packet is relevant
         """
         if cls._instance is None or data == KEEP_ALIVE_CMD:  # if no base 3 or ping, nothing to do
@@ -235,7 +235,7 @@ class Base3Buffer(Thread):
 
                     # When we sync state, states are expressed as the byte-string representations
                     # of the command(s) that generate them. This means that the byte string we
-                    # receive here are likely comprised of multiple commands. CommandReq.from_bytes
+                    # received here likely consists of multiple commands. CommandReq.from_bytes
                     # expects to receive only one command's-worth of bytes at a time, so we have
                     # to break up the byte stream back into the component byte strings for each cmd.
                     if b in TMCC_FIRST_BYTE_TO_INTERPRETER and len(command_seq) >= 3:
