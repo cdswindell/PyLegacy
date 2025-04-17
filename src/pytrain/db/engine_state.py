@@ -417,6 +417,9 @@ class EngineState(ComponentState):
     def _update_engine_state(self, engine_data):
         self._bt_id = engine_data.bt_id
         self._speed = engine_data.speed
+        self._rpm_labor = engine_data.rpm_labor
+        self._rpm = engine_data.rpm_tmcc
+        self._labor = engine_data.labor_tmcc
         self._train_brake = engine_data.train_brake_tmcc
         self._momentum = engine_data.momentum_tmcc
         self._engine_class = engine_data.engine_class

@@ -42,6 +42,11 @@ CONVERSIONS = {
         lambda x: BASE_TO_TMCC_SMOKE_MAP.get(x, TMCC2EffectsControl.SMOKE_OFF),
         lambda x: TMCC_TO_BASE_SMOKE_MAP.get(x, 0),
     ),
+    "rpm": (lambda x: x & 0b111, lambda x: x & 0b111),
+    "labor": (
+        lambda x: (x >> 3) + 12 if (x >> 3) <= 19 else (x >> 3) - 20,
+        lambda x: (x - 12 if x >= 12 else 20 + x) << 3,
+    ),
 }
 
 
@@ -87,6 +92,9 @@ class EngineData:
         elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
             name = name.replace("_tmcc", "")
             tpl = CONVERSIONS[name]
+            # special case labor/rpm
+            if name in {"rpm", "labor"}:
+                name = "rpm_labor"
             value = self.__dict__["_" + name]
             return tpl[0](value) if value is not None else value
         else:
