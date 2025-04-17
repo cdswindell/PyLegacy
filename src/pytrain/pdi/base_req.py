@@ -622,6 +622,7 @@ class BaseReq(PdiReq, CompDataMixin):
         if (
             self.pdi_command == PdiCommand.BASE_MEMORY
             and self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}
+            and self.comp_data
             and self.is_comp_data_record is True
         ):
             if (
