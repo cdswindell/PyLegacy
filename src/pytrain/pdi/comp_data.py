@@ -196,20 +196,20 @@ class CompData:
         byte_str = bytes()
         return byte_str
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        if "_" + name in self.__dict__:
-            self.__dict__["_" + name] = value
-        elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
-            name = name.replace("_tmcc", "")
-            tpl = CONVERSIONS[name]
-            if name in {"rpm", "labor"}:
-                pass
-            # TODO: handle setting of rpm/labor
-            else:
-                self.__dict__["_" + name] = tpl[2](value) if value is not None else value
-        else:
-            super().__setattr__(name, value)
-            # raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
+    # def __setattr__(self, name: str, value: Any) -> None:
+    #     if "_" + name in self.__dict__:
+    #         self.__dict__["_" + name] = value
+    #     elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
+    #         name = name.replace("_tmcc", "")
+    #         tpl = CONVERSIONS[name]
+    #         if name in {"rpm", "labor"}:
+    #             pass
+    #         # TODO: handle setting of rpm/labor
+    #         else:
+    #             self.__dict__["_" + name] = tpl[2](value) if value is not None else value
+    #     else:
+    #         super().__setattr__(name, value)
+    #         # raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
     def _parse_bytes(self, data: bytes, pmap: dict) -> None:
         data_len = len(data)
