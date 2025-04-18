@@ -591,7 +591,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                             do_pause = False
                             for state_packet in state_bytes:
                                 if do_pause is True:
-                                    sleep(0.05)
+                                    sleep(0.06)
                                 try:
                                     self.send_state_packet(client_ip, client_port, state_packet)
                                     do_pause = True
