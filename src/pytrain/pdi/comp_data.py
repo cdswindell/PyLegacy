@@ -265,11 +265,11 @@ class CompData:
         last_idx = 0
         for idx, tpl in schema.items():
             if idx > last_idx:
-                byte_str += b"\x00" * (idx - last_idx)
+                byte_str += b"\xff" * (idx - last_idx)
             data_len = tpl.length
             new_bytes = tpl.to_bytes(getattr(self, tpl.field))
             if len(new_bytes) < data_len:
-                new_bytes += b"\x00" * (data_len - len(new_bytes))
+                new_bytes += b"\xff" * (data_len - len(new_bytes))
             byte_str += new_bytes
             last_idx = idx + data_len
         # final check
