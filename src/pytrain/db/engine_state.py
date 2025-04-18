@@ -684,7 +684,7 @@ class TrainState(EngineState):
 
     @property
     def consist_components(self) -> List[ConsistComponent]:
-        return self.comp_data.consist_comp
+        return self.comp_data.consist_comps
 
 
 T = TypeVar("T", bound=ComponentState)
