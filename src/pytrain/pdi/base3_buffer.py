@@ -236,7 +236,7 @@ class Base3Buffer(Thread):
                     # When we sync state, states are expressed as the byte-string representations
                     # of the command(s) that generate them. This means that the byte string we
                     # received here likely consists of multiple commands. CommandReq.from_bytes
-                    # expects to receive only one command's-worth of bytes at a time, so we have
+                    # expects to receive only one command's worth of bytes at a time, so we have
                     # to break up the byte stream back into the component byte strings for each cmd.
                     if b in TMCC_FIRST_BYTE_TO_INTERPRETER and len(command_seq) >= 3:
                         if command_seq:

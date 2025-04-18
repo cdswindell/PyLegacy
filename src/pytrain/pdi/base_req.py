@@ -147,6 +147,7 @@ class BaseReq(PdiReq, CompDataMixin):
             address = cmd.address
             data = cmd.data
             scope = cmd.scope
+            print(CompData.request_to_bytes(cmd))
 
             # special case numeric commands
             if state.name == "NUMERIC":
@@ -162,12 +163,15 @@ class BaseReq(PdiReq, CompDataMixin):
                         elif data == 3:  # RPM Up
                             cur_rpm = min(cur_rpm + 1, 7)
                         data = cur_rpm
+                        cmd = CommandReq(TMCC2EngineCommandEnum.DIESEL_RPM, address, data, scope)
+            print(CompData.request_to_bytes(cmd))
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
         else:
             raise ValueError(f"Invalid option: {cmd}")
 
         cmds = []
+
         # TODO: FIXME D4
         if address > 99:
             return cmds

@@ -13,6 +13,7 @@ from typing import Any, TypeVar, Generic, Callable
 
 from .consist_component import ConsistComponent
 from .pdi_req import PdiReq
+from ..protocol.command_req import CommandReq
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.constants import CommandScope
 
@@ -52,6 +53,17 @@ class CompDataHandler:
     @property
     def is_d4_only(self) -> bool:
         return self._d4_only
+
+
+class UpdatePkg:
+    def __init__(self, field: str, address: int, length: int, data_bytes: bytes) -> None:
+        self.field: str = field
+        self.address: int = address
+        self.length: int = length
+        self.data_bytes: bytes = data_bytes
+
+    def __repr__(self) -> str:
+        return f"{self.field}: Address: {hex(self.address)} Length: {self.length} data: {self.data_bytes.hex()}"
 
 
 BASE_MEMORY_ENGINE_READ_MAP = {
@@ -105,6 +117,8 @@ BASE_MEMORY_ENGINE_READ_MAP = {
         True,
     ),
 }
+# build an inverse map from the token name to the address
+FIELD_TO_ADDR_ENGINE_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_ENGINE_READ_MAP.items()}
 
 BASE_MEMORY_TRAIN_READ_MAP = {
     0x6F: CompDataHandler("_consist_flags"),
@@ -120,6 +134,35 @@ BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
 SCOPE_TO_COMP_MAP = {
     CommandScope.ENGINE: BASE_MEMORY_ENGINE_READ_MAP,
     CommandScope.TRAIN: BASE_MEMORY_TRAIN_READ_MAP,
+}
+
+REQUEST_TO_UPDATES_MAP = {
+    "ABSOLUTE_SPEED": [
+        ("speed",),
+        ("target_speed",),
+    ],
+    "DIESEL_RPM": [("rpm",)],
+    "ENGINE_LABOR": [("labor",)],
+    "MOMENTUM": [("momentum",)],
+    "MOMENTUM_HIGH": [("momentum", lambda t: 127)],
+    "MOMENTUM_LOW": [("momentum", lambda t: 0)],
+    "MOMENTUM_MEDIUM": [("momentum", lambda t: 63)],
+    "RESET": [
+        ("speed", lambda x: 0),
+        ("target_speed", lambda x: 0),
+        ("rpm_labor", lambda x: 0),
+    ],
+    "SMOKE_HIGH": [("smoke", lambda t: 3)],
+    "SMOKE_LOW": [("smoke", lambda t: 1)],
+    "SMOKE_MEDIUM": [("smoke", lambda t: 2)],
+    "SMOKE_OFF": [("smoke", lambda t: 0)],
+    "SMOKE_ON": [("smoke", lambda t: 1)],
+    "STOP_IMMEDIATE": [
+        ("speed", lambda x: 0),
+        ("target_speed", lambda x: 0),
+        ("rpm_labor", lambda x: 0),
+    ],
+    "TRAIN_BRAKE": [("train_brake",)],
 }
 
 CONVERSIONS = {
@@ -141,9 +184,10 @@ CONVERSIONS = {
 }
 
 C = TypeVar("C", bound="CompData")
+R = TypeVar("R", bound=CommandReq)
 
 
-class CompData:
+class CompData(Generic[R]):
     @classmethod
     def from_bytes(cls, data: bytes, scope: CommandScope, tmcc_id: int = None) -> C:
         if scope == CommandScope.ENGINE:
@@ -152,6 +196,42 @@ class CompData:
             return TrainData(data, tmcc_id=tmcc_id)
         else:
             raise ValueError(f"Invalid scope: {scope}")
+
+    # noinspection PyTypeChecker
+    @classmethod
+    def request_to_bytes(cls, req: R) -> list[UpdatePkg] | None:
+        if not isinstance(req, CommandReq):
+            raise AttributeError(f"'Argument is not a CommandReq: {req}'")
+
+        update_pkgs: list[UpdatePkg] = []
+        cmd = req.command
+        updates = REQUEST_TO_UPDATES_MAP.get(cmd.name, None)
+        if updates is None:
+            return None
+        for update in updates:
+            if isinstance(update, tuple) and len(update) >= 1:
+                field = update[0]
+                addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
+                if addr is None:
+                    continue
+                handler = BASE_MEMORY_ENGINE_READ_MAP.get(addr, None)
+                if handler is None:
+                    continue
+                if len(update) == 1:
+                    # have to convert data from command into Base 3 format
+                    # is there a converter?
+                    conv_tpl = CONVERSIONS.get(field, None)
+                    if conv_tpl:
+                        base_value = conv_tpl[1](req.data)
+                    else:
+                        base_value = req.data
+                else:
+                    base_value = update[1](0)
+                data_bytes = handler.to_bytes(base_value)
+                if len(data_bytes) < handler.length:
+                    data_bytes += b"\xff" * (handler.length - len(data_bytes))
+                update_pkgs.append(UpdatePkg(field, addr, handler.length, data_bytes))
+        return update_pkgs
 
     def __init__(self, data: bytes, scope: CommandScope, tmcc_id: int = None) -> None:
         super().__init__()

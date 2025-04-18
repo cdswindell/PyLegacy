@@ -295,7 +295,7 @@ class TMCC1AuxCommandEnum(TMCC1Enum):
 # Engine/Train commands
 TMCC1_TRAIN_COMMAND_MODIFIER: int = 0xC800  # Logically OR with engine command to make train command
 TMCC1_TRAIN_COMMAND_PURIFIER: int = 0x07FF  # Logically AND with engine command to reset engine bits
-TMCC1_ENG_ABSOLUTE_SPEED_COMMAND: int = 0x0060  # Absolute speed 0 - 31 encoded in last 5 bits
+TMCC1_ENG_ABSOLUTE_SPEED_COMMAND: int = 0x0060  # Absolute speed 0-31 encoded in last 5 bits
 TMCC1_ENG_RELATIVE_SPEED_COMMAND: int = 0x0040  # Relative Speed -5 - 5 encoded in last 4 bits (offset by 5)
 TMCC1_ENG_FORWARD_DIRECTION_COMMAND: int = 0x0000
 TMCC1_ENG_TOGGLE_DIRECTION_COMMAND: int = 0x0001
