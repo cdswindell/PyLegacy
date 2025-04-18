@@ -153,8 +153,7 @@ class CompData:
         super().__init__()
         self._tmcc_id: int | None = tmcc_id
         self._scope = scope
-        self.__signal_initialized()
-
+        # self.__signal_initialized()
         # load the data from the byte string
         self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
 
