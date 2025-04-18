@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from enum import unique, IntEnum
 from typing import Any, TypeVar, Generic, Callable
 
+from .consist_component import ConsistComponent
 from .pdi_req import PdiReq
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ..protocol.constants import CommandScope, Mixins
+from ..protocol.constants import CommandScope
 
 BASE_TO_TMCC_SMOKE_MAP = {
     0: TMCC2EffectsControl.SMOKE_OFF,
@@ -127,111 +127,6 @@ CONVERSIONS = {
     ),
 }
 
-
-@unique
-class UnitBits(Mixins, IntEnum):
-    SINGLE = 0b0
-    HEAD = 0b1
-    MIDDLE = 0b10
-    TAIL = 0b11
-
-
-class ConsistComponent:
-    @classmethod
-    def from_bytes(cls, data: bytes) -> list[ConsistComponent]:
-        consist_components: list[ConsistComponent] = []
-        data_len = len(data)
-        for i in range(0, 32, 2):
-            if data_len > i:
-                if data[i] != 0xFF and data[i + 1] != 0xFF:
-                    consist_components.insert(0, ConsistComponent(tmcc_id=data[i + 1], flags=data[i]))
-            else:
-                break
-        return consist_components
-
-    @classmethod
-    def to_bytes(cls, components: list[ConsistComponent]) -> bytes:
-        byte_str = bytes()
-        for comp in reversed(components):
-            byte_str += comp.as_bytes
-        return byte_str
-
-    def __init__(self, tmcc_id: int, flags: int) -> None:
-        self.tmcc_id = tmcc_id
-        self.flags = flags
-
-    def __repr__(self) -> str:
-        d = "F" if self.is_forward else "R"
-        tl = " T" if self.is_train_linked else ""
-        hm = " H" if self.is_horn_masked else ""
-        dm = " D" if self.is_dialog_masked else ""
-        a = " A" if self.is_accessory else ""
-        return f"[Engine {self.tmcc_id} {self.unit_type.name.title()} {d}{hm}{dm}{tl}{a} (0b{bin(self.flags)})]"
-
-    @property
-    def info(self) -> str:
-        d = "F" if self.is_forward else "R"
-        tl = " T" if self.is_train_linked else ""
-        hm = " H" if self.is_horn_masked else ""
-        dm = " D" if self.is_dialog_masked else ""
-        a = " A" if self.is_accessory else ""
-        return f"{self.unit_type.name.title()[0]} {d}{hm}{dm}{tl}{a} {self.flags}"
-
-    @property
-    def unit_type(self) -> UnitBits:
-        return UnitBits(self.flags & 0b11)
-
-    @property
-    def is_single(self) -> bool:
-        return 0b11 & self.flags == 0b0
-
-    @property
-    def is_head(self) -> bool:
-        return 0b11 & self.flags == 0b1
-
-    @property
-    def is_middle(self) -> bool:
-        return 0b11 & self.flags == 0b10
-
-    @property
-    def is_tail(self) -> bool:
-        return 0b11 & self.flags == 0b11
-
-    @property
-    def is_forward(self) -> bool:
-        return 0b100 & self.flags == 0b000
-
-    @property
-    def is_reverse(self) -> bool:
-        return 0b100 & self.flags == 0b100
-
-    @property
-    def is_train_linked(self) -> bool:
-        return 0b1000 & self.flags == 0b1000
-
-    @property
-    def is_horn_masked(self) -> bool:
-        return 0b10000 & self.flags == 0b10000
-
-    @property
-    def is_dialog_masked(self) -> bool:
-        return 0b100000 & self.flags == 0b100000
-
-    @property
-    def is_tmcc2(self) -> bool:
-        return 0b1000000 & self.flags == 0b1000000
-
-    @property
-    def is_accessory(self) -> bool:
-        return 0b10000000 & self.flags == 0b10000000
-
-    @property
-    def as_bytes(self) -> bytes:
-        byte_str = self.flags.to_bytes(1, byteorder="little")
-        byte_str += self.tmcc_id.to_bytes(1, byteorder="little")
-        return byte_str
-
-
 C = TypeVar("C", bound="CompData")
 
 
@@ -246,11 +141,53 @@ class CompData:
             raise ValueError(f"Invalid scope: {scope}")
 
     def __init__(self, data: bytes, scope: CommandScope, tmcc_id: int = None) -> None:
+        super().__init__()
         self._tmcc_id: int | None = tmcc_id
         self._scope = scope
+        self.__signal_initialized()
 
         # load the data from the byte string
         self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
+
+    def __getattr__(self, name: str) -> Any:
+        if "_" + name in self.__dict__:
+            return self.__dict__["_" + name]
+        elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
+            name = name.replace("_tmcc", "")
+            tpl = CONVERSIONS[name]
+            # special case labor/rpm
+            if name in {"rpm", "labor"}:
+                name = "rpm_labor"
+            value = self.__dict__["_" + name]
+            return tpl[0](value) if value is not None else value
+        else:
+            raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if self._initializing is True:
+            super().__setattr__(name, value)
+        if "_" + name in self.__dict__:
+            self.__dict__["_" + name] = value
+        elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
+            name = name.replace("_tmcc", "")
+            tpl = CONVERSIONS[name]
+            if name in {"rpm", "labor"}:
+                pass
+            # TODO: handle setting of rpm/labor
+            else:
+                self.__dict__["_" + name] = tpl[2](value) if value is not None else value
+        else:
+            raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
+
+    def _signal_initializing(self) -> None:
+        self.__dict__["__initializing__"] = True
+
+    def __signal_initialized(self) -> None:
+        self.__dict__["__initializing__"] = False
+
+    @property
+    def _is_initializing(self) -> bool:
+        return self.__dict__.get("__initializing__", False)
 
     def as_bytes(self) -> bytes:
         comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
@@ -277,35 +214,6 @@ class CompData:
 
         return byte_str
 
-    def __getattr__(self, name: str) -> Any:
-        if "_" + name in self.__dict__:
-            return self.__dict__["_" + name]
-        elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
-            name = name.replace("_tmcc", "")
-            tpl = CONVERSIONS[name]
-            # special case labor/rpm
-            if name in {"rpm", "labor"}:
-                name = "rpm_labor"
-            value = self.__dict__["_" + name]
-            return tpl[0](value) if value is not None else value
-        else:
-            raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
-
-    # def __setattr__(self, name: str, value: Any) -> None:
-    #     if "_" + name in self.__dict__:
-    #         self.__dict__["_" + name] = value
-    #     elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
-    #         name = name.replace("_tmcc", "")
-    #         tpl = CONVERSIONS[name]
-    #         if name in {"rpm", "labor"}:
-    #             pass
-    #         # TODO: handle setting of rpm/labor
-    #         else:
-    #             self.__dict__["_" + name] = tpl[2](value) if value is not None else value
-    #     else:
-    #         super().__setattr__(name, value)
-    #         # raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
-
     def _parse_bytes(self, data: bytes, pmap: dict) -> None:
         data_len = len(data)
         for k, v in pmap.items():
@@ -321,6 +229,7 @@ class CompData:
 
 class EngineData(CompData):
     def __init__(self, data: bytes, scope: CommandScope = CommandScope.ENGINE, tmcc_id: int = None) -> None:
+        self._signal_initializing()
         self._prev_link: int | None = None
         self._next_link: int | None = None
         self._bt_id: int | None = None
@@ -346,13 +255,48 @@ class EngineData(CompData):
 
 
 class TrainData(EngineData):
+    """
+    Represents train data within a Lionel layout.
+
+    This class extends the functionality of `EngineData` to handle train-specific
+    information. It is designed to process and manage data related to the train's
+    operation, such as consist flags and consist components, in addition to providing
+    integration capabilities with the engine control system.
+
+    Attributes:
+        _consist_flags (int | None): Flags representing the state or configuration of the
+            train. This value is optional and may be set to `None` if not applicable.
+        _consist_comps (list[ConsistComponent] | None): A list of components that make
+            up the train's consist. This is optional and can remain `None` if no consist
+            components are defined.
+    """
+
     def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+        self._signal_initializing()
         self._consist_flags: int | None = None
         self._consist_comps: list[ConsistComponent] | None = None
         super().__init__(data, scope=CommandScope.TRAIN, tmcc_id=tmcc_id)
 
 
 class CompDataMixin(Generic[C]):
+    """
+    Provides a mixin class for managing component-related data and
+    recording state in generic types.
+
+    This mixin class is designed to extend the functionality of a
+    base class by adding attributes for component-related data
+    and a recording state flag. The generic type `C` is used to
+    allow flexibility in the type of component data stored.
+    The mixin includes properties to access the component data
+    and determine whether the recording state is set.
+
+    Attributes:
+        _comp_data: A generic component-related data attribute
+            of type `C`. Defaults to None.
+        _comp_data_record: A flag indicating whether component
+            data recording is active. Defaults to False.
+    """
+
     def __init__(self):
         super().__init__()
         self._comp_data: C | None = None

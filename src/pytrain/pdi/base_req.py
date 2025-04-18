@@ -8,12 +8,12 @@ from typing import Dict, List, Tuple
 from .constants import PdiCommand, PDI_SOP, PDI_EOP
 from .comp_data import (
     BASE_MEMORY_ENGINE_READ_MAP,
-    ConsistComponent,
     BASE_MEMORY_TRAIN_READ_MAP,
     CompDataMixin,
     CompData,
     CompDataHandler,
 )
+from .consist_component import ConsistComponent
 from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum

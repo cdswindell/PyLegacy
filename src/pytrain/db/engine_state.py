@@ -49,7 +49,7 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
 
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
-        from ..pdi.comp_data import ConsistComponent
+        from ..pdi.consist_component import ConsistComponent
 
         if scope not in {CommandScope.ENGINE, CommandScope.TRAIN}:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
@@ -679,7 +679,7 @@ class EngineState(ComponentState):
 
 
 class TrainState(EngineState):
-    from ..pdi.comp_data import ConsistComponent
+    from ..pdi.consist_component import ConsistComponent
 
     def __init__(self, scope: CommandScope = CommandScope.TRAIN) -> None:
         if scope != CommandScope.TRAIN:
