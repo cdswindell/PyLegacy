@@ -148,7 +148,7 @@ class ConsistComponent:
 
     @classmethod
     def to_bytes(cls, components: list[ConsistComponent]) -> bytes:
-        byte_str = bytes
+        byte_str = bytes()
         for comp in components:
             byte_str += comp.as_bytes
         return byte_str
