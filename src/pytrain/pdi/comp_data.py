@@ -134,7 +134,7 @@ CONVERSIONS = {
         lambda x: (x >> 3) + 12 if (x >> 3) <= 19 else (x >> 3) - 20,
         lambda x: (x - 12 if x >= 12 else 20 + x) << 3,
     ),
-    "_rpm_labor": (
+    "rpm_labor": (
         lambda x: x,
         lambda rpm, labor: ((labor - 12 if labor >= 12 else 20 + labor) << 3) | rpm & 0b111,
     ),
