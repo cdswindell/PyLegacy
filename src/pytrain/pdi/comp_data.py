@@ -239,7 +239,7 @@ class CompData:
         schema = {key: comp_map[key] for key in sorted(comp_map.keys())}
         if self.tmcc_id <= 99:
             # delete any entries that are 4-digit specific
-            for k in schema.keys():
+            for k in list(schema.keys()):
                 if schema[k].is_d4_only is True:
                     del schema[k]
         byte_str = bytes()
