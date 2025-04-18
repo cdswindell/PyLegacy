@@ -228,13 +228,9 @@ class ConsistComponent:
 
     @property
     def as_bytes(self) -> bytes:
-        byte_str = self.tmcc_id.to_bytes(1, byteorder="little")
-        byte_str += self.flags.to_bytes(1, byteorder="little")
+        byte_str = self.flags.to_bytes(1, byteorder="little")
+        byte_str += self.tmcc_id.to_bytes(1, byteorder="little")
         return byte_str
-
-
-def default_func(t):
-    return int.from_bytes(t, byteorder="little")
 
 
 C = TypeVar("C", bound="CompData")
