@@ -159,7 +159,6 @@ class ConsistComponent:
     def __init__(self, tmcc_id: int, flags: int) -> None:
         self.tmcc_id = tmcc_id
         self.flags = flags
-        print(self)
 
     def __repr__(self) -> str:
         d = "F" if self.is_forward else "R"
