@@ -133,7 +133,7 @@ class ClientStateHandler(socketserver.BaseRequestHandler):
     def handle(self):
         byte_stream = bytes()
         while True:
-            data = self.request.recv(128)
+            data = self.request.recv(256)
             if data:
                 byte_stream += data
                 self.request.sendall(str.encode("ack"))

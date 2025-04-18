@@ -213,7 +213,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         dispatcher: CommandDispatcher = cast(ProxyServer, self.server).dispatcher
         enqueue_proxy: EnqueueProxyRequests = cast(ProxyServer, self.server).enqueue_proxy
         while True:
-            data = self.request.recv(128)
+            data = self.request.recv(256)
             if data:
                 byte_stream += data
                 self.request.sendall(ack)

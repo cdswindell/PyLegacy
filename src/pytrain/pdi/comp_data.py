@@ -171,6 +171,7 @@ class CompData:
             tpl = CONVERSIONS[name]
             # special case labor/rpm
             if name in {"rpm", "labor"}:
+                print(f"Wanted: {name} RPM/Labor: {self._rpm_labor} Converted: {tpl[0](self._rpm_labor)}")
                 name = "rpm_labor"
             value = self.__dict__["_" + name]
             return tpl[0](value) if value is not None else value

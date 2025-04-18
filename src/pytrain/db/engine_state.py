@@ -274,11 +274,15 @@ class EngineState(ComponentState):
 
                 # handle labor
                 if command.command in LABOR_SET:
+                    print("---", command, self.comp_data.labor_tmcc)
                     self.comp_data.labor_tmcc = command.data
+                    print("+++", command, self.comp_data.labor_tmcc)
                 elif cmd_effects & LABOR_SET:
                     labor = self._harvest_effect(cmd_effects & LABOR_SET)
                     if isinstance(labor, tuple) and len(labor) == 2:
+                        print("---", command, self.comp_data.labor_tmcc, labor)
                         self.comp_data.labor_tmcc = labor[1]
+                        print("+++++", command, self.comp_data.labor_tmcc)
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {labor} {type(labor)} {cmd_effects}")

@@ -241,18 +241,6 @@ class BaseReq(PdiReq, CompDataMixin):
             cmds.append(cls(byte_str))
         return cmds
 
-    @classmethod
-    def request_update(
-        cls,
-        address: int,
-        scope: CommandScope = CommandScope.ENGINE,
-    ) -> None:
-        from .pdi_listener import PdiListener
-
-        if PdiListener.is_built():
-            pdi_cmd = PdiCommand.BASE_ENGINE if scope == CommandScope.ENGINE else PdiCommand.BASE_TRAIN
-            PdiListener.enqueue_command(BaseReq(address, pdi_cmd))
-
     def __init__(
         self,
         data: bytes | int = 0,
