@@ -580,11 +580,19 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                     with self._lock:
                         state: ComponentState = store.query(scope, address)
                         if state is not None:
-                            try:
-                                self.send_state_packet(client_ip, client_port, state)
-                            except Exception as e:
-                                log.warning(f"Exception sending state update {state} to {client_ip}:{client_port}")
-                                log.exception(e)
+                            state_bytes = state.as_bytes()
+                            if isinstance(state_bytes, bytes):
+                                state_bytes = [state_bytes]
+                            elif isinstance(state_bytes, list):
+                                pass
+                            else:
+                                raise TypeError(f"Invalid state type: {type(state_bytes)}")
+                            for state_packet in state_bytes:
+                                try:
+                                    self.send_state_packet(client_ip, client_port, state_packet)
+                                except Exception as e:
+                                    log.warning(f"Exception sending state update {state} to {client_ip}:{client_port}")
+                                    log.exception(e)
             # send sync complete message
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_complete_response())
 
@@ -595,6 +603,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             if isinstance(state, bytes):
                 packet = state
             elif isinstance(state, ComponentState):
+                # TODO: for safety, make this code handle if bytes are returned as list
                 packet = state.as_bytes()
 
             if packet:  # we can only send states for tracked conditions

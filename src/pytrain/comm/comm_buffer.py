@@ -230,14 +230,16 @@ class CommBufferSingleton(CommBuffer, Thread):
         # parse the byte stream and convert
         if isinstance(state, ComponentState):
             state = state.as_bytes
+            if isinstance(state, list):
+                state = b"".join(state)
 
         state_cmds = []
         if isinstance(state, bytes):
             # this is the hard one, the byte stream could be a mixture of PDI and TMCC
             # commands; we have to go thru and dispatch to the correct listener. With
-            # that said, as a simplification, we will assume that consumers of this
-            # method are not mixed modal and the byte stream will either be a CommandReq
-            # or a PdiReq
+            # that said, as a simplification, we will assume that the methods that call
+            # this function are not mixed modal and the byte stream will either be a
+            # CommandReq or a PdiReq
             # TODO: parse mixed modal stream
             if state[0] == PDI_SOP and state[-1] == PDI_EOP:
                 state_cmds.append(PdiReq.from_bytes(state))
@@ -506,7 +508,14 @@ class CommBufferProxy(CommBuffer):
                 state_bytes = state
             else:
                 raise ValueError(f"Invalid state: {state}")
-            self.enqueue_command(SENDING_STATE_REQUEST + state_bytes)
+            if isinstance(state_bytes, bytes):
+                state_bytes = [state_bytes]
+            elif isinstance(state_bytes, list):
+                pass
+            else:
+                raise ValueError(f"Invalid state bytes format: {state}: {type(state_bytes)}")
+            for packet in state_bytes:
+                self.enqueue_command(SENDING_STATE_REQUEST + packet)
 
     def register(self, port: int = DEFAULT_SERVER_PORT) -> None:
         from ..comm.enqueue_proxy_requests import EnqueueProxyRequests

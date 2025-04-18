@@ -384,7 +384,7 @@ class ComponentState(ABC, CompDataMixin):
         ...
 
     @abc.abstractmethod
-    def as_bytes(self) -> bytes:
+    def as_bytes(self) -> bytes | list[bytes]:
         """
         Returns the component state as a bytes object representative of the TMCC/Legacy
         byte sequence used to trigger the corresponding action(s) when received by the

@@ -235,27 +235,27 @@ class CompData:
 class EngineData(CompData):
     def __init__(self, data: bytes, scope: CommandScope = CommandScope.ENGINE, tmcc_id: int = None) -> None:
         self._signal_initializing()
-        self._prev_link: int | None = None
-        self._next_link: int | None = None
         self._bt_id: int | None = None
-        self._speed: int | None = None
-        self._target_speed: int | None = None
-        self._train_brake: int | None = None
-        self._rpm_labor: int | None = None
-        self._momentum: int | None = None
-        self._road_name: str | None = None
-        self._road_number_len: int | None = None
-        self._road_number: str | None = None
-        self._engine_type: int | None = None
         self._control_type: int | None = None
-        self._sound_type: int | None = None
         self._engine_class: int | None = None
+        self._engine_type: int | None = None
+        self._max_speed: int | None = None
+        self._momentum: int | None = None
+        self._next_link: int | None = None
+        self._prev_link: int | None = None
+        self._road_name: str | None = None
+        self._road_number: str | None = None
+        self._road_number_len: int | None = None
+        self._rpm_labor: int | None = None
+        self._smoke: int | None = None
+        self._sound_type: int | None = None
+        self._speed: int | None = None
+        self._speed_limit: int | None = None
+        self._target_speed: int | None = None
+        self._timestamp: int | None = None
+        self._train_brake: int | None = None
         self._tsdb_left: int | None = None
         self._tsdb_right: int | None = None
-        self._smoke: int | None = None
-        self._speed_limit: int | None = None
-        self._max_speed: int | None = None
-        self._timestamp: int | None = None
         super().__init__(data, scope, tmcc_id=tmcc_id)
 
 

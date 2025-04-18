@@ -417,39 +417,41 @@ class EngineState(ComponentState):
                     new_dir = None
         return new_dir
 
-    def as_bytes(self) -> bytes:
+    def as_bytes(self) -> list[bytes]:
         from ..pdi.base_req import BaseReq
 
-        byte_str = bytes()
+        packets = []
         # encode name, number, momentum, speed, and rpm using PDI command
         if self.tmcc_id <= 99:
             pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
         else:
             pdi_cmd = PdiCommand.D4_ENGINE if self.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             pdi = D4Req(self.record_no, pdi_cmd, state=self)
-        byte_str += pdi.as_bytes
+        packets.extend(pdi.as_bytes)
         if self._start_stop is not None:
-            byte_str += CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes
+            packets.extend(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
         if self._smoke_level is not None:
-            byte_str += CommandReq.build(self._smoke_level, self.address, scope=self.scope).as_bytes
+            packets.extend(CommandReq.build(self._smoke_level, self.address, scope=self.scope).as_bytes)
         if self._direction is not None:
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
-            byte_str += CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes
+            packets.extend(CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes)
         if self._numeric is not None and self._numeric_cmd is not None:
             if self.engine_type in {LOCO_TRACK_CRANE, LOCO_ACCESSORY}:
-                byte_str += CommandReq.build(
-                    self._numeric_cmd,
-                    self.address,
-                    data=self._numeric,
-                    scope=self.scope,
-                ).as_bytes
+                packets.extend(
+                    CommandReq.build(
+                        self._numeric_cmd,
+                        self.address,
+                        data=self._numeric,
+                        scope=self.scope,
+                    ).as_bytes
+                )
         if self._aux is not None:
-            byte_str += CommandReq.build(self._aux, self.address).as_bytes
+            packets.extend(CommandReq.build(self._aux, self.address).as_bytes)
         if self._aux1 is not None:
-            byte_str += CommandReq.build(self.aux1, self.address).as_bytes
+            packets.extend(CommandReq.build(self.aux1, self.address).as_bytes)
         if self._aux2 is not None:
-            byte_str += CommandReq.build(self.aux2, self.address).as_bytes
-        return byte_str
+            packets.extend(CommandReq.build(self.aux2, self.address).as_bytes)
+        return packets
 
     @property
     def is_rpm(self) -> bool:
