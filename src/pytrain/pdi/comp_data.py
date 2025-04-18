@@ -193,7 +193,10 @@ class CompData:
                 self.rpm_labor_tmcc = (rpm, labor)
                 print(f"RPM: {rpm}  Labor: {labor} {self._rpm_labor}")
             else:
-                self.__dict__["_" + name] = tpl[1](value) if value is not None else value
+                if isinstance(value, tuple):
+                    self.__dict__["_" + name] = tpl[1](*value) if value is not None else value
+                else:
+                    self.__dict__["_" + name] = tpl[1](value) if value is not None else value
         else:
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
