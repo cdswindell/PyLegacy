@@ -193,6 +193,7 @@ class EngineState(ComponentState):
                         from ..pdi.base3_buffer import Base3Buffer
 
                         if command != self._last_command:
+                            print(command, self._last_command)
                             Base3Buffer.request_state_update(self.address, self.scope)
                 elif cmd_effects & NUMERIC_SET:
                     numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)

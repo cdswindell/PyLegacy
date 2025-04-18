@@ -57,7 +57,7 @@ class Base3Buffer(Thread):
     def request_state_update(cls, tmcc_id: int, scope: CommandScope) -> None:
         if cls._instance is not None:
             if 1 <= tmcc_id <= 99:
-                cls.enqueue_command(BaseReq(tmcc_id, PdiCommand.MEMORY, scope=scope).as_bytes)
+                cls.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=scope).as_bytes)
 
     @classmethod
     def enqueue_command(cls, data: bytes) -> None:
