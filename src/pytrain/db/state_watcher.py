@@ -1,3 +1,12 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
 import logging
 from queue import Queue
 from threading import Thread
@@ -50,7 +59,7 @@ class UpdateNotifier(Thread):
 
     def run(self) -> None:
         while self._is_running:
-            # wait for a state change notification, if queue is empty
+            # wait for a state change notification if queue is empty
             if self._queue.empty():
                 self._queue.get(block=True)
             # clear out queue, the redisplay we're about to trigger covers them

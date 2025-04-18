@@ -6,6 +6,7 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
+
 from abc import ABC, ABCMeta, abstractmethod
 from threading import Condition, Lock, RLock
 

@@ -1,3 +1,12 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
 from __future__ import annotations
 
 from typing import Dict, Any
@@ -73,4 +82,4 @@ class SyncState(ComponentState):
         return {"state": state}
 
 
-SCOPE_TO_STATE_MAP[CommandScope.SYNC] = SyncState
+SCOPE_TO_STATE_MAP.update({CommandScope.SYNC: SyncState})

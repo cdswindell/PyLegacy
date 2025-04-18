@@ -1,7 +1,16 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
 from __future__ import annotations
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, cast
 
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux, TMCC1HaltCommandEnum
@@ -184,14 +193,14 @@ class AccessoryState(TmccState):
                 byte_str += Asc2Req(
                     self.address,
                     self._first_pdi_command,
-                    self._first_pdi_action,
+                    cast(Asc2Action, self._first_pdi_action),
                     values=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
             elif isinstance(self._first_pdi_action, Bpc2Action):
                 byte_str += Bpc2Req(
                     self.address,
                     self._first_pdi_command,
-                    self._first_pdi_action,
+                    cast(Bpc2Action, self._first_pdi_action),
                     state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
             else:

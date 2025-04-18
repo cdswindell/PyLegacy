@@ -1,3 +1,12 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
 from __future__ import annotations
 
 import logging
@@ -56,7 +65,7 @@ class IrdaState(LcsState):
                     elif command.action == IrdaAction.SEQUENCE:
                         self._sequence = command.sequence
                     elif command.action == IrdaAction.DATA:
-                        # change engine/train speed, based on direction of travel
+                        # change engine/train speed, based on the direction of travel
                         self._last_engine_id = command.engine_id
                         self._last_train_id = command.train_id
                         self._last_dir = command.direction
@@ -173,4 +182,4 @@ class IrdaState(LcsState):
         return d
 
 
-SCOPE_TO_STATE_MAP[CommandScope.IRDA] = IrdaState
+SCOPE_TO_STATE_MAP.update({CommandScope.IRDA: IrdaState})

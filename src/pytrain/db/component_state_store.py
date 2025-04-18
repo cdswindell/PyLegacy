@@ -1,10 +1,19 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
 from __future__ import annotations
 
 import collections
 import logging
 import threading
 from collections import defaultdict
-from typing import List, Set, Tuple, TypeVar
+from typing import List, Set, Tuple, TypeVar, Generic
 
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
@@ -195,12 +204,11 @@ class ComponentStateStore:
                 return self.get_all(scope)
             elif address in self._state[scope]:
                 return self._state[scope][address]
-        else:
-            return None
+        return None
 
     def get_all(self, scope: CommandScope) -> List[T]:
         if scope in self._state:
-            # ignore dups where we store an entry for the items road number
+            # ignore dups where we store an entry for the item's road number
             valids = {v.address for k, v in self._state[scope].items()}
             states = [v for k, v in self._state[scope].items() if k in valids]
             states.sort(key=lambda x: x.address)
@@ -241,7 +249,7 @@ class ComponentStateStore:
 
 
 # noinspection DuplicatedCode
-class DependencyCache:
+class DependencyCache(Generic[T, C, E]):
     """
     Manages relationships between TMCC Commands. For example, sending the Reset command
     (number 0) to an engine causes the following results:

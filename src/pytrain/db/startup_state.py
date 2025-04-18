@@ -1,3 +1,12 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
 from __future__ import annotations
 
 import time
@@ -92,7 +101,7 @@ class StartupState(Thread):
         self.listener.enqueue_command(BaseReq(0, PdiCommand.BASE))
         self.listener.enqueue_command(D4Req(0, PdiCommand.D4_ENGINE, D4Action.COUNT))
         self.listener.enqueue_command(D4Req(0, PdiCommand.D4_TRAIN, D4Action.COUNT))
-        # we request engine/sw/acc roster at startup; do this by asking for
+        # Request engine/sw/acc roster at startup; do this by asking for
         # Eng/Train/Acc/Sw #100 then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity
         self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE))
