@@ -6,6 +6,7 @@ import threading
 from collections import defaultdict, deque
 from queue import Queue
 from threading import Thread
+from time import sleep
 from typing import Generic, List, Protocol, Tuple, TypeVar, runtime_checkable, cast
 
 from ..db.component_state import ComponentState
@@ -587,9 +588,13 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                                 pass
                             else:
                                 raise TypeError(f"Invalid state type: {type(state_bytes)}")
+                            do_pause = False
                             for state_packet in state_bytes:
+                                if do_pause is True:
+                                    sleep(0.05)
                                 try:
                                     self.send_state_packet(client_ip, client_port, state_packet)
+                                    do_pause = True
                                 except Exception as e:
                                     log.warning(f"Exception sending state update {state} to {client_ip}:{client_port}")
                                     log.exception(e)

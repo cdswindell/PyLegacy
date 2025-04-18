@@ -216,9 +216,7 @@ class EngineState(ComponentState):
 
                 if command.command in SMOKE_SET or (command.command, command.data) in SMOKE_SET:
                     if isinstance(command.command, TMCC2EffectsControl):
-                        print(f"--- {self.comp_data.smoke_tmcc} {command}")
                         self.comp_data.smoke_tmcc = command.command
-                        print(f"+++ {self.comp_data.smoke_tmcc} {command}")
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                         self.comp_data.smoke_tmcc = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
 
