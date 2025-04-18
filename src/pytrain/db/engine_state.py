@@ -96,14 +96,14 @@ class EngineState(ComponentState):
                 ss = " Started up"
             elif self._start_stop in SHUTDOWN_SET:
                 ss = " Shut down"
-        if self._momentum is not None:
+        if self.momentum is not None:
             mom = f" Mom: {self.momentum_label}"
-        if self._train_brake is not None:
+        if self.train_brake is not None:
             tb = f" TB: {self.train_brake_label}"
-        if self._rpm is not None:
-            rl = f" RPM: {self._rpm}"
-        if self._labor is not None:
-            lb = f" Labor: {self._labor:>2d}"
+        if self.rpm is not None:
+            rl = f" RPM: {self.rpm}"
+        if self.labor is not None:
+            lb = f" Labor: {self.labor:>2d}"
         if self._numeric is not None:
             nu = f" Num: {self._numeric}"
         if self.road_name is not None:
@@ -117,7 +117,7 @@ class EngineState(ComponentState):
         if self._aux2:
             aux = f" Aux2: {self._aux2.name.split('_')[-1]}"
         if self.smoke_level is not None:
-            sm = f" Smoke: {self._smoke_level.name.split('_')[-1].lower():<4}"
+            sm = f" Smoke: {self.smoke_level.name.split('_')[-1].lower():<4}"
         if self.bt_int:
             bt = f" BT: {self.bt_id}"
         ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
@@ -374,23 +374,6 @@ class EngineState(ComponentState):
             self._cv.notify_all()
 
     def _update_comp_data(self, comp_data: CompData):
-        self._bt_id = comp_data.bt_id
-        self._speed = comp_data.speed
-        self._rpm_labor = comp_data.rpm_labor
-        self._rpm = comp_data.rpm_tmcc
-        self._labor = comp_data.labor_tmcc
-        self._train_brake = comp_data.train_brake_tmcc
-        self._momentum = comp_data.momentum_tmcc
-        self._engine_class = comp_data.engine_class
-        self._engine_type = comp_data.engine_type
-        self._control_type = comp_data.control_type
-        self._sound_type = comp_data.sound_type
-        self._smoke_level = comp_data.smoke_tmcc
-        self._speed_limit = comp_data.speed_limit
-        self._max_speed = comp_data.max_speed
-        if self.scope == CommandScope.TRAIN:
-            self._consist_comp = comp_data.consist_comps
-            self._consist_flags = comp_data.consist_flags
         self._comp_data = comp_data
         self._comp_data_record = True
 
@@ -432,8 +415,8 @@ class EngineState(ComponentState):
         packets.append(pdi.as_bytes)
         if self._start_stop is not None:
             packets.append(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
-        if self._smoke_level is not None:
-            packets.append(CommandReq.build(self._smoke_level, self.address, scope=self.scope).as_bytes)
+        if self.smoke_level is not None:
+            packets.append(CommandReq.build(self.smoke_level, self.address, scope=self.scope).as_bytes)
         if self._direction is not None:
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
             packets.append(CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes)
@@ -479,7 +462,7 @@ class EngineState(ComponentState):
     def speed_max(self) -> int | None:
         if self.max_speed and self.max_speed != 255 and self.speed_limit != 255:
             ms = min(self.max_speed, self.speed_limit)
-        elif self._speed_limit and self.speed_limit != 255:
+        elif self.speed_limit and self.speed_limit != 255:
             ms = self.speed_limit
         elif self.max_speed and self.max_speed != 255:
             ms = self.max_speed
