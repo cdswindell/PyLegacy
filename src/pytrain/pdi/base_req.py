@@ -389,8 +389,6 @@ class BaseReq(PdiReq, CompDataMixin):
                     self._start = 0
                     self._data_length = self.LIONEL_RECORD_LENGTH
                     self._data_bytes = state.comp_data.as_bytes()
-                    if self.scope == CommandScope.TRAIN:
-                        print("***", self)
             elif state:
                 from ..db.component_state import RouteState
                 from .. import TrainState

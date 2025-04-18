@@ -337,6 +337,8 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                 pdi_req = PdiReq.from_bytes(pdi_req)
             if isinstance(pdi_req, PdiReq) and not pdi_req.is_ping and not pdi_req.is_ack:
                 with self._cv:
+                    if isinstance(pdi_req, BaseReq) and pdi_req.scope == CommandScope.TRAIN:
+                        print(pdi_req)
                     self._queue.put(pdi_req)
                     self._cv.notify()  # wake up receiving thread
         except Exception as e:
