@@ -388,7 +388,6 @@ class BaseReq(PdiReq, CompDataMixin):
                     self._valid1 = 0b11111
                     self._start = 0
                     self._data_length = self.LIONEL_RECORD_LENGTH
-                    print("***", state, state.comp_data)
                     self._data_bytes = state.comp_data.as_bytes()
             elif state:
                 from ..db.component_state import RouteState

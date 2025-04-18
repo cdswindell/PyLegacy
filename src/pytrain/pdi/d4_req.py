@@ -99,7 +99,6 @@ class D4Req(PdiReq, CompDataMixin):
                 self._tmcc_id = state.tmcc_id
                 self._start = 0
                 self._data_length = self.LIONEL_RECORD_LENGTH
-                self._timestamp = self.lionel_timestamp()
                 if isinstance(state, CompDataMixin):
                     self._data_bytes = state.comp_data.as_bytes()
 
