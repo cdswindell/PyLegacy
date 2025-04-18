@@ -101,7 +101,7 @@ class D4Req(PdiReq, CompDataMixin):
                 self._data_length = self.LIONEL_RECORD_LENGTH
                 self._timestamp = self.lionel_timestamp()
                 if isinstance(state, CompDataMixin):
-                    self._data_bytes = state.comp_data.as_bytes
+                    self._data_bytes = state.comp_data.as_bytes()
 
     @property
     def record_no(self) -> int:

@@ -233,7 +233,6 @@ class CompData:
         # load the data from the byte string
         self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
 
-    @property
     def as_bytes(self) -> bytes:
         comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
         schema = {key: comp_map[key] for key in sorted(comp_map.keys())}
