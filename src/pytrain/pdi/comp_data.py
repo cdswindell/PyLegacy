@@ -173,8 +173,7 @@ class CompData:
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
     def __setattr__(self, name: str, value: Any) -> None:
-        print(f"__setattr__({name}, {value}) {self.__dict__}")
-        if self.__dict__.get("__initializing__", False) is True:
+        if name.startswith("_"):
             super().__setattr__(name, value)
             return
         if "_" + name in self.__dict__:
