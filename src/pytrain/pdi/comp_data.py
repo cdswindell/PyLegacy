@@ -100,7 +100,10 @@ BASE_MEMORY_ENGINE_READ_MAP = {
 BASE_MEMORY_TRAIN_READ_MAP = {
     0x6F: CompDataHandler("_consist_flags"),
     0x70: CompDataHandler(
-        "_consist_comps", 32, lambda t: ConsistComponent.from_bytes(t), lambda t: ConsistComponent.to_bytes(t)
+        "_consist_comps",
+        32,
+        lambda t: ConsistComponent.from_bytes(t),
+        lambda t: ConsistComponent.to_bytes(t),
     ),
 }
 BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
@@ -149,11 +152,11 @@ class ConsistComponent:
     @classmethod
     def to_bytes(cls, components: list[ConsistComponent]) -> bytes:
         byte_str = bytes()
-        for comp in components:
+        for comp in reversed(components):
             byte_str += comp.as_bytes
         return byte_str
 
-    def __init__(self, flags: int, tmcc_id: int) -> None:
+    def __init__(self, tmcc_id: int, flags: int) -> None:
         self.flags = flags
         self.tmcc_id = tmcc_id
 
