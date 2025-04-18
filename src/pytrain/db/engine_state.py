@@ -427,17 +427,17 @@ class EngineState(ComponentState):
         else:
             pdi_cmd = PdiCommand.D4_ENGINE if self.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             pdi = D4Req(self.record_no, pdi_cmd, state=self)
-        packets.extend(pdi.as_bytes)
+        packets.append(pdi.as_bytes)
         if self._start_stop is not None:
-            packets.extend(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
+            packets.append(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
         if self._smoke_level is not None:
-            packets.extend(CommandReq.build(self._smoke_level, self.address, scope=self.scope).as_bytes)
+            packets.append(CommandReq.build(self._smoke_level, self.address, scope=self.scope).as_bytes)
         if self._direction is not None:
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
-            packets.extend(CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes)
+            packets.append(CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes)
         if self._numeric is not None and self._numeric_cmd is not None:
             if self.engine_type in {LOCO_TRACK_CRANE, LOCO_ACCESSORY}:
-                packets.extend(
+                packets.append(
                     CommandReq.build(
                         self._numeric_cmd,
                         self.address,
@@ -446,11 +446,11 @@ class EngineState(ComponentState):
                     ).as_bytes
                 )
         if self._aux is not None:
-            packets.extend(CommandReq.build(self._aux, self.address).as_bytes)
+            packets.append(CommandReq.build(self._aux, self.address).as_bytes)
         if self._aux1 is not None:
-            packets.extend(CommandReq.build(self.aux1, self.address).as_bytes)
+            packets.append(CommandReq.build(self.aux1, self.address).as_bytes)
         if self._aux2 is not None:
-            packets.extend(CommandReq.build(self.aux2, self.address).as_bytes)
+            packets.append(CommandReq.build(self.aux2, self.address).as_bytes)
         return packets
 
     @property
