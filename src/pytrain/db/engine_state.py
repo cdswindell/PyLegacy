@@ -476,6 +476,8 @@ class EngineState(ComponentState):
         byte_str += pdi.as_bytes
         if self._start_stop is not None:
             byte_str += CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes
+        if self._smoke_level is not None:
+            byte_str += CommandReq.build(self._smoke_level, self.address, scope=self.scope).as_bytes
         if self._direction is not None:
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
             byte_str += CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes
