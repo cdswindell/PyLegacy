@@ -144,7 +144,7 @@ class ConsistComponent:
         for i in range(0, 32, 2):
             if data_len > i:
                 if data[i] != 0xFF and data[i + 1] != 0xFF:
-                    consist_components.insert(0, ConsistComponent(data[i], data[i + 1]))
+                    consist_components.insert(0, ConsistComponent(tmcc_id=data[i + 1], flags=data[i]))
             else:
                 break
         return consist_components
@@ -157,8 +157,8 @@ class ConsistComponent:
         return byte_str
 
     def __init__(self, tmcc_id: int, flags: int) -> None:
-        self.flags = flags
         self.tmcc_id = tmcc_id
+        self.flags = flags
 
     def __repr__(self) -> str:
         d = "F" if self.is_forward else "R"
