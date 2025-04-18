@@ -300,10 +300,6 @@ class CompData:
             item_len = v.length
             if data_len >= ((k + item_len) - 1) and hasattr(self, v.field) and getattr(self, v.field) is None:
                 func = v.from_bytes
-                if v.field == "_road_number":
-                    print(
-                        f"TMCC_ID: {self.tmcc_id} Start: {hex(k)} Len: {item_len} Data: {data[k : k + item_len].hex()}"
-                    )
                 value = func(data[k : k + item_len])
                 if hasattr(self, v.field):
                     setattr(self, v.field, value)
