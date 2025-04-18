@@ -121,7 +121,7 @@ class EngineState(ComponentState):
         if self.bt_int:
             bt = f" BT: {self.bt_id}"
         ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
-        if self._consist_comp:
+        if self.scope == CommandScope.TRAIN and self.comp_data.consist_comp:
             c = "\n"
             for cc in self._consist_comp:
                 c += f"{cc} "
