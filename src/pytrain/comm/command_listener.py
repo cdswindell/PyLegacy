@@ -166,9 +166,9 @@ class CommandListener(Thread):
             # check if the first bite is in the list of allowable command prefixes
             dq_len = len(self._deque)
             if dq_len >= 3 and int(self._deque[0]) in TMCC_FIRST_BYTE_TO_INTERPRETER:
-                # at this point, we have some sort of command. It could be a TMCC1 or TMCC2
+                # At this point, we have some sort of command. It could be a TMCC1 or TMCC2
                 # 3-byte command, or, if there are more than 3 bytes, and the 4th byte is
-                # 0xf8 or 0xf9 AND the 5th byte is 0xfb, it could be a 9 byte param command
+                # 0xf8 or 0xf9 AND the 5th byte is 0xfb, it could be a 9-byte param command.
                 # Try for the 9+ byters first
                 cmd_bytes = bytes()
                 if (
@@ -205,7 +205,7 @@ class CommandListener(Thread):
                     # we could be in the middle of receiving a parameter command, wait a bit longer
                     continue
                 else:
-                    # assume a 3 byte command
+                    # assume a 3-byte command
                     for _ in range(3):
                         cmd_bytes += self._deque.popleft().to_bytes(1, byteorder="big")
                     # check for 4-digit addressing
@@ -442,7 +442,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                     # if command is a legacy-style halt, just send to engines and trains
                     elif cmd.is_system_halt:
                         self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
-                    # otherwise, just send to the interested parties
+                    # otherwise, send to the interested parties
                     else:
                         if cmd.is_data is True:
                             self.publish((cmd.scope, cmd.address, cmd.command, cmd.data), cmd)
@@ -596,8 +596,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 packet = state
             elif isinstance(state, ComponentState):
                 packet = state.as_bytes()
-                if state.scope == CommandScope.TRAIN:
-                    print(state, packet.hex())
+
             if packet:  # we can only send states for tracked conditions
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((client_ip, client_port))
