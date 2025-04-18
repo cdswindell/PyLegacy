@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import unique, IntEnum
-from typing import Any, TypeVar, Generic
+from typing import Any, TypeVar, Generic, Callable
 
 from .pdi_req import PdiReq
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
@@ -16,33 +16,85 @@ BASE_TO_TMCC_SMOKE_MAP = {
 
 TMCC_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC_SMOKE_MAP.items()}
 
+
+def default_from_func(t: bytes) -> int:
+    return int.from_bytes(t, byteorder="little")
+
+
+def default_to_func(t: int) -> bytes:
+    return t.to_bytes(1, byteorder="little")
+
+
+class CompDataHandler:
+    def __init__(
+        self,
+        field: str,
+        length: int = 1,
+        from_bytes: Callable = default_from_func,
+        to_bytes: Callable = default_to_func,
+        d4_only: bool = False,
+    ) -> None:
+        self.field: str = field
+        self.length: int = length
+        self.from_bytes: Callable = from_bytes
+        self.to_bytes: Callable = to_bytes
+        self._d4_only: bool = d4_only
+
+    @property
+    def is_d4_only(self) -> bool:
+        return self._d4_only
+
+
 BASE_MEMORY_ENGINE_READ_MAP = {
-    0x00: ("_prev_link",),
-    0x01: ("_next_link",),
-    0x04: ("_bt_id", lambda t: int.from_bytes(t, byteorder="little"), 2),
-    0x07: ("_speed",),
-    0x08: ("_target_speed",),
-    0x09: ("_train_brake",),
-    0x0C: ("_rpm_labor",),
-    0x18: ("_momentum",),
-    0x1F: ("_road_name", lambda t: PdiReq.decode_text(t), 31),
-    0x3F: ("_road_number", lambda t: PdiReq.decode_text(t), 4),
-    0x43: ("_engine_type",),
-    0x44: ("_control_type",),
-    0x45: ("_sound_type",),
-    0x46: ("_engine_class",),
-    0x59: ("_tsdb_left",),
-    0x5B: ("_tsdb_right",),
-    0x69: ("_smoke",),
-    0x6A: ("_speed_limit",),
-    0x6B: ("_max_speed",),
-    0xB8: ("_tmcc_id", lambda t: int(PdiReq.decode_text(t)), 4),
-    0xBC: ("_timestamp", lambda t: int.from_bytes(t[0:4], byteorder="little"), 4),
+    0x00: CompDataHandler("_prev_link"),
+    0x01: CompDataHandler("_next_link"),
+    0x04: CompDataHandler(
+        "_bt_id",
+        2,
+        lambda t: int.from_bytes(t[0:2], byteorder="little"),
+        lambda t: t.to_bytes(2, byteorder="little"),
+    ),
+    0x07: CompDataHandler("_speed"),
+    0x08: CompDataHandler("_target_speed"),
+    0x09: CompDataHandler("_train_brake"),
+    0x0C: CompDataHandler("_rpm_labor"),
+    0x18: CompDataHandler("_momentum"),
+    0x1F: CompDataHandler(
+        "_road_name",
+        31,
+        lambda t: PdiReq.decode_text(t),
+        lambda t: PdiReq.encode_text(t, 31),
+    ),
+    0x3E: CompDataHandler("_road_number_len"),
+    0x3F: CompDataHandler("_road_number", 4, lambda t: PdiReq.decode_text(t), lambda t: PdiReq.encode_text(t, 4)),
+    0x43: CompDataHandler("_engine_type"),
+    0x44: CompDataHandler("_control_type"),
+    0x45: CompDataHandler("_sound_type"),
+    0x46: CompDataHandler("_engine_class"),
+    0x59: CompDataHandler("_tsdb_left"),
+    0x5B: CompDataHandler("_tsdb_right"),
+    0x69: CompDataHandler("_smoke"),
+    0x6A: CompDataHandler("_speed_limit"),
+    0x6B: CompDataHandler("_max_speed"),
+    0xB8: CompDataHandler(
+        "_tmcc_id",
+        4,
+        lambda t: int(PdiReq.decode_text(t)),
+        lambda t: t.to_bytes(4, byteorder="little"),
+        True,
+    ),
+    0xBC: CompDataHandler(
+        "_timestamp",
+        4,
+        lambda t: int.from_bytes(t[0:4], byteorder="little"),
+        lambda t: t.to_bytes(4, byteorder="little"),
+        True,
+    ),
 }
 
 BASE_MEMORY_TRAIN_READ_MAP = {
-    0x6F: ("_consist_flags",),
-    0x70: ("_consist_comps", lambda t: ConsistComponent.from_bytes(t), 32),
+    0x6F: CompDataHandler("_consist_flags"),
+    0x70: CompDataHandler("_consist_comps", 32, lambda t: ConsistComponent.from_bytes(t)),
 }
 BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
 
@@ -185,14 +237,25 @@ class CompData:
     def as_bytes(self) -> bytes:
         comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
         schema = {key: comp_map[key] for key in sorted(comp_map.keys())}
+        if self.tmcc_id <= 99:
+            # delete any entries that are 4-digit specific
+            for k in schema.keys():
+                if schema[k].is_d4_only is True:
+                    del schema[k]
         byte_str = bytes()
         last_idx = 0
         for idx, tpl in schema.items():
             if idx > last_idx:
-                byte_str += bytes() * (idx - last_idx)
-            data_len = tpl[2] if len(tpl) > 2 else 1
-
+                byte_str += b"\x00" * (idx - last_idx)
+            data_len = tpl.length
+            new_bytes = tpl.to_bytes(getattr(self, tpl.field))
+            if len(new_bytes) < data_len:
+                new_bytes += b"\x00" * (data_len - len(new_bytes))
+            byte_str += new_bytes
             last_idx = idx + data_len
+        # final check
+        if len(byte_str) < PdiReq.LIONEL_RECORD_LENGTH:
+            byte_str += b"\x00" * (PdiReq.LIONEL_RECORD_LENGTH - len(byte_str))
 
         return byte_str
 
@@ -228,17 +291,14 @@ class CompData:
     def _parse_bytes(self, data: bytes, pmap: dict) -> None:
         data_len = len(data)
         for k, v in pmap.items():
-            if isinstance(v, tuple) is False:
+            if isinstance(v, CompDataHandler) is False:
                 continue
-            item_len = v[2] if len(v) > 2 else 1
-            if data_len >= ((k + item_len) - 1) and hasattr(self, v[0]) and getattr(self, v[0]) is None:
-                if len(v) == 1:
-                    func = default_func
-                else:
-                    func = v[1]
+            item_len = v.length
+            if data_len >= ((k + item_len) - 1) and hasattr(self, v.field) and getattr(self, v.field) is None:
+                func = v.from_bytes
                 value = func(data[k : k + item_len])
-                if hasattr(self, v[0]):
-                    setattr(self, v[0], value)
+                if hasattr(self, v.field):
+                    setattr(self, v.field, value)
 
 
 class EngineData(CompData):

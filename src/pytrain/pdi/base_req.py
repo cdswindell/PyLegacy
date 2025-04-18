@@ -12,6 +12,7 @@ from .comp_data import (
     BASE_MEMORY_TRAIN_READ_MAP,
     CompDataMixin,
     CompData,
+    CompDataHandler,
 )
 from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
@@ -383,6 +384,11 @@ class BaseReq(PdiReq, CompDataMixin):
                 self._start = start
                 self._data_length = data_length
                 self._data_bytes = data_bytes
+                if state and isinstance(state, CompDataMixin):
+                    self._valid1 = 0b11111
+                    self._start = 0
+                    self._data_length = self.LIONEL_RECORD_LENGTH
+                    self._data_bytes = state.comp_data.as_bytes
             elif state:
                 from ..db.component_state import RouteState
                 from .. import TrainState
@@ -670,10 +676,8 @@ class BaseReq(PdiReq, CompDataMixin):
             if tpl is None and self.scope == CommandScope.TRAIN:
                 tpl = BASE_MEMORY_TRAIN_READ_MAP.get(self.start, None)
             if self._data_bytes:
-                if isinstance(tpl, tuple) and (
-                    (len(tpl) == 2 and self.data_length == 1) or (len(tpl) == 3 and tpl[2] == self.data_length)
-                ):
-                    dt = f"Data: {tpl[1](self._data_bytes)}"
+                if isinstance(tpl, CompDataHandler) and (tpl.length == self.data_length):
+                    dt = f"Data: {tpl.from_bytes(self._data_bytes)}"
                 elif self.data_length < 0xC0:
                     dt = f"Data: 0x{self._data_bytes.hex(' ')}" if self._data_bytes else "Data: None"
             else:

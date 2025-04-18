@@ -24,7 +24,7 @@ from .component_state import (
     ComponentState,
 )
 from ..pdi.d4_req import D4Req
-from ..pdi.comp_data import CompData, CompDataMixin
+from ..pdi.comp_data import CompData, CompDataMixin, CompDataHandler
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.command_req import CommandReq
 from ..protocol.command_def import CommandDefEnum
@@ -401,8 +401,8 @@ class EngineState(ComponentState):
                 from ..pdi.comp_data import BASE_MEMORY_ENGINE_READ_MAP
 
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(command.start, None)
-                if isinstance(tpl, tuple):
-                    setattr(self, tpl[0], tpl[1](command.data_bytes))
+                if isinstance(tpl, CompDataHandler):
+                    setattr(self, tpl.field, tpl.from_bytes(command.data_bytes))
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
             elif isinstance(command, D4Req):

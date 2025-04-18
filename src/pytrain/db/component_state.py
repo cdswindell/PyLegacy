@@ -7,7 +7,7 @@ from abc import ABC
 from collections import defaultdict
 from threading import Condition, Event, Lock, RLock
 from time import time
-from typing import Any, Dict, List, Set, Tuple, TypeVar
+from typing import Any, Dict, List, Set, TypeVar
 
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import PdiCommand
@@ -184,7 +184,7 @@ class ComponentState(ABC, CompDataMixin):
             )
         return effects
 
-    def _harvest_effect(self, effects: Set[E]) -> E | Tuple[E, int] | None:
+    def _harvest_effect(self, effects: Set[E]) -> E | tuple[E, int] | None:
         for effect in effects:
             if isinstance(effect, tuple):
                 effect_enum = effect[0]
@@ -629,7 +629,7 @@ class SystemStateDict(ThreadSafeDefaultDict):
     Maintains a dictionary of CommandScope to ComponentStateDict
     """
 
-    def __missing__(self, key: CommandScope | Tuple[CommandScope, int]) -> ComponentStateDict:
+    def __missing__(self, key: CommandScope | tuple[CommandScope, int]) -> ComponentStateDict:
         """
         generate a ComponentState object for the dictionary, based on the key
         """

@@ -2,7 +2,7 @@ import time
 from datetime import datetime
 
 from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
-from .comp_data import BASE_MEMORY_ENGINE_READ_MAP, CompData, CompDataMixin
+from .comp_data import BASE_MEMORY_ENGINE_READ_MAP, CompData, CompDataMixin, CompDataHandler
 from .pdi_req import PdiReq
 from ..protocol.constants import CommandScope
 
@@ -180,10 +180,8 @@ class D4Req(PdiReq, CompDataMixin):
                 di = f" Index: {self.start}" if self.start is not None else ""
                 dl = f" Length: {self.data_length}" if self.data_length is not None else ""
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
-                if isinstance(tpl, tuple) and (
-                    (self.data_length == 1 and len(tpl) == 2) or (len(tpl) == 3 and self.data_length == tpl[2])
-                ):
-                    db = f" {tpl[1](self._data_bytes)}"
+                if isinstance(tpl, CompDataHandler) and (self.data_length == tpl.length):
+                    db = f" {tpl.from_bytes(self._data_bytes)}"
                 else:
                     db = (
                         f" Data: {self._data_bytes.hex()}"
