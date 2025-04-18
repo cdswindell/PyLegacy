@@ -326,7 +326,7 @@ class Channel(Generic[Topic]):
                 log.exception(e)
 
 
-class CommandDispatcher(Thread):
+class CommandDispatcher(Thread, Generic[Topic, Message]):
     """
     The CommandDispatcher thread receives parsed CommandReqs from the
     CommandListener and dispatches them to subscribing listeners
