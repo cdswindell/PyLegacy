@@ -597,8 +597,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             elif isinstance(state, ComponentState):
                 packet = state.as_bytes()
 
-            if isinstance(state, ComponentState) and state.scope == CommandScope.TRAIN:
-                print(state, packet.hex() if packet else "None")
             if packet:  # we can only send states for tracked conditions
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((client_ip, client_port))
