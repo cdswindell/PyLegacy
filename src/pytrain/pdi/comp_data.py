@@ -134,6 +134,10 @@ CONVERSIONS = {
         lambda x: (x >> 3) + 12 if (x >> 3) <= 19 else (x >> 3) - 20,
         lambda x: (x - 12 if x >= 12 else 20 + x) << 3,
     ),
+    "_rpm_labor": (
+        lambda x: x,
+        lambda rpm, labor: ((labor - 12 if labor >= 12 else 20 + labor) << 3) | rpm & 0b111,
+    ),
 }
 
 C = TypeVar("C", bound="CompData")
@@ -181,8 +185,9 @@ class CompData:
             name = name.replace("_tmcc", "")
             tpl = CONVERSIONS[name]
             if name in {"rpm", "labor"}:
-                pass
-            # TODO: handle setting of rpm/labor
+                rpm = self.rpm_tmcc if name == "labor" else value
+                labor = self.labor_tmcc if name == "rpm" else value
+                self.rpm_labor_tmcc = (rpm, labor)
             else:
                 self.__dict__["_" + name] = tpl[1](value) if value is not None else value
         else:
