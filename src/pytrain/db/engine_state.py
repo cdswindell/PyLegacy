@@ -180,6 +180,8 @@ class EngineState(ComponentState):
 
                 # handle last numeric
                 if command.command in NUMERIC_SET:
+                    from ..pdi.base3_buffer import Base3Buffer
+
                     if self.engine_type in {LOCO_TRACK_CRANE, LOCO_ACCESSORY}:
                         if command.data in TRACK_CRANE_STATE_NUMERICS:
                             self._numeric = command.data
@@ -190,11 +192,7 @@ class EngineState(ComponentState):
                         # numeric commands can change RPM, Volume, and reset the train
                         # force a state update for this engine/train, if we are connected
                         # to a Base 3
-                        from ..pdi.base3_buffer import Base3Buffer
-
-                        print(command, self._last_command)
-                        if command != self._last_command:
-                            Base3Buffer.request_state_update(self.address, self.scope)
+                        Base3Buffer.request_state_update(self.address, self.scope)
                 elif cmd_effects & NUMERIC_SET:
                     numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
                     log.info(f"What to do? {command}: {numeric} {type(numeric)}")
