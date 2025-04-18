@@ -186,13 +186,16 @@ class CompData:
         elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
             name = name.replace("_tmcc", "")
             tpl = CONVERSIONS[name]
+            # Special case rpm and labor, as they are encoded into a single value.
+            # We determine the original values of each, then use our conversion
+            # mechanism to use the conversion function to set the combined value.
             if name in {"rpm", "labor"}:
                 rpm = self.rpm_tmcc if name == "labor" else value
                 labor = self.labor_tmcc if name == "rpm" else value
-                print(f"RPM: {rpm}  Labor: {labor} ")
                 self.rpm_labor_tmcc = (rpm, labor)
-                print(f"RPM: {rpm}  Labor: {labor} {self._rpm_labor}")
             else:
+                # For RPM or Labor, we have to pass the 2 raw values to the conversion function
+                # as a tuple, thus requiring the isinstance check below.
                 if isinstance(value, tuple):
                     self.__dict__["_" + name] = tpl[1](*value) if value is not None else value
                 else:
