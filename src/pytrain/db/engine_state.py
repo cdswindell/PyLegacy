@@ -355,8 +355,6 @@ class EngineState(ComponentState):
                 and command.status == 0
                 and command.pdi_command
                 in {
-                    PdiCommand.BASE_ENGINE,
-                    PdiCommand.BASE_TRAIN,
                     PdiCommand.UPDATE_ENGINE_SPEED,
                     PdiCommand.UPDATE_TRAIN_SPEED,
                 }
@@ -365,38 +363,6 @@ class EngineState(ComponentState):
 
                 if self.speed is None and command.is_valid(EngineBits.SPEED):
                     self._speed = command.speed
-                if command.pdi_command in {PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN}:
-                    if command.is_valid(EngineBits.MAX_SPEED):
-                        self._max_speed = command.max_speed
-                    if command.is_valid(EngineBits.SPEED_LIMIT):
-                        self._speed_limit = command.speed_limit
-                    if command.is_valid(EngineBits.MOMENTUM):
-                        self._momentum = command.momentum_tmcc
-                    if command.is_valid(EngineBits.RUN_LEVEL):
-                        self._rpm = command.run_level
-                    if command.is_valid(EngineBits.LABOR_BIAS):
-                        self._labor = command.labor_bias_tmcc
-                    if command.is_valid(EngineBits.CONTROL_TYPE):
-                        self._control_type = command.control_id
-                        self._is_legacy = command.is_legacy
-                    if command.is_valid(EngineBits.SOUND_TYPE):
-                        self._sound_type = command.sound_id
-                        self._sound_type_label = command.sound
-                    if command.is_valid(EngineBits.CLASS_TYPE):
-                        self._engine_class = command.loco_class_id
-                        self._engine_class_label = command.loco_class
-                    if command.is_valid(EngineBits.LOCO_TYPE):
-                        self._engine_type = command.loco_type_id
-                        self._engine_type_label = command.loco_type
-                    if command.is_valid(EngineBits.SMOKE_LEVEL) and self.is_legacy:
-                        self._smoke_level = command.smoke
-                    if command.is_valid(EngineBits.TRAIN_BRAKE):
-                        self._train_brake = command.train_brake_tmcc
-                        if self._train_brake > 8:
-                            print("--- TB ---", command)
-                    if command.pdi_command == PdiCommand.BASE_TRAIN:
-                        self._consist_comp = command.consist_components
-                        self._consist_flags = command.consist_flags
             elif isinstance(command, BaseReq) and command.pdi_command == PdiCommand.BASE_MEMORY and command.data_bytes:
                 from ..pdi.comp_data import BASE_MEMORY_ENGINE_READ_MAP
 
