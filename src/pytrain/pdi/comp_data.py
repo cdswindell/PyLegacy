@@ -173,7 +173,7 @@ class CompData:
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if self.__is_initializing() is True:
+        if self.__dict__.get("__initializing__", False) is True:
             super().__setattr__(name, value)
             return
         if "_" + name in self.__dict__:
@@ -194,9 +194,6 @@ class CompData:
 
     def __signal_initialized(self) -> None:
         self.__dict__["__initializing__"] = False
-
-    def __is_initializing(self) -> bool:
-        return self.__dict__.get("__initializing__", False)
 
     def as_bytes(self) -> bytes:
         comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
