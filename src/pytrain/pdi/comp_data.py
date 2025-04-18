@@ -175,6 +175,7 @@ class CompData:
     def __setattr__(self, name: str, value: Any) -> None:
         if self.__is_initializing() is True:
             super().__setattr__(name, value)
+            return
         if "_" + name in self.__dict__:
             self.__dict__["_" + name] = value
         elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
