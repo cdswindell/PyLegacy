@@ -169,8 +169,8 @@ class EngineState(ComponentState):
                         self._aux2 = TMCC1.AUX2_OFF
                         self._aux = TMCC1.AUX2_OPTION_ONE
                     self.comp_data.speed = 0
-                    self.comp_data.rpm = 0
-                    self.comp_data.labor = 12
+                    self.comp_data.rpm_tmcc = 0
+                    self.comp_data.labor_tmcc = 12
                     self._numeric = None
                     self._last_command = command
 
@@ -210,15 +210,15 @@ class EngineState(ComponentState):
 
                 # handle train brake
                 if command.command in TRAIN_BRAKE_SET:
-                    self.comp_data.train_brake = command.data
+                    self.comp_data.train_brake_tmcc = command.data
                 elif cmd_effects & TRAIN_BRAKE_SET:
-                    self.comp_data.train_brake = self._harvest_effect(cmd_effects & TRAIN_BRAKE_SET)
+                    self.comp_data.train_brake_tmcc = self._harvest_effect(cmd_effects & TRAIN_BRAKE_SET)
 
                 if command.command in SMOKE_SET or (command.command, command.data) in SMOKE_SET:
                     if isinstance(command.command, TMCC2EffectsControl):
-                        self.comp_data.smoke = command.command
+                        self.comp_data.smoke_tmcc = command.command
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
-                        self.comp_data.smoke = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                        self.comp_data.smoke_tmcc = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
 
                 # aux commands
                 for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
@@ -259,27 +259,27 @@ class EngineState(ComponentState):
 
                 # handle run level/rpm
                 if command.command in RPM_SET:
-                    self.comp_data.rpm = command.data
+                    self.comp_data.rpm_tmcc = command.data
                 elif cmd_effects & RPM_SET:
                     rpm = self._harvest_effect(cmd_effects & RPM_SET)
                     if isinstance(rpm, tuple) and len(rpm) == 2:
-                        self.comp_data.rpm = rpm[1]
+                        self.comp_data.rpm_tmcc = rpm[1]
                     elif isinstance(rpm, CommandDefEnum):
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
-                        self.comp_data.rpm = 0
+                        self.comp_data.rpm_tmcc = 0
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {rpm} {type(rpm)} {cmd_effects}")
-                        self.comp_data.rpm = 0
+                        self.comp_data.rpm_tmcc = 0
 
                 # handle labor
                 if command.command in LABOR_SET:
-                    self.comp_data.labor = command.data
+                    self.comp_data.labor_tmcc = command.data
                 elif cmd_effects & LABOR_SET:
                     labor = self._harvest_effect(cmd_effects & LABOR_SET)
                     if isinstance(labor, tuple) and len(labor) == 2:
-                        self.comp_data.labor = labor[1]
+                        self.comp_data.labor_tmcc = labor[1]
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {labor} {type(labor)} {cmd_effects}")
@@ -303,19 +303,19 @@ class EngineState(ComponentState):
                         TMCC1EngineCommandEnum.MOMENTUM_LOW,
                         TMCC2EngineCommandEnum.MOMENTUM_LOW,
                     }:
-                        self.comp_data.momentum = 0
+                        self.comp_data.momentum_tmcc = 0
                     if command.command in {
                         TMCC1EngineCommandEnum.MOMENTUM_MEDIUM,
                         TMCC2EngineCommandEnum.MOMENTUM_MEDIUM,
                     }:
-                        self.comp_data.momentum = 3
+                        self.comp_data.momentum_tmcc = 3
                     if command.command in {
                         TMCC1EngineCommandEnum.MOMENTUM_HIGH,
                         TMCC2EngineCommandEnum.MOMENTUM_HIGH,
                     }:
-                        self.comp_data.momentum = 7
+                        self.comp_data.momentum_tmcc = 7
                     elif command.command == TMCC2EngineCommandEnum.MOMENTUM:
-                        self.comp_data.momentum = command.data
+                        self.comp_data.momentum_tmcc = command.data
 
                 # handle startup/shutdown
                 if command.command in STARTUP_SET:
