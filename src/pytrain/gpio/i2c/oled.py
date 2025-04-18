@@ -47,7 +47,7 @@ class Oled(Thread, TextBuffer):
     ) -> None:
         super().__init__()
         if address:
-            self._serial = i2c(port=1, address=address)  # i2c bus & address
+            self._serial = i2c(port=1, address=address)  # i2c bus and address
         else:
             self._serial = spi(device=0, port=0)
 
