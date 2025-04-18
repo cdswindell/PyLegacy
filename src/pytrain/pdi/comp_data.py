@@ -311,6 +311,7 @@ class EngineData(CompData):
         self._rpm_labor: int | None = None
         self._momentum: int | None = None
         self._road_name: str | None = None
+        self._road_number_len: int | None = None
         self._road_number: str | None = None
         self._engine_type: int | None = None
         self._control_type: int | None = None
