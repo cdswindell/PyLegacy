@@ -58,41 +58,20 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
 
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
-        from ..pdi.consist_component import ConsistComponent
-
         if scope not in {CommandScope.ENGINE, CommandScope.TRAIN}:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
         super().__init__(scope)
         self._aux1: CommandDefEnum | None = None
         self._aux2: CommandDefEnum | None = None
         self._aux: CommandDefEnum | None = None
-        self._bt_id: int | None = None
-        self._consist_comp: None | List[ConsistComponent] = None
-        self._consist_flags: int | None = None
-        self._control_type: int | None = None
         self._direction: CommandDefEnum | None = None
-        self._engine_class: int | None = None
-        self._engine_class_label: str | None = None
-        self._engine_type: int | None = None
-        self._engine_type_label: str | None = None
         self._is_legacy: bool | None = None  # assume we are in TMCC mode until/unless we receive a Legacy cmd
-        self._labor: int | None = None
         self._last_aux1_opt1 = None
         self._last_aux2_opt1 = None
-        self._max_speed: int | None = None
-        self._momentum: int | None = None
         self._numeric: int | None = None
         self._numeric_cmd: CommandDefEnum | None = None
         self._prod_year: int | None = None
-        self._rpm: int | None = None
-        self._rpm_labor: int | None = None
-        self._smoke_level: CommandDefEnum | None = None
-        self._sound_type: int | None = None
-        self._sound_type_label: str | None = None
-        self._speed: int | None = None
-        self._speed_limit: int | None = None
         self._start_stop: CommandDefEnum | None = None
-        self._train_brake: int | None = None
         self._d4_rec_no: int | None = None
 
     def __repr__(self) -> str:
@@ -137,7 +116,7 @@ class EngineState(ComponentState):
             lt = f" {LOCO_TYPE.get(self.engine_type, 'NA')}"
         if self._aux2:
             aux = f" Aux2: {self._aux2.name.split('_')[-1]}"
-        if self._smoke_level is not None:
+        if self.smoke_level is not None:
             sm = f" Smoke: {self._smoke_level.name.split('_')[-1].lower():<4}"
         if self.bt_int:
             bt = f" BT: {self.bt_id}"
@@ -170,7 +149,12 @@ class EngineState(ComponentState):
             return
         with self._cv:
             super().update(command)
-            if isinstance(command, CommandReq):
+            if isinstance(command, CompDataMixin) and command.is_comp_data_record:
+                self._update_comp_data(command.comp_data)
+                if isinstance(command, D4Req):
+                    self._is_legacy = True
+                    self._d4_rec_no = command.record_no
+            elif isinstance(command, CommandReq):
                 if self.is_legacy is None:
                     self._is_legacy = command.is_tmcc2 is True or self.address > 99
 
@@ -184,10 +168,9 @@ class EngineState(ComponentState):
                         self._aux1 = TMCC1.AUX1_OFF
                         self._aux2 = TMCC1.AUX2_OFF
                         self._aux = TMCC1.AUX2_OPTION_ONE
-                    if self.comp_data:
-                        self.comp_data.speed = 0
-                    self._rpm = 0
-                    self._labor = 12
+                    self.comp_data.speed = 0
+                    self.comp_data.rpm = 0
+                    self.comp_data.labor = 12
                     self._numeric = None
                     self._last_command = command
 
@@ -227,15 +210,15 @@ class EngineState(ComponentState):
 
                 # handle train brake
                 if command.command in TRAIN_BRAKE_SET:
-                    self._train_brake = command.data
+                    self.comp_data.train_brake = command.data
                 elif cmd_effects & TRAIN_BRAKE_SET:
-                    self._train_brake = self._harvest_effect(cmd_effects & TRAIN_BRAKE_SET)
+                    self.comp_data.train_brake = self._harvest_effect(cmd_effects & TRAIN_BRAKE_SET)
 
                 if command.command in SMOKE_SET or (command.command, command.data) in SMOKE_SET:
                     if isinstance(command.command, TMCC2EffectsControl):
-                        self._smoke_level = command.command
+                        self.comp_data.smoke = command.command
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
-                        self._smoke_level = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                        self.comp_data.smoke = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
 
                 # aux commands
                 for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
@@ -276,43 +259,43 @@ class EngineState(ComponentState):
 
                 # handle run level/rpm
                 if command.command in RPM_SET:
-                    self._rpm = command.data
+                    self.comp_data.rpm = command.data
                 elif cmd_effects & RPM_SET:
                     rpm = self._harvest_effect(cmd_effects & RPM_SET)
                     if isinstance(rpm, tuple) and len(rpm) == 2:
-                        self._rpm = rpm[1]
+                        self.comp_data.rpm = rpm[1]
                     elif isinstance(rpm, CommandDefEnum):
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
-                        self._rpm = 0
+                        self.comp_data.rpm = 0
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {rpm} {type(rpm)} {cmd_effects}")
-                        self._rpm = 0
+                        self.comp_data.rpm = 0
 
                 # handle labor
                 if command.command in LABOR_SET:
-                    self._labor = command.data
+                    self.comp_data.labor = command.data
                 elif cmd_effects & LABOR_SET:
                     labor = self._harvest_effect(cmd_effects & LABOR_SET)
                     if isinstance(labor, tuple) and len(labor) == 2:
-                        self._labor = labor[1]
+                        self.comp_data.labor = labor[1]
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {labor} {type(labor)} {cmd_effects}")
-                        self._speed = 0
+                        self.comp_data.speed = 0
 
                 # handle speed
                 if command.command in SPEED_SET:
-                    self._speed = command.data
+                    self.comp_data.speed = command.data
                 elif cmd_effects & SPEED_SET:
                     speed = self._harvest_effect(cmd_effects & SPEED_SET)
                     if isinstance(speed, tuple) and len(speed) > 1:
-                        self._speed = speed[1]
+                        self.comp_data.speed = speed[1]
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
-                        self._speed = 0
+                        self.comp_data.speed = 0
 
                 # handle momentum
                 if command.command in MOMENTUM_SET:
@@ -320,19 +303,19 @@ class EngineState(ComponentState):
                         TMCC1EngineCommandEnum.MOMENTUM_LOW,
                         TMCC2EngineCommandEnum.MOMENTUM_LOW,
                     }:
-                        self._momentum = 0
+                        self.comp_data.momentum = 0
                     if command.command in {
                         TMCC1EngineCommandEnum.MOMENTUM_MEDIUM,
                         TMCC2EngineCommandEnum.MOMENTUM_MEDIUM,
                     }:
-                        self._momentum = 3
+                        self.comp_data.momentum = 3
                     if command.command in {
                         TMCC1EngineCommandEnum.MOMENTUM_HIGH,
                         TMCC2EngineCommandEnum.MOMENTUM_HIGH,
                     }:
-                        self._momentum = 7
+                        self.comp_data.momentum = 7
                     elif command.command == TMCC2EngineCommandEnum.MOMENTUM:
-                        self._momentum = command.data
+                        self.comp_data.momentum = command.data
 
                 # handle startup/shutdown
                 if command.command in STARTUP_SET:
@@ -355,10 +338,6 @@ class EngineState(ComponentState):
                         self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                         self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-            elif isinstance(command, CompDataMixin) and command.is_comp_data_record:
-                self._update_comp_data(command.comp_data)
-                if isinstance(command, D4Req):
-                    self._d4_rec_no = command.record_no
             elif (
                 isinstance(command, BaseReq)
                 and command.status == 0
@@ -371,7 +350,7 @@ class EngineState(ComponentState):
                 from ..pdi.base_req import EngineBits
 
                 if self.speed is None and command.is_valid(EngineBits.SPEED):
-                    self._speed = command.speed
+                    self.comp_data.speed = command.speed
             elif isinstance(command, BaseReq) and command.pdi_command == PdiCommand.BASE_MEMORY and command.data_bytes:
                 from ..pdi.comp_data import BASE_MEMORY_ENGINE_READ_MAP
 
@@ -474,30 +453,30 @@ class EngineState(ComponentState):
 
     @property
     def is_rpm(self) -> bool:
-        return self.engine_type in RPM_TYPE
+        return self.comp_data.engine_type in RPM_TYPE
 
     @property
     def is_steam(self) -> bool:
-        return self.engine_type in STEAM_TYPE
+        return self.comp_data.engine_type in STEAM_TYPE
 
     @property
     def speed(self) -> int:
-        return self._speed
+        return self.comp_data.speed
 
     @property
     def speed_limit(self) -> int:
-        return self._speed_limit
+        return self.comp_data.speed_limit
 
     @property
     def max_speed(self) -> int:
-        return self._max_speed
+        return self.comp_data.max_speed
 
     @property
     def speed_max(self) -> int | None:
         if self.max_speed and self.max_speed != 255 and self.speed_limit != 255:
             ms = min(self.max_speed, self.speed_limit)
         elif self._speed_limit and self.speed_limit != 255:
-            ms = self._speed_limit
+            ms = self.speed_limit
         elif self.max_speed and self.max_speed != 255:
             ms = self.max_speed
         else:
@@ -508,11 +487,11 @@ class EngineState(ComponentState):
 
     @property
     def speed_label(self) -> str:
-        return self._as_label(self._speed)
+        return self._as_label(self.speed)
 
     @property
     def bt_int(self) -> int:
-        return self._bt_id
+        return self.comp_data.bt_id
 
     # noinspection PyTypeChecker
     @property
@@ -527,7 +506,7 @@ class EngineState(ComponentState):
 
     @property
     def momentum(self) -> int:
-        return self._momentum
+        return self.comp_data.momentum_tmcc
 
     @property
     def momentum_label(self) -> str:
@@ -535,7 +514,7 @@ class EngineState(ComponentState):
 
     @property
     def rpm(self) -> int:
-        return self._rpm if self.is_rpm else 0
+        return self.comp_data.rpm_tmcc if self.is_rpm else 0
 
     @property
     def rpm_label(self) -> str:
@@ -543,23 +522,23 @@ class EngineState(ComponentState):
 
     @property
     def labor(self) -> int:
-        return self._labor
+        return self.comp_data.labor_tmcc
 
     @property
     def labor_label(self) -> str:
         return self._as_label(self.labor)
 
     @property
-    def smoke(self) -> CommandDefEnum | None:
-        return self._smoke_level
+    def smoke_level(self) -> CommandDefEnum:
+        return self.comp_data.smoke_tmcc
 
     @property
     def smoke_label(self) -> str:
-        return SMOKE_LABEL.get(self._smoke_level, None)
+        return SMOKE_LABEL.get(self.smoke_level, None)
 
     @property
     def train_brake(self) -> int:
-        return self._train_brake
+        return self.comp_data.train_brake_tmcc
 
     @property
     def train_brake_label(self) -> str:
@@ -567,7 +546,7 @@ class EngineState(ComponentState):
 
     @property
     def control_type(self) -> int:
-        return self._control_type
+        return self.comp_data.control_type
 
     @property
     def control_type_label(self) -> str:
@@ -575,7 +554,7 @@ class EngineState(ComponentState):
 
     @property
     def sound_type(self) -> int:
-        return self._sound_type
+        return self.comp_data.sound_type
 
     @property
     def sound_type_label(self) -> str:
@@ -583,7 +562,7 @@ class EngineState(ComponentState):
 
     @property
     def engine_type(self) -> int:
-        return self._engine_type
+        return self.comp_data.engine_type
 
     @property
     def engine_type_label(self) -> str:
@@ -591,7 +570,7 @@ class EngineState(ComponentState):
 
     @property
     def engine_class(self) -> int:
-        return self._engine_class
+        return self.comp_data.engine_class
 
     @property
     def engine_class_label(self) -> str:
@@ -676,7 +655,7 @@ class EngineState(ComponentState):
                 val = getattr(self, elem)
                 d[elem] = val if val is not None and val != 255 else None
         d["direction"] = self.direction.name.lower() if self.direction else None
-        d["smoke"] = self.smoke.name.lower() if self.smoke else None
+        d["smoke"] = self.smoke_level.name.lower() if self.smoke_level else None
         d["control"] = self.control_type_label.lower() if self.control_type else None
         d["sound_type"] = self.sound_type_label.lower() if self.sound_type else None
         d["engine_type"] = self.engine_type_label.lower() if self.engine_type else None
@@ -696,15 +675,14 @@ class TrainState(EngineState):
         super().__init__(scope)
         # hard code TMCC2, for now
         self._is_legacy = True
-        self._control_type = 2
 
     @property
     def consist_flags(self) -> int:
-        return self._consist_flags
+        return self.comp_data.consist_flags
 
     @property
     def consist_components(self) -> List[ConsistComponent]:
-        return self._consist_comp
+        return self.comp_data.consist_comp
 
 
 T = TypeVar("T", bound=ComponentState)
