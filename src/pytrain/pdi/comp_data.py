@@ -162,6 +162,8 @@ class CompData:
         self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
 
     def __getattr__(self, name: str) -> Any:
+        if name in self.__dict__:
+            return self.__dict__[name]
         if "_" + name in self.__dict__:
             return self.__dict__["_" + name]
         elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
@@ -187,7 +189,9 @@ class CompData:
             if name in {"rpm", "labor"}:
                 rpm = self.rpm_tmcc if name == "labor" else value
                 labor = self.labor_tmcc if name == "rpm" else value
+                print(f"RPM: {rpm}  Labor: {labor} ")
                 self.rpm_labor_tmcc = (rpm, labor)
+                print(f"RPM: {rpm}  Labor: {labor} {self._rpm_labor}")
             else:
                 self.__dict__["_" + name] = tpl[1](value) if value is not None else value
         else:
