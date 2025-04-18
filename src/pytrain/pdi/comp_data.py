@@ -66,7 +66,12 @@ BASE_MEMORY_ENGINE_READ_MAP = {
         lambda t: PdiReq.encode_text(t, 31),
     ),
     0x3E: CompDataHandler("_road_number_len"),
-    0x3F: CompDataHandler("_road_number", 4, lambda t: PdiReq.decode_text(t), lambda t: PdiReq.encode_text(t, 4)),
+    0x3F: CompDataHandler(
+        "_road_number",
+        4,
+        lambda t: PdiReq.decode_text(t),
+        lambda t: PdiReq.encode_text(t, 4),
+    ),
     0x43: CompDataHandler("_engine_type"),
     0x44: CompDataHandler("_control_type"),
     0x45: CompDataHandler("_sound_type"),
@@ -80,7 +85,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
         "_tmcc_id",
         4,
         lambda t: int(PdiReq.decode_text(t)),
-        lambda t: t.to_bytes(4, byteorder="little"),
+        lambda t: PdiReq.encode_text(t, 4),
         True,
     ),
     0xBC: CompDataHandler(
@@ -295,6 +300,10 @@ class CompData:
             item_len = v.length
             if data_len >= ((k + item_len) - 1) and hasattr(self, v.field) and getattr(self, v.field) is None:
                 func = v.from_bytes
+                if v.field == "_road_number":
+                    print(
+                        f"TMCC_ID: {self.tmcc_id} Start: {hex(k)} Len: {item_len} Data: {data[k : k + item_len].hex()}"
+                    )
                 value = func(data[k : k + item_len])
                 if hasattr(self, v.field):
                     setattr(self, v.field, value)
