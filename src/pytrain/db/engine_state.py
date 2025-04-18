@@ -469,7 +469,7 @@ class EngineState(ComponentState):
         byte_str = bytes()
         # encode name, number, momentum, speed, and rpm using PDI command
         if self.tmcc_id <= 99:
-            pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, state=self)
+            pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
         else:
             pdi_cmd = PdiCommand.D4_ENGINE if self.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             pdi = D4Req(self.record_no, pdi_cmd, state=self)
