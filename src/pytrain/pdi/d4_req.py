@@ -180,6 +180,8 @@ class D4Req(PdiReq, CompDataMixin):
                 dl = f" Length: {self.data_length}" if self.data_length is not None else ""
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
                 if isinstance(tpl, CompDataHandler) and (self.data_length == tpl.length):
+                    if not self._data_bytes:
+                        print(f"{tpl.field}, {self.data_length}")
                     db = f" {tpl.from_bytes(self._data_bytes)}"
                 else:
                     db = (
