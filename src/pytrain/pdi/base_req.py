@@ -155,10 +155,10 @@ class BaseReq(PdiReq, CompDataMixin):
         # harvest state update pkgs based on command, unless command was numeric 3 or 6
         cmds = []
         pkgs = pkgs if pkgs else CompData.request_to_updates(cmd)
-        print(pkgs)
         if pkgs:
             from src.pytrain.pdi.d4_req import D4Req
 
+            print(cmd, "\n", pkgs)
             for pkg in pkgs:
                 if 1 <= cmd.address <= 99:
                     cmds.append(
