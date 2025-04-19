@@ -155,6 +155,7 @@ class BaseReq(PdiReq, CompDataMixin):
         # harvest state update pkgs based on command, unless command was numeric 3 or 6
         cmds = []
         pkgs = pkgs if pkgs else CompData.request_to_updates(cmd)
+        print(pkgs)
         if pkgs:
             from ..db.component_state_store import ComponentStateStore
             from src.pytrain.pdi.d4_req import D4Req
