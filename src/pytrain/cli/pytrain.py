@@ -221,9 +221,6 @@ class PyTrain:
         if self._args.echo:
             self._enable_echo()
 
-        # register server signal handle
-        # signal.signal(signal.SIGINT, self._handle_signals)
-
         print("Registering listeners...")
         self._state_store.listen_for(CommandScope.BASE)
         self._state_store.listen_for(CommandScope.ENGINE)
@@ -239,8 +236,8 @@ class PyTrain:
         # Update and Reboot command directives from clients
         self._tmcc_listener.subscribe(self, CommandScope.SYNC)
 
-        # Command dispatcher should be built by now, get call will throw exception
-        # if it is not
+        # Command dispatcher should be built by now, the "get" call will
+        # throw an exception if it is not
         self._dispatcher = CommandDispatcher.get()
 
         # load roster, only if server
@@ -283,7 +280,7 @@ class PyTrain:
             else:
                 print(f"Loading layout state {PROGRAM_NAME} from server{server}...")
 
-        # Start the command line processor; run as thread if we're serving the REST api
+        # Start the command line processor; run as a thread if we're serving the REST api
         self._command_processor_ev = threading.Event()
         if args.api is True:
             self._api = True
@@ -302,7 +299,7 @@ class PyTrain:
             self._buttons_loader = ButtonsFileLoader(self._buttons_file)
             self._buttons_loader.join()
 
-        # register as server so clients can connect without IP addr
+        # register server so clients can connect without IP addr
         if self.is_server:
             self._zeroconf = Zeroconf()
             self._service_info = self.register_service(
@@ -787,7 +784,7 @@ class PyTrain:
                 if found_at < 0:
                     found_at = waiting
                 if base3_info and (found_at - waiting) / 2 > 15:
-                    # if we found a server with a base 3, and more than
+                    # if we found a server with a Base 3, and more than
                     # 15 seconds have passed, return it
                     an_info = base3_info
                     break
@@ -858,7 +855,7 @@ class PyTrain:
                 ui_parser = None
                 try:
                     # if the keyboard input starts with a valid command, args.command
-                    # is set to the corresponding CLI command class, or the verb 'quit'
+                    # is set to the corresponding CLI command class or the verb 'quit'
                     args = self._command_parser().parse_args(["-" + ui_parts[0]])
                     if parse_only is False and args.command == "quit":
                         # if server, signal clients to disconnect
