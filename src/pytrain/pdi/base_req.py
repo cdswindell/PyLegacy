@@ -173,6 +173,7 @@ class BaseReq(PdiReq, CompDataMixin):
                         )
                     )
                 else:
+                    print(cur_state, cmd, pkg)
                     assert cur_state.record_no != 0xFFFF
                     pdi_cmd = PdiCommand.D4_ENGINE if cmd.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
                     cmds.append(
