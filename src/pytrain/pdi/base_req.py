@@ -141,7 +141,6 @@ class BaseReq(PdiReq, CompDataMixin):
         data: int | None = None,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> List[BaseReq] | None:
-        cmds = []
         pkgs = []
         if isinstance(cmd, CommandReq):
             state = cmd.command
@@ -172,6 +171,7 @@ class BaseReq(PdiReq, CompDataMixin):
             raise ValueError(f"Invalid option: {cmd}")
 
         # harvest state update pkgs based on command, unless command was numeric 3 or 6
+        cmds = []
         pkgs = pkgs if pkgs else CompData.request_to_updates(cmd)
         if pkgs:
             from ..db.component_state_store import ComponentStateStore
