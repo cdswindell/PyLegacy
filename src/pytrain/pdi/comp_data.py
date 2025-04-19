@@ -255,7 +255,7 @@ class CompData(Generic[R]):
                     conv_tpl = CONVERSIONS.get(field, None)
                     if conv_tpl:
                         # more special case handling for rpm/labor
-                        if field == "rpm_labor":
+                        if sub_field != field and field == "rpm_labor":
                             from src.pytrain import ComponentStateStore
 
                             state = ComponentStateStore.build().get_state(req.scope, req.address, False)
