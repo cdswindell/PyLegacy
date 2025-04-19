@@ -165,6 +165,8 @@ REQUEST_TO_UPDATES_MAP = {
         ("target_speed", lambda x: 0),
         ("rpm_labor", lambda x: 0),
     ],
+    "SHUTDOWN_DELAYED": [("rpm_labor", lambda x: 0)],
+    "SHUTDOWN_IMMEDIATE": [("rpm_labor", lambda x: 0)],
     "SMOKE_HIGH": [("smoke", lambda t: 3)],
     "SMOKE_LOW": [("smoke", lambda t: 1)],
     "SMOKE_MEDIUM": [("smoke", lambda t: 2)],
