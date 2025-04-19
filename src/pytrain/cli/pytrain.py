@@ -482,8 +482,11 @@ class PyTrain:
         """
         Callback specified in the Subscriber protocol used to send events to listeners
         """
-        if self._echo:
-            log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
+        try:
+            if self._echo:
+                log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
+        except Exception as e:
+            log.exception(f"Failed to echo command to console: {e}")
 
         if cmd.command in ACTION_TO_ADMIN_COMMAND_MAP:
             if cmd.command not in self._received_admin_cmds:
