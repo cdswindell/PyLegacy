@@ -127,11 +127,11 @@ class BaseReq(PdiReq, CompDataMixin):
 
         pkgs = []
         if isinstance(cmd, CommandReq):
-            cur_state = ComponentStateStore.build().get_state(scope, address, False)
             state = cmd.command
             address = cmd.address
             data = cmd.data
             scope = cmd.scope
+            cur_state = ComponentStateStore.build().get_state(scope, address, False)
 
             # special case numeric commands
             if state.name == "NUMERIC":
