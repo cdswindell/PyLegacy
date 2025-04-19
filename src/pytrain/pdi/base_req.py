@@ -155,7 +155,7 @@ class BaseReq(PdiReq, CompDataMixin):
                             )
                         )
                     )
-                elif data == 10:  # Reset
+                elif data == 0:  # Reset
                     pkgs.extend(
                         CompData.request_to_updates(
                             CommandReq(

@@ -176,7 +176,7 @@ class D4Req(PdiReq, CompDataMixin):
                 tmcc = f" TMCC ID: {self.tmcc_id}" if self.tmcc_id else ""
                 sf = ""
                 ts = f" {self.timestamp_str}"
-                di = f" Index: {self.start}" if self.start is not None else ""
+                di = f" Index: {hex(self.start)}" if self.start is not None else ""
                 dl = f" Length: {self.data_length}" if self.data_length is not None else ""
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
                 if isinstance(tpl, CompDataHandler) and self._data_bytes and (self.data_length == tpl.length):
