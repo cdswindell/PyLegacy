@@ -10,25 +10,12 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Dict, Any, TypeVar, cast
+from typing import List, Dict, Any
 
 from .component_state import (
-    STARTUP_SET,
-    SHUTDOWN_SET,
     L,
     P,
     log,
-    NUMERIC_SET,
-    DIRECTIONS_SET,
-    TRAIN_BRAKE_SET,
-    SMOKE_SET,
-    ENGINE_AUX1_SET,
-    ENGINE_AUX2_SET,
-    RPM_SET,
-    LABOR_SET,
-    SPEED_SET,
-    MOMENTUM_SET,
-    SMOKE_LABEL,
     SCOPE_TO_STATE_MAP,
     ComponentState,
 )
@@ -54,6 +41,94 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1_COMMAND_TO_ALIAS_MAP, TMCC1En
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
+
+DIRECTIONS_SET = {
+    TMCC1EngineCommandEnum.FORWARD_DIRECTION,
+    TMCC2EngineCommandEnum.FORWARD_DIRECTION,
+    TMCC1EngineCommandEnum.REVERSE_DIRECTION,
+    TMCC2EngineCommandEnum.REVERSE_DIRECTION,
+    TMCC1EngineCommandEnum.TOGGLE_DIRECTION,
+    TMCC2EngineCommandEnum.TOGGLE_DIRECTION,
+}
+MOMENTUM_SET = {
+    TMCC1EngineCommandEnum.MOMENTUM_LOW,
+    TMCC1EngineCommandEnum.MOMENTUM_MEDIUM,
+    TMCC1EngineCommandEnum.MOMENTUM_HIGH,
+    TMCC2EngineCommandEnum.MOMENTUM_LOW,
+    TMCC2EngineCommandEnum.MOMENTUM_MEDIUM,
+    TMCC2EngineCommandEnum.MOMENTUM_HIGH,
+    TMCC2EngineCommandEnum.MOMENTUM,
+}
+SPEED_SET = {
+    TMCC1EngineCommandEnum.ABSOLUTE_SPEED,
+    TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+    (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 0),
+    (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 0),
+}
+RPM_SET = {
+    TMCC2EngineCommandEnum.DIESEL_RPM,
+}
+LABOR_SET = {
+    TMCC2EngineCommandEnum.ENGINE_LABOR,
+}
+NUMERIC_SET = {
+    TMCC1EngineCommandEnum.NUMERIC,
+    TMCC2EngineCommandEnum.NUMERIC,
+}
+TRAIN_BRAKE_SET = {
+    TMCC2EngineCommandEnum.TRAIN_BRAKE,
+}
+STARTUP_SET = {
+    TMCC1EngineCommandEnum.START_UP_IMMEDIATE,
+    (TMCC1EngineCommandEnum.NUMERIC, 3),
+    TMCC2EngineCommandEnum.START_UP_IMMEDIATE,
+    TMCC2EngineCommandEnum.START_UP_DELAYED,
+}
+SHUTDOWN_SET = {
+    TMCC1EngineCommandEnum.SHUTDOWN_IMMEDIATE,
+    (TMCC1EngineCommandEnum.NUMERIC, 5),
+    TMCC2EngineCommandEnum.SHUTDOWN_DELAYED,
+    (TMCC2EngineCommandEnum.NUMERIC, 5),
+    TMCC2EngineCommandEnum.SHUTDOWN_IMMEDIATE,
+}
+ENGINE_AUX1_SET = {
+    TMCC1EngineCommandEnum.AUX1_ON,
+    TMCC1EngineCommandEnum.AUX1_OFF,
+    TMCC1EngineCommandEnum.AUX1_OPTION_ONE,
+    TMCC1EngineCommandEnum.AUX1_OPTION_TWO,
+    TMCC2EngineCommandEnum.AUX1_ON,
+    TMCC2EngineCommandEnum.AUX1_OFF,
+    TMCC2EngineCommandEnum.AUX1_OPTION_ONE,
+    TMCC2EngineCommandEnum.AUX1_OPTION_TWO,
+}
+ENGINE_AUX2_SET = {
+    TMCC1EngineCommandEnum.AUX2_ON,
+    TMCC1EngineCommandEnum.AUX2_OFF,
+    TMCC1EngineCommandEnum.AUX2_OPTION_ONE,
+    TMCC1EngineCommandEnum.AUX2_OPTION_TWO,
+    TMCC2EngineCommandEnum.AUX2_ON,
+    TMCC2EngineCommandEnum.AUX2_OFF,
+    TMCC2EngineCommandEnum.AUX2_OPTION_ONE,
+    TMCC2EngineCommandEnum.AUX2_OPTION_TWO,
+}
+SMOKE_SET = {
+    TMCC1EngineCommandEnum.SMOKE_ON,
+    (TMCC1EngineCommandEnum.NUMERIC, 9),
+    TMCC1EngineCommandEnum.SMOKE_OFF,
+    (TMCC1EngineCommandEnum.NUMERIC, 8),
+    TMCC2EffectsControl.SMOKE_OFF,
+    TMCC2EffectsControl.SMOKE_LOW,
+    TMCC2EffectsControl.SMOKE_MEDIUM,
+    TMCC2EffectsControl.SMOKE_HIGH,
+}
+SMOKE_LABEL = {
+    TMCC1EngineCommandEnum.SMOKE_ON: "+",
+    TMCC1EngineCommandEnum.SMOKE_OFF: "-",
+    TMCC2EffectsControl.SMOKE_OFF: "-",
+    TMCC2EffectsControl.SMOKE_LOW: "L",
+    TMCC2EffectsControl.SMOKE_MEDIUM: "M",
+    TMCC2EffectsControl.SMOKE_HIGH: "H",
+}
 
 
 class EngineState(ComponentState):
@@ -675,7 +750,5 @@ class TrainState(EngineState):
         return self.comp_data.consist_comps
 
 
-T = TypeVar("T", bound=ComponentState)
-
-SCOPE_TO_STATE_MAP[CommandScope.ENGINE] = cast(T, EngineState)
-SCOPE_TO_STATE_MAP[CommandScope.TRAIN] = cast(T, TrainState)
+SCOPE_TO_STATE_MAP.update({CommandScope.ENGINE: EngineState})
+SCOPE_TO_STATE_MAP.update({CommandScope.TRAIN: TrainState})
