@@ -145,6 +145,16 @@ class BaseReq(PdiReq, CompDataMixin):
                         elif data == 3:  # RPM Up
                             cur_rpm = min(cur_rpm + 1, 7)
                         pkgs.append(CompData.rpm_labor_to_pkg(cur_rpm, cur_labor))
+                elif data == 0:  # Reset
+                    pkgs.extend(
+                        CompData.request_to_updates(
+                            CommandReq(
+                                TMCC2EngineCommandEnum.RESET,
+                                address,
+                                scope=scope,
+                            )
+                        )
+                    )
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
             cur_state = ComponentStateStore.build().get_state(scope, address, False)
