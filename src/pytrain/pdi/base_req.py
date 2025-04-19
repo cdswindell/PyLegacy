@@ -5,7 +5,7 @@ from enum import IntEnum, unique
 from math import floor
 from typing import Dict, List, Tuple
 
-from .constants import PdiCommand, PDI_SOP, PDI_EOP
+from .constants import PdiCommand, PDI_SOP, PDI_EOP, D4Action
 from .comp_data import (
     BASE_MEMORY_ENGINE_READ_MAP,
     BASE_MEMORY_TRAIN_READ_MAP,
@@ -140,14 +140,15 @@ class BaseReq(PdiReq, CompDataMixin):
         address: int = None,
         data: int | None = None,
         scope: CommandScope = CommandScope.ENGINE,
-        use_0x26: bool = True,
     ) -> List[BaseReq] | None:
+        cmds = []
+        pkgs = []
         if isinstance(cmd, CommandReq):
             state = cmd.command
             address = cmd.address
             data = cmd.data
             scope = cmd.scope
-            print(CompData.request_to_bytes(cmd))
+            print(CompData.request_to_updates(cmd))
 
             # special case numeric commands
             if state.name == "NUMERIC":
@@ -158,62 +159,52 @@ class BaseReq(PdiReq, CompDataMixin):
                     cur_state = ComponentStateStore.build().get_state(scope, address, False)
                     if cur_state and cur_state.rpm is not None:
                         cur_rpm = cur_state.rpm
+                        cur_labor = cur_state.labor if cur_state.labor else 12
                         if data == 6:  # RPM Down
                             cur_rpm = max(cur_rpm - 1, 0)
                         elif data == 3:  # RPM Up
                             cur_rpm = min(cur_rpm + 1, 7)
-                        data = cur_rpm
-                        cmd = CommandReq(TMCC2EngineCommandEnum.DIESEL_RPM, address, data, scope)
-            print(CompData.request_to_bytes(cmd))
+                        pkgs.append(CompData.rpm_labor_to_pkg(cur_rpm, cur_labor))
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
+            print("************************************")
         else:
             raise ValueError(f"Invalid option: {cmd}")
 
-        cmds = []
+        # harvest state update pkgs based on command, unless command was numeric 3 or 6
+        pkgs = pkgs if pkgs else CompData.request_to_updates(cmd)
+        if pkgs:
+            from ..db.component_state_store import ComponentStateStore
+            from src.pytrain.pdi.d4_req import D4Req
 
-        # TODO: FIXME D4
-        if address > 99:
-            return cmds
-        if state.name in BASE_MEMORY_WRITE_MAP and use_0x26 is True:
-            offset, data_len, scaler = BASE_MEMORY_WRITE_MAP[state.name]
-            if state.name in {"DIESEL_RPM", "ENGINE_LABOR"}:
-                from ..db.component_state_store import ComponentStateStore
-
-                comp_state = ComponentStateStore.get_state(scope, address, False)
-                if comp_state:
-                    if state.name == "DIESEL_RPM":
-                        rpm = data
-                        labor = comp_state.labor if comp_state.labor else 12
-                    else:
-                        rpm = comp_state.rpm if comp_state.rpm else 0
-                        labor = data
-                    data = scaler(rpm, labor)
-                else:
-                    cls.update_eng(cmd, address, data, scope, use_0x26=False)
-                    return None
-            else:
-                if log.isEnabledFor(logging.DEBUG):
-                    log.debug(
-                        f"State: {state} Offset: {offset} Len: {data_len} {data} {scaler(data) if scaler else data}"
+            cur_state = ComponentStateStore.build().get_state(scope, address, False)
+            for pkg in pkgs:
+                if 1 <= cmd.address <= 99:
+                    cmds.append(
+                        BaseReq(
+                            cmd.address,
+                            pdi_command=PdiCommand.BASE_MEMORY,
+                            flags=0xC2,
+                            scope=state.scope,
+                            start=pkg.offset,
+                            data_length=pkg.length,
+                            data_bytes=pkg.data_bytes,
+                        )
                     )
-                if scaler:
-                    data = scaler(data)
-            data_bytes = data.to_bytes(1, "little")
-            if data_len > 1:
-                data_bytes = data_bytes * data_len  # speed value is repeated twice, so we just replicate the first byte
-            cmds.append(
-                BaseReq(
-                    address,
-                    pdi_command=PdiCommand.BASE_MEMORY,
-                    flags=0xC2,
-                    scope=state.scope,
-                    start=offset,
-                    data_length=data_len,
-                    data_bytes=data_bytes,
-                )
-            )
-        elif state.name in ENGINE_WRITE_MAP:
+                else:
+                    pdi_cmd = PdiCommand.D4_ENGINE if cmd.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
+
+                    cmds.append(
+                        D4Req(
+                            cur_state.record_no,
+                            pdi_cmd,
+                            D4Action.UPDATE,
+                            start=pkg.offset,
+                            data_length=pkg.length,
+                            data_bytes=pkg.data_bytes,
+                        )
+                    )
+        elif state.name in ENGINE_WRITE_MAP and cmd.address <= 99:
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
             if log.isEnabledFor(logging.DEBUG):
                 log.debug(f"State: {state} {data} {bit_pos} {offset} {scaler(data) if scaler else data}")
@@ -243,6 +234,8 @@ class BaseReq(PdiReq, CompDataMixin):
             byte_str += checksum
             byte_str += PDI_EOP.to_bytes(1, byteorder="big")
             cmds.append(cls(byte_str))
+        else:
+            print(f"No updates for {cmd}")
         return cmds
 
     def __init__(

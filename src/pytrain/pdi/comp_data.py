@@ -56,14 +56,14 @@ class CompDataHandler:
 
 
 class UpdatePkg:
-    def __init__(self, field: str, address: int, length: int, data_bytes: bytes) -> None:
+    def __init__(self, field: str, offset: int, length: int, data_bytes: bytes) -> None:
         self.field: str = field
-        self.address: int = address
+        self.offset: int = offset
         self.length: int = length
         self.data_bytes: bytes = data_bytes
 
     def __repr__(self) -> str:
-        return f"{self.field}: Address: {hex(self.address)} Length: {self.length} data: {self.data_bytes.hex()}"
+        return f"{self.field}: Address: {hex(self.offset)} Length: {self.length} data: {self.data_bytes.hex()}"
 
 
 BASE_MEMORY_ENGINE_READ_MAP = {
@@ -165,7 +165,7 @@ REQUEST_TO_UPDATES_MAP = {
     "TRAIN_BRAKE": [("train_brake",)],
 }
 
-CONVERSIONS = {
+CONVERSIONS: dict[str, tuple[Callable, Callable]] = {
     "train_brake": (lambda x: min(round(x * 0.4667), 7), lambda x: min(round(x * 2.143), 15)),
     "momentum": (lambda x: min(round(x * 0.05512), 7), lambda x: min(round(x * 18.14), 127)),
     "smoke": (
@@ -197,9 +197,18 @@ class CompData(Generic[R]):
         else:
             raise ValueError(f"Invalid scope: {scope}")
 
+    @classmethod
+    def encode_rpm_labor(cls, rpm: int, labor: int) -> int:
+        conv = CONVERSIONS.get("rpm_labor")
+        return conv[1](rpm, labor)
+
+    @classmethod
+    def rpm_labor_to_pkg(cls, rpm: int, labor: int) -> UpdatePkg:
+        return UpdatePkg("rpm_labor", 0xC0, 1, default_to_func(cls.encode_rpm_labor(rpm, labor)))
+
     # noinspection PyTypeChecker
     @classmethod
-    def request_to_bytes(cls, req: R) -> list[UpdatePkg] | None:
+    def request_to_updates(cls, req: R) -> list[UpdatePkg] | None:
         if not isinstance(req, CommandReq):
             raise AttributeError(f"'Argument is not a CommandReq: {req}'")
 
