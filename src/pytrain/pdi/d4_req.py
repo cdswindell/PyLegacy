@@ -179,15 +179,13 @@ class D4Req(PdiReq, CompDataMixin):
                 di = f" Index: {self.start}" if self.start is not None else ""
                 dl = f" Length: {self.data_length}" if self.data_length is not None else ""
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
-                if isinstance(tpl, CompDataHandler) and (self.data_length == tpl.length):
-                    if not self._data_bytes:
-                        print(f"{tpl.field}, {self.data_length}")
+                if isinstance(tpl, CompDataHandler) and self._data_bytes and (self.data_length == tpl.length):
                     db = f" {tpl.from_bytes(self._data_bytes)}"
                 else:
                     db = (
                         f" Data: {self._data_bytes.hex()}"
                         if self._data_bytes is not None and len(self._data_bytes) < 0xC0
-                        else ""
+                        else " Data: None"
                     )
             return f"{op}{tmcc}{rn}{ct}{sf}{di}{dl}{db}{ts} ({self.packet})"
         return super().payload
