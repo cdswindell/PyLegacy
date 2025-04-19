@@ -123,9 +123,11 @@ class BaseReq(PdiReq, CompDataMixin):
         data: int | None = None,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> List[BaseReq] | None:
+        from ..db.component_state_store import ComponentStateStore
+
         pkgs = []
-        cur_state = None
         if isinstance(cmd, CommandReq):
+            cur_state = ComponentStateStore.build().get_state(scope, address, False)
             state = cmd.command
             address = cmd.address
             data = cmd.data
@@ -134,10 +136,7 @@ class BaseReq(PdiReq, CompDataMixin):
             # special case numeric commands
             if state.name == "NUMERIC":
                 if data in {3, 6}:  # RPM up/down
-                    from ..db.component_state_store import ComponentStateStore
-
                     state = TMCC2EngineCommandEnum.DIESEL_RPM
-                    cur_state = ComponentStateStore.build().get_state(scope, address, False)
                     if cur_state and cur_state.rpm is not None:
                         cur_rpm = cur_state.rpm
                         cur_labor = cur_state.labor if cur_state.labor else 12
@@ -148,6 +147,7 @@ class BaseReq(PdiReq, CompDataMixin):
                         pkgs.append(CompData.rpm_labor_to_pkg(cur_rpm, cur_labor))
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
+            cur_state = ComponentStateStore.build().get_state(scope, address, False)
             log.warning("********************** update_eng called with enum not req ***********************")
         else:
             raise ValueError(f"Invalid option: {cmd}")
@@ -157,10 +157,8 @@ class BaseReq(PdiReq, CompDataMixin):
         pkgs = pkgs if pkgs else CompData.request_to_updates(cmd)
         print(pkgs)
         if pkgs:
-            from ..db.component_state_store import ComponentStateStore
             from src.pytrain.pdi.d4_req import D4Req
 
-            cur_state = cur_state if cur_state else ComponentStateStore.build().get_state(scope, address, False)
             for pkg in pkgs:
                 if 1 <= cmd.address <= 99:
                     cmds.append(

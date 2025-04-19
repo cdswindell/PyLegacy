@@ -9,13 +9,17 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, TypeVar, Generic, Callable
 
 from .consist_component import ConsistComponent
 from .pdi_req import PdiReq
+
 from ..protocol.command_req import CommandReq
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.constants import CommandScope
+
+log = logging.getLogger(__name__)
 
 BASE_TO_TMCC_SMOKE_MAP = {
     0: TMCC2EffectsControl.SMOKE_OFF,
@@ -231,19 +235,41 @@ class CompData(Generic[R]):
             return None
         for update in updates:
             if isinstance(update, tuple) and len(update) >= 1:
-                field = update[0]
+                field = sub_field = update[0]
                 addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
+                # special case for rpm/labor
+                if addr is None and field in {"rpm", "labor"}:
+                    field = "rpm_labor"
+                    addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
                 if addr is None:
+                    log.warning(f"Field {field} not found in FIELD_TO_ADDR_ENGINE_MAP ({req})")
                     continue
                 handler = BASE_MEMORY_ENGINE_READ_MAP.get(addr, None)
                 if handler is None:
+                    if addr is None:
+                        log.warning(f"Field {field} handler not found in BASE_MEMORY_ENGINE_READ_MAP ({req})")
                     continue
                 if len(update) == 1:
                     # have to convert data from command into Base 3 format
                     # is there a converter?
                     conv_tpl = CONVERSIONS.get(field, None)
                     if conv_tpl:
-                        base_value = conv_tpl[1](req.data)
+                        # more special case handling for rpm/labor
+                        if field == "rpm_labor":
+                            from src.pytrain import ComponentStateStore
+
+                            state = ComponentStateStore.build().get_state(req.scope, req.address, False)
+                            assert state is not None
+                            with state.synchronizer:
+                                if sub_field == "rpm":
+                                    rpm = req.data
+                                    labor = state.labor
+                                else:
+                                    rpm = state.rpm
+                                    labor = req.data
+                            base_value = conv_tpl[1](rpm, labor)
+                        else:
+                            base_value = conv_tpl[1](req.data)
                     else:
                         base_value = req.data
                 else:
