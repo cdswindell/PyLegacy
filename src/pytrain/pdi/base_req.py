@@ -97,24 +97,6 @@ def decode_labor_rpm(s: int) -> Tuple[int, int]:
     return rpm, labor
 
 
-BASE_MEMORY_WRITE_MAP = {
-    "ABSOLUTE_SPEED": (0x07, 2, None),
-    "STOP_IMMEDIATE": (0x07, 2, lambda t: 0),
-    "RESET": (0x07, 2, lambda t: 0),
-    "DIESEL_RPM": (0x0C, 1, encode_labor_rpm),
-    "ENGINE_LABOR": (0x0C, 1, encode_labor_rpm),
-    "SMOKE_HIGH": (0x69, 1, lambda t: 3),
-    "SMOKE_MEDIUM": (0x69, 1, lambda t: 2),
-    "SMOKE_LOW": (0x69, 1, lambda t: 1),
-    "SMOKE_OFF": (0x69, 1, lambda t: 0),
-    "TRAIN_BRAKE": (0x09, 1, lambda t: round(t * 2.143)),
-    "MOMENTUM_HIGH": (0x18, 1, lambda t: 127),
-    "MOMENTUM_MEDIUM": (0x18, 1, lambda t: 63),
-    "MOMENTUM_LOW": (0x18, 1, lambda t: 0),
-    "MOMENTUM": (0x18, 1, lambda t: floor(t * 18.285)),
-}
-
-
 RECORD_TYPE_MAP = {
     1: CommandScope.ENGINE,
     2: CommandScope.TRAIN,
@@ -142,12 +124,12 @@ class BaseReq(PdiReq, CompDataMixin):
         scope: CommandScope = CommandScope.ENGINE,
     ) -> List[BaseReq] | None:
         pkgs = []
+        cur_state = None
         if isinstance(cmd, CommandReq):
             state = cmd.command
             address = cmd.address
             data = cmd.data
             scope = cmd.scope
-            print(CompData.request_to_updates(cmd))
 
             # special case numeric commands
             if state.name == "NUMERIC":
@@ -166,7 +148,7 @@ class BaseReq(PdiReq, CompDataMixin):
                         pkgs.append(CompData.rpm_labor_to_pkg(cur_rpm, cur_labor))
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
-            print("************************************")
+            log.warning("********************** update_eng called with enum not req ***********************")
         else:
             raise ValueError(f"Invalid option: {cmd}")
 
@@ -177,7 +159,7 @@ class BaseReq(PdiReq, CompDataMixin):
             from ..db.component_state_store import ComponentStateStore
             from src.pytrain.pdi.d4_req import D4Req
 
-            cur_state = ComponentStateStore.build().get_state(scope, address, False)
+            cur_state = cur_state if cur_state else ComponentStateStore.build().get_state(scope, address, False)
             for pkg in pkgs:
                 if 1 <= cmd.address <= 99:
                     cmds.append(
@@ -192,8 +174,8 @@ class BaseReq(PdiReq, CompDataMixin):
                         )
                     )
                 else:
+                    assert cur_state.record_no != 0xFFFF
                     pdi_cmd = PdiCommand.D4_ENGINE if cmd.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
-
                     cmds.append(
                         D4Req(
                             cur_state.record_no,
@@ -234,6 +216,7 @@ class BaseReq(PdiReq, CompDataMixin):
             byte_str += checksum
             byte_str += PDI_EOP.to_bytes(1, byteorder="big")
             cmds.append(cls(byte_str))
+            print(f"Using old-style {pdi_cmd.name} for updates from {cmd}")
         else:
             print(f"No updates for {cmd}")
         return cmds

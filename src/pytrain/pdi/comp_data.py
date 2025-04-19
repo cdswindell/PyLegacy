@@ -66,6 +66,11 @@ class UpdatePkg:
         return f"{self.field}: Address: {hex(self.offset)} Length: {self.length} data: {self.data_bytes.hex()}"
 
 
+#
+# Base 3 memory locations where engine state is stored. When commands are issued that change
+# engine characteristics, like speed or momentum, these changes must be explicitly written
+# to the Base 3 so it can update other attached controllers and software.
+#
 BASE_MEMORY_ENGINE_READ_MAP = {
     0xB8: CompDataHandler(
         "_tmcc_id",
@@ -136,6 +141,10 @@ SCOPE_TO_COMP_MAP = {
     CommandScope.TRAIN: BASE_MEMORY_TRAIN_READ_MAP,
 }
 
+#
+# Map of Base 3 Command Requests to the corresponding Base 3 state updates
+# that must be made.
+#
 REQUEST_TO_UPDATES_MAP = {
     "ABSOLUTE_SPEED": [
         ("speed",),
@@ -190,6 +199,9 @@ R = TypeVar("R", bound=CommandReq)
 class CompData(Generic[R]):
     @classmethod
     def from_bytes(cls, data: bytes, scope: CommandScope, tmcc_id: int = None) -> C:
+        """
+        Parse byte packet into a CompData object, based on scope.
+        """
         if scope == CommandScope.ENGINE:
             return EngineData(data, tmcc_id=tmcc_id)
         elif scope == CommandScope.TRAIN:

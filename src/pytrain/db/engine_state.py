@@ -365,8 +365,6 @@ class EngineState(ComponentState):
                         pass
                     elif command.record_no is not None:
                         self._d4_rec_no = command.record_no
-            else:
-                print("---", command)
             self.changed.set()
             self._cv.notify_all()
 
