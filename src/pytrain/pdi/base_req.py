@@ -178,7 +178,6 @@ class BaseReq(PdiReq, CompDataMixin):
         if pkgs:
             from src.pytrain.pdi.d4_req import D4Req
 
-            print(cmd, "\n", pkgs)
             for pkg in pkgs:
                 if 1 <= cmd.address <= 99:
                     cmds.append(
