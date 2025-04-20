@@ -393,7 +393,6 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._base3.send(pdi_cmd.as_bytes)
         # also inform CommandDispatcher to update system state
         if self.is_ser2 is False or tmcc_cmd.is_force_state_update is True:
-            print(f"*** Forcing {tmcc_cmd} Broadcast...")
             self._tmcc_dispatcher.offer(tmcc_cmd)
 
 
