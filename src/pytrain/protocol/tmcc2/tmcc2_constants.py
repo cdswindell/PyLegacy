@@ -75,6 +75,7 @@ class TMCC2CommandDef(CommandDef):
         data: int = None,
         filtered=False,
         interval: int = None,
+        d4_broadcast: bool = False,  # if True, command is broadcast from Base 3 for D4 engines
     ) -> None:
         super().__init__(
             command_bits,
@@ -88,6 +89,7 @@ class TMCC2CommandDef(CommandDef):
             interval=interval,
         )
         self._scope = scope
+        self._d4_broadcast = d4_broadcast
 
     @property
     def first_byte(self) -> bytes:
@@ -104,6 +106,10 @@ class TMCC2CommandDef(CommandDef):
     @property
     def address_mask(self) -> int:
         return 0xFFFF & ~((2**self.num_address_bits - 1) << 9)
+
+    @property
+    def is_d4_broadcast(self) -> bool:
+        return self._d4_broadcast
 
     def address_from_bytes(self, byte_data: bytes) -> int:
         if self.is_addressable:
@@ -168,8 +174,8 @@ TMCC2_BLOW_HORN_ONE_COMMAND: int = 0x011C
 TMCC2_BLOW_HORN_TWO_COMMAND: int = 0x011F
 TMCC2_BOOST_SPEED_COMMAND: int = 0x0104
 TMCC2_BRAKE_SPEED_COMMAND: int = 0x0107
-TMCC2_DIESEL_RPM_SOUND_COMMAND: int = 0x01A0  # run level 0 - 7 encoded in last 3 bits
-TMCC2_ENGINE_LABOR_COMMAND: int = 0x01C0  # engine labor 0 - 31 encoded in last 5 bytes
+TMCC2_DIESEL_RPM_SOUND_COMMAND: int = 0x01A0  # run level 0-7 encoded in the last 3 bits
+TMCC2_ENGINE_LABOR_COMMAND: int = 0x01C0  # engine labor 0-31 encoded in the last 5 bits
 TMCC2_ENG_AUGER_SOUND_COMMAND: int = 0x01F7
 TMCC2_ENG_BRAKE_AIR_RELEASE_SOUND_COMMAND: int = 0x01F8
 TMCC2_ENG_BRAKE_SQUEAL_SOUND_COMMAND: int = 0x01F6
@@ -195,16 +201,16 @@ TMCC2_RESTRICTED_SPEED: int = 24
 TMCC2_REVERSE_DIRECTION_COMMAND: int = 0x0103
 TMCC2_RING_BELL_COMMAND: int = 0x011D
 TMCC2_ROLL_SPEED: int = 1  # express speeds as simple integers
-TMCC2_SET_ABSOLUTE_SPEED_COMMAND: int = 0x0000  # encode speed in last byte (0 - 199)
+TMCC2_SET_ABSOLUTE_SPEED_COMMAND: int = 0x0000  # encode speed in last byte (0-199)
 TMCC2_SET_ADDRESS_COMMAND: int = 0x012B
-TMCC2_SET_BOOST_LEVEL_COMMAND: int = 0x00E8  # encode boost level in last 3 bits (0 - 7)
-TMCC2_SET_BRAKE_LEVEL_COMMAND: int = 0x00E0  # encode brake level in last 3 bits (0 - 7)
+TMCC2_SET_BOOST_LEVEL_COMMAND: int = 0x00E8  # encode boost level in last 3 bits (0-7)
+TMCC2_SET_BRAKE_LEVEL_COMMAND: int = 0x00E0  # encode brake level in last 3 bits (0-7)
 TMCC2_SET_MOMENTUM_COMMAND: int = 0x00C8  # encode momentum in last 3 bits (0 - 7)
 TMCC2_SET_MOMENTUM_LOW_COMMAND: int = 0x0128
 TMCC2_SET_MOMENTUM_MEDIUM_COMMAND: int = 0x0129
 TMCC2_SET_MOMENTUM_HIGH_COMMAND: int = 0x012A
 TMCC2_SET_RELATIVE_SPEED_COMMAND: int = 0x0140  # Relative Speed -5 - 5 encoded in last 4 bits (offset by 5)
-TMCC2_SET_TRAIN_BRAKE_COMMAND: int = 0x00F0  # encode train brake in last 3 bits (0 - 7)
+TMCC2_SET_TRAIN_BRAKE_COMMAND: int = 0x00F0  # encode train brake in the last 3 bits (0-7)
 TMCC2_SHUTDOWN_SEQ_ONE_COMMAND: int = 0x01FD
 TMCC2_SHUTDOWN_SEQ_TWO_COMMAND: int = 0x01FE
 TMCC2_SLOW_SPEED: int = 59
@@ -269,7 +275,7 @@ class TMCC2RRSpeedsEnum(OfficialRRSpeeds):
 
 @unique
 class TMCC2EngineCommandEnum(TMCC2Enum):
-    ABSOLUTE_SPEED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199, filtered=True)
+    ABSOLUTE_SPEED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199, filtered=True, d4_broadcast=True)
     AUGER = TMCC2CommandDef(TMCC2_ENG_AUGER_SOUND_COMMAND)
     AUX1_OFF = TMCC2CommandDef(TMCC2_AUX1_OFF_COMMAND)
     AUX1_ON = TMCC2CommandDef(TMCC2_AUX1_ON_COMMAND)
@@ -294,11 +300,11 @@ class TMCC2EngineCommandEnum(TMCC2Enum):
     BRAKE_SQUEAL = TMCC2CommandDef(TMCC2_ENG_BRAKE_SQUEAL_SOUND_COMMAND)
     CYLINDER_HISS = TMCC2CommandDef(TMCC2_ENG_CYLINDER_HISS_SOUND_COMMAND)
     DIESEL_RPM = TMCC2CommandDef(TMCC2_DIESEL_RPM_SOUND_COMMAND, d_max=7, filtered=True)
-    ENGINE_LABOR = TMCC2CommandDef(TMCC2_ENGINE_LABOR_COMMAND, d_max=31, filtered=True)
+    ENGINE_LABOR = TMCC2CommandDef(TMCC2_ENGINE_LABOR_COMMAND, d_max=31, filtered=True, d4_broadcast=True)
     ENGINE_LABOR_DEFAULT = TMCC2CommandDef(
         TMCC2_ENGINE_LABOR_COMMAND | 12, alias="ENGINE_LABOR", data=DEFAULT_ENGINE_LABOR, filtered=True
     )
-    FORWARD_DIRECTION = TMCC2CommandDef(TMCC2_FORWARD_DIRECTION_COMMAND, filtered=True)
+    FORWARD_DIRECTION = TMCC2CommandDef(TMCC2_FORWARD_DIRECTION_COMMAND, filtered=True, d4_broadcast=True)
     FRONT_COUPLER = TMCC2CommandDef(TMCC2_OPEN_FRONT_COUPLER_COMMAND)
     LET_OFF = TMCC2CommandDef(TMCC2_ENG_LET_OFF_SOUND_COMMAND)
     LET_OFF_LONG = TMCC2CommandDef(TMCC2_ENG_LET_OFF_LONG_SOUND_COMMAND)
@@ -314,7 +320,7 @@ class TMCC2EngineCommandEnum(TMCC2Enum):
     REAR_COUPLER = TMCC2CommandDef(TMCC2_OPEN_REAR_COUPLER_COMMAND)
     REFUELLING = TMCC2CommandDef(TMCC2_ENG_REFUELLING_SOUND_COMMAND)
     RELATIVE_SPEED = TMCC2CommandDef(TMCC2_SET_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
-    REVERSE_DIRECTION = TMCC2CommandDef(TMCC2_REVERSE_DIRECTION_COMMAND, filtered=True)
+    REVERSE_DIRECTION = TMCC2CommandDef(TMCC2_REVERSE_DIRECTION_COMMAND, filtered=True, d4_broadcast=True)
     RING_BELL = TMCC2CommandDef(TMCC2_RING_BELL_COMMAND)
     RPM_DOWN = TMCC2CommandDef(TMCC2_ENG_RPM_DOWN_COMMAND, alias="NUMERIC", data=6)
     RPM_UP = TMCC2CommandDef(TMCC2_ENG_RPM_UP_COMMAND, alias="NUMERIC", data=3)
@@ -350,11 +356,11 @@ class TMCC2EngineCommandEnum(TMCC2Enum):
     STALL = TMCC2CommandDef(TMCC2_STALL_COMMAND)
     START_UP_DELAYED = TMCC2CommandDef(TMCC2_START_UP_SEQ_ONE_COMMAND)
     START_UP_IMMEDIATE = TMCC2CommandDef(TMCC2_START_UP_SEQ_TWO_COMMAND)
-    STOP_IMMEDIATE = TMCC2CommandDef(TMCC2_STOP_IMMEDIATE_COMMAND, filtered=True)
+    STOP_IMMEDIATE = TMCC2CommandDef(TMCC2_STOP_IMMEDIATE_COMMAND, filtered=True, d4_broadcast=True)
     SYSTEM_HALT = TMCC2CommandDef(TMCC2_HALT_COMMAND)
-    TOGGLE_DIRECTION = TMCC2CommandDef(TMCC2_TOGGLE_DIRECTION_COMMAND, filtered=True)
+    TOGGLE_DIRECTION = TMCC2CommandDef(TMCC2_TOGGLE_DIRECTION_COMMAND, filtered=True, d4_broadcast=True)
     TOWER_CHATTER = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 7, alias="NUMERIC", data=7)
-    TRAIN_BRAKE = TMCC2CommandDef(TMCC2_SET_TRAIN_BRAKE_COMMAND, d_max=7, filtered=True)
+    TRAIN_BRAKE = TMCC2CommandDef(TMCC2_SET_TRAIN_BRAKE_COMMAND, d_max=7, filtered=True, d4_broadcast=True)
     WATER_INJECTOR = TMCC2CommandDef(TMCC2_WATER_INJECTOR_SOUND_COMMAND)
     VOLUME_UP = TMCC2CommandDef(TMCC2_VOLUME_UP_COMMAND_HACK, alias="NUMERIC", data=1)
     VOLUME_DOWN = TMCC2CommandDef(TMCC2_VOLUME_DOWN_COMMAND_HACK, alias="NUMERIC", data=4)

@@ -224,7 +224,7 @@ class CommandReq:
                     (command.command, command.data), dereference_aliases=True, include_aliases=False
                 )
             )
-        # remove the triggering command and it's alias, if it exists
+        # remove the triggering command, and its alias, if it exists
         if effects:
             if command.command in effects:
                 effects.remove(command.command)
@@ -257,7 +257,7 @@ class CommandReq:
         self._command_def_enum: E = command_def_enum
         self._command_name = self._command_def_enum.name
         # noinspection PyTypeChecker
-        self._command_def: TMCC2CommandDef = command_def_enum.value  # read only; do not modify
+        self._command_def: TMCC2CommandDef = command_def_enum.value  # read-only; do not modify
         if self._command_def.is_addressable:
             self._address = address
         else:
@@ -410,6 +410,20 @@ class CommandReq:
     def is_filtered(self) -> bool:
         return self.command_def.is_filtered is True and self.is_tmcc_rx is False
 
+    @property
+    def is_force_state_update(self) -> bool:
+        """
+        For the most part, the Base 3 doesn't broadcast received commands to other receivers.
+        This prevents the PyTrain server and attached clients from maintaining accurate state
+        for 4-digit engines. To compensate, we echo all commands to 4-digit engines after we
+        send them to the Base 3.
+
+        This method is used to determine if a command should be force-broadcast to all clients.
+        """
+        if isinstance(self.command_def, TMCC2CommandDef):
+            return self.command_def.is_d4_broadcast is False and self.address > 99
+        return False
+
     def send(
         self,
         repeat: int = 1,
@@ -545,6 +559,7 @@ class CommandReq:
             raise ValueError(f"Command syntax not recognized {self.syntax}")
         return self._command_bits
 
+    # noinspection PyUnresolvedReferences
     @classmethod
     def build_tmcc1_command_req(cls, param: bytes) -> Self:
         value = int.from_bytes(param[1:3], byteorder="big")
