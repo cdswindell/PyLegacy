@@ -144,7 +144,7 @@ class CommBuffer(abc.ABC):
     @abc.abstractmethod
     def update_state(self, state: ComponentState | CommandReq | PdiReq | bytes) -> None:
         """
-        Update all nodes with given state
+        Update all nodes with the state change
         """
         ...
 
@@ -317,7 +317,7 @@ class CommBufferSingleton(CommBuffer, Thread):
                 self._scheduler.schedule(delay, command)
             else:
                 if command[0] == PDI_SOP:
-                    # send to Base 3, if one is available
+                    # send to Base 3 if one is available
                     if self._base3:
                         self._base3.send(command)
                     else:
@@ -578,8 +578,8 @@ class DelayHandler(Thread):
             with self._cv:
                 while self._scheduler.empty():
                     self._cv.wait()
-            # run the scheduler outside the cv lock, otherwise,
-            #  we couldn't schedule more commands
+            # run the scheduler outside the cv lock; otherwise,
+            # we couldn't schedule more commands
             self._scheduler.run()
             self._ev.clear()
 
