@@ -46,8 +46,8 @@ class StartupState(Thread):
                         self.listener.enqueue_command(state_request)
             elif isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
                 # send a request to the base to get the next engine or train record (0x26)
-                if cmd.tmcc_id < 99 and cmd.data_length == PdiReq.LIONEL_RECORD_LENGTH:
-                    time.sleep(0.05)
+                if cmd.tmcc_id < 98 and cmd.data_length == PdiReq.LIONEL_RECORD_LENGTH:
+                    time.sleep(0.01)
                     self.listener.enqueue_command(BaseReq(cmd.tmcc_id + 1, PdiCommand.BASE_MEMORY, scope=cmd.scope))
                 if cmd.scope == CommandScope.TRAIN and cmd.tmcc_id == 98:
                     CommandDispatcher.get().offer(SYNC_COMPLETE)
