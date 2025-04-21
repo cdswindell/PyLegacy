@@ -18,6 +18,12 @@ from ..protocol.constants import CommandScope, MINIMUM_DURATION_INTERVAL_MSEC, D
 
 T = TypeVar("T", bound=PdiAction)
 
+SCOPE_TO_RECORD_LENGTH = {
+    CommandScope.ENGINE: 0xC0,
+    CommandScope.TRAIN: 0xC0,
+    CommandScope.ROUTE: 0x80,
+}
+
 
 # noinspection GrazieInspection
 class PdiReq(ABC):
@@ -37,6 +43,10 @@ class PdiReq(ABC):
             raise ae
         except ValueError as ve:
             raise ve
+
+    @classmethod
+    def scope_record_length(cls, scope: CommandScope) -> int:
+        return SCOPE_TO_RECORD_LENGTH.get(scope, None)
 
     def __init__(self, data: bytes | None, pdi_command: PdiCommand = None) -> None:
         super().__init__()
@@ -148,6 +158,14 @@ class PdiReq(ABC):
     @property
     def action(self) -> T | None:
         return None
+
+    @property
+    def base_record_length(self) -> int:
+        """
+        Return the record length of the PdiCommand.BASE_MEMORY or
+        D4_ENGINE/D4_TRAIN record in the Base 3 based on Scope.
+        """
+        return SCOPE_TO_RECORD_LENGTH.get(self.scope, None)
 
     @property
     def as_bytes(self) -> bytes:

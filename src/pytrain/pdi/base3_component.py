@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from enum import unique, IntEnum
 
-from src.pytrain.protocol.constants import Mixins
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import Mixins
 
 
 @unique
@@ -31,6 +33,7 @@ class ConsistComponent:
         byte_str = bytes()
         for comp in reversed(components):
             byte_str += comp.as_bytes
+        byte_str += b"\xff" * (32 - len(byte_str))
         return byte_str
 
     def __init__(self, tmcc_id: int, flags: int) -> None:
@@ -101,6 +104,51 @@ class ConsistComponent:
     @property
     def is_accessory(self) -> bool:
         return 0b10000000 & self.flags == 0b10000000
+
+    @property
+    def as_bytes(self) -> bytes:
+        byte_str = self.flags.to_bytes(1, byteorder="little")
+        byte_str += self.tmcc_id.to_bytes(1, byteorder="little")
+        return byte_str
+
+
+class RouteComponent:
+    @classmethod
+    def from_bytes(cls, data: bytes) -> list[RouteComponent]:
+        route_comps: list[RouteComponent] = list()
+        data_len = len(data)
+        for i in range(0, 32, 2):
+            if data_len > i:
+                if data[i] != 0xFF and data[i + 1] != 0xFF:
+                    route_comps.insert(0, RouteComponent(tmcc_id=data[i + 1], flags=data[i]))
+            else:
+                break
+        return route_comps
+
+    @classmethod
+    def to_bytes(cls, components: list[RouteComponent]) -> bytes:
+        byte_str = bytes()
+        for comp in components:
+            byte_str += comp.as_bytes
+        byte_str += b"\xff" * (32 - len(byte_str))
+        return byte_str
+
+    def __init__(self, tmcc_id: int, flags: int) -> None:
+        self.tmcc_id = tmcc_id
+        self.flags = flags
+
+    @property
+    def is_thru(self) -> bool:
+        return 0x03 & self.flags == 0
+
+    @property
+    def is_out(self) -> bool:
+        return self.is_thru is False
+
+    @property
+    def as_request(self) -> CommandReq:
+        cmd_enum = TMCC1SwitchCommandEnum.THRU if self.is_thru is True else TMCC1SwitchCommandEnum.OUT
+        return CommandReq(cmd_enum, self.tmcc_id)
 
     @property
     def as_bytes(self) -> bytes:

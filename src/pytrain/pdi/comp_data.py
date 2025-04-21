@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any, TypeVar, Generic, Callable
 
-from .consist_component import ConsistComponent
+from .base3_component import ConsistComponent, RouteComponent
 from .pdi_req import PdiReq
 
 from ..protocol.command_req import CommandReq
@@ -140,9 +140,34 @@ BASE_MEMORY_TRAIN_READ_MAP = {
 }
 BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
 
+BASE_MEMORY_ROUTE_READ_MAP = {
+    0x00: CompDataHandler("_prev_link"),
+    0x01: CompDataHandler("_next_link"),
+    0x05: CompDataHandler(
+        "_road_name",
+        31,
+        lambda t: PdiReq.decode_text(t),
+        lambda t: PdiReq.encode_text(t, 31),
+    ),
+    0x24: CompDataHandler("_road_number_len"),
+    0x25: CompDataHandler(
+        "_road_number",
+        4,
+        lambda t: PdiReq.decode_text(t),
+        lambda t: PdiReq.encode_text(t, 4),
+    ),
+    0x60: CompDataHandler(
+        "_components",
+        32,
+        lambda t: RouteComponent.from_bytes(t),
+        lambda t: RouteComponent.to_bytes(t),
+    ),
+}
+
 SCOPE_TO_COMP_MAP = {
     CommandScope.ENGINE: BASE_MEMORY_ENGINE_READ_MAP,
     CommandScope.TRAIN: BASE_MEMORY_TRAIN_READ_MAP,
+    CommandScope.ROUTE: BASE_MEMORY_ROUTE_READ_MAP,
 }
 
 #
@@ -286,9 +311,22 @@ class CompData(Generic[R]):
         super().__init__()
         self._tmcc_id: int | None = tmcc_id
         self._scope = scope
-        # self.__signal_initialized()
+        self._road_name: str | None = None
+        self._road_number: str | None = None
+        self._road_number_len: int | None = None
+        self._next_link: int | None = None
+        self._prev_link: int | None = None
+
         # load the data from the byte string
         self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
+
+    def __repr__(self) -> str:
+        nm = nu = ""
+        if self.road_name is not None:
+            nm = f" {self.road_name}"
+        if self.road_number is not None:
+            nu = f" #{self.road_number} "
+        return f"{self.scope.title} {self.tmcc_id:>4}:{nm}{nu}{self.payload()}"
 
     def __getattr__(self, name: str) -> Any:
         if name in self.__dict__:
@@ -338,6 +376,9 @@ class CompData(Generic[R]):
     def __signal_initialized(self) -> None:
         self.__dict__["__initializing__"] = False
 
+    def payload(self) -> str:
+        return ""
+
     def as_bytes(self) -> bytes:
         comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
         schema = {key: comp_map[key] for key in sorted(comp_map.keys())}
@@ -385,11 +426,6 @@ class EngineData(CompData):
         self._engine_type: int | None = None
         self._max_speed: int | None = None
         self._momentum: int | None = None
-        self._next_link: int | None = None
-        self._prev_link: int | None = None
-        self._road_name: str | None = None
-        self._road_number: str | None = None
-        self._road_number_len: int | None = None
         self._rpm_labor: int | None = None
         self._smoke: int | None = None
         self._sound_type: int | None = None
@@ -425,6 +461,24 @@ class TrainData(EngineData):
         self._consist_flags: int | None = None
         self._consist_comps: list[ConsistComponent] | None = None
         super().__init__(data, scope=CommandScope.TRAIN, tmcc_id=tmcc_id)
+
+
+class Route(CompData):
+    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+        self._signal_initializing()
+        self._components: list[RouteComponent] | None = None
+        super().__init__(data, scope=CommandScope.ROUTE, tmcc_id=tmcc_id)
+
+    def payload(self) -> str:
+        sw = ""
+        if self._components:
+            sw = " Switches: "
+            sep = ""
+            for c in self._components:
+                state = "thru" if c.is_thru else "out"
+                sw += f"{sep}{c.tmcc_id} [{state}]"
+                sep = ", "
+        return sw
 
 
 class CompDataMixin(Generic[C]):

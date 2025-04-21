@@ -436,7 +436,7 @@ class RouteState(TmccState):
                 state = "thru" if c.command == Switch.THRU else "out"
                 sw += f"{sep}{c.address} [{state}]"
                 sep = ", "
-        return f"{self.scope.title} {self.address}: {nm}{nu}{sw}"
+        return f"{self.scope.title} {self.address:>2}:{nm}{nu}{sw}"
 
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
@@ -456,6 +456,8 @@ class RouteState(TmccState):
                             is_thru = (comp & 0x0300) == 0
                             comp &= 0x007F
                             self._components.append(CommandReq(Switch.THRU if is_thru else Switch.OUT, comp))
+                        self._components = sorted(self._components, key=lambda s: s.address)
+                        # TODO: sort by
                 else:
                     log.warning(f"Unhandled Route State Update received: {command}")
                 self.changed.set()

@@ -13,7 +13,7 @@ from .comp_data import (
     CompData,
     CompDataHandler,
 )
-from .consist_component import ConsistComponent
+from .base3_component import ConsistComponent
 from .pdi_req import PdiReq
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
@@ -101,6 +101,7 @@ RECORD_TYPE_MAP = {
     1: CommandScope.ENGINE,
     2: CommandScope.TRAIN,
     3: CommandScope.ACC,
+    5: CommandScope.ROUTE,
     6: CommandScope.SWITCH,
 }
 
@@ -346,9 +347,11 @@ class BaseReq(PdiReq, CompDataMixin):
                 _ = self._data[9] if data_len > 9 else None  # we assume port is always 2; Database EEProm
                 self._data_length = self._data[10] if data_len > 10 else None
                 self._data_bytes = self._data[11:] if data_len > 11 else None
-                if self.data_length == self.LIONEL_RECORD_LENGTH and self.scope in {
+                base_record_length = PdiReq.scope_record_length(self.scope)
+                if self.data_length == base_record_length and self.scope in {
                     CommandScope.ENGINE,
                     CommandScope.TRAIN,
+                    CommandScope.ROUTE,
                 }:
                     self._comp_data = CompData.from_bytes(self._data_bytes, scope=self.scope, tmcc_id=self.tmcc_id)
                     self._name = self._comp_data.road_name

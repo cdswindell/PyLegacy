@@ -732,7 +732,7 @@ class EngineState(ComponentState):
 
 
 class TrainState(EngineState):
-    from ..pdi.consist_component import ConsistComponent
+    from ..pdi.base3_component import ConsistComponent
 
     def __init__(self, scope: CommandScope = CommandScope.TRAIN) -> None:
         if scope != CommandScope.TRAIN:
