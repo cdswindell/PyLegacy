@@ -74,21 +74,12 @@ class ComponentState(ABC, CompDataMixin):
         self._cv: Condition = Condition(self._lock)
 
     def __repr__(self) -> str:
+        if self.is_comp_data_record is True:
+            return str(self.comp_data)
         return f"{self.scope.name} {self._address}"
 
     def __lt__(self, other):
         return self.address < other.address
-
-    def results_in(self, command: CommandReq) -> Set[E]:
-        effects = self._dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
-        if command.is_data:
-            # noinspection PyTypeChecker
-            effects.update(
-                self._dependencies.results_in(
-                    (command.command, command.data), dereference_aliases=True, include_aliases=False
-                )
-            )
-        return effects
 
     def _harvest_effect(self, effects: Set[E]) -> E | tuple[E, int] | None:
         for effect in effects:
@@ -104,6 +95,17 @@ class ComponentState(ABC, CompDataMixin):
                 else:
                     return effect_enum, effect_data
         return None
+
+    def results_in(self, command: CommandReq) -> Set[E]:
+        effects = self._dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
+        if command.is_data:
+            # noinspection PyTypeChecker
+            effects.update(
+                self._dependencies.results_in(
+                    (command.command, command.data), dereference_aliases=True, include_aliases=False
+                )
+            )
+        return effects
 
     @property
     def scope(self) -> CommandScope:
@@ -260,6 +262,20 @@ class ComponentState(ABC, CompDataMixin):
         """
         return self._is_known
 
+    def as_bytes(self) -> bytes | list[bytes]:
+        from ..pdi.base_req import BaseReq
+
+        """
+        Returns the component state as a bytes object representative of the TMCC/Legacy
+        byte sequence used to trigger the corresponding action(s) when received by the
+        component.
+
+        Used to synchronizer component state when client connects to the server.
+        """
+        with self.synchronizer:
+            byte_str = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self).as_bytes
+            return byte_str
+
     @property
     @abc.abstractmethod
     def is_tmcc(self) -> bool:
@@ -281,17 +297,6 @@ class ComponentState(ABC, CompDataMixin):
     def is_lcs(self) -> bool:
         """
         Returns True if component is an LCS device, False otherwise.
-        """
-        ...
-
-    @abc.abstractmethod
-    def as_bytes(self) -> bytes | list[bytes]:
-        """
-        Returns the component state as a bytes object representative of the TMCC/Legacy
-        byte sequence used to trigger the corresponding action(s) when received by the
-        component.
-
-        Used to synchronizer component state when client connects to the server.
         """
         ...
 
@@ -427,22 +432,6 @@ class RouteState(TmccState):
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
 
-    def __repr__(self) -> str:
-        nm = nu = sw = ""
-        if self.road_name is not None:
-            nm = f" {self.road_name}"
-        if self.road_number is not None:
-            nu = f" #{self.road_number} "
-        if self.components:
-            sw = " Switches: "
-            sep = ""
-            for c in self.components:
-                state = "thru" if c.is_thru is True else "out"
-                sw += f"{sep}{c.tmcc_id} [{state}]"
-                sep = ", "
-        # return f"{self.scope.title} {self.tmcc_id:>2}:{nm}{nu}{sw}"
-        return str(self.comp_data)
-
     def update(self, command: L | P) -> None:
         if command:
             with self._cv:
@@ -468,12 +457,6 @@ class RouteState(TmccState):
     @property
     def components(self) -> List[RouteComponent] | None:
         return self.comp_data.components.copy() if self.comp_data.components else None
-
-    def as_bytes(self) -> bytes:
-        from ..pdi.base_req import BaseReq
-
-        byte_str = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self).as_bytes
-        return byte_str
 
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
