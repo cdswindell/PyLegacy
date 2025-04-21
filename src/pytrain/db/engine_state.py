@@ -20,7 +20,7 @@ from .component_state import (
     ComponentState,
 )
 from ..pdi.d4_req import D4Req
-from ..pdi.comp_data import CompData, CompDataMixin, CompDataHandler
+from ..pdi.comp_data import CompDataMixin, CompDataHandler
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.command_req import CommandReq
 from ..protocol.command_def import CommandDefEnum
@@ -450,10 +450,6 @@ class EngineState(ComponentState):
                         self._d4_rec_no = command.record_no
             self.changed.set()
             self._cv.notify_all()
-
-    def _update_comp_data(self, comp_data: CompData):
-        self._comp_data = comp_data
-        self._comp_data_record = True
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:

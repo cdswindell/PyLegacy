@@ -123,6 +123,7 @@ class RouteComponent:
                     route_comps.insert(0, RouteComponent(tmcc_id=data[i + 1], flags=data[i]))
             else:
                 break
+        route_comps = sorted(route_comps, key=lambda s: s.tmcc_id)
         return route_comps
 
     @classmethod

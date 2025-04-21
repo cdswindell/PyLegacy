@@ -18,6 +18,7 @@ from threading import Condition, Event, Lock, RLock
 from time import time
 from typing import Any, Dict, List, Set, TypeVar
 
+from ..pdi.comp_data import CompData
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import PdiCommand
 from ..pdi.irda_req import IrdaReq
@@ -152,6 +153,10 @@ class ComponentState(ABC, CompDataMixin):
     @property
     def spare_1(self) -> int:
         return self._spare_1
+
+    def _update_comp_data(self, comp_data: CompData):
+        self._comp_data = comp_data
+        self._comp_data_record = True
 
     @staticmethod
     def _as_label(prop: Any) -> str:
@@ -439,25 +444,22 @@ class RouteState(TmccState):
         return f"{self.scope.title} {self.address:>2}:{nm}{nu}{sw}"
 
     def update(self, command: L | P) -> None:
-        from ..pdi.base_req import BaseReq
-
         if command:
             with self._cv:
+                if self.is_comp_data_record is False:
+                    if isinstance(command, CommandReq):
+                        from src.pytrain.comm.command_listener import CommandDispatcher
+
+                        log.info(f"Still awaiting for initial state, will retry {command}...")
+                        CommandDispatcher.get().offer(command)
+                        return
                 super().update(command)
                 if command.command == TMCC1HaltCommandEnum.HALT:
                     return
+                if isinstance(command, CompDataMixin) and command.is_comp_data_record:
+                    self._update_comp_data(command.comp_data)
                 if isinstance(command, CommandReq):
                     pass
-                elif isinstance(command, BaseReq) and command.command == PdiCommand.BASE_MEMORY:
-                    if command.components:
-                        self._components = list()
-                        self._components_raw = command.components.copy()
-                        for comp in command.components:
-                            is_thru = (comp & 0x0300) == 0
-                            comp &= 0x007F
-                            self._components.append(CommandReq(Switch.THRU if is_thru else Switch.OUT, comp))
-                        self._components = sorted(self._components, key=lambda s: s.address)
-                        # TODO: sort by
                 else:
                     log.warning(f"Unhandled Route State Update received: {command}")
                 self.changed.set()
