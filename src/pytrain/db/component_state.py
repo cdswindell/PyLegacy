@@ -478,7 +478,7 @@ class RouteState(TmccState):
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
         if self.components:
-            sw = [{"switch": c.address, "position": "thru" if c.is_thru is True else "out"} for c in self.components]
+            sw = [{"switch": c.tmcc_id, "position": "thru" if c.is_thru is True else "out"} for c in self.components]
         else:
             sw = list()
         d["switches"] = sw
