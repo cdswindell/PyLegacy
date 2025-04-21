@@ -14,7 +14,7 @@ from .comp_data import (
     CompDataHandler,
 )
 from .base3_component import ConsistComponent
-from .pdi_req import PdiReq
+from .pdi_req import PdiReq, SCOPE_TO_RECORD_LENGTH
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
@@ -619,7 +619,7 @@ class BaseReq(PdiReq, CompDataMixin):
     def is_active(self) -> bool:
         if (
             self.pdi_command == PdiCommand.BASE_MEMORY
-            and self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}
+            and self.scope in SCOPE_TO_RECORD_LENGTH
             and self.comp_data
             and self.is_comp_data_record is True
         ):
