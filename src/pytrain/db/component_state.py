@@ -383,7 +383,7 @@ class SwitchState(TmccState):
                     return
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                     self._update_comp_data(command.comp_data)
-                if isinstance(command, CommandReq):
+                elif isinstance(command, CommandReq):
                     if command.command != Switch.SET_ADDRESS:
                         self._state = command.command
                 elif isinstance(command, Asc2Req) or isinstance(command, Stm2Req):
