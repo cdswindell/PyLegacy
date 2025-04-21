@@ -48,9 +48,10 @@ from ..db.component_state_store import ComponentStateStore
 from ..db.prod_info import ProdInfo
 from ..db.startup_state import StartupState
 from ..gpio.gpio_handler import GpioHandler
+from ..pdi.asc2_req import Asc2Req
 from ..pdi.d4_req import D4Req
 from ..pdi.base_req import BaseReq
-from ..pdi.constants import PdiCommand, PDI_SOP, D4Action
+from ..pdi.constants import PdiCommand, PDI_SOP, D4Action, Asc2Action
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import PdiReq, AllReq
 from ..pdi.pdi_state_store import PdiStateStore
@@ -1100,6 +1101,12 @@ class PyTrain:
                     if seq is None:
                         raise AttributeError(f"Sequence '{param[3]}' is invalid")
                     agr = IrdaReq(tmcc_id, PdiCommand.IRDA_SET, ca, sequence=seq)
+            elif ca in {Asc2Action.CONTROL1, Asc2Action.CONTROL5}:
+                data = 1
+                if param_len > 3:
+                    data = int(param[3])
+                agr = Asc2Req(tmcc_id, PdiCommand.ASC2_SET, ca, values=data)
+                print(agr)
             elif ca is not None:
                 agr = dev.build_req(tmcc_id, ca)
         else:

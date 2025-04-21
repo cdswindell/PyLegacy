@@ -374,6 +374,7 @@ class SwitchState(TmccState):
         if command:
             with self.synchronizer:
                 super().update(command)
+                print(command)
                 if command.command == TMCC1HaltCommandEnum.HALT:
                     return
                 if isinstance(command, CommandReq):
