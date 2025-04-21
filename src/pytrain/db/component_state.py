@@ -369,21 +369,25 @@ class SwitchState(TmccState):
         )
 
     def update(self, command: L | P) -> None:
-        from ..pdi.base_req import BaseReq
-
         if command:
             with self.synchronizer:
+                if self.is_comp_data_record is False:
+                    if isinstance(command, CommandReq):
+                        from src.pytrain.comm.command_listener import CommandDispatcher
+
+                        log.info(f"Still awaiting for initial state, will retry {command}...")
+                        CommandDispatcher.get().offer(command)
+                        return
                 super().update(command)
-                print(command)
                 if command.command == TMCC1HaltCommandEnum.HALT:
                     return
+                if isinstance(command, CompDataMixin) and command.is_comp_data_record:
+                    self._update_comp_data(command.comp_data)
                 if isinstance(command, CommandReq):
                     if command.command != Switch.SET_ADDRESS:
                         self._state = command.command
                 elif isinstance(command, Asc2Req) or isinstance(command, Stm2Req):
                     self._state = Switch.THRU if command.is_thru else Switch.OUT
-                elif isinstance(command, BaseReq):
-                    pass
                 else:
                     log.warning(f"Unhandled Switch State Update received: {command}")
                 self.changed.set()
@@ -406,9 +410,7 @@ class SwitchState(TmccState):
         return self._state == Switch.OUT
 
     def as_bytes(self) -> bytes:
-        from ..pdi.base_req import BaseReq
-
-        byte_str = BaseReq(self.address, PdiCommand.BASE_SWITCH, state=self).as_bytes
+        byte_str = super().as_bytes()
         if self.is_known:
             byte_str += CommandReq.build(self.state, self.address).as_bytes
         return byte_str
@@ -435,7 +437,7 @@ class RouteState(TmccState):
 
     def update(self, command: L | P) -> None:
         if command:
-            with self._cv:
+            with self.synchronizer:
                 if self.is_comp_data_record is False:
                     if isinstance(command, CommandReq):
                         from src.pytrain.comm.command_listener import CommandDispatcher

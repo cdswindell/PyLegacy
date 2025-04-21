@@ -1106,7 +1106,6 @@ class PyTrain:
                 if param_len > 3:
                     data = int(param[3])
                 agr = Asc2Req(tmcc_id, PdiCommand.ASC2_SET, ca, values=data)
-                print(agr)
             elif ca is not None:
                 agr = dev.build_req(tmcc_id, ca)
         else:

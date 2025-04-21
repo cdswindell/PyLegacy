@@ -141,7 +141,7 @@ BASE_MEMORY_TRAIN_READ_MAP = {
 }
 BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
 
-BASE_MEMORY_ROUTE_READ_MAP = {
+BASE_MEMORY_SWITCH_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
     0x05: CompDataHandler(
@@ -157,17 +157,24 @@ BASE_MEMORY_ROUTE_READ_MAP = {
         lambda t: PdiReq.decode_text(t),
         lambda t: PdiReq.encode_text(t, 4),
     ),
-    0x60: CompDataHandler(
-        "_components",
-        32,
-        lambda t: RouteComponent.from_bytes(t),
-        lambda t: RouteComponent.to_bytes(t),
-    ),
 }
+
+BASE_MEMORY_ROUTE_READ_MAP = BASE_MEMORY_SWITCH_READ_MAP.copy()
+BASE_MEMORY_ROUTE_READ_MAP.update(
+    {
+        0x60: CompDataHandler(
+            "_components",
+            32,
+            lambda t: RouteComponent.from_bytes(t),
+            lambda t: RouteComponent.to_bytes(t),
+        ),
+    }
+)
 
 SCOPE_TO_COMP_MAP = {
     CommandScope.ENGINE: BASE_MEMORY_ENGINE_READ_MAP,
     CommandScope.TRAIN: BASE_MEMORY_TRAIN_READ_MAP,
+    CommandScope.SWITCH: BASE_MEMORY_SWITCH_READ_MAP,
     CommandScope.ROUTE: BASE_MEMORY_ROUTE_READ_MAP,
 }
 
@@ -238,6 +245,8 @@ class CompData(Generic[R]):
             return EngineData(data, tmcc_id=tmcc_id)
         elif scope == CommandScope.TRAIN:
             return TrainData(data, tmcc_id=tmcc_id)
+        elif scope == CommandScope.SWITCH:
+            return SwitchData(data, tmcc_id=tmcc_id)
         elif scope == CommandScope.ROUTE:
             return RouteData(data, tmcc_id=tmcc_id)
         else:
@@ -468,6 +477,12 @@ class TrainData(EngineData):
         self._consist_flags: int | None = None
         self._consist_comps: list[ConsistComponent] | None = None
         super().__init__(data, scope=CommandScope.TRAIN, tmcc_id=tmcc_id)
+
+
+class SwitchData(CompData):
+    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+        self._signal_initializing()
+        super().__init__(data, scope=CommandScope.SWITCH, tmcc_id=tmcc_id)
 
 
 class RouteData(CompData):
