@@ -378,9 +378,11 @@ class BaseReq(PdiReq, CompDataMixin):
                 self._data_length = data_length
                 self._data_bytes = data_bytes
                 if state and isinstance(state, CompDataMixin):
-                    self._valid1 = 0b11111
+                    self._valid1 = 0b1111
                     self._start = 0
                     self._data_length = PdiReq.scope_record_length(self.scope)
+                    if self.scope == CommandScope.SWITCH:
+                        print(state.address, state.comp_data)
                     self._data_bytes = state.comp_data.as_bytes()
             elif state:
                 from .. import TrainState
