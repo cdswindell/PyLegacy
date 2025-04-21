@@ -18,6 +18,7 @@ from .pdi_req import PdiReq
 from ..protocol.command_req import CommandReq
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.constants import CommandScope
+from ..utils.text_utils import title
 
 log = logging.getLogger(__name__)
 
@@ -325,7 +326,7 @@ class CompData(Generic[R]):
     def __repr__(self) -> str:
         nm = nu = ""
         if self.road_name is not None:
-            nm = f" {self.road_name}"
+            nm = f" {title(self.road_name)}"
         if self.road_number is not None:
             nu = f" #{self.road_number} "
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
