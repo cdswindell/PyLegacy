@@ -438,9 +438,9 @@ class RouteState(TmccState):
             sep = ""
             for c in self.components:
                 state = "thru" if c.is_thru is True else "out"
-                sw += f"{sep}{c.address} [{state}]"
+                sw += f"{sep}{c.tmcc_id} [{state}]"
                 sep = ", "
-        # return f"{self.scope.title} {self.address:>2}:{nm}{nu}{sw}"
+        # return f"{self.scope.title} {self.tmcc_id:>2}:{nm}{nu}{sw}"
         return str(self.comp_data)
 
     def update(self, command: L | P) -> None:
