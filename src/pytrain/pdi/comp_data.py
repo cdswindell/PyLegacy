@@ -237,7 +237,7 @@ class CompData(Generic[R]):
             return EngineData(data, tmcc_id=tmcc_id)
         elif scope == CommandScope.TRAIN:
             return TrainData(data, tmcc_id=tmcc_id)
-        elif scope == CommandScope.Route:
+        elif scope == CommandScope.ROUTE:
             return RouteData(data, tmcc_id=tmcc_id)
         else:
             raise ValueError(f"Invalid scope: {scope}")
