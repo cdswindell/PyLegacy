@@ -467,7 +467,7 @@ class RouteState(TmccState):
 
     @property
     def components(self) -> List[RouteComponent] | None:
-        return self.comp_data.components.copy() if self.components else None
+        return self.comp_data.components.copy() if self.comp_data.components else None
 
     def as_bytes(self) -> bytes:
         from ..pdi.base_req import BaseReq
