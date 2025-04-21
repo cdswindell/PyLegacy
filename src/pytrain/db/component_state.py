@@ -456,10 +456,9 @@ class RouteState(TmccState):
                 super().update(command)
                 if command.command == TMCC1HaltCommandEnum.HALT:
                     return
-                print(f"Route Cmd: {command} {command.is_comp_data_record}")
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                     self._update_comp_data(command.comp_data)
-                if isinstance(command, CommandReq):
+                elif isinstance(command, CommandReq):
                     pass
                 else:
                     log.warning(f"Unhandled Route State Update received: {command}")
@@ -467,21 +466,13 @@ class RouteState(TmccState):
                 self._cv.notify_all()
 
     @property
-    def is_known(self) -> bool:
-        return self._components is not None
-
-    @property
     def components(self) -> List[CommandReq]:
-        return self._components.copy() if self._components else None
-
-    @property
-    def components_raw(self) -> List[int]:
-        return self._components_raw.copy() if self._components_raw else None
+        return self.comp_data.components.copy() if self.components else None
 
     def as_bytes(self) -> bytes:
         from ..pdi.base_req import BaseReq
 
-        byte_str = BaseReq(self.address, PdiCommand.BASE_ROUTE, state=self).as_bytes
+        byte_str = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self).as_bytes
         return byte_str
 
     def as_dict(self) -> Dict[str, Any]:

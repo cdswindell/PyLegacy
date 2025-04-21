@@ -382,7 +382,6 @@ class BaseReq(PdiReq, CompDataMixin):
                     self._data_length = PdiReq.scope_record_length(self.scope)
                     self._data_bytes = state.comp_data.as_bytes()
             elif state:
-                from ..db.component_state import RouteState
                 from .. import TrainState
                 from .. import EngineState
                 from ..db.base_state import BaseState
@@ -425,14 +424,6 @@ class BaseReq(PdiReq, CompDataMixin):
                         if isinstance(state, TrainState):
                             self._consist_flags = state.consist_flags
                             self._consist_comps = state.consist_components
-                    elif isinstance(state, RouteState):
-                        # copy over component switches
-                        raw = state.components_raw
-                        if raw is not None:
-                            self._valid1 |= 0b10000  # set bit 4
-                            self._route_components = [0] * 16
-                            for i, sc in enumerate(raw):
-                                self._route_components[i] = sc
 
     def is_valid(self, field: EngineBits) -> bool:
         if self._valid1 and field.value <= 15:
