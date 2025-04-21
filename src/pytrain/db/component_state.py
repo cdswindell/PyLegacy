@@ -437,7 +437,7 @@ class RouteState(TmccState):
             sw = " Switches: "
             sep = ""
             for c in self.components:
-                state = "thru" if c.command == Switch.THRU else "out"
+                state = "thru" if c.is_thru is True else "out"
                 sw += f"{sep}{c.address} [{state}]"
                 sep = ", "
         # return f"{self.scope.title} {self.address:>2}:{nm}{nu}{sw}"
