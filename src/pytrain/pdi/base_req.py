@@ -369,6 +369,11 @@ class BaseReq(PdiReq, CompDataMixin):
                 self.scope = scope if scope else CommandScope.ENGINE
                 self._record_type = SCOPE_TO_RECORD_TYPE_MAP.get(self.scope, 1)
                 self._start = start
+                data_length = (
+                    data_length
+                    if data_length and 0 <= data_length <= PdiReq.scope_record_length(self.scope)
+                    else PdiReq.scope_record_length(self.scope)
+                )
                 self._data_length = data_length
                 self._data_bytes = data_bytes
                 if state and isinstance(state, CompDataMixin):
