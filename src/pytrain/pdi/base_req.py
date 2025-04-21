@@ -351,6 +351,7 @@ class BaseReq(PdiReq, CompDataMixin):
                 if self.data_length == base_record_length and self.scope in {
                     CommandScope.ENGINE,
                     CommandScope.TRAIN,
+                    CommandScope.SWITCH,
                     CommandScope.ROUTE,
                 }:
                     self._comp_data = CompData.from_bytes(self._data_bytes, scope=self.scope, tmcc_id=self.tmcc_id)
