@@ -456,6 +456,7 @@ class RouteState(TmccState):
                 super().update(command)
                 if command.command == TMCC1HaltCommandEnum.HALT:
                     return
+                print(f"Route Cmd: {command} {command.is_comp_data_record}")
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                     self._update_comp_data(command.comp_data)
                 if isinstance(command, CommandReq):
