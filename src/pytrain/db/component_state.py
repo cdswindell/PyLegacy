@@ -18,6 +18,7 @@ from threading import Condition, Event, Lock, RLock
 from time import time
 from typing import Any, Dict, List, Set, TypeVar
 
+from ..pdi.base3_component import RouteComponent
 from ..pdi.comp_data import CompData
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import PdiCommand
@@ -425,8 +426,6 @@ class RouteState(TmccState):
         if scope != CommandScope.ROUTE:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
-        self._components: List[CommandReq] | None = None
-        self._components_raw: List[int] | None = None
 
     def __repr__(self) -> str:
         nm = nu = sw = ""
@@ -434,14 +433,15 @@ class RouteState(TmccState):
             nm = f" {self.road_name}"
         if self.road_number is not None:
             nu = f" #{self.road_number} "
-        if self._components:
+        if self.components:
             sw = " Switches: "
             sep = ""
-            for c in self._components:
+            for c in self.components:
                 state = "thru" if c.command == Switch.THRU else "out"
                 sw += f"{sep}{c.address} [{state}]"
                 sep = ", "
-        return f"{self.scope.title} {self.address:>2}:{nm}{nu}{sw}"
+        # return f"{self.scope.title} {self.address:>2}:{nm}{nu}{sw}"
+        return str(self.comp_data)
 
     def update(self, command: L | P) -> None:
         if command:
@@ -466,7 +466,7 @@ class RouteState(TmccState):
                 self._cv.notify_all()
 
     @property
-    def components(self) -> List[CommandReq]:
+    def components(self) -> List[RouteComponent] | None:
         return self.comp_data.components.copy() if self.components else None
 
     def as_bytes(self) -> bytes:
@@ -477,8 +477,8 @@ class RouteState(TmccState):
 
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
-        if self._components:
-            sw = [{"switch": c.address, "position": c.command.name.lower()} for c in self._components]
+        if self.components:
+            sw = [{"switch": c.address, "position": "thru" if c.is_thru is True else "out"} for c in self.components]
         else:
             sw = list()
         d["switches"] = sw
