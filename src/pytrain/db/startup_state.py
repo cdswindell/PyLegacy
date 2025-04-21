@@ -108,7 +108,7 @@ class StartupState(Thread):
         time.sleep(0.01)
         self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.TRAIN))
         time.sleep(0.01)
-        self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.BASE_ROUTE))
+        self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.ROUTE))
         for tmcc_id in range(1, 99):
             self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ACC))
             time.sleep(0.05)
