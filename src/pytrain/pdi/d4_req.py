@@ -52,7 +52,7 @@ class D4Req(PdiReq, CompDataMixin):
                 data_bytes = self._data[12:] if data_len > 12 else None
                 if isinstance(data_bytes, bytes):
                     self._data_bytes = data_bytes
-                    if self.start == 0 and self.data_length == self.LIONEL_RECORD_LENGTH:
+                    if self.start == 0 and self.data_length == PdiReq.scope_record_length(CommandScope.ENGINE):
                         self._comp_data = CompData.from_bytes(data_bytes, self.scope)
                         self._tmcc_id = self._comp_data.tmcc_id
                         self._comp_data_record = True  # mark this req as containing a complete CompData record
@@ -98,7 +98,7 @@ class D4Req(PdiReq, CompDataMixin):
             if state and isinstance(state, EngineState):
                 self._tmcc_id = state.tmcc_id
                 self._start = 0
-                self._data_length = self.LIONEL_RECORD_LENGTH
+                self._data_length = PdiReq.scope_record_length(CommandScope.ENGINE)
                 if isinstance(state, CompDataMixin):
                     self._data_bytes = state.comp_data.as_bytes()
 

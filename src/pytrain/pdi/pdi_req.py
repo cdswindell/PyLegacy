@@ -18,9 +18,10 @@ from ..protocol.constants import CommandScope, MINIMUM_DURATION_INTERVAL_MSEC, D
 
 T = TypeVar("T", bound=PdiAction)
 
+LIONEL_ENGINE_RECORD_LENGTH: int = 0xC0
 SCOPE_TO_RECORD_LENGTH = {
-    CommandScope.ENGINE: 0xC0,
-    CommandScope.TRAIN: 0xC0,
+    CommandScope.ENGINE: LIONEL_ENGINE_RECORD_LENGTH,
+    CommandScope.TRAIN: LIONEL_ENGINE_RECORD_LENGTH,
     CommandScope.ROUTE: 0x80,
 }
 
@@ -28,7 +29,6 @@ SCOPE_TO_RECORD_LENGTH = {
 # noinspection GrazieInspection
 class PdiReq(ABC):
     __metaclass__ = abc.ABCMeta
-    LIONEL_RECORD_LENGTH: int = 0xC0
 
     @classmethod
     def from_bytes(cls, data: bytes) -> Self:

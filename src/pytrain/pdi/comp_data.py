@@ -401,8 +401,9 @@ class CompData(Generic[R]):
             byte_str += new_bytes
             last_idx = idx + data_len
         # final check
-        if len(byte_str) < PdiReq.LIONEL_RECORD_LENGTH:
-            byte_str += b"\x00" * (PdiReq.LIONEL_RECORD_LENGTH - len(byte_str))
+        rec_len = PdiReq.scope_record_length(self.scope)
+        if len(byte_str) < rec_len:
+            byte_str += b"\x00" * (rec_len - len(byte_str))
 
         return byte_str
 
