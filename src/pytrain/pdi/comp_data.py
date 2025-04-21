@@ -237,6 +237,8 @@ class CompData(Generic[R]):
             return EngineData(data, tmcc_id=tmcc_id)
         elif scope == CommandScope.TRAIN:
             return TrainData(data, tmcc_id=tmcc_id)
+        elif scope == CommandScope.Route:
+            return RouteData(data, tmcc_id=tmcc_id)
         else:
             raise ValueError(f"Invalid scope: {scope}")
 
@@ -463,7 +465,7 @@ class TrainData(EngineData):
         super().__init__(data, scope=CommandScope.TRAIN, tmcc_id=tmcc_id)
 
 
-class Route(CompData):
+class RouteData(CompData):
     def __init__(self, data: bytes, tmcc_id: int = None) -> None:
         self._signal_initializing()
         self._components: list[RouteComponent] | None = None
