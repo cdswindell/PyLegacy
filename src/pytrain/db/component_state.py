@@ -448,7 +448,7 @@ class RouteState(TmccState):
                     return
                 if isinstance(command, CommandReq):
                     pass
-                elif isinstance(command, BaseReq):
+                elif isinstance(command, BaseReq) and command.command == PdiCommand.BASE_MEMORY:
                     if command.components:
                         self._components = list()
                         self._components_raw = command.components.copy()
