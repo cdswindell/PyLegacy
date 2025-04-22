@@ -383,6 +383,8 @@ class BaseReq(PdiReq, CompDataMixin):
                     self._data_length = PdiReq.scope_record_length(self.scope)
                     if self.comp_data:
                         self._data_bytes = state.comp_data.as_bytes()
+                    else:
+                        print(f"TMCC ID: {self.tmcc_id} {self.scope}")
             elif state:
                 from .. import TrainState
                 from .. import EngineState
