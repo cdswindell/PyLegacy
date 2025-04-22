@@ -45,9 +45,8 @@ class StartupState(Thread):
                     for state_request in state_requests:
                         self.listener.enqueue_command(state_request)
             elif isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
-                # send a request to the base to get the next engine or train record (0x26)
+                # send a request to the base to get the next engine/train/acc/switch/route record (0x26)
                 if cmd.tmcc_id < 98 and cmd.data_length == PdiReq.scope_record_length(cmd.scope):
-                    time.sleep(0.01)
                     self.listener.enqueue_command(BaseReq(cmd.tmcc_id + 1, PdiCommand.BASE_MEMORY, scope=cmd.scope))
                 if cmd.scope == CommandScope.TRAIN and cmd.tmcc_id == 98:
                     CommandDispatcher.get().offer(SYNC_COMPLETE)
@@ -102,7 +101,7 @@ class StartupState(Thread):
         self.listener.enqueue_command(D4Req(0, PdiCommand.D4_ENGINE, D4Action.COUNT))
         self.listener.enqueue_command(D4Req(0, PdiCommand.D4_TRAIN, D4Action.COUNT))
         # Request engine/sw/acc roster at startup; do this by asking for
-        # Eng/Train/Acc/Sw #100 then examining the rev links returned until
+        # Eng/Train/Acc/Sw/Route #100 then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity
         self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE))
         time.sleep(0.01)
@@ -110,10 +109,9 @@ class StartupState(Thread):
         time.sleep(0.01)
         self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.SWITCH))
         time.sleep(0.01)
+        self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.ACC))
+        time.sleep(0.01)
         self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.ROUTE))
-        for tmcc_id in range(1, 99):
-            self.listener.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_ACC))
-            time.sleep(0.01)
         total_time = 0
         while total_time < 120:  # only listen for 2 minutes
             time.sleep(0.25)

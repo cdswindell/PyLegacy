@@ -9,9 +9,9 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Dict, Any, cast
 
+from ..pdi.comp_data import CompDataMixin
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux, TMCC1HaltCommandEnum
 from ..protocol.command_req import CommandReq
@@ -69,10 +69,10 @@ class AccessoryState(TmccState):
     def update(self, command: L | P) -> None:
         if command:
             with self._cv:
-                if log.isEnabledFor(logging.DEBUG):
-                    log.debug(command)
                 super().update(command)
-                if isinstance(command, CommandReq):
+                if isinstance(command, CompDataMixin) and command.is_comp_data_record:
+                    self._update_comp_data(command.comp_data)
+                elif isinstance(command, CommandReq):
                     if command.command != Aux.SET_ADDRESS:
                         if command.command == TMCC1HaltCommandEnum.HALT:
                             self._aux1_state = Aux.AUX1_OFF
@@ -183,9 +183,9 @@ class AccessoryState(TmccState):
         return self._number
 
     def as_bytes(self) -> bytes:
-        from ..pdi.base_req import BaseReq
-
-        byte_str = BaseReq(self.address, PdiCommand.BASE_ACC, state=self).as_bytes
+        if self.comp_data is None:
+            self.initialize(self.scope, self.address)
+        byte_str = super().as_bytes()
         if self._sensor_track:
             byte_str += IrdaReq(self.address, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC).as_bytes
         elif self.is_lcs_component:
