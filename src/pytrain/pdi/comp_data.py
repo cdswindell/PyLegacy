@@ -144,6 +144,7 @@ BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
 BASE_MEMORY_ACC_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
+    0x1E: CompDataHandler("_device_code"),
     0x1F: CompDataHandler(
         "_road_name",
         31,
@@ -517,6 +518,7 @@ class SwitchData(CompData):
 class AccessoryData(CompData):
     def __init__(self, data: bytes, tmcc_id: int = None) -> None:
         self._signal_initializing()
+        self._device_code: int | None = None
         super().__init__(data, scope=CommandScope.ACC, tmcc_id=tmcc_id)
 
 
