@@ -151,8 +151,8 @@ BASE_MEMORY_ACC_READ_MAP = {
         lambda t: PdiReq.decode_text(t),
         lambda t: PdiReq.encode_text(t, 31),
     ),
-    0x39: CompDataHandler("_road_number_len"),
-    0x3A: CompDataHandler(
+    0x3E: CompDataHandler("_road_number_len"),
+    0x3F: CompDataHandler(
         "_road_number",
         4,
         lambda t: PdiReq.decode_text(t),
