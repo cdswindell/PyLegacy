@@ -381,7 +381,7 @@ class BaseReq(PdiReq, CompDataMixin):
                     self._valid1 = 0b1111
                     self._start = 0
                     self._data_length = PdiReq.scope_record_length(self.scope)
-                    if self.comp_data:
+                    if self.comp_data is not None:
                         self._data_bytes = state.comp_data.as_bytes()
                     else:
                         print(f"******* TMCC ID: {self._record_no} {self.scope} NO DATA ({state})")
