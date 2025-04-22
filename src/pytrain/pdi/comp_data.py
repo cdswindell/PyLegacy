@@ -539,6 +539,7 @@ class CompDataMixin(Generic[C]):
         return self.comp_data and self._comp_data_record is True
 
     def initialize(self, scope: CommandScope, tmcc_id: int) -> None:
+        data_len = PdiReq.scope_record_length(scope)
         if scope == CommandScope.SWITCH:
             # noinspection PyTypeChecker
-            self._comp_data = SwitchData(None, tmcc_id)
+            self._comp_data = SwitchData(b"\xff" * data_len, tmcc_id)
