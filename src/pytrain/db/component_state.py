@@ -370,10 +370,10 @@ class SwitchState(TmccState):
 
     def update(self, command: L | P) -> None:
         if command:
+            if command.command == TMCC1HaltCommandEnum.HALT:
+                return
             with self.synchronizer:
                 super().update(command)
-                if command.command == TMCC1HaltCommandEnum.HALT:
-                    return
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                     self._update_comp_data(command.comp_data)
                 elif isinstance(command, CommandReq):
@@ -436,6 +436,8 @@ class RouteState(TmccState):
 
     def update(self, command: L | P) -> None:
         if command:
+            if command.command == TMCC1HaltCommandEnum.HALT:
+                return
             with self.synchronizer:
                 if self.is_comp_data_record is False:
                     if isinstance(command, CommandReq):
@@ -445,8 +447,6 @@ class RouteState(TmccState):
                         CommandDispatcher.get().offer(command)
                         return
                 super().update(command)
-                if command.command == TMCC1HaltCommandEnum.HALT:
-                    return
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                     self._update_comp_data(command.comp_data)
                 elif isinstance(command, CommandReq):
