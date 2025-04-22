@@ -403,6 +403,8 @@ class SwitchState(TmccState):
         return self._state == Switch.OUT
 
     def as_bytes(self) -> bytes:
+        if self.comp_data is None:
+            self.initialize(self.scope, self.address)
         byte_str = super().as_bytes()
         if self.is_known:
             byte_str += CommandReq.build(self.state, self.address).as_bytes

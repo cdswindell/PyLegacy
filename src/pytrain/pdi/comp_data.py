@@ -330,7 +330,8 @@ class CompData(Generic[R]):
         self._prev_link: int | None = None
 
         # load the data from the byte string
-        self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
+        if data:
+            self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
 
     def __repr__(self) -> str:
         nm = nu = ""
@@ -536,3 +537,8 @@ class CompDataMixin(Generic[C]):
     @property
     def is_comp_data_record(self) -> bool:
         return self.comp_data and self._comp_data_record is True
+
+    def initialize(self, scope: CommandScope, tmcc_id: int) -> None:
+        if scope == CommandScope.SWITCH:
+            # noinspection PyTypeChecker
+            self._comp_data = SwitchData(None, tmcc_id)
