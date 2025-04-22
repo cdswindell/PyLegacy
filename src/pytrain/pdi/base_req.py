@@ -351,6 +351,7 @@ class BaseReq(PdiReq, CompDataMixin):
                 if self.data_length == base_record_length and self.scope in {
                     CommandScope.ENGINE,
                     CommandScope.TRAIN,
+                    CommandScope.ACC,
                     CommandScope.SWITCH,
                     CommandScope.ROUTE,
                 }:

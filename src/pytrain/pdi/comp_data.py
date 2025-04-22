@@ -174,6 +174,7 @@ BASE_MEMORY_ROUTE_READ_MAP.update(
 SCOPE_TO_COMP_MAP = {
     CommandScope.ENGINE: BASE_MEMORY_ENGINE_READ_MAP,
     CommandScope.TRAIN: BASE_MEMORY_TRAIN_READ_MAP,
+    CommandScope.ACC: BASE_MEMORY_SWITCH_READ_MAP,
     CommandScope.SWITCH: BASE_MEMORY_SWITCH_READ_MAP,
     CommandScope.ROUTE: BASE_MEMORY_ROUTE_READ_MAP,
 }
@@ -245,6 +246,8 @@ class CompData(Generic[R]):
             return EngineData(data, tmcc_id=tmcc_id)
         elif scope == CommandScope.TRAIN:
             return TrainData(data, tmcc_id=tmcc_id)
+        elif scope == CommandScope.ACC:
+            return AccessoryData(data, tmcc_id=tmcc_id)
         elif scope == CommandScope.SWITCH:
             return SwitchData(data, tmcc_id=tmcc_id)
         elif scope == CommandScope.ROUTE:
@@ -437,7 +440,12 @@ class CompData(Generic[R]):
 
 
 class EngineData(CompData):
-    def __init__(self, data: bytes, scope: CommandScope = CommandScope.ENGINE, tmcc_id: int = None) -> None:
+    def __init__(
+        self,
+        data: bytes,
+        tmcc_id: int = None,
+        scope: CommandScope = CommandScope.ENGINE,
+    ) -> None:
         self._signal_initializing()
         self._bt_id: int | None = None
         self._control_type: int | None = None
@@ -479,13 +487,19 @@ class TrainData(EngineData):
         self._signal_initializing()
         self._consist_flags: int | None = None
         self._consist_comps: list[ConsistComponent] | None = None
-        super().__init__(data, scope=CommandScope.TRAIN, tmcc_id=tmcc_id)
+        super().__init__(data, tmcc_id=tmcc_id, scope=CommandScope.TRAIN)
 
 
 class SwitchData(CompData):
+    def __init__(self, data: bytes, tmcc_id: int = None, scope: CommandScope = CommandScope.SWITCH) -> None:
+        self._signal_initializing()
+        super().__init__(data, scope=scope, tmcc_id=tmcc_id)
+
+
+class AccessoryData(SwitchData):
     def __init__(self, data: bytes, tmcc_id: int = None) -> None:
         self._signal_initializing()
-        super().__init__(data, scope=CommandScope.SWITCH, tmcc_id=tmcc_id)
+        super().__init__(data, tmcc_id=tmcc_id, scope=CommandScope.ACC)
 
 
 class RouteData(CompData):
