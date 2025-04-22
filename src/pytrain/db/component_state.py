@@ -273,8 +273,6 @@ class ComponentState(ABC, CompDataMixin):
         Used to synchronizer component state when client connects to the server.
         """
         with self.synchronizer:
-            if self.scope == CommandScope.SWITCH:
-                print(self)
             byte_str = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self).as_bytes
             return byte_str
 
@@ -373,13 +371,6 @@ class SwitchState(TmccState):
     def update(self, command: L | P) -> None:
         if command:
             with self.synchronizer:
-                if self.is_comp_data_record is False:
-                    if isinstance(command, CommandReq):
-                        from src.pytrain.comm.command_listener import CommandDispatcher
-
-                        log.info(f"Still awaiting for initial state, will retry {command}...")
-                        CommandDispatcher.get().offer(command)
-                        return
                 super().update(command)
                 if command.command == TMCC1HaltCommandEnum.HALT:
                     return
