@@ -141,6 +141,24 @@ BASE_MEMORY_TRAIN_READ_MAP = {
 }
 BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
 
+BASE_MEMORY_ACC_READ_MAP = {
+    0x00: CompDataHandler("_prev_link"),
+    0x01: CompDataHandler("_next_link"),
+    0x2F: CompDataHandler(
+        "_road_name",
+        31,
+        lambda t: PdiReq.decode_text(t),
+        lambda t: PdiReq.encode_text(t, 31),
+    ),
+    0x39: CompDataHandler("_road_number_len"),
+    0x40: CompDataHandler(
+        "_road_number",
+        4,
+        lambda t: PdiReq.decode_text(t),
+        lambda t: PdiReq.encode_text(t, 4),
+    ),
+}
+
 BASE_MEMORY_SWITCH_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
@@ -175,7 +193,7 @@ SCOPE_TO_COMP_MAP = {
     CommandScope.ENGINE: BASE_MEMORY_ENGINE_READ_MAP,
     CommandScope.TRAIN: BASE_MEMORY_TRAIN_READ_MAP,
     CommandScope.ACC: BASE_MEMORY_SWITCH_READ_MAP,
-    CommandScope.SWITCH: BASE_MEMORY_SWITCH_READ_MAP,
+    CommandScope.SWITCH: BASE_MEMORY_ACC_READ_MAP,
     CommandScope.ROUTE: BASE_MEMORY_ROUTE_READ_MAP,
 }
 
@@ -491,15 +509,15 @@ class TrainData(EngineData):
 
 
 class SwitchData(CompData):
-    def __init__(self, data: bytes, tmcc_id: int = None, scope: CommandScope = CommandScope.SWITCH) -> None:
-        self._signal_initializing()
-        super().__init__(data, scope=scope, tmcc_id=tmcc_id)
-
-
-class AccessoryData(SwitchData):
     def __init__(self, data: bytes, tmcc_id: int = None) -> None:
         self._signal_initializing()
-        super().__init__(data, tmcc_id=tmcc_id, scope=CommandScope.ACC)
+        super().__init__(data, scope=CommandScope.SWITCH, tmcc_id=tmcc_id)
+
+
+class AccessoryData(CompData):
+    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+        self._signal_initializing()
+        super().__init__(data, scope=CommandScope.ACC, tmcc_id=tmcc_id)
 
 
 class RouteData(CompData):
