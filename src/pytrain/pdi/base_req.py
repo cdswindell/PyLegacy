@@ -248,7 +248,7 @@ class BaseReq(PdiReq, CompDataMixin):
         base_name: str | None = None,
         state: ComponentState = None,
         start: int = 0,
-        data_length: int = PdiReq.scope_record_length(CommandScope.ENGINE),
+        data_length: int = 0,
         data_bytes: bytes | None = None,
     ) -> None:
         super().__init__(data, pdi_command)
@@ -366,23 +366,25 @@ class BaseReq(PdiReq, CompDataMixin):
             self._flags = flags
             self._speed_step = speed
             self._base_name = base_name
+            self._valid1 = 0b1111
             if self.pdi_command == PdiCommand.BASE_MEMORY:
                 self.scope = scope if scope else CommandScope.ENGINE
                 self._record_type = SCOPE_TO_RECORD_TYPE_MAP.get(self.scope, 1)
-                self._start = start
-                data_length = (
-                    data_length
-                    if data_length and 0 <= data_length <= PdiReq.scope_record_length(self.scope)
-                    else PdiReq.scope_record_length(self.scope)
-                )
-                self._data_length = data_length
-                self._data_bytes = data_bytes
-                if isinstance(state, CompDataMixin):
-                    self._valid1 = 0b1111
+                # if the state contains a valid comp_data, use it as the source
+                if start == 0 and data_length == 0 and isinstance(state, CompDataMixin) and state.is_comp_data_record:
                     self._start = 0
                     self._data_length = PdiReq.scope_record_length(self.scope)
                     if state.comp_data is not None:
                         self._data_bytes = state.comp_data.as_bytes()
+                else:
+                    self._start = start
+                    data_length = (
+                        data_length
+                        if data_length and 0 <= data_length <= PdiReq.scope_record_length(self.scope)
+                        else PdiReq.scope_record_length(self.scope)
+                    )
+                    self._data_length = data_length
+                    self._data_bytes = data_bytes
             elif state:
                 from .. import TrainState
                 from .. import EngineState
