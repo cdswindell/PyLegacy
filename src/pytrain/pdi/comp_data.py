@@ -144,7 +144,7 @@ BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
 BASE_MEMORY_ACC_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
-    0x2F: CompDataHandler(
+    0x1F: CompDataHandler(
         "_road_name",
         31,
         lambda t: PdiReq.decode_text(t),
