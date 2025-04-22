@@ -421,6 +421,8 @@ class CompData(Generic[R]):
         return byte_str
 
     def _parse_bytes(self, data: bytes, pmap: dict) -> None:
+        if data is None:
+            print(f"TMCC_ID: {self.tmcc_id} Scope: {self.scope}")
         data_len = len(data)
         for k, v in pmap.items():
             if isinstance(v, CompDataHandler) is False:
