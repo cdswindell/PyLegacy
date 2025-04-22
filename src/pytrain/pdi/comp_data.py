@@ -72,9 +72,9 @@ class UpdatePkg:
 
 
 #
-# Base 3 memory locations where engine state is stored. When commands are issued that change
-# engine characteristics, like speed or momentum, these changes must be explicitly written
-# to the Base 3 so it can update other attached controllers and software.
+# Base 3 memory locations where device state is stored. When commands are issued that change
+# device characteristics, like engine speed or momentum, these changes must be explicitly
+# written to the Base 3 so it can update other attached controllers and software.
 #
 BASE_MEMORY_ENGINE_READ_MAP = {
     0xB8: CompDataHandler(
@@ -152,7 +152,7 @@ BASE_MEMORY_ACC_READ_MAP = {
         lambda t: PdiReq.encode_text(t, 31),
     ),
     0x39: CompDataHandler("_road_number_len"),
-    0x40: CompDataHandler(
+    0x3A: CompDataHandler(
         "_road_number",
         4,
         lambda t: PdiReq.decode_text(t),
@@ -286,6 +286,13 @@ class CompData(Generic[R]):
     # noinspection PyTypeChecker
     @classmethod
     def request_to_updates(cls, req: R) -> list[UpdatePkg] | None:
+        """
+        Pushes derivative state changes to Base 3 in response to a CommandReq.
+        For example, when an engine is reset (Numeric 0), its speed and RPM
+        must be reset to zero, and its labor must be set to 12. Derivative
+        states are maintained in a dict keyed by the enum name corresponding
+        to the CommandReq.
+        """
         if not isinstance(req, CommandReq):
             raise AttributeError(f"'Argument is not a CommandReq: {req}'")
 
@@ -360,11 +367,11 @@ class CompData(Generic[R]):
         if self.road_name is not None:
             nm = f" {title(self.road_name)}"
         if self.road_number is not None:
-            nu = f" #{self.road_number} "
+            nu = f" #{self.road_number}"
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-            return f"{self.scope.title} {self.tmcc_id:>4}:{nm}{nu}{self.payload()}"
+            return f"{self.scope.title} {self.tmcc_id:04}: {self.payload()}{nm}{nu}"
         else:
-            return f"{self.scope.title} {self.tmcc_id:>2}:{nm}{nu}{self.payload()}"
+            return f"{self.scope.title} {self.tmcc_id:>2}: {self.payload()}{nm}{nu}"
 
     def __getattr__(self, name: str) -> Any:
         if name in self.__dict__:
@@ -531,11 +538,11 @@ class RouteData(CompData):
     def payload(self) -> str:
         sw = ""
         if self._components:
-            sw = " Switches: "
+            sw = "Switches: "
             sep = ""
             for c in self._components:
                 state = "thru" if c.is_thru else "out"
-                sw += f"{sep}{c.tmcc_id} [{state}]"
+                sw += f"{sep}{c.tmcc_id:>2} [{state}]"
                 sep = ", "
         return sw
 

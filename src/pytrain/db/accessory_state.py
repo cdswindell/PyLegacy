@@ -39,7 +39,8 @@ class AccessoryState(TmccState):
         self._pdi_source = False
         self._number: int | None = None
 
-    def __repr__(self) -> str:
+    @property
+    def payload(self) -> str:
         aux1 = aux2 = aux_num = ""
         if self._block_power:
             aux = f"Block Power {'ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
@@ -58,12 +59,7 @@ class AccessoryState(TmccState):
                 aux1 = f" Aux1: {self.aux1_state.name if self.aux1_state is not None else 'Unknown'}"
                 aux2 = f" Aux2: {self.aux2_state.name if self.aux2_state is not None else 'Unknown'}"
                 aux_num = f" Aux Num: {self._number if self._number is not None else 'NA'}"
-        name = num = ""
-        if self.road_name is not None:
-            name = f" {self.road_name}"
-        if self.road_number is not None:
-            num = f" #{self.road_number} "
-        return f"{self.scope.title} {self.address}: {aux}{aux1}{aux2}{aux_num}{name}{num}"
+        return f"{aux}{aux1}{aux2}{aux_num}"
 
     # noinspection DuplicatedCode
     def update(self, command: L | P) -> None:

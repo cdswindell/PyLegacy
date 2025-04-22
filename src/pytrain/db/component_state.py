@@ -74,27 +74,18 @@ class ComponentState(ABC, CompDataMixin):
         self._cv: Condition = Condition(self._lock)
 
     def __repr__(self) -> str:
-        if self.is_comp_data_record is True:
+        if self.is_comp_data_record is True and not self.payload:
             return str(self.comp_data)
-        return f"{self.scope.name} {self._address}"
+        nm = f" {self.road_name}" if self.road_name else ""
+        nu = f" #{self.road_number}" if self.road_number else ""
+        pk = f" {self.payload}" if self.payload else ""
+        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            return f"{self.scope.title} {self._address:04}:{pk}{nm}{nu}"
+        else:
+            return f"{self.scope.title} {self._address:>2}:{pk}{nm}{nu}"
 
     def __lt__(self, other):
         return self.address < other.address
-
-    def _harvest_effect(self, effects: Set[E]) -> E | tuple[E, int] | None:
-        for effect in effects:
-            if isinstance(effect, tuple):
-                effect_enum = effect[0]
-                effect_data = effect[1]
-            else:
-                effect_enum = effect
-                effect_data = None
-            if effect_enum.syntax == self.syntax:
-                if effect_data is None:
-                    return effect_enum
-                else:
-                    return effect_enum, effect_data
-        return None
 
     def results_in(self, command: CommandReq) -> Set[E]:
         effects = self._dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
@@ -154,24 +145,12 @@ class ComponentState(ABC, CompDataMixin):
         return the_name
 
     @property
+    def payload(self) -> str:
+        return ""
+
+    @property
     def spare_1(self) -> int:
         return self._spare_1
-
-    def _update_comp_data(self, comp_data: CompData):
-        self._comp_data = comp_data
-        self._comp_data_record = True
-
-    @staticmethod
-    def _as_label(prop: Any) -> str:
-        return f"{prop if prop is not None else 'NA'}"
-
-    def _as_dict(self) -> Dict[str, Any]:
-        return {
-            "tmcc_id": self.tmcc_id,
-            "road_name": self.road_name,
-            "road_number": self.road_number,
-            "scope": self.scope.name.lower(),
-        }
 
     @abc.abstractmethod
     def update(self, command: L | P) -> None:
@@ -276,6 +255,37 @@ class ComponentState(ABC, CompDataMixin):
             byte_str = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self).as_bytes
             return byte_str
 
+    def _update_comp_data(self, comp_data: CompData):
+        self._comp_data = comp_data
+        self._comp_data_record = True
+
+    def _harvest_effect(self, effects: Set[E]) -> E | tuple[E, int] | None:
+        for effect in effects:
+            if isinstance(effect, tuple):
+                effect_enum = effect[0]
+                effect_data = effect[1]
+            else:
+                effect_enum = effect
+                effect_data = None
+            if effect_enum.syntax == self.syntax:
+                if effect_data is None:
+                    return effect_enum
+                else:
+                    return effect_enum, effect_data
+        return None
+
+    @staticmethod
+    def _as_label(prop: Any) -> str:
+        return f"{prop if prop is not None else 'NA'}"
+
+    def _as_dict(self) -> Dict[str, Any]:
+        return {
+            "tmcc_id": self.tmcc_id,
+            "road_name": self.road_name,
+            "road_number": self.road_number,
+            "scope": self.scope.name.lower(),
+        }
+
     @property
     @abc.abstractmethod
     def is_tmcc(self) -> bool:
@@ -358,16 +368,6 @@ class SwitchState(TmccState):
         super().__init__(scope)
         self._state: Switch | None = None
 
-    def __repr__(self) -> str:
-        nm = nu = ""
-        if self.road_name is not None:
-            nm = f" {self.road_name}"
-        if self.road_number is not None:
-            nu = f" #{self.road_number} "
-        return (
-            f"{self.scope.title} {self.address}: {self._state.name if self._state is not None else 'Unknown'}{nm}{nu}"
-        )
-
     def update(self, command: L | P) -> None:
         if command:
             with self.synchronizer:
@@ -401,6 +401,10 @@ class SwitchState(TmccState):
     @property
     def is_out(self) -> bool:
         return self._state == Switch.OUT
+
+    @property
+    def payload(self) -> str:
+        return f"{self._state.name if self._state is not None else 'Unknown'}"
 
     def as_bytes(self) -> bytes:
         if self.comp_data is None:
@@ -455,6 +459,10 @@ class RouteState(TmccState):
     @property
     def components(self) -> List[RouteComponent] | None:
         return self.comp_data.components.copy() if self.comp_data.components else None
+
+    @property
+    def payload(self) -> str:
+        return self.comp_data.payload() if self.comp_data else ""
 
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
