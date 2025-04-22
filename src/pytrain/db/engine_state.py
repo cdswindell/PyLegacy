@@ -486,7 +486,6 @@ class EngineState(ComponentState):
         else:
             pdi_cmd = PdiCommand.D4_ENGINE if self.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             pdi = D4Req(self.record_no, pdi_cmd, state=self)
-        print(self, self.comp_data, pdi.as_bytes.hex())
         packets.append(pdi.as_bytes)
         if self._start_stop is not None:
             packets.append(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
