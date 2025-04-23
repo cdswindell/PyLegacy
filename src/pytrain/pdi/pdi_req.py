@@ -257,6 +257,10 @@ class PdiReq(ABC):
         else:
             return "0x" + self._data.hex(" ").upper()
 
+    @property
+    def as_key(self):
+        return self.tmcc_id, self.pdi_command, self.action, self.scope
+
     def send(
         self,
         repeat: int = 1,

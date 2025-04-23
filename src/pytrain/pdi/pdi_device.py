@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import logging
 from abc import ABC
 from collections import defaultdict
 from enum import unique, Enum
@@ -27,6 +28,8 @@ from .stm2_req import Stm2Req
 from ..protocol.constants import Mixins, CommandScope
 
 T = TypeVar("T", bound=PdiReq)
+
+log = logging.getLogger(__name__)
 
 
 class PdiDeviceConfig(ABC):

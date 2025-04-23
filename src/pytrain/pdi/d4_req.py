@@ -101,6 +101,12 @@ class D4Req(PdiReq, CompDataMixin):
                 self._data_length = PdiReq.scope_record_length(CommandScope.ENGINE)
                 if isinstance(state, CompDataMixin):
                     self._data_bytes = state.comp_data.as_bytes()
+            elif self.action in {D4Action.FIRST_REC, D4Action.COUNT}:
+                self._scope = CommandScope.BASE
+
+    @property
+    def as_key(self):
+        return self.record_no, self.pdi_command, self.action, self.scope
 
     @property
     def record_no(self) -> int:

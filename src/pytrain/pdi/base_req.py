@@ -369,6 +369,7 @@ class BaseReq(PdiReq, CompDataMixin):
             self._base_name = base_name
             self._valid1 = 0b1111
             if self.pdi_command == PdiCommand.BASE_MEMORY:
+                self._tmcc_id = self.record_no
                 self.scope = scope if scope else CommandScope.ENGINE
                 self._record_type = SCOPE_TO_RECORD_TYPE_MAP.get(self.scope, 1)
                 # if the state contains a valid comp_data, use it as the source
@@ -436,6 +437,10 @@ class BaseReq(PdiReq, CompDataMixin):
         elif self._valid2 and field.value <= 31:
             return (self._valid2 & (1 << (field.value - 16))) != 0
         return False
+
+    @property
+    def as_key(self):
+        return self.record_no, self.pdi_command, self.action, self.scope
 
     @property
     def record_no(self) -> int:

@@ -9,17 +9,20 @@
 
 from __future__ import annotations
 
+import logging
 import time
-from threading import Thread
+from threading import Thread, Condition, Event
 
 from ..comm.command_listener import SYNCING, CommandDispatcher, SYNC_COMPLETE
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PdiCommand, D4Action
 from ..pdi.d4_req import D4Req
 from ..pdi.pdi_listener import PdiListener
-from ..pdi.pdi_req import AllReq, PdiReq
+from ..pdi.pdi_req import PdiReq, AllReq
 from ..pdi.pdi_state_store import PdiStateStore
 from ..protocol.constants import PROGRAM_NAME, CommandScope
+
+log = logging.getLogger(__name__)
 
 
 class StartupState(Thread):
@@ -27,6 +30,9 @@ class StartupState(Thread):
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup State Sniffer")
         self.listener = listener
         self.state_store = state_store
+        self._cv = Condition()
+        self._ev = Event()
+        self._waiting_for = dict()
         self._processed_configs = set()
         CommandDispatcher.get().offer(SYNCING)
         self.start()
@@ -35,7 +41,14 @@ class StartupState(Thread):
         """
         Callback specified in the Subscriber protocol used to send events to listeners
         """
+
+        if cmd:
+            with self._cv:
+                self._waiting_for.pop(cmd.as_key, None)
+        else:
+            return
         if isinstance(cmd, PdiReq):
+            req = None
             if cmd.action and cmd.action.is_config and self._config_key(cmd) not in self._processed_configs:
                 # register the device; registration returns a list of pdi commands
                 # to send to get device state
@@ -45,31 +58,42 @@ class StartupState(Thread):
                     for state_request in state_requests:
                         self.listener.enqueue_command(state_request)
             elif isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
-                # send a request to the base to get the next engine/train/acc/switch/route record (0x26)
-                if cmd.tmcc_id < 98 and cmd.data_length == PdiReq.scope_record_length(cmd.scope):
-                    self.listener.enqueue_command(BaseReq(cmd.tmcc_id + 1, PdiCommand.BASE_MEMORY, scope=cmd.scope))
                 if cmd.scope == CommandScope.TRAIN and cmd.tmcc_id == 98:
                     CommandDispatcher.get().offer(SYNC_COMPLETE)
+                # send a request to the base to get the next engine/train/acc/switch/route record (0x26)
+                if cmd.tmcc_id < 98 and cmd.data_length == PdiReq.scope_record_length(cmd.scope):
+                    req = BaseReq(cmd.tmcc_id + 1, PdiCommand.BASE_MEMORY, scope=cmd.scope)
             elif isinstance(cmd, D4Req):
+                req = None
                 if cmd.action == D4Action.COUNT and cmd.count:
                     # request first record of D4 engines/trains
-                    self.listener.enqueue_command(D4Req(0, cmd.pdi_command, D4Action.FIRST_REC))
+                    req = D4Req(0, cmd.pdi_command, D4Action.FIRST_REC)
                 elif cmd.action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:
                     if cmd.next_record_no == 0xFFFF:
                         pass
                     elif cmd.next_record_no is not None:
                         # query current state of 4-digit engine/train
-                        self.listener.enqueue_command(
-                            D4Req(
-                                cmd.next_record_no,
-                                cmd.pdi_command,
-                                D4Action.QUERY,
-                                start=0,
-                                data_length=0xC0,
-                            )
+                        req = D4Req(
+                            cmd.next_record_no,
+                            cmd.pdi_command,
+                            D4Action.QUERY,
+                            start=0,
+                            data_length=0xC0,
                         )
+                        with self._cv:
+                            self._waiting_for[req.as_key] = req
+                        self.listener.enqueue_command(req)
                         # get the record number of the next engine/train
-                        self.listener.enqueue_command(D4Req(cmd.next_record_no, cmd.pdi_command, D4Action.NEXT_REC))
+                        req = D4Req(cmd.next_record_no, cmd.pdi_command, D4Action.NEXT_REC)
+            if req:
+                with self._cv:
+                    self._waiting_for[req.as_key] = req
+                self.listener.enqueue_command(req)
+            else:
+                with self._cv:
+                    if not self._waiting_for:
+                        self._ev.set()
+                        self._cv.notify_all()
 
     @staticmethod
     def _config_key(cmd: PdiReq) -> bytes:
@@ -98,22 +122,40 @@ class StartupState(Thread):
         self.listener.subscribe_any(self)
         self.listener.enqueue_command(AllReq())
         self.listener.enqueue_command(BaseReq(0, PdiCommand.BASE))
-        self.listener.enqueue_command(D4Req(0, PdiCommand.D4_ENGINE, D4Action.COUNT))
-        self.listener.enqueue_command(D4Req(0, PdiCommand.D4_TRAIN, D4Action.COUNT))
+        for pdi_command in [PdiCommand.D4_ENGINE, PdiCommand.D4_TRAIN]:
+            req = D4Req(0, pdi_command, D4Action.COUNT)
+            with self._cv:
+                self._waiting_for[req.as_key] = req
+            self.listener.enqueue_command(req)
         # Request engine/sw/acc roster at startup; do this by asking for
         # Eng/Train/Acc/Sw/Route #100 then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity
-        self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE))
-        time.sleep(0.01)
-        self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.TRAIN))
-        time.sleep(0.01)
-        self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.SWITCH))
-        time.sleep(0.01)
-        self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.ACC))
-        time.sleep(0.01)
-        self.listener.enqueue_command(BaseReq(1, PdiCommand.BASE_MEMORY, scope=CommandScope.ROUTE))
+        for scope in [
+            CommandScope.ENGINE,
+            CommandScope.TRAIN,
+            CommandScope.SWITCH,
+            CommandScope.ACC,
+            CommandScope.ROUTE,
+        ]:
+            req = BaseReq(1, PdiCommand.BASE_MEMORY, scope=scope)
+            with self._cv:
+                self._waiting_for[req.as_key] = req
+            self.listener.enqueue_command(req)
+
+        # now wait for all responses; this will not track LCS devices reporting their config
+        # because of the AllReq
         total_time = 0
+        now = time.time()
+        ev_set = False
         while total_time < 120:  # only listen for 2 minutes
-            time.sleep(0.25)
+            self._ev.wait(0.25)
+            if self._ev.is_set() or (ev_set is True):
+                self._ev.clear()
+                ev_set = True
+                if round(time.time() - now) >= 60:
+                    log.info(f"Initial state loaded from Base 3: {time.time() - now:.2f} seconds elapsed.")
+                    break
             total_time += 0.25
+        for k, v in self._waiting_for.items():
+            log.info(f"Still waiting for: {k}: {v}")
         self.listener.unsubscribe_any(self)
