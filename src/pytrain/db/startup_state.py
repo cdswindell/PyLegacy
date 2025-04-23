@@ -152,7 +152,7 @@ class StartupState(Thread):
             if self._ev.is_set() or (ev_set is True):
                 self._ev.clear()
                 ev_set = True
-                if round(time.time() - now) >= 60:
+                if round(time.time() - now) >= 0:
                     log.info(f"Initial state loaded from Base 3: {time.time() - now:.2f} seconds elapsed.")
                     break
             total_time += 0.25
