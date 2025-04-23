@@ -324,7 +324,7 @@ class CompData(Generic[R]):
                     if conv_tpl:
                         # more special case handling for rpm/labor
                         if sub_field != field and field == "rpm_labor":
-                            from src.pytrain import ComponentStateStore
+                            from ..db.component_state_store import ComponentStateStore
 
                             state = ComponentStateStore.build().get_state(req.scope, req.address, False)
                             assert state is not None

@@ -226,7 +226,7 @@ class EngineState(ComponentState):
             # in the event the initial state hasn't been loaded from the base, resubmit the command
             if self.is_comp_data_record is False:
                 if isinstance(command, CommandReq):
-                    from src.pytrain.comm.command_listener import CommandDispatcher
+                    from ..comm.command_listener import CommandDispatcher
 
                     log.info(f"Still awaiting for initial state, will retry {command}...")
                     CommandDispatcher.get().offer(command)

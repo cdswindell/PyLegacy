@@ -84,7 +84,7 @@ class D4Req(PdiReq, CompDataMixin):
                     self._next_record_no = self.record_no
                     self._scope = CommandScope.BASE  # send first record information to Base
         else:
-            from src.pytrain.db.engine_state import EngineState
+            from ..db.engine_state import EngineState
 
             self._action = action
             self._record_no = int(data)
