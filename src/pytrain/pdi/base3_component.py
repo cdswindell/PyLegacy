@@ -147,6 +147,10 @@ class RouteComponent:
         return self.is_thru is False
 
     @property
+    def as_signature(self) -> dict[int, bool]:
+        return {self.tmcc_id: self.is_thru}
+
+    @property
     def as_request(self) -> CommandReq:
         cmd_enum = TMCC1SwitchCommandEnum.THRU if self.is_thru is True else TMCC1SwitchCommandEnum.OUT
         return CommandReq(cmd_enum, self.tmcc_id)

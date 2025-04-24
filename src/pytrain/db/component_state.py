@@ -367,6 +367,7 @@ class SwitchState(TmccState):
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
         self._state: Switch | None = None
+        self._routes: set[RouteState] = set()
 
     def update(self, command: L | P) -> None:
         if command:
@@ -385,6 +386,8 @@ class SwitchState(TmccState):
                     log.warning(f"Unhandled Switch State Update received: {command}")
                 self.changed.set()
                 self.synchronizer.notify_all()
+            # inform the routes that include this switch of new state
+            self.update_route_state()
 
     @property
     def state(self) -> Switch:
@@ -395,8 +398,12 @@ class SwitchState(TmccState):
         return self._state is not None
 
     @property
-    def is_through(self) -> bool:
+    def is_thru(self) -> bool:
         return self._state == Switch.THRU
+
+    @property
+    def is_through(self) -> bool:
+        return self.is_thru
 
     @property
     def is_out(self) -> bool:
@@ -405,6 +412,13 @@ class SwitchState(TmccState):
     @property
     def payload(self) -> str:
         return f"{self._state.name if self._state is not None else 'Unknown'}"
+
+    def register_route(self, route: RouteState) -> None:
+        self._routes.add(route)
+
+    def update_route_state(self) -> None:
+        for route in self._routes:
+            route.update_switch_state(self)
 
     def as_bytes(self) -> bytes:
         if self.comp_data is None:
@@ -433,6 +447,8 @@ class RouteState(TmccState):
         if scope != CommandScope.ROUTE:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
+        self._signature: dict[int, bool] = dict()
+        self._current_state: dict[int, bool | None] = dict()
 
     def update(self, command: L | P) -> None:
         if command:
@@ -449,6 +465,21 @@ class RouteState(TmccState):
                 super().update(command)
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                     self._update_comp_data(command.comp_data)
+                    # set up callbacks so that changes to component switch states
+                    # can real-time trigger updates to this route's state
+                    comps = self.components
+                    if comps:
+                        from .component_state_store import ComponentStateStore
+
+                        store = ComponentStateStore.get()
+                        for comp in comps:
+                            self._signature.update(comp.as_signature)
+                            switch = store.get_state(CommandScope.SWITCH, comp.tmcc_id, True)
+                            if isinstance(switch, SwitchState):
+                                self._current_state.update(
+                                    {switch.address: switch.is_thru if switch.is_known else None}
+                                )
+                                switch.register_route(self)
                 elif isinstance(command, CommandReq):
                     pass
                 else:
@@ -462,7 +493,23 @@ class RouteState(TmccState):
 
     @property
     def payload(self) -> str:
-        return self.comp_data.payload() if self.comp_data else ""
+        pl = f"Active: {'True ' if self.is_active else 'False'}"
+        pl += f" {self.comp_data.payload()}" if self.comp_data else ""
+        return pl
+
+    @property
+    def is_active(self) -> bool:
+        return self._signature == self._current_state
+
+    @property
+    def as_signature(self) -> dict[int, bool]:
+        return self._signature
+
+    def update_switch_state(self, switch: SwitchState) -> None:
+        with self.synchronizer:
+            self._current_state.update({switch.address: switch.is_thru if switch.is_known else None})
+            self.changed.set()
+            self._cv.notify_all()
 
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
