@@ -4,7 +4,7 @@ import abc
 from abc import ABC
 from threading import Thread
 from time import sleep
-from typing import Protocol, TypeVar
+from typing import Protocol, TypeVar, Generic
 
 from gpiozero import LED, PingServer
 
@@ -21,7 +21,7 @@ class StateValidator(Protocol):
 
 
 # noinspection PyUnresolvedReferences
-class StateSource(ABC, Thread):
+class StateSource(ABC, Thread, Generic[T]):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, scope: CommandScope, address: int, active_led: LED, inactive_led: LED = None) -> None:
@@ -100,6 +100,22 @@ class SwitchStateSource(StateSource):
     @property
     def is_active(self) -> bool:
         return self._component.state == self._state
+
+
+class RouteStateSource(StateSource):
+    def __init__(self, address: int, active_led: LED, inactive_led: LED) -> None:
+        self._state = TMCC1SwitchCommandEnum.THRU
+        super().__init__(CommandScope.ROUTE, address, active_led, inactive_led)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.is_active
+
+    @property
+    def is_active(self) -> bool:
+        return self._component.state.is_active
 
 
 class AccessoryStateSource(StateSource):

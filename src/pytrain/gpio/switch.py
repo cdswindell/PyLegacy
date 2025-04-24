@@ -29,8 +29,8 @@ class Switch(GpioDevice):
         as Lionel Command/Control-equipped turnouts or turnouts connected to
         an LCS ACS 2 configured in "Switch" mode.
 
-        Optionally, manage LEDs to reflect turnout state; thru or out. Also
-        supports bi-color LEDs with either common cathode or anode.
+        Optionally, manage LEDs to reflect turnout state; through or out.
+        Also supports bi-color LEDs with either common cathode or anode.
         """
         if initial_state is None:
             state = ComponentStateStore.get_state(CommandScope.SWITCH, address, create=False)

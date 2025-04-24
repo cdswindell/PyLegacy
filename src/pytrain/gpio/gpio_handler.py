@@ -588,6 +588,7 @@ class GpioHandler:
         # create a LED, if requested. It is turned on by pressing the
         # ON button, and turned off by pressing the OFF button
         if led_pin is not None and led_pin != 0:
+            # noinspection PyTypeChecker
             led = cls.make_led(led_pin, cathode=cathode)
             led.on()
         else:
