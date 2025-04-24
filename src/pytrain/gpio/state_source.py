@@ -115,7 +115,7 @@ class RouteStateSource(StateSource):
 
     @property
     def is_active(self) -> bool:
-        return self._component.state.is_active
+        return self._component.is_active
 
 
 class AccessoryStateSource(StateSource):
