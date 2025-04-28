@@ -568,7 +568,7 @@ class PyTrain:
             # point to point; command will execute on the specified node
             arg_parts = args[0].split(":")
             addr = arg_parts[0] if len(arg_parts) > 0 else None
-            port = int(arg_parts[1]) if len(arg_parts) > 0 else self._port
+            port = int(arg_parts[1]) if len(arg_parts) > 1 else self._port
             print(f"Sending {command.name} request to {addr}:{port}...")
             self._dispatcher.signal_clients(cmd, client=addr, port=port)
             return
