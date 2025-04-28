@@ -36,6 +36,7 @@ from ..protocol.constants import (
     STEAM_TYPE,
     CommandScope,
     LOCO_CLASS,
+    SOUND_TYPE,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_COMMAND_TO_ALIAS_MAP, TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum
@@ -619,7 +620,7 @@ class EngineState(ComponentState):
 
     @property
     def sound_type_label(self) -> str:
-        return CONTROL_TYPE.get(self.sound_type, "NA")
+        return SOUND_TYPE.get(self.sound_type, "NA")
 
     @property
     def engine_type(self) -> int:
@@ -717,10 +718,10 @@ class EngineState(ComponentState):
                 d[elem] = val if val is not None and val != 255 else None
         d["direction"] = self.direction.name.lower() if self.direction else None
         d["smoke"] = self.smoke_level.name.lower() if self.smoke_level else None
-        d["control"] = self.control_type_label.lower() if self.control_type else None
-        d["sound_type"] = self.sound_type_label.lower() if self.sound_type else None
-        d["engine_type"] = self.engine_type_label.lower() if self.engine_type else None
-        d["engine_class"] = self.engine_class_label.lower() if self.engine_class else None
+        d["control"] = self.control_type_label.lower() if self.control_type is not None else None
+        d["sound_type"] = self.sound_type_label.lower() if self.sound_type is not None else None
+        d["engine_type"] = self.engine_type_label.lower() if self.engine_type is not None else None
+        d["engine_class"] = self.engine_class_label.lower() if self.engine_class is not None else None
         if isinstance(self, TrainState):
             d["flags"] = self.consist_flags
             d["components"] = {c.tmcc_id: c.info for c in self.consist_components}
