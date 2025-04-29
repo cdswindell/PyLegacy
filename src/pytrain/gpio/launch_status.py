@@ -48,6 +48,7 @@ class LaunchStatus(Thread, GpioDevice):
         self._ev = Event()
         self._state_watcher = None
         self._countdown: int | None = None
+        self._holding = False
         self._countdown_thread = None
 
         # check for state synchronization
@@ -106,20 +107,26 @@ class LaunchStatus(Thread, GpioDevice):
     def state(self) -> EngineState:
         return self._monitored_state
 
+    @property
+    def holding(self) -> bool:
+        return self._holding
+
     def launch(self, countdown: int = -30) -> None:
         with self._lock:
+            self._holding = False
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
-            if countdown:
+            if countdown is None:
+                self.countdown = None
+            else:
                 countdown = countdown if countdown < 0 else -countdown
                 self.countdown = countdown
                 self._countdown_thread = CountdownThread(self, countdown)
-            else:
-                self.countdown = None
 
     def abort(self) -> None:
         with self._lock:
+            self._holding = False
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
@@ -128,16 +135,22 @@ class LaunchStatus(Thread, GpioDevice):
 
     def hold(self) -> None:
         with self._lock:
+            if self.countdown is None or self.countdown > 0:
+                return
             if self._countdown_thread:
                 self._countdown_thread.hold()
             self._oled[3] = "Holding"
+            self._holding = True
         self.update_display()
 
     def resume(self) -> None:
         with self._lock:
+            if self._holding is False:
+                return
             self._oled[3] = ""
             if self._countdown_thread:
                 self._countdown_thread.resume()
+            self._holding = False
         self.update_display()
 
     def update_display(self, clear: bool = False) -> None:
@@ -164,6 +177,7 @@ class LaunchStatus(Thread, GpioDevice):
 
     def reset(self) -> None:
         with self._lock:
+            self._holding = False
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
@@ -233,7 +247,6 @@ class CountdownThread(Thread):
     def run(self) -> None:
         while self._is_running:
             while not self._ev.wait(self._interval):
-                print("decrementing...")
                 self._countdown += 1
                 self._status.countdown = self._countdown
             if self.is_hold is True:
