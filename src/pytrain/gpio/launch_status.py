@@ -70,6 +70,9 @@ class LaunchStatus(Thread, GpioDevice):
         print(cmd)
         if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
             self.launch(15)
+        elif cmd.command == TMCC1EngineCommandEnum.NUMERIC:
+            if cmd.data == 0:
+                self.abort()
         elif cmd.command == TMCC1HaltCommandEnum.HALT:
             self.abort()
 
