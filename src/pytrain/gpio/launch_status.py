@@ -206,12 +206,12 @@ class CountdownThread(Thread):
         return self._countdown
 
     @property
-    def is_resume(self) -> bool:
-        return self._resume
-
-    @property
     def is_hold(self) -> bool:
         return self._hold
+
+    @property
+    def is_resume(self) -> bool:
+        return self._resume
 
     def reset(self) -> None:
         self._is_running = False
@@ -236,16 +236,17 @@ class CountdownThread(Thread):
         while self._is_running:
             print(f"About to wait: {self._interval} {self._ev.is_set()}")
             while not self._ev.wait(self._interval):
-                if self.is_hold is True:
-                    print(f"Is hold {self.is_hold} {self.is_resume}")
-                    self._ev.clear()
-                    continue
-                if self.is_resume is True:
-                    print(f"Is resume {self.is_hold} {self.is_resume}")
-                    self._ev.clear()
-                    self._hold = self._resume = False
-                    continue
+                if not self._ev.is_set():
+                    self._countdown += 1
+                    self._status.countdown = self._countdown
+            if self.is_hold is True:
+                print(f"Is hold {self.is_hold} {self.is_resume}")
+                self._ev.clear()
+                continue
+            if self.is_resume is True:
+                print(f"Is resume {self.is_hold} {self.is_resume}")
+                self._ev.clear()
+                self._hold = self._resume = False
+                continue
 
-                self._countdown += 1
-                self._status.countdown = self._countdown
         print("Exiting Countdown Thread")
