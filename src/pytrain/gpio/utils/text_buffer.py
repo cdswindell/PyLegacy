@@ -209,9 +209,14 @@ class TextBuffer:
                 s = f"{s:{fmt}}"
             # append new data to buffer
             row = orig_row = self._buffer[at[0]]
-            if len(row) <= at[1]:
+            if center is True:
+                pad = " " * int((self.cols - len(s)) / 2)
+                row = pad + s
+            elif len(row) <= at[1]:
+                # pad row with spaces, if cursor pos is > current row length
                 row += " " * (at[1] - len(self._buffer[at[0]])) + s
             elif at[1] + len(s) > len(row):
+                # overwrite portion of the row
                 row = row[: at[1]] + s
             else:
                 row = row[: at[1]] + s + row[at[1] + len(s) :]

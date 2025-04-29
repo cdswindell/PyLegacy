@@ -130,7 +130,7 @@ class LaunchStatus(Thread, GpioDevice):
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
-            self._oled[3] = "Abort"
+            self._oled.write("** Abort **", 3, center=True)
         self.update_display()
 
     def hold(self) -> None:
@@ -139,7 +139,7 @@ class LaunchStatus(Thread, GpioDevice):
                 return
             if self._countdown_thread:
                 self._countdown_thread.hold()
-            self._oled[3] = "Holding"
+            self._oled.write("** Hold **", 3, center=True)
             self._holding = True
         self.update_display()
 
