@@ -13,6 +13,7 @@ from threading import Thread, Event, RLock
 
 from .gpio_device import GpioDevice
 from .i2c.oled import OledDevice, Oled
+from .. import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
 from ..comm.command_listener import CommandDispatcher
 from ..protocol.command_req import CommandReq
 from ..db.engine_state import EngineState
@@ -67,6 +68,10 @@ class LaunchStatus(Thread, GpioDevice):
 
     def __call__(self, cmd: CommandReq) -> None:
         print(cmd)
+        if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
+            self.launch(15)
+        elif cmd.command == TMCC1HaltCommandEnum.HALT:
+            self.abort()
 
     @property
     def title(self) -> str:
