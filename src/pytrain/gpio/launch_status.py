@@ -7,7 +7,7 @@
 #
 #
 import atexit
-from threading import Thread, Event
+from threading import Thread, Event, RLock
 
 from .gpio_device import GpioDevice
 from .i2c.oled import OledDevice, Oled
@@ -25,6 +25,7 @@ class LaunchStatus(Thread, GpioDevice):
         address: int = 0x3C,
         device: OledDevice | str = OledDevice.ssd1309,
     ) -> None:
+        self._lock = RLock()
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Launch Pad Status Oled")
         self._oled = Oled(address, device, auto_update=False)
         self._oled[0] = title
@@ -74,7 +75,10 @@ class LaunchStatus(Thread, GpioDevice):
         return self._monitored_state
 
     def update_display(self, clear: bool = False) -> None:
-        pass
+        with self._lock:
+            if clear is True:
+                self.display.clear()
+            self.display.refresh_display()
 
     def on_state_update(self) -> None:
         self.update_display()
