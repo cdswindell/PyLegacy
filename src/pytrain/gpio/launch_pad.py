@@ -6,6 +6,8 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
+from .i2c.oled import OledDevice
+from .launch_status import LaunchStatus
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from .gpio_device import GpioDevice, P
@@ -27,8 +29,18 @@ class LaunchPad(GpioDevice):
         mission_control_pin: P = None,
         flicker_on_pin: P = None,
         flicker_off_pin: P = None,
+        title: str | None = "Launch Pad 39A",
+        device_address: int = 0x3C,
+        device: OledDevice | str = OledDevice.ssd1309,
         repeat_every: float = 0.02,
     ):
+        # if a device is specified, set up oled display
+        if device:
+            if title is None and address == 39:
+                title = "Launch Pad 39A"
+            self._lsd = LaunchStatus(address, title, device_address, device)
+        else:
+            self._lsd = None
         # use momentary contact switch to move the gantry
         left_cmd, self.gantry_fwd_btn, _ = self.make_button(
             gantry_fwd_pin,

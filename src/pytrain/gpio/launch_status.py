@@ -13,6 +13,7 @@ from threading import Thread, Event, RLock
 
 from .gpio_device import GpioDevice
 from .i2c.oled import OledDevice, Oled
+from ..protocol.command_req import CommandReq
 from ..db.engine_state import EngineState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
@@ -23,14 +24,12 @@ class LaunchStatus(Thread, GpioDevice):
     def __init__(
         self,
         tmcc_id: int | EngineState = 39,
-        title: str = "Launch Pad 39A",
+        title: str | None = None,
         address: int = 0x3C,
         device: OledDevice | str = OledDevice.ssd1309,
     ) -> None:
         self._lock = RLock()
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Launch Pad Status Oled")
-        self._oled = Oled(address, device, auto_update=False)
-        self._title = title
 
         self._state_store = ComponentStateStore.get()
         if isinstance(tmcc_id, EngineState):
@@ -44,6 +43,8 @@ class LaunchStatus(Thread, GpioDevice):
         else:
             raise ValueError(f"Invalid tmcc_id: {tmcc_id}")
 
+        self._title = title if title else f"Launch Pad {tmcc_id}"
+        self._oled = Oled(address, device, auto_update=False)
         self._is_running = True
         self._ev = Event()
         self._state_watcher = None
@@ -62,6 +63,9 @@ class LaunchStatus(Thread, GpioDevice):
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
         atexit.register(self.close)
 
+    def __call__(self, cmd: CommandReq) -> None:
+        print(cmd)
+
     @property
     def title(self) -> str:
         return self._title
@@ -76,6 +80,7 @@ class LaunchStatus(Thread, GpioDevice):
             self._countdown = value
             if value is None:
                 self._oled[2] = "T Minus  --:--"
+                self._oled[3] = ""
             elif value <= 0:
                 value = abs(value)
                 self._oled[2] = f"T Minus -00:{value:02d}"
@@ -172,7 +177,7 @@ class LaunchStatus(Thread, GpioDevice):
             self._synchronized = True
             if self._monitored_state is None and self.tmcc_id and self.tmcc_id != 99:
                 self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id)
-            self._monitor_state_updates()
+            self._state_store.listen_for((CommandScope.ENGINE, self.tmcc_id))
             self.update_display(clear=True)
 
     def reset(self) -> None:
@@ -193,14 +198,6 @@ class LaunchStatus(Thread, GpioDevice):
 
     def close(self) -> None:
         self.reset()
-
-    def _monitor_state_updates(self):
-        if self._state_watcher:
-            self._state_watcher.shutdown()
-            self._state_watcher = None
-
-        if self._monitored_state:
-            self._state_watcher = StateWatcher(self._monitored_state, self.on_state_update)
 
 
 class CountdownThread(Thread):
