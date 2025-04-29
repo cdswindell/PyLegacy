@@ -233,15 +233,16 @@ class CountdownThread(Thread):
         self._ev.set()
 
     def run(self) -> None:
-        while self._is_running and not self._ev.wait(self._interval):
-            if self.is_resume:
-                self._ev.clear()
-                self._hold = self._resume = False
-                continue
-            if self.is_hold:
-                self._ev.clear()
-                continue
+        while self._is_running:
+            while not self._ev.wait(self._interval):
+                if self.is_resume:
+                    self._ev.clear()
+                    self._hold = self._resume = False
+                    continue
+                if self.is_hold:
+                    self._ev.clear()
+                    continue
 
-            self._countdown += 1
-            self._status.countdown = self._countdown
+                self._countdown += 1
+                self._status.countdown = self._countdown
         print("Exiting Countdown Thread")
