@@ -356,7 +356,7 @@ class Controller(Thread, GpioDevice):
 
     def update_engine(self, engine_id: str | int):
         tmcc_id = int(engine_id)
-        # allow use of road numbers; unless an engine supports 4 digit addressing,
+        # allow use of road numbers; unless an engine supports 4-digit addressing,
         # road numbers are >= 100
         if tmcc_id > 99:
             state = ComponentStateStore.get_state(self._scope, tmcc_id, False)

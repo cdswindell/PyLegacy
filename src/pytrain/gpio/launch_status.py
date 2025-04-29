@@ -1,0 +1,114 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+import atexit
+from threading import Thread, Event
+
+from .gpio_device import GpioDevice
+from .i2c.oled import OledDevice, Oled
+from ..db.engine_state import EngineState
+from ..db.component_state_store import ComponentStateStore
+from ..db.state_watcher import StateWatcher
+from ..protocol.constants import PROGRAM_NAME, CommandScope
+
+
+class LaunchStatus(Thread, GpioDevice):
+    def __init__(
+        self,
+        tmcc_id: int | EngineState = 39,
+        title: str = "Launch Pad 39A",
+        address: int = 0x3C,
+        device: OledDevice | str = OledDevice.ssd1309,
+    ) -> None:
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Launch Pad Status Oled")
+        self._oled = Oled(address, device, auto_update=False)
+        self._oled[0] = title
+        self._oled[2] = " T Minus  --:--"
+
+        self._state_store = ComponentStateStore.get()
+        if isinstance(tmcc_id, EngineState):
+            self._monitored_state = tmcc_id
+            self._tmcc_id = tmcc_id.address
+            self._scope = tmcc_id.scope
+        elif isinstance(tmcc_id, int) and 1 <= tmcc_id <= 99:
+            self._tmcc_id = tmcc_id
+            self._scope = CommandScope.ENGINE
+            self._monitored_state = None
+        else:
+            raise ValueError(f"Invalid tmcc_id: {tmcc_id}")
+
+        self._is_running = True
+        self._ev = Event()
+        self._state_watcher = None
+
+        # check for state synchronization
+        self._synchronized = False
+        self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+        if self._sync_state and self._sync_state.is_synchronized is True:
+            self._sync_watcher = None
+            self.on_sync()
+        else:
+            self.update_display()
+            self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
+        atexit.register(self.close)
+
+    @property
+    def display(self) -> Oled:
+        return self._oled
+
+    @property
+    def tmcc_id(self) -> int:
+        return self._tmcc_id
+
+    @property
+    def is_synchronized(self) -> bool:
+        return self._synchronized
+
+    @property
+    def state(self) -> EngineState:
+        return self._monitored_state
+
+    def update_display(self, clear: bool = False) -> None:
+        pass
+
+    def on_state_update(self) -> None:
+        self.update_display()
+
+    def on_sync(self) -> None:
+        if self._sync_state.is_synchronized:
+            if self._sync_watcher:
+                self._sync_watcher.shutdown()
+                self._sync_watcher = None
+            self._synchronized = True
+            if self._monitored_state is None and self.tmcc_id and self.tmcc_id != 99:
+                self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id)
+            self._monitor_state_updates()
+            self.update_display(clear=True)
+            self.update_display(clear=True)
+
+    def reset(self) -> None:
+        self.display.reset()
+        self._is_running = False
+        self._ev.set()
+        if self._sync_watcher:
+            self._sync_watcher.shutdown()
+            self._sync_watcher = None
+        if self._state_watcher:
+            self._state_watcher.shutdown()
+            self._state_watcher = None
+
+    def close(self) -> None:
+        self.reset()
+
+    def _monitor_state_updates(self):
+        if self._state_watcher:
+            self._state_watcher.shutdown()
+            self._state_watcher = None
+
+        if self._monitored_state:
+            self._state_watcher = StateWatcher(self._monitored_state, self.on_state_update)

@@ -124,7 +124,7 @@ class CraneCar(GpioDevice):
             if self.sh_led:
                 self.cache_handler(EngineStateSource(address, self.sh_led, lambda x: x.numeric == 3))
 
-        # set up for boom lift/drop
+        # set-up for boom lift/lower
         # we can either press a selector button to force crane mode or
         # send the prefix command along with the boom down command
         down_cmd = CommandReq.build(TMCC1EngineCommandEnum.BRAKE_SPEED, address)

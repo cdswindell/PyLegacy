@@ -177,9 +177,18 @@ class TextBuffer:
         if isinstance(int_chr, int) and 0 <= int_chr <= 255:
             self.write(chr(int_chr), at=at)
 
-    def write(self, c: int | str, at: tuple[int, int] = None, fmt: str = None) -> None:
+    def write(
+        self,
+        c: int | str,
+        at: tuple[int, int] | int = None,
+        fmt: str = None,
+        center: bool = False,
+    ) -> None:
         with self._cv:
-            at = at if isinstance(at, tuple) and len(at) == 2 else self._cursor_pos
+            if isinstance(at, int):
+                at = (at, 0)
+            else:
+                at = at if isinstance(at, tuple) and len(at) == 2 else self._cursor_pos
             self._vet_cursor_pos(at)
             if len(self._buffer) <= at[0]:
                 for _ in range(at[0] + 1 - len(self._buffer)):

@@ -115,8 +115,8 @@ class GpioDelayHandler(Thread):
             with self._cv:
                 while self._running and self._scheduler.empty():
                     self._cv.wait()
-            # run the scheduler outside the cv lock, otherwise,
-            #  we couldn't schedule more commands
+            # run the scheduler outside the cv lock; otherwise,
+            # we couldn't schedule more commands
             self._scheduler.run()
             self._ev.clear()
 
@@ -585,7 +585,7 @@ class GpioHandler:
         led_pin: P = None,
         cathode: bool = True,
     ) -> Tuple[Button, Button, LED]:
-        # create a LED, if requested. It is turned on by pressing the
+        # Create a LED, if requested. It is turned on by pressing the
         # ON button, and turned off by pressing the OFF button
         if led_pin is not None and led_pin != 0:
             # noinspection PyTypeChecker

@@ -39,7 +39,7 @@ class Oled(Thread, TextBuffer):
     def __init__(
         self,
         address: int = 0x3C,
-        oled_device: OledDevice | str = OledDevice.ssd1309,
+        device: OledDevice | str = OledDevice.ssd1309,
         font_size: int = 15,
         font_family: str = "DejaVuSansMono.ttf",
         x_offset: int = 2,
@@ -51,12 +51,12 @@ class Oled(Thread, TextBuffer):
         else:
             self._serial = spi(device=0, port=0)
 
-        if isinstance(oled_device, str):
-            oled_device = OledDevice.by_name(oled_device, raise_exception=True)
-        if isinstance(oled_device, OledDevice):
-            self._device = oled_device.value(self._serial)  # i2c oled device
+        if isinstance(device, str):
+            device = OledDevice.by_name(device, raise_exception=True)
+        if isinstance(device, OledDevice):
+            self._device = device.value(self._serial)  # i2c oled device
         else:
-            raise ValueError(f"Unsupported Luma OLED device: {oled_device}")
+            raise ValueError(f"Unsupported Luma OLED device: {device}")
 
         # determine maximum number of rows; we do not change this even if the
         # font/font size is changed later on

@@ -94,7 +94,7 @@ class AccCli(CliBase):
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
         self._acc = self._args.acc
-        self._command = self._args.command
+        self._command: TMCC1AuxCommandEnum | AccCmd = self._args.command
         self._data = self._args.data if "data" in self._args else 0
         self._speed = self._args.speed if "speed" in self._args else 0
         self._aux1 = self._args.aux1
@@ -107,7 +107,12 @@ class AccCli(CliBase):
             if self._command is None or not isinstance(self._command, TMCC1AuxCommandEnum):
                 raise ValueError("Must specify an option, use -h for help")
             cmd = AccCmd(
-                self._acc, self._command, self._data, baudrate=self._baudrate, port=self._port, server=self._server
+                self._acc,
+                self._command,
+                self._data,
+                baudrate=self._baudrate,
+                port=self._port,
+                server=self._server,
             )
             if self.do_fire:
                 cmd.fire(

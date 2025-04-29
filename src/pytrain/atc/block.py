@@ -303,7 +303,7 @@ class Block:
             self._thru_block = thru_block
             self._out_block = out_block
             self._switch_watcher = StateWatcher(self.switch, self.respond_to_thrown_switch)
-            # force call to method that sets next_block
+            # force call to the method that sets next_block
             self.respond_to_thrown_switch()
         else:
             raise AttributeError("Switch TMCC ID cannot be None")
@@ -346,7 +346,7 @@ class Block:
         log.info(f"Block {self.block_id} stop enter")
         if 3 not in self._order_activated:
             self._order_activated.append(3)
-        # if next block is occupied, stop train in this block immediately
+        # if the next block is occupied, stop the train in this block immediately
         if self.occupied_direction == self.direction:
             if self.next_block and self.next_block.is_occupied:
                 self.stop_immediate()

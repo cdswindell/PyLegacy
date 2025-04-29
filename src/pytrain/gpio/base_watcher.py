@@ -19,7 +19,7 @@ class BaseWatcher(GpioDevice):
 
     This class is designed to interface with a server and orchestrates the behavior of active
     and inactive LEDs based on the server's availability. The class determines the server's
-    address if not explicitly provided, utilizes a PingServer to monitor server activity, and
+    address if not explicitly provided, uses a PingServer to monitor server activity, and
     associates GPIO-based LEDs to visually reflect the activity status of the server.
 
     Attributes:
@@ -39,7 +39,7 @@ class BaseWatcher(GpioDevice):
             Defaults to 10.
 
     Raises:
-        ValueError: If the Base 3's address cannot be determined and no `server`
+        ValueError: If the Base 3's address cannot be determined, and no `server`
             parameter is provided.
     """
 
@@ -81,7 +81,7 @@ class BaseWatcher(GpioDevice):
 
         # set ping server state change actions
         if self.active_led and self.inactive_led:
-            # we have to toggle the leds; we need a custom function
+            # we have to toggle the LEDs; we need a custom function
             def on_active() -> None:
                 self.active_led.on()
                 self.inactive_led.off()

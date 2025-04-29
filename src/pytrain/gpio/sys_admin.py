@@ -13,6 +13,9 @@ from .gpio_device import GpioDevice, P
 
 
 class SystemAdmin(GpioDevice):
+    def __init__(self):
+        super().__init__()
+
     def shutdown(
         self,
         shutdown_pin: P,

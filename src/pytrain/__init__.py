@@ -117,7 +117,7 @@ def is_linux() -> bool:
 
 def get_version() -> str:
     #
-    # this should be easier, but, it is what it is.
+    # this should be easier, but it is what it is.
     # we handle the two major cases; we're running from
     # the PyTrain pypi package, or we're running from
     # source retrieved from git...

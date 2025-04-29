@@ -14,7 +14,7 @@ from .gpio_device import GpioDevice, P
 class LaunchPad(GpioDevice):
     def __init__(
         self,
-        address: int,
+        address: int = 39,
         gantry_fwd_pin: P = None,
         gantry_bck_pin: P = None,
         launch_seq_pin: P = None,
@@ -29,7 +29,7 @@ class LaunchPad(GpioDevice):
         flicker_off_pin: P = None,
         repeat_every: float = 0.02,
     ):
-        # use momentary contact switch to move gantry
+        # use momentary contact switch to move the gantry
         left_cmd, self.gantry_fwd_btn, _ = self.make_button(
             gantry_fwd_pin,
             command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
