@@ -234,16 +234,16 @@ class CountdownThread(Thread):
 
     def run(self) -> None:
         while self._is_running:
-            print(f"About to wait: {self._interval}")
+            print(f"About to wait: {self._interval} {self._ev.is_set()}")
             while not self._ev.wait(self._interval):
-                if self.is_resume:
+                if self.is_hold is True:
+                    print(f"Is hold {self.is_hold} {self.is_resume}")
+                    self._ev.clear()
+                    continue
+                if self.is_resume is True:
                     print(f"Is resume {self.is_hold} {self.is_resume}")
                     self._ev.clear()
                     self._hold = self._resume = False
-                    continue
-                if self.is_hold:
-                    print(f"Is hold {self.is_hold} {self.is_resume}")
-                    self._ev.clear()
                     continue
 
                 self._countdown += 1
