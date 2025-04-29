@@ -30,7 +30,7 @@ class LaunchStatus(Thread, GpioDevice):
         self._oled = Oled(address, device, auto_update=False)
         self._title = title
         self._oled[0] = title
-        self._oled[2] = " T Minus  --:--"
+        self._oled[2] = "T Minus  --:--"
 
         self._state_store = ComponentStateStore.get()
         if isinstance(tmcc_id, EngineState):
@@ -90,7 +90,7 @@ class LaunchStatus(Thread, GpioDevice):
             if clear is True:
                 self.display.clear()
                 self._oled[0] = self.title
-                self._oled[2] = " T Minus  --:--"
+                self._oled[2] = "T Minus  --:--"
             self.display.refresh_display()
 
     def on_state_update(self) -> None:
