@@ -198,6 +198,7 @@ class CountdownThread(Thread):
         self._resume = False
         self._ev = Event()
         self._interval = 1
+        self._is_running = True
         self.start()
 
     @property
@@ -213,6 +214,7 @@ class CountdownThread(Thread):
         return self._hold
 
     def reset(self) -> None:
+        self._is_running = False
         if self.is_alive():
             self._hold = self._resume = False
             self._ev.set()
@@ -221,18 +223,19 @@ class CountdownThread(Thread):
     def hold(self) -> None:
         self._hold = True
         self._resume = False
+        self._interval = None
         self._ev.set()
 
     def resume(self) -> None:
         self._hold = False
         self._resume = True
+        self._interval = 1
         self._ev.set()
 
     def run(self) -> None:
-        while not self._ev.wait(self._interval):
+        while self._is_running and not self._ev.wait(self._interval):
             if self.is_resume:
                 self._ev.clear()
-                self._interval = 1
                 self._hold = self._resume = False
                 continue
             if self.is_hold:
@@ -241,3 +244,4 @@ class CountdownThread(Thread):
 
             self._countdown += 1
             self._status.countdown = self._countdown
+        print("Exiting Countdown Thread")
