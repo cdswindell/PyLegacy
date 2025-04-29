@@ -71,17 +71,18 @@ class LaunchStatus(Thread, GpioDevice):
 
     @countdown.setter
     def countdown(self, value: int) -> None:
-        self._countdown = value
-        if value is None:
-            pass
-        elif value <= 0:
-            value = abs(value)
-            self._oled[2] = f"T Minus -00:{value:02d}"
-        else:
-            minute = value // 60
-            second = value % 60
-            self._oled[2] = f"Launch  +{minute:02d}:{second:02d}"
-        self.update_display()
+        with self._lock:
+            self._countdown = value
+            if value is None:
+                self._oled[2] = "T Minus  --:--"
+            elif value <= 0:
+                value = abs(value)
+                self._oled[2] = f"T Minus -00:{value:02d}"
+            else:
+                minute = value // 60
+                second = value % 60
+                self._oled[2] = f"Launch  +{minute:02d}:{second:02d}"
+            self.update_display()
 
     @title.setter
     def title(self, value: str) -> None:
@@ -136,15 +137,19 @@ class LaunchStatus(Thread, GpioDevice):
             self.update_display(clear=True)
 
     def reset(self) -> None:
-        self.display.reset()
-        self._is_running = False
-        self._ev.set()
-        if self._sync_watcher:
-            self._sync_watcher.shutdown()
-            self._sync_watcher = None
-        if self._state_watcher:
-            self._state_watcher.shutdown()
-            self._state_watcher = None
+        with self._lock:
+            if self._countdown_thread:
+                self._countdown_thread.reset()
+                self._countdown_thread = None
+            self.display.reset()
+            self._is_running = False
+            self._ev.set()
+            if self._sync_watcher:
+                self._sync_watcher.shutdown()
+                self._sync_watcher = None
+            if self._state_watcher:
+                self._state_watcher.shutdown()
+                self._state_watcher = None
 
     def close(self) -> None:
         self.reset()
