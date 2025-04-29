@@ -209,9 +209,19 @@ class CountdownThread(Thread):
     def is_hold(self) -> bool:
         return self._hold
 
-    @property
-    def is_resume(self) -> bool:
-        return self._resume
+    def hold(self) -> None:
+        if self._countdown and self._countdown < 0 and self._hold is False and self._resume is False:
+            self._hold = True
+            self._resume = False
+            self._interval = None
+            self._ev.set()
+
+    def resume(self) -> None:
+        if self._countdown and self._countdown < 0 and self._hold is True and self._resume is False:
+            self._hold = False
+            self._resume = True
+            self._interval = 1
+            self._ev.set()
 
     def reset(self) -> None:
         self._is_running = False
@@ -220,33 +230,16 @@ class CountdownThread(Thread):
             self._ev.set()
             self.join()
 
-    def hold(self) -> None:
-        self._hold = True
-        self._resume = False
-        self._interval = None
-        self._ev.set()
-
-    def resume(self) -> None:
-        self._hold = False
-        self._resume = True
-        self._interval = 1
-        self._ev.set()
-
     def run(self) -> None:
         while self._is_running:
-            print(f"About to wait: {self._interval} {self._ev.is_set()}")
             while not self._ev.wait(self._interval):
-                if not self._ev.is_set():
-                    self._countdown += 1
-                    self._status.countdown = self._countdown
+                print("decrementing...")
+                self._countdown += 1
+                self._status.countdown = self._countdown
             if self.is_hold is True:
-                print(f"Is hold {self.is_hold} {self.is_resume}")
                 self._ev.clear()
                 continue
-            if self.is_resume is True:
-                print(f"Is resume {self.is_hold} {self.is_resume}")
+            if self._resume is True:
                 self._ev.clear()
                 self._hold = self._resume = False
                 continue
-
-        print("Exiting Countdown Thread")
