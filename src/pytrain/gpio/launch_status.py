@@ -111,8 +111,10 @@ class LaunchStatus(Thread, GpioDevice):
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
-            self.countdown = countdown
-            self._countdown_thread = CountdownThread(self, countdown)
+            self.countdown = countdown if countdown else None
+            if countdown:
+                countdown = countdown if countdown < 0 else -countdown
+                self._countdown_thread = CountdownThread(self, countdown)
 
     def update_display(self, clear: bool = False) -> None:
         with self._lock:
@@ -176,7 +178,6 @@ class CountdownThread(Thread):
         return self._countdown
 
     def reset(self) -> None:
-        self._status.countdown = None
         if self.is_alive():
             self._ev.set()
             self.join()
