@@ -135,9 +135,9 @@ class LaunchStatus(Thread, GpioDevice):
 
     def resume(self) -> None:
         with self._lock:
+            self._oled[3] = ""
             if self._countdown_thread:
                 self._countdown_thread.resume()
-            self._oled[3] = ""
         self.update_display()
 
     def update_display(self, clear: bool = False) -> None:
@@ -234,12 +234,15 @@ class CountdownThread(Thread):
 
     def run(self) -> None:
         while self._is_running:
+            print(f"About to wait: {self._interval}")
             while not self._ev.wait(self._interval):
                 if self.is_resume:
+                    print(f"Is resume {self.is_hold} {self.is_resume}")
                     self._ev.clear()
                     self._hold = self._resume = False
                     continue
                 if self.is_hold:
+                    print(f"Is hold {self.is_hold} {self.is_resume}")
                     self._ev.clear()
                     continue
 
