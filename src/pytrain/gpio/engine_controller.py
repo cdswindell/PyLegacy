@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from random import randint
-from typing import Dict, Tuple, TypeVar, Union
+from typing import Dict, Tuple, TypeVar, Union, Generic
 
 from gpiozero import Button
 
@@ -19,7 +19,7 @@ P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, i
 R = TypeVar("R", bound=CommandReq)
 
 
-class EngineController:
+class EngineController(Generic[R]):
     def __init__(
         self,
         speed_pin_1: P = None,

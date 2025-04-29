@@ -13,6 +13,7 @@ from threading import Thread, Event, RLock
 
 from .gpio_device import GpioDevice
 from .i2c.oled import OledDevice, Oled
+from ..comm.command_listener import CommandDispatcher
 from ..protocol.command_req import CommandReq
 from ..db.engine_state import EngineState
 from ..db.component_state_store import ComponentStateStore
@@ -31,7 +32,6 @@ class LaunchStatus(Thread, GpioDevice):
         self._lock = RLock()
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Launch Pad Status Oled")
 
-        self._state_store = ComponentStateStore.get()
         if isinstance(tmcc_id, EngineState):
             self._monitored_state = tmcc_id
             self._tmcc_id = tmcc_id.address
@@ -43,6 +43,8 @@ class LaunchStatus(Thread, GpioDevice):
         else:
             raise ValueError(f"Invalid tmcc_id: {tmcc_id}")
 
+        self._state_store = ComponentStateStore.get()
+        self._dispatcher = CommandDispatcher.get()
         self._title = title if title else f"Launch Pad {tmcc_id}"
         self._oled = Oled(address, device, auto_update=False)
         self._is_running = True
@@ -177,11 +179,12 @@ class LaunchStatus(Thread, GpioDevice):
             self._synchronized = True
             if self._monitored_state is None and self.tmcc_id and self.tmcc_id != 99:
                 self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id)
-            self._state_store.listen_for((CommandScope.ENGINE, self.tmcc_id))
+            self._dispatcher.listen_for(self, CommandScope.ENGINE, self.tmcc_id)
             self.update_display(clear=True)
 
     def reset(self) -> None:
         with self._lock:
+            self._dispatcher.unsubscribe(self, CommandScope.ENGINE, self.tmcc_id)
             self._holding = False
             if self._countdown_thread:
                 self._countdown_thread.reset()
