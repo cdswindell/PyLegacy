@@ -111,10 +111,34 @@ class LaunchStatus(Thread, GpioDevice):
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
-            self.countdown = countdown if countdown else None
             if countdown:
                 countdown = countdown if countdown < 0 else -countdown
+                self.countdown = countdown
                 self._countdown_thread = CountdownThread(self, countdown)
+            else:
+                self.countdown = None
+
+    def abort(self) -> None:
+        with self._lock:
+            if self._countdown_thread:
+                self._countdown_thread.reset()
+                self._countdown_thread = None
+            self._oled[3] = "Abort"
+        self.update_display()
+
+    def hold(self) -> None:
+        with self._lock:
+            if self._countdown_thread:
+                self._countdown_thread.hold()
+            self._oled[3] = "Holding"
+        self.update_display()
+
+    def resume(self) -> None:
+        with self._lock:
+            if self._countdown_thread:
+                self._countdown_thread.resume()
+            self._oled[3] = ""
+        self.update_display()
 
     def update_display(self, clear: bool = False) -> None:
         with self._lock:
@@ -170,24 +194,50 @@ class CountdownThread(Thread):
         super().__init__(daemon=True, name="Countdown Thread")
         self._status = status
         self._countdown = countdown
+        self._hold = False
+        self._resume = False
         self._ev = Event()
+        self._interval = 1
         self.start()
 
     @property
     def countdown(self) -> int:
         return self._countdown
 
+    @property
+    def is_resume(self) -> bool:
+        return self._resume
+
+    @property
+    def is_hold(self) -> bool:
+        return self._hold
+
     def reset(self) -> None:
         if self.is_alive():
+            self._hold = self._resume = False
             self._ev.set()
             self.join()
 
-    def abort(self) -> None:
+    def hold(self) -> None:
+        self._hold = True
+        self._resume = False
         self._ev.set()
-        if self.is_alive():
-            self.join()
+
+    def resume(self) -> None:
+        self._hold = False
+        self._resume = True
+        self._ev.set()
 
     def run(self) -> None:
-        while not self._ev.wait(1):
+        while not self._ev.wait(self._interval):
+            if self.is_resume:
+                self._ev.clear()
+                self._interval = 1
+                self._hold = self._resume = False
+                continue
+            if self.is_hold:
+                self._ev.clear()
+                continue
+
             self._countdown += 1
             self._status.countdown = self._countdown
