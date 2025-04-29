@@ -71,7 +71,7 @@ class LaunchStatus(Thread, GpioDevice):
         if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
             self.launch(15)
         elif cmd.command == TMCC1EngineCommandEnum.NUMERIC:
-            if cmd.data == 0:
+            if cmd.data in {0, 5}:
                 self.abort()
         elif cmd.command == TMCC1HaltCommandEnum.HALT:
             self.abort()
@@ -89,15 +89,15 @@ class LaunchStatus(Thread, GpioDevice):
         with self._lock:
             self._countdown = value
             if value is None:
-                self._oled[2] = "T Minus  --:--"
+                self._oled[1] = "T Minus  --:--"
                 self._oled[3] = ""
             elif value <= 0:
                 value = abs(value)
-                self._oled[2] = f"T Minus -00:{value:02d}"
+                self._oled[1] = f"T Minus -00:{value:02d}"
             else:
                 minute = value // 60
                 second = value % 60
-                self._oled[2] = f"Launch  +{minute:02d}:{second:02d}"
+                self._oled[1] = f"Launch  +{minute:02d}:{second:02d}"
             self.update_display()
 
     @title.setter
@@ -129,6 +129,7 @@ class LaunchStatus(Thread, GpioDevice):
     def launch(self, countdown: int = -30) -> None:
         with self._lock:
             self._holding = False
+            self._oled[3] = ""
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
@@ -141,6 +142,8 @@ class LaunchStatus(Thread, GpioDevice):
 
     def abort(self) -> None:
         with self._lock:
+            if self.countdown is None:
+                return
             self._holding = False
             if self._countdown_thread:
                 self._countdown_thread.reset()
@@ -173,7 +176,7 @@ class LaunchStatus(Thread, GpioDevice):
             if clear is True:
                 self.display.clear()
                 self._oled[0] = self.title
-                self._oled[2] = "T Minus  --:--"
+                self._oled[1] = "T Minus  --:--"
             self.display.refresh_display()
 
     def on_state_update(self) -> None:
