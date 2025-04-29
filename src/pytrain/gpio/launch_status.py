@@ -28,6 +28,7 @@ class LaunchStatus(Thread, GpioDevice):
         self._lock = RLock()
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Launch Pad Status Oled")
         self._oled = Oled(address, device, auto_update=False)
+        self._title = title
         self._oled[0] = title
         self._oled[2] = " T Minus  --:--"
 
@@ -59,6 +60,16 @@ class LaunchStatus(Thread, GpioDevice):
         atexit.register(self.close)
 
     @property
+    def title(self) -> str:
+        return self._title
+
+    @title.setter
+    def title(self, value: str) -> None:
+        self._title = value
+        self._oled[0] = value
+        self.update_display()
+
+    @property
     def display(self) -> Oled:
         return self._oled
 
@@ -78,6 +89,8 @@ class LaunchStatus(Thread, GpioDevice):
         with self._lock:
             if clear is True:
                 self.display.clear()
+                self._oled[0] = self.title
+                self._oled[2] = " T Minus  --:--"
             self.display.refresh_display()
 
     def on_state_update(self) -> None:
