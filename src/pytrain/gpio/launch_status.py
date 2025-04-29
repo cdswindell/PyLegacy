@@ -13,7 +13,7 @@ from threading import Thread, Event, RLock
 
 from .gpio_device import GpioDevice
 from .i2c.oled import OledDevice, Oled
-from .. import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
 from ..comm.command_listener import CommandDispatcher
 from ..protocol.command_req import CommandReq
 from ..db.engine_state import EngineState
