@@ -401,7 +401,7 @@ class Mcp23017:
     @property
     def captures(self) -> int:
         """
-        Reads the interrupt captured register. It captures the GPIO port value at the time
+        Reads the interrupt-captured register. It captures the GPIO port value at the time
         the interrupt occurred.
         Note: This method clears interrupts
         :return: an int representing the state of all GPIOs at the time of interrupt
@@ -412,7 +412,7 @@ class Mcp23017:
 
     def read_interrupt_captures(self) -> Tuple[List[str], List[str]]:
         """
-        Reads the interrupt captured register. It captures the GPIO port value at the time
+        Reads the interrupt-captured register. It captures the GPIO port value at the time
         the interrupt occurred.
         :return: a tuple of the INTCAPA and INTCAPB interrupt capture as a list of bit string
         """
@@ -570,8 +570,8 @@ class Mcp23017Factory:
                 raise GPIOPinInUse(f"Pin {pin} is already in use by Mcp23017 at address {hex(address)}")
 
             if interrupt_pin is not None:
-                # the CQRobot Ocean board supports 2 interrupt lines, one for DGPIO ports 0-7 (A),
-                # and another for DGPIO ports 8-15 (B). We hve to make sure the given interrupt port
+                # The CQRobot Ocean board supports 2 interrupt lines, one for DGPIO ports 0-7 (A),
+                # and another for DGPIO ports 8-15 (B). We have to make sure the given interrupt port
                 # hasn't been assigned to a different I2C board or that it hasn't been assigned to
                 # a different bank on this board
                 assigned = cls._instance._interrupt_pins.get(interrupt_pin, None)

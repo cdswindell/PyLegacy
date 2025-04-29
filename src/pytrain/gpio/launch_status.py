@@ -6,6 +6,8 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
+from __future__ import annotations
+
 import atexit
 from threading import Thread, Event, RLock
 
@@ -29,8 +31,6 @@ class LaunchStatus(Thread, GpioDevice):
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Launch Pad Status Oled")
         self._oled = Oled(address, device, auto_update=False)
         self._title = title
-        self._oled[0] = title
-        self._oled[2] = "T Minus  --:--"
 
         self._state_store = ComponentStateStore.get()
         if isinstance(tmcc_id, EngineState):
@@ -47,6 +47,8 @@ class LaunchStatus(Thread, GpioDevice):
         self._is_running = True
         self._ev = Event()
         self._state_watcher = None
+        self._countdown: int | None = None
+        self._countdown_thread = None
 
         # check for state synchronization
         self._synchronized = False
@@ -62,6 +64,22 @@ class LaunchStatus(Thread, GpioDevice):
     @property
     def title(self) -> str:
         return self._title
+
+    @property
+    def countdown(self) -> int | None:
+        return self._countdown
+
+    @countdown.setter
+    def countdown(self, value: int) -> None:
+        self._countdown = value
+        if value is None:
+            pass
+        elif value <= 0:
+            value = abs(value)
+            self._oled[2] = f"T Minus -00:{value:02d}"
+        else:
+            self._oled[2] = f"Launch  +00:{value:02d}"
+        self.update_display()
 
     @title.setter
     def title(self, value: str) -> None:
@@ -106,7 +124,6 @@ class LaunchStatus(Thread, GpioDevice):
                 self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id)
             self._monitor_state_updates()
             self.update_display(clear=True)
-            self.update_display(clear=True)
 
     def reset(self) -> None:
         self.display.reset()
@@ -129,3 +146,23 @@ class LaunchStatus(Thread, GpioDevice):
 
         if self._monitored_state:
             self._state_watcher = StateWatcher(self._monitored_state, self.on_state_update)
+
+
+class CountdownThread(Thread):
+    def __init__(self, status: LaunchStatus, countdown: int = -30) -> None:
+        super().__init__(daemon=True, name="Countdown Thread")
+        self._status = status
+        self._countdown = countdown
+        self._ev = Event()
+
+    @property
+    def countdown(self) -> int:
+        return self._countdown
+
+    def abort(self) -> None:
+        self._ev.set()
+
+    def run(self) -> None:
+        while not self._ev.wait(1):
+            self._countdown += 1
+            self._status.countdown = self._countdown
