@@ -78,7 +78,9 @@ class LaunchStatus(Thread, GpioDevice):
             value = abs(value)
             self._oled[2] = f"T Minus -00:{value:02d}"
         else:
-            self._oled[2] = f"Launch  +00:{value:02d}"
+            minute = value // 60
+            second = value % 60
+            self._oled[2] = f"Launch  +{minute:02d}:{second:02d}"
         self.update_display()
 
     @title.setter
@@ -102,6 +104,14 @@ class LaunchStatus(Thread, GpioDevice):
     @property
     def state(self) -> EngineState:
         return self._monitored_state
+
+    def launch(self, countdown: int = -30) -> None:
+        with self._lock:
+            if self._countdown_thread:
+                self._countdown_thread.reset()
+                self._countdown_thread = None
+            self.countdown = countdown
+            self._countdown_thread = CountdownThread(self, countdown)
 
     def update_display(self, clear: bool = False) -> None:
         with self._lock:
@@ -154,13 +164,22 @@ class CountdownThread(Thread):
         self._status = status
         self._countdown = countdown
         self._ev = Event()
+        self.start()
 
     @property
     def countdown(self) -> int:
         return self._countdown
 
+    def reset(self) -> None:
+        self._status.countdown = None
+        if self.is_alive():
+            self._ev.set()
+            self.join()
+
     def abort(self) -> None:
         self._ev.set()
+        if self.is_alive():
+            self.join()
 
     def run(self) -> None:
         while not self._ev.wait(1):
