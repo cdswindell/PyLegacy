@@ -17,13 +17,13 @@ import signal
 import socket
 import subprocess
 import sys
-import threading
 from argparse import ArgumentParser, ArgumentError, SUPPRESS
 from datetime import datetime, timedelta
 from queue import Queue, Empty
 from time import sleep
 from timeit import default_timer as timer
 from typing import List, Tuple, Dict, Any
+from threading import Thread, Event, get_native_id
 
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
 
@@ -120,7 +120,7 @@ class PyTrain:
         self._command_queue = None
         self._zeroconf = None
         self._pytrain_servers: List[ServiceInfo] = []
-        self._server_discovered = threading.Event()
+        self._server_discovered = Event()
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
         self._received_admin_cmds = set()
@@ -268,12 +268,11 @@ class PyTrain:
                 print(f"Loading layout state {PROGRAM_NAME} from server{server}...")
 
         # Start the command line processor; run as a thread if we're serving the REST api
-        self._command_processor_ev = threading.Event()
+        self._command_processor_ev = Event()
         if args.api is True:
             self._api = True
             self._command_queue = Queue(DEFAULT_QUEUE_SIZE)
-            self._api_thread: threading.Thread | None = threading.Thread(target=self.run)
-            self._api_thread.daemon = True
+            self._api_thread: Thread | None = Thread(target=self.run, daemon=True)
             self._api_thread.start()
         else:
             self.run()
@@ -369,7 +368,7 @@ class PyTrain:
 
     @property
     def tid(self) -> int:
-        return threading.get_native_id()
+        return get_native_id()
 
     @property
     def store(self) -> ComponentStateStore:
@@ -475,7 +474,7 @@ class PyTrain:
         if cmd.command in ACTION_TO_ADMIN_COMMAND_MAP:
             if cmd.command == TMCC1SyncCommandEnum.RESYNC:
                 if self.is_server:
-                    self._get_system_state()
+                    Thread(target=self._get_system_state, daemon=True).start()
                 return
             if cmd.command not in self._received_admin_cmds:
                 self._received_admin_cmds.add(cmd.command)
@@ -1264,7 +1263,7 @@ class PyTrain:
         return command_parser
 
 
-class ButtonsFileLoader(threading.Thread):
+class ButtonsFileLoader(Thread):
     """
     We run the startup-script reader so that we can continue with
     the main program while the script is loading
