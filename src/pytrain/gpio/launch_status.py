@@ -51,6 +51,7 @@ class LaunchStatus(Thread, GpioDevice):
         self._state_watcher = None
         self._countdown: int | None = None
         self._holding = False
+        self._aborted = False
         self._countdown_thread = None
         self._last_cmd = None
         self._hidden = False
@@ -82,8 +83,13 @@ class LaunchStatus(Thread, GpioDevice):
                     # Num 0: Abort
                     self.abort()
                 elif cmd.data == 5:
-                    if last_cmd == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
+                    if (
+                        last_cmd == TMCC1EngineCommandEnum.AUX1_OPTION_ONE
+                        or self.aborted is True
+                        or self.countdown is None
+                    ):
                         # Aux 1/Num 5: Shutdown
+                        self.recycle()
                         self.countdown = None
                         self._hide()
                     else:
@@ -118,7 +124,7 @@ class LaunchStatus(Thread, GpioDevice):
             self._countdown = value
             if value is None:
                 r1 = "T Minus  --:--"
-                self._oled[3] = ""
+                self.recycle()
             else:
                 if value < 0:
                     value = abs(value)
@@ -151,10 +157,13 @@ class LaunchStatus(Thread, GpioDevice):
     def holding(self) -> bool:
         return self._holding
 
+    @property
+    def aborted(self) -> bool:
+        return self._aborted
+
     def launch(self, countdown: int = -30) -> None:
         with self._lock:
-            self._holding = False
-            self._oled[3] = ""
+            self.recycle()
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
@@ -170,6 +179,7 @@ class LaunchStatus(Thread, GpioDevice):
             if self.countdown is None:
                 return
             self._holding = False
+            self._aborted = True
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
@@ -220,7 +230,7 @@ class LaunchStatus(Thread, GpioDevice):
     def reset(self) -> None:
         with self._lock:
             self._dispatcher.unsubscribe(self, CommandScope.ENGINE, self.tmcc_id)
-            self._holding = False
+            self._holding = self._aborted = False
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
@@ -233,6 +243,11 @@ class LaunchStatus(Thread, GpioDevice):
             if self._state_watcher:
                 self._state_watcher.shutdown()
                 self._state_watcher = None
+
+    def recycle(self) -> None:
+        with self._lock:
+            self._holding = self._aborted = False
+            self._oled[3] = ""
 
     def close(self) -> None:
         self.reset()
