@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import atexit
 from threading import Thread, Event, RLock
+from time import time
 
 from .gpio_device import GpioDevice
 from .i2c.oled import OledDevice, Oled
@@ -54,9 +55,10 @@ class LaunchStatus(Thread, GpioDevice):
         self._aborted = False
         self._countdown_thread = None
         self._last_cmd = None
+        self._last_cmd_time = time()
         self._hidden = False
 
-        self._title = title if title else f"Launch Pad {tmcc_id}"
+        self._title = title if title else f"Pad {tmcc_id}"
         self._oled = Oled(address, device, auto_update=False)
         self._oled.write(self.title, 0, center=True)
         self._oled.write("T Minus  --:--", 1, center=True)
@@ -74,7 +76,8 @@ class LaunchStatus(Thread, GpioDevice):
 
     def __call__(self, cmd: CommandReq) -> None:
         try:
-            if cmd == self._last_cmd:
+            if cmd == self._last_cmd and time() - self._last_cmd_time < 0.5:
+                # ignore dupe commands, if received within 0.5 seconds of one another
                 return
             last_cmd = self._last_cmd.command if self._last_cmd else None
             if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
@@ -104,6 +107,7 @@ class LaunchStatus(Thread, GpioDevice):
             elif cmd.command == TMCC1HaltCommandEnum.HALT:
                 self.abort()
         finally:
+            self._last_cmd_time = time()
             self._last_cmd = cmd
 
     @property
