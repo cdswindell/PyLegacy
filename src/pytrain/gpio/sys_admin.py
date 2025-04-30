@@ -75,3 +75,18 @@ class SystemAdmin(GpioDevice):
         cmd, upgrade_btn, led = self.make_button(upgrade_pin, TMCC1SyncCommandEnum.UPGRADE, hold_time=hold_time)
         upgrade_btn.when_held = cmd.as_action()
         return upgrade_btn
+
+    def resync(
+        self,
+        resync_pin: P,
+        hold_time: float = None,
+    ) -> Button:
+        """
+        Send the resync state command to server
+        """
+        cmd, resync_btn, led = self.make_button(resync_pin, TMCC1SyncCommandEnum.RESYNC, hold_time=hold_time)
+        if hold_time:
+            resync_btn.when_held = cmd.as_action()
+        else:
+            resync_btn.when_pressed = cmd.as_action()
+        return resync_btn

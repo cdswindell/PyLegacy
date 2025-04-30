@@ -48,7 +48,7 @@ class EnqueueProxyRequests(Thread):
     @classmethod
     def build(cls, buffer: CommBuffer, port: int = DEFAULT_SERVER_PORT) -> EnqueueProxyRequests:
         """
-        Factory method to create a EnqueueProxyRequests instance
+        Factory method to create an EnqueueProxyRequests instance
         """
         return EnqueueProxyRequests(buffer, port)
 
@@ -133,7 +133,7 @@ class EnqueueProxyRequests(Thread):
 
     def client_connect(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
         # check if (client_ip, port) is unique, it should be unless
-        # previous client on this port unexpectedly disconnected
+        # the previous client on this port unexpectedly disconnected
         with self._lock:
             disconnected = set()
             for k_ip, k_port, k_uuid in self._clients.keys():

@@ -13,6 +13,7 @@ import logging
 import time
 from threading import Thread, Condition, Event
 
+from ..db.component_state_store import ComponentStateStore
 from ..comm.command_listener import SYNCING, CommandDispatcher, SYNC_COMPLETE
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PdiCommand, D4Action
@@ -34,8 +35,14 @@ class StartupState(Thread):
         self._ev = Event()
         self._waiting_for = dict()
         self._processed_configs = set()
+        self._sync_state = ComponentStateStore.get_state(CommandScope.SYNC, 99)
         self._dispatcher = dispatcher
         self._dispatcher.offer(SYNCING)
+        # wait for sync_state to reflect request
+        while self._sync_state.is_synchronizing is not True:
+            with self._sync_state.synchronizer:
+                # noinspection PyUnresolvedReferences
+                self._sync_state.synchronizer.wait()
         self.start()
 
     def __call__(self, cmd: PdiReq) -> None:
