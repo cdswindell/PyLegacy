@@ -237,8 +237,9 @@ class LaunchStatus(Thread, GpioDevice):
     def _show(self) -> None:
         with self._lock:
             if self._hidden is True:
-                self.display.show()
                 self._hidden = False
+                self.update_display(clear=True)
+                self.display.show()
 
 
 class CountdownThread(Thread):
