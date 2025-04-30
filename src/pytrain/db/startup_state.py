@@ -36,6 +36,7 @@ class StartupState(Thread):
         self._processed_configs = set()
         self._dispatcher = dispatcher
         self._dispatcher.offer(SYNCING)
+        print(f"Startup State Dispatcher: {dispatcher}")
         self.start()
 
     def __call__(self, cmd: PdiReq) -> None:
