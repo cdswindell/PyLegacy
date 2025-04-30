@@ -22,8 +22,9 @@ QUIT_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.QUIT).as_bytes
 REBOOT_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.REBOOT).as_bytes
 REGISTER_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.REGISTER).as_bytes
 RESTART_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.RESTART).as_bytes
-SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
+RESYNC_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.RESYNC).as_bytes
 SENDING_STATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SENDING_STATE).as_bytes
+SHUTDOWN_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).as_bytes
 SYNC_BEGIN_RESPONSE: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_BEGIN).as_bytes
 SYNC_COMPLETE_RESPONSE: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_COMPLETE).as_bytes
 SYNC_STATE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.SYNC_REQUEST).as_bytes
@@ -289,6 +290,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 else:
                     dispatcher.signal_clients(cmd)
                     dispatcher.publish(CommandScope.SYNC, cmd)
+            elif byte_stream == RESYNC_REQUEST:
+                dispatcher.publish(CommandScope.SYNC, cmd)
             else:
                 log.error(f"Unhandled {cmd} received from {client_ip}:{client_port}")
             # do not send the special PyTrain commands to the Lionel Base 3 or Ser2
