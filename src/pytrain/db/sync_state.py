@@ -74,6 +74,13 @@ class SyncState(ComponentState):
     def is_lcs(self) -> bool:
         return False
 
+    def reset(self) -> None:
+        with self._cv:
+            self._state_synchronized = None
+            self._state_synchronizing = None
+            self.changed.set()
+            self._cv.notify_all()
+
     def as_bytes(self) -> bytes:
         return bytes()
 

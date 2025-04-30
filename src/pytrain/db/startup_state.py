@@ -13,6 +13,7 @@ import logging
 import time
 from threading import Thread, Condition, Event
 
+from ..db.component_state_store import ComponentStateStore
 from ..comm.command_listener import SYNCING, CommandDispatcher, SYNC_COMPLETE
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PdiCommand, D4Action
@@ -26,14 +27,18 @@ log = logging.getLogger(__name__)
 
 
 class StartupState(Thread):
-    def __init__(self, listener: PdiListener, state_store: PdiStateStore) -> None:
+    def __init__(self, listener: PdiListener, state_store: ComponentStateStore, pdi_state_store: PdiStateStore) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup State Sniffer")
         self.listener = listener
         self.state_store = state_store
+        self.pdi_state_store = pdi_state_store
         self._cv = Condition()
         self._ev = Event()
         self._waiting_for = dict()
         self._processed_configs = set()
+        sync_state = self.state_store.get_state(CommandScope.SYNC, 99)
+        if sync_state:
+            sync_state.reset()
         CommandDispatcher.get().offer(SYNCING)
         self.start()
 
@@ -52,7 +57,7 @@ class StartupState(Thread):
             if cmd.action and cmd.action.is_config and self._config_key(cmd) not in self._processed_configs:
                 # register the device; registration returns a list of pdi commands
                 # to send to get device state
-                state_requests = self.state_store.register_pdi_device(cmd)
+                state_requests = self.pdi_state_store.register_pdi_device(cmd)
                 self._processed_configs.add(self._config_key(cmd))
                 if state_requests:
                     for state_request in state_requests:

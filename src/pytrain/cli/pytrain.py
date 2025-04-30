@@ -943,7 +943,7 @@ class PyTrain:
         Send PDI requests to get data on all engines, trains, switches, routes, and accessories
         from the Lionel Base 3
         """
-        self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
+        self._startup_state = StartupState(self._pdi_buffer, self._state_store, self._pdi_state_store)
         if is_startup is False or self._no_wait is False:  # wait for roster download
             cycle = 0
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
