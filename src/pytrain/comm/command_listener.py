@@ -443,6 +443,8 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             try:
                 # publish dispatched commands to listeners on the command scope,
                 if isinstance(cmd, CommandReq):
+                    if cmd.scope == CommandScope.SYNC:
+                        print(f"Dispatcher {self} Processing: {cmd} {self._cv}")
                     # if command is a TMCC1 Halt, send to everyone
                     if cmd.is_halt:
                         if self._filter_updates is True and cmd.is_filtered is True:
@@ -463,6 +465,8 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                         self.publish(cmd.scope, cmd)
                         if cmd.scope == CommandScope.SYNC:
                             print(f"...Published {cmd}")
+                    if cmd.scope == CommandScope.SYNC:
+                        print(f"Dispatcher {self} Processed: {cmd} {self._cv}")
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)
                     # update state on all clients
@@ -566,6 +570,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                         s.connect((client, port))
                         s.sendall(command.as_bytes)
                         _ = s.recv(32)
+                    self._client_lock.notify_all()
             except ConnectionRefusedError:
                 # ignore disconnects; client will receive state update on reconnect
                 pass
@@ -603,6 +608,8 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                                 raise TypeError(f"Invalid state type: {type(state_bytes)}")
                             do_pause = False
                             for state_packet in state_bytes:
+                                if not state_packet:
+                                    continue
                                 if do_pause is True:
                                     sleep(0.01)
                                 try:
@@ -611,6 +618,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                                 except Exception as e:
                                     log.warning(f"Exception sending state update {state} to {client_ip}:{client_port}")
                                     log.exception(e)
+                        self._client_lock.notify_all()
             # send sync complete message
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_complete_response())
 
@@ -623,6 +631,8 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             elif isinstance(state, ComponentState):
                 # TODO: for safety, make this code handle if bytes are returned as list
                 packet = state.as_bytes()
+            if isinstance(packet, list):
+                log.error(f"send_state_packet: Invalid state type: {type(packet)}")
 
             if packet:  # we can only send states for tracked conditions
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -647,14 +657,14 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 print(f"Dispatcher {self} offered: {cmd} {self._cv}")
             with self._cv:
                 self._queue.put(cmd)
-                self._cv.notify()  # wake up receiving thread
+                self._cv.notify_all()  # wake up receiving thread
                 if from_pdi is True:
                     pass  # TODO: prevent receiving same command from ser2 stream
 
     def shutdown(self) -> None:
         with self._cv:
             self._is_running = False
-            self._cv.notify()
+            self._cv.notify_all()
         CommandDispatcher._instance = None
 
     @staticmethod
