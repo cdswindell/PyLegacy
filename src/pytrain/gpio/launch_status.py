@@ -187,15 +187,12 @@ class LaunchStatus(Thread, GpioDevice):
 
     def update_display(self, clear: bool = False) -> None:
         with self._lock:
-            self._show()
             if clear is True:
                 self.display.clear()
                 self._oled[0] = self.title
                 self._oled[1] = "T Minus  --:--"
+            self._show(update_display=False)
             self.display.refresh_display()
-
-    def on_state_update(self) -> None:
-        self.update_display()
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
@@ -234,11 +231,12 @@ class LaunchStatus(Thread, GpioDevice):
                 self._hidden = True
                 self.display.hide()
 
-    def _show(self) -> None:
+    def _show(self, update_display: bool = True) -> None:
         with self._lock:
             if self._hidden is True:
                 self._hidden = False
-                self.update_display(clear=True)
+                if update_display is True:
+                    self.update_display(clear=True)
                 self.display.show()
 
 
