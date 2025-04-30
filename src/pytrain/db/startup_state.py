@@ -39,10 +39,12 @@ class StartupState(Thread):
         self._dispatcher = dispatcher
         self._dispatcher.offer(SYNCING)
         # wait for sync_state to reflect request
+        print("waiting for SYNCING state...")
         while self._sync_state.is_synchronizing is not True:
             with self._sync_state.synchronizer:
                 # noinspection PyUnresolvedReferences
                 self._sync_state.synchronizer.wait()
+        print("Now SYNCING...")
         self.start()
 
     def __call__(self, cmd: PdiReq) -> None:
