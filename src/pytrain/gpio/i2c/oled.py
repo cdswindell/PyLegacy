@@ -391,7 +391,6 @@ class BlinkingHotspot(Thread, hotspot):
             self._ev.wait(self._rate)
             if self._ev.is_set() is False:
                 self._display_cycle = not self._display_cycle
-                print(self._display_cycle)
             if self._pause_request:
                 self._resume_ev.wait()
                 self._resume_ev.clear()
@@ -404,7 +403,6 @@ class BlinkingHotspot(Thread, hotspot):
                 (0, self._row * self._font_size, self.width - 1, ((self._row + 1) * self._font_size) - 1),
                 fill="black",
             )
-            print("blank")
         else:
             # Draw the text
             draw.text(
@@ -413,5 +411,4 @@ class BlinkingHotspot(Thread, hotspot):
                 font=self._font,
                 fill="white",
             )
-            print("text")
         return image
