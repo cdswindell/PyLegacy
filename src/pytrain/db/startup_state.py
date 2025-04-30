@@ -61,7 +61,7 @@ class StartupState(Thread):
             elif isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
                 if cmd.scope == CommandScope.TRAIN and cmd.tmcc_id == 98:
                     print("Marking sync complete...")
-                    CommandDispatcher.get().offer(SYNC_COMPLETE)
+                    self._dispatcher.offer(SYNC_COMPLETE)
                 # send a request to the base to get the next engine/train/acc/switch/route record (0x26)
                 if cmd.tmcc_id < 98 and cmd.data_length == PdiReq.scope_record_length(cmd.scope):
                     req = BaseReq(cmd.tmcc_id + 1, PdiCommand.BASE_MEMORY, scope=cmd.scope)
