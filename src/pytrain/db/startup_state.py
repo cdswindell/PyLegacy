@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from threading import Thread, Condition, Event
 
@@ -36,7 +37,7 @@ class StartupState(Thread):
         self._processed_configs = set()
         self._dispatcher = dispatcher
         self._dispatcher.offer(SYNCING)
-        print(f"Startup State Dispatcher: {dispatcher}")
+        print(f"Startup State Dispatcher: {dispatcher} PID: {os.getpid()}")
         self.start()
 
     def __call__(self, cmd: PdiReq) -> None:
