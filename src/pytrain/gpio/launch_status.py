@@ -54,6 +54,7 @@ class LaunchStatus(Thread, GpioDevice):
         self._countdown: int | None = None
         self._holding = False
         self._countdown_thread = None
+        self._last_cmd = None
 
         # check for state synchronization
         self._synchronized = False
@@ -68,13 +69,22 @@ class LaunchStatus(Thread, GpioDevice):
 
     def __call__(self, cmd: CommandReq) -> None:
         print(cmd)
-        if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
-            self.launch(15)
-        elif cmd.command == TMCC1EngineCommandEnum.NUMERIC:
-            if cmd.data in {0, 5}:
+        try:
+            if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
+                self.launch(15)
+            elif cmd.command == TMCC1EngineCommandEnum.NUMERIC:
+                if cmd.data in {0, 5}:
+                    self.abort()
+                elif (
+                    cmd.data == 3
+                    and self._last_cmd
+                    and self._last_cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE
+                ):
+                    self.countdown = None
+            elif cmd.command == TMCC1HaltCommandEnum.HALT:
                 self.abort()
-        elif cmd.command == TMCC1HaltCommandEnum.HALT:
-            self.abort()
+        finally:
+            self._last_cmd = cmd
 
     @property
     def title(self) -> str:
