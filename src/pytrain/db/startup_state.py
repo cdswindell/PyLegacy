@@ -36,9 +36,6 @@ class StartupState(Thread):
         self._ev = Event()
         self._waiting_for = dict()
         self._processed_configs = set()
-        sync_state = self.state_store.get_state(CommandScope.SYNC, 99)
-        if sync_state:
-            sync_state.reset()
         CommandDispatcher.get().offer(SYNCING)
         self.start()
 

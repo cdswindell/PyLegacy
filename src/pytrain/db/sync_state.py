@@ -76,8 +76,8 @@ class SyncState(ComponentState):
 
     def reset(self) -> None:
         with self._cv:
-            self._state_synchronized = None
-            self._state_synchronizing = None
+            self._state_synchronized = False
+            self._state_synchronizing = False
             self.changed.set()
             self._cv.notify_all()
 
