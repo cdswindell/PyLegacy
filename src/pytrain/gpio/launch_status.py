@@ -70,16 +70,19 @@ class LaunchStatus(Thread, GpioDevice):
     def __call__(self, cmd: CommandReq) -> None:
         print(cmd)
         try:
+            last_cmd = self._last_cmd.command if self._last_cmd else None
             if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                 self.launch(15)
             elif cmd.command == TMCC1EngineCommandEnum.NUMERIC:
                 if cmd.data in {0, 5}:
                     self.abort()
-                elif (
-                    cmd.data == 3
-                    and self._last_cmd
-                    and self._last_cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE
-                ):
+                elif cmd.data == 5:
+                    if last_cmd == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
+                        self.countdown = None
+                        self.display.hide()
+                    else:
+                        self.abort()
+                elif cmd.data == 3 and last_cmd == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
                     self.countdown = None
             elif cmd.command == TMCC1HaltCommandEnum.HALT:
                 self.abort()
