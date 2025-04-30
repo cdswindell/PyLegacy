@@ -86,9 +86,11 @@ class Oled(Thread, TextBuffer):
         self._x_offset = x_offset
         self._temp_draw = ImageDraw.Draw(Image.new(self._device.mode, self._device.size, "black"))
         self._hotspots = dict()
+        self._blinks = set()
         self._is_running = True
         self.show()
         self._initial_update = True
+
         self.start()
         atexit.register(self.close)
 
@@ -167,10 +169,12 @@ class Oled(Thread, TextBuffer):
         center: bool = False,
         blink: bool = False,
     ) -> None:
-        cur_pos = self.cursor_pos
         super().write(c, at, fmt, center)
+        row_no = at if isinstance(at, int) else at[0]
         if blink is True:
-            print(cur_pos)
+            self._blinks.add(row_no)
+        else:
+            self._blinks.discard(row_no)
 
     def clear(self, notify: bool = False) -> None:
         with self.synchronizer:
@@ -250,7 +254,10 @@ class Oled(Thread, TextBuffer):
                         del self._hotspots[i]
                     w, h = self.measure_text(self[i])
                     if w <= self._device.width:
-                        self._canvas.text((self._x_offset, (i * fs) - 3), self[i], "white", self._font)
+                        if i in self._blinks:
+                            self._hotspots[i] = BlinkingHotspot(self, row=i)
+                        else:
+                            self._canvas.text((self._x_offset, (i * fs) - 3), self[i], "white", self._font)
                     else:
                         self._hotspots[i] = ScrollingHotspot(self, self[i], row=i)
             self._device.display(self._image)
@@ -335,3 +342,70 @@ class ScrollingHotspot(Thread, hotspot):
             if self._pause_request:
                 self._resume_ev.wait()
                 self._resume_ev.clear()
+
+
+class BlinkingHotspot(Thread, hotspot):
+    """
+    Support Blinking Text
+    """
+
+    def __init__(self, oled: Oled, row: int = 0, rate: int = 1):
+        super().__init__()
+        Thread.__init__(self, daemon=True)
+        hotspot.__init__(self, oled.width, oled.font_size)
+        self._device = oled
+        self._x_offset = oled.x_offset
+        self._font_size = oled.font_size
+        self._font = oled.font
+        self._row = row
+        self._text = oled[row]
+        self._text_width, _ = oled.measure_text(self._text)
+        self._ev = Event()
+        self._resume_ev = Event()
+        self._pause_request = False
+        self._is_running = True
+        self._rate = rate if rate and rate > 0 else 1
+        self._display_cycle = True
+        self.start()
+
+    def stop(self):
+        self._ev.set()
+        self._resume_ev.set()
+        self._is_running = False
+        self.join()
+
+    def pause(self) -> None:
+        if self.is_alive() and self._pause_request is False:
+            self._pause_request = True
+
+    def resume(self) -> None:
+        if self.is_alive() and self._pause_request is True:
+            self._pause_request = False
+            self._resume_ev.set()
+
+    def run(self) -> None:
+        while self._is_running and self._ev.is_set() is False:
+            self._device.display(self.render(self._device.image))
+            while not self._ev.wait(self._rate):
+                self._display_cycle = not self._display_cycle
+            if self._pause_request:
+                self._resume_ev.wait()
+                self._resume_ev.clear()
+
+    def render(self, image):
+        draw = ImageDraw.Draw(image)
+        if self._display_cycle is False:
+            # Clear the hotspot area
+            draw.rectangle(
+                (0, self._row * self._font_size, self.width - 1, ((self._row + 1) * self._font_size) - 1),
+                fill="black",
+            )
+        else:
+            # Draw the text
+            draw.text(
+                (self._x_offset, (self._row * self._font_size) - 3),
+                self._text,
+                font=self._font,
+                fill="white",
+            )
+        return image
