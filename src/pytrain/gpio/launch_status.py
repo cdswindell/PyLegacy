@@ -74,6 +74,8 @@ class LaunchStatus(Thread, GpioDevice):
 
     def __call__(self, cmd: CommandReq) -> None:
         try:
+            if cmd == self._last_cmd:
+                return
             last_cmd = self._last_cmd.command if self._last_cmd else None
             if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                 # launch in 15 seconds
