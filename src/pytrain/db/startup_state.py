@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 from threading import Thread, Condition, Event
 
@@ -37,7 +36,6 @@ class StartupState(Thread):
         self._processed_configs = set()
         self._dispatcher = dispatcher
         self._dispatcher.offer(SYNCING)
-        print(f"Startup State Dispatcher: {dispatcher} PID: {os.getpid()}")
         self.start()
 
     def __call__(self, cmd: PdiReq) -> None:
@@ -62,7 +60,6 @@ class StartupState(Thread):
                         self.listener.enqueue_command(state_request)
             elif isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
                 if cmd.scope == CommandScope.TRAIN and cmd.tmcc_id == 98:
-                    print("Marking sync complete...")
                     self._dispatcher.offer(SYNC_COMPLETE)
                 # send a request to the base to get the next engine/train/acc/switch/route record (0x26)
                 if cmd.tmcc_id < 98 and cmd.data_length == PdiReq.scope_record_length(cmd.scope):

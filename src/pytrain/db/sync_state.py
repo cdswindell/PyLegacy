@@ -44,11 +44,12 @@ class SyncState(ComponentState):
                 if command.command == TMCC1SyncCommandEnum.SYNCHRONIZING:
                     self._state_synchronized = False
                     self._state_synchronizing = True
-                    print(f"{PROGRAM_NAME} received SYNCHRONIZING token...")
-                elif command.command in {TMCC1SyncCommandEnum.SYNCHRONIZED, TMCC1SyncCommandEnum.SYNC_COMPLETE}:
+                elif command.command == TMCC1SyncCommandEnum.SYNCHRONIZED:
                     self._state_synchronized = True
                     self._state_synchronizing = False
-                    print(f"{PROGRAM_NAME} received {command.command.name} token...")
+                elif command.command == TMCC1SyncCommandEnum.RESYNC:
+                    self._state_synchronized = False
+                    self._state_synchronizing = False
                 self.changed.set()
                 self._cv.notify_all()
 
@@ -75,13 +76,6 @@ class SyncState(ComponentState):
     @property
     def is_lcs(self) -> bool:
         return False
-
-    def reset(self) -> None:
-        with self._cv:
-            self._state_synchronized = False
-            self._state_synchronizing = False
-            self.changed.set()
-            self._cv.notify_all()
 
     def as_bytes(self) -> bytes:
         return bytes()
