@@ -955,7 +955,6 @@ class PyTrain:
             cycle = 0
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
             print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle]}", end="\r")
-            sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
             if sync_state is not None:
                 while sync_state.is_synchronized is not True:
                     cycle += 1
