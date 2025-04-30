@@ -37,11 +37,9 @@ class SyncState(ComponentState):
         return f"{PROGRAM_NAME} {msg}"
 
     def update(self, command: L | P) -> None:
+        print(f"Sync Update: {command} {self._cv}")
         if isinstance(command, CommandReq):
             self._ev.clear()
-            print(f"Sync Update: {command} {self._cv}")
-            if self._cv.acquire(blocking=False) is False:
-                print(f"Blocked updating {command} {self._cv}")
             with self._cv:
                 # Note: super().update is explicitly not called
                 if command.command == TMCC1SyncCommandEnum.SYNCHRONIZING:

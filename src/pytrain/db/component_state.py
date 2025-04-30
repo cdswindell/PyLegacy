@@ -14,7 +14,7 @@ import logging
 import threading
 from abc import ABC
 from collections import defaultdict
-from threading import Condition, Event, Lock, RLock
+from threading import Condition, Event, RLock
 from time import time
 from typing import Any, Dict, List, Set, TypeVar
 
@@ -57,8 +57,8 @@ class ComponentState(ABC, CompDataMixin):
         from .component_state_store import DependencyCache
 
         super().__init__()
-        # noinspection PyTypeChecker
-        self._lock: Lock = RLock()
+        self._cv: Condition = Condition(RLock())
+        self._ev = Event()
         self._is_known: bool = False
         self._scope = scope
         self._last_command: CommandReq | None = None
@@ -70,8 +70,6 @@ class ComponentState(ABC, CompDataMixin):
         self._address: int | None = None
         self._spare_1: int | None = None
         self._dependencies = DependencyCache.build()
-        self._ev = Event()
-        self._cv: Condition = Condition(self._lock)
 
     def __repr__(self) -> str:
         if self.is_comp_data_record is True and not self.payload:

@@ -687,8 +687,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                         self._channels[channel].publish(message)
 
     def publish(self, channel: Topic, message: Message) -> None:
-        if self._chanel_lock.acquire(blocking=False) is False:
-            print(f"Blocked publishing {channel} {message} {self._chanel_lock}")
         with self._chanel_lock:
             if channel in self._channels:  # otherwise, we would create a channel simply by referencing i
                 try:
