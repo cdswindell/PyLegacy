@@ -414,6 +414,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         self._channels: dict[Topic | Tuple[Topic, int], Channel[Message]] = defaultdict(Channel)
         self._cv = Condition()
         self._chanel_lock = Condition()
+        self._client_lock = Condition()
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
@@ -556,7 +557,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 print(f"Skipping update of {client}:{port} {command}")
                 continue
             try:
-                with self._lock:
+                with self._client_lock:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((client, port))
                         s.sendall(command.as_bytes)
@@ -586,7 +587,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 if scope == CommandScope.SYNC:
                     continue
                 for address in store.addresses(scope):
-                    with self._lock:
+                    with self._client_lock:
                         state: ComponentState = store.query(scope, address)
                         if state is not None:
                             state_bytes = state.as_bytes()
@@ -712,14 +713,15 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         command: CommandDefEnum = None,
         data: int = None,
     ) -> None:
-        if channel == BROADCAST_TOPIC:
-            self.unsubscribe_any(subscriber)
-        else:
-            channel = self._make_channel(channel, address, command, data)
-            if channel in self._channels:
-                self._channels[channel].unsubscribe(subscriber)
-                if len(self._channels[channel].subscribers) == 0:
-                    del self._channels[channel]
+        with self._chanel_lock:
+            if channel == BROADCAST_TOPIC:
+                self.unsubscribe_any(subscriber)
+            else:
+                channel = self._make_channel(channel, address, command, data)
+                if channel in self._channels:
+                    self._channels[channel].unsubscribe(subscriber)
+                    if len(self._channels[channel].subscribers) == 0:
+                        del self._channels[channel]
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
         # receive broadcasts
