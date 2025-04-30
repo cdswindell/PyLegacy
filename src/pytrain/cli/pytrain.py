@@ -944,10 +944,10 @@ class PyTrain:
         from the Lionel Base 3
         """
         sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        if sync_state:
-            if sync_state.is_synchronizing:
-                print("Roster currently loading, ignoring request...")
-                return
+        # if sync_state:
+        #     if sync_state.is_synchronizing:
+        #         print("Roster currently loading, ignoring request...")
+        #         return
         self._startup_state = StartupState(self._pdi_buffer, self._dispatcher, self._pdi_state_store)
         if is_startup is False or self._no_wait is False:  # wait for roster download
             cycle = 0
