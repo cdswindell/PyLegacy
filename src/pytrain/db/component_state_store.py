@@ -132,7 +132,6 @@ class ComponentStateStore:
         """
         if command:
             if isinstance(command, CommandReq):
-                print(f"ComponentStateStore callback: {command}")
                 if command.is_halt:  # send to all known devices
                     if self._filter_updates and command.is_filtered:
                         if log.isEnabledFor(logging.DEBUG):

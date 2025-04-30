@@ -443,8 +443,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             try:
                 # publish dispatched commands to listeners on the command scope,
                 if isinstance(cmd, CommandReq):
-                    if cmd.scope == CommandScope.SYNC:
-                        print(f"Dispatcher {self} Processing: {cmd} {self._cv}")
                     # if command is a TMCC1 Halt, send to everyone
                     if cmd.is_halt:
                         if self._filter_updates is True and cmd.is_filtered is True:
@@ -456,17 +454,11 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                         self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
                     # otherwise, send to the interested parties
                     else:
-                        if cmd.scope == CommandScope.SYNC:
-                            print(f"Publishing {cmd}...")
                         if cmd.is_data is True:
                             self.publish((cmd.scope, cmd.address, cmd.command, cmd.data), cmd)
                         self.publish((cmd.scope, cmd.address, cmd.command), cmd)
                         self.publish((cmd.scope, cmd.address), cmd)
                         self.publish(cmd.scope, cmd)
-                        if cmd.scope == CommandScope.SYNC:
-                            print(f"...Published {cmd}")
-                    if cmd.scope == CommandScope.SYNC:
-                        print(f"Dispatcher {self} Processed: {cmd} {self._cv}")
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)
                     # update state on all clients
@@ -653,8 +645,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         We do this in a separate thread so that the listener thread doesn't fall behind.
         """
         if isinstance(cmd, CommandReq):
-            if cmd.scope == CommandScope.SYNC:
-                print(f"Dispatcher {self} offered: {cmd} {self._cv}")
             with self._cv:
                 self._queue.put(cmd)
                 self._cv.notify_all()  # wake up receiving thread

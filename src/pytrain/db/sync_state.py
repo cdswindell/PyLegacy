@@ -37,7 +37,6 @@ class SyncState(ComponentState):
         return f"{PROGRAM_NAME} {msg}"
 
     def update(self, command: L | P) -> None:
-        print(f"Sync Update: {command} {self._cv}")
         if isinstance(command, CommandReq):
             self._ev.clear()
             with self._cv:
@@ -48,12 +47,11 @@ class SyncState(ComponentState):
                 elif command.command == TMCC1SyncCommandEnum.SYNCHRONIZED:
                     self._state_synchronized = True
                     self._state_synchronizing = False
-                # elif command.command == TMCC1SyncCommandEnum.RESYNC:
-                #     self._state_synchronized = False
-                #     self._state_synchronizing = True
+                elif command.command == TMCC1SyncCommandEnum.RESYNC:
+                    self._state_synchronized = False
+                    self._state_synchronizing = True
                 self.changed.set()
                 self._cv.notify_all()
-            print(f"Processed Update: {command} {self._cv}")
 
     @property
     def is_synchronized(self) -> bool:
