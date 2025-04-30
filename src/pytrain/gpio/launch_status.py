@@ -46,8 +46,6 @@ class LaunchStatus(Thread, GpioDevice):
 
         self._state_store = ComponentStateStore.get()
         self._dispatcher = CommandDispatcher.get()
-        self._title = title if title else f"Launch Pad {tmcc_id}"
-        self._oled = Oled(address, device, auto_update=False)
         self._is_running = True
         self._ev = Event()
         self._state_watcher = None
@@ -56,6 +54,11 @@ class LaunchStatus(Thread, GpioDevice):
         self._countdown_thread = None
         self._last_cmd = None
         self._hidden = False
+
+        self._title = title if title else f"Launch Pad {tmcc_id}"
+        self._oled = Oled(address, device, auto_update=False)
+        self._oled[0] = self.title
+        self._oled[1] = "T Minus  --:--"
 
         # check for state synchronization
         self._synchronized = False
@@ -193,11 +196,11 @@ class LaunchStatus(Thread, GpioDevice):
 
     def update_display(self, clear: bool = False) -> None:
         with self._lock:
+            self._show()
             if clear is True:
                 self.display.clear()
                 self._oled[0] = self.title
                 self._oled[1] = "T Minus  --:--"
-            self._show(update_display=False)
             self.display.refresh_display()
 
     def on_sync(self) -> None:
@@ -209,6 +212,7 @@ class LaunchStatus(Thread, GpioDevice):
             if self._monitored_state is None and self.tmcc_id and self.tmcc_id != 99:
                 self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id)
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
+            self.update_display(clear=True)
             self._hide()
 
     def reset(self) -> None:
@@ -237,14 +241,11 @@ class LaunchStatus(Thread, GpioDevice):
                 self._hidden = True
                 self.display.hide()
 
-    def _show(self, update_display: bool = True) -> None:
+    def _show(self) -> None:
         with self._lock:
-            print(f"_show called, update: {update_display}")
             if self._hidden is True:
                 self._hidden = False
                 self.display.show()
-                if update_display is True:
-                    self.update_display(clear=True)
 
 
 class CountdownThread(Thread):
