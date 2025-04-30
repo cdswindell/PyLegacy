@@ -30,14 +30,14 @@ class LaunchPad(GpioDevice):
         flicker_on_pin: P = None,
         flicker_off_pin: P = None,
         title: str | None = "Launch Pad 39A",
+        device: OledDevice | str = None,
         device_address: int = 0x3C,
-        device: OledDevice | str = OledDevice.ssd1309,
         repeat_every: float = 0.02,
     ):
         # if a device is specified, set up oled display
         if device:
             if title is None and address == 39:
-                title = "Launch Pad 39A"
+                title = "Pad 39A"
             self._lsd = LaunchStatus(address, title, device_address, device)
         else:
             self._lsd = None
