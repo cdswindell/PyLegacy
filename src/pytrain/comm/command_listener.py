@@ -1,11 +1,19 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
 from __future__ import annotations
 
 import logging
 import socket
-import threading
 from collections import defaultdict, deque
 from queue import Queue
-from threading import Thread
+from threading import Thread, Condition, RLock
 from time import sleep
 from typing import Generic, List, Protocol, Tuple, TypeVar, runtime_checkable, cast
 
@@ -38,7 +46,7 @@ SYNC_COMPLETE = CommandReq(TMCC1SyncCommandEnum.SYNCHRONIZED)
 
 class CommandListener(Thread):
     _instance: None = None
-    _lock = threading.RLock()
+    _lock = RLock()
 
     @classmethod
     def build(
@@ -109,7 +117,7 @@ class CommandListener(Thread):
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Command Listener")
 
         # prep our consumer(s)
-        self._cv = threading.Condition()
+        self._cv = Condition()
         self._deque = deque(maxlen=DEFAULT_QUEUE_SIZE)
         self._is_running = True
         self._dispatcher = CommandDispatcher.build(queue_size, ser2_receiver, base3_receiver, server_port)
@@ -334,7 +342,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
     """
 
     _instance = None
-    _lock = threading.RLock()
+    _lock = RLock()
 
     @classmethod
     def build(
@@ -404,8 +412,8 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         self._is_base3_receiver = base3_receiver
         self._filter_updates = base3_receiver is True and ser2_receiver is True
         self._channels: dict[Topic | Tuple[Topic, int], Channel[Message]] = defaultdict(Channel)
-        self._cv = threading.Condition()
-        self._chanel_lock = threading.RLock()
+        self._cv = Condition()
+        self._chanel_lock = Condition()
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
@@ -680,6 +688,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                     self._channels[channel].publish(message)
                 except Exception as e:
                     log.exception(f"Exception publishing {message} to {channel}", exc_info=e)
+            self._chanel_lock.notify_all()
 
     def subscribe(
         self,
