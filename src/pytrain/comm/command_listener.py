@@ -642,7 +642,9 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         Receive a command from the TMCC listener thread and dispatch it to subscribers.
         We do this in a separate thread so that the listener thread doesn't fall behind.
         """
-        if cmd is not None and isinstance(cmd, CommandReq):
+        if isinstance(cmd, CommandReq):
+            if cmd.scope == CommandScope.SYNC:
+                print(f"Dispatcher {self} offered: {cmd} {self._cv}")
             with self._cv:
                 self._queue.put(cmd)
                 self._cv.notify()  # wake up receiving thread

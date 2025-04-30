@@ -42,7 +42,6 @@ class StartupState(Thread):
         print(f"waiting for SYNCING state {self._sync_state}...")
         while self._sync_state.is_synchronizing is not True:
             with self._sync_state.synchronizer:
-                # noinspection PyUnresolvedReferences
                 self._sync_state.synchronizer.wait()
         print("Now SYNCING...")
         self.start()
