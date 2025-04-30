@@ -105,12 +105,12 @@ class TextBuffer:
         return self._cols
 
     @property
-    def cursor_pos(self) -> tuple[int, int]:
-        return self._cursor_pos
-
-    @property
     def synchronizer(self) -> Condition:
         return self._cv
+
+    @property
+    def cursor_pos(self) -> tuple[int, int]:
+        return self._cursor_pos
 
     @cursor_pos.setter
     def cursor_pos(self, pos: tuple[int, int] | int, col: int = None) -> None:
@@ -210,8 +210,8 @@ class TextBuffer:
             # append new data to buffer
             row = orig_row = self._buffer[at[0]]
             if center is True:
-                pad = " " * int((self.cols - len(s)) / 2)
-                row = pad + s
+                pad_chrs = int((self.cols - len(s)) / 2)
+                row = (" " * pad_chrs if pad_chrs > 0 else "") + s
             elif len(row) <= at[1]:
                 # pad row with spaces, if cursor pos is > current row length
                 row += " " * (at[1] - len(self._buffer[at[0]])) + s

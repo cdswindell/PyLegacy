@@ -159,6 +159,19 @@ class Oled(Thread, TextBuffer):
     def image(self) -> Image:
         return self._image
 
+    def write(
+        self,
+        c: int | str,
+        at: tuple[int, int] | int = None,
+        fmt: str = None,
+        center: bool = False,
+        blink: bool = False,
+    ) -> None:
+        cur_pos = self.cursor_pos
+        super().write(c, at, fmt, center)
+        if blink is True:
+            print(cur_pos)
+
     def clear(self, notify: bool = False) -> None:
         with self.synchronizer:
             for i in self._hotspots:

@@ -72,7 +72,6 @@ class LaunchStatus(Thread, GpioDevice):
         atexit.register(self.close)
 
     def __call__(self, cmd: CommandReq) -> None:
-        print(cmd)
         try:
             last_cmd = self._last_cmd.command if self._last_cmd else None
             if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
