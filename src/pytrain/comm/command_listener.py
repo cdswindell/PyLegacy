@@ -412,9 +412,9 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         self._is_base3_receiver = base3_receiver
         self._filter_updates = base3_receiver is True and ser2_receiver is True
         self._channels: dict[Topic | Tuple[Topic, int], Channel[Message]] = defaultdict(Channel)
-        self._cv = Condition()
-        self._chanel_lock = Condition()
-        self._client_lock = Condition()
+        self._cv = Condition()  # for queue access
+        self._chanel_lock = Condition()  # for publishing
+        self._client_lock = Condition()  # for updating client state
         self._is_running = True
         self._queue = Queue[CommandReq](queue_size)
         self._broadcasts = False
