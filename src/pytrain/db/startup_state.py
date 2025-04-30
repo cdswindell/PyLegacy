@@ -160,5 +160,5 @@ class StartupState(Thread):
                     break
             total_time += 0.25
         for k, v in self._waiting_for.items():
-            log.info(f"Still waiting for: {k}: {v}")
+            log.info(f"Failed to receive {k} state: {v}")
         self.listener.unsubscribe_any(self)
