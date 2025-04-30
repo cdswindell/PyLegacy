@@ -454,11 +454,15 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                         self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
                     # otherwise, send to the interested parties
                     else:
+                        if cmd.scope == CommandScope.SYNC:
+                            print(f"Publishing {cmd}...")
                         if cmd.is_data is True:
                             self.publish((cmd.scope, cmd.address, cmd.command, cmd.data), cmd)
                         self.publish((cmd.scope, cmd.address, cmd.command), cmd)
                         self.publish((cmd.scope, cmd.address), cmd)
                         self.publish(cmd.scope, cmd)
+                        if cmd.scope == CommandScope.SYNC:
+                            print(f"...Published {cmd}")
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)
                     # update state on all clients
