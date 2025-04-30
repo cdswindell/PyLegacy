@@ -950,7 +950,7 @@ class PyTrain:
             print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle]}", end="\r")
             sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
             if sync_state is not None:
-                while not sync_state.is_synchronized:
+                while sync_state.is_synchronized is not True:
                     cycle += 1
                     print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle % 4]}", end="\r")
                     sleep(0.10)
@@ -1034,9 +1034,7 @@ class PyTrain:
         param_len = len(param)
         agr = None
         if param_len == 1:
-            if param[0].lower().startswith("re"):
-                self._get_system_state()
-            elif param[0].lower().startswith("ba"):
+            if param[0].lower().startswith("ba"):
                 agr = BaseReq(0, PdiCommand.BASE)
         elif param_len >= 2 and param[0].lower().startswith("d"):  # 4-digit base commands
             pdi = PdiCommand.by_prefix(param[0], raise_exception=True)
