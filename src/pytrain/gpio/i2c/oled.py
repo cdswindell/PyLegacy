@@ -97,6 +97,10 @@ class Oled(Thread, TextBuffer):
     def __repr__(self) -> str:
         return super(TextBuffer, self).__repr__()
 
+    def __setitem__(self, index: int, value: str):
+        super().__setitem__(index, value)
+        self._blinks.discard(index)
+
     @property
     def rows(self) -> int:
         return self._rows
@@ -173,8 +177,6 @@ class Oled(Thread, TextBuffer):
         row_no = at if isinstance(at, int) else at[0]
         if blink is True:
             self._blinks.add(row_no)
-        else:
-            self._blinks.discard(row_no)
 
     def clear(self, notify: bool = False) -> None:
         with self.synchronizer:
@@ -386,7 +388,8 @@ class BlinkingHotspot(Thread, hotspot):
     def run(self) -> None:
         while self._is_running and self._ev.is_set() is False:
             self._device.display(self.render(self._device.image))
-            while not self._ev.wait(self._rate):
+            self._ev.wait(self._rate)
+            if self._ev.is_set() is False:
                 self._display_cycle = not self._display_cycle
                 print(self._display_cycle)
             if self._pause_request:
