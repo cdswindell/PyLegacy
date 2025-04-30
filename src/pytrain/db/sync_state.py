@@ -49,7 +49,7 @@ class SyncState(ComponentState):
                     self._state_synchronizing = False
                 elif command.command == TMCC1SyncCommandEnum.RESYNC:
                     self._state_synchronized = False
-                    self._state_synchronizing = False
+                    self._state_synchronizing = True
                 print(command)
                 self.changed.set()
                 self._cv.notify_all()
