@@ -39,7 +39,7 @@ class StartupState(Thread):
         self._dispatcher = dispatcher
         self._dispatcher.offer(SYNCING)
         # wait for sync_state to reflect request
-        print("waiting for SYNCING state...")
+        print(f"waiting for SYNCING state {self._sync_state}...")
         while self._sync_state.is_synchronizing is not True:
             with self._sync_state.synchronizer:
                 # noinspection PyUnresolvedReferences
