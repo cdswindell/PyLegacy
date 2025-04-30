@@ -291,7 +291,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                     dispatcher.signal_clients(cmd)
                     dispatcher.publish(CommandScope.SYNC, cmd)
             elif byte_stream == RESYNC_REQUEST:
-                dispatcher.publish(CommandScope.SYNC, cmd)
+                print(f"EnqueueHandler offering {cmd}")
+                dispatcher.offer(cmd)
             else:
                 log.error(f"Unhandled {cmd} received from {client_ip}:{client_port}")
             # do not send the special PyTrain commands to the Lionel Base 3 or Ser2
