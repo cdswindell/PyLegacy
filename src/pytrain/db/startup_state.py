@@ -13,7 +13,6 @@ import logging
 import time
 from threading import Thread, Condition, Event
 
-from ..db.component_state_store import ComponentStateStore
 from ..comm.command_listener import SYNCING, CommandDispatcher, SYNC_COMPLETE
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PdiCommand, D4Action
@@ -27,16 +26,16 @@ log = logging.getLogger(__name__)
 
 
 class StartupState(Thread):
-    def __init__(self, listener: PdiListener, state_store: ComponentStateStore, pdi_state_store: PdiStateStore) -> None:
+    def __init__(self, listener: PdiListener, dispatcher: CommandDispatcher, pdi_state_store: PdiStateStore) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup State Sniffer")
         self.listener = listener
-        self.state_store = state_store
         self.pdi_state_store = pdi_state_store
         self._cv = Condition()
         self._ev = Event()
         self._waiting_for = dict()
         self._processed_configs = set()
-        CommandDispatcher.get().offer(SYNCING)
+        self._dispatcher = dispatcher
+        self._dispatcher.offer(SYNCING)
         self.start()
 
     def __call__(self, cmd: PdiReq) -> None:

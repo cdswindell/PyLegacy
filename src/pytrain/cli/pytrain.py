@@ -950,7 +950,8 @@ class PyTrain:
                 return
             else:
                 sync_state.reset()
-        self._startup_state = StartupState(self._pdi_buffer, self._state_store, self._pdi_state_store)
+        print(f"Dispatcher: {self._dispatcher}")
+        self._startup_state = StartupState(self._pdi_buffer, self._dispatcher, self._pdi_state_store)
         if is_startup is False or self._no_wait is False:  # wait for roster download
             cycle = 0
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
