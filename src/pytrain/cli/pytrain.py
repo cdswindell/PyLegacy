@@ -82,11 +82,12 @@ DEFAULT_HISTORY_FILE: str = f".{PROGRAM_NAME.lower()}.history"
 
 ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
     "quit": TMCC1SyncCommandEnum.QUIT,
+    "reboot": TMCC1SyncCommandEnum.REBOOT,
+    "restart": TMCC1SyncCommandEnum.RESTART,
+    "resync": TMCC1SyncCommandEnum.RESYNC,
+    "shutdown": TMCC1SyncCommandEnum.SHUTDOWN,
     "update": TMCC1SyncCommandEnum.UPDATE,
     "upgrade": TMCC1SyncCommandEnum.UPGRADE,
-    "restart": TMCC1SyncCommandEnum.RESTART,
-    "reboot": TMCC1SyncCommandEnum.REBOOT,
-    "shutdown": TMCC1SyncCommandEnum.SHUTDOWN,
 }
 ACTION_TO_ADMIN_COMMAND_MAP: Dict[CommandDefEnum, str] = {v: k for k, v in ADMIN_COMMAND_TO_ACTION_MAP.items()}
 
@@ -245,22 +246,7 @@ class PyTrain:
         self._pdi_state_store = None
         if self._pdi_buffer is not None:
             self._pdi_state_store = PdiStateStore()
-            self._get_system_state()
-            if self._no_wait is False:  # wait for roster download
-                cycle = 0
-                cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
-                print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle]}", end="\r")
-                sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-                if sync_state is not None:
-                    while not sync_state.is_synchronized:
-                        cycle += 1
-                        print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle % 4]}", end="\r")
-                        sleep(0.10)
-                    print(f"Loading roster from Lionel Base at {self._base_addr} ...Done")
-                else:
-                    print("")
-            else:
-                print(f"Loading roster from Lionel Base at {self._base_addr}...")
+            self._get_system_state(is_startup=True)
         elif self.is_client:
             server = f" at: {self._server}" if self._server_ips else ""
             if self._no_wait is False:  # wait for roster download
@@ -487,6 +473,10 @@ class PyTrain:
             log.exception(f"Failed to echo command to console: {e}")
 
         if cmd.command in ACTION_TO_ADMIN_COMMAND_MAP:
+            if cmd.command == TMCC1SyncCommandEnum.RESYNC:
+                if self.is_server:
+                    self._get_system_state()
+                return
             if cmd.command not in self._received_admin_cmds:
                 self._received_admin_cmds.add(cmd.command)
                 if self.is_client and cmd.command == TMCC1SyncCommandEnum.QUIT:
@@ -589,12 +579,20 @@ class PyTrain:
                 self._admin_action = None
             return
         elif self.is_server:
-            # if server, signal all clients as well as the server
-            self._dispatcher.signal_clients(cmd)
+            if command == TMCC1SyncCommandEnum.RESYNC:
+                self._admin_action = None
+                self._get_system_state()
+                return
+            else:
+                # if server, signal all clients as well as the server
+                self._dispatcher.signal_clients(cmd)
         else:
             # send command to server, it will send it to all clients
             # then will execute it on the server itself
             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
+            if command == TMCC1SyncCommandEnum.RESYNC:
+                self._admin_action = None
+                return  # don't exit
         raise KeyboardInterrupt()
 
     @staticmethod
@@ -870,6 +868,9 @@ class PyTrain:
                             return None
                         # if client quits, remaining nodes continue to run
                         raise KeyboardInterrupt()
+                    elif parse_only is False and args.command == "resync" and self.is_server:
+                        self._get_system_state()
+                        return None
                     elif parse_only is False and args.command in ADMIN_COMMAND_TO_ACTION_MAP:
                         self.do_admin_cmd(ADMIN_COMMAND_TO_ACTION_MAP.get(args.command), ui_parts[1:])
                         return None
@@ -937,12 +938,27 @@ class PyTrain:
                         ui_parser.reset_exit_on_error()
         return None
 
-    def _get_system_state(self):
+    def _get_system_state(self, is_startup: bool = False):
         """
         Send PDI requests to get data on all engines, trains, switches, routes, and accessories
         from the Lionel Base 3
         """
         self._startup_state = StartupState(self._pdi_buffer, self._pdi_state_store)
+        if is_startup is False or self._no_wait is False:  # wait for roster download
+            cycle = 0
+            cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
+            print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle]}", end="\r")
+            sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+            if sync_state is not None:
+                while not sync_state.is_synchronized:
+                    cycle += 1
+                    print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle % 4]}", end="\r")
+                    sleep(0.10)
+                print(f"Loading roster from Lionel Base at {self._base_addr} ...Done")
+            else:
+                print("")
+        else:
+            print(f"Loading roster from Lionel Base at {self._base_addr}...")
 
     def _get_engine_info(self, param) -> None:
         try:
@@ -1182,14 +1198,21 @@ class PyTrain:
             action="store_const",
             const="reboot",
             dest="command",
-            help=f"Quit {PROGRAM_NAME} and reboot all nodes,",
+            help=f"Quit {PROGRAM_NAME} and reboot all nodes",
         )
         group.add_argument(
             "-restart",
             action="store_const",
             const="restart",
             dest="command",
-            help=f"Quit {PROGRAM_NAME} and restart on all nodes,",
+            help=f"Quit {PROGRAM_NAME} and restart on all nodes",
+        )
+        group.add_argument(
+            "-resync",
+            action="store_const",
+            const="resync",
+            dest="command",
+            help=f"Reload {PROGRAM_NAME} state from Lionel Base 3",
         )
         group.add_argument("-route", action="store_const", const=RouteCli, dest="command", help="Fire defined routes")
         group.add_argument(

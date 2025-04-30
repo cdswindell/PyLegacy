@@ -1,3 +1,11 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
 """
 TMCC1 Constants
 """
@@ -198,6 +206,7 @@ TMCC1_UPGRADE_COMMAND: int = 0xF0FA
 TMCC1_SHUTDOWN_COMMAND: int = 0xF0FB
 TMCC1_RESTART_COMMAND: int = 0xF0FC
 TMCC1_KEEP_ALIVE_COMMAND: int = 0xF0FD
+TMCC1_RESYNC_COMMAND: int = 0xF0FE
 TMCC1_SYNCED_COMMAND: int = 0xF0FF
 
 
@@ -209,10 +218,11 @@ class TMCC1SyncCommandEnum(TMCC1Enum):
     REBOOT = SyncCommandDef(TMCC1_REBOOT_COMMAND, node_scope=True)
     REGISTER = SyncCommandDef(TMCC1_REGISTER_COMMAND)
     RESTART = SyncCommandDef(TMCC1_RESTART_COMMAND)
+    RESYNC = SyncCommandDef(TMCC1_RESYNC_COMMAND)
+    SENDING_STATE = SyncCommandDef(TMCC1_SENDING_STATE_COMMAND)
     SHUTDOWN = SyncCommandDef(TMCC1_SHUTDOWN_COMMAND, node_scope=True)
     SYNCHRONIZED = SyncCommandDef(TMCC1_SYNCED_COMMAND)
     SYNCHRONIZING = SyncCommandDef(TMCC1_SYNCING_COMMAND)
-    SENDING_STATE = SyncCommandDef(TMCC1_SENDING_STATE_COMMAND)
     SYNC_BEGIN = SyncCommandDef(TMCC1_SYNC_BEGIN_COMMAND)
     SYNC_COMPLETE = SyncCommandDef(TMCC1_SYNC_COMPLETE_COMMAND)
     SYNC_REQUEST = SyncCommandDef(TMCC1_SYNC_REQUEST_COMMAND)
