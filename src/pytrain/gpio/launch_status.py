@@ -57,8 +57,8 @@ class LaunchStatus(Thread, GpioDevice):
 
         self._title = title if title else f"Launch Pad {tmcc_id}"
         self._oled = Oled(address, device, auto_update=False)
-        self._oled[0] = self.title
-        self._oled[1] = "T Minus  --:--"
+        self._oled.write(self.title, 1, center=True)
+        self._oled.write("T Minus  --:--", 1, center=True)
 
         # check for state synchronization
         self._synchronized = False
@@ -112,15 +112,18 @@ class LaunchStatus(Thread, GpioDevice):
         with self._lock:
             self._countdown = value
             if value is None:
-                self._oled[1] = "T Minus  --:--"
+                r1 = "T Minus  --:--"
                 self._oled[3] = ""
-            elif value <= 0:
-                value = abs(value)
-                self._oled[1] = f"T Minus -00:{value:02d}"
             else:
+                if value < 0:
+                    value = abs(value)
+                    prefix = "T Minus -"
+                else:
+                    prefix = "Launch  +"
                 minute = value // 60
                 second = value % 60
-                self._oled[1] = f"Launch  +{minute:02d}:{second:02d}"
+                r1 = f"{prefix}{minute:02d}:{second:02d}"
+            self._oled.write(r1, 1, center=True)
             self.update_display()
 
     @title.setter
@@ -199,8 +202,8 @@ class LaunchStatus(Thread, GpioDevice):
             self._show()
             if clear is True:
                 self.display.clear()
-                self._oled[0] = self.title
-                self._oled[1] = "T Minus  --:--"
+                self._oled.write(self.title, 1, center=True)
+                self._oled.write("T Minus  --:--", 1, center=True)
             self.display.refresh_display()
 
     def on_sync(self) -> None:
