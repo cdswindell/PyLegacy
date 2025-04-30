@@ -47,6 +47,7 @@ class SyncState(ComponentState):
                 elif command.command == TMCC1SyncCommandEnum.SYNCHRONIZED:
                     self._state_synchronized = True
                     self._state_synchronizing = False
+                    print(f"{PROGRAM_NAME} now synchronized...")
                 self.changed.set()
                 self._cv.notify_all()
 
