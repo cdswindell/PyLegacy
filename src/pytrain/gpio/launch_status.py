@@ -73,18 +73,24 @@ class LaunchStatus(Thread, GpioDevice):
         try:
             last_cmd = self._last_cmd.command if self._last_cmd else None
             if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
+                # launch in 15 seconds
                 self.launch(15)
             elif cmd.command == TMCC1EngineCommandEnum.NUMERIC:
                 if cmd.data == 0:
+                    # Num 0: Abort
                     self.abort()
                 elif cmd.data == 5:
                     if last_cmd == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
+                        # Aux 1/Num 5: Shutdown
                         self.countdown = None
                         self._hide()
                     else:
+                        # Num 5: Abort
                         self.abort()
                 elif cmd.data == 3 and last_cmd == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
+                    # Aux 1/Num 3: Startup
                     self.countdown = None
+                    self._show()
             elif cmd.command == TMCC1HaltCommandEnum.HALT:
                 self.abort()
         finally:
