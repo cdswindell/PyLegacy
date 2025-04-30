@@ -32,7 +32,7 @@ class LaunchStatus(Thread, GpioDevice):
         device: OledDevice | str = OledDevice.ssd1309,
     ) -> None:
         self._lock = RLock()
-        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Launch Pad Status Oled")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Launch Pad Status")
 
         if isinstance(tmcc_id, EngineState):
             self._monitored_state = tmcc_id
