@@ -190,7 +190,7 @@ class LaunchStatus(Thread, GpioDevice):
             self._synchronized = True
             if self._monitored_state is None and self.tmcc_id and self.tmcc_id != 99:
                 self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id)
-            self._dispatcher.listen_for(self, CommandScope.ENGINE, self.tmcc_id)
+            self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
             self.update_display(clear=True)
 
     def reset(self) -> None:

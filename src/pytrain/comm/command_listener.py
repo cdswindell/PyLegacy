@@ -704,9 +704,10 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             self.unsubscribe_any(subscriber)
         else:
             channel = self._make_channel(channel, address, command, data)
-            self._channels[channel].unsubscribe(subscriber)
-            if len(self._channels[channel].subscribers) == 0:
-                del self._channels[channel]
+            if channel in self._channels:
+                self._channels[channel].unsubscribe(subscriber)
+                if len(self._channels[channel].subscribers) == 0:
+                    del self._channels[channel]
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
         # receive broadcasts
