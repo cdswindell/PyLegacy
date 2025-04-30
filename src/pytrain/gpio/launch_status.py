@@ -55,6 +55,7 @@ class LaunchStatus(Thread, GpioDevice):
         self._holding = False
         self._countdown_thread = None
         self._last_cmd = None
+        self._hidden = False
 
         # check for state synchronization
         self._synchronized = False
@@ -74,12 +75,12 @@ class LaunchStatus(Thread, GpioDevice):
             if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                 self.launch(15)
             elif cmd.command == TMCC1EngineCommandEnum.NUMERIC:
-                if cmd.data in {0, 5}:
+                if cmd.data == 0:
                     self.abort()
                 elif cmd.data == 5:
                     if last_cmd == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
                         self.countdown = None
-                        self.display.hide()
+                        self._hide()
                     else:
                         self.abort()
                 elif cmd.data == 3 and last_cmd == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
@@ -186,6 +187,7 @@ class LaunchStatus(Thread, GpioDevice):
 
     def update_display(self, clear: bool = False) -> None:
         with self._lock:
+            self._show()
             if clear is True:
                 self.display.clear()
                 self._oled[0] = self.title
@@ -204,7 +206,7 @@ class LaunchStatus(Thread, GpioDevice):
             if self._monitored_state is None and self.tmcc_id and self.tmcc_id != 99:
                 self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id)
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
-            self.update_display(clear=True)
+            self._hide()
 
     def reset(self) -> None:
         with self._lock:
@@ -225,6 +227,18 @@ class LaunchStatus(Thread, GpioDevice):
 
     def close(self) -> None:
         self.reset()
+
+    def _hide(self) -> None:
+        with self._lock:
+            if self._hidden is False:
+                self._hidden = True
+                self.display.hide()
+
+    def _show(self) -> None:
+        with self._lock:
+            if self._hidden is True:
+                self.display.show()
+                self._hidden = False
 
 
 class CountdownThread(Thread):
