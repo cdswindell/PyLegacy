@@ -83,6 +83,9 @@ class LaunchStatus(Thread, GpioDevice):
             if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                 # launch in 15 seconds
                 self.launch(15)
+            elif cmd.command == TMCC1EngineCommandEnum.FRONT_COUPLER:
+                # launch now
+                self.launch(0)
             elif cmd.command == TMCC1EngineCommandEnum.NUMERIC:
                 if cmd.data == 0:
                     # Num 0: Abort
