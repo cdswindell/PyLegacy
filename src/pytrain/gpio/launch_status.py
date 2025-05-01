@@ -121,7 +121,7 @@ class LaunchStatus(Thread, GpioDevice):
     def title(self, value: str) -> None:
         self._title = value
         self.display.write(value, 0, center=True)
-        self.update_display()
+        self.update_display(clear=True)
 
     @property
     def countdown(self) -> int | None:
@@ -235,8 +235,7 @@ class LaunchStatus(Thread, GpioDevice):
                 self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id)
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
             self.update_display(clear=True)
-            self.update_display(clear=True)
-            self._hide()
+            # self._hide()
 
     def reset(self) -> None:
         with self._lock:

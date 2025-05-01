@@ -37,7 +37,7 @@ class TextBuffer:
                     self._buffer[index] = value
                     self._changed_rows.add(index)
                     self._cursor_pos = (index, len(value))
-                    print(f"Row {index}: {value}")
+                    print(f"Row {index}: {value} ({self._changed_rows})")
                     self.__do_notify()
             else:
                 raise IndexError(f"Index {index} out of range")
@@ -222,9 +222,9 @@ class TextBuffer:
             else:
                 row = row[: at[1]] + s + row[at[1] + len(s) :]
             if row != orig_row:
+                self._changed_rows.add(at[0])
                 self[at[0]] = row
                 self._cursor_pos = (at[0], len(row))
-                self._changed_rows.add(at[0])
                 self.__do_notify()
 
     def __do_notify(self) -> None:

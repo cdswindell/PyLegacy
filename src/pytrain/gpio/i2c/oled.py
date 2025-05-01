@@ -189,7 +189,6 @@ class Oled(Thread, TextBuffer):
         center: bool = False,
         blink: bool = False,
     ) -> None:
-        print(f"{at}: {c}")
         super().write(c, at, fmt, center)
         row_no = at if isinstance(at, int) else at[0]
         if blink is True:
@@ -279,6 +278,7 @@ class Oled(Thread, TextBuffer):
                         if i in self._blinks:
                             self._hotspots[i] = BlinkingHotspot(self, row=i)
                         else:
+                            print(f"Drawing Row: {i}: {self[i]}")
                             self._canvas.text((self._x_offset, (i * fs) - 3), self[i], "white", self._font)
                     else:
                         self._hotspots[i] = ScrollingHotspot(self, self[i], row=i)
@@ -288,7 +288,6 @@ class Oled(Thread, TextBuffer):
             if self.is_dirty is True or self._initial_update is True:
                 if self._initial_update is True:
                     self.update_display(clear=True, selective=False)
-                    # self.update_display(clear=True, selective=False)
                     self._initial_update = False
                 else:
                     self.update_display()
