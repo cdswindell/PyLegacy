@@ -70,9 +70,9 @@ class Oled(Thread, TextBuffer):
             raise ValueError(f"Unsupported Luma OLED device: {device}")
 
         # if spi, slow down the bus
-        if isinstance(self._serial, spi) and spi_speed:
-            print(self._serial._spi.max_speed_hz)
-            self._serial._spi.max_speed_hz = spi_speed
+        if isinstance(self._serial, spi) and spi_speed and hasattr(self._serial, "_spi"):
+            spi_dev = getattr(self._serial, "_spi")
+            spi_dev.max_speed_hz = spi_speed
             print(self._serial._spi.max_speed_hz)
         # set contrast to maximum
         self._device.contrast(255)
