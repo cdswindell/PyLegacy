@@ -67,9 +67,13 @@ class Oled(Thread, TextBuffer):
         else:
             raise ValueError(f"Unsupported Luma OLED device: {device}")
 
+        # set contrast to maximum
+        self._device.contrast(255)
+
         # determine maximum number of rows; we do not change this even if the
         # font/font size is changed later on
         self._rows = rows = int(self._device.height / font_size)
+        self._row_height = int(self._device.height / rows)
 
         Thread.__init__(self, daemon=True)
         TextBuffer.__init__(self, rows, auto_update=auto_update)
@@ -120,6 +124,10 @@ class Oled(Thread, TextBuffer):
         self.update_display(clear=False, selective=False)
 
     @property
+    def row_height(self) -> int:
+        return self._row_height
+
+    @property
     def font(self):
         return self._font
 
@@ -131,6 +139,8 @@ class Oled(Thread, TextBuffer):
     def font_size(self, font_size: int) -> None:
         self._font_size = font_size
         self._font = make_font(self.font_family, font_size)
+        rows = int(self._device.height / font_size)
+        self._row_height = int(self._device.height / rows)
         self._clear_image()
         self.update_display(clear=False, selective=False)
 
@@ -242,7 +252,8 @@ class Oled(Thread, TextBuffer):
 
     def update_display(self, clear: bool = True, selective: bool = True) -> None:
         with self.synchronizer:
-            fs = self.font_size
+            # fs = self.font_size
+            fs = self.row_height
             if selective is True:
                 rows = self.changed_rows
             else:
@@ -269,6 +280,7 @@ class Oled(Thread, TextBuffer):
             if self.is_dirty is True or self._initial_update is True:
                 if self._initial_update is True:
                     self.update_display(clear=True, selective=False)
+                    self.update_display(clear=True, selective=False)
                     self._initial_update = False
                 else:
                     self.update_display()
@@ -293,7 +305,8 @@ class ScrollingHotspot(Thread, hotspot):
         hotspot.__init__(self, oled.width, oled.font_size)
         self._device = oled
         self._x_offset = oled.x_offset
-        self._font_size = oled.font_size
+        # self._font_size = oled.font_size
+        self._row_height = oled.row_height
         self._font = oled.font
         self._row = row
         self._text = text + " " + text
@@ -317,11 +330,11 @@ class ScrollingHotspot(Thread, hotspot):
         draw = ImageDraw.Draw(image)
         # Clear the hotspot area
         draw.rectangle(
-            (0, self._row * self._font_size, self.width - 1, ((self._row + 1) * self._font_size) - 1),
+            (0, self._row * self._row_height, self.width - 1, ((self._row + 1) * self._row_height) - 1),
             fill="black",
         )
         # Draw the scrolling text
-        draw.text((self._x_offset, (self._row * self._font_size) - 3), self._text, font=self._font, fill="white")
+        draw.text((self._x_offset, (self._row * self._row_height) - 3), self._text, font=self._font, fill="white")
         # Scroll the text
         self._x_offset -= self._scroll_speed
         if self._x_offset + self._text_width < 0:
@@ -357,7 +370,8 @@ class BlinkingHotspot(Thread, hotspot):
         hotspot.__init__(self, oled.width, oled.font_size)
         self._device = oled
         self._x_offset = oled.x_offset
-        self._font_size = oled.font_size
+        # self._font_size = oled.font_size
+        self._row_height = oled.row_height
         self._font = oled.font
         self._row = row
         self._text = oled[row]
@@ -400,13 +414,13 @@ class BlinkingHotspot(Thread, hotspot):
         if self._display_cycle is False:
             # Clear the hotspot area
             draw.rectangle(
-                (0, self._row * self._font_size, self.width - 1, ((self._row + 1) * self._font_size) - 1),
+                (0, self._row * self._row_height, self.width - 1, ((self._row + 1) * self._row_height) - 1),
                 fill="black",
             )
         else:
             # Draw the text
             draw.text(
-                (self._x_offset, (self._row * self._font_size) - 3),
+                (self._x_offset, (self._row * self._row_height) - 3),
                 self._text,
                 font=self._font,
                 fill="white",
