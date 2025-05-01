@@ -71,9 +71,9 @@ class Oled(Thread, TextBuffer):
 
         # if spi, slow down the bus
         if isinstance(self._serial, spi) and spi_speed:
-            print(dir(self._serial))
-            self._serial.max_speed_hz = spi_speed
-            print(self._serial.max_speed_hz)
+            print(self._serial._spi.max_speed_hz)
+            self._serial._spi.max_speed_hz = spi_speed
+            print(self._serial._spi.max_speed_hz)
         # set contrast to maximum
         self._device.contrast(255)
 
