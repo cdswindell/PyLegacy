@@ -11,7 +11,6 @@ import atexit
 from enum import unique
 from pathlib import Path
 from threading import Event, Thread
-from time import sleep
 
 from luma.core.interface.serial import i2c, spi
 from luma.core.virtual import hotspot
@@ -73,7 +72,7 @@ class Oled(Thread, TextBuffer):
         if isinstance(self._serial, spi) and spi_speed and hasattr(self._serial, "_spi"):
             spi_dev = getattr(self._serial, "_spi")
             spi_dev.max_speed_hz = spi_speed
-            print(self._serial._spi.max_speed_hz)
+
         # set contrast to maximum
         self._device.contrast(255)
 
@@ -286,10 +285,6 @@ class Oled(Thread, TextBuffer):
         with self.synchronizer:
             if self.is_dirty is True or self._initial_update is True:
                 if self._initial_update is True:
-                    self.update_display(clear=True, selective=False)
-                    sleep(0.01)
-                    self.update_display(clear=True, selective=False)
-                    sleep(0.01)
                     self.update_display(clear=True, selective=False)
                     self._initial_update = False
                 else:
