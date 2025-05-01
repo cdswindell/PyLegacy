@@ -60,8 +60,8 @@ class LaunchStatus(Thread, GpioDevice):
 
         self._title = title if title else f"Pad {tmcc_id}"
         self._oled = Oled(address, device, auto_update=False)
-        self._oled.write(self.title, 0, center=True)
-        self._oled.write("T Minus  --:--", 1, center=True)
+        self.display.write(self.title, 0, center=True)
+        self.display.write("T Minus  --:--", 1, center=True)
 
         # check for state synchronization
         self._synchronized = False
@@ -120,7 +120,7 @@ class LaunchStatus(Thread, GpioDevice):
     @title.setter
     def title(self, value: str) -> None:
         self._title = value
-        self._oled.write(value, 0, center=True)
+        self.display.write(value, 0, center=True)
         self.update_display()
 
     @property
@@ -143,7 +143,7 @@ class LaunchStatus(Thread, GpioDevice):
                 minute = value // 60
                 second = value % 60
                 r1 = f"{prefix}{minute:02d}:{second:02d}"
-            self._oled.write(r1, 1, center=True)
+            self.display.write(r1, 1, center=True)
             self.update_display()
 
     @property
@@ -192,7 +192,7 @@ class LaunchStatus(Thread, GpioDevice):
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
-            self._oled.write("** Abort **", 3, center=True, blink=True)
+            self.display.write("** Abort **", 3, center=True, blink=True)
         self.update_display()
 
     def hold(self) -> None:
@@ -201,7 +201,7 @@ class LaunchStatus(Thread, GpioDevice):
                 return
             if self._countdown_thread:
                 self._countdown_thread.hold()
-            self._oled.write("** Hold **", 3, center=True, blink=True)
+            self.display.write("** Hold **", 3, center=True, blink=True)
             self._holding = True
         self.update_display()
 
@@ -209,7 +209,7 @@ class LaunchStatus(Thread, GpioDevice):
         with self._lock:
             if self._holding is False:
                 return
-            self._oled[3] = ""
+            self.display[3] = ""
             if self._countdown_thread:
                 self._countdown_thread.resume()
             self._holding = False
@@ -220,8 +220,8 @@ class LaunchStatus(Thread, GpioDevice):
             self._show()
             if clear is True:
                 self.display.clear()
-                self._oled.write(self.title, 0, center=True)
-                self._oled.write("T Minus  --:--", 1, center=True)
+                self.display.write(self.title, 0, center=True)
+                self.display.write("T Minus  --:--", 1, center=True)
             self.display.refresh_display()
 
     def on_sync(self) -> None:
@@ -256,7 +256,7 @@ class LaunchStatus(Thread, GpioDevice):
     def recycle(self) -> None:
         with self._lock:
             self._holding = self._aborted = False
-            self._oled[3] = ""
+            self.display[3] = ""
 
     def close(self) -> None:
         self.reset()
@@ -265,13 +265,13 @@ class LaunchStatus(Thread, GpioDevice):
         with self._lock:
             if self._hidden is False:
                 self._hidden = True
-                self.display.hide()
+                # self.display.hide()
 
     def _show(self) -> None:
         with self._lock:
             if self._hidden is True:
                 self._hidden = False
-                self.display.show()
+                # self.display.show()
 
 
 class CountdownThread(Thread):
