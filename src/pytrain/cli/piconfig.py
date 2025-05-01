@@ -46,6 +46,7 @@ SERVICES = [
     "packagekit",
     "pipewire",
     "pulseaudio",
+    "raindrop",
     "rpi-connect",
     "rpi-connect",
     "rpi-connect-wayvnc",
@@ -85,6 +86,7 @@ class PiConfig:
         self._args = args
         self.option = args.option
         self.verbose = args.quiet is False
+        self.enable_spi = args.enable_spi
         if is_linux() is False:
             print("This command can only run on Raspberry Pi systems! Exiting...")
             sys.exit(1)
@@ -122,6 +124,8 @@ class PiConfig:
             if do_output:
                 print("Checking Raspberry Pi Configuration...")
             for setting, value in SETTINGS.items():
+                if setting == "spi" and self.enable_spi is True:
+                    value = 0
                 if do_output:
                     print(f"Checking {setting}...", end="")
                 cmd = f"sudo raspi-config nonint get_{setting}"
@@ -236,6 +240,8 @@ class PiConfig:
 
     def optimize_config(self, cfg: Set[str] = None) -> None:
         for setting, value in SETTINGS.items():
+            if setting == "spi" and self.enable_spi is True:
+                value = 0
             cmd = f"sudo raspi-config nonint do_{setting} {value}"
             if self.verbose:
                 print(f"Executing: {cmd}...", end="")
@@ -427,6 +433,11 @@ class PiConfig:
             const="expand_file_system",
             dest="option",
             help="Expand file system and reboot",
+        )
+        misc_opts.add_argument(
+            "enable_spi",
+            action="store_true",
+            help="Enable the SPI interface (and don't try to disable it)",
         )
         misc_opts.add_argument(
             "-quiet",
