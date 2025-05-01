@@ -278,7 +278,6 @@ class Oled(Thread, TextBuffer):
                         if i in self._blinks:
                             self._hotspots[i] = BlinkingHotspot(self, row=i)
                         else:
-                            print(f"Drawing Row: {i}: {self[i]}")
                             self._canvas.text((self._x_offset, (i * fs) - 3), self[i], "white", self._font)
                     else:
                         self._hotspots[i] = ScrollingHotspot(self, self[i], row=i)
