@@ -11,6 +11,7 @@ import atexit
 from enum import unique
 from pathlib import Path
 from threading import Event, Thread
+from time import sleep
 
 from luma.core.interface.serial import i2c, spi
 from luma.core.virtual import hotspot
@@ -50,7 +51,7 @@ class Oled(Thread, TextBuffer):
         address: int = 0x3C,
         device: OledDevice | str = OledDevice.ssd1309,
         font_size: int = 15,
-        font_family: str = "DejaVuSansMono.ttf",
+        font_family: str = "DejaVuSansMono-Bold.ttf",
         x_offset: int = 2,
         auto_update: bool = True,
     ) -> None:
@@ -280,6 +281,9 @@ class Oled(Thread, TextBuffer):
             if self.is_dirty is True or self._initial_update is True:
                 if self._initial_update is True:
                     self.update_display(clear=True, selective=False)
+                    sleep(0.01)
+                    self.update_display(clear=True, selective=False)
+                    sleep(0.01)
                     self.update_display(clear=True, selective=False)
                     self._initial_update = False
                 else:
