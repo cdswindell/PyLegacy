@@ -258,14 +258,16 @@ class Oled(Thread, TextBuffer):
 
     def update_display(self, clear: bool = True, selective: bool = True) -> None:
         with self.synchronizer:
-            # fs = self.font_size
+            if clear is True and selective is False:
+                self._image = Image.new(self._device.mode, self._device.size, "black")
+                self._canvas = ImageDraw.Draw(self._image)
             fs = self.row_height
             if selective is True:
                 rows = self.changed_rows
             else:
                 rows = range(self.rows)
             for i in rows:
-                if clear is True:
+                if clear is True and selective is True:
                     self._canvas.rectangle((0, (i * fs), self._device.width - 1, ((i + 1) * fs) - 1), "black")
                 if i < len(self):
                     if i in self._hotspots:
