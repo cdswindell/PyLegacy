@@ -54,12 +54,15 @@ class Oled(Thread, TextBuffer):
         font_family: str = "DejaVuSansMono-Bold.ttf",
         x_offset: int = 2,
         auto_update: bool = True,
+        spi_speed: int = 500000,
     ) -> None:
         super().__init__()
         if address:
             self._serial = i2c(port=1, address=address)  # i2c bus and address
         else:
-            self._serial = spi(device=0, port=0)
+            spi_dev = spi(device=0, port=0)
+            spi_dev.max_speed_hz = spi_speed
+            self._serial = spi_dev
 
         if isinstance(device, str):
             device = OledDevice.by_name(device, raise_exception=True)
