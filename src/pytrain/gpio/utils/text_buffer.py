@@ -212,6 +212,8 @@ class TextBuffer:
             if center is True:
                 pad_chrs = int((self.cols - len(s)) / 2)
                 row = (" " * pad_chrs if pad_chrs > 0 else "") + s
+                self._changed_rows.add(at[0])
+                self._buffer[at[0]] = row
             elif len(row) <= at[1]:
                 # pad row with spaces, if cursor pos is > current row length
                 row += " " * (at[1] - len(self._buffer[at[0]])) + s
