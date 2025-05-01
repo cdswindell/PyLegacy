@@ -235,7 +235,7 @@ class LaunchStatus(Thread, GpioDevice):
                 self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id)
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
             self.update_display(clear=True)
-            # self._hide()
+            self._hide()
 
     def reset(self) -> None:
         with self._lock:
@@ -268,13 +268,13 @@ class LaunchStatus(Thread, GpioDevice):
         with self._lock:
             if self._hidden is False:
                 self._hidden = True
-                # self.display.hide()
+                self.display.hide()
 
     def _show(self) -> None:
         with self._lock:
             if self._hidden is True:
                 self._hidden = False
-                # self.display.show()
+                self.display.show()
 
 
 class CountdownThread(Thread):
