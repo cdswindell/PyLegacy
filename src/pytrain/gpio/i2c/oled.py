@@ -64,7 +64,7 @@ class Oled(Thread, TextBuffer):
         if isinstance(device, str):
             device = OledDevice.by_name(device, raise_exception=True)
         if isinstance(device, OledDevice):
-            self._device = device.value(self._serial, mode="1")  # i2c/spi oled device
+            self._device = device.value(self._serial)  # i2c/spi oled device
         else:
             raise ValueError(f"Unsupported Luma OLED device: {device}")
 
