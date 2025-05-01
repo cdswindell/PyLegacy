@@ -293,6 +293,11 @@ class Oled(Thread, TextBuffer):
                 else:
                     self.update_display()
 
+    def force_display(self) -> None:
+        with self.synchronizer:
+            self.update_display(clear=True, selective=False)
+            self._device.display(self._image)
+
     def _clear_image(self) -> None:
         self._canvas.rectangle((0, 0, self._device.width, self._device.height), "black")
 

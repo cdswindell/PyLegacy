@@ -222,7 +222,8 @@ class LaunchStatus(Thread, GpioDevice):
                 self.display.clear()
                 self.display.write(self.title, 0, center=True)
                 self.display.write("T Minus  --:--", 1, center=True)
-            self.display.refresh_display()
+            # self.display.refresh_display()
+            self.display.force_display()
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
