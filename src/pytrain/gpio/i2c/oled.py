@@ -60,17 +60,20 @@ class Oled(Thread, TextBuffer):
         if address:
             self._serial = i2c(port=1, address=address)  # i2c bus and address
         else:
-            spi_dev = spi(device=0, port=0)
-            spi_dev.max_speed_hz = spi_speed
-            self._serial = spi_dev
+            self._serial = spi(device=0, port=0)
 
         if isinstance(device, str):
             device = OledDevice.by_name(device, raise_exception=True)
         if isinstance(device, OledDevice):
-            self._device = device.value(self._serial)  # i2c oled device
+            self._device = device.value(self._serial)  # i2c/spi oled device
         else:
             raise ValueError(f"Unsupported Luma OLED device: {device}")
 
+        # if spi, slow down the bus
+        if isinstance(self._serial, spi) and spi_speed:
+            print(self._serial.max_speed_hz)
+            self._serial.max_speed_hz = spi_speed
+            print(self._serial.max_speed_hz)
         # set contrast to maximum
         self._device.contrast(255)
 
