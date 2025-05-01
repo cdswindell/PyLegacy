@@ -37,6 +37,7 @@ class TextBuffer:
                     self._buffer[index] = value
                     self._changed_rows.add(index)
                     self._cursor_pos = (index, len(value))
+                    print(f"Row {index}: {value}")
                     self.__do_notify()
             else:
                 raise IndexError(f"Index {index} out of range")
