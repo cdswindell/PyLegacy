@@ -46,7 +46,6 @@ SERVICES = [
     "packagekit",
     "pipewire",
     "pulseaudio",
-    "raindrop",
     "rpi-connect",
     "rpi-connect",
     "rpi-connect-wayvnc",
@@ -72,6 +71,7 @@ PACKAGES = [
     "packagekit",
     "pipewire",
     "pulseaudio",
+    "raindrop",
     "rpi-connect",
     "rpicam-apps",
 ]
