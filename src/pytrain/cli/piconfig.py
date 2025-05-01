@@ -435,7 +435,7 @@ class PiConfig:
             help="Expand file system and reboot",
         )
         misc_opts.add_argument(
-            "enable_spi",
+            "-enable_spi",
             action="store_true",
             help="Enable the SPI interface (and don't try to disable it)",
         )
