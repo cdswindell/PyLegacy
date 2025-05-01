@@ -288,7 +288,7 @@ class Oled(Thread, TextBuffer):
             if self.is_dirty is True or self._initial_update is True:
                 if self._initial_update is True:
                     self.update_display(clear=True, selective=False)
-                    self.update_display(clear=True, selective=False)
+                    # self.update_display(clear=True, selective=False)
                     self._initial_update = False
                 else:
                     self.update_display()
