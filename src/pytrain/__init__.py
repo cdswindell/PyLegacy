@@ -31,6 +31,8 @@ from .gpio.base_watcher import BaseWatcher  # noqa: F401
 from .gpio.controller import Controller  # noqa: F401
 from .gpio.crane_car import CraneCar  # noqa: F401
 from .gpio.culvert_loader import CulvertLoader, CulvertUnloader  # noqa: F401
+from .gpio.engine_controller import EngineController  # noqa: F401
+from .gpio.engine_status import EngineStatus  # noqa: F401
 from .gpio.gantry_crane import GantryCrane  # noqa: F401
 from .gpio.gpio_handler import (
     GpioHandler,  # noqa: F401
@@ -38,6 +40,7 @@ from .gpio.gpio_handler import (
     PotHandler,  # noqa: F401
 )
 from .gpio.launch_pad import LaunchPad  # noqa: F401
+from .gpio.launch_status import LaunchStatus  # noqa: F401
 from .gpio.power_district import PowerDistrict  # noqa: F401
 from .gpio.power_watcher import PowerWatcher  # noqa: F401
 from .gpio.route import Route  # noqa: F401
