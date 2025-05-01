@@ -97,7 +97,7 @@ class LaunchStatus(Thread, GpioDevice):
                         or self.countdown is None
                     ):
                         # Aux 1/Num 5: Shutdown
-                        self.recycle()
+                        self.recycle(False)
                         self.countdown = None
                         self._hide()
                     else:
@@ -133,7 +133,7 @@ class LaunchStatus(Thread, GpioDevice):
             self._countdown = value
             if value is None:
                 r1 = "T Minus  --:--"
-                self.recycle()
+                self.recycle(False)
             else:
                 if value < 0:
                     value = abs(value)
@@ -172,7 +172,7 @@ class LaunchStatus(Thread, GpioDevice):
 
     def launch(self, countdown: int = -30) -> None:
         with self._lock:
-            self.recycle()
+            self.recycle(False)
             if self._countdown_thread:
                 self._countdown_thread.reset()
                 self._countdown_thread = None
@@ -254,10 +254,12 @@ class LaunchStatus(Thread, GpioDevice):
                 self._state_watcher.shutdown()
                 self._state_watcher = None
 
-    def recycle(self) -> None:
+    def recycle(self, refresh_display: bool = True) -> None:
         with self._lock:
             self._holding = self._aborted = False
             self.display[3] = ""
+            if refresh_display is True:
+                self.update_display(clear=True)
 
     def close(self) -> None:
         self.reset()
