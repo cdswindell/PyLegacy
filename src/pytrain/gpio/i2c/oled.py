@@ -54,7 +54,7 @@ class Oled(Thread, TextBuffer):
         font_family: str = "DejaVuSansMono-Bold.ttf",
         x_offset: int = 2,
         auto_update: bool = True,
-        spi_speed: int = 500000,
+        spi_speed: int = 1000000,
     ) -> None:
         super().__init__()
         if address:
