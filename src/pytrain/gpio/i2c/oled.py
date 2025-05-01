@@ -189,6 +189,7 @@ class Oled(Thread, TextBuffer):
         center: bool = False,
         blink: bool = False,
     ) -> None:
+        print(f"{at}: {c}")
         super().write(c, at, fmt, center)
         row_no = at if isinstance(at, int) else at[0]
         if blink is True:

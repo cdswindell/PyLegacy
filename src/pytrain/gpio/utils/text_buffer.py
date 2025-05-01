@@ -209,20 +209,20 @@ class TextBuffer:
             if fmt is not None:
                 s = f"{s:{fmt}}"
             # append new data to buffer
-            row = orig_row = self._buffer[at[0]]
+            row = orig_row = self[at[0]]
             if center is True:
                 pad_chrs = int((self.cols - len(s)) / 2)
                 row = (" " * pad_chrs if pad_chrs > 0 else "") + s
             elif len(row) <= at[1]:
                 # pad row with spaces, if cursor pos is > current row length
-                row += " " * (at[1] - len(self._buffer[at[0]])) + s
+                row += " " * (at[1] - len(self[at[0]])) + s
             elif at[1] + len(s) > len(row):
                 # overwrite portion of the row
                 row = row[: at[1]] + s
             else:
                 row = row[: at[1]] + s + row[at[1] + len(s) :]
             if row != orig_row:
-                self._buffer[at[0]] = row
+                self[at[0]] = row
                 self._cursor_pos = (at[0], len(row))
                 self._changed_rows.add(at[0])
                 self.__do_notify()
