@@ -268,10 +268,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             if self._queue.empty():  # we need to do a second check in the event we're being shutdown
                 continue
             cmd: PdiReq = self._queue.get()
-            from .d4_req import D4Req
-
-            if isinstance(cmd, D4Req):
-                print(f"About to process: {cmd}")
             try:
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(cmd)
@@ -281,6 +277,10 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
 
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
+                    from .d4_req import D4Req
+
+                    if isinstance(cmd, D4Req):
+                        print(f"Processing: {cmd}")
                     if isinstance(cmd, BaseReq):
                         # on the PyTrain server, we need to know when the initial
                         # roster sync is complete; we do this by looking for the
