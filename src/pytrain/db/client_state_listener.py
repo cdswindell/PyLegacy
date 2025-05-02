@@ -149,10 +149,8 @@ class ClientStateHandler(socketserver.BaseRequestHandler):
                 if PDI_EOP in byte_stream:
                     eop_index = byte_stream.index(PDI_EOP)
                     while (eop_index - 1) >= 0 and byte_stream[eop_index - 1] == PDI_STF:
-                        print(f"Found STF at {eop_index - 1}... looking for next EOP")
                         if PDI_EOP in byte_stream[eop_index + 1 :]:
                             eop_index = byte_stream.index(PDI_EOP, eop_index + 1)
-                            print(f"Next EOP at {eop_index}...")
                         else:
                             break
                     command_bytes = byte_stream[0 : eop_index + 1]
