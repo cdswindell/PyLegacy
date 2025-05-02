@@ -37,6 +37,7 @@ from ..protocol.constants import (
     CommandScope,
     LOCO_CLASS,
     SOUND_TYPE,
+    LEGACY_CONTROL_TYPE,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1_COMMAND_TO_ALIAS_MAP, TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum
@@ -704,6 +705,11 @@ class EngineState(ComponentState):
         if self._is_legacy is None:
             if self.scope == CommandScope.ENGINE and self.address > 99:
                 self._is_legacy = True
+            elif self.control_type is not None:
+                if self.control_type == LEGACY_CONTROL_TYPE:
+                    self._is_legacy = True
+                else:
+                    self._is_legacy = False
         return self._is_legacy is True
 
     @property
