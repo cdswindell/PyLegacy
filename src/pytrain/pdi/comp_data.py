@@ -99,6 +99,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x0D: CompDataHandler("_fuel_level"),
     0x0E: CompDataHandler("_water_level"),
     0x18: CompDataHandler("_momentum"),
+    0x1E: CompDataHandler("_road_name_len"),
     0x1F: CompDataHandler(
         "_road_name",
         31,
@@ -354,9 +355,10 @@ class CompData(Generic[R]):
         super().__init__()
         self._tmcc_id: int | None = tmcc_id
         self._scope = scope
+        self._road_name_len: int | None = None
         self._road_name: str | None = None
-        self._road_number: str | None = None
         self._road_number_len: int | None = None
+        self._road_number: str | None = None
         self._next_link: int | None = None
         self._prev_link: int | None = None
 
