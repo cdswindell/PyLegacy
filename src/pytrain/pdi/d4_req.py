@@ -186,7 +186,7 @@ class D4Req(PdiReq, CompDataMixin):
                 dl = f" Length: {self.data_length}" if self.data_length is not None else ""
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
                 if isinstance(tpl, CompDataHandler) and self._data_bytes and (self.data_length == tpl.length):
-                    db = f" {tpl.from_bytes(self._data_bytes)}"
+                    db = f" Data: {tpl.from_bytes(self._data_bytes)}"
                 else:
                     db = (
                         f" Data: {self._data_bytes.hex()}"
@@ -223,13 +223,13 @@ class D4Req(PdiReq, CompDataMixin):
         elif self.action in {D4Action.QUERY, D4Action.UPDATE}:
             byte_str += self.start.to_bytes(1, byteorder="big") if self.start is not None else bytes()
             byte_str += self.data_length.to_bytes(1, byteorder="big") if self.data_length is not None else bytes()
+            if self._data_bytes is not None:
+                byte_str += self._data_bytes
             byte_str += (
                 self.timestamp.to_bytes(4, byteorder="little")
                 if self.timestamp is not None
                 else self.lionel_timestamp()
             )
-            if self._data_bytes is not None:
-                byte_str += self._data_bytes
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
         byte_str += checksum
