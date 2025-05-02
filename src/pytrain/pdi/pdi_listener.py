@@ -150,6 +150,11 @@ class PdiListener(Thread):
                         try:
                             if log.isEnabledFor(logging.DEBUG):
                                 log.debug(f"Offering->0x{req_bytes.hex(':')}")
+                            req = PdiReq.from_bytes(req_bytes)
+                            from .d4_req import D4Req
+
+                            if isinstance(req, D4Req):
+                                print(f"Offering: {req}")
                             self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
                         except Exception as e:
                             log.error(f"Failed to dispatch request: {req_bytes.hex(':')}")
@@ -289,6 +294,10 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                     if isinstance(cmd, TmccReq):
                         self._tmcc_dispatcher.offer(cmd.tmcc_command, from_pdi=True)
                     elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
+                        from .d4_req import D4Req
+
+                        if isinstance(cmd, D4Req):
+                            print(f"Received from base: {cmd}")
                         if hasattr(cmd, "action"):
                             self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
                         self.publish((cmd.scope, cmd.tmcc_id), cmd)
