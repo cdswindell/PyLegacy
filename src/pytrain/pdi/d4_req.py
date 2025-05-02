@@ -223,13 +223,13 @@ class D4Req(PdiReq, CompDataMixin):
         elif self.action in {D4Action.QUERY, D4Action.UPDATE}:
             byte_str += self.start.to_bytes(1, byteorder="big") if self.start is not None else bytes()
             byte_str += self.data_length.to_bytes(1, byteorder="big") if self.data_length is not None else bytes()
-            if self._data_bytes is not None:
-                byte_str += self._data_bytes
             byte_str += (
                 self.timestamp.to_bytes(4, byteorder="little")
                 if self.timestamp is not None
                 else self.lionel_timestamp()
             )
+            if self._data_bytes is not None:
+                byte_str += self._data_bytes
         byte_str, checksum = self._calculate_checksum(byte_str)
         byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
         byte_str += checksum

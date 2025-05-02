@@ -462,9 +462,12 @@ class CompData(Generic[R]):
             item_len = v.length
             if data_len >= ((k + item_len) - 1) and hasattr(self, v.field) and getattr(self, v.field) is None:
                 func = v.from_bytes
-                value = func(data[k : k + item_len])
-                if hasattr(self, v.field):
-                    setattr(self, v.field, value)
+                try:
+                    value = func(data[k : k + item_len])
+                    if hasattr(self, v.field):
+                        setattr(self, v.field, value)
+                except Exception as e:
+                    log.exception(f"Exception decoding {v.field} {e}", exc_info=e)
 
 
 class EngineData(CompData):
