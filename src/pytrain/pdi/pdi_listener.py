@@ -150,11 +150,6 @@ class PdiListener(Thread):
                         try:
                             if log.isEnabledFor(logging.DEBUG):
                                 log.debug(f"Offering->0x{req_bytes.hex(':')}")
-                            req = PdiReq.from_bytes(req_bytes)
-                            from .d4_req import D4Req
-
-                            if isinstance(req, D4Req):
-                                print(f"Offering: {req}")
                             self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
                         except Exception as e:
                             log.error(f"Failed to dispatch request: {req_bytes.hex(':')}")
@@ -273,6 +268,10 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             if self._queue.empty():  # we need to do a second check in the event we're being shutdown
                 continue
             cmd: PdiReq = self._queue.get()
+            from .d4_req import D4Req
+
+            if isinstance(cmd, D4Req):
+                print(f"About to process: {cmd}")
             try:
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(cmd)
