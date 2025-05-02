@@ -315,6 +315,10 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             if client in self._server_ips and port == self._server_port:
                 continue  # don't notify ourself
             try:
+                from .d4_req import D4Req
+
+                if isinstance(command, D4Req):
+                    print(f"Dispatching to client {client}:{port} -> {command}")
                 with self._lock:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((client, port))
