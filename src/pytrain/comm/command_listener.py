@@ -13,7 +13,6 @@ import logging
 import socket
 from collections import defaultdict, deque
 from queue import Queue
-from signal import pause
 from threading import Thread, Condition, RLock
 from time import sleep
 from typing import Generic, List, Protocol, Tuple, TypeVar, runtime_checkable, cast
@@ -607,10 +606,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                                     sleep(0.01)
                                 try:
                                     self.send_state_packet(client_ip, client_port, state_packet)
-                                    if len(state_packet) > 15:
-                                        xx = state_packet
-                                        if xx[1] == 0x26 and xx[2] == 1 and xx[3] == 2 and xx[5] == 1 and xx[10] == 2:
-                                            pause()
                                     do_pause = True
                                 except Exception as e:
                                     log.warning(f"Exception sending state update {state} to {client_ip}:{client_port}")

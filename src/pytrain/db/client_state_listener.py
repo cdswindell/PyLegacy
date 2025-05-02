@@ -16,7 +16,7 @@ from threading import Event
 
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Subscriber, Topic
-from ..pdi.constants import PDI_SOP, PDI_EOP
+from ..pdi.constants import PDI_SOP, PDI_EOP, PDI_STF
 from ..protocol.command_def import CommandDefEnum
 
 log = logging.getLogger(__name__)
@@ -131,9 +131,10 @@ class ClientStateListener(threading.Thread):
 
 class ClientStateHandler(socketserver.BaseRequestHandler):
     def handle(self):
+        csl = ClientStateListener.build()
         byte_stream = bytes()
         while True:
-            data = self.request.recv(256)
+            data = self.request.recv(512)
             if data:
                 byte_stream += data
                 self.request.sendall(str.encode("ack"))
@@ -147,8 +148,15 @@ class ClientStateHandler(socketserver.BaseRequestHandler):
             if byte_stream[0] == PDI_SOP:
                 if PDI_EOP in byte_stream:
                     eop_index = byte_stream.index(PDI_EOP)
+                    while (eop_index - 1) >= 0 and byte_stream[eop_index - 1] == PDI_STF:
+                        print(f"Found STF at {eop_index - 1}... looking for next EOP")
+                        if PDI_EOP in byte_stream[eop_index + 1 :]:
+                            eop_index = byte_stream.index(PDI_EOP, eop_index + 1)
+                            print(f"Next EOP at {eop_index}...")
+                        else:
+                            break
                     command_bytes = byte_stream[0 : eop_index + 1]
                     byte_stream = byte_stream[eop_index + 1 :]
             else:
                 byte_stream = bytes()
-            ClientStateListener.build().offer(command_bytes)
+            csl.offer(command_bytes)
