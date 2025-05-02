@@ -450,7 +450,7 @@ class CompData(Generic[R]):
         # final check
         rec_len = PdiReq.scope_record_length(self.scope)
         if len(byte_str) < rec_len:
-            byte_str += b"\x00" * (rec_len - len(byte_str))
+            byte_str += b"\xff" * (rec_len - len(byte_str))
 
         return byte_str
 
