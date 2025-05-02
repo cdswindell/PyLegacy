@@ -96,6 +96,8 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x08: CompDataHandler("_target_speed"),
     0x09: CompDataHandler("_train_brake"),
     0x0C: CompDataHandler("_rpm_labor"),
+    0x0D: CompDataHandler("_fuel_level"),
+    0x0E: CompDataHandler("_water_level"),
     0x18: CompDataHandler("_momentum"),
     0x1F: CompDataHandler(
         "_road_name",
@@ -489,6 +491,8 @@ class EngineData(CompData):
         self._train_brake: int | None = None
         self._tsdb_left: int | None = None
         self._tsdb_right: int | None = None
+        self._fuel_level: int | None = None
+        self._water_level: int | None = None
         super().__init__(data, scope, tmcc_id=tmcc_id)
 
 

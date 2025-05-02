@@ -576,6 +576,34 @@ class EngineState(ComponentState):
         return self._as_label(self.momentum)
 
     @property
+    def fuel_level(self) -> int:
+        return self.comp_data.fuel_level
+
+    @property
+    def fuel_level_pct(self) -> int:
+        if self.fuel_level is not None:
+            return int(round((self.fuel_level / 255.0) * 100.0))
+        return self.fuel_level
+
+    @property
+    def fuel_level_label(self) -> str:
+        return self._as_label(self.fuel_level)
+
+    @property
+    def water_level(self) -> int:
+        return self.comp_data.water_level
+
+    @property
+    def water_level_pct(self) -> int:
+        if self.water_level is not None:
+            return int(round((self.water_level / 255.0) * 100.0))
+        return self.water_level
+
+    @property
+    def water_level_label(self) -> str:
+        return self._as_label(self.water_level)
+
+    @property
     def rpm(self) -> int:
         return self.comp_data.rpm_tmcc if self.is_rpm else 0
 
