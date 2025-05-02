@@ -277,10 +277,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
 
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
-                    from .d4_req import D4Req
-
-                    if isinstance(cmd, D4Req):
-                        print(f"Processing: {cmd}")
                     if isinstance(cmd, BaseReq):
                         # on the PyTrain server, we need to know when the initial
                         # roster sync is complete; we do this by looking for the
@@ -293,10 +289,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                     if isinstance(cmd, TmccReq):
                         self._tmcc_dispatcher.offer(cmd.tmcc_command, from_pdi=True)
                     elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
-                        from .d4_req import D4Req
-
-                        if isinstance(cmd, D4Req):
-                            print(f"Received from base: {cmd}")
                         if hasattr(cmd, "action"):
                             self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
                         self.publish((cmd.scope, cmd.tmcc_id), cmd)
@@ -323,10 +315,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             if client in self._server_ips and port == self._server_port:
                 continue  # don't notify ourself
             try:
-                from .d4_req import D4Req
-
-                if isinstance(command, D4Req):
-                    print(f"Dispatching to client {client}:{port} -> {command}")
                 with self._lock:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((client, port))
