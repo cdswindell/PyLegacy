@@ -126,6 +126,9 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x46: CompDataHandler("_engine_class"),
     0x59: CompDataHandler("_tsdb_left"),
     0x5B: CompDataHandler("_tsdb_right"),
+    0x5C: CompDataHandler("_unk_5c"),
+    0x5E: CompDataHandler("_unk_5e"),
+    0x68: CompDataHandler("_unk_68"),
     0x69: CompDataHandler("_smoke"),
     0x6A: CompDataHandler("_speed_limit"),
     0x6B: CompDataHandler("_max_speed"),
@@ -512,6 +515,9 @@ class EngineData(CompData):
         self._unk_b: int | None = None
         self._unk_f: int | None = None
         self._unk_17: int | None = None
+        self._unk_5c: int | None = None
+        self._unk_5e: int | None = None
+        self._unk_68: int | None = None
         super().__init__(data, scope, tmcc_id=tmcc_id)
 
 
