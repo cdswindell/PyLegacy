@@ -104,6 +104,9 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x0D: CompDataHandler("_fuel_level"),
     0x0E: CompDataHandler("_water_level"),
     0x0F: CompDataHandler("_unk_f"),
+    0x11: CompDataHandler("_unk_11"),
+    0x12: CompDataHandler("_unk_12"),
+    0x13: CompDataHandler("_unk_13"),
     0x17: CompDataHandler("_unk_17"),
     0x18: CompDataHandler("_momentum"),
     0x1E: CompDataHandler("_road_name_len"),
@@ -514,6 +517,9 @@ class EngineData(CompData):
         self._unk_a: int | None = None
         self._unk_b: int | None = None
         self._unk_f: int | None = None
+        self._unk_11: int | None = None
+        self._unk_12: int | None = None
+        self._unk_13: int | None = None
         self._unk_17: int | None = None
         self._unk_5c: int | None = None
         self._unk_5e: int | None = None
