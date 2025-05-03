@@ -86,18 +86,25 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     ),
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
+    0x02: CompDataHandler("_unk_2"),
+    0x03: CompDataHandler("_unk_3"),
     0x04: CompDataHandler(
         "_bt_id",
         2,
         lambda t: int.from_bytes(t[0:2], byteorder="little"),
         lambda t: t.to_bytes(2, byteorder="little"),
     ),
+    0x06: CompDataHandler("_unk_6"),
     0x07: CompDataHandler("_speed"),
     0x08: CompDataHandler("_target_speed"),
     0x09: CompDataHandler("_train_brake"),
+    0x0A: CompDataHandler("_unk_a"),
+    0x0B: CompDataHandler("_unk_b"),
     0x0C: CompDataHandler("_rpm_labor"),
     0x0D: CompDataHandler("_fuel_level"),
     0x0E: CompDataHandler("_water_level"),
+    0x0F: CompDataHandler("_unk_f"),
+    0x17: CompDataHandler("_unk_17"),
     0x18: CompDataHandler("_momentum"),
     0x1E: CompDataHandler("_road_name_len"),
     0x1F: CompDataHandler(
@@ -498,6 +505,13 @@ class EngineData(CompData):
         self._tsdb_right: int | None = None
         self._fuel_level: int | None = None
         self._water_level: int | None = None
+        self._unk_2: int | None = None
+        self._unk_3: int | None = None
+        self._unk_6: int | None = None
+        self._unk_a: int | None = None
+        self._unk_b: int | None = None
+        self._unk_f: int | None = None
+        self._unk_17: int | None = None
         super().__init__(data, scope, tmcc_id=tmcc_id)
 
 
