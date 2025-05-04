@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Dict, Any, cast
 
-from ..pdi.comp_data import CompDataMixin
+from src.pytrain.db.comp_data import CompDataMixin
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux, TMCC1HaltCommandEnum
 from ..protocol.command_req import CommandReq

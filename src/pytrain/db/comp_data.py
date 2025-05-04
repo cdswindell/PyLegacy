@@ -7,19 +7,27 @@
 #
 #
 
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
 from __future__ import annotations
 
 import logging
 from abc import ABC, ABCMeta, abstractmethod
 from typing import Any, TypeVar, Generic, Callable
 
-from .base3_component import ConsistComponent, RouteComponent
-from .pdi_req import PdiReq
+from src.pytrain.pdi.base3_component import ConsistComponent, RouteComponent
+from src.pytrain.pdi.pdi_req import PdiReq
 
-from ..protocol.command_req import CommandReq
-from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ..protocol.constants import CommandScope
-from ..utils.text_utils import title
+from src.pytrain.protocol.command_req import CommandReq
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.utils.text_utils import title
 
 log = logging.getLogger(__name__)
 
