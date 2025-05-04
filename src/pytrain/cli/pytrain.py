@@ -121,6 +121,7 @@ class PyTrain:
         self._zeroconf = None
         self._pytrain_servers: List[ServiceInfo] = []
         self._server_discovered = Event()
+        self._command_processor_available = Event()
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
         self._received_admin_cmds = set()
@@ -247,8 +248,6 @@ class PyTrain:
         if self._pdi_buffer is not None:
             self._pdi_state_store = PdiStateStore()
             self._get_system_state(is_startup=True)
-        elif self.is_client:
-            self._load_client_state()
 
         # Start the command line processor; run as a thread if we're serving the REST api
         self._command_processor_ev = Event()
@@ -292,6 +291,13 @@ class PyTrain:
         if self._headless:
             log.info("Not accepting keyboard input; background mode")
         try:
+            # signal that we can now accept commands and process admin requests
+            self._command_processor_available.set()
+
+            # Load client state. Must be done before button file is processed
+            if self.is_client:
+                self._load_client_state()
+
             # process startup script, we need state loaded before doing this
             if self._buttons_file:
                 self._buttons_loader = ButtonsFileLoader(self._buttons_file)
@@ -473,6 +479,10 @@ class PyTrain:
         except Exception as e:
             log.exception(f"Failed to echo command to console: {e}")
 
+        # make sure main loop (run) has been entered; we have to be in that loop
+        # to process admin commands
+        self._command_processor_available.wait()
+        print("main loop active")
         if cmd.command in ACTION_TO_ADMIN_COMMAND_MAP:
             if cmd.command == TMCC1SyncCommandEnum.RESYNC:
                 if self.is_server:

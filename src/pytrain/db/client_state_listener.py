@@ -62,7 +62,6 @@ class ClientStateListener(threading.Thread):
         # wait for client registration to happen and for the server to tell the client its version
         # if the version of the server is newer, we want to update the client
         self._tmcc_buffer.server_version_available().wait()
-        print(f"Server Version: {self._tmcc_buffer.server_version}")
 
         self._tmcc_buffer.sync_state()  # request initial state from server
         self._tmcc_buffer.start_heart_beat()

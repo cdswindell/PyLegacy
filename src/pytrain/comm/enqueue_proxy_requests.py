@@ -328,7 +328,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 minor = byte_stream[22]
                 patch = byte_stream[23]
                 client_version = (major, minor, patch)
-                print(f"Client port: {client_port}, UUID: {client_uuid}, version: {client_version}")
             elif len(byte_stream) > 18:  # port and UUID as bytes
                 client_port = int.from_bytes(byte_stream[3:5], "big")
                 client_uuid = uuid.UUID(bytes=byte_stream[5:])
