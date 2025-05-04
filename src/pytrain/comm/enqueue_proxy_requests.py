@@ -64,8 +64,8 @@ class EnqueueProxyRequests(Thread):
             cls._instance.shutdown()
 
     @classmethod
-    def register_request(cls, port: int, client_id: uuid.UUID) -> bytes:
-        return cls._build_request(REGISTER_REQUEST, port, client_id)
+    def register_request(cls, port: int, client_id: uuid.UUID, version: tuple[int, int, int]) -> bytes:
+        return cls._build_request(REGISTER_REQUEST, port, client_id, version)
 
     @classmethod
     def disconnect_request(cls, port, client_id: uuid.UUID) -> bytes:
@@ -102,10 +102,22 @@ class EnqueueProxyRequests(Thread):
         raise AttributeError("EnqueueProxyRequests is not built yet.")
 
     @classmethod
-    def _build_request(cls, request: bytes, port: int, client_id: uuid.UUID = None) -> bytes:
+    def _build_request(
+        cls,
+        request: bytes,
+        port: int,
+        client_id: uuid.UUID = None,
+        version: tuple[int, int, int] = None,
+    ) -> bytes:
         port = port if port else DEFAULT_SERVER_PORT
         client_id_bytes = client_id.bytes if client_id else bytes()
-        return request + int(port & 0xFFFF).to_bytes(2, byteorder="big") + client_id_bytes
+        if isinstance(version, tuple) and len(version) == 3:
+            ver_bytes = bytes()
+            for v in version:
+                ver_bytes += v.to_bytes(1, "big")
+        else:
+            ver_bytes = bytes()
+        return request + int(port & 0xFFFF).to_bytes(2, byteorder="big") + client_id_bytes + ver_bytes
 
     def __init__(self, tmcc_buffer: CommBuffer, server_port: int = DEFAULT_SERVER_PORT) -> None:
         if self._initialized:
@@ -259,7 +271,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             # on that node ("restart me"). This is only used below iff
             # signal_clients_on is called; this is why we have 2 variables;
             # client_scope & client_ip
-            (client_scope, client_port, client_id) = self.extract_addendum(byte_stream)
+            (client_scope, client_port, client_id, client_version) = self.extract_addendum(byte_stream)
             client_ip = client_scope if client_scope else self.client_address[0]
             byte_stream = byte_stream[0:3]
             cmd = CommandReq.from_bytes(byte_stream)
@@ -301,12 +313,23 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
         enqueue_proxy.enqueue_request(byte_stream)
 
     @staticmethod
-    def extract_addendum(byte_stream: bytes) -> Tuple[str | None, int | None, uuid.UUID | None]:
+    def extract_addendum(
+        byte_stream: bytes,
+    ) -> Tuple[str | None, int | None, uuid.UUID | None, tuple[int, int, int] | None]:
         client_uuid: uuid.UUID | None = None
         client_ip: str | None = None
         client_port: int = DEFAULT_SERVER_PORT
+        client_version: tuple[int, int, int] | None = None
         try:
-            if len(byte_stream) > 18:  # port and UUID as bytes
+            if len(byte_stream) > 23:  # port and UUID as bytes
+                client_port = int.from_bytes(byte_stream[3:5], "big")
+                client_uuid = uuid.UUID(bytes=byte_stream[5:21])
+                major = byte_stream[21]
+                minor = byte_stream[22]
+                patch = byte_stream[23]
+                client_version = (major, minor, patch)
+                print(f"Client port: {client_port}, UUID: {client_uuid}, version: {client_version}")
+            elif len(byte_stream) > 18:  # port and UUID as bytes
                 client_port = int.from_bytes(byte_stream[3:5], "big")
                 client_uuid = uuid.UUID(bytes=byte_stream[5:])
             elif len(byte_stream) > 5:
@@ -318,4 +341,4 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 client_port = int.from_bytes(byte_stream[3:], "big")
         except Exception as e:
             log.exception(e)
-        return client_ip, client_port, client_uuid
+        return client_ip, client_port, client_uuid, client_version

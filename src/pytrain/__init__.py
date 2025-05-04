@@ -144,6 +144,16 @@ def get_version() -> str:
     return version
 
 
+def get_version_tuple() -> tuple[int, int, int]:
+    version = get_version()
+    version = version.replace("v", "")
+    if "+" in version:
+        plus_pos = version.find("+")
+        version = version[0:plus_pos]
+    version = version.split(".")
+    return int(version[0]), int(version[1]), int(version[2])
+
+
 SMOKE_LEVEL_MAP = {
     0: TMCC2EffectsControl.SMOKE_OFF,
     1: TMCC2EffectsControl.SMOKE_LOW,

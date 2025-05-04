@@ -523,7 +523,15 @@ class CommBufferProxy(CommBuffer):
         self._client_port = port
         while True:
             # noinspection PyTypeChecker
-            self.enqueue_command(EnqueueProxyRequests.register_request(port, self.session_id))
+            from .. import get_version_tuple
+
+            self.enqueue_command(
+                EnqueueProxyRequests.register_request(
+                    port,
+                    self.session_id,
+                    get_version_tuple(),
+                )
+            )
             return
 
     def disconnect(self, port: int = None) -> None:
