@@ -281,7 +281,8 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 log.info(f"Client at {client_ip}:{client_port} disconnecting...")
             elif byte_stream == REGISTER_REQUEST:
                 if enqueue_proxy.is_client(client_ip, client_port, client_id) is False:
-                    log.info(f"Client at {client_ip}:{client_port} connecting...")
+                    ver = f" v{client_version[0]}.{client_version[1]}.{client_version[2]}" if client_version else "?"
+                    log.info(f"Client at {client_ip}:{client_port}{ver} connecting...")
                 enqueue_proxy.client_connect(client_ip, client_port, client_id)
             elif byte_stream == SYNC_STATE_REQUEST:
                 log.info(f"Client at {client_ip}:{client_port} syncing...")
