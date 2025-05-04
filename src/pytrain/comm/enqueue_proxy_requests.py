@@ -280,11 +280,9 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 enqueue_proxy.client_disconnect(client_ip, client_port, client_id)
                 log.info(f"Client at {client_ip}:{client_port} disconnecting...")
             elif byte_stream == REGISTER_REQUEST:
-                dispatcher.signal_client(TMCC1SyncCommandEnum.UPDATE, client_ip, client_port)
-                return
-                # if enqueue_proxy.is_client(client_ip, client_port, client_id) is False:
-                #     log.info(f"Client at {client_ip}:{client_port} connecting...")
-                # enqueue_proxy.client_connect(client_ip, client_port, client_id)
+                if enqueue_proxy.is_client(client_ip, client_port, client_id) is False:
+                    log.info(f"Client at {client_ip}:{client_port} connecting...")
+                enqueue_proxy.client_connect(client_ip, client_port, client_id)
             elif byte_stream == SYNC_STATE_REQUEST:
                 log.info(f"Client at {client_ip}:{client_port} syncing...")
                 dispatcher.send_current_state(client_ip, client_port)

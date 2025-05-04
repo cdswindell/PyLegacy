@@ -248,24 +248,7 @@ class PyTrain:
             self._pdi_state_store = PdiStateStore()
             self._get_system_state(is_startup=True)
         elif self.is_client:
-            server = f" at: {self._server}" if self._server_ips else ""
-            if self._no_wait is False:  # wait for roster download
-                cycle = 0
-                cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
-                print(f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle]}", end="\r")
-                sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-                if sync_state is not None:
-                    while not sync_state.is_synchronized:
-                        cycle += 1
-                        print(
-                            f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle % 4]}", end="\r"
-                        )
-                        sleep(0.10)
-                    print(f"Loading layout state from {PROGRAM_NAME} server{server}......Done")
-                else:
-                    print("")
-            else:
-                print(f"Loading layout state {PROGRAM_NAME} from server{server}...")
+            self._load_client_state()
 
         # Start the command line processor; run as a thread if we're serving the REST api
         self._command_processor_ev = Event()
@@ -277,14 +260,25 @@ class PyTrain:
         else:
             self.run()
 
-    def run(self) -> None:
-        # print opening line
-        log.info(f"{PROGRAM_NAME}, {self._version}")
-        # process startup script
-        if self._buttons_file:
-            self._buttons_loader = ButtonsFileLoader(self._buttons_file)
-            self._buttons_loader.join()
+    def _load_client_state(self):
+        server = f" at: {self._server}" if self._server_ips else ""
+        if self._no_wait is False:  # wait for roster download
+            cycle = 0
+            cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
+            print(f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle]}", end="\r")
+            sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+            if sync_state is not None:
+                while not sync_state.is_synchronized:
+                    cycle += 1
+                    print(f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle % 4]}", end="\r")
+                    sleep(0.10)
+                print(f"Loading layout state from {PROGRAM_NAME} server{server}......Done")
+            else:
+                print("")
+        else:
+            print(f"Loading layout state {PROGRAM_NAME} from server{server}...")
 
+    def run(self) -> None:
         # register server so clients can connect without IP addr
         if self.is_server:
             self._zeroconf = Zeroconf()
@@ -298,6 +292,14 @@ class PyTrain:
         if self._headless:
             log.info("Not accepting keyboard input; background mode")
         try:
+            # process startup script, we need state loaded before doing this
+            if self._buttons_file:
+                self._buttons_loader = ButtonsFileLoader(self._buttons_file)
+                self._buttons_loader.join()
+
+            # print opening line
+            log.info(f"{PROGRAM_NAME}, {self._version}")
+
             if self._headless is False:
                 # provide limited command line recall and editing
                 readline.set_auto_history(True)
