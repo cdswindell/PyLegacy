@@ -297,7 +297,7 @@ class PyTrain:
             # Load client state. Must be done before button file is processed
             if self.is_client:
                 if self._tmcc_listener.update_client_if_needed() is True:
-                    signal.pause()
+                    self(CommandReq(TMCC1SyncCommandEnum.UPDATE))
                 else:
                     self._load_client_state()
 

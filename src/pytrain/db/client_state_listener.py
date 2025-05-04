@@ -98,7 +98,6 @@ class ClientStateListener(threading.Thread):
 
     def update_client_if_needed(self, do_upgrade=True) -> bool:
         from .. import get_version_tuple
-        from ..comm.enqueue_proxy_requests import UPDATE_REQUEST
 
         # wait for client registration to happen and for the server to tell the client its version
         # if the version of the server is newer, we want to update the client
@@ -110,7 +109,6 @@ class ClientStateListener(threading.Thread):
                 cv = f"v{client_version[0]}.{client_version[1]}.{client_version[2]}"
                 sv = f" --> v{server_version[0]}.{server_version[1]}.{server_version[2]}" if server_version else ""
                 log.info(f"Client needs update: {cv}{sv}")
-                self.offer(UPDATE_REQUEST)
             return True
         return False
 
