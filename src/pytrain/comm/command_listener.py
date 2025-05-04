@@ -537,6 +537,16 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 if node_scope is True:
                     return
 
+    def signal_client(
+        self,
+        option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT,
+        client: str = None,
+        port: int = None,
+    ) -> None:
+        if isinstance(option, TMCC1SyncCommandEnum):
+            option = CommandReq(option)
+        self.update_client_state(option, client=client, port=port)
+
     # noinspection DuplicatedCode
     def update_client_state(self, command: CommandReq, client: str = None, port: int = None):
         """
