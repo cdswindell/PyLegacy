@@ -156,7 +156,6 @@ class EnqueueProxyRequests(Thread):
             for k in disconnected:
                 log.info(f"Purging disconnected client: {k}...")
                 self._clients.pop(k, None)
-
             # record new client
             self._clients[(client_ip, port, client_id)] = time()
 
@@ -191,6 +190,7 @@ class EnqueueProxyRequests(Thread):
 
     def run(self) -> None:
         from .command_listener import CommandDispatcher
+        from .. import get_version_bytes
 
         """
         Simplified TCP/IP Server listens for command requests from client and executes them
@@ -201,9 +201,9 @@ class EnqueueProxyRequests(Thread):
             server.session_id = self._tmcc_buffer.session_id
             if self._tmcc_buffer.base3_address:
                 server.base3_addr = self._tmcc_buffer.base3_address
-                server.ack = str.encode(server.base3_addr)
+                server.ack = get_version_bytes() + str.encode(server.base3_addr)
             else:
-                server.ack = str.encode("ack")
+                server.ack = get_version_bytes()
             server.dispatcher = CommandDispatcher.get()
             server.base3_dispatcher = None
             server.pdi_dispatcher = None

@@ -441,6 +441,7 @@ class CommBufferProxy(CommBuffer):
         self._ephemeral_port = None
         self._client_port = None
         self._base3_address = None
+        self._server_version = None
         self._uuid: uuid.UUID = uuid.uuid4()
         self._heart_beat_thread = None
 
@@ -475,7 +476,11 @@ class CommBufferProxy(CommBuffer):
                         s.connect((str(self._server), self._port))
                         s.settimeout(None)
                         s.sendall(command)
-                        resp = s.recv(32)  # we don't care about the response
+                        resp = s.recv(32)  # response contains Base 3 Addr as well as the server version
+                        if self._server_version is None:
+                            self._server_version = (resp[0], resp[1], resp[2])
+                            print(f"Server version: {self._server_version}")
+                        resp = resp[3:] if len(resp) > 3 else resp
                         if self._base3_address is None:
                             self._base3_address = resp.decode("utf-8", "ignore")
                         if self._ephemeral_port is None:

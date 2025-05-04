@@ -154,6 +154,14 @@ def get_version_tuple() -> tuple[int, int, int]:
     return int(version[0]), int(version[1]), int(version[2])
 
 
+def get_version_bytes() -> bytes:
+    version = get_version_tuple()
+    ver_bytes = bytes()
+    for v in version:
+        ver_bytes += v.to_bytes(1, "big")
+    return ver_bytes
+
+
 SMOKE_LEVEL_MAP = {
     0: TMCC2EffectsControl.SMOKE_OFF,
     1: TMCC2EffectsControl.SMOKE_LOW,
