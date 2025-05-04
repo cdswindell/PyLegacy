@@ -914,7 +914,7 @@ class PyTrain:
                         print(timedelta(seconds=timer() - self._started_at))
                         return None
                     if parse_only is False and args.command == "version":
-                        print(f"{PROGRAM_NAME} {self._version}")
+                        print(f"{PROGRAM_NAME} {self._version} {'Client' if self.is_client else 'Server'}")
                         return None
                     #
                     # we're done with the admin/special commands, now do train stuff
