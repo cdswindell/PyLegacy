@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+from abc import ABC, ABCMeta, abstractmethod
 from typing import Any, TypeVar, Generic, Callable
 
 from .base3_component import ConsistComponent, RouteComponent
@@ -41,6 +42,15 @@ def default_to_func(t: int) -> bytes:
 
 
 class CompDataHandler:
+    """
+    Helper class to read and write configuration data from and to bytes.
+    Lionel component state is read from the Base 3 using the BASE_MEMORY,
+    D4_ENGINE, and D4_TRAIN pdi commands. State is returned as a byte string.
+    The CompDataHandler class defines the byte address where specific state
+    is stored and allows lambda functions to convert the raw byte string to
+    Python types as well as to write Python types to the byte string.
+    """
+
     def __init__(
         self,
         field: str,
@@ -271,7 +281,25 @@ C = TypeVar("C", bound="CompData")
 R = TypeVar("R", bound=CommandReq)
 
 
-class CompData(Generic[R]):
+class CompData(ABC, Generic[R]):
+    """
+    CompData and it's subclasses are used to hold component state
+    received from the Lionel Base 3 on Engines, Trains, Routes, Switches,
+    and Accessories. Using the appropriate dict of CompDataHandler objects,
+    encoded byte strings from the Base 3 are parsed into Python types. This
+    information is used by ComponentState subclasses to maintain the current
+    state of a specific component, as well as communicate that state to
+    PyTrain clients from the server
+
+    Each CompData subclass defines a set of fields that will contain the
+    state information. By overriding __getattr__ and __setattr__, we can
+    access the state as simple python properties as well as set them. Only
+    those fields defined in the subclass are accessible; attempting to access
+    others results in an AttributeError exception.
+    """
+
+    __metaclass__ = ABCMeta
+
     @classmethod
     def from_bytes(cls, data: bytes, scope: CommandScope, tmcc_id: int = None) -> C:
         """
@@ -364,6 +392,7 @@ class CompData(Generic[R]):
                 update_pkgs.append(UpdatePkg(field, addr, handler.length, data_bytes))
         return update_pkgs
 
+    @abstractmethod
     def __init__(self, data: bytes, scope: CommandScope, tmcc_id: int = None) -> None:
         super().__init__()
         self._tmcc_id: int | None = tmcc_id
@@ -552,6 +581,15 @@ class TrainData(EngineData):
 
 
 class SwitchData(CompData):
+    """
+    Represents the SwitchData class which extends the CompData class.
+
+    This class is designed to handle and initialize switch-related data operations,
+    using the base functionality provided by the CompData class. It incorporates
+    specialized operations required for switch data management and processing. Primarily,
+    it initializes TMCC ID, Name, Number, and state during its construction phase.
+    """
+
     def __init__(self, data: bytes, tmcc_id: int = None) -> None:
         self._signal_initializing()
         super().__init__(data, scope=CommandScope.SWITCH, tmcc_id=tmcc_id)

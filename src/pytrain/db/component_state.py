@@ -9,10 +9,9 @@
 
 from __future__ import annotations
 
-import abc
 import logging
 import threading
-from abc import ABC
+from abc import ABC, ABCMeta, abstractmethod
 from collections import defaultdict
 from threading import Condition, Event, RLock
 from time import time
@@ -51,8 +50,9 @@ BIG_NUMBER = float("inf")
 
 # noinspection PyUnresolvedReferences
 class ComponentState(ABC, CompDataMixin):
-    __metaclass__ = abc.ABCMeta
+    __metaclass__ = ABCMeta
 
+    @abstractmethod
     def __init__(self, scope: CommandScope = None) -> None:
         from .component_state_store import DependencyCache
 
@@ -150,7 +150,7 @@ class ComponentState(ABC, CompDataMixin):
     def spare_1(self) -> int:
         return self._spare_1
 
-    @abc.abstractmethod
+    @abstractmethod
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
         from ..pdi.block_req import BlockReq
@@ -285,7 +285,7 @@ class ComponentState(ABC, CompDataMixin):
         }
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def is_tmcc(self) -> bool:
         """
         Returns True if component responds to TMCC protocol, False otherwise.
@@ -293,7 +293,7 @@ class ComponentState(ABC, CompDataMixin):
         ...
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def is_legacy(self) -> bool:
         """
         Returns True if component responds to Legacy/TMCC2 protocol, False otherwise.
@@ -301,14 +301,14 @@ class ComponentState(ABC, CompDataMixin):
         ...
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def is_lcs(self) -> bool:
         """
         Returns True if component is an LCS device, False otherwise.
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def as_dict(self) -> Dict[str, Any]:
         """
         Returns the component state as a dict object containing the current state
@@ -318,7 +318,7 @@ class ComponentState(ABC, CompDataMixin):
 
 
 class TmccState(ComponentState, ABC):
-    __metaclass__ = abc.ABCMeta
+    __metaclass__ = ABCMeta
 
     def __init__(self, scope: CommandScope = None) -> None:
         super().__init__(scope)
@@ -337,7 +337,7 @@ class TmccState(ComponentState, ABC):
 
 
 class LcsState(ComponentState, ABC):
-    __metaclass__ = abc.ABCMeta
+    __metaclass__ = ABCMeta
 
     def __init__(self, scope: CommandScope = None) -> None:
         super().__init__(scope)

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import abc
 import sys
-from abc import ABC
+from abc import ABC, ABCMeta, abstractmethod
 from time import sleep
 from typing import Tuple, TypeVar, List
 
@@ -30,7 +29,7 @@ SCOPE_TO_RECORD_LENGTH = {
 
 # noinspection GrazieInspection
 class PdiReq(ABC):
-    __metaclass__ = abc.ABCMeta
+    __metaclass__ = ABCMeta
 
     @classmethod
     def from_bytes(cls, data: bytes) -> Self:
@@ -50,6 +49,7 @@ class PdiReq(ABC):
     def scope_record_length(cls, scope: CommandScope) -> int:
         return SCOPE_TO_RECORD_LENGTH.get(scope, None)
 
+    @abstractmethod
     def __init__(self, data: bytes | None, pdi_command: PdiCommand = None) -> None:
         super().__init__()
         # default scope is system; override as needed in child classes
