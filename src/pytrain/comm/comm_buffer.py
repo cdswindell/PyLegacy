@@ -11,7 +11,7 @@ import time
 import uuid
 from ipaddress import IPv6Address, IPv4Address
 from queue import Queue, Empty
-from threading import Thread
+from threading import Thread, Event, Lock, Condition
 
 from ..db.component_state import ComponentState
 from ..pdi.pdi_req import PdiReq
@@ -45,7 +45,7 @@ class CommBuffer(abc.ABC):
     __metaclass__ = abc.ABCMeta
 
     _instance = None
-    _lock = threading.Lock()
+    _lock = Lock()
 
     def __new__(cls, *args, **kwargs):
         """
@@ -168,6 +168,10 @@ class CommBuffer(abc.ABC):
 
     @property
     @abc.abstractmethod
+    def server_version(self) -> tuple[int, int, int]: ...
+
+    @property
+    @abc.abstractmethod
     def base3_address(self) -> str: ...
 
     @base3_address.setter
@@ -259,6 +263,12 @@ class CommBufferSingleton(CommBuffer, Thread):
 
     def start_heart_beat(self, port: int = DEFAULT_SERVER_PORT):
         raise NotImplementedError
+
+    @property
+    def server_version(self) -> tuple[int, int, int]:
+        from .. import get_version_tuple
+
+        return get_version_tuple()
 
     @property
     def base3_address(self) -> str:
@@ -443,10 +453,15 @@ class CommBufferProxy(CommBuffer):
         self._base3_address = None
         self._server_version = None
         self._uuid: uuid.UUID = uuid.uuid4()
+        self._server_version_available = Event()
         self._heart_beat_thread = None
 
     def start_heart_beat(self, port: int = DEFAULT_SERVER_PORT):
         self._heart_beat_thread = ClientHeartBeat(self)
+
+    @property
+    def server_version(self) -> tuple[int, int, int]:
+        return self._server_version
 
     @property
     def base3_address(self) -> str:
@@ -464,6 +479,9 @@ class CommBufferProxy(CommBuffer):
     def client_port(self) -> int:
         return self._client_port
 
+    def server_version_available(self) -> Event:
+        return self._server_version_available
+
     def enqueue_command(self, command: bytes, delay: float = 0) -> None:
         if delay > 0:
             self._scheduler.schedule(delay, command)
@@ -477,9 +495,9 @@ class CommBufferProxy(CommBuffer):
                         s.settimeout(None)
                         s.sendall(command)
                         resp = s.recv(32)  # response contains Base 3 Addr as well as the server version
-                        if self._server_version is None:
+                        if self._server_version is None and len(resp) >= 3:
                             self._server_version = (resp[0], resp[1], resp[2])
-                            print(f"Server version: {self._server_version}")
+                            self._server_version_available.set()
                         resp = resp[3:] if len(resp) > 3 else resp
                         if self._base3_address is None:
                             self._base3_address = resp.decode("utf-8", "ignore")
@@ -580,8 +598,8 @@ class DelayHandler(Thread):
     def __init__(self, buffer: CommBuffer) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Command Delay Handler")
         self._buffer = buffer
-        self._cv = threading.Condition()
-        self._ev = threading.Event()
+        self._cv = Condition()
+        self._ev = Event()
         self._scheduler = sched.scheduler(time.time, self._ev.wait)
         self.start()
 

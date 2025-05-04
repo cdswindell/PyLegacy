@@ -13,8 +13,9 @@ import logging
 import socketserver
 import threading
 from threading import Event
+from typing import cast
 
-from ..comm.comm_buffer import CommBuffer
+from ..comm.comm_buffer import CommBuffer, CommBufferProxy
 from ..comm.command_listener import CommandListener, Subscriber, Topic
 from ..pdi.constants import PDI_SOP, PDI_EOP, PDI_STF
 from ..protocol.command_def import CommandDefEnum
@@ -48,7 +49,7 @@ class ClientStateListener(threading.Thread):
         from ..pdi.pdi_listener import PdiListener
 
         self._pdi_listener = PdiListener.build(build_base3_reader=False)
-        self._tmcc_buffer = CommBuffer.build()
+        self._tmcc_buffer = cast(CommBufferProxy, CommBuffer.build())
         self._port = self._tmcc_buffer.server_port()
         self._is_running = True
         self._ev = Event()
@@ -57,6 +58,12 @@ class ClientStateListener(threading.Thread):
         # wait for socket server to be up and running
         self._ev.wait()
         self._tmcc_buffer.register(self.port)  # register this client with server to receive updates
+
+        # wait for client registration to happen and for the server to tell the client its version
+        # if the version of the server is newer, we want to update the client
+        self._tmcc_buffer.server_version_available().wait()
+        print(f"Server Version: {self._tmcc_buffer.server_version}")
+
         self._tmcc_buffer.sync_state()  # request initial state from server
         self._tmcc_buffer.start_heart_beat()
 
