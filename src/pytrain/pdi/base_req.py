@@ -1,3 +1,12 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
 from __future__ import annotations
 
 import logging
@@ -7,14 +16,13 @@ from typing import Dict, List, Tuple
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP, D4Action
 from .comp_data import (
-    BASE_MEMORY_ENGINE_READ_MAP,
-    BASE_MEMORY_TRAIN_READ_MAP,
     CompDataMixin,
     CompData,
     CompDataHandler,
+    SCOPE_TO_COMP_MAP,
 )
 from .base3_component import ConsistComponent
-from .pdi_req import PdiReq, SCOPE_TO_RECORD_LENGTH
+from .pdi_req import PdiReq, SCOPE_TO_RECORD_LENGTH, LIONEL_ENGINE_RECORD_LENGTH
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
@@ -665,14 +673,21 @@ class BaseReq(PdiReq, CompDataMixin):
             dt = ""
             sc = f"Scope: {self.scope}"
             st = f"Start: {hex(self._start)} Len: {self.data_length}"
-            tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
-            if tpl is None and self.scope == CommandScope.TRAIN:
-                tpl = BASE_MEMORY_TRAIN_READ_MAP.get(self.start, None)
+            comp_map = SCOPE_TO_COMP_MAP.get(self.scope, None)
+            if comp_map:
+                tpl = comp_map.get(self.start, None)
+                rec_len = SCOPE_TO_RECORD_LENGTH.get(self.scope, None)
+            else:
+                tpl = None
+                rec_len = LIONEL_ENGINE_RECORD_LENGTH
             if self._data_bytes:
                 if isinstance(tpl, CompDataHandler) and (tpl.length == self.data_length):
                     dt = f"Data: {tpl.from_bytes(self._data_bytes)}"
-                elif self.data_length < 0xC0:
+                elif self.data_length < rec_len:
                     dt = f"Data: 0x{self._data_bytes.hex(' ')}" if self._data_bytes else "Data: None"
+                else:
+                    # we have a complete record, don't print it twice
+                    pass
             else:
                 dt = "Data: None"
             return f"TMCC ID # {self.record_no} {sc} flags: {f} {st} {dt} status: {s} ({self.packet})"
