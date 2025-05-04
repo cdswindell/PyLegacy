@@ -59,7 +59,9 @@ class ClientStateListener(threading.Thread):
         self._ev.wait()
         self._tmcc_buffer.register(self.port)  # register this client with server to receive updates
 
-        if self.update_client_if_needed() is True:
+        # See if this client needs an upgrade. If it does, the actual upgrade
+        # will be done by the PyTrain main program
+        if self.update_client_if_needed(False) is True:
             return
 
         self._tmcc_buffer.sync_state()  # request initial state from server
@@ -94,7 +96,7 @@ class ClientStateListener(threading.Thread):
                 else:
                     raise oe
 
-    def update_client_if_needed(self) -> bool:
+    def update_client_if_needed(self, do_upgrade=True) -> bool:
         from .. import get_version_tuple
         from ..comm.enqueue_proxy_requests import UPDATE_REQUEST
 
@@ -104,10 +106,11 @@ class ClientStateListener(threading.Thread):
         server_version = self._tmcc_buffer.server_version
         client_version = get_version_tuple()  # only interested in major and minor version
         if server_version is None or server_version[0:2] > client_version[0:2]:
-            cv = f"v{client_version[0]}.{client_version[1]}.{client_version[2]}"
-            sv = f" --> v{server_version[0]}.{server_version[1]}.{server_version[2]}" if server_version else ""
-            log.info(f"Client needs update: {cv}{sv}")
-            self.offer(UPDATE_REQUEST)
+            if do_upgrade is True:
+                cv = f"v{client_version[0]}.{client_version[1]}.{client_version[2]}"
+                sv = f" --> v{server_version[0]}.{server_version[1]}.{server_version[2]}" if server_version else ""
+                log.info(f"Client needs update: {cv}{sv}")
+                self.offer(UPDATE_REQUEST)
             return True
         return False
 
