@@ -479,11 +479,12 @@ class PyTrain:
         except Exception as e:
             log.exception(f"Failed to echo command to console: {e}")
 
-        # make sure main loop (run) has been entered; we have to be in that loop
-        # to process admin commands from clients
+        # Make sure main loop (run) has been entered; we have to be in that loop
+        # to process admin commands from clients. This is mainly to support
+        # upgrading clients that are behind the server version.
         if self.is_client:
             self._command_processor_available.wait()
-            print("main loop active")
+
         if cmd.command in ACTION_TO_ADMIN_COMMAND_MAP:
             if cmd.command == TMCC1SyncCommandEnum.RESYNC:
                 if self.is_server:

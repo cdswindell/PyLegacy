@@ -59,9 +59,8 @@ class ClientStateListener(threading.Thread):
         self._ev.wait()
         self._tmcc_buffer.register(self.port)  # register this client with server to receive updates
 
-        # wait for client registration to happen and for the server to tell the client its version
-        # if the version of the server is newer, we want to update the client
-        self._tmcc_buffer.server_version_available().wait()
+        if self.update_client_if_needed() is True:
+            return
 
         self._tmcc_buffer.sync_state()  # request initial state from server
         self._tmcc_buffer.start_heart_beat()
@@ -94,6 +93,23 @@ class ClientStateListener(threading.Thread):
                     self._port += 1
                 else:
                     raise oe
+
+    def update_client_if_needed(self) -> bool:
+        from .. import get_version_tuple
+        from ..comm.enqueue_proxy_requests import UPDATE_REQUEST
+
+        # wait for client registration to happen and for the server to tell the client its version
+        # if the version of the server is newer, we want to update the client
+        self._tmcc_buffer.server_version_available().wait()
+        server_version = self._tmcc_buffer.server_version
+        client_version = get_version_tuple()  # only interested in major and minor version
+        if server_version is None or server_version[0:2] > client_version[0:2]:
+            cv = f"v{client_version[0]}.{client_version[1]}.{client_version[2]}"
+            sv = f" --> v{server_version[0]}.{server_version[1]}.{server_version[2]}" if server_version else ""
+            log.info(f"Client needs update: {cv}{sv}")
+            self.offer(UPDATE_REQUEST)
+            return True
+        return False
 
     def shutdown(self) -> None:
         self._is_running = False
