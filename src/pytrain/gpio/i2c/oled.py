@@ -367,7 +367,8 @@ class ScrollingHotspot(Thread, hotspot):
 
     def run(self) -> None:
         while self._is_running and self._ev.is_set() is False:
-            self._device.display(self.render(self._device.image))
+            with self._device.synchronizer:
+                self._device.display(self.render(self._device.image))
             self._ev.wait(0.01)
             if self._pause_request:
                 self._resume_ev.wait()
@@ -416,7 +417,8 @@ class BlinkingHotspot(Thread, hotspot):
 
     def run(self) -> None:
         while self._is_running and self._ev.is_set() is False:
-            self._device.display(self.render(self._device.image))
+            with self._device.synchronizer:
+                self._device.display(self.render(self._device.image))
             self._ev.wait(self._rate)
             if self._ev.is_set() is False:
                 self._display_cycle = not self._display_cycle
