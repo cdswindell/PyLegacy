@@ -334,7 +334,8 @@ class Controller(Thread, GpioDevice):
                 else:
                     if self._status:
                         # TODO: write engine digit
-                        pass
+                        self._status.display.write(key)
+                        self._status.update_display()
                     if self._lcd:
                         self._lcd.print(key)
             sleep(0.1)
