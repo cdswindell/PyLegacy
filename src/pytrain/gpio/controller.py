@@ -363,8 +363,22 @@ class Controller(Thread, GpioDevice):
                 self._engine_controller.on_speed_changed(cur_speed)
         self.update_display(clear_display=False)
 
-    def cache_engine(self):
-        if self._tmcc_id is not None and self._tmcc_id != self._last_tmcc_id:
+    def cache_engine(self) -> None:
+        # don't cache an empty id
+        if self._tmcc_id is None:
+            return
+
+        # make sure there's a scope
+        self._scope = self._scope if self._scope else CommandScope.ENGINE
+
+        # if we haven't cached anything yet, do so now
+        if self._last_tmcc_id is None:
+            self._last_tmcc_id = self._tmcc_id
+            self._last_scope = self._scope
+            return
+
+        # otherwise, if there is a change, cache it
+        if (self._tmcc_id != self._last_tmcc_id) or (self._scope != self._last_scope):
             self._last_scope = self._scope
             self._last_tmcc_id = self._tmcc_id
 
@@ -388,6 +402,7 @@ class Controller(Thread, GpioDevice):
         self.update_display()
 
     def process_clear_key(self) -> None:
+        self.cache_engine()
         self._tmcc_id = self._state = None
         self._key_queue.reset()
         if self._status:
