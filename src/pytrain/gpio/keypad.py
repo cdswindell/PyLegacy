@@ -71,7 +71,7 @@ class Keypad(EventsMixin, CompositeDevice):
         if len(self) == 0:
             raise GPIOPinMissing("No pins given")
 
-        # _handlers only exists to ensure that we keep a reference to the
+        # _handlers only exist to ensure that we keep a reference to the
         # generated fire_both_events handler for each Button (remember that
         # pin.when_changed only keeps a weak reference to handlers)
         def get_new_handler(device):
@@ -233,6 +233,7 @@ class KeyPadI2C:
         clear_key: str = "C",
         digit_key: str = "D",
         eol_key: str = "#",
+        swap_key: str = "*",
         key_queue: KeyQueue = None,
     ):
         self._i2c_address = i2c_address
@@ -243,7 +244,12 @@ class KeyPadI2C:
         self._keypress = self._last_keypress = None
         self._keys = keys
         if key_queue is None:
-            self._key_queue = KeyQueue(clear_key=clear_key, digit_key=digit_key, eol_key=eol_key)
+            self._key_queue = KeyQueue(
+                clear_key=clear_key,
+                digit_key=digit_key,
+                eol_key=eol_key,
+                swap_key=swap_key,
+            )
         elif isinstance(key_queue, KeyQueue):
             self._key_queue = key_queue
         else:
@@ -296,7 +302,10 @@ class KeyPadI2C:
     def read_keypad(self, bus: SMBus = None):
         if bus is None:
             bus = SMBus(1)
-        """Reads the state of the matrix keypad."""
+        """
+        Reads the state of the matrix keypad. If a key is being pressed, return it
+        once released. If no key is being pressed, return None.
+        """
         for r, row_pin in enumerate(self._row_pins):
             bus.write_byte(self._i2c_address, 0xFF & ~(1 << row_pin))
             time.sleep(0.001)

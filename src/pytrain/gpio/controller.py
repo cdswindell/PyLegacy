@@ -11,6 +11,7 @@ from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from .engine_controller import EngineController
+from .engine_status import EngineStatus
 from .gpio_device import GpioDevice, P
 from .keypad import KEYPAD_PCF8574_ADDRESS, Keypad, KeyPadI2C
 
@@ -39,6 +40,10 @@ class Controller(Thread, GpioDevice):
         lcd_address: int = 0x27,
         lcd_rows: int = 4,
         lcd_cols: int = 20,
+        is_lcd: bool = False,
+        oled_address: int = 0,
+        oled_device="ssd1362",
+        is_oled: bool = True,
         keypad_address: int | None = KEYPAD_PCF8574_ADDRESS,
         row_pins: List[int | str] = None,
         column_pins: List[int | str] = None,
@@ -82,6 +87,10 @@ class Controller(Thread, GpioDevice):
                 lcd_address=lcd_address,
                 lcd_rows=lcd_rows,
                 lcd_cols=lcd_cols,
+                is_lcd=is_lcd,
+                oled_address=oled_address,
+                oled_device=oled_device,
+                is_oled=is_oled,
                 row_pins=row_pins,
                 column_pins=column_pins,
                 base_online_pin=base_online_pin,
@@ -124,6 +133,10 @@ class Controller(Thread, GpioDevice):
                 lcd_address=lcd_address,
                 lcd_rows=lcd_rows,
                 lcd_cols=lcd_cols,
+                is_lcd=is_lcd,
+                oled_address=oled_address,
+                oled_device=oled_device,
+                is_oled=is_oled,
                 keypad_address=keypad_address,
                 base_online_pin=base_online_pin,
                 base_offline_pin=base_offline_pin,
@@ -203,13 +216,25 @@ class Controller(Thread, GpioDevice):
         lcd_address: int = LCD_PCF8574_ADDRESS,
         lcd_rows: int = 4,
         lcd_cols: int = 20,
+        is_lcd: bool = False,
+        oled_address: int = 0,
+        oled_device="ssd1362",
+        is_oled: bool = True,
         keypad: Keypad | KeyPadI2C = None,
     ):
         self._lock = RLock()
-        if lcd_address:
+        if is_lcd is True and is_oled is True:
+            raise AttributeError("Must specify is_oled=True or is_lcd=True, not both")
+
+        if is_lcd is True and lcd_address:
             self._lcd = Lcd(address=lcd_address, rows=lcd_rows, cols=lcd_cols)
         else:
             self._lcd = None
+        if is_oled is True and oled_address is not None:
+            self._status = EngineStatus(address=oled_address, device=oled_device)
+        else:
+            self._status = None
+
         if row_pins and column_pins:
             self._keypad = Keypad(row_pins, column_pins)
         else:
@@ -307,7 +332,11 @@ class Controller(Thread, GpioDevice):
                         self._engine_controller.on_numeric(key)
                     self._key_queue.reset()
                 else:
-                    self._lcd.print(key)
+                    if self._status:
+                        # TODO: write engine digit
+                        pass
+                    if self._lcd:
+                        self._lcd.print(key)
             sleep(0.1)
 
     def monitor_state_updates(self):
@@ -352,6 +381,8 @@ class Controller(Thread, GpioDevice):
         self._scope = scope
         self._tmcc_id = self._state = None
         self._key_queue.reset()
+        if self._status:
+            self._status.update_engine(self._tmcc_id, self._scope)
         self.update_display()
 
     def update_engine(self, engine_id: str | int):
@@ -366,6 +397,8 @@ class Controller(Thread, GpioDevice):
             self.cache_engine()
         self._tmcc_id = tmcc_id
         self._state = self._state_store.get_state(self._scope, tmcc_id)
+        if self._status:
+            self._status.update_engine(self._tmcc_id, self._scope)
         self._last_known_speed = self._state.speed if self._state else None
         if self._engine_controller:
             self._engine_controller.update(tmcc_id, self._scope, self._state)
@@ -374,6 +407,8 @@ class Controller(Thread, GpioDevice):
         self.update_display()
 
     def update_display(self, clear_display: bool = True) -> None:
+        if self._lcd is None:
+            return
         with self._lock:
             self._lcd.clear_frame_buffer()
             if self._state is not None:
@@ -423,7 +458,10 @@ class Controller(Thread, GpioDevice):
     def reset(self) -> None:
         self._is_running = False
         self._key_queue.reset()
-        self._lcd.close(True)
+        if self._lcd:
+            self._lcd.close(True)
+        if self._status:
+            self._status.close()
         self._keypad.close()
         if self._state_watcher:
             self._state_watcher.shutdown()
@@ -473,6 +511,10 @@ class ControllerI2C(Controller):
         lcd_address: int = 0x27,
         lcd_rows: int = 4,
         lcd_cols: int = 20,
+        is_lcd: bool = False,
+        oled_address: int = 0,
+        oled_device="ssd1362",
+        is_oled: bool = True,
     ):
         keypad = KeyPadI2C(keypad_address)
         super().__init__(
@@ -513,5 +555,9 @@ class ControllerI2C(Controller):
             lcd_address=lcd_address,
             lcd_rows=lcd_rows,
             lcd_cols=lcd_cols,
+            is_lcd=is_lcd,
+            oled_address=oled_address,
+            oled_device=oled_device,
+            is_oled=is_oled,
             keypad=keypad,
         )

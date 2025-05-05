@@ -15,7 +15,7 @@ from .state_source import AccessoryStateSource
 
 class GantryCrane(GpioDevice):
     """
-    Represents a Gantry Crane device with multiple configurable controls and states.
+    Represent a Gantry Crane device with multiple configurable controls and states.
 
     This class extends the functionality of a GPIO-based device to provide a set of commands
     and configurations for controlling various parts of a gantry crane. These include movement
