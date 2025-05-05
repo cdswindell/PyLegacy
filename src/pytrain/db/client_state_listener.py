@@ -97,16 +97,16 @@ class ClientStateListener(threading.Thread):
                     raise oe
 
     def update_client_if_needed(self, do_upgrade=True) -> bool:
-        from .. import get_version_tuple
+        from .. import get_version, get_version_tuple
 
         # wait for client registration to happen and for the server to tell the client its version
         # if the version of the server is newer, we want to update the client
         self._tmcc_buffer.server_version_available().wait()
         server_version = self._tmcc_buffer.server_version
         client_version = get_version_tuple()  # only interested in major and minor version
-        if server_version is None or server_version[0:2] > client_version[0:2]:
+        if server_version is None or server_version > client_version:
             if do_upgrade is True:
-                cv = f"v{client_version[0]}.{client_version[1]}.{client_version[2]}"
+                cv = f"{get_version()}"
                 sv = f" --> v{server_version[0]}.{server_version[1]}.{server_version[2]}" if server_version else ""
                 log.info(f"Client needs update: {cv}{sv}")
             return True

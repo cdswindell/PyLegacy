@@ -545,7 +545,6 @@ class CommBufferProxy(CommBuffer):
 
         self._client_port = port
         while True:
-            # noinspection PyTypeChecker
             from .. import get_version_tuple
 
             self.enqueue_command(
