@@ -178,6 +178,7 @@ class EngineStatus(Thread, GpioDevice):
                 self.display[3] = row
             elif self.is_synchronized is True:
                 self.display.write(self.railroad, 0, center=True)
+                self.display.write(f"{self.scope.label}: ?", 1, center=True)
             else:
                 self.display.write("Synchronizing...", 0, center=True, blink=True)
             self.display.update_display()
