@@ -334,7 +334,7 @@ class Controller(Thread, GpioDevice):
                 else:
                     if self._status:
                         self._status.display.write(str(key))
-                        self._status.update_display()
+                        self._status.display.refresh_display()
                     if self._lcd:
                         self._lcd.print(key)
             sleep(0.1)
