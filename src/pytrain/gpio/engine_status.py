@@ -102,7 +102,6 @@ class EngineStatus(Thread, GpioDevice):
         else:
             self._monitored_state = None
         self._monitor_state_updates()
-        print(f"New Engine: {tmcc_id} {self._monitored_state}")
         self.update_display(clear=True)
 
     def update_display(self, clear: bool = False) -> None:
@@ -136,7 +135,6 @@ class EngineStatus(Thread, GpioDevice):
                         row += f" {self._monitored_state.control_type_label}"
                     else:
                         row += f" {self._monitored_state.control_type_label[0]}"
-
                 self.display[1] = row
 
                 row = f"Speed: {self._monitored_state.speed:03d}"
@@ -182,6 +180,8 @@ class EngineStatus(Thread, GpioDevice):
                 self.display[0] = self.railroad
             else:
                 self.display[0] = "Synchronizing..."
+            for r in self.display:
+                print(r)
             self.display.refresh_display()
 
     def on_sync(self) -> None:
