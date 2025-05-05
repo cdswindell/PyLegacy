@@ -18,13 +18,12 @@ from time import time
 from typing import Any, Dict, List, Set, TypeVar
 
 from ..pdi.base3_component import RouteComponent
-from src.pytrain.db.comp_data import CompData
+from .comp_data import CompData, CompDataMixin
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import PdiCommand
 from ..pdi.irda_req import IrdaReq
 from ..pdi.pdi_req import PdiReq
 from ..pdi.stm2_req import Stm2Req
-from src.pytrain.db.comp_data import CompDataMixin
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import (

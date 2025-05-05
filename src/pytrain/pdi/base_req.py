@@ -15,7 +15,7 @@ from math import floor
 from typing import Dict, List, Tuple
 
 from .constants import PdiCommand, PDI_SOP, PDI_EOP, D4Action
-from src.pytrain.db.comp_data import (
+from ..db.comp_data import (
     CompDataMixin,
     CompData,
     CompDataHandler,

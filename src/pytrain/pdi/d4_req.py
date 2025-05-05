@@ -2,7 +2,7 @@ import time
 from datetime import datetime
 
 from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
-from src.pytrain.db.comp_data import BASE_MEMORY_ENGINE_READ_MAP, CompData, CompDataMixin, CompDataHandler
+from ..db.comp_data import BASE_MEMORY_ENGINE_READ_MAP, CompData, CompDataMixin, CompDataHandler
 from .pdi_req import PdiReq
 from ..protocol.constants import CommandScope
 

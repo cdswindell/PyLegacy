@@ -20,7 +20,7 @@ from .component_state import (
     ComponentState,
 )
 from ..pdi.d4_req import D4Req
-from src.pytrain.db.comp_data import CompDataMixin, CompDataHandler
+from .comp_data import CompDataMixin, CompDataHandler
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.command_req import CommandReq
 from ..protocol.command_def import CommandDefEnum
@@ -436,7 +436,7 @@ class EngineState(ComponentState):
                 if self.speed is None and command.is_valid(EngineBits.SPEED):
                     self.comp_data.speed = command.speed
             elif isinstance(command, BaseReq) and command.pdi_command == PdiCommand.BASE_MEMORY and command.data_bytes:
-                from src.pytrain.db.comp_data import BASE_MEMORY_ENGINE_READ_MAP
+                from .comp_data import BASE_MEMORY_ENGINE_READ_MAP
 
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(command.start, None)
                 if isinstance(tpl, CompDataHandler):
