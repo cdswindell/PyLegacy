@@ -342,7 +342,9 @@ class Controller(Thread, GpioDevice):
     def monitor_state_updates(self):
         if self._state_watcher:
             self._state_watcher.shutdown()
-        self._state_watcher = StateWatcher(self._state, self.on_state_update)
+            self._state_watcher = None
+        if self._state:
+            self._state_watcher = StateWatcher(self._state, self.on_state_update)
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
