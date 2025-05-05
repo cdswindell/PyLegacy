@@ -281,11 +281,8 @@ class Oled(Thread, TextBuffer):
                             self._canvas.text((self._x_offset, (i * fs) - 3), self[i], "white", self._font)
                     else:
                         self._hotspots[i] = ScrollingHotspot(self, self[i], row=i)
-            # if there are no hotspots, we must call self._device.display
+            # Display the constructed image on the display
             self._device.display(self._image)
-            # if not self._hotspots:
-            #     print("no hotspots")
-            #     self._device.display(self._image)
 
     def refresh_display(self) -> None:
         with self.synchronizer:
