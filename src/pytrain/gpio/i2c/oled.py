@@ -283,6 +283,7 @@ class Oled(Thread, TextBuffer):
                         self._hotspots[i] = ScrollingHotspot(self, self[i], row=i)
             # if there are no hotspots, we must call self._device.display
             if not self._hotspots:
+                print("no hotspots")
                 self._device.display(self._image)
 
     def refresh_display(self) -> None:
