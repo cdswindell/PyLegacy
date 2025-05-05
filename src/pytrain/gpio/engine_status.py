@@ -98,7 +98,7 @@ class EngineStatus(Thread, GpioDevice):
         self._tmcc_id = tmcc_id
         self._scope = scope
         if tmcc_id is not None and tmcc_id != 99:
-            self._monitored_state = self._state_store.get_state(scope, tmcc_id)
+            self._monitored_state = self._state_store.get_state(scope, tmcc_id, create=False)
         else:
             self._monitored_state = None
         self._monitor_state_updates()

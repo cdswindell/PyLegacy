@@ -396,7 +396,7 @@ class Controller(Thread, GpioDevice):
         if self._tmcc_id is not None and tmcc_id != self._tmcc_id:
             self.cache_engine()
         self._tmcc_id = tmcc_id
-        self._state = self._state_store.get_state(self._scope, tmcc_id)
+        self._state = self._state_store.get_state(self._scope, tmcc_id, False)
         if self._status:
             self._status.update_engine(self._tmcc_id, self._scope)
         self._last_known_speed = self._state.speed if self._state else None

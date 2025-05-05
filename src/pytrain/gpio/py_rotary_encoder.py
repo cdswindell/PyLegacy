@@ -131,7 +131,7 @@ class PyRotaryEncoderHandler(Thread):
         with self._re.lock:
             self._is_started = True
         self._last_step = 0 if self._reset_after_motion is True else float("-inf")
-        # in general, Rotary Encoder is used to control speed. When the encoder steps is
+        # In general, Rotary Encoder is used to control speed. When the encoder steps is
         # -max_steps, this usually corresponds with speed 0; make sure speed zero cmds
         # are sent
         num_neg_max_steps = 3

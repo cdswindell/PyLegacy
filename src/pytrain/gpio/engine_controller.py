@@ -579,9 +579,13 @@ class EngineController(Generic[R]):
         if speed_cmd:
             speed_cmd.address = self._tmcc_id
             speed_cmd.scope = scope
-            max_speed = cur_state.max_speed if cur_state.max_speed and cur_state.max_speed != 255 else max_speed
+            max_speed = (
+                cur_state.max_speed if cur_state and cur_state.max_speed and cur_state.max_speed != 255 else max_speed
+            )
             speed_limit = (
-                cur_state.speed_limit if cur_state.speed_limit and cur_state.speed_limit != 255 else speed_limit
+                cur_state.speed_limit
+                if cur_state and cur_state.speed_limit and cur_state.speed_limit != 255
+                else speed_limit
             )
             max_speed = min(max_speed, speed_limit)
             steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -num_steps, num_steps)
