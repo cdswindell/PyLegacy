@@ -102,6 +102,7 @@ class EngineStatus(Thread, GpioDevice):
         else:
             self._monitored_state = None
         self._monitor_state_updates()
+        print(f"New Engine: {tmcc_id} {self._monitored_state}")
         self.update_display(clear=True)
 
     def update_display(self, clear: bool = False) -> None:
