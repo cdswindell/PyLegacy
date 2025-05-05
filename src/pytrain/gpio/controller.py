@@ -388,7 +388,6 @@ class Controller(Thread, GpioDevice):
         self.update_display()
 
     def process_clear_key(self) -> None:
-        self.cache_engine()
         self._tmcc_id = self._state = None
         self._key_queue.reset()
         if self._status:
