@@ -314,7 +314,7 @@ class Controller(Thread, GpioDevice):
         while self._is_running:
             key = self._key_queue.wait_for_keypress(60)
             if self._key_queue.is_clear:
-                self.change_scope(self._scope)
+                self.process_clear_key()
             elif self._key_queue.is_eol:
                 if self._key_queue.key_presses:
                     self.update_engine(self._key_queue.key_presses)
@@ -364,7 +364,7 @@ class Controller(Thread, GpioDevice):
         self.update_display(clear_display=False)
 
     def cache_engine(self):
-        if self._tmcc_id != self._last_tmcc_id:
+        if self._tmcc_id is not None and self._tmcc_id != self._last_tmcc_id:
             self._last_scope = self._scope
             self._last_tmcc_id = self._tmcc_id
 
@@ -381,6 +381,14 @@ class Controller(Thread, GpioDevice):
     def change_scope(self, scope: CommandScope) -> None:
         self.cache_engine()
         self._scope = scope
+        self._tmcc_id = self._state = None
+        self._key_queue.reset()
+        if self._status:
+            self._status.update_engine(self._tmcc_id, self._scope)
+        self.update_display()
+
+    def process_clear_key(self) -> None:
+        self.cache_engine()
         self._tmcc_id = self._state = None
         self._key_queue.reset()
         if self._status:
