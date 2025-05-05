@@ -332,6 +332,7 @@ class Controller(Thread, GpioDevice):
                         self._engine_controller.on_numeric(key)
                     self._key_queue.reset()
                 else:
+                    print(key)
                     if self._status:
                         self._status.display.write(key)
                         self._status.update_display()
