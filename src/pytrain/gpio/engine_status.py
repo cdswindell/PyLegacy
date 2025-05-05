@@ -180,7 +180,7 @@ class EngineStatus(Thread, GpioDevice):
                 self.display[0] = self.railroad
             else:
                 self.display[0] = "Synchronizing..."
-            self.display.force_display()
+            self.display.update_display()
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
