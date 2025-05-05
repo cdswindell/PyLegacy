@@ -190,7 +190,7 @@ class Oled(Thread, TextBuffer):
         blink: bool = False,
     ) -> None:
         super().write(c, at, fmt, center)
-        row_no = at if isinstance(at, int) else at[0]
+        row_no = at if isinstance(at, int) else self.row
         if blink is True:
             self._blinks.add(row_no)
 

@@ -333,7 +333,6 @@ class Controller(Thread, GpioDevice):
                     self._key_queue.reset()
                 else:
                     if self._status:
-                        # TODO: write engine digit
                         self._status.display.write(key)
                         self._status.update_display()
                     if self._lcd:
