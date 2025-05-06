@@ -103,6 +103,8 @@ class UniqueDeque(deque, Generic[_T]):
                     super().remove(x)
                     super().appendleft(x)
             else:
+                if self.maxlen is not None and len(self) == self.maxlen:
+                    self.pop()
                 self._seen.add(x)
                 super().appendleft(x)
 
@@ -113,5 +115,7 @@ class UniqueDeque(deque, Generic[_T]):
                     super().remove(x)
                     super().append(x)
             else:
+                if self.maxlen is not None and len(self) == self.maxlen:
+                    self.popleft()
                 self._seen.add(x)
                 super().append(x)
