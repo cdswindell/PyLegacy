@@ -229,18 +229,15 @@ class TextBuffer:
                 remainder = row[at[1] + len(s) :]
                 row = row[: at[1]] + s
                 col = len(row)
-                print(f"Str: {s} Row: {row} Len: {col} Remainder: {remainder}")
                 row += remainder
             # the cursor position might have changed even
             # if the string is the same
             self._cursor_pos = (at[0], col)
-            print(f"cursor: {self.cursor_pos}")
             # if the row contents didn't change, don't do any work
             if row != orig_row:
                 self._changed_rows.add(at[0])
                 self._buffer[at[0]] = row  # calling setitem changes cursor
                 self.__do_notify()
-            print(f"Final cursor: {self.cursor_pos}")
 
     def __do_notify(self) -> None:
         """
