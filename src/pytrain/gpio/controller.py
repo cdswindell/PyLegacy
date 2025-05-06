@@ -383,7 +383,7 @@ class Controller(Thread, GpioDevice):
     def last_engine(self):
         if len(self._last_motive):
             # get the item at the head of the list
-            if self._tmcc_id is None:
+            if self._tmcc_id is None or self._state is None:
                 self._tmcc_id = self._last_motive[0][0]
                 self._scope = self._last_motive[0][1]
                 self._last_motive.rotate(-1)
