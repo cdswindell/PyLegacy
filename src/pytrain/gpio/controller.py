@@ -334,7 +334,10 @@ class Controller(Thread, GpioDevice):
                 else:
                     if self._status:
                         self._status.display.write(str(key))
-                        self._status.display.refresh_display()
+                        if len(self._key_queue) >= 4:
+                            self.update_engine(self._key_queue.key_presses)
+                        else:
+                            self._status.display.refresh_display()
                     if self._lcd:
                         self._lcd.print(key)
             sleep(0.1)

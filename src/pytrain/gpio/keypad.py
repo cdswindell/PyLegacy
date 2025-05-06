@@ -338,6 +338,9 @@ class KeyQueue:
         self._clear_ev = Event() if clear_key else None
         self._digit_ev = Event() if digit_key else None
 
+    def __len__(self) -> int:
+        return len(self.key_presses)
+
     def keypress_handler(self) -> Callable:
         def fn(keypad: Keypad) -> None:
             keypress = keypad.keypress
