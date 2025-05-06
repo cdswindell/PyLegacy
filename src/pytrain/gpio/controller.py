@@ -412,12 +412,15 @@ class Controller(Thread, GpioDevice):
 
     def process_clear_key(self) -> None:
         self._key_queue.reset()
+        if self._tmcc_id and self._state is None:
+            # clear not found engine/train
+            self._tmcc_id = None
         self.update_engine(self._tmcc_id)
         if self._status:
             self._status.update_engine(self._tmcc_id, self._scope)
         self.update_display()
 
-    def update_engine(self, engine_id: str | int):
+    def update_engine(self, engine_id: str | int | None):
         if engine_id:
             tmcc_id = int(engine_id)
             # allow use of road numbers; unless an engine supports 4-digit addressing,
