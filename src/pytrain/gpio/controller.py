@@ -369,17 +369,11 @@ class Controller(Thread, GpioDevice):
     def cache_engine(self) -> None:
         # don't cache an empty id
         if self._tmcc_id is None or self._state is None or self._tmcc_id != self._state.address:
-            print(f"** NOT caching engine: {self._tmcc_id} {self._state} **")
             return
-
-        print(f"TMCC ID: {self._tmcc_id} {self._state}")
-
         # make sure there's a scope
         self._scope = self._scope if self._scope else CommandScope.ENGINE
-
         # push the most recent engine to the head of the queue (element 0)
         self._last_motive.push((self._tmcc_id, self._scope))
-        print(self._last_motive)
 
     def last_engine(self):
         if len(self._last_motive):
@@ -392,11 +386,11 @@ class Controller(Thread, GpioDevice):
                 if self._tmcc_id == self._last_motive[0][0] and self._scope == self._last_motive[0][1]:
                     # if the top of the stack is this engine, try the next one
                     self._last_motive.rotate(-1)
-                else:
-                    # otherwise, save the current engine as the second one in the queue
-                    last_motive = self._last_motive.popleft()
-                    self._last_motive.push((self._tmcc_id, self._scope))
-                    self._last_motive.push(last_motive)
+                # else:
+                #     # otherwise, save the current engine as the second one in the queue
+                #     last_motive = self._last_motive.popleft()
+                #     self._last_motive.push((self._tmcc_id, self._scope))
+                #     self._last_motive.push(last_motive)
                 self._tmcc_id = self._last_motive[0][0]
                 self._scope = self._last_motive[0][1]
             self.update_engine(self._tmcc_id)
