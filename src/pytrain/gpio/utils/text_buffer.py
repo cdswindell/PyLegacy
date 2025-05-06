@@ -227,10 +227,13 @@ class TextBuffer:
                 row = row[: at[1]] + s
                 col = len(row)
                 row += remainder
+            # the cursor position might have changed even
+            # if the string is the same
+            self._cursor_pos = (at[0], col)
+            # if the row contents didn't change, don't do any work
             if row != orig_row:
                 self._changed_rows.add(at[0])
                 self[at[0]] = row
-                self._cursor_pos = (at[0], col)
                 self.__do_notify()
 
     def __do_notify(self) -> None:
