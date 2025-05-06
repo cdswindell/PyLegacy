@@ -82,6 +82,7 @@ class Controller(Thread, GpioDevice):
         i2c_adc_address: int = 0x48,
         train_brake_chn: int = None,
         quilling_horn_chn: int = None,
+        num_lasts: int = 4,
     ) -> Controller:
         if row_pins and column_pins:
             c = Controller(
@@ -128,6 +129,7 @@ class Controller(Thread, GpioDevice):
                 i2c_adc_address=i2c_adc_address,
                 train_brake_chn=train_brake_chn,
                 quilling_horn_chn=quilling_horn_chn,
+                num_lasts=num_lasts,
             )
         else:
             c = ControllerI2C(
@@ -173,6 +175,7 @@ class Controller(Thread, GpioDevice):
                 i2c_adc_address=i2c_adc_address,
                 train_brake_chn=train_brake_chn,
                 quilling_horn_chn=quilling_horn_chn,
+                num_lasts=num_lasts,
             )
         return c
 
@@ -222,6 +225,7 @@ class Controller(Thread, GpioDevice):
         oled_device="ssd1362",
         is_oled: bool = True,
         keypad: Keypad | KeyPadI2C = None,
+        num_lasts: int = 3,
     ):
         self._lock = RLock()
         if is_lcd is True and is_oled is True:
@@ -249,7 +253,7 @@ class Controller(Thread, GpioDevice):
         self._railroad = None
         self._last_known_speed = None
         self._state_watcher = None
-        self._last_motive = UniqueDeque[tuple[int, CommandScope]](maxlen=3)
+        self._last_motive = UniqueDeque[tuple[int, CommandScope]](maxlen=num_lasts)
         if speed_pins or fwd_pin or rev_pin or reset_pin:
             self._engine_controller = EngineController(
                 speed_pin_1=speed_pins[0] if speed_pins and len(speed_pins) > 0 else None,
@@ -553,6 +557,7 @@ class ControllerI2C(Controller):
         oled_address: int = 0,
         oled_device="ssd1362",
         is_oled: bool = True,
+        num_lasts: int = 3,
     ):
         keypad = KeyPadI2C(keypad_address)
         super().__init__(
@@ -598,4 +603,5 @@ class ControllerI2C(Controller):
             oled_device=oled_device,
             is_oled=is_oled,
             keypad=keypad,
+            num_lasts=num_lasts,
         )
