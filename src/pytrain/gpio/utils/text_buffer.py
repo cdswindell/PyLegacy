@@ -223,9 +223,10 @@ class TextBuffer:
                 col = len(row)
             else:
                 # row = row[: at[1]] + s + row[at[1] + len(s) :]
+                remainder = row[at[1] + len(s) :]
                 row = row[: at[1]] + s
                 col = len(row)
-                row += row[at[1] + len(s) :]
+                row += remainder
             if row != orig_row:
                 self._changed_rows.add(at[0])
                 self[at[0]] = row
