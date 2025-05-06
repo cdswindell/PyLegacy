@@ -234,10 +234,11 @@ class TextBuffer:
             # the cursor position might have changed even
             # if the string is the same
             self._cursor_pos = (at[0], col)
+            print(f"cursor: {self.cursor_pos}")
             # if the row contents didn't change, don't do any work
             if row != orig_row:
                 self._changed_rows.add(at[0])
-                self[at[0]] = row
+                self._buffer[at[0]] = row  # calling setitem changes cursor
                 self.__do_notify()
             print(f"Final cursor: {self.cursor_pos}")
 
