@@ -188,10 +188,18 @@ class EngineStatus(Thread, GpioDevice):
                 self.display[3] = row
                 cursor = (1, 8)
             elif self.is_synchronized is True:
-                print(self._tmcc_id)
                 self.display.write(self.railroad, 0, center=True)
-                self.display.write(f"{self.scope.label}: ?", 1, center=True)
-                cursor = (1, len(self.display[1]) - 1)
+                if self._tmcc_id:
+                    self.display.write(f"{self.scope.label}: {self._tmcc_id}", 1, center=True)
+                    if self._tmcc_id == 99:
+                        self.display.write("Not Supported", 2, center=True)
+                    else:
+                        self.display.write("Not Found", 2, center=True)
+                    cursor = (1, len(self.display[1]) - len(str(self._tmcc_id)))
+                else:
+                    # display prompt for Engine/Train
+                    self.display.write(f"{self.scope.label}: ?", 1, center=True)
+                    cursor = (1, len(self.display[1]) - 1)
             else:
                 self.display.write("Synchronizing...", 0, center=True, blink=True)
             self.display.update_display()
