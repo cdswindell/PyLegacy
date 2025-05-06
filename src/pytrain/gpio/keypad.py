@@ -272,6 +272,9 @@ class KeyPadI2C:
         self._scan_thread.start()
         GpioHandler.cache_handler(self._scan_thread)
 
+    def reset(self) -> None:
+        self.close()
+
     def close(self) -> None:
         self._is_running = False
         if self._key_queue:
