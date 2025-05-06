@@ -391,11 +391,11 @@ class Controller(Thread, GpioDevice):
         if len(self._last_motive):
             # get the item at the head of the list
             if self._tmcc_id is None:
-                self._tmcc_id = self._last_motive[0](0)
-                self._scope = self._last_motive[0](1)
+                self._tmcc_id = self._last_motive[0][0]
+                self._scope = self._last_motive[0][1]
                 self._last_motive.rotate(-1)
             else:
-                if self._tmcc_id == self._last_motive[0](0) and self._scope == self._last_motive[0](1):
+                if self._tmcc_id == self._last_motive[0][0] and self._scope == self._last_motive[0][1]:
                     # if the top of the stack is this engine, try the next one
                     self._last_motive.rotate(-1)
                 else:
@@ -403,8 +403,8 @@ class Controller(Thread, GpioDevice):
                     last_motive = self._last_motive.popleft()
                     self._last_motive.push((self._tmcc_id, self._scope))
                     self._last_motive.push(last_motive)
-                self._tmcc_id = self._last_motive[0](0)
-                self._scope = self._last_motive[0](1)
+                self._tmcc_id = self._last_motive[0][0]
+                self._scope = self._last_motive[0][1]
             self.update_engine(self._tmcc_id)
 
     def change_scope(self, scope: CommandScope) -> None:
