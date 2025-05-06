@@ -259,6 +259,7 @@ class KeyPadI2C:
 
         # create the background thread to continually scan the matrix
         self._scan_thread = GPIOThread(self._scan_keyboard)
+        self._scan_thread.daemon = True
         self._is_running = True
         self._scan_thread.start()
 
