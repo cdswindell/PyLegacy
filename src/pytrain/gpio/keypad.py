@@ -299,6 +299,7 @@ class KeyPadI2C:
         """
         with SMBus(1) as bus:  # Use the appropriate I2C bus number
             while self._is_running is True:
+                print(f"Reading Keyboard: {self._is_running}")
                 key = self.read_keypad(bus)
                 if key is not None:
                     self._last_keypress = self._keypress
