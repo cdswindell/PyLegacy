@@ -308,14 +308,12 @@ class KeyPadI2C:
         when no key is pressed.
         """
         with SMBus(1) as bus:  # Use the appropriate I2C bus number
-            while self._is_running is True:
-                print(f"Reading Keyboard: {self._is_running}")
+            while self._is_running is True and self._scan_thread.stopping.is_set() is False:
                 key = self.read_keypad(bus)
                 if key is not None:
                     self._last_keypress = self._keypress
                     self._keypress = key
                     self._keypress_handler(self)
-            print("exiting _scan_keyboard")
 
     def read_keypad(self, bus: SMBus = None):
         if bus is None:
