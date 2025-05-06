@@ -368,7 +368,7 @@ class Controller(Thread, GpioDevice):
 
     def cache_engine(self) -> None:
         # don't cache an empty id
-        if self._tmcc_id is None:
+        if self._tmcc_id is None or self._state is None:
             return
 
         # make sure there's a scope
@@ -376,6 +376,7 @@ class Controller(Thread, GpioDevice):
 
         # push the most recent engine to the head of the queue (element 0)
         self._last_motive.push((self._tmcc_id, self._scope))
+        print(self._last_motive)
 
     def last_engine(self):
         if len(self._last_motive):
