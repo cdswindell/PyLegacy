@@ -264,18 +264,26 @@ class PyTrain:
         if self._no_wait is False:  # wait for roster download
             cycle = 0
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
-            print(f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle]}", end="\r")
+            print(
+                f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle]}",
+                end="\r",
+                flush=True,
+            )
             sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
             if sync_state is not None:
                 while not sync_state.is_synchronized:
                     cycle += 1
-                    print(f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle % 4]}", end="\r")
+                    print(
+                        f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle % 4]}",
+                        end="\r",
+                        flush=True,
+                    )
                     sleep(0.10)
-                print(f"Loading layout state from {PROGRAM_NAME} server{server}......Done")
+                print(f"Loading layout state from {PROGRAM_NAME} server{server}......Done", flush=True)
             else:
                 print("")
         else:
-            print(f"Loading layout state {PROGRAM_NAME} from server{server}...")
+            print(f"Loading layout state {PROGRAM_NAME} from server{server}...", flush=True)
 
     def run(self) -> None:
         # register server so clients can connect without IP addr
