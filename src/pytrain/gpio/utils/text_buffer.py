@@ -229,6 +229,7 @@ class TextBuffer:
                 remainder = row[at[1] + len(s) :]
                 row = row[: at[1]] + s
                 col = len(row)
+                print(f"Str: {s} Row: {row} Remainder: {remainder} Len: {col}")
                 row += remainder
             # the cursor position might have changed even
             # if the string is the same
