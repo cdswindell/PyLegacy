@@ -375,6 +375,7 @@ class Controller(Thread, GpioDevice):
 
         # push the most recent engine to the head of the queue (element 0)
         self._last_motive.push((self._tmcc_id, self._scope))
+        print(f"Cache: {self._last_motive}")
         #
         # # if we haven't cached anything yet, do so now
         # if self._last_tmcc_id is None:
@@ -420,9 +421,8 @@ class Controller(Thread, GpioDevice):
         self.update_display()
 
     def process_clear_key(self) -> None:
-        self.cache_engine()
-        self._tmcc_id = self._state = None
         self._key_queue.reset()
+        self.update_engine(self._tmcc_id)
         if self._status:
             self._status.update_engine(self._tmcc_id, self._scope)
         self.update_display()
