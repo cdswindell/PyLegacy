@@ -187,9 +187,12 @@ class TextBuffer:
         with self._cv:
             if isinstance(at, int):
                 at = (at, 0)
+            elif isinstance(at, tuple) and len(at) == 2:
+                pass
             else:
-                at = at if isinstance(at, tuple) and len(at) == 2 else self._cursor_pos
+                at = self._cursor_pos
             self._vet_cursor_pos(at)
+
             if len(self._buffer) <= at[0]:
                 for _ in range(at[0] + 1 - len(self._buffer)):
                     self._buffer.append("")
@@ -227,6 +230,7 @@ class TextBuffer:
                 row = row[: at[1]] + s
                 col = len(row)
                 row += remainder
+                print(row)
             # the cursor position might have changed even
             # if the string is the same
             self._cursor_pos = (at[0], col)
