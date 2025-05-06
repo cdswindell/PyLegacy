@@ -371,6 +371,8 @@ class Controller(Thread, GpioDevice):
         if self._tmcc_id is None or self._state is None or self._tmcc_id != self._state.address:
             return
 
+        print(f"TMCC ID: {self._tmcc_id} {self._state}")
+
         # make sure there's a scope
         self._scope = self._scope if self._scope else CommandScope.ENGINE
 
