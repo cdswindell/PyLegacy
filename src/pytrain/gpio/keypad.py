@@ -9,6 +9,8 @@ from gpiozero import Button, CompositeDevice, GPIOPinMissing, DigitalOutputDevic
 from gpiozero.threads import GPIOThread
 from smbus2 import SMBus
 
+from .gpio_handler import GpioHandler
+
 DEFAULT_4X4_KEYS = (
     ("1", "2", "3", "A"),
     ("4", "5", "6", "B"),
@@ -106,6 +108,10 @@ class Keypad(EventsMixin, CompositeDevice):
         self._scan_thread.daemon = True
         self._is_running = True
         self._scan_thread.start()
+        GpioHandler.cache_handler(self._scan_thread)
+
+    def reset(self) -> None:
+        self.close()
 
     def close(self) -> None:
         self._is_running = False
