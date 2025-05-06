@@ -235,8 +235,8 @@ class TextBuffer:
             self._cursor_pos = (at[0], col)
             # if the row contents didn't change, don't do any work
             if row != orig_row:
-                self._changed_rows.add(at[0])
                 self._buffer[at[0]] = row  # calling setitem changes cursor
+                self._changed_rows.add(at[0])
                 self.__do_notify()
 
     def __do_notify(self) -> None:

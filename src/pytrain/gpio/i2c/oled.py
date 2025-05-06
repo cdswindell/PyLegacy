@@ -193,6 +193,8 @@ class Oled(Thread, TextBuffer):
         row_no = at if isinstance(at, int) else self.row
         if blink is True:
             self._blinks.add(row_no)
+        else:
+            self._blinks.discard(row_no)
 
     def clear(self, notify: bool = False) -> None:
         with self.synchronizer:
