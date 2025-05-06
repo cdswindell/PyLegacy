@@ -396,13 +396,16 @@ class Controller(Thread, GpioDevice):
                 self._last_motive.rotate(-1)
             else:
                 if self._tmcc_id == self._last_motive[0][0] and self._scope == self._last_motive[0][1]:
+                    print(f"Rotating: {self._last_motive}")
                     # if the top of the stack is this engine, try the next one
                     self._last_motive.rotate(-1)
                 else:
                     # otherwise, save the current engine as the second one in the queue
+                    print(f"Swaping: {self._last_motive}")
                     last_motive = self._last_motive.popleft()
                     self._last_motive.push((self._tmcc_id, self._scope))
                     self._last_motive.push(last_motive)
+                    print(f"Now: {self._last_motive}")
                 self._tmcc_id = self._last_motive[0][0]
                 self._scope = self._last_motive[0][1]
             self.update_engine(self._tmcc_id)
