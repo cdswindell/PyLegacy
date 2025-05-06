@@ -16,11 +16,12 @@ _T = TypeVar("_T")
 
 
 class UniqueDeque(deque, Generic[_T]):
-    def __init__(self, iterable: Iterable[_T], maxlen: int) -> None:
+    def __init__(self, iterable: Iterable[_T] = None, maxlen: int = None) -> None:
         self._lock = RLock()
         super().__init__(maxlen=maxlen)
         self._seen: set[_T] = set()
-        self.extend(iterable)
+        if iterable is not None:
+            self.extend(iterable)
 
     def clear(self):
         with self._lock:
@@ -43,7 +44,7 @@ class UniqueDeque(deque, Generic[_T]):
     def __delitem__(self, key, /):
         with self._lock:
             super().__delitem__(key)
-            self._seen.remove(key)
+            self._seen.discard(key)
 
     def __setitem__(self, key, value: _T, /):
         with self._lock:
@@ -65,20 +66,19 @@ class UniqueDeque(deque, Generic[_T]):
 
     def remove(self, value: _T, /):
         with self._lock:
-            if value in self._seen:
-                self._seen.remove(value)
-                super().remove(value)
+            super().remove(value)
+            self._seen.discard(value)
 
     def popleft(self) -> _T:
         with self._lock:
             val = super().popleft()
-            self._seen.remove(val)
+            self._seen.discard(val)
             return val
 
     def pop(self):
         with self._lock:
             val = super().pop()
-            self._seen.remove(val)
+            self._seen.discard(val)
             return val
 
     def extendleft(self, iterable: Iterable[_T], /):
