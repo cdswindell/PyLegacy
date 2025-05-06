@@ -423,9 +423,10 @@ class Controller(Thread, GpioDevice):
                 if state:
                     tmcc_id = state.address
             # is this engine defined?
+            prev_state = self._state
             self._state = self._state_store.get_state(self._scope, tmcc_id, False)
             if self._state:
-                if self._tmcc_id is not None and tmcc_id != self._tmcc_id:
+                if prev_state and self._tmcc_id is not None and tmcc_id != self._tmcc_id:
                     self.cache_engine()
                 self._tmcc_id = tmcc_id
                 if self._status:
@@ -433,6 +434,8 @@ class Controller(Thread, GpioDevice):
                 self._last_known_speed = self._state.speed if self._state else None
                 if self._engine_controller:
                     self._engine_controller.update(tmcc_id, self._scope, self._state)
+            else:
+                self._tmcc_id = tmcc_id
             self.monitor_state_updates()
             self._key_queue.reset()
             self.cache_engine()
