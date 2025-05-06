@@ -229,7 +229,7 @@ class TextBuffer:
                 remainder = row[at[1] + len(s) :]
                 row = row[: at[1]] + s
                 col = len(row)
-                print(f"Str: {s} Row: {row} Remainder: {remainder} Len: {col}")
+                print(f"Str: {s} Row: {row} Len: {col} Remainder: {remainder}")
                 row += remainder
             # the cursor position might have changed even
             # if the string is the same
@@ -239,6 +239,7 @@ class TextBuffer:
                 self._changed_rows.add(at[0])
                 self[at[0]] = row
                 self.__do_notify()
+            print(f"Final cursor: {self.cursor_pos}")
 
     def __do_notify(self) -> None:
         """
