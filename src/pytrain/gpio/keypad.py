@@ -113,6 +113,8 @@ class Keypad(EventsMixin, CompositeDevice):
         super().close()
         if self._key_queue:
             self._key_queue.reset()
+        if self._scan_thread:
+            self._scan_thread.stop()
 
     @property
     def keypress(self) -> str | None:
@@ -267,6 +269,8 @@ class KeyPadI2C:
         self._is_running = False
         if self._key_queue:
             self._key_queue.reset()
+        if self._scan_thread:
+            self._scan_thread.stop()
 
     @property
     def keypress(self) -> str | None:
