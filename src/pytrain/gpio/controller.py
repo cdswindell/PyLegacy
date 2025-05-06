@@ -368,7 +368,7 @@ class Controller(Thread, GpioDevice):
 
     def cache_engine(self) -> None:
         # don't cache an empty id
-        if self._tmcc_id is None or self._state is None:
+        if self._tmcc_id is None or self._state is None or self._tmcc_id != self._state.address:
             return
 
         # make sure there's a scope
