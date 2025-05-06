@@ -280,8 +280,9 @@ class PyTrain:
                     )
                     sleep(0.10)
                 print(f"Loading layout state from {PROGRAM_NAME} server{server}......Done", flush=True)
+                sleep(2.0)
             else:
-                print("")
+                print("", flush=True)
         else:
             print(f"Loading layout state {PROGRAM_NAME} from server{server}...", flush=True)
 
