@@ -314,8 +314,6 @@ class KeyPadI2C:
                     self._last_keypress = self._keypress
                     self._keypress = key
                     self._keypress_handler(self)
-                # if self._is_running is False or self._scan_thread.stopping.is_set() is True:
-                #     break
 
     def read_keypad(self, bus: SMBus = None):
         if bus is None:
