@@ -108,6 +108,9 @@ class UniqueDeque(deque, Generic[_T]):
                 self._seen.add(x)
                 super().appendleft(x)
 
+    def push(self, x: _T, /):
+        self.appendleft(x)
+
     def append(self, x: _T, /) -> None:
         with self._lock:
             if x in self._seen:

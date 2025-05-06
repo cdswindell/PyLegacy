@@ -14,6 +14,7 @@ from .engine_controller import EngineController
 from .engine_status import EngineStatus
 from .gpio_device import GpioDevice, P
 from .keypad import KEYPAD_PCF8574_ADDRESS, Keypad, KeyPadI2C
+from ..utils.unique_deque import UniqueDeque
 
 COMMANDS_OF_INTEREST = {
     TMCC1EngineCommandEnum.ABSOLUTE_SPEED,
@@ -250,6 +251,7 @@ class Controller(Thread, GpioDevice):
         self._railroad = None
         self._last_known_speed = None
         self._state_watcher = None
+        self._last_motive = UniqueDeque[tuple[int, CommandScope]](maxlen=3)
         if speed_pins or fwd_pin or rev_pin or reset_pin:
             self._engine_controller = EngineController(
                 speed_pin_1=speed_pins[0] if speed_pins and len(speed_pins) > 0 else None,
@@ -371,26 +373,39 @@ class Controller(Thread, GpioDevice):
         # make sure there's a scope
         self._scope = self._scope if self._scope else CommandScope.ENGINE
 
-        # if we haven't cached anything yet, do so now
-        if self._last_tmcc_id is None:
-            self._last_tmcc_id = self._tmcc_id
-            self._last_scope = self._scope
-            return
-
-        # otherwise, if there is a change, cache it
-        if (self._tmcc_id != self._last_tmcc_id) or (self._scope != self._last_scope):
-            self._last_scope = self._scope
-            self._last_tmcc_id = self._tmcc_id
+        # push the most recent engine to the head of the queue (element 0)
+        self._last_motive.push((self._tmcc_id, self._scope))
+        #
+        # # if we haven't cached anything yet, do so now
+        # if self._last_tmcc_id is None:
+        #     self._last_tmcc_id = self._tmcc_id
+        #     self._last_scope = self._scope
+        #     return
+        #
+        # # otherwise, if there is a change, cache it
+        # if (self._tmcc_id != self._last_tmcc_id) or (self._scope != self._last_scope):
+        #     self._last_scope = self._scope
+        #     self._last_tmcc_id = self._tmcc_id
 
     def last_engine(self):
-        if self._last_scope and self._last_tmcc_id:
-            tmp_scope = self._last_scope
-            tmp_tmcc_id = self._last_tmcc_id
-            self._last_scope = self._scope
-            self._last_tmcc_id = self._tmcc_id
-            self._scope = tmp_scope
-            self._tmcc_id = tmp_tmcc_id
-            self.update_engine(tmp_tmcc_id)
+        if len(self._last_motive):
+            # get the item at the head of the list
+            if self._tmcc_id is None:
+                self._tmcc_id = self._last_motive[0](0)
+                self._scope = self._last_motive[0](1)
+                self._last_motive.rotate(-1)
+            else:
+                if self._tmcc_id == self._last_motive[0](0) and self._scope == self._last_motive[0](1):
+                    # if the top of the stack is this engine, try the next one
+                    self._last_motive.rotate(-1)
+                else:
+                    # otherwise, save the current engine as the second one in the queue
+                    last_motive = self._last_motive.popleft()
+                    self._last_motive.push((self._tmcc_id, self._scope))
+                    self._last_motive.push(last_motive)
+                self._tmcc_id = self._last_motive[0](0)
+                self._scope = self._last_motive[0](1)
+            self.update_engine(self._tmcc_id)
 
     def change_scope(self, scope: CommandScope) -> None:
         self.cache_engine()
