@@ -230,7 +230,6 @@ class TextBuffer:
                 row = row[: at[1]] + s
                 col = len(row)
                 row += remainder
-                print(row)
             # the cursor position might have changed even
             # if the string is the same
             self._cursor_pos = (at[0], col)

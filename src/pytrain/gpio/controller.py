@@ -333,8 +333,11 @@ class Controller(Thread, GpioDevice):
                     self._key_queue.reset()
                 else:
                     if self._status:
+                        print(self._status.display.cursor_pos)
                         self._status.display.write(str(key))
+                        print(self._status.display.cursor_pos)
                         self._status.display.refresh_display()
+                        print(self._status.display.cursor_pos)
                     if self._lcd:
                         self._lcd.print(key)
             sleep(0.1)

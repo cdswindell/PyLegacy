@@ -258,7 +258,6 @@ class Oled(Thread, TextBuffer):
 
     def update_display(self, clear: bool = True, selective: bool = True) -> None:
         with self.synchronizer:
-            print(self.cursor_pos)
             if clear is True and selective is False:
                 self._image = Image.new(self._device.mode, self._device.size, "black")
                 self._canvas = ImageDraw.Draw(self._image)
@@ -284,7 +283,6 @@ class Oled(Thread, TextBuffer):
                         self._hotspots[i] = ScrollingHotspot(self, self[i], row=i)
             # Display the constructed image on the display
             self._device.display(self._image)
-            print(self.cursor_pos)
 
     def refresh_display(self) -> None:
         with self.synchronizer:
