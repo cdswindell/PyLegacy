@@ -304,6 +304,7 @@ class KeyPadI2C:
                     self._last_keypress = self._keypress
                     self._keypress = key
                     self._keypress_handler(self)
+            print("exiting _scan_keyboard")
 
     def read_keypad(self, bus: SMBus = None):
         if bus is None:
