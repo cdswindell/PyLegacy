@@ -117,6 +117,7 @@ class EngineStatus(Thread, GpioDevice):
         with self._lock:
             if clear is True:
                 self.display.clear()
+            cursor = None
             if self._monitored_state:
                 is_started = self._monitored_state.is_started
                 is_shutdown = self._monitored_state.is_shutdown
@@ -185,13 +186,16 @@ class EngineStatus(Thread, GpioDevice):
                     sm = f"S: {self._monitored_state.smoke_label if self._monitored_state.smoke_label else '?'}"
                 row = f"{tb} {mo} {sm}{rpm}"
                 self.display[3] = row
+                cursor = (1, 8)
             elif self.is_synchronized is True:
                 self.display.write(self.railroad, 0, center=True)
                 self.display.write(f"{self.scope.label}: ?", 1, center=True)
-                self.display.cursor_pos = (1, len(self.display[1]) - 1)
+                cursor = (1, len(self.display[1]) - 1)
             else:
                 self.display.write("Synchronizing...", 0, center=True, blink=True)
             self.display.update_display()
+            if cursor is not None:
+                self.display.cursor_pos = cursor
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:

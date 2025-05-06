@@ -246,8 +246,6 @@ class Controller(Thread, GpioDevice):
         self._state = None
         self._scope = CommandScope.ENGINE
         self._tmcc_id = None
-        self._last_scope = None
-        self._last_tmcc_id = None
         self._railroad = None
         self._last_known_speed = None
         self._state_watcher = None
@@ -376,17 +374,6 @@ class Controller(Thread, GpioDevice):
         # push the most recent engine to the head of the queue (element 0)
         self._last_motive.push((self._tmcc_id, self._scope))
         print(f"Cache: {self._last_motive}")
-        #
-        # # if we haven't cached anything yet, do so now
-        # if self._last_tmcc_id is None:
-        #     self._last_tmcc_id = self._tmcc_id
-        #     self._last_scope = self._scope
-        #     return
-        #
-        # # otherwise, if there is a change, cache it
-        # if (self._tmcc_id != self._last_tmcc_id) or (self._scope != self._last_scope):
-        #     self._last_scope = self._scope
-        #     self._last_tmcc_id = self._tmcc_id
 
     def last_engine(self):
         if len(self._last_motive):
