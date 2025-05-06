@@ -369,6 +369,7 @@ class Controller(Thread, GpioDevice):
     def cache_engine(self) -> None:
         # don't cache an empty id
         if self._tmcc_id is None or self._state is None or self._tmcc_id != self._state.address:
+            print(f"** NOT caching engine: {self._tmcc_id} {self._state} **")
             return
 
         print(f"TMCC ID: {self._tmcc_id} {self._state}")
@@ -439,6 +440,8 @@ class Controller(Thread, GpioDevice):
                     self._engine_controller.update(tmcc_id, self._scope, self._state)
             else:
                 self._tmcc_id = tmcc_id
+            if self._status:
+                self._status.update_engine(self._tmcc_id, self._scope)
             self.monitor_state_updates()
             self._key_queue.reset()
             self.cache_engine()

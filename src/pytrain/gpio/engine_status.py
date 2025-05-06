@@ -188,6 +188,7 @@ class EngineStatus(Thread, GpioDevice):
                 self.display[3] = row
                 cursor = (1, 8)
             elif self.is_synchronized is True:
+                print(self._tmcc_id)
                 self.display.write(self.railroad, 0, center=True)
                 self.display.write(f"{self.scope.label}: ?", 1, center=True)
                 cursor = (1, len(self.display[1]) - 1)
