@@ -224,7 +224,7 @@ class PyTrain:
         if self._args.echo:
             self._enable_echo()
 
-        print("Registering listeners...")
+        print("Registering listeners...", flush=True)
         self._state_store.listen_for(CommandScope.BASE)
         self._state_store.listen_for(CommandScope.ENGINE)
         self._state_store.listen_for(CommandScope.TRAIN)
@@ -280,7 +280,6 @@ class PyTrain:
                     )
                     sleep(0.10)
                 print(f"Loading layout state from {PROGRAM_NAME} server{server}......Done", flush=True)
-                sleep(2.0)
             else:
                 print("", flush=True)
         else:
