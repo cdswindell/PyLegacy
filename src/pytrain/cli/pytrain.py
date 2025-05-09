@@ -175,7 +175,7 @@ class PyTrain:
         listeners = []
         self._pdi_buffer = None
         if isinstance(self.tmcc_buffer, CommBufferSingleton):
-            # Remember Base 3 address on the comm buffer; it is an object that both
+            # Remember the Base 3 address on the comm buffer; it is an object that both
             # clients and servers both have
             self._tmcc_buffer.base3_address = self._base_addr
             self._tmcc_listener = CommandListener.build(

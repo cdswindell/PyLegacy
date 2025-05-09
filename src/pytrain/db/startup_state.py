@@ -131,7 +131,7 @@ class StartupState(Thread):
                 self._waiting_for[req.as_key] = req
             self.listener.enqueue_command(req)
         # Request engine/sw/acc roster at startup; do this by asking for
-        # Eng/Train/Acc/Sw/Route #100 then examining the rev links returned until
+        # Eng/Train/Acc/Sw/Route then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity
         for scope in [
             CommandScope.ENGINE,

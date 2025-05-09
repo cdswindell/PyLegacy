@@ -138,7 +138,7 @@ class PdiListener(Thread):
                         # no luck, wait for more bytes; should we impose a maximum byte count?
                         dq_len = -1  # to bypass inner while loop; we need more data
                         continue
-                    # make sure preceding byte isn't a stuff byte
+                    # make sure the preceding byte isn't a stuff byte
                     if eop_pos - 1 > 0:
                         if self._deque[eop_pos - 1] == PDI_STF:
                             continue  # this EOP is part of the data stream; preceded by STF

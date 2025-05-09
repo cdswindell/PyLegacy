@@ -234,7 +234,7 @@ class ComponentState(ABC, CompDataMixin):
     @property
     def is_known(self) -> bool:
         """
-        Returns True if component's state is known, False otherwise.
+        Returns True if the component's state is known, False otherwise.
         """
         return self._is_known
 
@@ -287,7 +287,7 @@ class ComponentState(ABC, CompDataMixin):
     @abstractmethod
     def is_tmcc(self) -> bool:
         """
-        Returns True if component responds to TMCC protocol, False otherwise.
+        Returns True if the component responds to TMCC protocol, False otherwise.
         """
         ...
 
@@ -295,7 +295,7 @@ class ComponentState(ABC, CompDataMixin):
     @abstractmethod
     def is_legacy(self) -> bool:
         """
-        Returns True if component responds to Legacy/TMCC2 protocol, False otherwise.
+        Returns True if the component responds to Legacy/TMCC2 protocol, False otherwise.
         """
         ...
 
@@ -303,7 +303,7 @@ class ComponentState(ABC, CompDataMixin):
     @abstractmethod
     def is_lcs(self) -> bool:
         """
-        Returns True if component is an LCS device, False otherwise.
+        Returns True if the component is an LCS device, False otherwise.
         """
         ...
 
