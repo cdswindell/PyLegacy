@@ -3,6 +3,7 @@ from guizero import App, PushButton, Text, Box
 from src.pytrain import find_file
 
 app = App(title="Launch Pad", width=480, height=320)
+app.full_screen = True
 center_box = Box(app, layout="grid")
 
 launch_jpg = find_file("launch.jpg")
