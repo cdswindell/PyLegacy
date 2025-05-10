@@ -55,6 +55,7 @@ def toggle_siren():
         siren_button.image = siren_off
     else:
         siren_button.image = siren_off
+    print("toggle siren")
 
     siren_button.height = siren_button.width = 64
 
@@ -123,7 +124,9 @@ siren_button = PushButton(
     width=64,
 )
 siren_button.when_left_button_pressed = toggle_siren
+siren_button.when_right_button_pressed = toggle_siren
 siren_button.when_left_button_released = toggle_siren
+siren_button.when_right_button_released = toggle_siren
 upper_box.disable()
 
 app.display()
