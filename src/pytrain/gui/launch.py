@@ -36,6 +36,7 @@ def toggle_power():
         power_button.image = off_button
     else:
         power_button.image = on_button
+    power_button.height = power_button.width = 64
 
 
 on_button = find_file("on_button.jpg")
