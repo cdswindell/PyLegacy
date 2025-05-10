@@ -5,7 +5,7 @@ from src.pytrain import find_file
 app = App(title="Launch Pad", width=480, height=320)
 app.full_screen = True
 upper_box = Box(app, layout="grid", border=False)
-lower_box = Box(app, layout="grid", border=2)
+lower_box = Box(app, layout="grid", border=2, align="bottom", width="fill")
 
 counter = 30
 
@@ -80,7 +80,7 @@ abort = PushButton(
 
 message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red")
 
-power_label = Text(lower_box, text="Power", grid=[0, 0], size=20)
+power_label = Text(lower_box, text="Power", grid=[0, 0], size=18, underline=True)
 power_button = PushButton(
     lower_box,
     image=find_file("on_button.jpg"),
@@ -90,7 +90,7 @@ power_button = PushButton(
     width=64,
 )
 
-lights_label = Text(lower_box, text="Lights", grid=[1, 0], size=20)
+lights_label = Text(lower_box, text="Lights", grid=[1, 0], size=18, underline=True)
 lights_button = PushButton(
     lower_box,
     image=find_file("on_button.jpg"),
