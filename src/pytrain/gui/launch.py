@@ -34,8 +34,10 @@ def do_abort():
 def toggle_power():
     if power_button.image == on_button:
         power_button.image = off_button
+        upper_box.enable()
     else:
         power_button.image = on_button
+        upper_box.disable()
     power_button.height = power_button.width = 64
 
 
@@ -78,4 +80,6 @@ power_button = PushButton(
     height=64,
     width=64,
 )
+upper_box.disable()
+
 app.display()
