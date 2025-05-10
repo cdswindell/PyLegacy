@@ -26,7 +26,7 @@ def do_launch():
 def do_abort():
     count.cancel(update_text)
     message.clear()
-    message.value = "** Abort **"
+    message.value = "Launch Abort"
     message.show()
 
 
