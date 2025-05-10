@@ -41,6 +41,15 @@ def toggle_power():
     power_button.height = power_button.width = 64
 
 
+def toggle_lights():
+    if lights_button.image == on_button:
+        lights_button.image = off_button
+    else:
+        lights_button.image = on_button
+
+    lights_button.height = lights_button.width = 64
+
+
 on_button = find_file("on_button.jpg")
 off_button = find_file("off_button.jpg")
 launch_jpg = find_file("launch.jpg")
@@ -77,6 +86,16 @@ power_button = PushButton(
     image=find_file("on_button.jpg"),
     grid=[0, 1],
     command=toggle_power,
+    height=64,
+    width=64,
+)
+
+lights_label = Text(lower_box, text="Lights", grid=[1, 0], size=20)
+lights_button = PushButton(
+    lower_box,
+    image=find_file("on_button.jpg"),
+    grid=[1, 1],
+    command=toggle_lights,
     height=64,
     width=64,
 )
