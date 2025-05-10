@@ -80,9 +80,10 @@ abort = PushButton(
 
 message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red")
 
-power_label = Text(lower_box, text="Power", grid=[0, 0], size=18, underline=True)
+power_box = Box(lower_box, layout="grid", border=2)
+power_label = Text(power_box, text="Power", grid=[0, 0], size=18, underline=True)
 power_button = PushButton(
-    lower_box,
+    power_box,
     image=find_file("on_button.jpg"),
     grid=[0, 1],
     command=toggle_power,
@@ -90,11 +91,12 @@ power_button = PushButton(
     width=64,
 )
 
-lights_label = Text(lower_box, text="Lights", grid=[1, 0], size=18, underline=True)
+lights_box = Box(lower_box, layout="grid", border=2)
+lights_label = Text(lights_box, text="Lights", grid=[0, 0], size=18, underline=True)
 lights_button = PushButton(
-    lower_box,
+    lights_box,
     image=find_file("on_button.jpg"),
-    grid=[1, 1],
+    grid=[0, 1],
     command=toggle_lights,
     height=64,
     width=64,
