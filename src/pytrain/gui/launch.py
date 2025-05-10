@@ -11,19 +11,21 @@ counter = 30
 
 def update_text():
     global counter
-    count.value = f"-00:{counter:02d}"
     counter -= 1
+    count.value = f"-00:{counter:02d}"
 
 
 def do_launch():
     global counter
     counter = 30
     count.value = f"-00:{counter:02d}"
-    app.repeat(1000, update_text)
+    count.repeat(1000, update_text)
 
 
 def do_abort():
-    app.cancel(update_text)
+    count.cancel(update_text)
+    message.value = "** Abort **"
+    message.show()
 
 
 launch_jpg = find_file("launch.jpg")
@@ -52,4 +54,5 @@ abort = PushButton(
     command=do_abort,
 )
 
+message = Text(center_box, text="", grid=[1, 2, 2, 1], size=24, color="red")
 app.display()
