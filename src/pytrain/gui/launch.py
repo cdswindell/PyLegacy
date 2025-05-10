@@ -51,8 +51,8 @@ def toggle_lights():
 
 
 def toggle_siren():
-    if siren_button.image == siren_on:
-        siren_button.image = siren_off
+    if siren_button.image == siren_off:
+        siren_button.image = siren_on
     else:
         siren_button.image = siren_off
     print("toggle siren")
@@ -60,8 +60,8 @@ def toggle_siren():
     siren_button.height = siren_button.width = 64
 
 
-siren_on = find_file("red_light_pressed.jpg")
-siren_off = find_file("red_light.jpg")
+siren_on = find_file("red_light.jpg")
+siren_off = find_file("red_light_off.jpg")
 on_button = find_file("on_button.jpg")
 off_button = find_file("off_button.jpg")
 launch_jpg = find_file("launch.jpg")
@@ -118,7 +118,7 @@ siren_box = Box(lower_box, layout="grid", border=2, align="left")
 siren_label = Text(siren_box, text="Siren", grid=[0, 0], size=16, underline=True)
 siren_button = PushButton(
     siren_box,
-    image=find_file("red_light.jpg"),
+    image=siren_off,
     grid=[0, 1],
     height=64,
     width=64,
