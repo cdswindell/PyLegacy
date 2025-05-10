@@ -11,13 +11,14 @@ counter = 30
 
 def update_text():
     global counter
-    counter -= 1
     count.value = f"-00:{counter:02d}"
+    counter -= 1
 
 
 def do_launch():
     global counter
     counter = 30
+    count.value = f"-00:{counter:02d}"
     app.repeat(1000, update_text)
 
 
