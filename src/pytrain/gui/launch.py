@@ -50,6 +50,17 @@ def toggle_lights():
     lights_button.height = lights_button.width = 64
 
 
+def toggle_siren():
+    if siren_button.image == siren_on:
+        siren_button.image = siren_off
+    else:
+        siren_button.image = siren_off
+
+    siren_button.height = siren_button.width = 64
+
+
+siren_on = find_file("red_light_pressed.jpg")
+siren_off = find_file("red_light.jpg")
 on_button = find_file("on_button.jpg")
 off_button = find_file("off_button.jpg")
 launch_jpg = find_file("launch.jpg")
@@ -81,7 +92,7 @@ abort = PushButton(
 message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red")
 
 power_box = Box(lower_box, layout="grid", border=2, align="left")
-power_label = Text(power_box, text="Power", grid=[0, 0], size=18, underline=True)
+power_label = Text(power_box, text="Power", grid=[0, 0], size=16, underline=True)
 power_button = PushButton(
     power_box,
     image=find_file("on_button.jpg"),
@@ -92,7 +103,7 @@ power_button = PushButton(
 )
 
 lights_box = Box(lower_box, layout="grid", border=2, align="left")
-lights_label = Text(lights_box, text="Lights", grid=[0, 0], size=18, underline=True)
+lights_label = Text(lights_box, text="Lights", grid=[0, 0], size=16, underline=True)
 lights_button = PushButton(
     lights_box,
     image=find_file("on_button.jpg"),
@@ -101,6 +112,18 @@ lights_button = PushButton(
     height=64,
     width=64,
 )
+
+siren_box = Box(lower_box, layout="grid", border=2, align="left")
+siren_label = Text(siren_box, text="Siren", grid=[0, 0], size=16, underline=True)
+siren_button = PushButton(
+    siren_box,
+    image=find_file("red_light.jpg"),
+    grid=[0, 1],
+    height=64,
+    width=64,
+)
+siren_button.when_left_button_pressed = toggle_siren
+siren_button.when_left_button_released = toggle_siren
 upper_box.disable()
 
 app.display()
