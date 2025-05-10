@@ -17,6 +17,7 @@ def update_text():
 
 def do_launch():
     global counter
+    message.clear()
     counter = 30
     count.value = f"-00:{counter:02d}"
     count.repeat(1000, update_text)
