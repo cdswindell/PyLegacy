@@ -69,5 +69,12 @@ abort = PushButton(
 message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red")
 
 power_label = Text(lower_box, text="Power", grid=[0, 0], size=20)
-power_button = PushButton(lower_box, image=find_file("on_button.jpg"), grid=[0, 1], command=toggle_power)
+power_button = PushButton(
+    lower_box,
+    image=find_file("on_button.jpg"),
+    grid=[0, 1],
+    command=toggle_power,
+    height=64,
+    width=64,
+)
 app.display()
