@@ -5,7 +5,7 @@ from src.pytrain import find_file
 app = App(title="Launch Pad", width=480, height=320)
 app.full_screen = True
 upper_box = Box(app, layout="grid", border=False)
-lower_box = Box(app, layout="grid", border=2, align="bottom", width="fill")
+lower_box = Box(app, layout="grid", border=2, align="bottom")
 
 counter = 30
 
