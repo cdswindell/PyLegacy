@@ -30,6 +30,7 @@ dependencies = [
     "RPLCD>= 1.4.0",
     "colorzero >= 2.0",
     "gpiozero >= 2.0.1",
+    "guizero >= 1.6.0",
     "luma.oled >= 3.14.0",
     "pyserial >= 3.5",
     "range-key-dict >= 1.1",
