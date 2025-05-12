@@ -1,11 +1,14 @@
+from threading import Thread
+
 from guizero import App, PushButton, Text, Box
 
+from ..gpio.gpio_handler import GpioHandler
 from ..utils.path_utils import find_file
 
 
-class LaunchGui:
+class LaunchGui(Thread):
     def __init__(self, tmcc_id: int = 39):
-        super().__init__()
+        super().__init__(daemon=True, name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
         self.app = app = App(title="Launch Pad", width=480, height=320)
         app.full_screen = True
@@ -87,8 +90,14 @@ class LaunchGui:
         self.siren_button.when_left_button_released = self.toggle_siren
         self.siren_button.when_right_button_released = self.toggle_siren
         self.upper_box.disable()
+        self.start()
 
-        app.display()
+    def run(self):
+        GpioHandler.cache_handler(self)
+        self.app.display()
+
+    def reset(self):
+        self.app.destroy()
 
     def update_text(self):
         self.counter -= 1
