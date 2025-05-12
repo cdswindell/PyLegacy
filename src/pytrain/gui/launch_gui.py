@@ -115,6 +115,7 @@ class LaunchGui(Thread):
 
         # display GUI
         self.app.display()
+        self.app.show()
 
     def reset(self):
         self.app.destroy()
@@ -148,6 +149,7 @@ class LaunchGui(Thread):
         self.message.show()
 
     def toggle_power(self):
+        self.update_counter(value=0)
         if self.power_button.image == self.on_button:
             self.power_button.image = self.off_button
             self.upper_box.enable()
@@ -161,7 +163,6 @@ class LaunchGui(Thread):
             self.lights_button.image = self.off_button
         else:
             self.lights_button.image = self.on_button
-
         self.lights_button.height = self.lights_button.width = 80
 
     def toggle_sound(self, button: PushButton):
@@ -169,6 +170,4 @@ class LaunchGui(Thread):
             button.image = self.siren_on
         else:
             button.image = self.siren_off
-        print("toggle button")
-
         button.height = button.width = 80
