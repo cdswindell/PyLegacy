@@ -95,10 +95,8 @@ class LaunchGui(Thread):
             height=80,
             width=80,
         )
-        self.siren_button.when_left_button_pressed = self.toggle_siren
-        self.siren_button.when_right_button_pressed = self.toggle_siren
-        self.siren_button.when_left_button_released = self.toggle_siren
-        self.siren_button.when_right_button_released = self.toggle_siren
+        self.siren_button.when_left_button_pressed = lambda _: self.toggle_sound(self.siren_button)
+        self.siren_button.when_left_button_released = lambda _: self.toggle_sound(self.siren_button)
 
         klaxon_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(klaxon_box, text="Klaxon", grid=[0, 0], size=16, underline=True)
@@ -121,18 +119,30 @@ class LaunchGui(Thread):
     def reset(self):
         self.app.destroy()
 
-    def update_text(self):
-        self.counter -= 1
-        self.count.value = f"-00:{self.counter:02d}"
+    def update_counter(self, value: int = None):
+        prefix = "-"
+        if value is None:
+            self.counter -= 1
+        else:
+            self.counter = value
+
+        count = self.counter
+        if count < 0:
+            prefix = "+"
+            count = abs(count)
+
+        minute = count // 60
+        second = count % 60
+        self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
     def do_launch(self):
         self.message.clear()
         self.counter = 30
         self.count.value = f"-00:{self.counter:02d}"
-        self.count.repeat(1000, self.update_text)
+        self.count.repeat(1000, self.update_counter)
 
     def do_abort(self):
-        self.count.cancel(self.update_text)
+        self.count.cancel(self.update_counter)
         self.message.clear()
         self.message.value = "Launch Abort"
         self.message.show()
@@ -153,15 +163,6 @@ class LaunchGui(Thread):
             self.lights_button.image = self.on_button
 
         self.lights_button.height = self.lights_button.width = 80
-
-    def toggle_siren(self):
-        if self.siren_button.image == self.siren_off:
-            self.siren_button.image = self.siren_on
-        else:
-            self.siren_button.image = self.siren_off
-        print("toggle siren")
-
-        self.siren_button.height = self.siren_button.width = 80
 
     def toggle_sound(self, button: PushButton):
         if button.image == self.siren_off:
