@@ -62,7 +62,7 @@ class LaunchGui(Thread):
             upper_box,
             text="T-Minus",
             grid=[1, 1],
-            size=24,
+            size=23,
             bg="black",
             color="white",
         )
@@ -70,7 +70,7 @@ class LaunchGui(Thread):
             upper_box,
             text="-00:00",
             grid=[2, 1],
-            size=27,
+            size=26,
             font="Digital Display",
             bg="black",
             color="white",
