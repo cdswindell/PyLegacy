@@ -10,12 +10,29 @@ class LaunchGui(Thread):
     def __init__(self, tmcc_id: int = 39):
         super().__init__(daemon=True, name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
+
+        self.launch_jpg = find_file("launch.jpg")
+        self.abort_jpg = find_file("abort.jpg")
+        self.siren_on = find_file("red_light.jpg")
+        self.siren_off = find_file("red_light_off.jpg")
+        self.on_button = find_file("on_button.jpg")
+        self.off_button = find_file("off_button.jpg")
+
+        self.counter = 30
+
+        self.app = self.upper_box = self.lower_box = self.message = None
+        self.launch_button = self.abort = self.pad = self.count = self.label = None
+        self.power_button = self.lights_button = self.siren_button = None
+        self.power_label = self.lights_label = self.siren_label = None
+
+        self.start()
+
+    def run(self):
+        GpioHandler.cache_handler(self)
         self.app = app = App(title="Launch Pad", width=480, height=320)
         app.full_screen = True
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
 
-        self.launch_jpg = find_file("launch.jpg")
-        self.abort_jpg = find_file("abort.jpg")
         self.launch_button = PushButton(
             upper_box,
             image=self.launch_jpg,
@@ -41,18 +58,12 @@ class LaunchGui(Thread):
         if self.tmcc_id == 39:
             self.pad = Text(upper_box, text="Pad 39A", grid=[1, 0, 2, 1], size=28)
         else:
-            self.pad = Text(upper_box, text=f"Pad {tmcc_id}", grid=[1, 0, 2, 1], size=28)
+            self.pad = Text(upper_box, text=f"Pad {self.tmcc_id}", grid=[1, 0, 2, 1], size=28)
         self.label = Text(upper_box, text="T-Minus", grid=[1, 1], size=24)
         self.count = Text(upper_box, text="-00:00", grid=[2, 1], size=24, font="Digital Display")
-        self.counter = 0
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
         self.message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red")
-
-        self.siren_on = find_file("red_light.jpg")
-        self.siren_off = find_file("red_light_off.jpg")
-        self.on_button = find_file("on_button.jpg")
-        self.off_button = find_file("off_button.jpg")
 
         power_box = Box(lower_box, layout="grid", border=2, align="left")
         self.power_label = Text(power_box, text="Power", grid=[0, 0], size=16, underline=True)
@@ -90,10 +101,6 @@ class LaunchGui(Thread):
         self.siren_button.when_left_button_released = self.toggle_siren
         self.siren_button.when_right_button_released = self.toggle_siren
         self.upper_box.disable()
-        self.start()
-
-    def run(self):
-        GpioHandler.cache_handler(self)
         self.app.display()
 
     def reset(self):
