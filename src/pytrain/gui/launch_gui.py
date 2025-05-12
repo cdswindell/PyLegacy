@@ -65,17 +65,15 @@ class LaunchGui(Thread):
             size=24,
             bg="black",
             color="white",
-            height=24,
         )
         self.count = Text(
             upper_box,
             text="-00:00",
             grid=[2, 1],
-            size=25,
+            size=27,
             font="Digital Display",
             bg="black",
             color="white",
-            height=24,
         )
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
