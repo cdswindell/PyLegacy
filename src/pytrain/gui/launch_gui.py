@@ -65,7 +65,7 @@ class LaunchGui(Thread):
             size=24,
             bg="black",
             color="white",
-            height="fill",
+            height=24,
         )
         self.count = Text(
             upper_box,
@@ -75,7 +75,7 @@ class LaunchGui(Thread):
             font="Digital Display",
             bg="black",
             color="white",
-            height="fill",
+            height=24,
         )
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
