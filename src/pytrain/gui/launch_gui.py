@@ -17,6 +17,7 @@ class LaunchGui(Thread):
         self.siren_off = find_file("red_light_off.jpg")
         self.on_button = find_file("on_button.jpg")
         self.off_button = find_file("off_button.jpg")
+        self.padding = 2
 
         self.counter = 30
 
@@ -38,8 +39,8 @@ class LaunchGui(Thread):
             height=128,
             width=128,
             grid=[0, 0, 1, 2],
-            padx=0,
-            pady=0,
+            padx=self.padding,
+            pady=self.padding,
             command=self.do_launch,
         )
 
@@ -49,18 +50,18 @@ class LaunchGui(Thread):
             height=128,
             width=128,
             grid=[4, 0, 1, 2],
-            padx=0,
-            pady=0,
+            padx=self.padding,
+            pady=self.padding,
             command=self.do_abort,
         )
 
         if self.tmcc_id == 39:
-            self.pad = Text(upper_box, text="Pad 39A", grid=[1, 0, 2, 1], size=28)
+            self.pad = Text(upper_box, text="Pad 39A", grid=[1, 0, 2, 1], size=30, bold=True)
         else:
             self.pad = Text(upper_box, text=f"Pad {self.tmcc_id}", grid=[1, 0, 2, 1], size=28)
         self.label = Text(
             upper_box,
-            text="T-Minus ",
+            text="T-Minus",
             grid=[1, 1],
             size=17,
             bg="black",
@@ -69,7 +70,7 @@ class LaunchGui(Thread):
         )
         self.count = Text(
             upper_box,
-            text=" -00:00",
+            text="-00:00",
             grid=[2, 1],
             size=26,
             font="Digital Display",
@@ -152,7 +153,7 @@ class LaunchGui(Thread):
 
         minute = count // 60
         second = count % 60
-        self.count.value = f" {prefix}{minute:02d}:{second:02d}"
+        self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
     def do_launch(self):
         self.message.clear()
