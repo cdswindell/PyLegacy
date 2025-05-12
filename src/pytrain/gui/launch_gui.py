@@ -17,7 +17,7 @@ class LaunchGui(Thread):
         self.siren_off = find_file("red_light_off.jpg")
         self.on_button = find_file("on_button.jpg")
         self.off_button = find_file("off_button.jpg")
-        self.padding = 10
+        self.padding = 0
 
         self.counter = 30
 
@@ -31,7 +31,7 @@ class LaunchGui(Thread):
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Launch Pad", width=480, height=320)
         app.full_screen = True
-        self.upper_box = upper_box = Box(app, layout="grid", border=True)
+        self.upper_box = upper_box = Box(app, layout="grid", border=False)
 
         self.launch_button = PushButton(
             upper_box,
@@ -66,7 +66,7 @@ class LaunchGui(Thread):
             text="T-Minus",
             grid=[1, 1],
             size=17,
-            width=10,
+            width=8,
             bg="black",
             color="white",
             italic=True,
@@ -151,7 +151,7 @@ class LaunchGui(Thread):
 
         count = self.counter
         if count < 0:
-            prefix = "+"
+            prefix = " "
             count = abs(count)
             self.label.value = "Launch"
 
