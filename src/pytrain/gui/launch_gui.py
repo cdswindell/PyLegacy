@@ -59,7 +59,7 @@ class LaunchGui(Thread):
         else:
             self.pad = Text(upper_box, text=f"Pad {self.tmcc_id}", grid=[1, 0, 2, 1], size=28)
         self.label = Text(upper_box, text="T-Minus", grid=[1, 1], size=24)
-        self.count = Text(upper_box, text="-00:00", grid=[2, 1], size=24, font="Digital Display")
+        self.count = Text(upper_box, text="-00:00", grid=[2, 1], size=26, font="Digital Display")
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
         self.message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red")
