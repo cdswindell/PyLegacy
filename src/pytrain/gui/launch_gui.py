@@ -31,7 +31,7 @@ class LaunchGui(Thread):
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Launch Pad", width=480, height=320)
         app.full_screen = True
-        self.upper_box = upper_box = Box(app, layout="grid", border=False)
+        self.upper_box = upper_box = Box(app, layout="grid", border=True)
 
         self.launch_button = PushButton(
             upper_box,
