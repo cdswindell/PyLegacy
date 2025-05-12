@@ -72,7 +72,7 @@ class LaunchGui(Thread):
             upper_box,
             text="-00:00",
             grid=[2, 1],
-            size=26,
+            size=29,
             font="Digital Display",
             bg="black",
             color="white",
