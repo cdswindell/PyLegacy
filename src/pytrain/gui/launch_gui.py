@@ -72,8 +72,8 @@ class LaunchGui(Thread):
             image=self.on_button,
             grid=[0, 1],
             command=self.toggle_power,
-            height=64,
-            width=64,
+            height=96,
+            width=96,
         )
 
         lights_box = Box(lower_box, layout="grid", border=2, align="left")
@@ -83,8 +83,8 @@ class LaunchGui(Thread):
             image=find_file("on_button.jpg"),
             grid=[0, 1],
             command=self.toggle_lights,
-            height=64,
-            width=64,
+            height=96,
+            width=96,
         )
 
         siren_box = Box(lower_box, layout="grid", border=2, align="left")
@@ -93,8 +93,8 @@ class LaunchGui(Thread):
             siren_box,
             image=self.siren_off,
             grid=[0, 1],
-            height=64,
-            width=64,
+            height=96,
+            width=96,
         )
         self.siren_button.when_left_button_pressed = self.toggle_siren
         self.siren_button.when_right_button_pressed = self.toggle_siren
@@ -129,7 +129,7 @@ class LaunchGui(Thread):
         else:
             self.power_button.image = self.on_button
             self.upper_box.disable()
-        self.power_button.height = self.power_button.width = 64
+        self.power_button.height = self.power_button.width = 96
 
     def toggle_lights(self):
         if self.lights_button.image == self.on_button:
@@ -137,7 +137,7 @@ class LaunchGui(Thread):
         else:
             self.lights_button.image = self.on_button
 
-        self.lights_button.height = self.lights_button.width = 64
+        self.lights_button.height = self.lights_button.width = 96
 
     def toggle_siren(self):
         if self.siren_button.image == self.siren_off:
@@ -146,4 +146,4 @@ class LaunchGui(Thread):
             self.siren_button.image = self.siren_off
         print("toggle siren")
 
-        self.siren_button.height = self.siren_button.width = 64
+        self.siren_button.height = self.siren_button.width = 96
