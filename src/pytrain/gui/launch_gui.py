@@ -58,13 +58,28 @@ class LaunchGui(Thread):
             self.pad = Text(upper_box, text="Pad 39A", grid=[1, 0, 2, 1], size=28)
         else:
             self.pad = Text(upper_box, text=f"Pad {self.tmcc_id}", grid=[1, 0, 2, 1], size=28)
-        self.label = Text(upper_box, text="T-Minus", grid=[1, 1], size=24, bg="black", color="white")
+        self.label = Text(
+            upper_box,
+            text="T-Minus",
+            grid=[1, 1],
+            size=24,
+            bg="black",
+            color="white",
+            height="fill",
+        )
         self.count = Text(
-            upper_box, text="-00:00", grid=[2, 1], size=25, font="Digital Display", bg="black", color="white"
+            upper_box,
+            text="-00:00",
+            grid=[2, 1],
+            size=25,
+            font="Digital Display",
+            bg="black",
+            color="white",
+            height="fill",
         )
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
-        self.message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red")
+        self.message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red", bold=True)
 
         power_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(power_box, text="Power", grid=[0, 0], size=16, underline=True)
