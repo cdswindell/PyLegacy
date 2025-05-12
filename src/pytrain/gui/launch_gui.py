@@ -22,8 +22,7 @@ class LaunchGui(Thread):
 
         self.app = self.upper_box = self.lower_box = self.message = None
         self.launch_button = self.abort = self.pad = self.count = self.label = None
-        self.power_button = self.lights_button = self.siren_button = None
-        self.power_label = self.lights_label = self.siren_label = None
+        self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
 
         self.start()
 
@@ -66,41 +65,57 @@ class LaunchGui(Thread):
         self.message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red")
 
         power_box = Box(lower_box, layout="grid", border=2, align="left")
-        self.power_label = Text(power_box, text="Power", grid=[0, 0], size=16, underline=True)
+        _ = Text(power_box, text="Power", grid=[0, 0], size=16, underline=True)
         self.power_button = PushButton(
             power_box,
             image=self.on_button,
             grid=[0, 1],
             command=self.toggle_power,
-            height=96,
-            width=96,
+            height=80,
+            width=80,
         )
 
         lights_box = Box(lower_box, layout="grid", border=2, align="left")
-        self.lights_label = Text(lights_box, text="Lights", grid=[0, 0], size=16, underline=True)
+        _ = Text(lights_box, text="Lights", grid=[0, 0], size=16, underline=True)
         self.lights_button = PushButton(
             lights_box,
             image=find_file("on_button.jpg"),
             grid=[0, 1],
             command=self.toggle_lights,
-            height=96,
-            width=96,
+            height=80,
+            width=80,
         )
 
         siren_box = Box(lower_box, layout="grid", border=2, align="left")
-        self.siren_label = Text(siren_box, text="Siren", grid=[0, 0], size=16, underline=True)
+        _ = Text(siren_box, text="Siren", grid=[0, 0], size=16, underline=True)
         self.siren_button = PushButton(
             siren_box,
             image=self.siren_off,
             grid=[0, 1],
-            height=96,
-            width=96,
+            height=80,
+            width=80,
         )
         self.siren_button.when_left_button_pressed = self.toggle_siren
         self.siren_button.when_right_button_pressed = self.toggle_siren
         self.siren_button.when_left_button_released = self.toggle_siren
         self.siren_button.when_right_button_released = self.toggle_siren
+
+        klaxon_box = Box(lower_box, layout="grid", border=2, align="left")
+        _ = Text(klaxon_box, text="Klaxon", grid=[0, 0], size=16, underline=True)
+        self.klaxon_button = PushButton(
+            klaxon_box,
+            image=self.siren_off,
+            grid=[0, 1],
+            height=80,
+            width=80,
+        )
+        self.klaxon_button.when_left_button_pressed = lambda _: self.toggle_sound(self.klaxon_button)
+        self.klaxon_button.when_left_button_released = lambda _: self.toggle_sound(self.klaxon_button)
+
+        # start upper box disabled
         self.upper_box.disable()
+
+        # display GUI
         self.app.display()
 
     def reset(self):
@@ -129,7 +144,7 @@ class LaunchGui(Thread):
         else:
             self.power_button.image = self.on_button
             self.upper_box.disable()
-        self.power_button.height = self.power_button.width = 96
+        self.power_button.height = self.power_button.width = 80
 
     def toggle_lights(self):
         if self.lights_button.image == self.on_button:
@@ -137,7 +152,7 @@ class LaunchGui(Thread):
         else:
             self.lights_button.image = self.on_button
 
-        self.lights_button.height = self.lights_button.width = 96
+        self.lights_button.height = self.lights_button.width = 80
 
     def toggle_siren(self):
         if self.siren_button.image == self.siren_off:
@@ -146,4 +161,13 @@ class LaunchGui(Thread):
             self.siren_button.image = self.siren_off
         print("toggle siren")
 
-        self.siren_button.height = self.siren_button.width = 96
+        self.siren_button.height = self.siren_button.width = 80
+
+    def toggle_sound(self, button: PushButton):
+        if button.image == self.siren_off:
+            button.image = self.siren_on
+        else:
+            button.image = self.siren_off
+        print("toggle button")
+
+        button.height = button.width = 80
