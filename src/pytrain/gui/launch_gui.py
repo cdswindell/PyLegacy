@@ -60,20 +60,22 @@ class LaunchGui(Thread):
             self.pad = Text(upper_box, text=f"Pad {self.tmcc_id}", grid=[1, 0, 2, 1], size=28)
         self.label = Text(
             upper_box,
-            text="T-Minus",
+            text="T-Minus ",
             grid=[1, 1],
             size=23,
             bg="black",
             color="white",
+            italic=True,
         )
         self.count = Text(
             upper_box,
-            text="-00:00",
+            text=" -00:00",
             grid=[2, 1],
             size=26,
             font="Digital Display",
             bg="black",
             color="white",
+            italic=True,
         )
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
@@ -146,15 +148,15 @@ class LaunchGui(Thread):
         if count < 0:
             prefix = "+"
             count = abs(count)
+            self.label.value = "Launch"
 
         minute = count // 60
         second = count % 60
-        self.count.value = f"{prefix}{minute:02d}:{second:02d}"
+        self.count.value = f" {prefix}{minute:02d}:{second:02d}"
 
     def do_launch(self):
         self.message.clear()
-        self.counter = 30
-        self.count.value = f"-00:{self.counter:02d}"
+        self.update_counter(value=30)
         self.count.repeat(1000, self.update_counter)
 
     def do_abort(self):
@@ -165,6 +167,7 @@ class LaunchGui(Thread):
 
     def toggle_power(self):
         self.update_counter(value=0)
+        self.label.value = "T-Minus"
         self.message.clear()
         if self.power_button.image == self.on_button:
             self.power_button.image = self.off_button
