@@ -17,7 +17,7 @@ class LaunchGui(Thread):
         self.siren_off = find_file("red_light_off.jpg")
         self.on_button = find_file("on_button.jpg")
         self.off_button = find_file("off_button.jpg")
-        self.padding = 2
+        self.padding = 5
 
         self.counter = 30
 
