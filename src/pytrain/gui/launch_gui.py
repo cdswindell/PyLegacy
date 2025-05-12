@@ -150,6 +150,7 @@ class LaunchGui(Thread):
 
     def toggle_power(self):
         self.update_counter(value=0)
+        self.message.clear()
         if self.power_button.image == self.on_button:
             self.power_button.image = self.off_button
             self.upper_box.enable()
