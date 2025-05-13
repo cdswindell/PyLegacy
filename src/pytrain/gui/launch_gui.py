@@ -24,6 +24,7 @@ class LaunchGui(Thread):
 
         self.app = self.upper_box = self.lower_box = self.message = None
         self.launch_button = self.abort = self.pad = self.count = self.label = None
+        self.gantry_box = self.siren_box = self.klaxon_box = self.lights_box = None
         self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
         self.gantry_left = self.gantry_right = None
 
@@ -98,7 +99,7 @@ class LaunchGui(Thread):
             width=72,
         )
 
-        lights_box = Box(lower_box, layout="grid", border=2, align="left")
+        self.lights_box = lights_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(lights_box, text="Lights", grid=[0, 0], size=16, underline=True)
         self.lights_button = PushButton(
             lights_box,
@@ -109,7 +110,7 @@ class LaunchGui(Thread):
             width=72,
         )
 
-        siren_box = Box(lower_box, layout="grid", border=2, align="left")
+        self.siren_box = siren_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(siren_box, text="Siren", grid=[0, 0], size=16, underline=True)
         self.siren_button = PushButton(
             siren_box,
@@ -121,7 +122,7 @@ class LaunchGui(Thread):
         self.siren_button.when_left_button_pressed = lambda _: self.toggle_sound(self.siren_button)
         self.siren_button.when_left_button_released = lambda _: self.toggle_sound(self.siren_button)
 
-        klaxon_box = Box(lower_box, layout="grid", border=2, align="left")
+        self.klaxon_box = klaxon_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(klaxon_box, text="Klaxon", grid=[0, 0], size=16, underline=True)
         self.klaxon_button = PushButton(
             klaxon_box,
@@ -133,25 +134,29 @@ class LaunchGui(Thread):
         self.klaxon_button.when_left_button_pressed = lambda _: self.toggle_sound(self.klaxon_button)
         self.klaxon_button.when_left_button_released = lambda _: self.toggle_sound(self.klaxon_button)
 
-        gantry_box = Box(lower_box, layout="grid", border=2, align="left")
+        self.gantry_box = gantry_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(gantry_box, text="Gantry", grid=[0, 0, 2, 1], size=16, underline=True)
         self.gantry_left = PushButton(
             gantry_box,
             image=self.left_arrow,
             grid=[0, 1],
-            height=72,
-            width=72,
+            height=70,
+            width=70,
         )
         self.gantry_right = PushButton(
             gantry_box,
             image=self.right_arrow,
             grid=[1, 1],
-            height=72,
-            width=72,
+            height=70,
+            width=70,
         )
 
         # start upper box disabled
         self.upper_box.disable()
+        self.lights_box.disable()
+        self.siren_box.disable()
+        self.klaxon_box.disable()
+        self.gantry_box.disable()
 
         # display GUI
         self.app.display()
@@ -202,9 +207,17 @@ class LaunchGui(Thread):
         if self.power_button.image == self.on_button:
             self.power_button.image = self.off_button
             self.upper_box.enable()
+            self.lights_box.enable()
+            self.siren_box.enable()
+            self.klaxon_box.enable()
+            self.gantry_box.enable()
         else:
             self.power_button.image = self.on_button
             self.upper_box.disable()
+            self.lights_box.disable()
+            self.siren_box.disable()
+            self.klaxon_box.disable()
+            self.gantry_box.disable()
         self.power_button.height = self.power_button.width = 72
 
     def toggle_lights(self):
