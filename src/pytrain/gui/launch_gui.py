@@ -17,7 +17,6 @@ class LaunchGui(Thread):
         self.siren_off = find_file("red_light_off.jpg")
         self.on_button = find_file("on_button.jpg")
         self.off_button = find_file("off_button.jpg")
-        self.padding = 16
 
         self.counter = 30
 
@@ -37,24 +36,20 @@ class LaunchGui(Thread):
         self.launch_button = PushButton(
             upper_box,
             image=self.launch_jpg,
-            height=112,
-            width=112,
+            height=128,
+            width=128,
             grid=[0, 0, 1, 2],
             align="left",
-            # padx=self.padding,
-            # pady=self.padding,
             command=self.do_launch,
         )
 
         self.abort = PushButton(
             upper_box,
             image=self.abort_jpg,
-            height=112,
-            width=112,
+            height=128,
+            width=128,
             grid=[4, 0, 1, 2],
             align="right",
-            padx=self.padding,
-            pady=self.padding,
             command=self.do_abort,
         )
 
