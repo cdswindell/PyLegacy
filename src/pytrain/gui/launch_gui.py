@@ -37,8 +37,8 @@ class LaunchGui(Thread):
         self.launch_button = PushButton(
             upper_box,
             image=self.launch_jpg,
-            height=128,
-            width=128,
+            height=112,
+            width=112,
             grid=[0, 0, 1, 2],
             align="left",
             padx=self.padding,
@@ -49,8 +49,8 @@ class LaunchGui(Thread):
         self.abort = PushButton(
             upper_box,
             image=self.abort_jpg,
-            height=128,
-            width=128,
+            height=112,
+            width=112,
             grid=[4, 0, 1, 2],
             align="right",
             padx=self.padding,
