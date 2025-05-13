@@ -228,8 +228,9 @@ class LaunchGui(Thread):
         self.lights_button.height = self.lights_button.width = 72
 
     def toggle_sound(self, button: PushButton):
-        if button.image == self.siren_off:
-            button.image = self.siren_on
-        else:
-            button.image = self.siren_off
-        button.height = button.width = 72
+        if button.enabled is True:
+            if button.image == self.siren_off:
+                button.image = self.siren_on
+            else:
+                button.image = self.siren_off
+            button.height = button.width = 72
