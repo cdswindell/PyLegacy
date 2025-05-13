@@ -61,10 +61,12 @@ class LaunchGui(Thread):
             self.pad = Text(upper_box, text="Pad 39A", grid=[1, 0, 2, 1], size=30, bold=True)
         else:
             self.pad = Text(upper_box, text=f"Pad {self.tmcc_id}", grid=[1, 0, 2, 1], size=28)
+
+        countdown_box = Box(upper_box, layout="auto", border=True, grid=[1, 1, 2, 1])
         self.label = Text(
-            upper_box,
+            countdown_box,
             text="T-Minus",
-            grid=[1, 1],
+            align="left",
             size=17,
             width=8,
             height=2,
@@ -73,10 +75,10 @@ class LaunchGui(Thread):
             italic=True,
         )
         self.count = Text(
-            upper_box,
+            countdown_box,
             text="-00:00",
-            grid=[2, 1],
-            size=29,
+            align="right",
+            size=30,
             width=6,
             height=2,
             font="Digital Display",
