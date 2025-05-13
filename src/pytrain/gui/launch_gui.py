@@ -86,7 +86,7 @@ class LaunchGui(Thread):
         )
 
         _ = Text(upper_box, text=" ", grid=[0, 2, 5, 1], size=10)
-        self.message = Text(upper_box, text="", grid=[0, 3, 5, 1], size=24, color="red", bold=True)
+        self.message = Text(upper_box, text="", grid=[0, 3, 5, 1], size=24, color="red", bold=True, align="top")
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
         power_box = Box(lower_box, layout="grid", border=2, align="left")
@@ -96,19 +96,19 @@ class LaunchGui(Thread):
             image=self.on_button,
             grid=[0, 1],
             command=self.toggle_power,
-            height=80,
-            width=80,
+            height=72,
+            width=72,
         )
 
         lights_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(lights_box, text="Lights", grid=[0, 0], size=16, underline=True)
         self.lights_button = PushButton(
             lights_box,
-            image=find_file("on_button.jpg"),
+            image=self.on_button,
             grid=[0, 1],
             command=self.toggle_lights,
-            height=80,
-            width=80,
+            height=72,
+            width=72,
         )
 
         siren_box = Box(lower_box, layout="grid", border=2, align="left")
@@ -117,8 +117,8 @@ class LaunchGui(Thread):
             siren_box,
             image=self.siren_off,
             grid=[0, 1],
-            height=80,
-            width=80,
+            height=72,
+            width=72,
         )
         self.siren_button.when_left_button_pressed = lambda _: self.toggle_sound(self.siren_button)
         self.siren_button.when_left_button_released = lambda _: self.toggle_sound(self.siren_button)
@@ -129,8 +129,8 @@ class LaunchGui(Thread):
             klaxon_box,
             image=self.siren_off,
             grid=[0, 1],
-            height=80,
-            width=80,
+            height=72,
+            width=72,
         )
         self.klaxon_button.when_left_button_pressed = lambda _: self.toggle_sound(self.klaxon_button)
         self.klaxon_button.when_left_button_released = lambda _: self.toggle_sound(self.klaxon_button)
@@ -190,18 +190,18 @@ class LaunchGui(Thread):
         else:
             self.power_button.image = self.on_button
             self.upper_box.disable()
-        self.power_button.height = self.power_button.width = 80
+        self.power_button.height = self.power_button.width = 72
 
     def toggle_lights(self):
         if self.lights_button.image == self.on_button:
             self.lights_button.image = self.off_button
         else:
             self.lights_button.image = self.on_button
-        self.lights_button.height = self.lights_button.width = 80
+        self.lights_button.height = self.lights_button.width = 72
 
     def toggle_sound(self, button: PushButton):
         if button.image == self.siren_off:
             button.image = self.siren_on
         else:
             button.image = self.siren_off
-        button.height = button.width = 80
+        button.height = button.width = 72
