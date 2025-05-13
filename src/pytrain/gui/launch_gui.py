@@ -85,9 +85,9 @@ class LaunchGui(Thread):
             italic=True,
         )
 
-        self.lower_box = lower_box = Box(app, border=2, align="bottom")
-        self.message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red", bold=True)
+        self.message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red", bold=True, align="bottom")
 
+        self.lower_box = lower_box = Box(app, border=2, align="bottom")
         power_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(power_box, text="Power", grid=[0, 0], size=16, underline=True)
         self.power_button = PushButton(
