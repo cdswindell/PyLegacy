@@ -17,6 +17,8 @@ class LaunchGui(Thread):
         self.siren_off = find_file("red_light_off.jpg")
         self.on_button = find_file("on_button.jpg")
         self.off_button = find_file("off_button.jpg")
+        self.left_arrow = find_file("left_arrow.jpg")
+        self.right_arrow = find_file("right_arrow.jpg")
 
         self.counter = 30
 
@@ -135,14 +137,14 @@ class LaunchGui(Thread):
         _ = Text(gantry_box, text="Gantry", grid=[0, 0, 2, 1], size=16, underline=True)
         self.gantry_left = PushButton(
             gantry_box,
-            image=self.siren_off,
+            image=self.left_arrow,
             grid=[0, 1],
             height=72,
             width=72,
         )
         self.gantry_right = PushButton(
             gantry_box,
-            image=self.siren_off,
+            image=self.right_arrow,
             grid=[1, 1],
             height=72,
             width=72,
