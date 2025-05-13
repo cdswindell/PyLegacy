@@ -85,6 +85,7 @@ class LaunchGui(Thread):
             italic=True,
         )
 
+        _ = Text(upper_box, text="", grid=[0, 2, 5, 1], size=14, color="red", bold=True, align="bottom")
         self.message = Text(upper_box, text="", grid=[0, 3, 5, 1], size=24, color="red", bold=True, align="bottom")
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
