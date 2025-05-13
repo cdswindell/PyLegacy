@@ -24,6 +24,7 @@ class LaunchGui(Thread):
         self.app = self.upper_box = self.lower_box = self.message = None
         self.launch_button = self.abort = self.pad = self.count = self.label = None
         self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
+        self.gantry_left = self.gantry_right = None
 
         self.start()
 
@@ -134,6 +135,23 @@ class LaunchGui(Thread):
         )
         self.klaxon_button.when_left_button_pressed = lambda _: self.toggle_sound(self.klaxon_button)
         self.klaxon_button.when_left_button_released = lambda _: self.toggle_sound(self.klaxon_button)
+
+        gantry_box = Box(lower_box, layout="grid", border=2, align="left")
+        _ = Text(gantry_box, text="Gantry", grid=[0, 0, 2, 1], size=16, underline=True)
+        self.gantry_left = PushButton(
+            gantry_box,
+            image=self.siren_off,
+            grid=[0, 1],
+            height=72,
+            width=72,
+        )
+        self.gantry_right = PushButton(
+            gantry_box,
+            image=self.siren_off,
+            grid=[1, 1],
+            height=72,
+            width=72,
+        )
 
         # start upper box disabled
         self.upper_box.disable()
