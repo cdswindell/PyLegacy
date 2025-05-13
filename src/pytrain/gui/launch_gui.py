@@ -164,6 +164,7 @@ class LaunchGui(Thread):
         self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
     def do_launch(self):
+        self.abort.enable()
         self.message.clear()
         self.update_counter(value=30)
         self.count.repeat(1000, self.update_counter)
@@ -173,6 +174,7 @@ class LaunchGui(Thread):
         self.message.clear()
         self.message.value = "Launch Abort"
         self.message.show()
+        self.abort.disable()
 
     def toggle_power(self):
         self.update_counter(value=0)
