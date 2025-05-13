@@ -65,7 +65,7 @@ version_scheme = "only-version"
 where = ["src"]
 
 [tool.setuptools.package-data]
-install = ["*.template"]
+install = ["*.template", "*.jpg", "*.png", "*.ttf"]
 
 
 [project.scripts]
