@@ -85,7 +85,7 @@ class LaunchGui(Thread):
             italic=True,
         )
 
-        self.message = Text(upper_box, text="", grid=[1, 2, 2, 1], size=24, color="red", bold=True, align="bottom")
+        self.message = Text(upper_box, text="", grid=[0, 2, 4, 1], size=24, color="red", bold=True, align="bottom")
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
         power_box = Box(lower_box, layout="grid", border=2, align="left")
@@ -172,7 +172,10 @@ class LaunchGui(Thread):
     def do_abort(self):
         self.count.cancel(self.update_counter)
         self.message.clear()
-        self.message.value = "Launch Abort"
+        if self.counter >= 0:
+            self.message.value = "Launch Aborted"
+        else:
+            self.message.value = "Self Destruct"
         self.message.show()
         self.abort.disable()
 
