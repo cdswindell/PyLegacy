@@ -67,7 +67,7 @@ class LaunchGui(Thread):
             countdown_box,
             text="T-Minus",
             align="left",
-            size=17,
+            size=16,
             height=2,
             bg="black",
             color="white",
