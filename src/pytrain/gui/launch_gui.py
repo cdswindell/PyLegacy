@@ -77,9 +77,9 @@ class LaunchGui(Thread):
             countdown_box,
             text="-00:00",
             align="right",
-            size=29,
+            size=18,
             height=2,
-            font="Digital Display",
+            font="DigitalDream",
             bg="black",
             color="white",
             italic=True,
@@ -153,7 +153,7 @@ class LaunchGui(Thread):
 
         count = self.counter
         if count < 0:
-            prefix = " "
+            prefix = "+"
             count = abs(count)
             self.label.value = "Launch"
         else:
