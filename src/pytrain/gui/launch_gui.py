@@ -77,7 +77,7 @@ class LaunchGui(Thread):
             countdown_box,
             text="-00:00",
             align="right",
-            size=28,
+            size=29,
             height=2,
             font="Digital Display",
             bg="black",
