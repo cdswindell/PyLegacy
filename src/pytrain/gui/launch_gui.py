@@ -156,6 +156,8 @@ class LaunchGui(Thread):
             prefix = " "
             count = abs(count)
             self.label.value = "Launch"
+        else:
+            self.label.value = "T-Minus"
 
         minute = count // 60
         second = count % 60
