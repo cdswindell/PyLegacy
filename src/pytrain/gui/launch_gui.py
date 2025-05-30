@@ -1,4 +1,4 @@
-from threading import Thread
+from threading import Thread, Event
 
 from guizero import App, PushButton, Text, Box
 
@@ -37,6 +37,10 @@ class LaunchGui(Thread):
         self.siren_req = CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, tmcc_id)
         self.klaxon_req = CommandReq(TMCC1EngineCommandEnum.RING_BELL, tmcc_id)
 
+        self._gantry_rev_ev = Event()
+        self._gantry_fwd_ev = Event()
+        self._gantry_rev_thread = None
+        self._gantry_fwd_thread = None
         self.start()
 
     def run(self):
@@ -248,7 +252,19 @@ class LaunchGui(Thread):
             button.height = button.width = 72
 
     def start_gantry_rev(self) -> None:
+        self._gantry_rev_ev.clear()
+        self._gantry_rev_thread = Thread(daemon=True, target=self._gantry_rev)
+        self._gantry_rev_thread.start()
         print("Gantry Reversed")
 
     def stop_gantry_rev(self) -> None:
+        self._gantry_rev_ev.set()
+        self._gantry_rev_thread = None
         print("Gantry Reversed Stopped")
+
+    def _gantry_rev(self) -> None:
+        while True:
+            self.gantry_rev_req.send(repeat=2)
+            self._gantry_rev_ev.wait(0.10)
+            if self._gantry_rev_ev.is_set():
+                break
