@@ -264,7 +264,7 @@ class LaunchGui(Thread):
 
     def _gantry_rev(self) -> None:
         while True:
-            self.gantry_rev_req.send(repeat=2)
+            self.gantry_rev_req.send(repeat=1)
             self._gantry_rev_ev.wait(0.10)
             if self._gantry_rev_ev.is_set():
                 break
