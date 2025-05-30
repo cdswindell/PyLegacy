@@ -1,4 +1,4 @@
-from threading import Thread, Event
+from threading import Thread
 
 from guizero import App, PushButton, Text, Box
 
@@ -37,10 +37,6 @@ class LaunchGui(Thread):
         self.siren_req = CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, tmcc_id)
         self.klaxon_req = CommandReq(TMCC1EngineCommandEnum.RING_BELL, tmcc_id)
 
-        self._gantry_rev_ev = Event()
-        self._gantry_fwd_ev = Event()
-        self._gantry_rev_thread = None
-        self._gantry_fwd_thread = None
         self.start()
 
     def run(self):
@@ -132,6 +128,7 @@ class LaunchGui(Thread):
             height=72,
             width=72,
         )
+        self.siren_button.when_clicked = self.siren_req.send
         self.siren_button.when_left_button_pressed = lambda _: self.toggle_sound(self.siren_button)
         self.siren_button.when_left_button_released = lambda _: self.toggle_sound(self.siren_button)
 
@@ -144,6 +141,7 @@ class LaunchGui(Thread):
             height=72,
             width=72,
         )
+        self.klaxon_button.when_clicked = self.klaxon_req.send
         self.klaxon_button.when_left_button_pressed = lambda _: self.toggle_sound(self.klaxon_button)
         self.klaxon_button.when_left_button_released = lambda _: self.toggle_sound(self.klaxon_button)
 
@@ -156,8 +154,7 @@ class LaunchGui(Thread):
             height=70,
             width=70,
         )
-        self.gantry_rev.when_left_button_pressed = self.start_gantry_rev
-        self.gantry_rev.when_left_button_released = self.stop_gantry_rev
+        self.gantry_rev.when_clicked = self.gantry_rev_req.send
 
         self.gantry_fwd = PushButton(
             gantry_box,
@@ -166,6 +163,7 @@ class LaunchGui(Thread):
             height=70,
             width=70,
         )
+        self.gantry_fwd.when_clicked = self.gantry_fwd_req.send
 
         # start upper box disabled
         self.upper_box.disable()
@@ -250,21 +248,3 @@ class LaunchGui(Thread):
             else:
                 button.image = self.siren_off
             button.height = button.width = 72
-
-    def start_gantry_rev(self) -> None:
-        self._gantry_rev_ev.clear()
-        self._gantry_rev_thread = Thread(daemon=True, target=self._gantry_rev)
-        self._gantry_rev_thread.start()
-        print("Gantry Reversed")
-
-    def stop_gantry_rev(self) -> None:
-        self._gantry_rev_ev.set()
-        self._gantry_rev_thread = None
-        print("Gantry Reversed Stopped")
-
-    def _gantry_rev(self) -> None:
-        while True:
-            self.gantry_rev_req.send(repeat=1)
-            self._gantry_rev_ev.wait(0.10)
-            if self._gantry_rev_ev.is_set():
-                break
