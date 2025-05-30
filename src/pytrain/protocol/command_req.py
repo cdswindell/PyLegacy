@@ -40,7 +40,11 @@ R = TypeVar("R", bound="CommandReq")
 class CommandReq:
     @classmethod
     def build(
-        cls, command: E | bytes, address: int = DEFAULT_ADDRESS, data: int = 0, scope: CommandScope = None
+        cls,
+        command: E | bytes,
+        address: int = DEFAULT_ADDRESS,
+        data: int = 0,
+        scope: CommandScope = None,
     ) -> Self:
         if isinstance(command, bytes):
             return cls.from_bytes(bytes(command))

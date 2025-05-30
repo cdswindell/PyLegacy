@@ -2,6 +2,7 @@ from threading import Thread
 
 from guizero import App, PushButton, Text, Box
 
+from .. import CommandReq, TMCC1EngineCommandEnum
 from ..gpio.gpio_handler import GpioHandler
 from ..utils.path_utils import find_file
 
@@ -26,7 +27,15 @@ class LaunchGui(Thread):
         self.launch_button = self.abort = self.pad = self.count = self.label = None
         self.gantry_box = self.siren_box = self.klaxon_box = self.lights_box = None
         self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
-        self.gantry_left = self.gantry_right = None
+        self.gantry_rev = self.gantry_fwd = None
+
+        self.launch_now_req = CommandReq(TMCC1EngineCommandEnum.FRONT_COUPLER, tmcc_id)
+        self.abort_now_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 5)
+        self.gantry_rev_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 6)
+        self.gantry_fwd_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 3)
+        self.lights_req = CommandReq(TMCC1EngineCommandEnum.AUX2_OPTION_ONE, tmcc_id)
+        self.siren_req = CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, tmcc_id)
+        self.klaxon_req = CommandReq(TMCC1EngineCommandEnum.RING_BELL, tmcc_id)
 
         self.start()
 
@@ -136,14 +145,17 @@ class LaunchGui(Thread):
 
         self.gantry_box = gantry_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(gantry_box, text="Gantry", grid=[0, 0, 2, 1], size=16, underline=True)
-        self.gantry_left = PushButton(
+        self.gantry_rev = PushButton(
             gantry_box,
             image=self.left_arrow,
             grid=[0, 1],
             height=70,
             width=70,
         )
-        self.gantry_right = PushButton(
+        self.gantry_rev.when_left_button_pressed = self.start_gantry_rev
+        self.gantry_rev.when_left_button_released = self.stop_gantry_rev
+
+        self.gantry_fwd = PushButton(
             gantry_box,
             image=self.right_arrow,
             grid=[1, 1],
@@ -234,3 +246,9 @@ class LaunchGui(Thread):
             else:
                 button.image = self.siren_off
             button.height = button.width = 72
+
+    def start_gantry_rev(self) -> None:
+        print("Gantry Reversed")
+
+    def stop_gantry_rev(self) -> None:
+        print("Gantry Reversed Stopped")
