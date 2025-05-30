@@ -1,14 +1,22 @@
+import atexit
 from threading import Thread
 
 from guizero import App, PushButton, Text, Box
 
-from .. import CommandReq, TMCC1EngineCommandEnum
+from ..comm.command_listener import CommandDispatcher
+from ..db.state_watcher import StateWatcher
+from ..protocol.constants import CommandScope
+from ..db.component_state_store import ComponentStateStore
+from ..protocol.command_req import CommandReq
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+
 from ..gpio.gpio_handler import GpioHandler
 from ..utils.path_utils import find_file
 
 
 class LaunchGui(Thread):
     def __init__(self, tmcc_id: int = 39):
+        # initialize guizero thread
         super().__init__(daemon=True, name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
 
@@ -37,7 +45,38 @@ class LaunchGui(Thread):
         self.siren_req = CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, tmcc_id)
         self.klaxon_req = CommandReq(TMCC1EngineCommandEnum.RING_BELL, tmcc_id)
 
-        self.start()
+        # listen for state changes
+        self._dispatcher = CommandDispatcher.get()
+        self._state_store = ComponentStateStore.get()
+        self._synchronized = False
+        self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+        self._monitored_state = None
+        if self._sync_state and self._sync_state.is_synchronized is True:
+            self._sync_watcher = None
+            self.on_sync()
+        else:
+            self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
+        atexit.register(self.close)
+
+    def on_sync(self) -> None:
+        if self._sync_state.is_synchronized:
+            if self._sync_watcher:
+                self._sync_watcher.shutdown()
+                self._sync_watcher = None
+            self._synchronized = True
+            self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id, False)
+            if self._monitored_state is None:
+                raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
+            # start GUI
+            self.start()
+            # listen for state updates
+            self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
+
+    def close(self) -> None:
+        pass
+
+    def __call__(self, cmd: CommandReq) -> None:
+        pass
 
     def run(self):
         GpioHandler.cache_handler(self)
