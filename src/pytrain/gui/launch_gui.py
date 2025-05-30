@@ -128,7 +128,7 @@ class LaunchGui(Thread):
             height=72,
             width=72,
         )
-        self.siren_button.when_clicked = self.siren_req.send
+        self.siren_button.when_clicked = lambda x: self.siren_req.send()
         self.siren_button.when_left_button_pressed = lambda _: self.toggle_sound(self.siren_button)
         self.siren_button.when_left_button_released = lambda _: self.toggle_sound(self.siren_button)
 
@@ -141,7 +141,7 @@ class LaunchGui(Thread):
             height=72,
             width=72,
         )
-        self.klaxon_button.when_clicked = self.klaxon_req.send
+        self.klaxon_button.when_clicked = lambda x: self.klaxon_req.send()
         self.klaxon_button.when_left_button_pressed = lambda _: self.toggle_sound(self.klaxon_button)
         self.klaxon_button.when_left_button_released = lambda _: self.toggle_sound(self.klaxon_button)
 
@@ -154,7 +154,7 @@ class LaunchGui(Thread):
             height=70,
             width=70,
         )
-        self.gantry_rev.when_clicked = self.gantry_rev_req.send
+        self.gantry_rev.when_clicked = lambda x: self.gantry_rev_req.send()
 
         self.gantry_fwd = PushButton(
             gantry_box,
@@ -163,7 +163,7 @@ class LaunchGui(Thread):
             height=70,
             width=70,
         )
-        self.gantry_fwd.when_clicked = self.gantry_fwd_req.send
+        self.gantry_fwd.when_clicked = lambda x: self.gantry_fwd_req.send()
 
         # start upper box disabled
         self.upper_box.disable()
