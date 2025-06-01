@@ -223,6 +223,7 @@ class SequenceReq(CommandReq, Sequence):
                     port=port,
                     server=server,
                     buffer=buffer,
+                    request=request,
                 )
 
         return send_func

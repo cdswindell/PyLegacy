@@ -89,6 +89,7 @@ class TMCC1CommandDef(CommandDef):
         alias: str = None,
         data: int = None,
         filtered: bool = False,
+        aux1: bool = False,
         interval: int = None,
     ) -> None:
         super().__init__(
@@ -105,6 +106,7 @@ class TMCC1CommandDef(CommandDef):
             interval=interval,
         )
         self._command_ident = command_ident
+        self._aux1 = aux1
 
     @property
     def syntax(self) -> CommandSyntax:
@@ -121,6 +123,10 @@ class TMCC1CommandDef(CommandDef):
     @property
     def scope(self) -> CommandScope:
         return TMCC1_IDENT_TO_SCOPE_MAP[self.identifier]
+
+    @property
+    def is_aux1_prefixed(self) -> bool:
+        return self._aux1
 
     @property
     def address_mask(self) -> int:
@@ -305,8 +311,8 @@ class TMCC1AuxCommandEnum(TMCC1Enum):
 # Engine/Train commands
 TMCC1_TRAIN_COMMAND_MODIFIER: int = 0xC800  # Logically OR with engine command to make train command
 TMCC1_TRAIN_COMMAND_PURIFIER: int = 0x07FF  # Logically AND with engine command to reset engine bits
-TMCC1_ENG_ABSOLUTE_SPEED_COMMAND: int = 0x0060  # Absolute speed 0-31 encoded in last 5 bits
-TMCC1_ENG_RELATIVE_SPEED_COMMAND: int = 0x0040  # Relative Speed -5 - 5 encoded in last 4 bits (offset by 5)
+TMCC1_ENG_ABSOLUTE_SPEED_COMMAND: int = 0x0060  # Absolute speed 0-31 encoded in last 5-bits
+TMCC1_ENG_RELATIVE_SPEED_COMMAND: int = 0x0040  # Relative Speed -5 - 5 encoded in last 4-bits (offset by 5)
 TMCC1_ENG_FORWARD_DIRECTION_COMMAND: int = 0x0000
 TMCC1_ENG_TOGGLE_DIRECTION_COMMAND: int = 0x0001
 TMCC1_ENG_REVERSE_DIRECTION_COMMAND: int = 0x0003
@@ -445,14 +451,14 @@ class TMCC1EngineCommandEnum(TMCC1Enum):
     RPM_DOWN = TMCC1CommandDef(TMCC1_ENG_RPM_DOWN_COMMAND, alias="NUMERIC", data=6)
     RPM_UP = TMCC1CommandDef(TMCC1_ENG_RPM_UP_COMMAND, alias="NUMERIC", data=3)
     SET_ADDRESS = TMCC1CommandDef(TMCC1_ENG_SET_ADDRESS_COMMAND)
-    SHUTDOWN_IMMEDIATE = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 5, alias="NUMERIC", data=5)
+    SHUTDOWN_IMMEDIATE = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 5, alias="NUMERIC", data=5, aux1=True)
     SINGLE_FORWARD = TMCC1CommandDef(TMCC1_ENG_ASSIGN_SINGLE_FORWARD_COMMAND)
     SINGLE_REVERSE = TMCC1CommandDef(TMCC1_ENG_ASSIGN_SINGLE_REVERSE_COMMAND)
     SMOKE_OFF = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 8, alias="NUMERIC", data=8)
     SMOKE_ON = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 9, alias="NUMERIC", data=9)
     SOUND_ONE = TMCC1CommandDef(TMCC1_ENG_SOUND_ONE_COMMAND, alias="NUMERIC", data=2)
     TOWER_CHATTER = TMCC1CommandDef(TMCC1_ENG_SOUND_TWO_COMMAND, alias="NUMERIC", data=7)
-    START_UP_IMMEDIATE = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 3, alias="NUMERIC", data=3)
+    START_UP_IMMEDIATE = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 3, alias="NUMERIC", data=3, aux1=True)
     STOP_IMMEDIATE = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, alias="ABSOLUTE_SPEED", data=0, filtered=True)
     TOGGLE_DIRECTION = TMCC1CommandDef(TMCC1_ENG_TOGGLE_DIRECTION_COMMAND, filtered=True)
     VOLUME_DOWN = TMCC1CommandDef(TMCC1_ENG_VOLUME_DOWN_COMMAND, alias="NUMERIC", data=4)

@@ -82,6 +82,10 @@ class CommandDef(ABC):
     def interval(self) -> int:
         return self._interval
 
+    @property
+    def is_aux1_prefixed(self) -> bool:
+        return False
+
     def is_valid_data(self, candidate: int, from_bytes: bool = False) -> bool:
         """
         Determine if a candidate value is valid, given the constraints on this

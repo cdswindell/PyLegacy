@@ -53,6 +53,7 @@ class LaunchGui(Thread):
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         self._monitored_state = None
         self._last_cmd = None
+        self.started_up = False
         if self._sync_state and self._sync_state.is_synchronized is True:
             self._sync_watcher = None
             self.on_sync()

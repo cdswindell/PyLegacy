@@ -99,10 +99,11 @@ class CommandReq:
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
-    ) -> None:
+    ) -> CommandReq:
         # build_req & queue
         req = cls.build(command, address, data, scope)
-        cls._enqueue_command(req.as_bytes, repeat, delay, duration, baudrate, port, server)
+        cls._enqueue_command(req.as_bytes, repeat, delay, duration, baudrate, port, server, request=req)
+        return req
 
     @classmethod
     def build_action(
@@ -189,6 +190,15 @@ class CommandReq:
             interval, min_value=MINIMUM_DURATION_INTERVAL_MSEC, label="interval", allow_none=True
         )
 
+        if request and request.command_def.is_aux1_prefixed is True:
+            prefix_bytes = CommandReq(
+                TMCC1EngineCommandEnum.AUX1_OPTION_ONE,
+                address=request.address,
+                scope=request.scope,
+            ).as_bytes
+        else:
+            prefix_bytes = None
+
         # send command to comm buffer
         if buffer is None:
             from ..comm.comm_buffer import CommBuffer
@@ -197,6 +207,8 @@ class CommandReq:
         delay = 0 if delay is None else delay
         duration = 0 if duration is None else duration
         for rep_no in range(repeat):
+            if prefix_bytes:
+                buffer.enqueue_command(prefix_bytes, delay)
             buffer.enqueue_command(cmd, delay)
             # does this command cause any other state changes?
             if rep_no == 0 and request and trigger_effects is True:
