@@ -51,6 +51,7 @@ class LaunchGui(Thread):
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         self._monitored_state = None
+        self._last_cmd = None
         if self._sync_state and self._sync_state.is_synchronized is True:
             self._sync_watcher = None
             self.on_sync()
@@ -76,7 +77,16 @@ class LaunchGui(Thread):
         pass
 
     def __call__(self, cmd: CommandReq) -> None:
-        pass
+        print(cmd)
+        if cmd != self._last_cmd:
+            if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
+                if cmd.data in (3, 6):
+                    # mark launch pad as on and lights as on
+                    self.do_power_on()
+                    self.do_lights_on()
+
+        # remember last command
+        self._last_cmd = cmd
 
     def run(self):
         GpioHandler.cache_handler(self)
@@ -258,23 +268,37 @@ class LaunchGui(Thread):
         self.label.value = "T-Minus"
         self.message.clear()
         if self.power_button.image == self.on_button:
-            self.power_button.image = self.off_button
-            self.upper_box.enable()
-            self.lights_box.enable()
-            self.siren_box.enable()
-            self.klaxon_box.enable()
-            self.gantry_box.enable()
+            self.do_power_on()
         else:
-            self.power_button.image = self.on_button
-            self.upper_box.disable()
-            self.lights_box.disable()
-            self.siren_box.disable()
-            self.klaxon_box.disable()
-            self.gantry_box.disable()
+            self.do_power_off()
         self.power_button.height = self.power_button.width = 72
 
+    def do_power_off(self):
+        self.power_button.image = self.on_button
+        self.upper_box.disable()
+        self.lights_box.disable()
+        self.siren_box.disable()
+        self.klaxon_box.disable()
+        self.gantry_box.disable()
+
+    def do_power_on(self):
+        self.power_button.image = self.off_button
+        self.upper_box.enable()
+        self.lights_box.enable()
+        self.siren_box.enable()
+        self.klaxon_box.enable()
+        self.gantry_box.enable()
+
+    def do_lights_on(self):
+        self.lights_button.image = self.on_button
+        self.lights_button.height = self.lights_button.width = 72
+
+    def do_lights_off(self):
+        self.lights_button.image = self.on_button
+        self.lights_button.height = self.lights_button.width = 72
+
     def toggle_lights(self):
-        if self.lights_button.image == self.on_button:
+        if self.lights_button.image == self.off_button:
             self.lights_button.image = self.off_button
         else:
             self.lights_button.image = self.on_button
