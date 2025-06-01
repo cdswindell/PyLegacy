@@ -41,7 +41,8 @@ class LaunchGui(Thread):
         self.abort_now_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 5)
         self.gantry_rev_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 6)
         self.gantry_fwd_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 3)
-        self.lights_req = CommandReq(TMCC1EngineCommandEnum.AUX2_OPTION_ONE, tmcc_id)
+        self.lights_on_req = CommandReq(TMCC1EngineCommandEnum.AUX2_ON, tmcc_id)
+        self.lights_off_req = CommandReq(TMCC1EngineCommandEnum.AUX2_OFF, tmcc_id)
         self.siren_req = CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, tmcc_id)
         self.klaxon_req = CommandReq(TMCC1EngineCommandEnum.RING_BELL, tmcc_id)
 
@@ -292,7 +293,7 @@ class LaunchGui(Thread):
         self.power_button.height = self.power_button.width = 72
 
     def do_lights_on(self):
-        self.lights_button.image = self.on_button
+        self.lights_button.image = self.off_button
         self.lights_button.height = self.lights_button.width = 72
 
     def do_lights_off(self):
@@ -302,8 +303,10 @@ class LaunchGui(Thread):
     def toggle_lights(self):
         if self.lights_button.image == self.off_button:
             self.lights_button.image = self.on_button
+            self.lights_on_req.send()
         else:
             self.lights_button.image = self.off_button
+            self.lights_off_req.send()
         self.lights_button.height = self.lights_button.width = 72
 
     def toggle_sound(self, button: PushButton):
