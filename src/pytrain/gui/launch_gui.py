@@ -280,6 +280,7 @@ class LaunchGui(Thread):
         self.siren_box.disable()
         self.klaxon_box.disable()
         self.gantry_box.disable()
+        self.power_button.height = self.power_button.width = 72
 
     def do_power_on(self):
         self.power_button.image = self.off_button
@@ -288,6 +289,7 @@ class LaunchGui(Thread):
         self.siren_box.enable()
         self.klaxon_box.enable()
         self.gantry_box.enable()
+        self.power_button.height = self.power_button.width = 72
 
     def do_lights_on(self):
         self.lights_button.image = self.on_button
