@@ -303,10 +303,10 @@ class LaunchGui(Thread):
     def toggle_lights(self):
         if self.lights_button.image == self.off_button:
             self.lights_button.image = self.on_button
-            self.lights_on_req.send()
+            self.lights_off_req.send()
         else:
             self.lights_button.image = self.off_button
-            self.lights_off_req.send()
+            self.lights_on_req.send()
         self.lights_button.height = self.lights_button.width = 72
 
     def toggle_sound(self, button: PushButton):
