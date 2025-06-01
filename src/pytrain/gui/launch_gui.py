@@ -204,7 +204,7 @@ class LaunchGui(Thread):
             height=70,
             width=70,
         )
-        self.gantry_rev.when_clicked = lambda x: self.gantry_rev_req.send()
+        self.gantry_rev.when_clicked = lambda x: self.gantry_rev_req.send(repeat=2)
 
         self.gantry_fwd = PushButton(
             gantry_box,
@@ -213,7 +213,7 @@ class LaunchGui(Thread):
             height=70,
             width=70,
         )
-        self.gantry_fwd.when_clicked = lambda x: self.gantry_fwd_req.send()
+        self.gantry_fwd.when_clicked = lambda x: self.gantry_fwd_req.send(repeat=2)
 
         # start upper box disabled
         self.upper_box.disable()
@@ -303,10 +303,10 @@ class LaunchGui(Thread):
     def toggle_lights(self):
         if self.lights_button.image == self.off_button:
             self.lights_button.image = self.on_button
-            self.lights_off_req.send()
+            self.lights_off_req.send(repeat=2)
         else:
             self.lights_button.image = self.off_button
-            self.lights_on_req.send()
+            self.lights_on_req.send(repeat=2)
         self.lights_button.height = self.lights_button.width = 72
 
     def toggle_sound(self, button: PushButton):
