@@ -291,11 +291,11 @@ class LaunchGui(Thread):
 
     def do_lights_on(self):
         self.lights_button.image = self.on_button
-        self.lights_button.height = self.lights_button.width = 72
+        # self.lights_button.height = self.lights_button.width = 72
 
     def do_lights_off(self):
         self.lights_button.image = self.on_button
-        self.lights_button.height = self.lights_button.width = 72
+        # self.lights_button.height = self.lights_button.width = 72
 
     def toggle_lights(self):
         if self.lights_button.image == self.off_button:
