@@ -1,5 +1,5 @@
 import atexit
-from threading import Thread
+from threading import Thread, Condition, RLock
 from time import time
 
 from guizero import App, PushButton, Text, Box
@@ -20,6 +20,7 @@ class LaunchGui(Thread):
         # initialize guizero thread
         super().__init__(daemon=True, name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
+        self._cv = Condition(RLock())
 
         self.launch_jpg = find_file("launch.jpg")
         self.abort_jpg = find_file("abort.jpg")
@@ -56,7 +57,8 @@ class LaunchGui(Thread):
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         self._monitored_state = None
         self._last_cmd = None
-        self._last_command_at = 0
+        self._last_cmd_at = 0
+        self._is_countdown = False
         self.started_up = False
         if self._sync_state and self._sync_state.is_synchronized is True:
             self._sync_watcher = None
@@ -98,8 +100,8 @@ class LaunchGui(Thread):
 
     def __call__(self, cmd: CommandReq) -> None:
         print(cmd)
-        print(self._last_cmd, time() - self._last_command_at)
-        if cmd != self._last_cmd or (time() - self._last_command_at) >= 1.0:
+        print(self._last_cmd, time() - self._last_cmd_at)
+        if cmd != self._last_cmd or (time() - self._last_cmd_at) >= 1.0:
             self._last_cmd_at = time()
             if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
                 if cmd.data in (3, 6):
@@ -283,21 +285,29 @@ class LaunchGui(Thread):
         self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
     def do_launch(self, t_minus: int = 30):
-        print(f"Launching: T Minus: {t_minus}")
-        self.abort.enable()
-        self.message.clear()
-        self.update_counter(value=t_minus)
-        self.count.repeat(1000, self.update_counter)
+        with self._cv:
+            print(f"Launching: T Minus: {t_minus}")
+            if self._is_countdown is True:
+                self.count.cancel(self.update_counter)
+                self._is_countdown = False
+            self.abort.enable()
+            self.message.clear()
+            self.update_counter(value=t_minus)
+            self._is_countdown = True
+            self.count.repeat(1000, self.update_counter)
 
     def do_abort(self):
-        self.count.cancel(self.update_counter)
-        self.message.clear()
-        if self.counter >= 0:
-            self.message.value = "Launch Aborted"
-        else:
-            self.message.value = "Self Destruct"
-        self.message.show()
-        self.abort.disable()
+        with self._cv:
+            if self._is_countdown is True:
+                self.count.cancel(self.update_counter)
+                self._is_countdown = False
+            self.message.clear()
+            if self.counter >= 0:
+                self.message.value = "Launch Aborted"
+            else:
+                self.message.value = "Self Destruct"
+            self.message.show()
+            self.abort.disable()
 
     def toggle_power(self):
         self.update_counter(value=0)
