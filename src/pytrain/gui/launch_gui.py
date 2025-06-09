@@ -94,6 +94,7 @@ class LaunchGui(Thread):
             else:
                 self.do_power_off()
             # lights on?
+            print(f"Lights: {self._monitored_state.is_aux2}")
             if self._monitored_state.is_aux2 is True:
                 self.do_lights_on()
             else:
@@ -349,21 +350,22 @@ class LaunchGui(Thread):
         self.gantry_box.enable()
 
     def do_lights_on(self):
-        self.lights_button.image = self.off_button
-        self.lights_button.height = self.lights_button.width = 72
+        if self.lights_button.image != self.off_button:
+            self.lights_button.image = self.off_button
+            self.lights_button.height = self.lights_button.width = 72
 
     def do_lights_off(self):
-        self.lights_button.image = self.on_button
-        self.lights_button.height = self.lights_button.width = 72
+        if self.lights_button.image != self.on_button:
+            self.lights_button.image = self.on_button
+            self.lights_button.height = self.lights_button.width = 72
 
     def toggle_lights(self):
-        if self.lights_button.image == self.off_button:
-            self.lights_button.image = self.on_button
-            self.lights_off_req.send(repeat=2)
-        else:
-            self.lights_button.image = self.off_button
+        if self.lights_button.image == self.on_button:
+            self.do_lights_on()
             self.lights_on_req.send(repeat=2)
-        self.lights_button.height = self.lights_button.width = 72
+        else:
+            self.do_lights_off()
+            self.lights_off_req.send(repeat=2)
 
     def toggle_sound(self, button: PushButton):
         if button.enabled is True:
