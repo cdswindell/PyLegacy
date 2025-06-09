@@ -117,6 +117,11 @@ class LaunchGui(Thread):
                 if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                     self.do_power_on()
                     self.do_launch(15)
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
+                    if self._monitored_state.is_aux2 is True:
+                        self.do_lights_on()
+                    else:
+                        self.do_lights_off()
 
         # remember last command
         self._last_cmd = cmd
