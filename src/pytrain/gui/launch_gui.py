@@ -82,6 +82,7 @@ class LaunchGui(Thread):
         pass
 
     def sync_gui_state(self) -> None:
+        print(self._monitored_state)
         if self._monitored_state:
             print(self._monitored_state)
             # power on?
