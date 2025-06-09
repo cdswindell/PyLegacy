@@ -49,6 +49,7 @@ class LaunchGui(Thread):
         self.lights_off_req = CommandReq(TMCC1EngineCommandEnum.AUX2_OFF, tmcc_id)
         self.siren_req = CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, tmcc_id)
         self.klaxon_req = CommandReq(TMCC1EngineCommandEnum.RING_BELL, tmcc_id)
+        self.launch_15_req = CommandReq(TMCC1EngineCommandEnum.REAR_COUPLER, tmcc_id)
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -269,6 +270,8 @@ class LaunchGui(Thread):
         prefix = "-"
         if value is None:
             self.counter -= 1
+            if self.counter == 15:
+                self.launch_15_req.send()
         else:
             self.counter = value
 
@@ -301,6 +304,7 @@ class LaunchGui(Thread):
     def do_abort(self):
         with self._cv:
             self.abort_now_req.send()
+            self.power_off_req.send()
             if self._is_countdown is True:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
