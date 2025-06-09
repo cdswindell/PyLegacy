@@ -37,6 +37,8 @@ class LaunchGui(Thread):
         self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
         self.gantry_rev = self.gantry_fwd = None
 
+        self.power_on_req = CommandReq(TMCC1EngineCommandEnum.START_UP_IMMEDIATE, tmcc_id)
+        self.power_off_req = CommandReq(TMCC1EngineCommandEnum.SHUTDOWN_IMMEDIATE, tmcc_id)
         self.launch_now_req = CommandReq(TMCC1EngineCommandEnum.FRONT_COUPLER, tmcc_id)
         self.abort_now_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 5)
         self.gantry_rev_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 6)
@@ -287,8 +289,10 @@ class LaunchGui(Thread):
         self.message.clear()
         if self.power_button.image == self.on_button:
             self.do_power_on()
+            self.power_on_req.send()
         else:
             self.do_power_off()
+            self.power_off_req.send()
         self.power_button.height = self.power_button.width = 72
 
     def do_power_off(self):
