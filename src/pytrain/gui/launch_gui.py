@@ -287,6 +287,8 @@ class LaunchGui(Thread):
     def do_launch(self, t_minus: int = 30):
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
+            self.gantry_rev_req.send()
+            self.siren_req.send()
             if self._is_countdown is True:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
