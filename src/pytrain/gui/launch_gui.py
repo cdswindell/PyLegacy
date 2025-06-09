@@ -65,12 +65,12 @@ class LaunchGui(Thread):
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
-            print("Synchronized...")
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
                 self._sync_watcher = None
             self._synchronized = True
             self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id, False)
+            print(f"ID: {self.tmcc_id} State: {self._monitored_state}")
             if self._monitored_state is None:
                 raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
             # start GUI
