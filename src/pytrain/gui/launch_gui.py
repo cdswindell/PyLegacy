@@ -70,7 +70,6 @@ class LaunchGui(Thread):
                 self._sync_watcher = None
             self._synchronized = True
             self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id, False)
-            print(f"ID: {self.tmcc_id} State: {self._monitored_state}")
             if self._monitored_state is None:
                 raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
             # start GUI
@@ -82,9 +81,7 @@ class LaunchGui(Thread):
         pass
 
     def sync_gui_state(self) -> None:
-        print(f"ID: {self.tmcc_id} State: {self._monitored_state}")
         if self._monitored_state:
-            print(self._monitored_state)
             # power on?
             if self._monitored_state.is_started is True:
                 self.do_power_on()
@@ -104,6 +101,9 @@ class LaunchGui(Thread):
                     # mark launch pad as on and lights as on
                     self.do_power_on()
                     self.do_lights_on()
+                elif cmd.data == 5:
+                    self.do_lights_off()
+                    self.do_power_off()
 
         # remember last command
         self._last_cmd = cmd
@@ -298,23 +298,24 @@ class LaunchGui(Thread):
         self.power_button.height = self.power_button.width = 72
 
     def do_power_off(self):
-        self.power_button.image = self.on_button
+        if self.power_button.image != self.on_button:
+            self.power_button.image = self.on_button
+            self.power_button.height = self.power_button.width = 72
         self.upper_box.disable()
         self.lights_box.disable()
         self.siren_box.disable()
         self.klaxon_box.disable()
         self.gantry_box.disable()
-        self.power_button.height = self.power_button.width = 72
 
     def do_power_on(self):
-        print("Doing power on...")
-        self.power_button.image = self.off_button
+        if self.power_button.image != self.off_button:
+            self.power_button.image = self.off_button
+            self.power_button.height = self.power_button.width = 72
         self.upper_box.enable()
         self.lights_box.enable()
         self.siren_box.enable()
         self.klaxon_box.enable()
         self.gantry_box.enable()
-        self.power_button.height = self.power_button.width = 72
 
     def do_lights_on(self):
         self.lights_button.image = self.off_button
