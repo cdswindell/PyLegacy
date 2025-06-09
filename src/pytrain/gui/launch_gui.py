@@ -65,6 +65,7 @@ class LaunchGui(Thread):
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
+            print("Synchronized...")
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
                 self._sync_watcher = None
