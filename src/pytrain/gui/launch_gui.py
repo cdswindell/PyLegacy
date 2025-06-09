@@ -98,6 +98,7 @@ class LaunchGui(Thread):
 
     def __call__(self, cmd: CommandReq) -> None:
         print(cmd)
+        print(self._last_cmd, time() - self._last_command_at)
         if cmd != self._last_cmd or (time() - self._last_command_at) >= 1.0:
             self._last_cmd_at = time()
             if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
