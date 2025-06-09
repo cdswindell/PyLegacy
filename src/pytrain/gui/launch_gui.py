@@ -282,6 +282,7 @@ class LaunchGui(Thread):
         self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
     def do_launch(self, t_minus: int = 30):
+        print(f"Launching: T Minus: {t_minus}")
         self.abort.enable()
         self.message.clear()
         self.update_counter(value=t_minus)
