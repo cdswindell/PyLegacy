@@ -296,10 +296,11 @@ class LaunchGui(Thread):
             self.message.clear()
             self.update_counter(value=t_minus)
             self._is_countdown = True
-            self.count.repeat(1000, self.update_counter)
+            self.count.repeat(1050, self.update_counter)
 
     def do_abort(self):
         with self._cv:
+            self.abort_now_req.send()
             if self._is_countdown is True:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
