@@ -85,6 +85,7 @@ class LaunchGui(Thread):
     def sync_gui_state(self) -> None:
         if self._monitored_state:
             # power on?
+            print(f"ID: {self.tmcc_id}: State: {self._monitored_state} {self._monitored_state.is_started}")
             if self._monitored_state.is_started is True:
                 self.do_power_on()
             else:
