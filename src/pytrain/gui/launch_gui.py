@@ -1,5 +1,6 @@
 import atexit
 from threading import Thread
+from time import time
 
 from guizero import App, PushButton, Text, Box
 
@@ -55,6 +56,7 @@ class LaunchGui(Thread):
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         self._monitored_state = None
         self._last_cmd = None
+        self._last_command_at = time()
         self.started_up = False
         if self._sync_state and self._sync_state.is_synchronized is True:
             self._sync_watcher = None
@@ -95,7 +97,8 @@ class LaunchGui(Thread):
 
     def __call__(self, cmd: CommandReq) -> None:
         print(cmd)
-        if cmd != self._last_cmd:
+        if cmd != self._last_cmd or (time() - self._last_command_at) >= 1.0:
+            self._last_cmd_at = time()
             if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
                 if cmd.data in (3, 6):
                     # mark launch pad as on and lights as on
@@ -104,9 +107,17 @@ class LaunchGui(Thread):
                 elif cmd.data == 5:
                     self.do_lights_off()
                     self.do_power_off()
+            elif self.is_active is True:
+                if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
+                    self.do_power_on()
+                    self.do_launch(15)
 
         # remember last command
         self._last_cmd = cmd
+
+    @property
+    def is_active(self) -> bool:
+        return True if self._monitored_state and self._monitored_state.is_started is True else False
 
     def run(self):
         GpioHandler.cache_handler(self)
@@ -269,10 +280,10 @@ class LaunchGui(Thread):
         second = count % 60
         self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
-    def do_launch(self):
+    def do_launch(self, t_minus: int = 30):
         self.abort.enable()
         self.message.clear()
-        self.update_counter(value=30)
+        self.update_counter(value=t_minus)
         self.count.repeat(1000, self.update_counter)
 
     def do_abort(self):
