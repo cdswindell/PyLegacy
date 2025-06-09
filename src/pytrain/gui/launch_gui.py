@@ -72,11 +72,26 @@ class LaunchGui(Thread):
                 raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
             # start GUI
             self.start()
+            # sync GUI with current state
+            self.sync_gui_state()
             # listen for state updates
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
 
     def close(self) -> None:
         pass
+
+    def sync_gui_state(self) -> None:
+        if self._monitored_state:
+            # power on?
+            if self._monitored_state.is_started is True:
+                self.do_power_on()
+            else:
+                self.do_power_off()
+            # lights on?
+            if self._monitored_state.is_aux2 is True:
+                self.do_lights_on()
+            else:
+                self.do_lights_off()
 
     def __call__(self, cmd: CommandReq) -> None:
         print(cmd)
