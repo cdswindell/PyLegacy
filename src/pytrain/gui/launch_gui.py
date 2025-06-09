@@ -91,8 +91,10 @@ class LaunchGui(Thread):
             print(f"ID: {self.tmcc_id}: State: {self._monitored_state} {self._monitored_state.is_started}")
             if self._monitored_state.is_started is True:
                 self.do_power_on()
+                self.lights_on_req.send()
             else:
                 self.do_power_off()
+                self.lights_off_req.send()
             # lights on?
             print(f"Lights: {self._monitored_state.is_aux2}")
             if self._monitored_state.is_aux2 is True:
@@ -102,7 +104,6 @@ class LaunchGui(Thread):
 
     def __call__(self, cmd: CommandReq) -> None:
         print(cmd)
-        print(self._last_cmd, time() - self._last_cmd_at)
         if cmd != self._last_cmd or (time() - self._last_cmd_at) >= 1.0:
             self._last_cmd_at = time()
             if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
