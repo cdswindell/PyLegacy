@@ -82,6 +82,7 @@ class LaunchGui(Thread):
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
+            print(self._monitored_state)
             # power on?
             if self._monitored_state.is_started is True:
                 self.do_power_on()
@@ -305,6 +306,7 @@ class LaunchGui(Thread):
         self.power_button.height = self.power_button.width = 72
 
     def do_power_on(self):
+        print("Doing power on...")
         self.power_button.image = self.off_button
         self.upper_box.enable()
         self.lights_box.enable()
