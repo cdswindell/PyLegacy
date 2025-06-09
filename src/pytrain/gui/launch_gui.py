@@ -241,12 +241,11 @@ class LaunchGui(Thread):
         self.klaxon_box.disable()
         self.gantry_box.disable()
 
-        # display GUI
-        self.app.display()
-        self.app.show()
-
         # sync GUI with current state
         self.sync_gui_state()
+
+        # display GUI and start event loop; call blocks
+        self.app.display()
 
     def reset(self):
         self.app.destroy()
