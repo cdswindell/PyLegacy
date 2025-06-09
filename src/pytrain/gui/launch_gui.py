@@ -72,8 +72,6 @@ class LaunchGui(Thread):
                 raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
             # start GUI
             self.start()
-            # sync GUI with current state
-            self.sync_gui_state()
             # listen for state updates
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
 
@@ -241,6 +239,9 @@ class LaunchGui(Thread):
         # display GUI
         self.app.display()
         self.app.show()
+
+        # sync GUI with current state
+        self.sync_gui_state()
 
     def reset(self):
         self.app.destroy()
