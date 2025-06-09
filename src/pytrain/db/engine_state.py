@@ -30,7 +30,6 @@ from ..protocol.constants import (
     LOCO_TYPE,
     CONTROL_TYPE,
     LOCO_TRACK_CRANE,
-    LOCO_ACCESSORY,
     TRACK_CRANE_STATE_NUMERICS,
     RPM_TYPE,
     STEAM_TYPE,
@@ -267,7 +266,9 @@ class EngineState(ComponentState):
                 if command.command in NUMERIC_SET:
                     from ..pdi.base3_buffer import Base3Buffer
 
-                    if self.engine_type in {LOCO_TRACK_CRANE, LOCO_ACCESSORY}:
+                    if self.engine_type in {
+                        LOCO_TRACK_CRANE,
+                    }:
                         if command.data in TRACK_CRANE_STATE_NUMERICS:
                             self._numeric = command.data
                             self._numeric_cmd = command.command
@@ -414,6 +415,7 @@ class EngineState(ComponentState):
                         self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                         self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                        self._numeric = command.data
                 elif cmd_effects & SHUTDOWN_SET:
                     shutdown = self._harvest_effect(cmd_effects & SHUTDOWN_SET)
                     if isinstance(shutdown, CommandDefEnum):
@@ -422,6 +424,7 @@ class EngineState(ComponentState):
                         self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                         self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                        self._numeric = command.data
             elif (
                 isinstance(command, BaseReq)
                 and command.status == 0
@@ -497,7 +500,9 @@ class EngineState(ComponentState):
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
             packets.append(CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes)
         if self._numeric is not None and self._numeric_cmd is not None:
-            if self.engine_type in {LOCO_TRACK_CRANE, LOCO_ACCESSORY}:
+            if self.engine_type in {
+                LOCO_TRACK_CRANE,
+            }:
                 packets.append(
                     CommandReq.build(
                         self._numeric_cmd,
