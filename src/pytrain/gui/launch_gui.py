@@ -321,7 +321,7 @@ class LaunchGui(Thread):
         second = count % 60
         self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
-    def do_launch(self, t_minus: int = 60, detected: bool = False):
+    def do_launch(self, t_minus: int = 65, detected: bool = False):
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
             if self._is_countdown is True:
