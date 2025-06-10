@@ -34,7 +34,7 @@ class LaunchGui(Thread):
         self.counter = None
 
         self.app = self.upper_box = self.lower_box = self.message = None
-        self.launch_button = self.abort = self.pad = self.count = self.label = None
+        self.launch = self.abort = self.pad = self.count = self.label = None
         self.gantry_box = self.siren_box = self.klaxon_box = self.lights_box = None
         self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
         self.gantry_rev = self.gantry_fwd = None
@@ -140,11 +140,8 @@ class LaunchGui(Thread):
                             self.do_abort(detected=True)
                 elif self.is_active is True:
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
-                        if self._is_countdown is True:
-                            self.do_launch(23, detected=True, hold=False)
-                        else:
-                            self.do_power_on()
-                            self.do_launch(15, detected=True, hold=False)
+                        self.do_power_on()
+                        self.do_launch(15, detected=True, hold=False)
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
                         if self._monitored_state.is_aux2 is True:
                             self.do_lights_on()
@@ -168,7 +165,7 @@ class LaunchGui(Thread):
         app.full_screen = True
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
 
-        self.launch_button = PushButton(
+        self.launch = PushButton(
             upper_box,
             image=self.launch_jpg,
             height=128,
@@ -335,6 +332,7 @@ class LaunchGui(Thread):
             self.abort.enable()
             self.message.clear()
             self.update_counter(value=t_minus)
+            self.launch.disable()
             # start the clock
             if hold is False:
                 self.count.repeat(1090, self.update_counter)
@@ -351,6 +349,7 @@ class LaunchGui(Thread):
                 self.message.value = "Launch Aborted"
             else:
                 self.message.value = "Self Destruct"
+            self.launch.enable()
             self.message.show()
 
     def toggle_power(self):
