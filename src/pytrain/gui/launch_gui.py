@@ -104,7 +104,6 @@ class LaunchGui(Thread):
                 self.do_lights_off()
 
     def __call__(self, cmd: CommandReq) -> None:
-        print(cmd)
         with self._cv:
             # handle launch sequence differently
             if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
@@ -113,7 +112,6 @@ class LaunchGui(Thread):
                         self._launch_seq_time_trigger = time()
                 else:
                     if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.0:
-                        print("Launch sequence triggered!")
                         if self._is_countdown is False:
                             self.do_launch(76, detected=True)
                         self._launch_seq_time_trigger = None
