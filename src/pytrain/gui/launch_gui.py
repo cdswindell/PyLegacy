@@ -298,23 +298,30 @@ class LaunchGui(Thread):
         self.app.destroy()
 
     def update_counter(self, value: int = None):
-        prefix = "-"
-        if value is None:
-            self.counter -= 1
-        else:
-            self.counter = value
+        with self._cv:
+            prefix = "-"
+            if value is None:
+                self.counter -= 1
+            else:
+                self.counter = value
 
-        count = self.counter
-        if count < 0:
-            prefix = "+"
-            count = abs(count)
-            self.label.value = "Launch"
-        else:
-            self.label.value = "T-Minus"
+            count = self.counter
+            if -30 <= count < 0:
+                prefix = "+"
+                count = abs(count)
+                self.label.value = "Launch"
+            else:
+                self.label.value = "T-Minus"
+                if count <= -30:
+                    count = 0
+                    if self._is_countdown is True:
+                        self.count.cancel(self.update_counter)
+                        self._is_countdown = False
+                        self.launch.enable()
 
-        minute = count // 60
-        second = count % 60
-        self.count.value = f"{prefix}{minute:02d}:{second:02d}"
+            minute = count // 60
+            second = count % 60
+            self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
     def do_launch(self, t_minus: int = 80, detected: bool = False, hold=False):
         with self._cv:
