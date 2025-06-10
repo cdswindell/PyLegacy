@@ -117,7 +117,7 @@ class LaunchGui(Thread):
                     if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.0:
                         print("Launch sequence triggered!")
                         if self._is_countdown is False:
-                            self.do_launch(60, detected=True)
+                            self.do_launch(75, detected=True)
                         self._launch_seq_time_trigger = None
                 self._last_cmd = cmd
                 self._last_cmd_at = time()
@@ -138,11 +138,11 @@ class LaunchGui(Thread):
                         self.do_klaxon_off()
                         if self._is_countdown is True:
                             self.do_abort(detected=True)
-
                 elif self.is_active is True:
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
-                        self.do_power_on()
-                        self.do_launch(15, detected=True)
+                        if self._is_countdown is False:
+                            self.do_power_on()
+                            self.do_launch(15, detected=True)
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
                         if self._monitored_state.is_aux2 is True:
                             self.do_lights_on()
@@ -336,7 +336,7 @@ class LaunchGui(Thread):
             self.message.clear()
             self.update_counter(value=t_minus)
             # start the clock
-            self.count.repeat(1080, self.update_counter)
+            self.count.repeat(1090, self.update_counter)
 
     def do_abort(self, detected: bool = False):
         with self._cv:
