@@ -134,9 +134,9 @@ class LaunchGui(Thread):
                     elif cmd.data == 5:
                         self.do_lights_off()
                         self.do_power_off()
-                    elif cmd.data == 6:  # reset
+                    elif cmd.data == 0:  # reset
                         if self._is_countdown is True:
-                            self.do_abort()
+                            self.do_abort(detected=True)
 
                 elif self.is_active is True:
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
@@ -337,9 +337,9 @@ class LaunchGui(Thread):
             # start the clock
             self.count.repeat(1080, self.update_counter)
 
-    def do_abort(self):
+    def do_abort(self, detected: bool = False):
         with self._cv:
-            self.abort_now_req.send()
+            self.reset_req.send()
             if self._is_countdown is True:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
