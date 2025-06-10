@@ -339,7 +339,8 @@ class LaunchGui(Thread):
 
     def do_abort(self, detected: bool = False):
         with self._cv:
-            self.reset_req.send()
+            if detected is False:
+                self.reset_req.send()
             if self._is_countdown is True:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
@@ -349,7 +350,6 @@ class LaunchGui(Thread):
             else:
                 self.message.value = "Self Destruct"
             self.message.show()
-            self.abort.disable()
 
     def toggle_power(self):
         self.update_counter(value=0)
