@@ -50,7 +50,7 @@ class LaunchGui(Thread):
         self.siren_req = CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, tmcc_id)
         self.klaxon_req = CommandReq(TMCC1EngineCommandEnum.RING_BELL, tmcc_id)
         self.launch_15_req = CommandReq(TMCC1EngineCommandEnum.REAR_COUPLER, tmcc_id)
-        self.launch_seq_act = CommandReq(TMCC1EngineCommandEnum.AUX1_OPTION_ONE, tmcc_id).as_action(duration=3.1)
+        self.launch_seq_act = CommandReq(TMCC1EngineCommandEnum.AUX1_OPTION_ONE, tmcc_id).as_action(duration=3.2)
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -314,7 +314,7 @@ class LaunchGui(Thread):
         second = count % 60
         self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
-    def do_launch(self, t_minus: int = 120):
+    def do_launch(self, t_minus: int = 123):
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
             # t_minus is only 15 when triggered by rear_coupler cmd
