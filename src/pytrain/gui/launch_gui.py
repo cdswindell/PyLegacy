@@ -41,6 +41,7 @@ class LaunchGui(Thread):
 
         self.power_on_req = CommandReq(TMCC1EngineCommandEnum.START_UP_IMMEDIATE, tmcc_id)
         self.power_off_req = CommandReq(TMCC1EngineCommandEnum.SHUTDOWN_IMMEDIATE, tmcc_id)
+        self.reset_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 0)
         self.launch_now_req = CommandReq(TMCC1EngineCommandEnum.FRONT_COUPLER, tmcc_id)
         self.abort_now_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 5)
         self.gantry_rev_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 6)
@@ -133,6 +134,10 @@ class LaunchGui(Thread):
                     elif cmd.data == 5:
                         self.do_lights_off()
                         self.do_power_off()
+                    elif cmd.data == 6:  # reset
+                        if self._is_countdown is True:
+                            self.do_abort()
+
                 elif self.is_active is True:
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                         self.do_power_on()
@@ -256,9 +261,7 @@ class LaunchGui(Thread):
             height=72,
             width=72,
         )
-        self.klaxon_button.when_clicked = lambda x: self.klaxon_req.send()
-        self.klaxon_button.when_left_button_pressed = lambda _: self.toggle_sound(self.klaxon_button)
-        self.klaxon_button.when_left_button_released = lambda _: self.toggle_sound(self.klaxon_button)
+        self.klaxon_button.when_clicked = self.toggle_klaxon
 
         self.gantry_box = gantry_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(gantry_box, text="Gantry", grid=[0, 0, 2, 1], size=16, underline=True)
@@ -337,7 +340,6 @@ class LaunchGui(Thread):
     def do_abort(self):
         with self._cv:
             self.abort_now_req.send()
-            self.power_off_req.send()
             if self._is_countdown is True:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
@@ -394,6 +396,15 @@ class LaunchGui(Thread):
         if self.lights_button.image != self.on_button:
             self.lights_button.image = self.on_button
             self.lights_button.height = self.lights_button.width = 72
+
+    def toggle_klaxon(self) -> None:
+        self.klaxon_req.send()
+        self.toggle_sound(self.klaxon_button)
+
+    def do_klaxon_off(self):
+        if self.klaxon_button.image != self.siren_off:
+            self.klaxon_button.image = self.siren_off
+            self.klaxon_button.height = self.klaxon_button.width = 72
 
     def toggle_lights(self):
         if self.lights_button.image == self.on_button:
