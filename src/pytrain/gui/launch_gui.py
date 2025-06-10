@@ -114,7 +114,7 @@ class LaunchGui(Thread):
                     if self._last_cmd != cmd or (time() - self._last_cmd_at) > 5:
                         self._launch_seq_time_trigger = time()
                 else:
-                    if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.2:
+                    if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.0:
                         print("Launch sequence triggered!")
                         if self._is_countdown is False:
                             self.do_launch(60, detected=True)
