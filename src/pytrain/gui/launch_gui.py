@@ -135,6 +135,7 @@ class LaunchGui(Thread):
                         self.do_lights_off()
                         self.do_power_off()
                     elif cmd.data == 0:  # reset
+                        self.do_klaxon_off()
                         if self._is_countdown is True:
                             self.do_abort(detected=True)
 
