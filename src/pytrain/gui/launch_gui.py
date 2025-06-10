@@ -115,7 +115,7 @@ class LaunchGui(Thread):
                 if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.0:
                     print("Launch sequence triggered!")
                     if self.counter is None:
-                        self.do_launch(120)
+                        self.do_launch(120, detected=True)
                     self._launch_seq_time_trigger = None
             self._last_cmd = cmd
             self._last_cmd_at = time()
@@ -135,7 +135,7 @@ class LaunchGui(Thread):
             elif self.is_active is True:
                 if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                     self.do_power_on()
-                    self.do_launch(15)
+                    self.do_launch(15, detected=True)
                 elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
                     if self._monitored_state.is_aux2 is True:
                         self.do_lights_on()
@@ -316,14 +316,15 @@ class LaunchGui(Thread):
         second = count % 60
         self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
-    def do_launch(self, t_minus: int = 124):
+    def do_launch(self, t_minus: int = 124, detected: bool = False):
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
             # t_minus is only 15 when triggered by rear_coupler cmd
+            if detected is False:
+                self.gantry_rev_req.send()
+                self.siren_req.send()
             if t_minus != 15:
                 self.launch_seq_act()
-            self.gantry_rev_req.send()
-            self.siren_req.send()
             if self._is_countdown is True:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
