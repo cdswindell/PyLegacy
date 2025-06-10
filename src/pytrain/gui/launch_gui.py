@@ -346,14 +346,14 @@ class LaunchGui(Thread):
         with self._cv:
             if detected is False:
                 self.reset_req.send()
+            self.message.clear()
             if self._is_countdown is True:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
-            self.message.clear()
-            if self.counter >= 0:
-                self.message.value = "Launch Aborted"
-            else:
-                self.message.value = "Self Destruct"
+                if self.counter >= 0:
+                    self.message.value = "Launch Aborted"
+                else:
+                    self.message.value = "Self Destruct"
             self.launch.enable()
             self.message.show()
 
