@@ -319,15 +319,14 @@ class LaunchGui(Thread):
     def do_launch(self, t_minus: int = 124, detected: bool = False):
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
-            # t_minus is only 15 when triggered by rear_coupler cmd
-            if detected is False:
-                self.gantry_rev_req.send()
-                self.siren_req.send()
-            if t_minus != 15:
-                self.launch_seq_act()
             if self._is_countdown is True:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
+            if detected is True:
+                self.gantry_rev_req.send()
+                self.siren_req.send()
+            else:
+                self.launch_seq_act()
             self.abort.enable()
             self.message.clear()
             self.update_counter(value=t_minus)
