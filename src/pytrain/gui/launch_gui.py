@@ -50,7 +50,7 @@ class LaunchGui(Thread):
         self.siren_req = CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, tmcc_id)
         self.klaxon_req = CommandReq(TMCC1EngineCommandEnum.RING_BELL, tmcc_id)
         self.launch_15_req = CommandReq(TMCC1EngineCommandEnum.REAR_COUPLER, tmcc_id)
-        self.launch_seq_act = CommandReq(TMCC1EngineCommandEnum.AUX1_OPTION_ONE, tmcc_id).as_action(duration=3.5)
+        self.launch_seq_act = CommandReq(TMCC1EngineCommandEnum.AUX1_OPTION_ONE, tmcc_id).as_action(duration=3.8)
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -115,7 +115,7 @@ class LaunchGui(Thread):
                 if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.0:
                     print("Launch sequence triggered!")
                     if self.counter is None:
-                        self.do_launch(120, detected=True)
+                        self.do_launch(60, detected=True)
                     self._launch_seq_time_trigger = None
             self._last_cmd = cmd
             self._last_cmd_at = time()
@@ -316,7 +316,7 @@ class LaunchGui(Thread):
         second = count % 60
         self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
-    def do_launch(self, t_minus: int = 70, detected: bool = False):
+    def do_launch(self, t_minus: int = 60, detected: bool = False):
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
             if self._is_countdown is True:
