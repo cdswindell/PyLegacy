@@ -112,7 +112,8 @@ class LaunchGui(Thread):
         # handle launch sequence differently
         if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
             if self._launch_seq_time_trigger is None:
-                self._launch_seq_time_trigger = time()
+                if self._last_cmd != cmd or (time() - self._last_cmd_at) > 5:
+                    self._launch_seq_time_trigger = time()
             else:
                 if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.0:
                     print("Launch sequence triggered!")
@@ -120,6 +121,7 @@ class LaunchGui(Thread):
                         self.do_launch(120)
                     self._launch_seq_time_trigger = None
             self._last_cmd = cmd
+            self._last_cmd_at = time()
             return
         else:
             self._launch_seq_time_trigger = None
