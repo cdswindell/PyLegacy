@@ -306,8 +306,6 @@ class LaunchGui(Thread):
         prefix = "-"
         if value is None:
             self.counter -= 1
-            if self.counter == 15:
-                self.launch_15_req.send()
         else:
             self.counter = value
 
