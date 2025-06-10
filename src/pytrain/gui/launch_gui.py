@@ -50,7 +50,7 @@ class LaunchGui(Thread):
         self.siren_req = CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, tmcc_id)
         self.klaxon_req = CommandReq(TMCC1EngineCommandEnum.RING_BELL, tmcc_id)
         self.launch_15_req = CommandReq(TMCC1EngineCommandEnum.REAR_COUPLER, tmcc_id)
-        self.launch_seq_act = CommandReq(TMCC1EngineCommandEnum.AUX1_OPTION_ONE, tmcc_id).as_action(duration=4.0)
+        self.launch_seq_act = CommandReq(TMCC1EngineCommandEnum.AUX1_OPTION_ONE, tmcc_id).as_action(duration=3.5)
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -316,7 +316,7 @@ class LaunchGui(Thread):
         second = count % 60
         self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
-    def do_launch(self, t_minus: int = 124, detected: bool = False):
+    def do_launch(self, t_minus: int = 70, detected: bool = False):
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
             if self._is_countdown is True:
@@ -361,14 +361,18 @@ class LaunchGui(Thread):
         self.power_button.height = self.power_button.width = 72
 
     def do_power_off(self):
-        if self.power_button.image != self.on_button:
-            self.power_button.image = self.on_button
-            self.power_button.height = self.power_button.width = 72
-        self.upper_box.disable()
-        self.lights_box.disable()
-        self.siren_box.disable()
-        self.klaxon_box.disable()
-        self.gantry_box.disable()
+        with self._cv:
+            if self._is_countdown is True:
+                self.count.cancel(self.update_counter)
+                self._is_countdown = False
+            if self.power_button.image != self.on_button:
+                self.power_button.image = self.on_button
+                self.power_button.height = self.power_button.width = 72
+            self.upper_box.disable()
+            self.lights_box.disable()
+            self.siren_box.disable()
+            self.klaxon_box.disable()
+            self.gantry_box.disable()
 
     def do_power_on(self):
         if self.power_button.image != self.off_button:
