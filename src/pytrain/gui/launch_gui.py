@@ -123,6 +123,10 @@ class LaunchGui(Thread):
                         self.do_lights_on()
                     else:
                         self.do_lights_off()
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
+                    self.do_lights_on()
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
+                    self.do_lights_off()
 
         # remember last command
         self._last_cmd = cmd
