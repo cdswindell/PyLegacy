@@ -315,6 +315,7 @@ class LaunchGui(Thread):
                     if self._is_countdown is True:
                         self.count.cancel(self.update_counter)
                         self._is_countdown = False
+                        print(f"Count: {count} Enabling Launch...")
                         self.launch.enable()
 
             minute = count // 60
