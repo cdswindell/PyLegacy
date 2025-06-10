@@ -106,48 +106,49 @@ class LaunchGui(Thread):
 
     def __call__(self, cmd: CommandReq) -> None:
         print(cmd)
-        # handle launch sequence differently
-        if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
-            if self._launch_seq_time_trigger is None:
-                if self._last_cmd != cmd or (time() - self._last_cmd_at) > 5:
-                    self._launch_seq_time_trigger = time()
+        with self._cv:
+            # handle launch sequence differently
+            if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
+                if self._launch_seq_time_trigger is None:
+                    if self._last_cmd != cmd or (time() - self._last_cmd_at) > 5:
+                        self._launch_seq_time_trigger = time()
+                else:
+                    if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.2:
+                        print("Launch sequence triggered!")
+                        if self._is_countdown is False:
+                            self.do_launch(60, detected=True)
+                        self._launch_seq_time_trigger = None
+                self._last_cmd = cmd
+                self._last_cmd_at = time()
+                return
             else:
-                if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.0:
-                    print("Launch sequence triggered!")
-                    if self.counter is None:
-                        self.do_launch(60, detected=True)
-                    self._launch_seq_time_trigger = None
-            self._last_cmd = cmd
-            self._last_cmd_at = time()
-            return
-        else:
-            self._launch_seq_time_trigger = None
-        if cmd != self._last_cmd or (time() - self._last_cmd_at) >= 1.0:
-            self._last_cmd_at = time()
-            if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
-                if cmd.data in (3, 6):
-                    # mark launch pad as on and lights as on
-                    self.do_power_on()
-                    self.do_lights_on()
-                elif cmd.data == 5:
-                    self.do_lights_off()
-                    self.do_power_off()
-            elif self.is_active is True:
-                if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
-                    self.do_power_on()
-                    self.do_launch(15, detected=True)
-                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
-                    if self._monitored_state.is_aux2 is True:
+                self._launch_seq_time_trigger = None
+            if cmd != self._last_cmd or (time() - self._last_cmd_at) >= 1.0:
+                self._last_cmd_at = time()
+                if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
+                    if cmd.data in (3, 6):
+                        # mark launch pad as on and lights as on
+                        self.do_power_on()
                         self.do_lights_on()
-                    else:
+                    elif cmd.data == 5:
                         self.do_lights_off()
-                elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
-                    self.do_lights_on()
-                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
-                    self.do_lights_off()
+                        self.do_power_off()
+                elif self.is_active is True:
+                    if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
+                        self.do_power_on()
+                        self.do_launch(15, detected=True)
+                    elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
+                        if self._monitored_state.is_aux2 is True:
+                            self.do_lights_on()
+                        else:
+                            self.do_lights_off()
+                    elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
+                        self.do_lights_on()
+                    elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
+                        self.do_lights_off()
 
-        # remember last command
-        self._last_cmd = cmd
+            # remember last command
+            self._last_cmd = cmd
 
     @property
     def is_active(self) -> bool:
@@ -321,7 +322,7 @@ class LaunchGui(Thread):
             print(f"Launching: T Minus: {t_minus}")
             if self._is_countdown is True:
                 self.count.cancel(self.update_counter)
-                self._is_countdown = False
+            self._is_countdown = True
             if detected is True:
                 self.gantry_rev_req.send()
                 self.siren_req.send()
@@ -330,7 +331,7 @@ class LaunchGui(Thread):
             self.abort.enable()
             self.message.clear()
             self.update_counter(value=t_minus)
-            self._is_countdown = True
+            # start the clock
             self.count.repeat(1080, self.update_counter)
 
     def do_abort(self):
