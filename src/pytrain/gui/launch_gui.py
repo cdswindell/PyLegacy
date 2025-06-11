@@ -128,6 +128,7 @@ class LaunchGui(Thread):
                         # mark launch pad as on and lights as on
                         self.do_power_on()
                         self.do_lights_on()
+                        print(f"Counter: {self.counter} Launch Enabled: {self.launch.enabled} (N36)")
                     elif cmd.data == 5:
                         self.do_lights_off()
                         self.do_power_off()
