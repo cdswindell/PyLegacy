@@ -300,6 +300,8 @@ class LaunchGui(Thread):
             prefix = "-"
             if value is None:
                 self.counter -= 1
+                if self.launch.enabled is True and self._is_countdown is True:
+                    self.launch.disable()
             else:
                 self.counter = value
 
