@@ -303,7 +303,7 @@ class LaunchGui(Thread):
             else:
                 self.counter = value
 
-            count = self.counter
+            count = self.counter if self.counter is not None else 0
             if -30 <= count < 0:
                 prefix = "+"
                 count = abs(count)
