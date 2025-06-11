@@ -301,6 +301,7 @@ class LaunchGui(Thread):
             if value is None:
                 self.counter -= 1
                 if self.launch.enabled is True and self._is_countdown is True:
+                    print("Disabling launch...")
                     self.launch.disable()
             else:
                 self.counter = value
@@ -318,9 +319,6 @@ class LaunchGui(Thread):
                         self.count.cancel(self.update_counter)
                         self._is_countdown = False
                         self.launch.enable()
-
-            print(f"Count: {count} Launch enabled: {self.launch.enabled}")
-
             minute = count // 60
             second = count % 60
             self.count.value = f"{prefix}{minute:02d}:{second:02d}"
