@@ -354,6 +354,7 @@ class LaunchGui(Thread):
                     self.message.value = "Launch Aborted"
                 else:
                     self.message.value = "Self Destruct"
+            print("Enabling launch...")
             self.launch.enable()
             self.message.show()
 
