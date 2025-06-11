@@ -335,9 +335,9 @@ class LaunchGui(Thread):
             else:
                 self.launch_seq_act()
             self.abort.enable()
+            self.launch.disable()
             self.message.clear()
             self.update_counter(value=t_minus)
-            self.launch.disable()
             # start the clock
             if hold is False:
                 self.count.repeat(1090, self.update_counter)
