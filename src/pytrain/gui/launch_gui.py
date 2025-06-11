@@ -114,7 +114,6 @@ class LaunchGui(Thread):
                     if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.1:
                         if self._is_countdown is False:
                             self.do_launch(76, detected=True)
-                            print(f"Counter: {self.counter} Launch Enabled: {self.launch.enabled} (CL)")
                         self._launch_seq_time_trigger = None
                 self._last_cmd = cmd
                 self._last_cmd_at = time()
@@ -128,7 +127,6 @@ class LaunchGui(Thread):
                         # mark launch pad as on and lights as on
                         self.do_power_on()
                         self.do_lights_on()
-                        print(f"Counter: {self.counter} Launch Enabled: {self.launch.enabled} (N36)")
                     elif cmd.data == 5:
                         self.do_lights_off()
                         self.do_power_off()
@@ -299,7 +297,6 @@ class LaunchGui(Thread):
 
     def update_counter(self, value: int = None):
         with self._cv:
-            print(f"Counter: {self.counter} Launch Enabled: {self.launch.enabled} (UC)")
             prefix = "-"
             if value is None:
                 self.counter -= 1
@@ -318,7 +315,6 @@ class LaunchGui(Thread):
                     if self._is_countdown is True:
                         self.count.cancel(self.update_counter)
                         self._is_countdown = False
-                        print("Enabling launch...")
                         self.launch.enable()
             minute = count // 60
             second = count % 60
@@ -337,13 +333,11 @@ class LaunchGui(Thread):
                 self.launch_seq_act()
             self.abort.enable()
             self.launch.disable()
-            print(f"Counter: {self.counter} Launch Enabled: {self.launch.enabled} (DL1)")
             self.message.clear()
             self.update_counter(value=t_minus)
             # start the clock
             if hold is False:
                 self.count.repeat(1090, self.update_counter)
-            print(f"Counter: {self.counter} Launch Enabled: {self.launch.enabled} (DL2)")
 
     def do_abort(self, detected: bool = False):
         with self._cv:
@@ -357,7 +351,6 @@ class LaunchGui(Thread):
                     self.message.value = "Launch Aborted"
                 else:
                     self.message.value = "Self Destruct"
-            print("Enabling launch...")
             self.launch.enable()
             self.message.show()
 
