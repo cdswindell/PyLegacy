@@ -303,9 +303,6 @@ class LaunchGui(Thread):
             prefix = "-"
             if value is None:
                 self.counter -= 1
-                if self.launch.enabled is True and self._is_countdown is True:
-                    print("Disabling launch...")
-                    self.launch.disable()
             else:
                 self.counter = value
 
@@ -391,14 +388,17 @@ class LaunchGui(Thread):
             self.gantry_box.disable()
 
     def do_power_on(self):
-        if self.power_button.image != self.off_button:
-            self.power_button.image = self.off_button
-            self.power_button.height = self.power_button.width = 72
-        self.upper_box.enable()
-        self.lights_box.enable()
-        self.siren_box.enable()
-        self.klaxon_box.enable()
-        self.gantry_box.enable()
+        with self._cv:
+            if self.power_button.image != self.off_button:
+                self.power_button.image = self.off_button
+                self.power_button.height = self.power_button.width = 72
+            self.upper_box.enable()
+            self.lights_box.enable()
+            self.siren_box.enable()
+            self.klaxon_box.enable()
+            self.gantry_box.enable()
+            if self._is_countdown is True:
+                self.launch.disable()
 
     def do_lights_on(self):
         if self.lights_button.image != self.off_button:
