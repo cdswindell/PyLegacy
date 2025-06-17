@@ -18,7 +18,7 @@ g = GantryCrane(
 pd13 = PowerDistrict(
     13,
     on_pin=17,
-    off_pin=17,
+    off_pin=22,
     on_led_pin=27,
 )
 
