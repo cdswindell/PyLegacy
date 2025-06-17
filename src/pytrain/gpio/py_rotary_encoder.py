@@ -40,7 +40,7 @@ class PyRotaryEncoder(RotaryEncoder):
         self._last_steps = self.steps
         self._lock = RLock()
         self._pins = (pin_1, pin_2)
-        self._prefix_cmd = prefix_cmd
+        self._prefix_action = prefix_cmd.as_action() if prefix_cmd else None
         self._handler = PyRotaryEncoderHandler(self, pause_for=pause_for, reset_after_motion=reset_after_motion)
         if command:
             self._handler.start()
@@ -85,6 +85,8 @@ class PyRotaryEncoder(RotaryEncoder):
                 self._last_known_data = data = self._steps_to_data(cur_step)
             else:
                 data = 0  # TODO: handle this case
+            if self._prefix_action:
+                self._prefix_action()
             self._action(new_data=data)
 
     @property
@@ -116,12 +118,12 @@ class PyRotaryEncoderHandler(Thread):
         self._last_step = None
         self._pause_for = pause_for
         self._reset_after_motion = reset_after_motion
-        if reset_after_motion is True:
+        if reset_after_motion:
             self._re.steps = 0
 
     def start(self) -> None:
         with self._re.lock:
-            if self._is_started is False:
+            if not self._is_started:
                 GpioHandler.cache_handler(self)
                 super().start()
 

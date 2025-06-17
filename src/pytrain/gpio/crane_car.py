@@ -42,7 +42,7 @@ class CraneCar(GpioDevice):
         repeat_every: float = 0.02,
     ) -> None:
         Validations.validate_float(repeat_every, 0.005, 1, label="repeat_every")
-        if cab_rotary_encoder is True:
+        if cab_rotary_encoder:
             from .py_rotary_encoder import PyRotaryEncoder
 
             self.cab_left_btn = self.cab_right_btn = None

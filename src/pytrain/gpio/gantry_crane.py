@@ -77,7 +77,7 @@ class GantryCrane(GpioDevice):
         repeat_every: float = 0.02,
     ) -> None:
         cab_sel_cmd = CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ACC)
-        if cab_rotary_encoder is True:
+        if cab_rotary_encoder:
             from .py_rotary_encoder import PyRotaryEncoder
 
             self.cab_left_btn = self.cab_right_btn = None

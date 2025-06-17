@@ -147,7 +147,7 @@ class PotHandler(Thread):
         prefix: CommandReq = None,
     ) -> None:
         super().__init__(daemon=True)
-        if use_12bit is True:
+        if use_12bit:
             self._pot = MCP3208(channel=channel, differential=False)
         else:
             self._pot = MCP3008(channel=channel)
@@ -171,7 +171,7 @@ class PotHandler(Thread):
         self._scale = scale
         self._command_map = cmds
         self._tmcc_command_buffer = CommBuffer.build()
-        if start is True:
+        if start:
             self.start()
 
     @property
@@ -208,7 +208,7 @@ class PotHandler(Thread):
                     # command could be None, indicating no action
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"{cmd} {value} {raw_value}")
-                    if cmd.is_data is True:
+                    if cmd.is_data:
                         cmd.data = value
                     byte_str += cmd.as_bytes
             elif self._command and self._action:
@@ -318,7 +318,7 @@ class GpioHandler:
         if i2c_addr:
             x_axis = Ads1115(channel=x_axis_chn, address=i2c_addr)
             y_axis = Ads1115(channel=y_axis_chn, address=i2c_addr)
-        elif use_12bit is True:
+        elif use_12bit:
             x_axis = MCP3208(channel=x_axis_chn, differential=False)
             y_axis = MCP3208(channel=y_axis_chn, differential=False)
         else:
@@ -463,7 +463,7 @@ class GpioHandler:
         if led_pin is not None:
             led = cls.make_led(led_pin, initially_on, cathode)
             cls.cache_device(led)
-            if bind is True:
+            if bind:
                 led.source = button
         else:
             led = None
@@ -565,7 +565,7 @@ class GpioHandler:
                         held_action(trigger_effects=trigger_effects)
                     # if held_repeat is true, continue sending when_held action
                     # with the given frequency of repeat
-                    if held_repeat is True:
+                    if held_repeat:
                         time.sleep(frequency)
                         trigger_effects = False
                     else:
@@ -654,7 +654,7 @@ class GpioHandler:
         if led_pin is not None and led_pin != 0:
             button.when_pressed = cls.with_toggle_action(action, led, auto_timeout)
             led.source = None  # want led to stay lit when button pressed
-            if initial_state is True:
+            if initial_state:
                 led.on()
             else:
                 led.off()
@@ -733,7 +733,7 @@ class GpioHandler:
     @classmethod
     def reset_all(cls) -> None:
         for handler in cls.GPIO_HANDLER_CACHE:
-            if hasattr(handler, "reset") is False:
+            if not hasattr(handler, "reset"):
                 log.error(f"{handler} has no 'reset' method. Skipping...")
                 continue
             handler.reset()
