@@ -6,10 +6,9 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
-from .. import TMCC1EngineCommandEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCommandEnum
 from .gpio_device import GpioDevice, P
 from .state_source import AccessoryStateSource
 
