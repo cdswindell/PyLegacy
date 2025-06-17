@@ -3,7 +3,7 @@ from src.pytrain.gpio.power_district import *
 from src.pytrain.gpio.gantry_crane import *
 
 g = GantryCrane(
-    address=97,
+    address=87,
     cab_left_pin=20,
     cab_right_pin=21,
     ro_left_pin=12,
