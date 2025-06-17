@@ -40,6 +40,7 @@ class PyRotaryEncoder(RotaryEncoder):
         self._last_steps = self.steps
         self._lock = RLock()
         self._pins = (pin_1, pin_2)
+        self._prefix_cmd = prefix_cmd
         self._handler = PyRotaryEncoderHandler(self, pause_for=pause_for, reset_after_motion=reset_after_motion)
         if command:
             self._handler.start()
