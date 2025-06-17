@@ -92,6 +92,7 @@ class GantryCrane(GpioDevice):
                 steps_to_data=self.std_step_to_data,
                 pause_for=repeat_every,
                 reset_after_motion=True,
+                prefix_cmd=cab_sel_cmd,
             )
         else:
             # use momentary contact switch to rotate cab

@@ -24,6 +24,7 @@ class PyRotaryEncoder(RotaryEncoder):
         data_to_steps: Callable[[int], int] = None,
         pause_for: float = 0.25,
         reset_after_motion: bool = False,
+        prefix_cmd: CommandReq = None,
     ):
         super().__init__(pin_1, pin_2, wrap=wrap, max_steps=max_steps)
         if initial_step is not None:
