@@ -1,6 +1,5 @@
-from src.pytrain.gpio.switch import *
-from src.pytrain.gpio.power_district import *
-from src.pytrain.gpio.gantry_crane import *
+# noinspection PyUnresolvedReferences,PyPackageRequirements
+from pytrain import PowerDistrict, GantryCrane, Switch
 
 g = GantryCrane(
     address=87,

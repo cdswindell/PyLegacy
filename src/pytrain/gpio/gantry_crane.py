@@ -6,6 +6,7 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
+from .. import TMCC1EngineCommandEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
@@ -159,7 +160,7 @@ class GantryCrane(GpioDevice):
         if bo_down_pin:
             down_cmd, self.down_btn, _ = self.make_button(
                 bo_down_pin,
-                TMCC1AuxCommandEnum.BRAKE_SPEED,
+                TMCC1EngineCommandEnum.BRAKE_SPEED,
                 address,
                 hold_repeat=True,
                 hold_time=repeat_every,
@@ -173,7 +174,7 @@ class GantryCrane(GpioDevice):
         if bo_up_pin:
             up_cmd, self.up_btn, _ = self.make_button(
                 bo_up_pin,
-                TMCC1AuxCommandEnum.BOOST_SPEED,
+                TMCC1EngineCommandEnum.BOOST_SPEED,
                 address,
                 hold_repeat=True,
                 hold_time=repeat_every,
