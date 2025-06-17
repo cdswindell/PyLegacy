@@ -36,7 +36,7 @@ if [ -n "$BUTTONS_FILE" ]; then
 fi
 
 # change direction to PYTRAIN_HOME
-cd $PYTRAIN_HOME
+cd $PYTRAIN_HOME || exit
 
 # activate the virtual environment
 source ___ACTIVATE___; export PYTHONPATH=.
