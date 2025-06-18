@@ -408,11 +408,11 @@ class CommandReq:
 
     @property
     def is_tmcc1(self) -> bool:
-        return self._command_def.is_tmcc1
+        return self._command_def.is_tmcc1 is True
 
     @property
     def is_tmcc2(self) -> bool:
-        return self._command_def.is_tmcc2
+        return self._command_def.is_tmcc2 is True
 
     @property
     def identifier(self) -> int | None:
