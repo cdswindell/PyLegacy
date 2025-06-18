@@ -8,7 +8,7 @@
 #
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from .gpio_device import GpioDevice, P
 from .state_source import EngineStateSource
 
@@ -76,12 +76,12 @@ class GantryCrane(GpioDevice):
         cab_rotary_encoder: bool = False,
         repeat_every: float = 0.02,
     ) -> None:
-        cab_sel_cmd = CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ACC)
+        cab_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ACC)
         if cab_rotary_encoder:
             from .py_rotary_encoder import PyRotaryEncoder
 
             self.cab_left_btn = self.cab_right_btn = None
-            cmd = CommandReq.build(TMCC1AuxCommandEnum.RELATIVE_SPEED, address, data=0, scope=CommandScope.ACC)
+            cmd = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, data=0, scope=CommandScope.ACC)
             self.cab_re = PyRotaryEncoder(
                 cab_left_pin,
                 cab_right_pin,
@@ -99,10 +99,10 @@ class GantryCrane(GpioDevice):
             self.cab_re = None
             left_cmd, self.cab_left_btn, _ = self.make_button(
                 cab_left_pin,
-                command=TMCC1AuxCommandEnum.RELATIVE_SPEED,
+                command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
                 address=address,
                 data=-1,
-                scope=CommandScope.ACC,
+                scope=CommandScope.ENGINE,
                 hold_repeat=True,
                 hold_time=repeat_every,
             )
@@ -111,10 +111,10 @@ class GantryCrane(GpioDevice):
 
             right_cmd, self.cab_right_btn, _ = self.make_button(
                 cab_right_pin,
-                command=TMCC1AuxCommandEnum.RELATIVE_SPEED,
+                command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
                 address=address,
                 data=1,
-                scope=CommandScope.ACC,
+                scope=CommandScope.ENGINE,
                 hold_repeat=True,
                 hold_time=repeat_every,
             )
@@ -122,15 +122,15 @@ class GantryCrane(GpioDevice):
             self.cab_right_btn.when_held = right_cmd.as_action()
 
         # set up commands for roll
-        ro_sel_cmd = CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, address, data=2, scope=CommandScope.ACC)
+        ro_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=2, scope=CommandScope.ACC)
         # roll left
         if ro_left_pin:
             ro_left_cmd, self.ro_left_btn, _ = self.make_button(
                 ro_left_pin,
-                command=TMCC1AuxCommandEnum.RELATIVE_SPEED,
+                command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
                 address=address,
                 data=-1,
-                scope=CommandScope.ACC,
+                scope=CommandScope.ENGINE,
                 hold_repeat=True,
                 hold_time=repeat_every,
             )
@@ -143,10 +143,10 @@ class GantryCrane(GpioDevice):
         if ro_right_pin:
             ro_right_cmd, self.ro_right_btn, _ = self.make_button(
                 ro_right_pin,
-                command=TMCC1AuxCommandEnum.RELATIVE_SPEED,
+                command=TMCC1EngineCommandEnum.RELATIVE_SPEED,
                 address=address,
                 data=1,
-                scope=CommandScope.ACC,
+                scope=CommandScope.ENGINE,
                 hold_repeat=True,
                 hold_time=repeat_every,
             )
@@ -192,7 +192,6 @@ class GantryCrane(GpioDevice):
                 auto_timeout=59,
                 cathode=cathode,
             )
-            # self.mag_led.blink()
             self.cache_handler(
                 EngineStateSource(
                     address,
