@@ -74,7 +74,7 @@ class GantryCrane(GpioDevice):
         led_pin: P = None,
         cathode: bool = True,
         cab_rotary_encoder: bool = False,
-        repeat_every: float = 0.05,
+        repeat_every: float = 0.025,
     ) -> None:
         cab_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ENGINE)
         if cab_rotary_encoder:
