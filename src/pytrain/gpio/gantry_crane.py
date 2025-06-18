@@ -197,7 +197,7 @@ class GantryCrane(GpioDevice):
                 AccessoryStateSource(
                     address,
                     self.mag_led,
-                    aux2_state=TMCC1EngineCommandEnum.AUX2_OPTION_ONE,
+                    aux2_state=TMCC1EngineCommandEnum.AUX2_ON,
                 )
             )
         else:
