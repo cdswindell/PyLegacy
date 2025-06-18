@@ -87,6 +87,7 @@ class PyRotaryEncoder(RotaryEncoder):
                 data = 0  # TODO: handle this case
             if self._prefix_action:
                 self._prefix_action()
+            print(f"Current step: {cur_step} Data: {data}")
             self._action(new_data=data)
 
     @property
