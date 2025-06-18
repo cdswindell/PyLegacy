@@ -240,6 +240,7 @@ class EngineState(ComponentState):
                     self._d4_rec_no = command.record_no
             elif isinstance(command, CommandReq):
                 if self._is_legacy is None:
+                    print(f"Is TMCC2: {command.is_tmcc2}")
                     self._is_legacy = command.is_tmcc2 is True or self.address > 99
 
                 # handle some aspects of the halt command
