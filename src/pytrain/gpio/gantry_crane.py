@@ -217,6 +217,7 @@ class GantryCrane(GpioDevice):
 
     def cab_sel_required(self) -> Callable:
         def func() -> bool:
+            print(self._state)
             return self._state.numeric == 1
 
         return func

@@ -88,8 +88,9 @@ class PyRotaryEncoder(RotaryEncoder):
             else:
                 data = 0  # TODO: handle this case
             if self._prefix_action:
-                if self._prefix_required and self._prefix_required():
-                    self._prefix_action()
+                if self._prefix_required:
+                    if self._prefix_required():
+                        self._prefix_action()
                 else:
                     self._prefix_action()
             self._action(new_data=data)
