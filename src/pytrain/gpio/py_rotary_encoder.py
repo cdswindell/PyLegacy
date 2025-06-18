@@ -25,6 +25,7 @@ class PyRotaryEncoder(RotaryEncoder):
         pause_for: float = 0.25,
         reset_after_motion: bool = False,
         prefix_cmd: CommandReq = None,
+        prefix_required: Callable = None,
     ):
         super().__init__(pin_1, pin_2, wrap=wrap, max_steps=max_steps)
         if initial_step is not None:
@@ -41,6 +42,7 @@ class PyRotaryEncoder(RotaryEncoder):
         self._lock = RLock()
         self._pins = (pin_1, pin_2)
         self._prefix_action = prefix_cmd.as_action() if prefix_cmd else None
+        self._prefix_required = prefix_required
         self._handler = PyRotaryEncoderHandler(self, pause_for=pause_for, reset_after_motion=reset_after_motion)
         if command:
             self._handler.start()
@@ -86,8 +88,10 @@ class PyRotaryEncoder(RotaryEncoder):
             else:
                 data = 0  # TODO: handle this case
             if self._prefix_action:
-                self._prefix_action()
-            print(f"Current step: {cur_step} Data: {data}")
+                if self._prefix_required and self._prefix_required():
+                    self._prefix_action()
+                else:
+                    self._prefix_action()
             self._action(new_data=data)
 
     @property

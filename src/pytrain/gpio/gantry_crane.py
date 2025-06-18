@@ -6,8 +6,11 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
+from typing import Callable
+
+from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
+from ..protocol.constants import CommandScope, CAB1_CONTROL_TYPE
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from .gpio_device import GpioDevice, P
 from .state_source import EngineStateSource
@@ -76,6 +79,13 @@ class GantryCrane(GpioDevice):
         cab_rotary_encoder: bool = False,
         repeat_every: float = 0.025,
     ) -> None:
+        # get component state, will need for prefix commands
+        self._state = ComponentStateStore.get_state(CommandScope.ENGINE, address, create=False)
+        if self._state is None:
+            raise AttributeError(f"No gantry crane device found at address {address}")
+        if self._state.control_type != CAB1_CONTROL_TYPE:
+            raise AttributeError(f"Gantry crane must be configured as Cab-1, not {self._state.control_type_label}")
+
         cab_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ENGINE)
         if cab_rotary_encoder:
             from .py_rotary_encoder import PyRotaryEncoder
@@ -93,6 +103,7 @@ class GantryCrane(GpioDevice):
                 pause_for=repeat_every,
                 reset_after_motion=True,
                 prefix_cmd=cab_sel_cmd,
+                prefix_required=self.cab_sel_required,
             )
         else:
             # use momentary contact switch to rotate cab
@@ -203,3 +214,9 @@ class GantryCrane(GpioDevice):
             )
         else:
             self.mag_btn = self.mag_led = None
+
+    def cab_sel_required(self) -> Callable:
+        def func() -> bool:
+            return self._state.numeric == 1
+
+        return func
