@@ -167,5 +167,5 @@ class EngineStateSource(StateSource):
 
     @property
     def is_active(self) -> bool:
-        print(f"TMCC_ID: {self._address} {self.active_led} {self._func(self._component)} {self._component.is_aux2}")
+        print(f"TMCC_ID: {self._address} {self.active_led} {self.active_led.value} {self._func(self._component)}")
         return self._func(self._component) if self._func else False
