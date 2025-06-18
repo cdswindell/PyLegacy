@@ -186,7 +186,7 @@ class GantryCrane(GpioDevice):
         if mag_pin is not None:
             self.mag_btn, self.mag_led = self.when_toggle_button_pressed(
                 mag_pin,
-                TMCC1AuxCommandEnum.AUX2_OPTION_ONE,
+                TMCC1EngineCommandEnum.AUX2_OPTION_ONE,
                 address,
                 led_pin=led_pin,
                 auto_timeout=59,
@@ -197,7 +197,7 @@ class GantryCrane(GpioDevice):
                 AccessoryStateSource(
                     address,
                     self.mag_led,
-                    aux2_state=TMCC1AuxCommandEnum.AUX2_OPTION_ONE,
+                    aux2_state=TMCC1EngineCommandEnum.AUX2_OPTION_ONE,
                 )
             )
         else:
