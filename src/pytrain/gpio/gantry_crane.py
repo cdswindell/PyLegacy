@@ -76,7 +76,7 @@ class GantryCrane(GpioDevice):
         led_pin: P = None,
         cathode: bool = True,
         cab_rotary_encoder: bool = False,
-        repeat_every: float = 0.025,
+        repeat_every: float = 0.02,
     ) -> None:
         # get component state, will need for prefix commands
         self._state = ComponentStateStore.get_state(CommandScope.ENGINE, address, create=False)

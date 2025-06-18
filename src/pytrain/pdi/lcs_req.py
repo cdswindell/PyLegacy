@@ -180,7 +180,12 @@ class LcsReq(PdiReq, ABC):
         else:
             payload = ""
 
-        return f"[PDI {self._pdi_command.name} ID: {self.tmcc_id} {self.action.name}{payload}]"
+        if self.is_error:
+            error = f" Error: {self.error}"
+        else:
+            error = ""
+
+        return f"[PDI {self._pdi_command.name} ID: {self.tmcc_id}{error} {self.action.name}{payload}]"
 
     @property
     def ident(self) -> int:

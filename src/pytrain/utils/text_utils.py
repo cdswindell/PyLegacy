@@ -34,7 +34,16 @@ def title(text: str):
                     pass
                 else:
                     part = part.capitalize()
-            elif part in {"NEW", "OLD", "CAR", "RIO", "PAD", "BEE", "TO"}:
+            elif part in {
+                "BEE",
+                "CAR",
+                "MAN",
+                "NEW",
+                "OLD",
+                "PAD",
+                "RIO",
+                "TO",
+            }:
                 part = part.capitalize()
             parts[i] = part
         text = " ".join([p for p in parts if p])

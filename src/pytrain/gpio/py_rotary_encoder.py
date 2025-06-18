@@ -67,7 +67,7 @@ class PyRotaryEncoder(RotaryEncoder):
         cur_speed = state.speed if state and state.speed is not None else 0
         self.steps = self._last_steps = data_to_steps(cur_speed)
         self._command = command
-        self._action = command.as_action() if command else None
+        self._action = command.as_action(repeat=2) if command else None
         self._handler.start()
 
     def update_data(self, new_data) -> None:
