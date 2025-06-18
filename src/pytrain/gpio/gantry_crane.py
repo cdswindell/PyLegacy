@@ -215,5 +215,4 @@ class GantryCrane(GpioDevice):
             self.mag_btn = self.mag_led = None
 
     def cab_sel_required(self) -> bool:
-        print(self._state)
-        return self._state.numeric == 1
+        return self._state.numeric != 1

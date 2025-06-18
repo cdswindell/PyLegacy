@@ -89,7 +89,6 @@ class PyRotaryEncoder(RotaryEncoder):
                 data = 0  # TODO: handle this case
             if self._prefix_action:
                 if self._prefix_required:
-                    print(f"Prefix required: {self._prefix_required} {self._prefix_required()}")
                     if self._prefix_required():
                         self._prefix_action()
                 else:
