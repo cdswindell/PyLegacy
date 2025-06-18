@@ -192,7 +192,7 @@ class GantryCrane(GpioDevice):
                 auto_timeout=59,
                 cathode=cathode,
             )
-            self.mag_led.blink()
+            # self.mag_led.blink()
             self.cache_handler(
                 EngineStateSource(
                     address,
