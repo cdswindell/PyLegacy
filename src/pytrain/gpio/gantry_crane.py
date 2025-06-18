@@ -74,14 +74,14 @@ class GantryCrane(GpioDevice):
         led_pin: P = None,
         cathode: bool = True,
         cab_rotary_encoder: bool = False,
-        repeat_every: float = 0.02,
+        repeat_every: float = 0.05,
     ) -> None:
-        cab_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ACC)
+        cab_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ENGINE)
         if cab_rotary_encoder:
             from .py_rotary_encoder import PyRotaryEncoder
 
             self.cab_left_btn = self.cab_right_btn = None
-            cmd = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, data=0, scope=CommandScope.ACC)
+            cmd = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, address, data=0, scope=CommandScope.ENGINE)
             self.cab_re = PyRotaryEncoder(
                 cab_left_pin,
                 cab_right_pin,
@@ -122,7 +122,7 @@ class GantryCrane(GpioDevice):
             self.cab_right_btn.when_held = right_cmd.as_action()
 
         # set up commands for roll
-        ro_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=2, scope=CommandScope.ACC)
+        ro_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=2, scope=CommandScope.ENGINE)
         # roll left
         if ro_left_pin:
             ro_left_cmd, self.ro_left_btn, _ = self.make_button(
@@ -161,6 +161,7 @@ class GantryCrane(GpioDevice):
                 bo_down_pin,
                 TMCC1EngineCommandEnum.BRAKE_SPEED,
                 address,
+                scope=CommandScope.ENGINE,
                 hold_repeat=True,
                 hold_time=repeat_every,
             )
@@ -175,6 +176,7 @@ class GantryCrane(GpioDevice):
                 bo_up_pin,
                 TMCC1EngineCommandEnum.BOOST_SPEED,
                 address,
+                scope=CommandScope.ENGINE,
                 hold_repeat=True,
                 hold_time=repeat_every,
             )

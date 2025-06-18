@@ -45,11 +45,7 @@ class StateSource(ABC, Thread, Generic[T]):
             with self._component.synchronizer:
                 self._component.synchronizer.wait()
                 if self._is_running:
-                    if self.is_active is True:
-                        self.active_led.on()
-                    else:
-                        self.active_led.off()
-                    # self.active_led.value = 1 if self.is_active is True else 0
+                    self.active_led.value = 1 if self.is_active is True else 0
                     if self.inactive_led:
                         self.inactive_led.value = 0 if self.is_active is True else 1
 
@@ -171,5 +167,4 @@ class EngineStateSource(StateSource):
 
     @property
     def is_active(self) -> bool:
-        print(f"TMCC_ID: {self._address} {self.active_led} {self.active_led.value} {self._func(self._component)}")
         return self._func(self._component) if self._func else False
