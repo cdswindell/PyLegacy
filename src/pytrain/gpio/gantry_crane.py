@@ -86,6 +86,10 @@ class GantryCrane(GpioDevice):
             raise AttributeError(f"Gantry crane must be configured as Cab-1, not {self._state.control_type_label}")
 
         cab_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ENGINE)
+        # select cab rotate mode
+        if self.cab_sel_required():
+            cab_sel_cmd.send(repeat=2)
+
         if cab_rotary_encoder:
             from .py_rotary_encoder import PyRotaryEncoder
 
@@ -203,7 +207,7 @@ class GantryCrane(GpioDevice):
                 TMCC1EngineCommandEnum.AUX2_OPTION_ONE,
                 address,
                 led_pin=led_pin,
-                auto_timeout=59,
+                auto_timeout=55,
                 cathode=cathode,
             )
             self.cache_handler(
