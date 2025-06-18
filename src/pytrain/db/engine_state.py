@@ -340,7 +340,7 @@ class EngineState(ComponentState):
                             TMCC2.AUX2_OPTION_TWO,
                         }:
                             self._aux2 = cmd
-                            self._last_aux2_opt1 = self.last_updated
+                            # self._last_aux2_opt1 = self.last_updated
 
                 # handle run level/rpm
                 if command.command in RPM_SET:
