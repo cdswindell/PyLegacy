@@ -833,5 +833,6 @@ class GpioHandler:
             byte_str += prefix.as_bytes * 2
             byte_str += command.as_bytes
             tmcc_command_buffer.enqueue_command(byte_str)
+            print(byte_str.hex())
 
         return func
