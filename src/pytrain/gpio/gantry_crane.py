@@ -10,7 +10,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCommandEnum
 from .gpio_device import GpioDevice, P
-from .state_source import AccessoryStateSource
+from .state_source import EngineStateSource
 
 
 class GantryCrane(GpioDevice):
@@ -194,10 +194,10 @@ class GantryCrane(GpioDevice):
             )
             self.mag_led.blink()
             self.cache_handler(
-                AccessoryStateSource(
+                EngineStateSource(
                     address,
                     self.mag_led,
-                    aux2_state=TMCC1EngineCommandEnum.AUX2_ON,
+                    func=lambda x: x.aux2 == TMCC1EngineCommandEnum.AUX2_ON,
                 )
             )
         else:
