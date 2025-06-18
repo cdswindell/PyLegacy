@@ -723,6 +723,7 @@ class EngineState(ComponentState):
 
     @property
     def is_aux2(self) -> bool:
+        print(f"is_aux2: {self.is_aux2} {self.aux2.name}")
         return self._aux2 in {TMCC1.AUX2_ON, TMCC2.AUX2_ON}
 
     @property

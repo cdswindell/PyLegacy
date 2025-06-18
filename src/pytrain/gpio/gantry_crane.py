@@ -197,7 +197,7 @@ class GantryCrane(GpioDevice):
                 EngineStateSource(
                     address,
                     self.mag_led,
-                    func=lambda x: x.aux2 == TMCC1EngineCommandEnum.AUX2_ON,
+                    func=lambda x: x.is_aux2,
                 )
             )
         else:
