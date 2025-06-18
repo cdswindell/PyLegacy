@@ -6,7 +6,6 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
-from typing import Callable
 
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_req import CommandReq
@@ -215,9 +214,6 @@ class GantryCrane(GpioDevice):
         else:
             self.mag_btn = self.mag_led = None
 
-    def cab_sel_required(self) -> Callable:
-        def func() -> bool:
-            print(self._state)
-            return self._state.numeric == 1
-
-        return func
+    def cab_sel_required(self) -> bool:
+        print(self._state)
+        return self._state.numeric == 1
