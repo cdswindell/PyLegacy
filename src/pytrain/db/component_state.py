@@ -378,7 +378,6 @@ class SwitchState(TmccState):
                     if command.command != Switch.SET_ADDRESS:
                         self._state = command.command
                 elif isinstance(command, Asc2Req) or isinstance(command, Stm2Req):
-                    print(command)
                     self._state = Switch.THRU if command.is_thru else Switch.OUT
                 else:
                     log.warning(f"Unhandled Switch State Update received: {command}")
