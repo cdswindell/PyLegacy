@@ -196,6 +196,8 @@ class GantryCrane(GpioDevice):
             self.up_btn = None
 
         if mag_pin is not None:
+            # turn the magnet off
+            CommandReq(TMCC1EngineCommandEnum.AUX2_OFF, address).send(repeat=2)
             self.mag_btn, self.mag_led = self.when_toggle_button_pressed(
                 mag_pin,
                 TMCC1EngineCommandEnum.AUX2_OPTION_ONE,
