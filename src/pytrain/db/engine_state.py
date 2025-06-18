@@ -208,7 +208,7 @@ class EngineState(ComponentState):
 
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
-            if self.is_legacy:
+            if self.is_legacy is True:
                 speed_info = 195
             else:
                 speed_info = 31
@@ -244,7 +244,7 @@ class EngineState(ComponentState):
 
                 # handle some aspects of the halt command
                 if command.command == TMCC1HaltCommandEnum.HALT:
-                    if self.is_legacy:
+                    if self.is_legacy is True:
                         self._aux1 = TMCC2.AUX1_OFF
                         self._aux2 = TMCC2.AUX2_OFF
                         self._aux = TMCC2.AUX2_OPTION_ONE
@@ -316,15 +316,13 @@ class EngineState(ComponentState):
                         self._aux = cmd if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE} else self._aux
                         if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
                             if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
-                                print(f"{self.is_legacy} {self.time_delta(self._last_updated, self._last_aux2_opt1)}")
-                                if self.is_legacy:
+                                if self.is_legacy is True:
                                     self._aux2 = self.update_aux_state(
                                         cmd,
                                         TMCC2.AUX2_ON,
                                         TMCC2.AUX2_OPTION_ONE,
                                         TMCC2.AUX2_OFF,
                                     )
-                                    print("xxx")
                                 else:
                                     x = self._aux2
                                     self._aux2 = self.update_aux_state(
@@ -552,7 +550,7 @@ class EngineState(ComponentState):
         elif self.max_speed and self.max_speed != 255:
             ms = self.max_speed
         else:
-            ms = 199 if self.is_legacy else 31
+            ms = 199 if self.is_legacy is True else 31
         if self.is_legacy is False and ms > 31:
             ms = 31
         return ms
