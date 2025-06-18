@@ -44,6 +44,7 @@ class PyRotaryEncoder(RotaryEncoder):
         self._prefix_action = prefix_cmd.as_action() if prefix_cmd else None
         self._prefix_required = prefix_required
         self._handler = PyRotaryEncoderHandler(self, pause_for=pause_for, reset_after_motion=reset_after_motion)
+        print(f"Prefix required: {self._prefix_required}")
         if command:
             self._handler.start()
 
