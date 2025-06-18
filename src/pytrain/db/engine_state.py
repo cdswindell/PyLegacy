@@ -240,7 +240,7 @@ class EngineState(ComponentState):
                     self._d4_rec_no = command.record_no
             elif isinstance(command, CommandReq):
                 if self._is_legacy is None:
-                    print(f"Is TMCC1: {command.is_tmcc1} {command.is_tmcc1 is True}")
+                    print(f"{command.syntax} Is TMCC1: {command.is_tmcc1} {command.is_tmcc1 is True}")
                     print(f"Is TMCC2: {command.is_tmcc2} {command.is_tmcc2 is True}")
                     self._is_legacy = command.is_tmcc2 is True or self.address > 99
 
