@@ -240,6 +240,10 @@ class EngineState(ComponentState):
                     self._d4_rec_no = command.record_no
             elif isinstance(command, CommandReq):
                 if self._is_legacy is None:
+                    if command.is_tmcc2 is True or self.address > 99:
+                        print(f"TMCC ID: {self.address} {command} Setting _is_legacy = True")
+                    else:
+                        print(f"TMCC ID: {self.address} {command} Setting _is_legacy = False")
                     self._is_legacy = command.is_tmcc2 is True or self.address > 99
 
                 # handle some aspects of the halt command
@@ -743,11 +747,14 @@ class EngineState(ComponentState):
         if self._is_legacy is None:
             if self.scope == CommandScope.ENGINE and self.address > 99:
                 self._is_legacy = True
+                print(f"TMCC ID: {self.address} Setting _is_legacy = True")
             elif self.control_type is not None:
                 if self.control_type == LEGACY_CONTROL_TYPE:
                     self._is_legacy = True
+                    print(f"TMCC ID: {self.address} Setting _is_legacy = True")
                 else:
                     self._is_legacy = False
+                    print(f"TMCC ID: {self.address} Setting _is_legacy = False")
         return self._is_legacy is True
 
     @property
