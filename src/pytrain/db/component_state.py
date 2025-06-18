@@ -229,7 +229,7 @@ class ComponentState(ABC, CompDataMixin):
 
     @property
     def syntax(self) -> CommandSyntax:
-        return CommandSyntax.LEGACY if self.is_legacy else CommandSyntax.TMCC
+        return CommandSyntax.LEGACY if self.is_legacy is True else CommandSyntax.TMCC
 
     @property
     def is_known(self) -> bool:
