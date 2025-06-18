@@ -45,7 +45,11 @@ class StateSource(ABC, Thread, Generic[T]):
             with self._component.synchronizer:
                 self._component.synchronizer.wait()
                 if self._is_running:
-                    self.active_led.value = 1 if self.is_active is True else 0
+                    if self.is_active is True:
+                        self.active_led.on()
+                    else:
+                        self.active_led.off()
+                    # self.active_led.value = 1 if self.is_active is True else 0
                     if self.inactive_led:
                         self.inactive_led.value = 0 if self.is_active is True else 1
 
