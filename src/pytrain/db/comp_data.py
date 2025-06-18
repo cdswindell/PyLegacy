@@ -554,6 +554,7 @@ class EngineData(CompData):
         self._unk_5e: int | None = None
         self._unk_68: int | None = None
         super().__init__(data, scope, tmcc_id=tmcc_id)
+        print(f"TMCC_ID: {self.tmcc_id} Control: {self.self.control_type}")
 
 
 class TrainData(EngineData):
