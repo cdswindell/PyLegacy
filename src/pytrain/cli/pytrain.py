@@ -17,16 +17,53 @@ import signal
 import socket
 import subprocess
 import sys
-from argparse import ArgumentParser, ArgumentError, SUPPRESS
+from argparse import SUPPRESS, ArgumentError, ArgumentParser
 from datetime import datetime, timedelta
-from queue import Queue, Empty
+from queue import Empty, Queue
+from threading import Event, Thread, get_native_id
 from time import sleep
 from timeit import default_timer as timer
-from typing import List, Tuple, Dict, Any
-from threading import Thread, Event, get_native_id
+from typing import Any, Dict, List, Tuple
 
-from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
+from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
+from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
+from ..comm.command_listener import CommandDispatcher, CommandListener
+from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
+from ..db.client_state_listener import ClientStateListener
+from ..db.component_state import ComponentState
+from ..db.component_state_store import ComponentStateStore
+from ..db.engine_state import EngineState
+from ..db.prod_info import ProdInfo
+from ..db.startup_state import StartupState
+from ..gpio.gpio_handler import GpioHandler
+from ..pdi.asc2_req import Asc2Req
+from ..pdi.base_req import BaseReq
+from ..pdi.constants import PDI_SOP, Asc2Action, D4Action, PdiCommand
+from ..pdi.d4_req import D4Req
+from ..pdi.pdi_listener import PdiListener
+from ..pdi.pdi_req import AllReq, PdiReq
+from ..pdi.pdi_state_store import PdiStateStore
+from ..protocol.command_def import CommandDefEnum
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import (
+    BROADCAST_TOPIC,
+    DEFAULT_BASE_PORT,
+    DEFAULT_BAUDRATE,
+    DEFAULT_PORT,
+    DEFAULT_QUEUE_SIZE,
+    DEFAULT_SERVER_PORT,
+    DEFAULT_VALID_BAUDRATES,
+    PROGRAM_NAME,
+    SERVICE_NAME,
+    SERVICE_TYPE,
+    CommandScope,
+    Mixins,
+)
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
+from ..utils.dual_logging import set_up_logging
+from ..utils.ip_tools import find_base_address, get_ip_address
 from .acc import AccCli
 from .asc2 import Asc2Cli
 from .bpc2 import Bpc2Cli
@@ -38,43 +75,6 @@ from .lighting import LightingCli
 from .route import RouteCli
 from .sounds import SoundEffectsCli
 from .switch import SwitchCli
-from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
-from ..comm.command_listener import CommandListener, CommandDispatcher
-from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
-from ..db.client_state_listener import ClientStateListener
-from ..db.component_state import ComponentState
-from ..db.engine_state import EngineState
-from ..db.component_state_store import ComponentStateStore
-from ..db.prod_info import ProdInfo
-from ..db.startup_state import StartupState
-from ..gpio.gpio_handler import GpioHandler
-from ..pdi.asc2_req import Asc2Req
-from ..pdi.d4_req import D4Req
-from ..pdi.base_req import BaseReq
-from ..pdi.constants import PdiCommand, PDI_SOP, D4Action, Asc2Action
-from ..pdi.pdi_listener import PdiListener
-from ..pdi.pdi_req import PdiReq, AllReq
-from ..pdi.pdi_state_store import PdiStateStore
-from ..protocol.command_def import CommandDefEnum
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import (
-    BROADCAST_TOPIC,
-    CommandScope,
-    DEFAULT_BASE_PORT,
-    PROGRAM_NAME,
-    SERVICE_TYPE,
-    SERVICE_NAME,
-    DEFAULT_SERVER_PORT,
-    DEFAULT_VALID_BAUDRATES,
-    DEFAULT_BAUDRATE,
-    DEFAULT_PORT,
-    DEFAULT_QUEUE_SIZE,
-    Mixins,
-)
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
-from ..utils.argument_parser import StripPrefixesHelpFormatter, PyTrainArgumentParser
-from ..utils.dual_logging import set_up_logging
-from ..utils.ip_tools import get_ip_address, find_base_address
 
 DEFAULT_BUTTONS_FILE: str = "buttons.py"
 DEFAULT_REPLAY_FILE: str = "replay.txt"
@@ -304,7 +304,7 @@ class PyTrain:
 
             # Load client state. Must be done before button file is processed
             if self.is_client:
-                if self._tmcc_listener.update_client_if_needed() is True:
+                if self._tmcc_listener.update_client_if_needed():
                     self(CommandReq(TMCC1SyncCommandEnum.UPDATE))
                 else:
                     self._load_client_state()
@@ -403,7 +403,7 @@ class PyTrain:
 
     @classmethod
     def command_line_parser(cls) -> ArgumentParser:
-        from .. import is_package, get_version
+        from .. import get_version, is_package
 
         prog = "pytrain" if is_package() else "pytrain.py"
         parser = PyTrainArgumentParser(
@@ -636,7 +636,7 @@ class PyTrain:
             log.info(e)
 
     def reboot(self, reboot: bool = True) -> None:
-        if reboot is True:
+        if reboot:
             msg = "rebooting"
         else:
             msg = "shutting down"
@@ -645,7 +645,7 @@ class PyTrain:
         if self.is_api:
             self._exit_status = PyTrainExitStatus.REBOOT if reboot is True else PyTrainExitStatus.SHUTDOWN
             raise PyTrainExitException(PyTrainExitStatus.REBOOT if reboot is True else PyTrainExitStatus.SHUTDOWN)
-        if reboot is True:
+        if reboot:
             opt = " -r"
         else:
             opt = ""
@@ -659,7 +659,7 @@ class PyTrain:
         self.relaunch(PyTrainExitStatus.RESTART)
 
     def update(self, do_inform: bool = True) -> None:
-        from .. import is_package, PROGRAM_PACKAGE
+        from .. import PROGRAM_PACKAGE, is_package
 
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
@@ -701,7 +701,7 @@ class PyTrain:
             self._exit_status = exit_status
             raise PyTrainExitException(exit_status)
         # are we a service or run from the commandline?
-        if self.is_service is True:
+        if self.is_service:
             # restart service
             os.system(f"sudo systemctl restart pytrain_{'server' if self.is_server else 'client'}.service")
         else:
@@ -716,7 +716,7 @@ class PyTrain:
     def is_service(self) -> bool:
         from .. import is_linux
 
-        if is_linux() is False:
+        if not is_linux():
             return False
         service = f"pytrain_{'server' if self.is_server else 'client'}.service"
         stat = subprocess.call(f"systemctl is-active --quiet {service}".split())
@@ -787,7 +787,7 @@ class PyTrain:
             while waiting > 0:
                 print(f"Looking for {PROGRAM_NAME} servers {cursor[waiting % 4]}", end="\r")
                 waiting -= 1
-                if self._server_discovered.wait(0.5) is True:
+                if self._server_discovered.wait(0.5):
                     for info in self._pytrain_servers:
                         is_ser2 = False
                         is_base3 = False
@@ -799,7 +799,7 @@ class PyTrain:
                                 is_ser2 = decoded_value == "1"
                             elif decoded_prop == "Base3":
                                 is_base3 = decoded_value == "1"
-                        if is_base3 is True:
+                        if is_base3:
                             base3_info = info
                         if is_ser2 is True and is_base3 is True:
                             waiting = 0
@@ -942,7 +942,7 @@ class PyTrain:
                                     break
                             else:
                                 break  # we're into a subparser
-                        if has_train_arg is False:
+                        if not has_train_arg:
                             ui_parts.insert(2, "-train")
                     if parse_only is True and isinstance(ui_parser, PyTrainArgumentParser):
                         # TODO: provide tool to get usage text
@@ -954,7 +954,7 @@ class PyTrain:
                         return cli_cmd.command.command_req
                     cli_cmd.send()
                 except ArgumentError as e:
-                    if parse_only is True:
+                    if parse_only:
                         return e.message
                     log.warning(e)
                 finally:
@@ -1106,9 +1106,9 @@ class PyTrain:
             elif param[0].lower().startswith("r"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ROUTE)
         elif param_len >= 3:
-            from ..pdi.pdi_device import PdiDevice
             from ..pdi.constants import CommonAction, IrdaAction
             from ..pdi.irda_req import IrdaReq, IrdaSequence
+            from ..pdi.pdi_device import PdiDevice
 
             dev = PdiDevice.by_prefix(param[0])
             if dev is None:

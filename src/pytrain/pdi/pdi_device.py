@@ -90,11 +90,7 @@ class Amc2DeviceConfig(PdiDeviceConfig):
 
     @property
     def state_requests(self) -> List[T]:
-        cmds = [
-            Amc2Req(self.tmcc_id, action=Amc2Action.INFO),
-            Amc2Req(self.tmcc_id, action=Amc2Action.CONFIG),
-        ]
-        return cmds
+        return []
 
 
 class Bpc2DeviceConfig(PdiDeviceConfig):

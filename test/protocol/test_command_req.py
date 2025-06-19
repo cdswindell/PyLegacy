@@ -4,12 +4,13 @@ from unittest import mock
 # noinspection PyPackageRequirements
 import pytest
 
-from src.pytrain.comm.comm_buffer import CommBufferSingleton, CommBuffer
+from src.pytrain.comm.comm_buffer import CommBuffer, CommBufferSingleton
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
 from src.pytrain.protocol.multibyte.multibyte_constants import *
 from src.pytrain.protocol.tmcc1.tmcc1_constants import *
 from src.pytrain.protocol.tmcc2.tmcc2_constants import *
+
 from ..test_base import TestBase
 
 
@@ -53,7 +54,11 @@ class TestCommandReq(TestBase):
             address = 23
             for cdef in [TMCC1AuxCommandEnum, TMCC1SwitchCommandEnum, TMCC1EngineCommandEnum]:
                 for cmd in cdef:
-                    if cmd in [TMCC1EngineCommandEnum.RELATIVE_SPEED, TMCC1AuxCommandEnum.RELATIVE_SPEED]:
+                    if cmd in [
+                        TMCC1EngineCommandEnum.RELATIVE_SPEED,
+                        TMCC1AuxCommandEnum.RELATIVE_SPEED,
+                        TMCC1AuxCommandEnum.REVERSE_SPEED,
+                    ]:
                         continue  # can't test defs that map data, yet
                     data = self.generate_random_data(cmd)
                     req = CommandReq.send_request(cmd, address, data)
@@ -178,7 +183,7 @@ class TestCommandReq(TestBase):
             )
             mk_enqueue_command.reset_mock()
 
-    def test__determine_first_byte(self):
+    def test_determine_first_byte(self):
         for cdef in self.all_command_enums:
             for cmd in cdef:
                 assert isinstance(cmd.value, CommandDef)
@@ -187,12 +192,13 @@ class TestCommandReq(TestBase):
         # retest for Trains
         for cdef in self.all_command_enums:
             for cmd in cdef:
-                req = self.build_request(cmd, 1, 2, CommandScope.TRAIN)
+                data = self.generate_random_data(cmd)
+                req = self.build_request(cmd, 1, data, CommandScope.TRAIN)
                 cmd_bytes = req.as_bytes
                 fb = cmd_bytes[0].to_bytes(1, byteorder="big")
                 assert fb == CommandReq._determine_first_byte(cmd.value, CommandScope.TRAIN)
 
-    def test__vet_request(self):
+    def test_vet_request(self):
         # all command defs should pass
         for cdef in self.all_command_enums:
             for cmd in cdef:
@@ -203,7 +209,7 @@ class TestCommandReq(TestBase):
             # noinspection PyTypeChecker
             CommandReq._vet_request("invalid_command", 1, 0, CommandScope.ENGINE)
 
-    def test__enqueue_command(self):
+    def test_enqueue_command(self):
         with mock.patch.object(CommBufferSingleton, "enqueue_command") as mk_enqueue_command:
             # test _enqueue_command with byte string
             CommandReq._enqueue_command(b"\x01\x02\x03", 1, 0, 0, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
@@ -225,7 +231,8 @@ class TestCommandReq(TestBase):
         for cdef in self.all_command_enums:
             for cmd in cdef:
                 address = self.generate_random_address(cmd)
-                req = self.build_request(cmd, address, 2)
+                data = self.generate_random_data(cmd)
+                req = self.build_request(cmd, address, data)
                 if req.command_def.is_addressable:
                     assert req.address == address
                 else:
@@ -268,7 +275,8 @@ class TestCommandReq(TestBase):
     def test_num_data_bits(self):
         for cdef in self.all_command_enums:
             for cmd in cdef:
-                req = self.build_request(cmd, 1, 2, CommandScope.TRAIN)
+                data = self.generate_random_data(cmd)
+                req = self.build_request(cmd, 1, data, CommandScope.TRAIN)
                 assert req.num_data_bits == cmd.command_def.num_data_bits
 
     def test_syntax(self):

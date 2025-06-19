@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..protocol.constants import CommandScope, Mixins
+from ..utils.validations import Validations
 from .constants import PDI_EOP, PDI_SOP, Amc2Action, PdiCommand
 from .lcs_req import LcsReq
 
@@ -82,7 +83,12 @@ class Amc2Req(LcsReq):
         error: bool = False,
         debug: int = None,
         motor: int | None = None,
+        speed: int = None,
+        direction: Direction | None = None,
+        output_type: OutputType | None = None,
+        restore_state: bool | None = None,
         lamp: int | None = None,
+        level: int = None,
     ) -> None:
         super().__init__(data, pdi_command, action, ident, error)
         self.scope = CommandScope.ACC
@@ -93,8 +99,8 @@ class Amc2Req(LcsReq):
             self._lamp1 = self._lamp2 = self._lamp3 = self._lamp4 = None
             self._option = None
             self._access_type = None
-            self._motor1 = self._motor2 = None
-            self._lamp1 = self._lamp2 = self._lamp3 = self._lamp4 = None
+            self._motor = self._speed = self._direction = self._lamp = self._level = None
+            self._output_type = self._restore_state = None
 
             # what is the request type?
             self._action = Amc2Action(self._action_byte)
@@ -108,22 +114,83 @@ class Amc2Req(LcsReq):
                 self._lamp2 = Amc2Lamp(2, self._data[19]) if data_len > 19 else None
                 self._lamp3 = Amc2Lamp(3, self._data[20]) if data_len > 20 else None
                 self._lamp4 = Amc2Lamp(4, self._data[21]) if data_len > 21 else None
-            if self._action == Amc2Action.MOTOR:
-                print(data.hex())
-                pass
-            if self._action == Amc2Action.LAMP:
-                pass
-            if self._action == Amc2Action.MOTOR_CONFIG:
-                pass
+            elif self._action == Amc2Action.MOTOR:
+                self._motor = self._data[4] if data_len > 4 else None
+                self._speed = self._data[5] if data_len > 5 else None
+                self._direction = self._data[6] if data_len > 6 else None
+            elif self._action == Amc2Action.LAMP:
+                self._lamp = self._data[4] if data_len > 4 else None
+                self._level = self._data[5] if data_len > 5 else None
+            elif self._action == Amc2Action.MOTOR_CONFIG:
+                self._motor = self._data[4] if data_len > 4 else None
+                self._output_type = self._data[5] if data_len > 5 else None
+                self._restore_state = bool(self._data[6]) if data_len > 6 else None
         else:
             self._action = action
             self._debug = debug
-            self._motor = motor
-            self._lamp = lamp
+            self._motor = Validations.validate_int(motor, 1, 2, "Motor", True)
+            self._speed = Validations.validate_int(speed, 0, 100, "Speed", True)
+            self._direction = direction.value if direction else Direction.AC.value
+            self._output_type = output_type.value if output_type else OutputType.AC
+            self._restore_state = restore_state if restore_state is not None else True
+            self._lamp = Validations.validate_int(lamp, 1, 4, "Lamp", True)
+            self._level = Validations.validate_int(level, 0, 100, "Level", True)
 
     @property
     def debug(self) -> int | None:
         return self._debug
+
+    @property
+    def motor(self) -> int:
+        return self._motor
+
+    @property
+    def speed(self) -> int:
+        return self._speed
+
+    @property
+    def direction(self) -> Direction:
+        return Direction(self._direction) if self._direction is not None else Direction.AC
+
+    @property
+    def output_type(self) -> OutputType:
+        return OutputType(self._output_type) if self._output_type is not None else OutputType.AC
+
+    @property
+    def restore_state(self) -> bool:
+        return self._restore_state if self._restore_state is not None else True
+
+    @property
+    def motor1(self) -> Amc2Motor:
+        return self._motor1
+
+    @property
+    def motor2(self) -> Amc2Motor:
+        return self._motor2
+
+    @property
+    def lamp(self) -> int:
+        return self._lamp
+
+    @property
+    def level(self) -> int:
+        return self._level
+
+    @property
+    def lamp1(self) -> Amc2Lamp:
+        return self._lamp1
+
+    @property
+    def lamp2(self) -> Amc2Lamp:
+        return self._lamp2
+
+    @property
+    def lamp3(self) -> Amc2Lamp:
+        return self._lamp3
+
+    @property
+    def lamp4(self) -> Amc2Lamp:
+        return self._lamp4
 
     @property
     def payload(self) -> str | None:
@@ -147,13 +214,26 @@ class Amc2Req(LcsReq):
         if self._action == Amc2Action.CONFIG:
             if self.pdi_command != PdiCommand.AMC2_GET:
                 debug = self.debug if self.debug is not None else 0
-                byte_str += self.tmcc_id.to_bytes(1, byteorder="big")  # allows board to be renumbered
                 byte_str += debug.to_bytes(1, byteorder="big")
                 byte_str += self._option if self._option else (0x0000).to_bytes(2, byteorder="big")
                 byte_str += self._access_type.value.to_bytes(1, byteorder="big") if self._access_type else NULL_BYTE
                 byte_str += self._motors_as_bytes()
                 for lamp in [self._lamp1, self._lamp2, self._lamp3, self._lamp4]:
                     byte_str += lamp.level.to_bytes(1, byteorder="big") if lamp else NULL_BYTE
+        elif self._action == Amc2Action.MOTOR:
+            byte_str += self.motor.to_bytes(1, byteorder="big")
+            if self.pdi_command != PdiCommand.AMC2_GET:
+                byte_str += self.speed.to_bytes(1, byteorder="big")
+                byte_str += self._direction.to_bytes(1, byteorder="big")
+        elif self._action == Amc2Action.LAMP:
+            byte_str += self.motor.to_bytes(1, byteorder="big")
+            if self.pdi_command != PdiCommand.AMC2_GET:
+                byte_str += self.level.to_bytes(1, byteorder="big")
+        elif self._action == Amc2Action.MOTOR_CONFIG:
+            byte_str += self.motor.to_bytes(1, byteorder="big")
+            if self.pdi_command != PdiCommand.AMC2_GET:
+                byte_str += self.output_type.value.to_bytes(1, byteorder="big")
+                byte_str += self.restore_state.to_bytes(1, byteorder="big")
         elif self._action == Amc2Action.IDENTIFY:
             if self.pdi_command == PdiCommand.AMC2_SET:
                 byte_str += (self.ident if self.ident is not None else 0).to_bytes(1, byteorder="big")
