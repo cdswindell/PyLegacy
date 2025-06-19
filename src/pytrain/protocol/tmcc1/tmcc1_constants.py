@@ -16,8 +16,14 @@ from enum import unique
 from typing import Dict, Tuple
 
 from ..command_def import CommandDef, CommandDefEnum
-from ..constants import CommandPrefix, CommandScope, CommandSyntax
-from ..constants import RELATIVE_SPEED_MAP, OfficialRRSpeeds, DEFAULT_ADDRESS
+from ..constants import (
+    DEFAULT_ADDRESS,
+    RELATIVE_SPEED_MAP,
+    CommandPrefix,
+    CommandScope,
+    CommandSyntax,
+    OfficialRRSpeeds,
+)
 
 
 class TMCC1Enum(CommandDefEnum):
@@ -285,6 +291,7 @@ TMCC1_ACC_REAR_COUPLER_COMMAND: int = 0x8006
 TMCC1_ACC_BOOST_COMMAND: int = 0x8004
 TMCC1_ACC_BRAKE_COMMAND: int = 0x8007
 TMCC1_ACC_RELATIVE_SPEED_COMMAND: int = 0x8040
+TMCC1_ACC_ABSOLUTE_SPEED_COMMAND: int = 0x8040
 
 
 @unique
