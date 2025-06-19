@@ -445,6 +445,7 @@ class CompData(ABC, Generic[R]):
                 name = "rpm_labor"
             value = self.__dict__["_" + name]
             if name == "smoke" and isinstance(self, EngineData):
+                print(f"TMCC_ID: {self.tmcc_id} Legacy: {self.is_legacy} Control: {self._control_type}")
                 if self.is_legacy is True:
                     map_dict = BASE_TO_TMCC2_SMOKE_MAP
                     default = TMCC2EffectsControl.SMOKE_OFF
@@ -583,7 +584,7 @@ class EngineData(CompData):
 
     @property
     def is_legacy(self) -> bool:
-        return self.control_type == ControlType.LEGACY
+        return self._control_type == ControlType.LEGACY
 
 
 class TrainData(EngineData):
