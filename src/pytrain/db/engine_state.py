@@ -318,14 +318,14 @@ class EngineState(ComponentState):
                             if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
                                 if self._is_legacy is True:
                                     self._aux2 = self.update_aux_state(
-                                        cmd,
+                                        self._aux2,
                                         TMCC2.AUX2_ON,
                                         TMCC2.AUX2_OPTION_ONE,
                                         TMCC2.AUX2_OFF,
                                     )
                                 else:
                                     self._aux2 = self.update_aux_state(
-                                        cmd,
+                                        self._aux2,
                                         TMCC1.AUX2_ON,
                                         TMCC1.AUX2_OPTION_ONE,
                                         TMCC1.AUX2_OFF,
