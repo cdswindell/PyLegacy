@@ -18,19 +18,27 @@ from ..pdi.pdi_req import PdiReq
 
 from ..protocol.command_req import CommandReq
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ..protocol.constants import CommandScope
+from ..protocol.constants import CommandScope, ControlType
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..utils.text_utils import title
 
 log = logging.getLogger(__name__)
 
-BASE_TO_TMCC_SMOKE_MAP = {
+BASE_TO_TMCC2_SMOKE_MAP = {
     0: TMCC2EffectsControl.SMOKE_OFF,
     1: TMCC2EffectsControl.SMOKE_LOW,
     2: TMCC2EffectsControl.SMOKE_MEDIUM,
     3: TMCC2EffectsControl.SMOKE_HIGH,
 }
 
-TMCC_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC_SMOKE_MAP.items()}
+TMCC2_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC2_SMOKE_MAP.items()}
+
+BASE_TO_TMCC1_SMOKE_MAP = {
+    0: TMCC1EngineCommandEnum.SMOKE_OFF,
+    1: TMCC1EngineCommandEnum.SMOKE_ON,
+}
+
+TMCC1_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC1_SMOKE_MAP.items()}
 
 
 def default_from_func(t: bytes) -> int:
@@ -263,8 +271,8 @@ CONVERSIONS: dict[str, tuple[Callable, Callable]] = {
     "train_brake": (lambda x: min(round(x * 0.4667), 7), lambda x: min(round(x * 2.143), 15)),
     "momentum": (lambda x: min(round(x * 0.05512), 7), lambda x: min(round(x * 18.14), 127)),
     "smoke": (
-        lambda x: BASE_TO_TMCC_SMOKE_MAP.get(x, TMCC2EffectsControl.SMOKE_OFF),
-        lambda x: TMCC_TO_BASE_SMOKE_MAP.get(x, 0),
+        lambda map_dict, data, default: map_dict.get(data, default),
+        lambda map_dict, data: map_dict.get(data, 0),
     ),
     "rpm": (lambda x: x & 0b111, lambda x: x & 0b111),
     "labor": (
@@ -380,6 +388,11 @@ class CompData(ABC, Generic[R]):
                                     rpm = state.rpm
                                     labor = req.data
                             base_value = conv_tpl[1](rpm, labor)
+                        elif sub_field == "smoke":
+                            if cmd.is_tmcc1 is True:
+                                base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, req.data)
+                            else:
+                                base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, req.data)
                         else:
                             base_value = conv_tpl[1](req.data)
                     else:
@@ -431,7 +444,16 @@ class CompData(ABC, Generic[R]):
             if name in {"rpm", "labor"}:
                 name = "rpm_labor"
             value = self.__dict__["_" + name]
-            return tpl[0](value) if value is not None else value
+            if name == "smoke" and isinstance(self, EngineData):
+                if self.is_legacy is True:
+                    map_dict = BASE_TO_TMCC2_SMOKE_MAP
+                    default = TMCC2EffectsControl.SMOKE_OFF
+                else:
+                    map_dict = BASE_TO_TMCC1_SMOKE_MAP
+                    default = TMCC1EngineCommandEnum.SMOKE_OFF
+                return tpl[0](map_dict, value, default) if value is not None else value
+            else:
+                return tpl[0](value) if value is not None else value
         else:
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
@@ -451,6 +473,9 @@ class CompData(ABC, Generic[R]):
                 rpm = self.rpm_tmcc if name == "labor" else value
                 labor = self.labor_tmcc if name == "rpm" else value
                 self.rpm_labor_tmcc = (rpm, labor)
+            elif name == "smoke" and isinstance(self, EngineData):
+                map_dict = TMCC2_TO_BASE_SMOKE_MAP if self.is_legacy is True else TMCC1_TO_BASE_SMOKE_MAP
+                self.__dict__["_" + name] = tpl[1](map_dict, value) if value is not None else value
             else:
                 # For RPM or Labor, we have to pass the 2 raw values to the conversion function
                 # as a tuple, thus requiring the isinstance check below.
@@ -555,6 +580,10 @@ class EngineData(CompData):
         self._unk_68: int | None = None
         super().__init__(data, scope, tmcc_id=tmcc_id)
         print(f"TMCC_ID: {self.tmcc_id} Control: {self.control_type}")
+
+    @property
+    def is_legacy(self) -> bool:
+        return self.control_type == ControlType.LEGACY
 
 
 class TrainData(EngineData):
