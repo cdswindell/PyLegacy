@@ -83,7 +83,6 @@ class Acs2DeviceConfig(PdiDeviceConfig):
                 cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL5))
         return cmds
 
-
 class Amc2DeviceConfig(PdiDeviceConfig):
     def __init__(self, cmd: Amc2Req) -> None:
         super().__init__(PdiDevice.AMC2, cmd)
@@ -95,7 +94,6 @@ class Amc2DeviceConfig(PdiDeviceConfig):
             Amc2Req(self.tmcc_id, action=Amc2Action.CONFIG),
         ]
         return cmds
-
 
 class Bpc2DeviceConfig(PdiDeviceConfig):
     def __init__(self, cmd: Bpc2Req) -> None:
