@@ -14,20 +14,20 @@ from enum import IntEnum, unique
 from math import floor
 from typing import Dict, List, Tuple
 
-from .constants import PdiCommand, PDI_SOP, PDI_EOP, D4Action
 from ..db.comp_data import (
-    CompDataMixin,
+    SCOPE_TO_COMP_MAP,
     CompData,
     CompDataHandler,
-    SCOPE_TO_COMP_MAP,
+    CompDataMixin,
 )
-from .base3_component import ConsistComponent
-from .pdi_req import PdiReq, SCOPE_TO_RECORD_LENGTH, LIONEL_ENGINE_RECORD_LENGTH
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, CONTROL_TYPE, SOUND_TYPE, LOCO_TYPE, LOCO_CLASS, Mixins
+from ..protocol.constants import CONTROL_TYPE, LOCO_CLASS, LOCO_TYPE, SOUND_TYPE, CommandScope, Mixins
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+from .base3_component import ConsistComponent
+from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
+from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
 
 log = logging.getLogger(__name__)
 
@@ -396,8 +396,7 @@ class BaseReq(PdiReq, CompDataMixin):
                     self._data_length = data_length
                     self._data_bytes = data_bytes
             elif state:
-                from .. import TrainState
-                from .. import EngineState
+                from .. import EngineState, TrainState
                 from ..db.base_state import BaseState
 
                 self._status = 0

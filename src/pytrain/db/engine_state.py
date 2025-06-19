@@ -208,7 +208,7 @@ class EngineState(ComponentState):
 
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
-            if self.is_legacy is True:
+            if self.is_legacy:
                 speed_info = 195
             else:
                 speed_info = 31
@@ -244,7 +244,7 @@ class EngineState(ComponentState):
 
                 # handle some aspects of the halt command
                 if command.command == TMCC1HaltCommandEnum.HALT:
-                    if self.is_legacy is True:
+                    if self.is_legacy:
                         self._aux1 = TMCC2.AUX1_OFF
                         self._aux2 = TMCC2.AUX2_OFF
                         self._aux = TMCC2.AUX2_OPTION_ONE
@@ -252,9 +252,10 @@ class EngineState(ComponentState):
                         self._aux1 = TMCC1.AUX1_OFF
                         self._aux2 = TMCC1.AUX2_OFF
                         self._aux = TMCC1.AUX2_OPTION_ONE
-                    self.comp_data.speed = 0
-                    self.comp_data.rpm_tmcc = 0
-                    self.comp_data.labor_tmcc = 12
+                    if self.comp_data is not None:
+                        self.comp_data.speed = 0
+                        self.comp_data.rpm_tmcc = 0
+                        self.comp_data.labor_tmcc = 12
                     self._numeric = None
                     self._last_command = command
 

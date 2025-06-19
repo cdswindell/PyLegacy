@@ -11,14 +11,13 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Any, TypeVar, Generic, Callable
+from typing import Any, Callable, Generic, TypeVar
 
 from ..pdi.base3_component import ConsistComponent, RouteComponent
 from ..pdi.pdi_req import PdiReq
-
 from ..protocol.command_req import CommandReq
+from ..protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ..protocol.constants import CommandScope, LEGACY_CONTROL_TYPE
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..utils.text_utils import title
 
@@ -389,7 +388,7 @@ class CompData(ABC, Generic[R]):
                                     labor = req.data
                             base_value = conv_tpl[1](rpm, labor)
                         elif sub_field == "smoke":
-                            if cmd.is_tmcc1 is True:
+                            if cmd.is_tmcc1:
                                 base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, req.data)
                             else:
                                 base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, req.data)
@@ -445,7 +444,7 @@ class CompData(ABC, Generic[R]):
                 name = "rpm_labor"
             value = self.__dict__["_" + name]
             if name == "smoke" and isinstance(self, EngineData):
-                if self.is_legacy is True:
+                if self.is_legacy:
                     map_dict = BASE_TO_TMCC2_SMOKE_MAP
                     default = TMCC2EffectsControl.SMOKE_OFF
                 else:
@@ -501,7 +500,7 @@ class CompData(ABC, Generic[R]):
         if self.tmcc_id <= 99:
             # delete any entries that are 4-digit specific
             for k in list(schema.keys()):
-                if schema[k].is_d4_only is True:
+                if schema[k].is_d4_only:
                     del schema[k]
         byte_str = bytes()
         last_idx = 0
@@ -526,7 +525,7 @@ class CompData(ABC, Generic[R]):
             print(f"TMCC_ID: {self.tmcc_id} Scope: {self.scope}")
         data_len = len(data)
         for k, v in pmap.items():
-            if isinstance(v, CompDataHandler) is False:
+            if not isinstance(v, CompDataHandler):
                 continue
             item_len = v.length
             if data_len >= ((k + item_len) - 1) and hasattr(self, v.field) and getattr(self, v.field) is None:
@@ -679,7 +678,7 @@ class CompDataMixin(Generic[C]):
 
     @property
     def is_comp_data_record(self) -> bool:
-        return self.comp_data and self._comp_data_record is True
+        return self.comp_data is not None and self._comp_data_record is True
 
     def initialize(self, scope: CommandScope, tmcc_id: int) -> None:
         data_len = PdiReq.scope_record_length(scope)

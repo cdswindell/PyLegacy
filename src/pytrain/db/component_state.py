@@ -17,9 +17,8 @@ from threading import Condition, Event, RLock
 from time import time
 from typing import Any, Dict, List, Set, TypeVar
 
-from ..pdi.base3_component import RouteComponent
-from .comp_data import CompData, CompDataMixin
 from ..pdi.asc2_req import Asc2Req
+from ..pdi.base3_component import RouteComponent
 from ..pdi.constants import PdiCommand
 from ..pdi.irda_req import IrdaReq
 from ..pdi.pdi_req import PdiReq
@@ -36,6 +35,7 @@ from ..protocol.tmcc1.tmcc1_constants import (
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
 from ..utils.text_utils import title
+from .comp_data import CompData, CompDataMixin
 
 log = logging.getLogger(__name__)
 
@@ -452,7 +452,7 @@ class RouteState(TmccState):
             if command.command == TMCC1HaltCommandEnum.HALT:
                 return
             with self.synchronizer:
-                if self.is_comp_data_record is False:
+                if not self.is_comp_data_record:
                     if isinstance(command, CommandReq):
                         from ..comm.command_listener import CommandDispatcher
 

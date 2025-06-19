@@ -109,6 +109,7 @@ class Amc2Req(LcsReq):
                 self._lamp3 = Amc2Lamp(3, self._data[20]) if data_len > 20 else None
                 self._lamp4 = Amc2Lamp(4, self._data[21]) if data_len > 21 else None
             if self._action == Amc2Action.MOTOR:
+                print(data.hex())
                 pass
             if self._action == Amc2Action.LAMP:
                 pass
