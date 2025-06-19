@@ -13,7 +13,7 @@ import collections
 import logging
 import threading
 from collections import defaultdict
-from typing import List, Set, Tuple, TypeVar, Generic
+from typing import Generic, List, Set, Tuple, TypeVar
 
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
@@ -82,6 +82,15 @@ class ComponentStateStore:
         with cls._lock:
             if cls._instance:
                 cls._instance._state.clear()
+
+    @classmethod
+    def is_state_synchronized(cls) -> bool:
+        if cls._instance is None:
+            return False
+        sync_state = cls._instance.get_state(CommandScope.SYNC, 99, False)
+        if sync_state is None:
+            return False
+        return sync_state.is_synchronized
 
     def __new__(cls, *args, **kwargs):
         """
@@ -341,9 +350,9 @@ class DependencyCache(Generic[T, C, E]):
         cmd_set = set()
         for cmd in commands:
             if isinstance(cmd, CommandDefEnum) and cmd.is_alias:
-                if include_aliases is True:
+                if include_aliases:
                     cmd_set.add(cmd)
-                if dereference_aliases is True:
+                if dereference_aliases:
                     cmd_set.add(cmd.alias)
             else:
                 cmd_set.add(cmd)

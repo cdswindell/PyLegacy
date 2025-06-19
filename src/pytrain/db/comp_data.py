@@ -405,7 +405,7 @@ class CompData(ABC, Generic[R]):
         return update_pkgs
 
     @abstractmethod
-    def __init__(self, data: bytes, scope: CommandScope, tmcc_id: int = None) -> None:
+    def __init__(self, data: bytes | None, scope: CommandScope, tmcc_id: int = None) -> None:
         super().__init__()
         self._tmcc_id: int | None = tmcc_id
         self._scope = scope
@@ -541,7 +541,7 @@ class CompData(ABC, Generic[R]):
 class EngineData(CompData):
     def __init__(
         self,
-        data: bytes,
+        data: bytes | None,
         tmcc_id: int = None,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
@@ -601,7 +601,7 @@ class TrainData(EngineData):
             components are defined.
     """
 
-    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+    def __init__(self, data: bytes | None, tmcc_id: int = None) -> None:
         self._signal_initializing()
         self._consist_flags: int | None = None
         self._consist_comps: list[ConsistComponent] | None = None
@@ -678,10 +678,21 @@ class CompDataMixin(Generic[C]):
 
     @property
     def is_comp_data_record(self) -> bool:
-        return self.comp_data is not None and self._comp_data_record is True
+        return self._comp_data is not None and self._comp_data_record is True
 
     def initialize(self, scope: CommandScope, tmcc_id: int) -> None:
         data_len = PdiReq.scope_record_length(scope)
         if scope == CommandScope.SWITCH:
             # noinspection PyTypeChecker
             self._comp_data = SwitchData(b"\xff" * data_len, tmcc_id)
+        elif scope == CommandScope.ENGINE:
+            self._comp_data = EngineData(b"\xff" * data_len, tmcc_id)
+        elif scope == CommandScope.TRAIN:
+            self._comp_data = TrainData(b"\xff" * data_len, tmcc_id)
+        elif scope == CommandScope.ROUTE:
+            self._comp_data = RouteData(b"\xff" * data_len, tmcc_id)
+        elif scope == CommandScope.ACC:
+            self._comp_data = AccessoryData(b"\xff" * data_len, tmcc_id)
+        else:
+            raise NotImplementedError(f"Unknown scope {scope.name}")
+        self._comp_data_record = True
