@@ -181,6 +181,7 @@ class CommandPrefix(Mixins, IntEnum):
     mapped to values 0 - 10
 """
 RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
+REVERSE_SPEED_MAP = dict(zip(range(-3, 0), range(1, 4)))
 CONTROL_TYPE: Dict[int, str] = {
     0: "Cab-1",
     1: "TMCC",
