@@ -580,8 +580,8 @@ class EngineData(CompData):
         self._unk_5e: int | None = None
         self._unk_68: int | None = None
         super().__init__(data, scope, tmcc_id=tmcc_id)
-        if self.control_type != 255:
-            print(f"TMCC_ID: {self.tmcc_id} Control: {self.control_type} {self.smoke} {self.smoke_tmcc}")
+        if self._control_type != 255:
+            print(f"TMCC_ID: {self.tmcc_id} Control: {self._control_type} {self._smoke} {self.smoke_tmcc}")
 
     @property
     def is_legacy(self) -> bool:
