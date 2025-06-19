@@ -10,38 +10,38 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
+from ..pdi.constants import D4Action, IrdaAction, PdiCommand
+from ..pdi.d4_req import D4Req
+from ..pdi.irda_req import IrdaReq
+from ..protocol.command_def import CommandDefEnum
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import (
+    CONTROL_TYPE,
+    LEGACY_CONTROL_TYPE,
+    LOCO_CLASS,
+    LOCO_TRACK_CRANE,
+    LOCO_TYPE,
+    RPM_TYPE,
+    SOUND_TYPE,
+    STEAM_TYPE,
+    TRACK_CRANE_STATE_NUMERICS,
+    CommandScope,
+)
+from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+from ..protocol.tmcc1.tmcc1_constants import TMCC1_COMMAND_TO_ALIAS_MAP, TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
+from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
+from .comp_data import CompDataHandler, CompDataMixin
 from .component_state import (
+    SCOPE_TO_STATE_MAP,
+    ComponentState,
     L,
     P,
     log,
-    SCOPE_TO_STATE_MAP,
-    ComponentState,
 )
-from ..pdi.d4_req import D4Req
-from .comp_data import CompDataMixin, CompDataHandler
-from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ..protocol.command_req import CommandReq
-from ..protocol.command_def import CommandDefEnum
-from ..pdi.constants import PdiCommand, IrdaAction, D4Action
-from ..pdi.irda_req import IrdaReq
-from ..protocol.constants import (
-    LOCO_TYPE,
-    CONTROL_TYPE,
-    LOCO_TRACK_CRANE,
-    TRACK_CRANE_STATE_NUMERICS,
-    RPM_TYPE,
-    STEAM_TYPE,
-    CommandScope,
-    LOCO_CLASS,
-    SOUND_TYPE,
-    LEGACY_CONTROL_TYPE,
-)
-from ..protocol.tmcc1.tmcc1_constants import TMCC1_COMMAND_TO_ALIAS_MAP, TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
-from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
 
 DIRECTIONS_SET = {
     TMCC1EngineCommandEnum.FORWARD_DIRECTION,
@@ -324,7 +324,6 @@ class EngineState(ComponentState):
                                         TMCC2.AUX2_OFF,
                                     )
                                 else:
-                                    x = self._aux2
                                     self._aux2 = self.update_aux_state(
                                         cmd,
                                         TMCC1.AUX2_ON,
