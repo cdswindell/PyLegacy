@@ -37,6 +37,7 @@ from ..db.engine_state import EngineState
 from ..db.prod_info import ProdInfo
 from ..db.startup_state import StartupState
 from ..gpio.gpio_handler import GpioHandler
+from ..pdi.amc2_req import Amc2Req
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PDI_SOP, Asc2Action, D4Action, PdiCommand
@@ -1106,7 +1107,7 @@ class PyTrain:
             elif param[0].lower().startswith("r"):
                 agr = BaseReq(int(param[1]), PdiCommand.BASE_ROUTE)
         elif param_len >= 3:
-            from ..pdi.constants import CommonAction, IrdaAction
+            from ..pdi.constants import Amc2Action, CommonAction, IrdaAction
             from ..pdi.irda_req import IrdaReq, IrdaSequence
             from ..pdi.pdi_device import PdiDevice
 
@@ -1150,6 +1151,18 @@ class PyTrain:
                 if param_len > 3:
                     data = int(param[3])
                 agr = Asc2Req(tmcc_id, PdiCommand.ASC2_SET, ca, values=data)
+            elif ca in {Amc2Action.MOTOR, Amc2Action.LAMP}:
+                if param_len >= 4:
+                    device = int(param[3])
+                    if param_len == 4:
+                        print(ca, device)
+                        if ca == Amc2Action.MOTOR:
+                            agr = Amc2Req(tmcc_id, PdiCommand.AMC2_GET, ca, motor=device)
+                        else:
+                            agr = Amc2Req(tmcc_id, PdiCommand.AMC2_GET, ca, lamp=device)
+                        print(f"AMC2 {ca.label} for device {device} requested {agr}...")
+                else:
+                    raise AttributeError(f"Must specify motor/lamp value for {ca.label}")
             elif ca is not None:
                 agr = dev.build_req(tmcc_id, ca)
         else:

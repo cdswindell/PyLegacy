@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import abc
 from abc import ABC
-from typing import List, TypeVar, Dict
+from typing import Dict, List, TypeVar
 
 from ..pdi.constants import (
     ALL_FIRMWARE,
     ALL_IDENTIFY,
     ALL_INFO,
-    ALL_SETs,
     ALL_STATUS,
+    ALL_SETs,
     PdiAction,
     PdiCommand,
     Ser2Action,
@@ -62,7 +62,7 @@ class LcsReq(PdiReq, ABC):
         self._version = self._revision = self._sub_revision = None
         self._error = error
         if isinstance(data, bytes):
-            if self.is_lcs is False:
+            if not self.is_lcs:
                 raise AttributeError(f"Invalid PDI LCS Request: {data}")
             self.tmcc_id = self._data[1]
             self._action_byte = self._data[2]
@@ -194,7 +194,7 @@ class LcsReq(PdiReq, ABC):
     @property
     def payload(self) -> str | None:
         if self.is_error:
-            return f"Error: {self.error}"
+            return super().payload
         elif self._is_action(ALL_STATUS) and self.pdi_command.name.endswith("_RX"):
             return (
                 f"Board ID: {self.board_id} Num IDs: {self.num_ids} Model: {self.model} DC Volts: {self.dc_volts} "

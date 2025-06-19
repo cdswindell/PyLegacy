@@ -128,12 +128,12 @@ class Amc2Req(LcsReq):
         else:
             self._action = action
             self._debug = debug
-            self._motor = Validations.validate_int(motor, 1, 2, "Motor", True)
+            self._motor = Validations.validate_int(motor, 0, 1, "Motor", True)
             self._speed = Validations.validate_int(speed, 0, 100, "Speed", True)
             self._direction = direction.value if direction else Direction.AC.value
             self._output_type = output_type.value if output_type else OutputType.AC
             self._restore_state = restore_state if restore_state is not None else True
-            self._lamp = Validations.validate_int(lamp, 1, 4, "Lamp", True)
+            self._lamp = Validations.validate_int(lamp, 0, 3, "Lamp", True)
             self._level = Validations.validate_int(level, 0, 100, "Level", True)
 
     @property
@@ -201,7 +201,8 @@ class Amc2Req(LcsReq):
                 at = f"Access Type: {self._access_type.label}"
                 m1 = f"{self._motor1}"
                 m2 = f"{self._motor2}"
-                return f"{at} {m1} {m2} Debug: {self.debug} ({self.packet})"
+                l1 = f"{self._lamp1}"
+                return f"{at} {m1} {m2} {l1} Debug: {self.debug} ({self.packet})"
         return super().payload
 
     @property
@@ -213,6 +214,7 @@ class Amc2Req(LcsReq):
         byte_str += self.action.as_bytes
         if self._action == Amc2Action.CONFIG:
             if self.pdi_command != PdiCommand.AMC2_GET:
+                byte_str += self.tmcc_id.to_bytes(1, byteorder="big")
                 debug = self.debug if self.debug is not None else 0
                 byte_str += debug.to_bytes(1, byteorder="big")
                 byte_str += self._option if self._option else (0x0000).to_bytes(2, byteorder="big")
@@ -241,6 +243,8 @@ class Amc2Req(LcsReq):
         byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
         byte_str += checksum
         byte_str += PDI_EOP.to_bytes(1, byteorder="big")
+
+        print(byte_str.hex())
         return byte_str
 
     @staticmethod
