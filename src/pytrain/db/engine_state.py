@@ -304,7 +304,6 @@ class EngineState(ComponentState):
                         self.comp_data.smoke_tmcc = command.command
                     elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
                         self.comp_data.smoke_tmcc = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-                    print(f"TMCC ID: {self.address} {self.smoke_level}")
 
                 # aux commands
                 for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
