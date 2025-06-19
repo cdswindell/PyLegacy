@@ -260,7 +260,7 @@ class BaseReq(PdiReq, CompDataMixin):
         data_bytes: bytes | None = None,
     ) -> None:
         super().__init__(data, pdi_command)
-        if self.pdi_command.is_base is False:
+        if not self.pdi_command.is_base:
             raise ValueError(f"Invalid PDI Base Request: {data}")
         self._status = self._firmware_high = self._firmware_low = None
         self._route_throw_rate = self._name = self._number = None
