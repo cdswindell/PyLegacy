@@ -18,7 +18,7 @@ from ..pdi.pdi_req import PdiReq
 
 from ..protocol.command_req import CommandReq
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ..protocol.constants import CommandScope, ControlType
+from ..protocol.constants import CommandScope, LEGACY_CONTROL_TYPE
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..utils.text_utils import title
 
@@ -585,7 +585,7 @@ class EngineData(CompData):
 
     @property
     def is_legacy(self) -> bool:
-        return self._control_type == ControlType.LEGACY
+        return self._control_type == LEGACY_CONTROL_TYPE
 
 
 class TrainData(EngineData):
