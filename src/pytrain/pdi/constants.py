@@ -4,7 +4,7 @@ Lionel PDI Command Protocol Constants
 
 from __future__ import annotations
 
-from enum import IntEnum, Enum, unique
+from enum import Enum, IntEnum, unique
 
 from ..protocol.constants import Mixins
 
@@ -122,6 +122,9 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     BPC2_GET = BPC2_GET
     BPC2_SET = BPC2_SET
     BPC2_RX = BPC2_RX
+    AMC2_GET = AMC2_GET
+    AMC2_SET = AMC2_SET
+    AMC2_RX = AMC2_RX
     STM2_GET = STM2_GET
     STM2_SET = STM2_SET
     STM2_RX = STM2_RX
@@ -193,6 +196,10 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
         return self.value in {ASC2_GET, ASC2_SET, ASC2_RX}
 
     @property
+    def is_amc2(self) -> bool:
+        return self.value in {AMC2_GET, AMC2_SET, AMC2_RX}
+
+    @property
     def is_stm2(self) -> bool:
         return self.value in {STM2_GET, STM2_SET, STM2_RX}
 
@@ -210,7 +217,9 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
     @property
     def is_lcs(self) -> bool:
-        return self.is_wifi or self.is_asc2 or self.is_irda or self.is_ser2 or self.is_bpc2 or self.is_stm2
+        return (
+            self.is_wifi or self.is_asc2 or self.is_irda or self.is_ser2 or self.is_bpc2 or self.is_stm2 or self.is_amc2
+        )
 
     @property
     def as_bytes(self) -> bytes:

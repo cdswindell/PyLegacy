@@ -9,17 +9,19 @@
 
 from __future__ import annotations
 
-from typing import Dict, Any, cast
+from typing import Any, Dict, cast
 
-from .comp_data import CompDataMixin
-from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux, TMCC1HaltCommandEnum
-from ..protocol.command_req import CommandReq
+from ..pdi.amc2_req import Amc2Req
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
-from ..pdi.constants import Asc2Action, Bpc2Action, PdiCommand, IrdaAction
+from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq
-from .component_state import TmccState, L, P, log, SCOPE_TO_STATE_MAP
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import CommandScope
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
+from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
+from .comp_data import CompDataMixin
+from .component_state import SCOPE_TO_STATE_MAP, L, P, TmccState, log
 
 
 class AccessoryState(TmccState):
@@ -36,6 +38,8 @@ class AccessoryState(TmccState):
         self._aux_state: Aux | None = None
         self._block_power = False
         self._sensor_track = False
+        self._asc2 = False
+        self._amc2 = False
         self._pdi_source = False
         self._number: int | None = None
 
@@ -46,6 +50,8 @@ class AccessoryState(TmccState):
             aux = f"Block Power {'ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
         elif self._sensor_track:
             aux = "Sensor Track"
+        elif self._amc2:
+            aux = "AMC 2"
         else:
             if self.is_lcs_component:
                 aux = "Asc2 " + "ON" if self._aux_state == Aux.AUX1_OPT_ONE else "OFF"
@@ -76,7 +82,7 @@ class AccessoryState(TmccState):
                             self._aux_state = Aux.AUX2_OPT_ONE
                             self._number = None
                         else:
-                            if self._pdi_source is False:
+                            if not self._pdi_source:
                                 if command.command in {Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE}:
                                     self._aux_state = command.command
                                 if command.command == Aux.AUX1_OPT_ONE:
@@ -105,7 +111,7 @@ class AccessoryState(TmccState):
                                     self._last_aux2_opt1 = self.last_updated
                             if command.command == Aux.NUMERIC:
                                 self._number = command.data
-                elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req):
+                elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req) or isinstance(command, Amc2Req):
                     if self._first_pdi_command is None:
                         self._first_pdi_command = command.command
                     if self._first_pdi_action is None:
@@ -124,6 +130,10 @@ class AccessoryState(TmccState):
                             self._aux1_state = Aux.AUX1_OFF
                             self._aux2_state = Aux.AUX2_OFF
                             self._aux_state = Aux.AUX2_OPT_ONE
+                    elif isinstance(command, Amc2Req):
+                        self._pdi_source = True
+                        self._amc2 = True
+                        print(command)
                 elif isinstance(command, IrdaReq):
                     if self._first_pdi_command is None:
                         self._first_pdi_command = command.command

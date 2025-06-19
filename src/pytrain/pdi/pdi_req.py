@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from abc import ABC, ABCMeta, abstractmethod
 from time import sleep
-from typing import Tuple, TypeVar, List
+from typing import List, Tuple, TypeVar
 
 from ..utils.validations import Validations
 
@@ -12,8 +12,8 @@ if sys.version_info >= (3, 11):
 elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
-from .constants import PDI_SOP, PDI_EOP, PDI_STF, CommonAction, PdiAction, PdiCommand
-from ..protocol.constants import CommandScope, MINIMUM_DURATION_INTERVAL_MSEC, DEFAULT_DURATION_INTERVAL_MSEC
+from ..protocol.constants import DEFAULT_DURATION_INTERVAL_MSEC, MINIMUM_DURATION_INTERVAL_MSEC, CommandScope
+from .constants import PDI_EOP, PDI_SOP, PDI_STF, CommonAction, PdiAction, PdiCommand
 
 T = TypeVar("T", bound=PdiAction)
 
@@ -100,7 +100,7 @@ class PdiReq(ABC):
         for b in data:
             check_sum += b
             if b in {PDI_SOP, PDI_STF, PDI_EOP}:
-                if add_stf is True:
+                if add_stf:
                     # add the stuff byte to the output and account for it in the check sum
                     check_sum += PDI_STF
                     byte_stream += PDI_STF.to_bytes(1, byteorder="big")
@@ -119,7 +119,7 @@ class PdiReq(ABC):
         byte_sum = check_sum
         check_sum = 0xFF & (0 - check_sum)
         if check_sum in {PDI_SOP, PDI_STF, PDI_EOP}:
-            if add_stf is True:
+            if add_stf:
                 byte_stream += PDI_STF.to_bytes(1, byteorder="big")
             byte_sum += PDI_STF
             check_sum = 0xFF & (0 - byte_sum)
@@ -334,7 +334,7 @@ class TmccReq(PdiReq):
         from ..protocol.command_req import CommandReq
 
         if isinstance(data, CommandReq):
-            if self.pdi_command.is_tmcc is False:
+            if not self.pdi_command.is_tmcc:
                 raise ValueError(f"Invalid PDI TMCC Request: {self.pdi_command}")
             self._tmcc_command: CommandReq = data
         else:
@@ -401,7 +401,7 @@ class PingReq(PdiReq):
     def __init__(self, data: bytes | None = None):
         super().__init__(data, PdiCommand.PING)
         if data is not None:
-            if PdiCommand(data[1]).is_ping is False:
+            if not PdiCommand(data[1]).is_ping:
                 raise ValueError(f"Invalid PDI Ping Request: {data}")
 
     @property

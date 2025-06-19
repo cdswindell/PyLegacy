@@ -4,28 +4,30 @@ import abc
 import logging
 from abc import ABC
 from collections import defaultdict
-from enum import unique, Enum
-from typing import TypeVar, List
+from enum import Enum, unique
+from typing import List, TypeVar
 
+from ..protocol.constants import CommandScope, Mixins
+from .amc2_req import Amc2Req
 from .asc2_req import Asc2Req
 from .bpc2_req import Bpc2Req
 from .constants import (
-    FriendlyMixins,
-    PdiCommand,
+    Amc2Action,
     Asc2Action,
     Bpc2Action,
+    CommonAction,
+    D4Action,
+    FriendlyMixins,
     IrdaAction,
+    PdiAction,
+    PdiCommand,
     Ser2Action,
     Stm2Action,
     WiFiAction,
-    CommonAction,
-    PdiAction,
-    D4Action,
 )
 from .irda_req import IrdaReq
 from .pdi_req import PdiReq
 from .stm2_req import Stm2Req
-from ..protocol.constants import Mixins, CommandScope
 
 T = TypeVar("T", bound=PdiReq)
 
@@ -79,6 +81,19 @@ class Acs2DeviceConfig(PdiDeviceConfig):
             # Switch mode, latched, 4 TMCC IDs
             for i in range(4):
                 cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL5))
+        return cmds
+
+
+class Amc2DeviceConfig(PdiDeviceConfig):
+    def __init__(self, cmd: Amc2Req) -> None:
+        super().__init__(PdiDevice.AMC2, cmd)
+
+    @property
+    def state_requests(self) -> List[T]:
+        cmds = [
+            Amc2Req(self.tmcc_id, action=Amc2Action.INFO),
+            Amc2Req(self.tmcc_id, action=Amc2Action.CONFIG),
+        ]
         return cmds
 
 
@@ -257,15 +272,15 @@ class PdiDevice(Mixins, FriendlyMixins):
     """
 
     from .asc2_req import Asc2Req
-    from .bpc2_req import Bpc2Req
-    from .wifi_req import WiFiReq
-    from .pdi_req import AllReq, PingReq, TmccReq
     from .base_req import BaseReq
+    from .block_req import BlockReq
+    from .bpc2_req import Bpc2Req
     from .d4_req import D4Req
-    from .stm2_req import Stm2Req
     from .irda_req import IrdaReq
     from .lcs_req import Ser2Req
-    from .block_req import BlockReq
+    from .pdi_req import AllReq, PingReq, TmccReq
+    from .stm2_req import Stm2Req
+    from .wifi_req import WiFiReq
 
     BASE = DeviceWrapper(BaseReq)
     D4 = DeviceWrapper(D4Req, enums=D4Action, common_actions=False)
@@ -291,6 +306,14 @@ class PdiDevice(Mixins, FriendlyMixins):
         PdiCommand.ASC2_RX,
         enums=Asc2Action,
         dev_class=Acs2DeviceConfig,
+    )
+    AMC2 = DeviceWrapper(
+        Amc2Req,
+        PdiCommand.AMC2_GET,
+        PdiCommand.AMC2_SET,
+        PdiCommand.AMC2_RX,
+        enums=Amc2Action,
+        dev_class=Amc2DeviceConfig,
     )
     BPC2 = DeviceWrapper(
         Bpc2Req,

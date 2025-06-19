@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import sys
-from enum import Enum, unique, IntEnum
-from typing import Any, List, Dict, Set
+from enum import Enum, IntEnum, unique
+from typing import Any, Dict, List, Set
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -120,21 +120,21 @@ class Mixins(Enum):
         return self.name.capitalize()
 
 
-class OfficialRRSpeeds(Mixins, Enum):
+class OfficialRRSpeeds(Mixins):
     """
     Marker enum
     """
 
 
 @unique
-class CommandSyntax(Mixins, Enum):
+class CommandSyntax(Mixins):
     TMCC = 1
     LEGACY = 2
     PDI = 3
 
 
 @unique
-class CommandScope(Mixins, Enum):
+class CommandScope(Mixins):
     ENGINE = 1
     TRAIN = 2
     SWITCH = 3
@@ -152,7 +152,7 @@ class CommandScope(Mixins, Enum):
 
 
 @unique
-class Direction(Mixins, Enum):
+class Direction(Mixins):
     UNKNOWN = 0
     L2R = 1
     R2L = 2
