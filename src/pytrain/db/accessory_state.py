@@ -123,7 +123,9 @@ class AccessoryState(TmccState):
                         self._pdi_source = True
                         if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                             self._block_power = True
+                            self._asc2 = False
                         else:
+                            self._asc2 = True
                             self._block_power = False
                         if command.state == 1:
                             self._aux1_state = Aux.AUX1_ON
@@ -162,6 +164,14 @@ class AccessoryState(TmccState):
     @property
     def is_sensor_track(self) -> bool:
         return self._sensor_track
+
+    @property
+    def is_asc2(self) -> bool:
+        return self._asc2
+
+    @property
+    def is_amc2(self) -> bool:
+        return self._amc2
 
     @property
     def is_lcs_component(self) -> bool:

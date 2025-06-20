@@ -3,18 +3,18 @@ from __future__ import annotations
 import logging
 import socket
 import threading
-from collections import deque, defaultdict
+from collections import defaultdict, deque
 from queue import Queue
 from threading import Thread
-from typing import Tuple, Generic
+from typing import Generic, Tuple
 
-from .base_req import BaseReq
-from .constants import PDI_SOP, PDI_STF, PDI_EOP, PdiAction, PdiCommand
-from .pdi_req import PdiReq, TmccReq
-from ..comm.command_listener import Topic, Message, Channel, Subscriber, CommandDispatcher, SYNC_COMPLETE
+from ..comm.command_listener import SYNC_COMPLETE, Channel, CommandDispatcher, Message, Subscriber, Topic
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
-from ..protocol.constants import DEFAULT_QUEUE_SIZE, DEFAULT_BASE_PORT, BROADCAST_TOPIC, CommandScope, PROGRAM_NAME
+from ..protocol.constants import BROADCAST_TOPIC, DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, PROGRAM_NAME, CommandScope
 from ..utils.ip_tools import get_ip_address
+from .base_req import BaseReq
+from .constants import PDI_EOP, PDI_SOP, PDI_STF, PdiAction, PdiCommand
+from .pdi_req import PdiReq, TmccReq
 
 log = logging.getLogger(__name__)
 
@@ -96,7 +96,7 @@ class PdiListener(Thread):
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} PDI Listener {base3_addr}:{base3_port}")
 
         # open a connection to our Base 3
-        if build_base3_reader is True:
+        if build_base3_reader:
             from .base3_buffer import Base3Buffer
 
             self._base3 = Base3Buffer(base3_addr, base3_port, queue_size, self)

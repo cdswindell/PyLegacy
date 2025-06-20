@@ -18,6 +18,8 @@ from time import sleep
 from typing import Generic, List, Protocol, Tuple, TypeVar, cast, runtime_checkable
 
 from ..db.component_state import ComponentState
+from ..pdi.amc2_req import Amc2Req
+from ..pdi.constants import Amc2Action, PdiCommand
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import (
@@ -31,7 +33,7 @@ from ..protocol.constants import (
     CommandScope,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
-from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1SyncCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1AuxCommandEnum, TMCC1SyncCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..utils.ip_tools import get_ip_address
 
@@ -42,6 +44,10 @@ Topic = TypeVar("Topic")
 
 SYNCING = CommandReq(TMCC1SyncCommandEnum.SYNCHRONIZING)
 SYNC_COMPLETE = CommandReq(TMCC1SyncCommandEnum.SYNCHRONIZED)
+
+COMMAND_IMPACTS = {
+    TMCC1AuxCommandEnum.RELATIVE_SPEED: (lambda x: x.is_amc2, Amc2Req, PdiCommand.AMC2_GET, Amc2Action.CONFIG),
+}
 
 
 class CommandListener(Thread):
@@ -461,6 +467,12 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                         self.publish(cmd.scope, cmd)
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)
+
+                    # We need to query state from the Base 3 in response to certain commands.
+                    # For example, if we receive a RELATIVE SPEED command on an AMC2, we have to
+                    # get the entire AMC2 config to update the new motor speed
+                    self.request_command_impact(cmd)
+
                     # update state on all clients
                     if self._server_port is not None:
                         """
@@ -621,7 +633,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                                     log.warning(f"Exception sending state update {state} to {client_ip}:{client_port}")
                                     log.exception(e)
                         self._client_lock.notify_all()
-            # send sync complete message
+            # send sync_complete message
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_complete_response())
 
     def send_state_packet(self, client_ip: str, client_port: int, state: ComponentState | bytes):
@@ -693,7 +705,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 for channel in self._channels:
                     self._channels[channel].publish(message)
             else:
-                # send only to select channels and tuples with that channel
+                # only send to select channels and tuples with that channel
                 for channel in self._channels.keys():
                     if channel in channels or (isinstance(channel, tuple) and channel[0] in channels):
                         self._channels[channel].publish(message)
@@ -751,3 +763,16 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             self._channels[BROADCAST_TOPIC].unsubscribe(subscriber)
             if not self._channels[BROADCAST_TOPIC].subscribers:
                 self._broadcasts = False
+
+    @staticmethod
+    def request_command_impact(cmd: CommandReq) -> None:
+        action = COMMAND_IMPACTS.get(cmd.command, None)
+        if action:
+            from ..db.component_state_store import ComponentStateStore
+
+            address = cmd.address
+            scope = cmd.scope
+            state = ComponentStateStore.get_state(scope, address, create=False)
+            if state and action[0](state):
+                req = action[1](address, action[2], action[3])
+                req.send()
