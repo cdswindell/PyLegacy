@@ -243,8 +243,6 @@ class Amc2Req(LcsReq):
         byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
         byte_str += checksum
         byte_str += PDI_EOP.to_bytes(1, byteorder="big")
-
-        print(byte_str.hex())
         return byte_str
 
     @staticmethod
