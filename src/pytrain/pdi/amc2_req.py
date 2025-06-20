@@ -203,6 +203,14 @@ class Amc2Req(LcsReq):
                 m2 = f"{self._motor2}"
                 l1 = f"{self._lamp1}"
                 return f"{at} {m1} {m2} {l1} Debug: {self.debug} ({self.packet})"
+            elif self._action == Amc2Action.MOTOR:
+                return f"Motor: {self.motor} Speed: {self.speed} Direction: {self.direction.label} ({self.packet})"
+            elif self._action == Amc2Action.LAMP:
+                return f"Lamp: {self.lamp} Level: {self.level} ({self.packet})"
+            elif self._action == Amc2Action.MOTOR_CONFIG:
+                ot = f"Output Type: {self.output_type.label}"
+                rs = f"Restore State: {'On' if self._restore_state else 'Off'}"
+                return f"Motor: {self.motor} {ot} {rs} ({self.packet})"
         return super().payload
 
     @property
