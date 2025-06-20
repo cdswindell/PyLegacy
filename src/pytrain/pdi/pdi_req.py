@@ -212,6 +212,13 @@ class PdiReq(ABC):
     def is_tmcc(self) -> bool:
         return self._pdi_command.is_tmcc
 
+    # noinspection PyTypeChecker
+    @property
+    def is_config(self) -> bool:
+        if self.action:
+            return self.action.is_config
+        return False
+
     @property
     def is_lcs(self) -> bool:
         return False

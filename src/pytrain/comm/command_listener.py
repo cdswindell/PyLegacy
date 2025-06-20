@@ -13,9 +13,9 @@ import logging
 import socket
 from collections import defaultdict, deque
 from queue import Queue
-from threading import Thread, Condition, RLock
+from threading import Condition, RLock, Thread
 from time import sleep
-from typing import Generic, List, Protocol, Tuple, TypeVar, runtime_checkable, cast
+from typing import Generic, List, Protocol, Tuple, TypeVar, cast, runtime_checkable
 
 from ..db.component_state import ComponentState
 from ..protocol.command_def import CommandDefEnum
@@ -25,13 +25,13 @@ from ..protocol.constants import (
     DEFAULT_BAUDRATE,
     DEFAULT_PORT,
     DEFAULT_QUEUE_SIZE,
-    DEFAULT_VALID_BAUDRATES,
-    CommandScope,
     DEFAULT_SERVER_PORT,
+    DEFAULT_VALID_BAUDRATES,
     PROGRAM_NAME,
+    CommandScope,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum, SyncCommandDef
+from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1SyncCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
 from ..utils.ip_tools import get_ip_address
 
@@ -449,12 +449,12 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                             log.debug(f"Filtering client update: {cmd}")
                         else:
                             self.publish_all(cmd)
-                    # if command is a legacy-style halt, just send to engines and trains
+                    # if command is a legacy-style halt, send to engines and trains
                     elif cmd.is_system_halt:
                         self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
                     # otherwise, send to the interested parties
                     else:
-                        if cmd.is_data is True:
+                        if cmd.is_data:
                             self.publish((cmd.scope, cmd.address, cmd.command, cmd.data), cmd)
                         self.publish((cmd.scope, cmd.address, cmd.command), cmd)
                         self.publish((cmd.scope, cmd.address), cmd)
@@ -534,7 +534,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             if client_ip == client:
                 node_scope = cast(SyncCommandDef, option.command_def).is_node_scope
                 self.update_client_state(option, client=client, port=port)
-                if node_scope is True:
+                if node_scope:
                     return
 
     def signal_client(
@@ -612,7 +612,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                             for state_packet in state_bytes:
                                 if not state_packet:
                                     continue
-                                if do_pause is True:
+                                if do_pause:
                                     sleep(0.01)
                                 try:
                                     self.send_state_packet(client_ip, client_port, state_packet)
@@ -658,7 +658,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             with self._cv:
                 self._queue.put(cmd)
                 self._cv.notify_all()  # wake up receiving thread
-                if from_pdi is True:
+                if from_pdi:
                     pass  # TODO: prevent receiving same command from ser2 stream
 
     def shutdown(self) -> None:

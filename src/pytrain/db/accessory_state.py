@@ -14,7 +14,7 @@ from typing import Any, Dict, cast
 from ..pdi.amc2_req import Amc2Req
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
-from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
+from ..pdi.constants import Amc2Action, Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
@@ -31,6 +31,7 @@ class AccessoryState(TmccState):
         super().__init__(scope)
         self._first_pdi_command = None
         self._first_pdi_action = None
+        self._pdi_config_bytes = None
         self._last_aux1_opt1 = None
         self._last_aux2_opt1 = None
         self._aux1_state: Aux | None = None
@@ -116,6 +117,8 @@ class AccessoryState(TmccState):
                         self._first_pdi_command = command.command
                     if self._first_pdi_action is None:
                         self._first_pdi_action = command.action
+                    if command.is_config:
+                        self._pdi_config_bytes = command.as_bytes
                     if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                         self._pdi_source = True
                         if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
@@ -208,6 +211,12 @@ class AccessoryState(TmccState):
                     self._first_pdi_command,
                     cast(Bpc2Action, self._first_pdi_action),
                     state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
+                ).as_bytes
+            elif isinstance(self._first_pdi_action, Amc2Action):
+                byte_str += Amc2Req(
+                    self._pdi_config_bytes,
+                    PdiCommand.AMC2_RX,
+                    Amc2Action.CONFIG,
                 ).as_bytes
             else:
                 log.error(f"State req for lcs device: {self._first_pdi_command.name} {self._first_pdi_action.name}")

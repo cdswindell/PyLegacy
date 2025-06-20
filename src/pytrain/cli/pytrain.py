@@ -37,7 +37,7 @@ from ..db.engine_state import EngineState
 from ..db.prod_info import ProdInfo
 from ..db.startup_state import StartupState
 from ..gpio.gpio_handler import GpioHandler
-from ..pdi.amc2_req import Amc2Req
+from ..pdi.amc2_req import Amc2Req, Direction
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PDI_SOP, Asc2Action, D4Action, PdiCommand
@@ -1155,12 +1155,20 @@ class PyTrain:
                 if param_len >= 4:
                     device = int(param[3])
                     if param_len == 4:
-                        print(ca, device)
                         if ca == Amc2Action.MOTOR:
                             agr = Amc2Req(tmcc_id, PdiCommand.AMC2_GET, ca, motor=device)
                         else:
                             agr = Amc2Req(tmcc_id, PdiCommand.AMC2_GET, ca, lamp=device)
-                        print(f"AMC2 {ca.label} for device {device} requested {agr}...")
+                    elif param_len == 5 and ca == Amc2Action.LAMP:
+                        level = int(param[4])
+                        agr = Amc2Req(tmcc_id, PdiCommand.AMC2_SET, ca, lamp=device, level=level)
+                    elif param_len == 6 and ca == Amc2Action.MOTOR:
+                        speed = int(param[4])
+                        dr = Direction.by_prefix(param[5])
+                        agr = Amc2Req(tmcc_id, PdiCommand.AMC2_SET, ca, motor=device, speed=speed, direction=dr)
+                    else:
+                        raise AttributeError(f"Invalid parameter count for AMC2 {ca.label}")
+                    print(f"AMC2 {ca.label} for device {device} requested {agr}...")
                 else:
                     raise AttributeError(f"Must specify motor/lamp value for {ca.label}")
             elif ca is not None:
