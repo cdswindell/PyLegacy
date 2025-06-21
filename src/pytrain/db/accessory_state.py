@@ -31,7 +31,7 @@ class AccessoryState(TmccState):
         super().__init__(scope)
         self._first_pdi_command = None
         self._first_pdi_action = None
-        self._pdi_config_bytes = None
+        self._pdi_config = None
         self._last_aux1_opt1 = None
         self._last_aux2_opt1 = None
         self._aux1_state: Aux | None = None
@@ -52,7 +52,14 @@ class AccessoryState(TmccState):
         elif self._sensor_track:
             aux = "Sensor Track"
         elif self._amc2:
-            aux = "AMC 2"
+            if self._pdi_config:
+                at = f"Type: {self._pdi_config.access_type.label}"
+                m1 = f"{self._pdi_config.motor1}"
+                m2 = f"{self._pdi_config.motor2}"
+                l1 = f"{self._pdi_config.lamp1}"
+                aux = f"AMC 2 {at} {m1} {m2} {l1}"
+            else:
+                aux = "AMC 2"
         else:
             if self.is_lcs_component:
                 aux = "Asc2 " + "ON" if self._aux_state == Aux.AUX1_OPT_ONE else "OFF"
@@ -118,7 +125,7 @@ class AccessoryState(TmccState):
                     if self._first_pdi_action is None:
                         self._first_pdi_action = command.action
                     if command.is_config:
-                        self._pdi_config_bytes = command.as_bytes
+                        self._pdi_config = command
                     if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                         self._pdi_source = True
                         if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
@@ -138,7 +145,6 @@ class AccessoryState(TmccState):
                     elif isinstance(command, Amc2Req):
                         self._pdi_source = True
                         self._amc2 = True
-                        print(command)
                 elif isinstance(command, IrdaReq):
                     if self._first_pdi_command is None:
                         self._first_pdi_command = command.command
@@ -222,12 +228,8 @@ class AccessoryState(TmccState):
                     cast(Bpc2Action, self._first_pdi_action),
                     state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
-            elif isinstance(self._first_pdi_action, Amc2Action):
-                byte_str += Amc2Req(
-                    self._pdi_config_bytes,
-                    PdiCommand.AMC2_RX,
-                    Amc2Action.CONFIG,
-                ).as_bytes
+            elif isinstance(self._first_pdi_action, Amc2Action) and isinstance(self._pdi_config, Amc2Req):
+                byte_str += self._pdi_config.as_bytes
             else:
                 log.error(f"State req for lcs device: {self._first_pdi_command.name} {self._first_pdi_action.name}")
         else:

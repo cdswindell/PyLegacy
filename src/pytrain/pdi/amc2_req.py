@@ -58,10 +58,12 @@ class Amc2Motor:
     speed: int
 
     def __repr__(self) -> str:
-        t = f"Type: {self.output_type.label}"
-        d = f"Direction: {self.direction.label}"
-        r = f"Restore: {self.restore} to {'On' if self.restore_state else 'Off'}"
-        return f"Motor #{self.id} {t} {d} {r} Speed: {self.speed}"
+        t = f"Output: {self.output_type.label}"
+        d = f"Dir: {self.direction.label}"
+        r = f"Restore: {self.restore}"
+        if self.restore:
+            r += f" to {'On' if self.restore_state else 'Off'}"
+        return f"Mo #{self.id} {t} {d} Speed: {self.speed} {r}"
 
 
 @dataclass(slots=True)
@@ -70,7 +72,7 @@ class Amc2Lamp:
     level: int
 
     def __repr__(self) -> str:
-        return f"Lamp: {self.id} level: {self.level})"
+        return f"Lm #{self.id} level: {self.level}"
 
 
 class Amc2Req(LcsReq):
@@ -141,6 +143,10 @@ class Amc2Req(LcsReq):
         return self._debug
 
     @property
+    def access_type(self) -> AccessType:
+        return self._access_type
+
+    @property
     def motor(self) -> int:
         return self._motor
 
@@ -198,13 +204,13 @@ class Amc2Req(LcsReq):
             return super().payload
         if self.pdi_command != PdiCommand.AMC2_GET:
             if self.action == Amc2Action.CONFIG:
-                at = f"Access Type: {self._access_type.label}"
+                at = f"Type: {self._access_type.label}"
                 m1 = f"{self._motor1}"
                 m2 = f"{self._motor2}"
                 l1 = f"{self._lamp1}"
                 return f"{at} {m1} {m2} {l1} Debug: {self.debug} ({self.packet})"
             elif self._action == Amc2Action.MOTOR:
-                return f"Motor: {self.motor} Speed: {self.speed} Direction: {self.direction.label} ({self.packet})"
+                return f"Motor: {self.motor} Speed: {self.speed} Dir: {self.direction.label} ({self.packet})"
             elif self._action == Amc2Action.LAMP:
                 return f"Lamp: {self.lamp} Level: {self.level} ({self.packet})"
             elif self._action == Amc2Action.MOTOR_CONFIG:
