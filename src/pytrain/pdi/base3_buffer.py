@@ -9,18 +9,18 @@ import time
 # from signal import signal, SIGPIPE, SIG_DFL
 from threading import Condition, Thread
 
-from .base_req import BaseReq
-from .constants import KEEP_ALIVE_CMD, PDI_SOP, PdiCommand, TMCC_TX, TMCC4_TX
-from .pdi_listener import PdiListener
-from .pdi_req import PdiReq, TmccReq
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import (
     DEFAULT_BASE_PORT,
     DEFAULT_QUEUE_SIZE,
-    CommandScope,
     PROGRAM_NAME,
+    CommandScope,
 )
 from ..utils.pollable_queue import PollableQueue
+from .base_req import BaseReq
+from .constants import KEEP_ALIVE_CMD, PDI_SOP, TMCC4_TX, TMCC_TX, PdiCommand
+from .pdi_listener import PdiListener
+from .pdi_req import PdiReq, TmccReq
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class Base3Buffer(Thread):
     @classmethod
     def request_state_update(cls, tmcc_id: int, scope: CommandScope) -> None:
         if cls._instance is not None:
-            if 1 <= tmcc_id <= 99:
+            if 1 <= tmcc_id <= 9999:
                 cls.enqueue_command(BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=scope).as_bytes)
 
     @classmethod

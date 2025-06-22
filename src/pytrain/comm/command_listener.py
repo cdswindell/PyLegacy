@@ -19,7 +19,7 @@ from typing import Generic, List, Protocol, Tuple, TypeVar, cast, runtime_checka
 
 from ..db.component_state import ComponentState
 from ..pdi.amc2_req import Amc2Req
-from ..pdi.constants import Amc2Action, PdiCommand
+from ..pdi.base_req import BaseReq
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import (
@@ -29,12 +29,13 @@ from ..protocol.constants import (
     DEFAULT_QUEUE_SIZE,
     DEFAULT_SERVER_PORT,
     DEFAULT_VALID_BAUDRATES,
+    LOCO_TRACK_CRANE,
     PROGRAM_NAME,
     CommandScope,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1AuxCommandEnum, TMCC1SyncCommandEnum
-from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
+from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, TMCC2EngineCommandEnum
 from ..utils.ip_tools import get_ip_address
 
 log = logging.getLogger(__name__)
@@ -45,8 +46,19 @@ Topic = TypeVar("Topic")
 SYNCING = CommandReq(TMCC1SyncCommandEnum.SYNCHRONIZING)
 SYNC_COMPLETE = CommandReq(TMCC1SyncCommandEnum.SYNCHRONIZED)
 
+#
+# Certain Legacy/TMCC commands, such as the Engine Numerics, change core element state, such as
+# volume and rpm level. In these cases, we need to requery the Base 3 to get the updated
+# impacted state
+#
 COMMAND_IMPACTS = {
-    TMCC1AuxCommandEnum.RELATIVE_SPEED: (lambda x: x.is_amc2, Amc2Req, PdiCommand.AMC2_GET, Amc2Action.CONFIG),
+    TMCC1AuxCommandEnum.RELATIVE_SPEED: (lambda x: x.is_amc2, Amc2Req.request_config),
+    TMCC1AuxCommandEnum.AUX1_OPT_ONE: (lambda x: x.is_amc2, Amc2Req.request_config),
+    TMCC1AuxCommandEnum.AUX2_OPT_ONE: (lambda x: x.is_amc2, Amc2Req.request_config),
+    TMCC2EngineCommandEnum.NUMERIC: (
+        lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
+        BaseReq.request_config,
+    ),
 }
 
 
@@ -764,6 +776,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             if not self._channels[BROADCAST_TOPIC].subscribers:
                 self._broadcasts = False
 
+    # noinspection PyArgumentList
     @staticmethod
     def request_command_impact(cmd: CommandReq) -> None:
         action = COMMAND_IMPACTS.get(cmd.command, None)
@@ -774,5 +787,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             scope = cmd.scope
             state = ComponentStateStore.get_state(scope, address, create=False)
             if state and action[0](state):
-                req = action[1](address, action[2], action[3])
+                print(action)
+                req = action[1](state, cmd)
                 req.send()

@@ -117,6 +117,11 @@ SCOPE_TO_RECORD_TYPE_MAP = {s: p for p, s in RECORD_TYPE_MAP.items()}
 
 
 class BaseReq(PdiReq, CompDataMixin):
+    # noinspection PyTypeChecker,PyUnusedLocal
+    @classmethod
+    def request_config(cls, state: ComponentState) -> BaseReq:
+        return cls(state.address, pdi_command=PdiCommand.BASE_MEMORY, scope=state.scope)
+
     @classmethod
     def update_speed(cls, address: int, speed: int, scope: CommandScope = CommandScope.ENGINE) -> BaseReq:
         if scope == CommandScope.TRAIN:

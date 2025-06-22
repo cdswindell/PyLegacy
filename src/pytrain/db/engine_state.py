@@ -26,7 +26,6 @@ from ..protocol.constants import (
     RPM_TYPE,
     SOUND_TYPE,
     STEAM_TYPE,
-    TRACK_CRANE_STATE_NUMERICS,
     CommandScope,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
@@ -270,21 +269,8 @@ class EngineState(ComponentState):
 
                 # handle last numeric
                 if command.command in NUMERIC_SET:
-                    from ..pdi.base3_buffer import Base3Buffer
-
-                    if self.engine_type in {
-                        LOCO_TRACK_CRANE,
-                    }:
-                        if command.data in TRACK_CRANE_STATE_NUMERICS:
-                            self._numeric = command.data
-                            self._numeric_cmd = command.command
-                    else:
-                        self._numeric = command.data
-                        self._numeric_cmd = command.command
-                        # numeric commands can change RPM, Volume, and reset the train
-                        # force a state update for this engine/train, if we are connected
-                        # to a Base 3
-                        Base3Buffer.request_state_update(self.address, self.scope)
+                    self._numeric = command.data
+                    self._numeric_cmd = command.command
                 elif cmd_effects & NUMERIC_SET:
                     numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
                     log.info(f"What to do? {command}: {numeric} {type(numeric)}")
