@@ -160,7 +160,7 @@ class BaseReq(PdiReq, CompDataMixin):
             # special case numeric commands
             if state.name == "NUMERIC":
                 if data in {3, 6}:  # RPM up/down
-                    # state = TMCC2EngineCommandEnum.DIESEL_RPM
+                    #state = TMCC2EngineCommandEnum.DIESEL_RPM
                     if cur_state and cur_state.rpm is not None:
                         cur_rpm = cur_state.rpm
                         cur_labor = cur_state.labor if cur_state.labor else 12
