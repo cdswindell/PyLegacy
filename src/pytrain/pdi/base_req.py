@@ -123,9 +123,7 @@ class BaseReq(PdiReq, CompDataMixin):
         if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             state_changes = BaseReq.update_eng(cmd)
             for state_change in state_changes:
-                print(state_change)
                 state_change.send()
-        print(cls(state.address, pdi_command=PdiCommand.BASE_MEMORY, scope=state.scope))
         return cls(state.address, pdi_command=PdiCommand.BASE_MEMORY, scope=state.scope)
 
     @classmethod
