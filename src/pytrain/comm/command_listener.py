@@ -785,5 +785,5 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
 
             state = ComponentStateStore.get_state(cmd.scope, cmd.address, create=False)
             if state and action[0](state):
-                req = action[1](state)
+                req = action[1](state, cmd)
                 req.send()

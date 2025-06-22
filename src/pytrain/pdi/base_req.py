@@ -119,7 +119,13 @@ SCOPE_TO_RECORD_TYPE_MAP = {s: p for p, s in RECORD_TYPE_MAP.items()}
 class BaseReq(PdiReq, CompDataMixin):
     # noinspection PyTypeChecker,PyUnusedLocal
     @classmethod
-    def request_config(cls, state: ComponentState) -> BaseReq:
+    def request_config(cls, state: ComponentState, cmd: CommandReq) -> BaseReq:
+        if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            state_changes = BaseReq.update_eng(cmd)
+            for state_change in state_changes:
+                print(state_change)
+                state_change.send()
+        print(cls(state.address, pdi_command=PdiCommand.BASE_MEMORY, scope=state.scope))
         return cls(state.address, pdi_command=PdiCommand.BASE_MEMORY, scope=state.scope)
 
     @classmethod
@@ -137,6 +143,10 @@ class BaseReq(PdiReq, CompDataMixin):
         data: int | None = None,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> List[BaseReq] | None:
+        #
+        # Given a TMCC command, determine how it indirectly impacts engine state and
+        # return a list of commands to send to the Base 3 to set that state
+        #
         from ..db.component_state_store import ComponentStateStore
 
         pkgs = []
@@ -145,12 +155,12 @@ class BaseReq(PdiReq, CompDataMixin):
             address = cmd.address
             data = cmd.data
             scope = cmd.scope
-            cur_state = ComponentStateStore.build().get_state(scope, address, False)
+            cur_state = ComponentStateStore.get_state(scope, address, False)
 
             # special case numeric commands
             if state.name == "NUMERIC":
                 if data in {3, 6}:  # RPM up/down
-                    state = TMCC2EngineCommandEnum.DIESEL_RPM
+                    # state = TMCC2EngineCommandEnum.DIESEL_RPM
                     if cur_state and cur_state.rpm is not None:
                         cur_rpm = cur_state.rpm
                         cur_labor = cur_state.labor if cur_state.labor else 12

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..db.component_state import T
+from ..db.component_state import L, T
 from ..protocol.constants import CommandScope, Mixins
 from ..utils.validations import Validations
 from .constants import PDI_EOP, PDI_SOP, Amc2Action, PdiCommand
@@ -77,9 +77,9 @@ class Amc2Lamp:
 
 
 class Amc2Req(LcsReq):
-    # noinspection PyTypeChecker
+    # noinspection PyUnusedLocal,PyTypeChecker
     @classmethod
-    def request_config(cls, state: T) -> Amc2Req:
+    def request_config(cls, state: T, cmd: L) -> Amc2Req:
         return cls(state.address, pdi_command=PdiCommand.AMC2_GET, action=Amc2Action.CONFIG)
 
     def __init__(

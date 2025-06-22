@@ -332,7 +332,7 @@ class CompData(ABC, Generic[R]):
 
     @classmethod
     def rpm_labor_to_pkg(cls, rpm: int, labor: int) -> UpdatePkg:
-        return UpdatePkg("rpm_labor", 0xC0, 1, default_to_func(cls.encode_rpm_labor(rpm, labor)))
+        return UpdatePkg("rpm_labor", 0x0C, 1, default_to_func(cls.encode_rpm_labor(rpm, labor)))
 
     # noinspection PyTypeChecker
     @classmethod
