@@ -783,10 +783,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         if action:
             from ..db.component_state_store import ComponentStateStore
 
-            address = cmd.address
-            scope = cmd.scope
-            state = ComponentStateStore.get_state(scope, address, create=False)
+            state = ComponentStateStore.get_state(cmd.scope, cmd.address, create=False)
             if state and action[0](state):
-                print(action)
-                req = action[1](state, cmd)
+                req = action[1](state)
                 req.send()
