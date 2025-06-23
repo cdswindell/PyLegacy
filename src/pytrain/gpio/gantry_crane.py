@@ -9,7 +9,7 @@
 
 from ..db.component_state_store import ComponentStateStore
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, CAB1_CONTROL_TYPE
+from ..protocol.constants import CAB1_CONTROL_TYPE, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from .gpio_device import GpioDevice, P
 from .state_source import EngineStateSource
@@ -74,6 +74,8 @@ class GantryCrane(GpioDevice):
         bo_up_pin: P = None,
         mag_pin: P = None,
         led_pin: P = None,
+        sound_on_pin: P = None,
+        sound_off_pin: P = None,
         cathode: bool = True,
         cab_rotary_encoder: bool = False,
         repeat_every: float = 0.02,
@@ -219,6 +221,31 @@ class GantryCrane(GpioDevice):
             )
         else:
             self.mag_btn = self.mag_led = None
+
+        # set up sound commands
+        if sound_on_pin:
+            sound_on_cmd, self.sound_on_btn, _ = self.make_button(
+                sound_on_pin,
+                TMCC1EngineCommandEnum.NUMERIC,
+                address,
+                data=9,
+                scope=CommandScope.ENGINE,
+            )
+            self.sound_on_btn.when_pressed = sound_on_cmd.as_action()
+        else:
+            self.sound_on_btn = None
+
+        if sound_off_pin:
+            sound_off_cmd, self.sound_off_btn, _ = self.make_button(
+                sound_off_pin,
+                TMCC1EngineCommandEnum.NUMERIC,
+                address,
+                data=8,
+                scope=CommandScope.ENGINE,
+            )
+            self.sound_off_btn.when_pressed = sound_off_cmd.as_action()
+        else:
+            self.sound_off_btn = None
 
     def cab_sel_required(self) -> bool:
         return self._state.numeric != 1
