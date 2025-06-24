@@ -87,8 +87,8 @@ class GantryCrane(GpioDevice):
         if self._state.control_type != CAB1_CONTROL_TYPE:
             raise AttributeError(f"Gantry crane must be configured as Cab-1, not {self._state.control_type_label}")
 
-        cab_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ENGINE)
         # select cab rotate mode
+        cab_sel_cmd = CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, address, data=1, scope=CommandScope.ENGINE)
         if self.cab_sel_required():
             cab_sel_cmd.send(repeat=2)
 
