@@ -23,7 +23,7 @@ from queue import Empty, Queue
 from threading import Event, Thread, get_native_id
 from time import sleep
 from timeit import default_timer as timer
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, cast
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
@@ -98,9 +98,9 @@ class PyTrain:
         from .. import get_version
 
         if cmd_line:
-            args = self.command_line_parser().parse_args(cmd_line)
+            args = self.command_line_parser_ex().parse_args(cmd_line)
         else:
-            args = self.command_line_parser().parse_args()
+            args = self.command_line_parser_ex().parse_args()
         log.debug(f"{PROGRAM_NAME} args: {args}")
         self._args = args
         self._buttons_file = args.buttons_file
@@ -402,9 +402,33 @@ class PyTrain:
     def tmcc_buffer(self) -> CommBuffer:
         return self._tmcc_buffer
 
-    # @classmethod
-    def command_line_parser(self) -> ArgumentParser:
+    def command_line_parser_ex(self) -> ArgumentParser:
         from .. import is_package
+
+        parser = PyTrainArgumentParser(add_help=False)
+        parser.add_argument(
+            "-version",
+            action="version",
+            version=self.version,
+            help="Show version and exit",
+        )
+
+        ptp = cast(PyTrainArgumentParser, self.command_line_parser())
+        ptp.remove_args(["-version"])
+        prog = "pytrain" if is_package() else "pytrain.py"
+        return PyTrainArgumentParser(
+            prog=prog,
+            add_help=False,
+            description="Send TMCC and Legacy-formatted commands to a Lionel Base 3 and/or LCS Ser2",
+            parents=[
+                parser,
+                ptp,
+            ],
+        )
+
+    @classmethod
+    def command_line_parser(cls) -> ArgumentParser:
+        from .. import is_package, get_version
 
         prog = "pytrain" if is_package() else "pytrain.py"
         parser = PyTrainArgumentParser(
@@ -476,7 +500,7 @@ class PyTrain:
         misc_opts.add_argument(
             "-version",
             action="version",
-            version=self.version,
+            version=f"{cls.__qualname__} {get_version()}",
             help="Show version and exit",
         )
         return parser
