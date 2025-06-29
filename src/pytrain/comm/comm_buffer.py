@@ -114,7 +114,7 @@ class CommBuffer(abc.ABC):
 
     @classmethod
     def is_server(cls) -> bool:
-        if cls.is_built() is False:
+        if not cls.is_built():
             raise ValueError("CommBuffer is not built")
         return isinstance(cls._instance, CommBufferSingleton)
 

@@ -402,9 +402,9 @@ class PyTrain:
     def tmcc_buffer(self) -> CommBuffer:
         return self._tmcc_buffer
 
-    @classmethod
-    def command_line_parser(cls) -> ArgumentParser:
-        from .. import get_version, is_package
+    # @classmethod
+    def command_line_parser(self) -> ArgumentParser:
+        from .. import is_package
 
         prog = "pytrain" if is_package() else "pytrain.py"
         parser = PyTrainArgumentParser(
@@ -476,10 +476,32 @@ class PyTrain:
         misc_opts.add_argument(
             "-version",
             action="version",
-            version=f"{cls.__qualname__} {get_version()}",
+            version=self.version,
             help="Show version and exit",
         )
         return parser
+
+    @property
+    def version(self) -> str:
+        """
+        Return version string. If running, also show client/server status,
+        server version, and server IP
+        """
+        from .. import get_version
+
+        try:
+            ver = f"{PROGRAM_NAME} {self._version} {'Client' if self.is_client else 'Server'}"
+            if self.is_client is True and self._server:
+                s_ver = self._tmcc_buffer.server_version
+                ver += f"; Server v{'.'.join([str(x) for x in s_ver])} @{self._server}"
+            if self._tmcc_buffer.base3_address:
+                ver += f"; Base 3 @{self._tmcc_buffer.base3_address}"
+            return ver
+        except AttributeError:
+            pass
+
+        ver = f"{self.__class__.__qualname__} {get_version()}"
+        return ver
 
     def __call__(self, cmd: CommandReq | PdiReq) -> None:
         """
@@ -923,7 +945,7 @@ class PyTrain:
                         print(timedelta(seconds=timer() - self._started_at))
                         return None
                     if parse_only is False and args.command == "version":
-                        print(f"{PROGRAM_NAME} {self._version} {'Client' if self.is_client else 'Server'}")
+                        print(self.version)
                         return None
                     #
                     # we're done with the admin/special commands, now do train stuff
