@@ -8,13 +8,14 @@ from range_key_dict import RangeKeyDict
 
 from ..command_def import CommandDef, CommandDefEnum
 from ..constants import (
+    DEFAULT_ADDRESS,
+    DEFAULT_ENGINE_LABOR,
+    RELATIVE_SPEED_MAP,
     CommandPrefix,
     CommandScope,
-    RELATIVE_SPEED_MAP,
     CommandSyntax,
-    DEFAULT_ENGINE_LABOR,
+    OfficialRRSpeeds,
 )
-from ..constants import OfficialRRSpeeds, DEFAULT_ADDRESS
 
 LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: int = 0xFA
 LEGACY_MULTIBYTE_COMMAND_PREFIX: int = 0xFB
