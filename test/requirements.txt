@@ -9,4 +9,3 @@ tox>=4.26.0
 twine>=6.1.0
 ipython>=9.4.0; python_version>="3.11"
 ipython>=8.32.0; python_version<"3.11"
-
