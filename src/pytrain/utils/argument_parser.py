@@ -6,8 +6,8 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
-
-from argparse import ArgumentParser, HelpFormatter, ArgumentError
+import argparse
+from argparse import ArgumentError, ArgumentParser, HelpFormatter
 from threading import Lock
 from typing import List, cast
 
@@ -111,3 +111,29 @@ class StripPrefixesHelpFormatter(HelpFormatter):
                 opt_strs.append(str(option).replace("-", ""))
             action.option_strings = opt_strs
         return super(StripPrefixesHelpFormatter, self).add_usage(usage, actions, groups, prefix)
+
+
+# Custom argparse type representing a bounded int
+class IntRange:
+    def __init__(self, imin: int = None, imax: int = None):
+        self.imin = imin
+        self.imax = imax
+
+    def __call__(self, arg):
+        try:
+            value = int(arg)
+        except ValueError:
+            raise self.exception()
+        if (self.imin is not None and value < self.imin) or (self.imax is not None and value > self.imax):
+            raise self.exception()
+        return value
+
+    def exception(self):
+        if self.imin is not None and self.imax is not None:
+            return argparse.ArgumentTypeError(f"Must be an integer in the range [{self.imin} - {self.imax}]")
+        elif self.imin is not None:
+            return argparse.ArgumentTypeError(f"Must be an integer >= {self.imin}")
+        elif self.imax is not None:
+            return argparse.ArgumentTypeError(f"Must be an integer <= {self.imax}")
+        else:
+            return argparse.ArgumentTypeError("Must be an integer")

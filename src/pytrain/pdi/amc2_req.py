@@ -248,7 +248,7 @@ class Amc2Req(LcsReq):
                 byte_str += self.speed.to_bytes(1, byteorder="big")
                 byte_str += self._direction.to_bytes(1, byteorder="big")
         elif self._action == Amc2Action.LAMP:
-            byte_str += self.motor.to_bytes(1, byteorder="big")
+            byte_str += self.lamp.to_bytes(1, byteorder="big")
             if self.pdi_command != PdiCommand.AMC2_GET:
                 byte_str += self.level.to_bytes(1, byteorder="big")
         elif self._action == Amc2Action.MOTOR_CONFIG:

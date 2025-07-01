@@ -57,7 +57,10 @@ class AccessoryState(TmccState):
                 m1 = f"{self._pdi_config.motor1}"
                 m2 = f"{self._pdi_config.motor2}"
                 l1 = f"{self._pdi_config.lamp1}"
-                aux = f"AMC 2 {at} {m1} {m2} {l1}"
+                l2 = f"{self._pdi_config.lamp2}"
+                l3 = f"{self._pdi_config.lamp3}"
+                l4 = f"{self._pdi_config.lamp4}"
+                aux = f"AMC 2 {at} {m1} {m2} {l1} {l2} {l3} {l4}"
             else:
                 aux = "AMC 2"
         else:

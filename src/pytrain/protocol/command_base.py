@@ -1,16 +1,16 @@
 import abc
 from abc import ABC
 from ipaddress import IPv4Address, IPv6Address
-from typing import TypeVar
+from typing import Sequence, TypeVar
 
-from .command_def import CommandDef, CommandDefEnum
-from .command_req import CommandReq
-from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope, MINIMUM_DURATION_INTERVAL_MSEC
 from ..comm.comm_buffer import CommBuffer
 from ..pdi.pdi_req import PdiReq
 from ..utils.validations import Validations
+from .command_def import CommandDef, CommandDefEnum
+from .command_req import CommandReq
+from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, MINIMUM_DURATION_INTERVAL_MSEC, CommandScope
 
-R = TypeVar("R", bound=CommandReq | PdiReq)
+R = TypeVar("R", bound=CommandReq | PdiReq | Sequence[CommandReq | PdiReq])
 
 
 class CommandBase(ABC):
@@ -43,7 +43,7 @@ class CommandBase(ABC):
         # persist command information
         self._command_def_enum: CommandDefEnum = command
         self._command_def: CommandDef = command.value if command else None
-        self._command_req: CommandReq = command_req
+        self._command_req: R = command_req
         self._data: int = data
         self._scope: CommandScope = scope
 
@@ -83,7 +83,7 @@ class CommandBase(ABC):
         return self._command_prefix()
 
     @property
-    def command_req(self) -> CommandReq:
+    def command_req(self) -> R:
         return self._command_req
 
     def send(
@@ -104,15 +104,22 @@ class CommandBase(ABC):
         Validations.validate_int(interval, min_value=MINIMUM_DURATION_INTERVAL_MSEC, allow_none=True)
         Validations.validate_float(delay, min_value=0)
         Validations.validate_float(duration, min_value=0, allow_none=True)
-        self.command_req.send(
-            repeat=repeat,
-            delay=delay,
-            duration=duration,
-            interval=interval,
-            baudrate=baudrate,
-            port=port,
-            server=server,
-        )
+        if isinstance(self.command_req, CommandReq) or isinstance(self.command_req, PdiReq):
+            reqs = [self.command_req]
+        elif isinstance(self.command_req, Sequence):
+            reqs = self.command_req
+        else:
+            raise ValueError(f"Unknown command type: {type(self.command_req)}")
+        for req in reqs:
+            req.send(
+                repeat=repeat,
+                delay=delay,
+                duration=duration,
+                interval=interval,
+                baudrate=baudrate,
+                port=port,
+                server=server,
+            )
         if shutdown:
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
             buffer.shutdown()

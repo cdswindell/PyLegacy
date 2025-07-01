@@ -66,6 +66,7 @@ from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpForm
 from ..utils.dual_logging import set_up_logging
 from ..utils.ip_tools import find_base_address, get_ip_address
 from .acc import AccCli
+from .amc2 import Amc2Cli
 from .asc2 import Asc2Cli
 from .bpc2 import Bpc2Cli
 from .dialogs import DialogsCli
@@ -428,7 +429,7 @@ class PyTrain:
 
     @classmethod
     def command_line_parser(cls) -> ArgumentParser:
-        from .. import is_package, get_version
+        from .. import get_version, is_package
 
         prog = "pytrain" if is_package() else "pytrain.py"
         parser = PyTrainArgumentParser(
@@ -1247,6 +1248,7 @@ class PyTrain:
             "-accessory", action="store_const", const=AccCli, dest="command", help="Issue accessory commands"
         )
         group.add_argument("-asc2", action="store_const", const=Asc2Cli, dest="command", help="Issue Asc2 commands")
+        group.add_argument("-amc2", action="store_const", const=Amc2Cli, dest="command", help="Issue Amc2 commands")
         group.add_argument("-bpc2", action="store_const", const=Bpc2Cli, dest="command", help="Issue Bpc2 commands")
         group.add_argument(
             "-db", action="store_const", const="db", dest="command", help="Query engine/train/switch/accessory state"
