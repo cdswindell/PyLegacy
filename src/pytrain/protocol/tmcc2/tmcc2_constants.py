@@ -40,7 +40,7 @@ class TMCC2Enum(CommandDefEnum):
 
 
 # All Legacy/TMCC2 commands begin with one of the following 1 byte sequences
-# Engine/Train/Parameter 2 digit address are first 7 bits of first byte
+# Engine/Train/Parameter 2 digit address is first 7 bits of first byte
 
 
 @unique
