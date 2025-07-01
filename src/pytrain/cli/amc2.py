@@ -133,7 +133,7 @@ class Amc2Cli(CliBase):
 
         if self._motor is not None:
             if self._args.on or self._args.off:
-                req1 = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data=self._motor + 1)
+                req1 = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data = self._motor + 1)
                 if self._args.on:
                     req2 = CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, self._amc2)
                 else:
@@ -149,7 +149,7 @@ class Amc2Cli(CliBase):
                 )
         elif self._lamp is not None:
             if self._args.on or self._args.off:
-                req1 = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data=self._lamp + 3)
+                req1 = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data = self._lamp + 3)
                 if self._args.on:
                     req2 = CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, self._amc2)
                 else:
