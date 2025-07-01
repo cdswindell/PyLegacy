@@ -668,7 +668,7 @@ class PyTrain:
         raise KeyboardInterrupt()
 
     @staticmethod
-    def decode_command(param: List[str]) -> None:
+    def decode_command(param: List[str]) -> tuple[bytes, CommandReq | PdiReq | None]:
         try:
             param = "".join(param).lower().strip()
             if param.startswith("0x"):
@@ -680,8 +680,15 @@ class PyTrain:
             else:
                 cmd = CommandReq.from_bytes(byte_str)
             print(f"0x{byte_str.hex()} --> {cmd}")
+            return byte_str, cmd
         except Exception as e:
             log.info(e)
+        return bytes(), None
+
+    def send_command(self, param: List[str]) -> None:
+        byte_str, cmd = self.decode_command(param)
+        if cmd:
+            cmd.send()
 
     def reboot(self, reboot: bool = True) -> None:
         if reboot:
@@ -957,6 +964,9 @@ class PyTrain:
                     if parse_only is False and args.command == "decode":
                         self.decode_command(ui_parts[1:])
                         return None
+                    if parse_only is False and args.command == "send":
+                        self.send_command(ui_parts[1:])
+                        return None
                     if parse_only is False and args.command == "pdi":
                         try:
                             self._do_pdi(ui_parts[1:])
@@ -1215,7 +1225,6 @@ class PyTrain:
                         agr = Amc2Req(tmcc_id, PdiCommand.AMC2_SET, ca, motor=device, speed=speed, direction=dr)
                     else:
                         raise AttributeError(f"Invalid parameter count for AMC2 {ca.label}")
-                    print(f"AMC2 {ca.label} for device {device} requested {agr}...")
                 else:
                     raise AttributeError(f"Must specify motor/lamp value for {ca.label}")
             elif ca is not None:
@@ -1312,6 +1321,9 @@ class PyTrain:
             help=f"Reload {PROGRAM_NAME} state from Lionel Base 3",
         )
         group.add_argument("-route", action="store_const", const=RouteCli, dest="command", help="Fire defined routes")
+        group.add_argument(
+            "-send", action="store_const", const="send", dest="command", help="Send TMCC/PDI command bytes"
+        )
         group.add_argument(
             "-shutdown",
             action="store_const",
