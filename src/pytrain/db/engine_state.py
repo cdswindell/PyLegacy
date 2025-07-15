@@ -728,7 +728,7 @@ class EngineState(ComponentState):
     @property
     def is_legacy(self) -> bool:
         if self._is_legacy is None:
-            if self.scope == CommandScope.ENGINE and self.address > 99:
+            if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and self.address > 99:
                 self._is_legacy = True
             elif self.control_type is not None:
                 if self.control_type == LEGACY_CONTROL_TYPE:
@@ -766,6 +766,7 @@ class TrainState(EngineState):
         if scope != CommandScope.TRAIN:
             raise ValueError(f"Invalid scope: {scope}, expected {CommandScope.TRAIN.name}")
         super().__init__(scope)
+        # TODO: FIXME!!
         # hard code TMCC2, for now
         self._is_legacy = True
 

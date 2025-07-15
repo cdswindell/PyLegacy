@@ -115,7 +115,7 @@ class EngineStatus(Thread, GpioDevice):
 
     def update_display(self, clear: bool = False) -> None:
         with self._lock:
-            if clear is True:
+            if clear:
                 self.display.clear()
             cursor = None
             if self._monitored_state:
