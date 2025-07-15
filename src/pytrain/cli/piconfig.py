@@ -87,7 +87,7 @@ class PiConfig:
         self.option = args.option
         self.verbose = args.quiet is False
         self.enable_spi = args.enable_spi
-        if is_linux() is False:
+        if not is_linux():
             print("This command can only run on Raspberry Pi systems! Exiting...")
             sys.exit(1)
         # do the work
@@ -176,13 +176,13 @@ class PiConfig:
                     cfg.add("config.txt")
                     if self.verbose:
                         print("...FAILED")
-                    if bluetooth_disabled is False:
+                    if not bluetooth_disabled:
                         print("*** Bluetooth should be disabled ***")
-                    if audio_disabled is False:
+                    if not audio_disabled:
                         print("*** Audio should be disabled ***")
-                    if camera_disabled is False:
+                    if not camera_disabled:
                         print("*** Camera Autodetect should be disabled ***")
-                    if display_disabled is False:
+                    if not display_disabled:
                         print("*** Display Autodetect should be disabled ***")
                 else:
                     cfg.add("config.txt")
@@ -276,7 +276,7 @@ class PiConfig:
                     lines[k] = v
 
                 # disable bluetooth, if needed
-                if bluetooth_disabled is False:
+                if not bluetooth_disabled:
                     reboot_required = True
                     lines.append("")
                     lines.append("# Disable Bluetooth")
