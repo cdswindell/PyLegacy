@@ -93,6 +93,7 @@ class LaunchGui(Thread):
         pass
 
     def sync_gui_state(self) -> None:
+        log.info(f"Launch Pad {self.tmcc_id} state exists: {self._monitored_state is not None}...")
         if self._monitored_state:
             log.info(f"Launch Pad {self.tmcc_id} state {self._monitored_state}...")
             # power on?
