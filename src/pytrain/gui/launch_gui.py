@@ -94,6 +94,7 @@ class LaunchGui(Thread):
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
+            log.info(f"Launch Pad {self.tmcc_id} state {self._monitored_state}...")
             # power on?
             if self._monitored_state.is_started is True:
                 self.do_power_on()
@@ -295,7 +296,7 @@ class LaunchGui(Thread):
         self.sync_gui_state()
 
         # display GUI and start event loop; call blocks
-        log.info(f"Launch Pad {self.tmcc_id} GUI app display called...")
+        log.info(f"Launch Pad {self.tmcc_id} calling GUIZero app display...")
         self.app.display()
         log.info("app display exiting...")
 
