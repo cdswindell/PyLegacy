@@ -1,18 +1,20 @@
 import atexit
-from threading import Thread, Condition, RLock
+import logging
+from threading import Condition, RLock, Thread
 from time import time
 
-from guizero import App, PushButton, Text, Box
+from guizero import App, Box, PushButton, Text
 
 from ..comm.command_listener import CommandDispatcher
-from ..db.state_watcher import StateWatcher
-from ..protocol.constants import CommandScope
 from ..db.component_state_store import ComponentStateStore
-from ..protocol.command_req import CommandReq
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
-
+from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import CommandScope
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..utils.path_utils import find_file
+
+log = logging.getLogger(__name__)
 
 
 class LaunchGui(Thread):
@@ -81,6 +83,7 @@ class LaunchGui(Thread):
             if self._monitored_state is None:
                 raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
             # start GUI
+            log.info(f"Launch Pad {self.tmcc_id} GUI starting up...")
             self.start()
             # listen for state updates
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
@@ -112,7 +115,7 @@ class LaunchGui(Thread):
                         self._launch_seq_time_trigger = time()
                 else:
                     if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.1:
-                        if self._is_countdown is False:
+                        if not self._is_countdown:
                             self.do_launch(76, detected=True)
                         self._launch_seq_time_trigger = None
                 self._last_cmd = cmd
@@ -132,7 +135,7 @@ class LaunchGui(Thread):
                         self.do_power_off()
                     elif cmd.data == 0:  # reset
                         self.do_klaxon_off()
-                        if self._is_countdown is True:
+                        if self._is_countdown:
                             self.do_abort(detected=True)
                 elif self.is_active is True:
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
@@ -290,7 +293,9 @@ class LaunchGui(Thread):
         self.sync_gui_state()
 
         # display GUI and start event loop; call blocks
+        log.info(f"Launch Pad {self.tmcc_id} GUI app display called...")
         self.app.display()
+        log.info("app display exiting...")
 
     def reset(self):
         self.app.destroy()
@@ -312,7 +317,7 @@ class LaunchGui(Thread):
                 self.label.value = "T-Minus"
                 if count <= -30:
                     count = 0
-                    if self._is_countdown is True:
+                    if self._is_countdown:
                         self.count.cancel(self.update_counter)
                         self._is_countdown = False
                         self.launch.enable()
@@ -323,10 +328,10 @@ class LaunchGui(Thread):
     def do_launch(self, t_minus: int = 80, detected: bool = False, hold=False):
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
-            if self._is_countdown is True:
+            if self._is_countdown:
                 self.count.cancel(self.update_counter)
             self._is_countdown = True
-            if detected is True:
+            if detected:
                 self.gantry_rev_req.send()
                 self.siren_req.send()
             else:
@@ -336,15 +341,15 @@ class LaunchGui(Thread):
             self.message.clear()
             self.update_counter(value=t_minus)
             # start the clock
-            if hold is False:
+            if not hold:
                 self.count.repeat(1090, self.update_counter)
 
     def do_abort(self, detected: bool = False):
         with self._cv:
-            if detected is False:
+            if not detected:
                 self.reset_req.send()
             self.message.clear()
-            if self._is_countdown is True:
+            if self._is_countdown:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
                 if self.counter >= 0:
@@ -368,7 +373,7 @@ class LaunchGui(Thread):
 
     def do_power_off(self):
         with self._cv:
-            if self._is_countdown is True:
+            if self._is_countdown:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
             if self.power_button.image != self.on_button:
@@ -390,7 +395,7 @@ class LaunchGui(Thread):
             self.siren_box.enable()
             self.klaxon_box.enable()
             self.gantry_box.enable()
-            if self._is_countdown is True:
+            if self._is_countdown:
                 self.launch.disable()
 
     def do_lights_on(self):
