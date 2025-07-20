@@ -86,6 +86,7 @@ class LaunchGui(Thread):
             log.info(f"Launch Pad {self.tmcc_id} GUI starting up...")
             self.start()
             # listen for state updates
+            log.info(f"Launch Pad {self.tmcc_id} subscribing to state updates...")
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
 
     def close(self) -> None:
@@ -290,6 +291,7 @@ class LaunchGui(Thread):
         self.gantry_box.disable()
 
         # sync GUI with current state
+        log.info(f"Launch Pad {self.tmcc_id} syncing GUI state with engine state...")
         self.sync_gui_state()
 
         # display GUI and start event loop; call blocks
