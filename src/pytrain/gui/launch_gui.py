@@ -1,5 +1,4 @@
 import atexit
-import logging
 from threading import Condition, RLock, Thread
 from time import time
 
@@ -13,8 +12,6 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..utils.path_utils import find_file
-
-log = logging.getLogger(__name__)
 
 
 class LaunchGui(Thread):
@@ -83,19 +80,15 @@ class LaunchGui(Thread):
             if self._monitored_state is None:
                 raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
             # start GUI
-            log.info(f"Launch Pad {self.tmcc_id} GUI starting up...")
             self.start()
             # listen for state updates
-            log.info(f"Launch Pad {self.tmcc_id} subscribing to state updates...")
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
 
     def close(self) -> None:
         pass
 
     def sync_gui_state(self) -> None:
-        log.info(f"Launch Pad {self.tmcc_id} state exists: {self._monitored_state is not None}...")
         if self._monitored_state:
-            log.info(f"Launch Pad {self.tmcc_id} state {self._monitored_state}...")
             # power on?
             if self._monitored_state.is_started is True:
                 self.do_power_on()
@@ -293,13 +286,10 @@ class LaunchGui(Thread):
         self.gantry_box.disable()
 
         # sync GUI with current state
-        log.info(f"Launch Pad {self.tmcc_id} syncing GUI state with engine state...")
         self.sync_gui_state()
 
         # display GUI and start event loop; call blocks
-        log.info(f"Launch Pad {self.tmcc_id} calling GUIZero app display...")
         self.app.display()
-        log.info("app display exiting...")
 
     def reset(self):
         self.app.destroy()
