@@ -364,6 +364,8 @@ class PyTrain:
             if self._headless is False and self._api is False:
                 readline.write_history_file(DEFAULT_HISTORY_FILE)
             self.shutdown_service()
+            # print closing line
+            log.info(f"{PROGRAM_NAME} exiting...")
             if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
                 if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
                     self.upgrade()
