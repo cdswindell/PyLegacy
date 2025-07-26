@@ -1,6 +1,6 @@
 import atexit
 from threading import Condition, RLock, Thread
-from time import time
+from time import sleep, time
 
 from guizero import App, Box, PushButton, Text
 
@@ -10,15 +10,16 @@ from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCommandEnum
 from ..utils.path_utils import find_file
 
 
 class LaunchGui(Thread):
-    def __init__(self, tmcc_id: int = 39):
+    def __init__(self, tmcc_id: int = 39, track_id: int = None):
         # initialize guizero thread
         super().__init__(daemon=True, name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
+        self.track_id = track_id
         self._cv = Condition(RLock())
 
         self.launch_jpg = find_file("launch.jpg")
@@ -38,6 +39,7 @@ class LaunchGui(Thread):
         self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
         self.gantry_rev = self.gantry_fwd = None
 
+        self.track_on_req = CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, track_id) if track_id else None
         self.power_on_req = CommandReq(TMCC1EngineCommandEnum.START_UP_IMMEDIATE, tmcc_id)
         self.power_off_req = CommandReq(TMCC1EngineCommandEnum.SHUTDOWN_IMMEDIATE, tmcc_id)
         self.reset_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 0)
@@ -133,7 +135,7 @@ class LaunchGui(Thread):
                         self.do_klaxon_off()
                         if self._is_countdown:
                             self.do_abort(detected=True)
-                elif self.is_active is True:
+                elif self.is_active():
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                         self.do_power_on()
                         self.do_launch(15, detected=True, hold=False)
@@ -150,7 +152,6 @@ class LaunchGui(Thread):
             # remember last command
             self._last_cmd = cmd
 
-    @property
     def is_active(self) -> bool:
         return True if self._monitored_state and self._monitored_state.is_started is True else False
 
@@ -359,6 +360,9 @@ class LaunchGui(Thread):
         self.message.clear()
         if self.power_button.image == self.on_button:
             self.do_power_on()
+            if self.track_on_req:
+                self.track_on_req.send()
+                sleep(0.5)
             self.power_on_req.send()
         else:
             self.do_power_off()
