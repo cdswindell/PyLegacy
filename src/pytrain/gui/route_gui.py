@@ -52,10 +52,6 @@ class RouteGui(Thread):
             # start GUI
             self.start()
 
-            # listen for state updates
-            #self._dispatcher.subscribe(self, CommandScope.SWITCH)
-            #self._dispatcher.subscribe(self, CommandScope.ROUTE)
-
     def __call__(self, cmd: CommandReq) -> None:
         with self._cv:
             print(f"RouteGui: {cmd} {type(cmd)}")
@@ -68,12 +64,10 @@ class RouteGui(Thread):
         # display GUI and start event loop; call blocks
         self.app.display()
 
-
     def update_route(self, route: RouteState) -> None:
         print(f"RouteGui: {route}")
 
     def _route_action(self, route: RouteState) -> Callable:
-
         def ur():
             self.update_route(route)
 
