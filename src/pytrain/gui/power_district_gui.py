@@ -2,25 +2,26 @@ import atexit
 from threading import Condition, RLock, Thread
 from typing import Callable
 
-from guizero import App
+from guizero import App, PushButton, Text
 
+from .. import AccessoryState
+from ..cli.bpc2 import Bpc2Cmd
 from ..comm.command_listener import CommandDispatcher
-from ..db.component_state import RouteState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
-from ..protocol.command_req import CommandReq
+from ..pdi.pdi_req import PdiReq
 from ..protocol.constants import CommandScope
 
 
-class RouteGui(Thread):
+class PowerDistrictGui(Thread):
     def __init__(self, width: int = 800, height: int = 480) -> None:
-        super().__init__(daemon=True, name="Route GUI")
+        super().__init__(daemon=True, name="Power District GUI")
         self.width = width
         self.height = height
         self._cv = Condition(RLock())
-        self._routes = None
-        self.app = None
+        self._districts = list[AccessoryState]()
+        self.app = self.by_name = self.by_number = None
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -44,31 +45,37 @@ class RouteGui(Thread):
                 self._sync_watcher = None
             self._synchronized = True
 
-            # get all routes
-            self._routes = self._state_store.get_all(CommandScope.ROUTE)
-            for route in self._routes:
-                StateWatcher(route, self._route_action(route))
+            # get all accessories; watch for state changes on power districts
+            accs = self._state_store.get_all(CommandScope.ACC)
+            for acc in accs:
+                if acc.is_power_district is True:
+                    self._districts.append(acc)
+                    StateWatcher(acc, self._power_district_action(acc))
 
             # start GUI
             self.start()
 
-    def __call__(self, cmd: CommandReq) -> None:
+    def __call__(self, cmd: PdiReq) -> None:
         with self._cv:
-            print(f"RouteGui: {cmd} {type(cmd)}")
+            if isinstance(cmd, Bpc2Cmd):
+                print(f"PowerDistrictGui: {cmd} {type(cmd)}")
 
     def run(self) -> None:
         GpioHandler.cache_handler(self)
-        self.app = app = App(title="Launch Pad", width=self.width, height=self.height)
+        self.app = app = App(title="Power Districts", width=self.width, height=self.height, layout="grid")
         app.full_screen = True
+        _ = Text(app, text="Power Districts", grid=[0, 0, 5, 1], size=10)
+        self.by_name = PushButton(app, text="By Name", grid=[0, 1])
+        self.by_number = PushButton(app, text="By TMCC ID", grid=[1, 1])
 
         # display GUI and start event loop; call blocks
         self.app.display()
 
-    def update_route(self, route: RouteState) -> None:
-        print(f"RouteGui: {route}")
+    def update_power_district(self, pd: AccessoryState) -> None:
+        print(f"Power District: {pd}")
 
-    def _route_action(self, route: RouteState) -> Callable:
-        def ur():
-            self.update_route(route)
+    def _power_district_action(self, pd: AccessoryState) -> Callable:
+        def upd():
+            self.update_power_district(pd)
 
-        return ur
+        return upd
