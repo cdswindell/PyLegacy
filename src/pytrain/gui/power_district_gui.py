@@ -2,7 +2,7 @@ import atexit
 from threading import Condition, RLock, Thread
 from typing import Callable
 
-from guizero import App, PushButton, Text
+from guizero import App, Box, PushButton, Text
 
 from .. import AccessoryState
 from ..cli.bpc2 import Bpc2Cmd
@@ -64,9 +64,10 @@ class PowerDistrictGui(Thread):
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Power Districts", width=self.width, height=self.height, layout="grid")
         app.full_screen = True
-        _ = Text(app, text="Power Districts", grid=[0, 0, 5, 1], size=10)
-        self.by_name = PushButton(app, text="By Name", grid=[0, 1])
-        self.by_number = PushButton(app, text="By TMCC ID", grid=[1, 1])
+        box = Box(app, layout="auto")
+        _ = Text(box, text="Power Districts", grid=[0, 0, 5, 1], size=18, bold=True)
+        self.by_name = PushButton(box, text="By Name", grid=[0, 1])
+        self.by_number = PushButton(box, text="By TMCC ID", grid=[1, 1])
 
         # display GUI and start event loop; call blocks
         self.app.display()
