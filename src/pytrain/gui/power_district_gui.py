@@ -64,7 +64,7 @@ class PowerDistrictGui(Thread):
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
         app.full_screen = True
-        box = Box(app, layout="auto")
+        box = Box(app, layout="grid")
         _ = Text(box, text="Power Districts", grid=[0, 0, 5, 1], size=18, bold=True)
         self.by_name = PushButton(box, text="By Name", grid=[0, 1])
         self.by_number = PushButton(box, text="By TMCC ID", grid=[1, 1])
