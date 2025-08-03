@@ -62,7 +62,7 @@ class PowerDistrictGui(Thread):
 
     def run(self) -> None:
         GpioHandler.cache_handler(self)
-        self.app = app = App(title="Power Districts", width=self.width, height=self.height, layout="grid")
+        self.app = app = App(title="Power Districts", width=self.width, height=self.height)
         app.full_screen = True
         box = Box(app, layout="auto")
         _ = Text(box, text="Power Districts", grid=[0, 0, 5, 1], size=18, bold=True)
