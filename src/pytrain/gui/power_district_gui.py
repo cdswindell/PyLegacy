@@ -49,7 +49,7 @@ class PowerDistrictGui(Thread):
             # get all accessories; watch for state changes on power districts
             accs = self._state_store.get_all(CommandScope.ACC)
             for acc in accs:
-                if acc.is_power_district is True and acc.road_name and acc.road_name.lower() != "unused":
+                if acc.is_power_district is True and acc.road_name and acc.road_name.lower() != 'unused':
                     self._districts[acc.tmcc_id] = acc
                     nl = len(acc.road_name)
                     self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
