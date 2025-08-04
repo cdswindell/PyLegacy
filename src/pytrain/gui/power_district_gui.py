@@ -21,7 +21,7 @@ class PowerDistrictGui(Thread):
         self._max_name_len = 0
         self._districts = dict[int, AccessoryState]()
         self._power_district_buttons = dict[int, PushButton]()
-        self.disabled_text = "slategrey"
+        self.disabled_text = "black"
         self.app = self.by_name = self.by_number = self.box = None
 
         # listen for state changes
@@ -129,7 +129,8 @@ class PowerDistrictGui(Thread):
         self.by_name.text_bold = False
 
         # define power district push buttons
-        self._make_power_district_buttons(list(self._districts.values()))
+        states = sorted(self._districts.values(), key=lambda x: x.tmcc_id)
+        self._make_power_district_buttons(states)
 
     def sort_by_name(self) -> None:
         self.by_name.text_bold = True
