@@ -65,9 +65,10 @@ class PowerDistrictGui(Thread):
         box = Box(app, layout="grid")
         box.bg = "white"
         _ = Text(box, text="Power Districts", grid=[0, 0, 2, 1], size=24, bold=True)
-        self.by_name = PushButton(box, text="By Name", grid=[0, 1], width=len("By TMCC ID"))
-        self.by_number = PushButton(box, text="By TMCC ID", grid=[1, 1])
+        self.by_number = PushButton(box, text="By TMCC ID", grid=[1, 1], command=self.by_number)
+        self.by_name = PushButton(box, text="By Name", grid=[0, 1], width=len("By TMCC ID"), command=self.by_name)
         self.by_name.text_size = self.by_number.text_size = 18
+        self.by_number.disable()
 
         # define power district push buttons
         row = 1
@@ -90,13 +91,6 @@ class PowerDistrictGui(Thread):
         # display GUI and start event loop; call blocks
         self.app.display()
 
-    def switch_power_district(self, pd: AccessoryState) -> None:
-        with self._cv:
-            if pd.is_aux_on:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
-            else:
-                CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
-
     def update_power_district(self, pd: AccessoryState) -> None:
         with self._cv:
             self._power_district_buttons[pd.tmcc_id].bg = "grey" if pd.is_aux_on is False else "green"
@@ -106,3 +100,10 @@ class PowerDistrictGui(Thread):
             self.update_power_district(pd)
 
         return upd
+
+    def switch_power_district(self, pd: AccessoryState) -> None:
+        with self._cv:
+            if pd.is_aux_on:
+                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
+            else:
+                CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
