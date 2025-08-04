@@ -119,8 +119,8 @@ class PowerDistrictGui(Thread):
                     args=[pd],
                 )
                 self._power_district_buttons[pd.tmcc_id].text_size = 14
-                self._power_district_buttons[pd.tmcc_id].bg = "grey" if pd.is_aux_on is False else "green"
-                self._power_district_buttons[pd.tmcc_id].text_color = "black"
+                self._power_district_buttons[pd.tmcc_id].bg = "green" if pd.is_aux_on else "grey"
+                self._power_district_buttons[pd.tmcc_id].text_color = "black" if pd.is_aux_on else "darkgrey"
                 col = col + 1 if col == 0 else 0
 
     def sort_by_number(self) -> None:
