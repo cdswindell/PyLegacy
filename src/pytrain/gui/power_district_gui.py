@@ -84,15 +84,15 @@ class PowerDistrictGui(Thread):
             self._power_district_buttons[pd.tmcc_id] = PushButton(
                 box,
                 text=pd.road_name,
-                grid=[row, col],
+                grid=[col, row],
                 width=self._max_name_len,
                 command=self.update_power_district,
                 args=[pd],
             )
-            self._power_district_buttons[pd.tmcc_id].text_size = 16
-            self._power_district_buttons[pd.tmcc_id].bg = "white"
+            self._power_district_buttons[pd.tmcc_id].text_size = 14
+            self._power_district_buttons[pd.tmcc_id].bg = "grey" if pd.is_aux_on is False else "green"
             self._power_district_buttons[pd.tmcc_id].text_color = "black"
-            col = col + 1 if col < 2 else 0
+            col = col + 1 if col == 0 else 0
 
         # display GUI and start event loop; call blocks
         self.app.display()
