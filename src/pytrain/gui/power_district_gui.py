@@ -4,13 +4,11 @@ from typing import Callable
 
 from guizero import App, Box, PushButton, Text
 
-from .. import AccessoryState
-from ..cli.bpc2 import Bpc2Cmd
+from .. import AccessoryState, TMCC1AuxCommandEnum, CommandReq
 from ..comm.command_listener import CommandDispatcher
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
-from ..pdi.pdi_req import PdiReq
 from ..protocol.constants import CommandScope
 
 
@@ -60,11 +58,6 @@ class PowerDistrictGui(Thread):
             # start GUI
             self.start()
 
-    def __call__(self, cmd: PdiReq) -> None:
-        with self._cv:
-            if isinstance(cmd, Bpc2Cmd):
-                print(f"PowerDistrictGui: {cmd} {type(cmd)}")
-
     def run(self) -> None:
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
@@ -83,10 +76,10 @@ class PowerDistrictGui(Thread):
             row = row + 1 if col == 0 else row
             self._power_district_buttons[pd.tmcc_id] = PushButton(
                 box,
-                text=pd.road_name,
+                text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
                 grid=[col, row],
                 width=self._max_name_len,
-                command=self.update_power_district,
+                command=self.switch_power_district,
                 args=[pd],
             )
             self._power_district_buttons[pd.tmcc_id].text_size = 14
@@ -97,8 +90,16 @@ class PowerDistrictGui(Thread):
         # display GUI and start event loop; call blocks
         self.app.display()
 
+    def switch_power_district(self, pd: AccessoryState) -> None:
+        with self._cv:
+            if pd.is_aux_on:
+                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
+            else:
+                CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
+
     def update_power_district(self, pd: AccessoryState) -> None:
-        print(f"Power District: {pd}")
+        with self._cv:
+            self._power_district_buttons[pd.tmcc_id].bg = "grey" if pd.is_aux_on is False else "green"
 
     def _power_district_action(self, pd: AccessoryState) -> Callable:
         def upd():
