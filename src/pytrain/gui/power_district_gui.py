@@ -21,7 +21,7 @@ class PowerDistrictGui(Thread):
         self._max_name_len = 0
         self._districts = dict[int, AccessoryState]()
         self._power_district_buttons = dict[int, PushButton]()
-        self.disabled_text = "grey"
+        self.disabled_text = "lightgrey"
         self.app = self.by_name = self.by_number = self.box = None
 
         # listen for state changes
@@ -38,6 +38,7 @@ class PowerDistrictGui(Thread):
 
     def close(self) -> None:
         self.app.destroy()
+        self.join()
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def on_sync(self) -> None:
