@@ -20,8 +20,9 @@ class PowerDistrictGui(Thread):
         self.width = width
         self.height = height
         self._cv = Condition(RLock())
-        self._districts = dict[int, AccessoryState]()
         self._max_name_len = 0
+        self._districts = dict[int, AccessoryState]()
+        self._power_district_buttons = dict[int, PushButton]()
         self.app = self.by_name = self.by_number = None
 
         # listen for state changes
@@ -55,7 +56,6 @@ class PowerDistrictGui(Thread):
                     nl = len(acc.road_name)
                     self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
                     StateWatcher(acc, self._power_district_action(acc))
-                    print(acc)
 
             # start GUI
             self.start()
@@ -71,10 +71,28 @@ class PowerDistrictGui(Thread):
         app.full_screen = True
         box = Box(app, layout="grid")
         box.bg = "white"
-        _ = Text(box, text="Power Districts", grid=[0, 0, 5, 1], size=24, bold=True)
+        _ = Text(box, text="Power Districts", grid=[0, 0, 2, 1], size=24, bold=True)
         self.by_name = PushButton(box, text="By Name", grid=[0, 1], width=len("By TMCC ID"))
         self.by_number = PushButton(box, text="By TMCC ID", grid=[1, 1])
         self.by_name.text_size = self.by_number.text_size = 18
+
+        # define power district push buttons
+        row = 1
+        col = 0
+        for pd in self._districts.values():
+            row = row + 1 if col == 0 else row
+            self._power_district_buttons[pd.tmcc_id] = PushButton(
+                box,
+                text=pd.road_name,
+                grid=[row, col],
+                width=self._max_name_len,
+                command=self.update_power_district,
+                args=[pd],
+            )
+            self._power_district_buttons[pd.tmcc_id].text_size = 16
+            self._power_district_buttons[pd.tmcc_id].bg = "white"
+            self._power_district_buttons[pd.tmcc_id].text_color = "black"
+            col = col + 1 if col < 2 else 0
 
         # display GUI and start event loop; call blocks
         self.app.display()
