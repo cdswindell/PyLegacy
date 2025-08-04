@@ -137,7 +137,7 @@ class PowerDistrictGui(Thread):
                     command=self.switch_power_district,
                     args=[pd],
                 )
-                self._power_district_buttons[pd.tmcc_id].text_size = 14
+                self._power_district_buttons[pd.tmcc_id].text_size = 16
                 self._power_district_buttons[pd.tmcc_id].bg = "green" if pd.is_aux_on else "black"
                 self._power_district_buttons[pd.tmcc_id].text_color = "black" if pd.is_aux_on else self.disabled_text
                 col = col + 1 if col == 0 else 0
