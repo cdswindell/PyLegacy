@@ -80,10 +80,10 @@ class PowerDistrictGui(Thread):
         with self._cv:
             if pd.is_aux_on:
                 self._power_district_buttons[pd.tmcc_id].bg = "green"
-                self._power_district_buttons[pd.tmcc_id].text_bold = True
+                self._power_district_buttons[pd.tmcc_id].text_color = "black"
             else:
                 self._power_district_buttons[pd.tmcc_id].bg = "grey"
-                self._power_district_buttons[pd.tmcc_id].text_bold = False
+                self._power_district_buttons[pd.tmcc_id].text_color = "darkgrey"
 
     def _power_district_action(self, pd: AccessoryState) -> Callable:
         def upd():
