@@ -64,6 +64,7 @@ class PowerDistrictGui(Thread):
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
         app.full_screen = True
+        app.when_closed = self.close
         self.box = box = Box(app, layout="grid")
         box.bg = "white"
         _ = Text(box, text=" ", grid=[0, 0, 2, 1], size=6, height=1, bold=True)
@@ -94,6 +95,7 @@ class PowerDistrictGui(Thread):
 
         # display GUI and start event loop; call blocks
         self.app.display()
+        print("Exiting...")
 
     def update_power_district(self, pd: AccessoryState) -> None:
         with self._cv:
