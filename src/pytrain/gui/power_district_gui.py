@@ -21,7 +21,7 @@ class PowerDistrictGui(Thread):
         self._max_name_len = 0
         self._districts = dict[int, AccessoryState]()
         self._power_district_buttons = dict[int, PushButton]()
-        self.app = self.by_name = self.by_number = None
+        self.app = self.by_name = self.by_number = self.box = None
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -62,7 +62,7 @@ class PowerDistrictGui(Thread):
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
         app.full_screen = True
-        box = Box(app, layout="grid")
+        self.box = box = Box(app, layout="grid")
         box.bg = "white"
         _ = Text(box, text="Power Districts", grid=[0, 0, 2, 1], size=24, bold=True)
         self.by_number = PushButton(box, text="By TMCC ID", grid=[1, 1], command=self.sort_by_number)
@@ -71,29 +71,19 @@ class PowerDistrictGui(Thread):
         self.by_number.text_bold = True
 
         # define power district push buttons
-        row = 1
-        col = 0
-        for pd in self._districts.values():
-            row = row + 1 if col == 0 else row
-            self._power_district_buttons[pd.tmcc_id] = PushButton(
-                box,
-                text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
-                grid=[col, row],
-                width=self._max_name_len,
-                command=self.switch_power_district,
-                args=[pd],
-            )
-            self._power_district_buttons[pd.tmcc_id].text_size = 14
-            self._power_district_buttons[pd.tmcc_id].bg = "grey" if pd.is_aux_on is False else "green"
-            self._power_district_buttons[pd.tmcc_id].text_color = "black"
-            col = col + 1 if col == 0 else 0
+        self.sort_by_number()
 
         # display GUI and start event loop; call blocks
         self.app.display()
 
     def update_power_district(self, pd: AccessoryState) -> None:
         with self._cv:
-            self._power_district_buttons[pd.tmcc_id].bg = "grey" if pd.is_aux_on is False else "green"
+            if pd.is_aux_on:
+                self._power_district_buttons[pd.tmcc_id].bg = "green"
+                self._power_district_buttons[pd.tmcc_id].text_bold = True
+            else:
+                self._power_district_buttons[pd.tmcc_id].bg = "grey"
+                self._power_district_buttons[pd.tmcc_id].text_bold = False
 
     def _power_district_action(self, pd: AccessoryState) -> Callable:
         def upd():
@@ -108,10 +98,42 @@ class PowerDistrictGui(Thread):
             else:
                 CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
 
+    def _reset_power_district_buttons(self) -> None:
+        for pdb in self._power_district_buttons.values():
+            pdb.destroy()
+        self._power_district_buttons.clear()
+
+    def _make_power_district_buttons(self, power_districts: list[AccessoryState] = None) -> None:
+        with self._cv:
+            self._reset_power_district_buttons()
+            row = 1
+            col = 0
+            for pd in power_districts:
+                row = row + 1 if col == 0 else row
+                self._power_district_buttons[pd.tmcc_id] = PushButton(
+                    self.box,
+                    text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
+                    grid=[col, row],
+                    width=self._max_name_len,
+                    command=self.switch_power_district,
+                    args=[pd],
+                )
+                self._power_district_buttons[pd.tmcc_id].text_size = 14
+                self._power_district_buttons[pd.tmcc_id].bg = "grey" if pd.is_aux_on is False else "green"
+                self._power_district_buttons[pd.tmcc_id].text_color = "black"
+                col = col + 1 if col == 0 else 0
+
     def sort_by_number(self) -> None:
         self.by_number.text_bold = True
         self.by_name.text_bold = False
 
+        # define power district push buttons
+        self._make_power_district_buttons(list(self._districts.values()))
+
     def sort_by_name(self) -> None:
         self.by_name.text_bold = True
         self.by_number.text_bold = False
+
+        # define power district push buttons
+        states = sorted(self._districts.values(), key=lambda x: x.road_name.lower())
+        self._make_power_district_buttons(states)
