@@ -65,16 +65,10 @@ class PowerDistrictGui(Thread):
         app.full_screen = True
         self.box = box = Box(app, layout="grid")
         box.bg = "white"
-        _ = Text(
-            box,
-            text="Power Districts",
-            grid=[0, 0, 2, 1],
-            size=24,
-            bold=True,
-        )
-        _.tk.grid(padx=5, pady=20)
-        self.by_number = PushButton(box, text="By TMCC ID", grid=[1, 1], command=self.sort_by_number)
-        self.by_name = PushButton(box, text="By Name", grid=[0, 1], width=len("By TMCC ID"), command=self.sort_by_name)
+        _ = Text(box, text=" ", grid=[0, 0, 2, 1], height=10, bold=True)
+        _ = Text(box, text="Power Districts", grid=[0, 1, 2, 1], size=24, bold=True)
+        self.by_number = PushButton(box, text="By TMCC ID", grid=[1, 2], command=self.sort_by_number)
+        self.by_name = PushButton(box, text="By Name", grid=[0, 2], width=len("By TMCC ID"), command=self.sort_by_name)
         self.by_name.text_size = self.by_number.text_size = 18
         self.by_number.text_bold = True
 
@@ -114,7 +108,7 @@ class PowerDistrictGui(Thread):
     def _make_power_district_buttons(self, power_districts: list[AccessoryState] = None) -> None:
         with self._cv:
             self._reset_power_district_buttons()
-            row = 1
+            row = 2
             col = 0
             for pd in power_districts:
                 row = row + 1 if col == 0 else row
