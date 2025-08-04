@@ -65,7 +65,7 @@ class PowerDistrictGui(Thread):
         app.full_screen = True
         self.box = box = Box(app, layout="grid")
         box.bg = "white"
-        _ = Text(box, text=" ", grid=[0, 0, 2, 1], height=10, bold=True)
+        _ = Text(box, text=" ", grid=[0, 0, 2, 1], size=6, height=1, bold=True)
         _ = Text(box, text="Power Districts", grid=[0, 1, 2, 1], size=24, bold=True)
         self.by_number = PushButton(box, text="By TMCC ID", grid=[1, 2], command=self.sort_by_number)
         self.by_name = PushButton(box, text="By Name", grid=[0, 2], width=len("By TMCC ID"), command=self.sort_by_name)
