@@ -21,6 +21,7 @@ class PowerDistrictGui(Thread):
         self._max_name_len = 0
         self._districts = dict[int, AccessoryState]()
         self._power_district_buttons = dict[int, PushButton]()
+        self.disabled_text = "slategrey"
         self.app = self.by_name = self.by_number = self.box = None
 
         # listen for state changes
@@ -120,7 +121,7 @@ class PowerDistrictGui(Thread):
                 )
                 self._power_district_buttons[pd.tmcc_id].text_size = 14
                 self._power_district_buttons[pd.tmcc_id].bg = "green" if pd.is_aux_on else "grey"
-                self._power_district_buttons[pd.tmcc_id].text_color = "black" if pd.is_aux_on else "darkgrey"
+                self._power_district_buttons[pd.tmcc_id].text_color = "black" if pd.is_aux_on else self.disabled_text
                 col = col + 1 if col == 0 else 0
 
     def sort_by_number(self) -> None:
