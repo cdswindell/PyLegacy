@@ -138,7 +138,7 @@ class PowerDistrictGui(Thread):
                     width=self._max_name_len,
                     command=self.switch_power_district,
                     args=[pd],
-                    padx=2,
+                    padx=0,
                 )
                 self._power_district_buttons[pd.tmcc_id].text_size = 15
                 self._power_district_buttons[pd.tmcc_id].bg = "green" if pd.is_aux_on else "black"
