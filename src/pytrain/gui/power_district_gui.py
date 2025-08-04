@@ -13,10 +13,11 @@ from ..protocol.constants import CommandScope
 
 
 class PowerDistrictGui(Thread):
-    def __init__(self, width: int = 800, height: int = 480) -> None:
+    def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
         super().__init__(daemon=True, name="Power District GUI")
         self.width = width
         self.height = height
+        self.label = label
         self._cv = Condition(RLock())
         self._max_name_len = 0
         self._districts = dict[int, AccessoryState]()
@@ -67,8 +68,9 @@ class PowerDistrictGui(Thread):
         app.when_closed = self.close
         self.box = box = Box(app, layout="grid")
         box.bg = "white"
+        label = f"{self.label} " if self.label else ""
         _ = Text(box, text=" ", grid=[0, 0, 2, 1], size=6, height=1, bold=True)
-        _ = Text(box, text="Power Districts", grid=[0, 1, 2, 1], size=24, bold=True)
+        _ = Text(box, text=f"{label}Power Districts", grid=[0, 1, 2, 1], size=24, bold=True)
         self.by_number = PushButton(
             box,
             text="By TMCC ID",
