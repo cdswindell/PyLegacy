@@ -4,7 +4,7 @@ from typing import Callable
 
 from guizero import App, Box, PushButton, Text
 
-from .. import AccessoryState, TMCC1AuxCommandEnum, CommandReq
+from .. import AccessoryState, CommandReq, TMCC1AuxCommandEnum
 from ..comm.command_listener import CommandDispatcher
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
@@ -38,7 +38,7 @@ class PowerDistrictGui(Thread):
     def close(self) -> None:
         pass
 
-    # noinspection PyTypeChecker
+    # noinspection PyTypeChecker,PyUnresolvedReferences
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
             if self._sync_watcher:
@@ -49,7 +49,7 @@ class PowerDistrictGui(Thread):
             # get all accessories; watch for state changes on power districts
             accs = self._state_store.get_all(CommandScope.ACC)
             for acc in accs:
-                if acc.is_power_district is True and acc.road_name:
+                if acc.is_power_district is True and acc.road_name and acc.road_name.lower() != "unused":
                     self._districts[acc.tmcc_id] = acc
                     nl = len(acc.road_name)
                     self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
