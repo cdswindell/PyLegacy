@@ -37,7 +37,7 @@ class PowerDistrictGui(Thread):
         atexit.register(self.close)
 
     def close(self) -> None:
-        pass
+        self.app.destroy()
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def on_sync(self) -> None:
@@ -72,7 +72,7 @@ class PowerDistrictGui(Thread):
             size=24,
             bold=True,
         )
-        _.tk.grid(padx=5, pady=5)
+        _.tk.grid(padx=5, pady=20)
         self.by_number = PushButton(box, text="By TMCC ID", grid=[1, 1], command=self.sort_by_number)
         self.by_name = PushButton(box, text="By Name", grid=[0, 1], width=len("By TMCC ID"), command=self.sort_by_name)
         self.by_name.text_size = self.by_number.text_size = 18
