@@ -21,7 +21,7 @@ class PowerDistrictGui(Thread):
         self._max_name_len = 0
         self._districts = dict[int, AccessoryState]()
         self._power_district_buttons = dict[int, PushButton]()
-        self.disabled_text = "white"
+        self.disabled_text = "grey"
         self.app = self.by_name = self.by_number = self.box = None
 
         # listen for state changes
