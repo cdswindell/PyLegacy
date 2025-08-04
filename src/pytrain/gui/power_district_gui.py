@@ -41,6 +41,9 @@ class PowerDistrictGui(Thread):
         self.app.destroy()
         self.join()
 
+    def reset(self) -> None:
+        self.close()
+
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
