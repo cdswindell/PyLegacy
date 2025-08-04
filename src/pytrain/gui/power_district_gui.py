@@ -21,7 +21,7 @@ class PowerDistrictGui(Thread):
         self._max_name_len = 0
         self._districts = dict[int, AccessoryState]()
         self._power_district_buttons = dict[int, PushButton]()
-        self.disabled_text = "black"
+        self.disabled_text = "white"
         self.app = self.by_name = self.by_number = self.box = None
 
         # listen for state changes
@@ -83,8 +83,8 @@ class PowerDistrictGui(Thread):
                 self._power_district_buttons[pd.tmcc_id].bg = "green"
                 self._power_district_buttons[pd.tmcc_id].text_color = "black"
             else:
-                self._power_district_buttons[pd.tmcc_id].bg = "grey"
-                self._power_district_buttons[pd.tmcc_id].text_color = "darkgrey"
+                self._power_district_buttons[pd.tmcc_id].bg = "black"
+                self._power_district_buttons[pd.tmcc_id].text_color = self.disabled_text
 
     def _power_district_action(self, pd: AccessoryState) -> Callable:
         def upd():
@@ -120,7 +120,7 @@ class PowerDistrictGui(Thread):
                     args=[pd],
                 )
                 self._power_district_buttons[pd.tmcc_id].text_size = 14
-                self._power_district_buttons[pd.tmcc_id].bg = "green" if pd.is_aux_on else "grey"
+                self._power_district_buttons[pd.tmcc_id].bg = "green" if pd.is_aux_on else "black"
                 self._power_district_buttons[pd.tmcc_id].text_color = "black" if pd.is_aux_on else self.disabled_text
                 col = col + 1 if col == 0 else 0
 
