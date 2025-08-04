@@ -20,7 +20,8 @@ class PowerDistrictGui(Thread):
         self.width = width
         self.height = height
         self._cv = Condition(RLock())
-        self._districts = list[AccessoryState]()
+        self._districts = dict[int, AccessoryState]()
+        self._max_name_len = 0
         self.app = self.by_name = self.by_number = None
 
         # listen for state changes
@@ -38,6 +39,7 @@ class PowerDistrictGui(Thread):
     def close(self) -> None:
         pass
 
+    # noinspection PyTypeChecker
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
             if self._sync_watcher:
@@ -48,9 +50,12 @@ class PowerDistrictGui(Thread):
             # get all accessories; watch for state changes on power districts
             accs = self._state_store.get_all(CommandScope.ACC)
             for acc in accs:
-                if acc.is_power_district is True:
-                    self._districts.append(acc)
+                if acc.is_power_district is True and acc.road_name:
+                    self._districts[acc.tmcc_id] = acc
+                    nl = len(acc.road_name)
+                    self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
                     StateWatcher(acc, self._power_district_action(acc))
+                    print(acc)
 
             # start GUI
             self.start()
@@ -65,9 +70,11 @@ class PowerDistrictGui(Thread):
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
         app.full_screen = True
         box = Box(app, layout="grid")
-        _ = Text(box, text="Power Districts", grid=[0, 0, 5, 1], size=18, bold=True)
-        self.by_name = PushButton(box, text="By Name", grid=[0,1])
+        box.bg = "white"
+        _ = Text(box, text="Power Districts", grid=[0, 0, 5, 1], size=24, bold=True)
+        self.by_name = PushButton(box, text="By Name", grid=[0, 1], width=len("By TMCC ID"))
         self.by_number = PushButton(box, text="By TMCC ID", grid=[1, 1])
+        self.by_name.text_size = self.by_number.text_size = 18
 
         # display GUI and start event loop; call blocks
         self.app.display()
