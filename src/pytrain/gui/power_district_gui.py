@@ -145,9 +145,8 @@ class PowerDistrictGui(Thread):
             self.btn_box.visible = False
             self.app.update()
             y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
-            print(y_offset)
             for pd in power_districts:
-                if btn_h and btn_y and btn_y + btn_h > self.height:
+                if btn_h and btn_y and y_offset + btn_y + btn_h > self.height:
                     row = 4
                     col += 1
                 self._power_district_buttons[pd.tmcc_id] = PushButton(
