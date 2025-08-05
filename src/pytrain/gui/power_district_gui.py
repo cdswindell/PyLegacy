@@ -1,6 +1,6 @@
 import atexit
 from threading import Condition, RLock, Thread
-from tkinter import Canvas, Scrollbar
+from tkinter import Canvas, Scrollbar, Frame
 from typing import Callable
 
 from guizero import App, Box, PushButton, Text
@@ -106,32 +106,38 @@ class PowerDistrictGui(Thread):
         self.app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
-        # Create scrollable area for buttons using guizero Box as container
+        # Create scrollable area for buttons
         self._create_scrollable_button_area()
 
         # define power district push buttons
         self.sort_by_number()
 
+        # display GUI and start event loop; call blocks
         self.app.display()
 
-    # noinspection PyTypeChecker
     def _create_scrollable_button_area(self):
         """Create a scrollable area for the power district buttons"""
-        # Create a guizero Box to hold our scrollable area
-        scroll_container = Box(self.box, layout="grid", grid=[0, 4, 2, 1], width="fill", height="fill")
+        # Create a frame to hold the canvas and scrollbar
+        button_frame = Frame(self.app.tk)
+        button_frame.grid(row=4, column=0, columnspan=2, sticky="nsew", padx=10, pady=5)
 
-        # Create canvas and scrollbar using tkinter inside the guizero Box
-        self.canvas = Canvas(scroll_container.tk, highlightthickness=0, bg="white")
-        self.scrollbar = Scrollbar(scroll_container.tk, orient="vertical", command=self.canvas.yview)
+        # Configure grid weights so the frame expands
+        self.app.tk.grid_rowconfigure(4, weight=1)
+        self.app.tk.grid_columnconfigure(0, weight=1)
+
+        # Create canvas and scrollbar
+        self.canvas = Canvas(button_frame, highlightthickness=0, bg="white")
+        self.scrollbar = Scrollbar(button_frame, orient="vertical", command=self.canvas.yview)
 
         # Configure canvas scrolling
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
-        # Pack canvas and scrollbar within the scroll_container
+        # Pack canvas and scrollbar
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
 
-        # Create the guizero Box for buttons inside the canvas
+        # Create the guizero Box inside the canvas
+        # We need to create it with the app as parent, then reparent the tkinter widget
         self.btn_box = Box(self.app, layout="grid")
 
         # Create a window in the canvas to hold the btn_box
