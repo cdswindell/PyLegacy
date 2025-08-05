@@ -222,13 +222,13 @@ class PowerDistrictGui(Thread):
                 else:
                     btn_y += btn_h
                 row += 1
-            if col > 1:
+            if (self._max_button_cols is None and col > 1) or (col + 1 < self._max_button_cols):
                 self.right_scroll_btn.enabled = True
             else:
                 self.left_scroll_btn.disabled = self.right_scroll_btn.disabled = True
 
             if self._max_button_cols is None:
-                self._max_button_cols = col
+                self._max_button_cols = col + 1
                 print(f"max cols: {self._max_button_cols}")
             self.btn_box.visible = True
 
