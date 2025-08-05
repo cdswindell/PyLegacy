@@ -1,6 +1,5 @@
 import atexit
 from threading import Condition, RLock, Thread
-from tkinter import Canvas, Scrollbar
 from typing import Callable
 
 from guizero import App, Box, PushButton, Text
@@ -106,24 +105,10 @@ class PowerDistrictGui(Thread):
         self.app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
-        # Scrollable btn_box setup
-        canvas = Canvas(app.tk, width=self.width, height=self.height - self.y_offset)
-        scrollbar = Scrollbar(app.tk, orient="vertical", command=canvas.yview)
-        self.btn_box = Box(app, layout="grid", width=self.width)
-        self.btn_box.tk.update_idletasks()  # Update internal size information
+        # put the buttons in a separate box
+        self.btn_box = Box(app, layout="grid")
 
-        # Embed Box inside Canvas
-        inner_frame = self.btn_box.tk
-        canvas.create_window((0, 0), window=inner_frame, anchor="nw")
-
-        # Configure canvas and scrollbar
-        canvas.configure(yscrollcommand=scrollbar.set)
-        inner_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-
-        canvas.grid(row=4, column=0, sticky="nsew")
-        scrollbar.grid(row=4, column=1, sticky="ns")
-
-        # Populate buttons (calls sort_by_number to set up initially)
+        # define power district push buttons
         self.sort_by_number()
 
         # Display GUI and start event loop; call blocks
