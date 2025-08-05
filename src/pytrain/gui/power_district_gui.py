@@ -183,7 +183,7 @@ class PowerDistrictGui(Thread):
             active_cols = {self._first_button_col, self._first_button_col + 1}
             row = 4
             col = 0
-            print(f"Active cols: {active_cols}")
+
             btn_h = self.pd_button_height
             btn_y = 0
             self.right_scroll_btn.disable()
@@ -194,12 +194,10 @@ class PowerDistrictGui(Thread):
                 if btn_h is not None and btn_y is not None and self.y_offset + btn_y + btn_h > self.height:
                     if self._max_button_rows is None:
                         self._max_button_rows = row - 4
-                        print(f"max rows: {self._max_button_rows}")
                     btn_y = 0
                     row = 4
                     col += 1
                 if col in active_cols:
-                    print(f"Row: {row} Col: {col}")
                     self._power_district_buttons[pd.tmcc_id] = PushButton(
                         self.btn_box,
                         text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
@@ -221,11 +219,9 @@ class PowerDistrictGui(Thread):
                     if self.pd_button_height is None:
                         btn_h = self.pd_button_height = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
                     btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
-                    print(f"btn_y: {btn_y - btn_h} {btn_y}")
                 else:
                     btn_y += btn_h
                 row += 1
-            print("**", (self._max_button_cols is None and col > 1) or (max(active_cols) + 1 < self._max_button_cols))
             if (self._max_button_cols is None and col > 1) or (max(active_cols) + 1 < self._max_button_cols):
                 self.right_scroll_btn.enable()
             else:
@@ -237,7 +233,6 @@ class PowerDistrictGui(Thread):
 
             if self._max_button_cols is None:
                 self._max_button_cols = col + 1
-                print(f"max cols: {self._max_button_cols}")
             self.btn_box.visible = True
 
     def sort_by_number(self) -> None:
