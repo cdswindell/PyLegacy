@@ -84,7 +84,7 @@ class PowerDistrictGui(Thread):
         self.by_number = PushButton(
             box,
             text="By TMCC ID",
-            grid=[2, 2],
+            grid=[1, 2],
             command=self.sort_by_number,
             padx=5,
             pady=5,
@@ -92,7 +92,7 @@ class PowerDistrictGui(Thread):
         self.by_name = PushButton(
             box,
             text="By Name",
-            grid=[3, 2],
+            grid=[2, 2],
             width=len("By TMCC ID"),
             command=self.sort_by_name,
             padx=5,
