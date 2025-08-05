@@ -88,9 +88,9 @@ class PowerDistrictGui(Thread):
 
         label = f"{self.label} " if self.label else ""
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
-        _ = Text(box, text=" ", grid=[1, 1], size=24)
+        _ = Text(box, text="    ", grid=[1, 1], size=24)
         _ = Text(box, text=f"{label}Power Districts", grid=[2, 1, 2, 1], size=24, bold=True)
-        _ = Text(box, text=" ", grid=[4, 1], size=24)
+        _ = Text(box, text="    ", grid=[4, 1], size=24)
         self.by_number = PushButton(
             box,
             text="By TMCC ID",
