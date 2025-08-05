@@ -70,6 +70,7 @@ class LaunchGui(Thread):
             self.on_sync()
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
+        self._is_closed = False
         atexit.register(self.close)
 
     def on_sync(self) -> None:
@@ -87,7 +88,14 @@ class LaunchGui(Thread):
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
 
     def close(self) -> None:
-        pass
+        with self._cv:
+            if not self._is_closed:
+                self._is_closed = True
+                self.app.after(10, self.app.destroy)
+                self.join()
+
+    def reset(self):
+        self.reset()
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
@@ -159,6 +167,7 @@ class LaunchGui(Thread):
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Launch Pad", width=480, height=320)
         app.full_screen = True
+        app.when_closed = self.close
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
 
         self.launch = PushButton(
@@ -291,9 +300,6 @@ class LaunchGui(Thread):
 
         # display GUI and start event loop; call blocks
         self.app.display()
-
-    def reset(self):
-        self.app.destroy()
 
     def update_counter(self, value: int = None):
         with self._cv:
