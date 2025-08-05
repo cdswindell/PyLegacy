@@ -178,6 +178,7 @@ class PowerDistrictGui(Thread):
             row = 4
             col = 0
             btn_h = btn_y = None
+            self.left_scroll_btn.disabled = self.right_scroll_btn.disabled = True
             self.btn_box.visible = False
             for pd in power_districts:
                 if btn_h and btn_y and self.y_offset + btn_y + btn_h > self.height:
@@ -202,6 +203,10 @@ class PowerDistrictGui(Thread):
                 if btn_h is None:
                     btn_h = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
                 btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
+            if col > 1:
+                self.right_scroll_btn.enabled = True
+            else:
+                self.left_scroll_btn.disabled = self.right_scroll_btn.disabled = True
             self.btn_box.visible = True
 
     def sort_by_number(self) -> None:
