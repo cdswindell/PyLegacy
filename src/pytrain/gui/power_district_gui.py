@@ -16,7 +16,7 @@ from ..utils.path_utils import find_file
 
 
 class PowerDistrictGui(Thread):
-    def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
+    def __init__(self, label: str = None, width: int = 800, height: int = 380) -> None:
         super().__init__(daemon=True, name="Power District GUI")
         self._cv = Condition(RLock())
         self.width = width
@@ -184,7 +184,7 @@ class PowerDistrictGui(Thread):
             col = 0
             print(f"Active cols: {active_cols}")
             btn_h = self.pd_button_height
-            btn_y = None
+            btn_y = 0
             self.left_scroll_btn.disabled = self.right_scroll_btn.disabled = True
             self.btn_box.visible = False
             for pd in power_districts:
@@ -219,6 +219,8 @@ class PowerDistrictGui(Thread):
                         btn_h = self.pd_button_height = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
                     btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
                     print(f"btn_y: {btn_y - btn_h} {btn_y}")
+                else:
+                    btn_y += btn_h
                 row += 1
             if col > 1:
                 self.right_scroll_btn.enabled = True
