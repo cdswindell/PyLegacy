@@ -358,9 +358,7 @@ class PyTrain:
                 except ArgumentError:
                     pass
                 except KeyboardInterrupt:
-                    print("KeyboardInterrupt")
                     self.shutdown()
-                    print("KeyboardInterrupt")
                     break
         finally:
             if self._headless is False and self._api is False:
@@ -590,7 +588,6 @@ class PyTrain:
     def shutdown(self):
         try:
             self.shutdown_service()
-            print(1)
         except Exception as e:
             log.warning(f"Error closing zeroconf, continuing shutdown: {e}")
         try:
@@ -600,38 +597,31 @@ class PyTrain:
                     self._command_queue.all_tasks_done.notify_all()
                     self._command_queue.unfinished_tasks = 0
                     self._command_queue = None
-            print(2)
         except Exception as e:
             log.warning(f"Error disconnecting API, continuing shutdown: {e}")
         try:
             if self.is_client:
                 self._tmcc_buffer.disconnect(self._tmcc_listener.port)
-            print(3)
         except Exception as e:
             log.warning(f"Error disconnecting client, continuing shutdown: {e}")
         try:
             CommBuffer.stop()
-            print(4)
         except Exception as e:
             log.warning(f"Error closing command buffer, continuing shutdown: {e}")
         try:
             CommandListener.stop()
-            print(5)
         except Exception as e:
             log.warning(f"Error closing TMCC listener, continuing shutdown: {e}")
         try:
             PdiListener.stop()
-            print(6)
         except Exception as e:
             log.warning(f"Error closing PDI listener, continuing shutdown: {e}")
         try:
             ComponentStateStore.reset()
-            print(7)
         except Exception as e:
             log.warning(f"Error closing state store, continuing shutdown: {e}")
         try:
             GpioHandler.reset_all()
-            print(8)
         except Exception as e:
             log.warning(f"Error closing GPIO, continuing shutdown: {e}")
 
