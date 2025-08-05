@@ -79,12 +79,12 @@ class PowerDistrictGui(Thread):
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
         label = f"{self.label} " if self.label else ""
-        _ = Text(box, text=" ", grid=[0, 0, 2, 1], size=6, height=1, bold=True)
-        _ = Text(box, text=f"{label}Power Districts", grid=[0, 1, 2, 1], size=24, bold=True)
+        _ = Text(box, text=" ", grid=[0, 0, 4, 1], size=6, height=1, bold=True)
+        _ = Text(box, text=f"{label}Power Districts", grid=[0, 1, 4, 1], size=24, bold=True)
         self.by_number = PushButton(
             box,
             text="By TMCC ID",
-            grid=[1, 2],
+            grid=[2, 2],
             command=self.sort_by_number,
             padx=5,
             pady=5,
@@ -92,7 +92,7 @@ class PowerDistrictGui(Thread):
         self.by_name = PushButton(
             box,
             text="By Name",
-            grid=[0, 2],
+            grid=[3, 2],
             width=len("By TMCC ID"),
             command=self.sort_by_name,
             padx=5,
@@ -100,7 +100,7 @@ class PowerDistrictGui(Thread):
         )
         self.by_name.text_size = self.by_number.text_size = 18
         self.by_number.text_bold = True
-        _ = Text(box, text=" ", grid=[0, 3, 2, 1], size=4, height=1, bold=True)
+        _ = Text(box, text=" ", grid=[0, 3, 4, 1], size=4, height=1, bold=True)
         self.app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
