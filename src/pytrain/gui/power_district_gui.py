@@ -32,7 +32,7 @@ class PowerDistrictGui(Thread):
         self.left_arrow = find_file("left_arrow.jpg")
         self.right_arrow = find_file("right_arrow.jpg")
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
-        self.left_scroll_btn = None
+        self.left_scroll_btn = self.right_scroll_btn = None
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -118,6 +118,14 @@ class PowerDistrictGui(Thread):
             grid=[0, 1, 1, 2],
             enabled=False,
             image=self.left_arrow,
+            height=sort_btn_height * 2,
+            width=sort_btn_height * 2,
+        )
+        self.right_scroll_btn = PushButton(
+            box,
+            grid=[3, 1, 1, 2],
+            enabled=False,
+            image=self.right_arrow,
             height=sort_btn_height * 2,
             width=sort_btn_height * 2,
         )
