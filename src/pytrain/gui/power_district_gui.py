@@ -42,7 +42,6 @@ class PowerDistrictGui(Thread):
 
     def close(self) -> None:
         self.app.destroy()
-        self.join()
 
     def reset(self) -> None:
         self.close()
