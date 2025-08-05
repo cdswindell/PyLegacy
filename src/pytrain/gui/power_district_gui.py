@@ -105,7 +105,8 @@ class PowerDistrictGui(Thread):
 
         # display GUI and start event loop; call blocks
         self.app.display()
-        print("Exiting PowerDistrictGui...")
+        self.app = None
+        print(f"Exiting PowerDistrictGui {self}...")
 
     def update_power_district(self, pd: AccessoryState) -> None:
         with self._cv:
