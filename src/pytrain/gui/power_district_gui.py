@@ -137,6 +137,7 @@ class PowerDistrictGui(Thread):
             row = 4
             col = 0
             btn_h = btn_y = None
+            self.box.visible = False
             for pd in power_districts:
                 if btn_h and btn_y and btn_y + btn_h > self.height:
                     row = 4
@@ -161,6 +162,7 @@ class PowerDistrictGui(Thread):
                     btn_h = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
                 btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
                 print(btn_y, btn_h, btn_y + btn_h)
+            self.box.visible = True
 
     def sort_by_number(self) -> None:
         self.by_number.text_bold = True
