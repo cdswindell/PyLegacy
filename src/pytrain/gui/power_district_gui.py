@@ -35,6 +35,7 @@ class PowerDistrictGui(Thread):
         self.right_arrow = find_file("right_arrow.jpg")
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
         self.pd_button_height = self.left_scroll_btn = self.right_scroll_btn = None
+        self.sort_func = None
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -244,7 +245,8 @@ class PowerDistrictGui(Thread):
         self.by_name.text_bold = False
 
         # define power district push buttons
-        states = sorted(self._districts.values(), key=lambda x: x.tmcc_id)
+        self.sort_func = lambda x: x.tmcc_id
+        states = sorted(self._districts.values(), key=self.sort_func)
         self._first_button_col = 0
         self._make_power_district_buttons(states)
 
@@ -253,17 +255,19 @@ class PowerDistrictGui(Thread):
         self.by_number.text_bold = False
 
         # define power district push buttons
-        states = sorted(self._districts.values(), key=lambda x: x.road_name.lower())
+        self.sort_func = lambda x: x.road_name.lower()
+        states = sorted(self._districts.values(), key=self.sort_func)
         self._first_button_col = 0
         self._make_power_district_buttons(states)
 
     def scroll_left(self) -> None:
-        pass
+        self._first_button_col -= 1
+
+        states = sorted(self._districts.values(), key=self.sort_func)
+        self._make_power_district_buttons(states)
 
     def scroll_right(self) -> None:
         self._first_button_col += 1
-        self.left_scroll_btn.enabled = True
-        self.right_scroll_btn.enabled = (self._first_button_col + 1) < (self._max_button_cols - 1)
 
-        states = sorted(self._districts.values(), key=lambda x: x.tmcc_id)
+        states = sorted(self._districts.values(), key=self.sort_func)
         self._make_power_district_buttons(states)
