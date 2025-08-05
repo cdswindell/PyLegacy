@@ -41,7 +41,9 @@ class PowerDistrictGui(Thread):
         atexit.register(self.close)
 
     def close(self) -> None:
+        print("Closing PowerDistrictGui...")
         self.app.destroy()
+        print("Exiting PowerDistrictGui...")
 
     def reset(self) -> None:
         self.close()
