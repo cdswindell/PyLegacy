@@ -1,7 +1,5 @@
 import atexit
 from threading import Condition, RLock, Thread
-from tkinter import Canvas, Scrollbar, Frame
-from tkinter.constants import HORIZONTAL
 from typing import Callable
 
 from guizero import App, Box, PushButton, Text
@@ -106,22 +104,7 @@ class PowerDistrictGui(Thread):
         self.app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
-        # Create a Tkinter Canvas
-        canvas = Canvas(app.tk, borderwidth=0)
-        canvas.pack(side="left", fill="both", expand=True)
-
-        # Create scrollbars and link them to the canvas
-        scrollbar = Scrollbar(app.tk, orient=HORIZONTAL, command=canvas.xview)
-        scrollbar.pack(side="bottom", fill="x")
-
-        # Configure the canvas to use the scrollbar
-        canvas.config(xscrollcommand=scrollbar.set)
-        canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-
-        # Create a frame inside the canvas to hold your guizero widgets
-        scrollable_frame = Frame(canvas)
-        canvas.create_window((0, self.y_offset), window=scrollable_frame, anchor="nw")
-
+        # put the buttons in a separate box
         self.btn_box = Box(app, layout="grid")
 
         # define power district push buttons
