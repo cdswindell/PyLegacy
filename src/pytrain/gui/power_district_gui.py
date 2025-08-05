@@ -143,7 +143,7 @@ class PowerDistrictGui(Thread):
             col = 0
             btn_h = btn_y = None
             self.btn_box.visible = False
-            self.app.update()
+            # self.app.update()
             y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
             for pd in power_districts:
                 if btn_h and btn_y and y_offset + btn_y + btn_h > self.height:
@@ -168,7 +168,6 @@ class PowerDistrictGui(Thread):
                 if btn_h is None:
                     btn_h = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
                 btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
-                print(btn_y, btn_h)
             self.btn_box.visible = True
 
     def sort_by_number(self) -> None:
