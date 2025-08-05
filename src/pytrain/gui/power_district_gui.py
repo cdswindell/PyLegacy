@@ -154,7 +154,9 @@ class PowerDistrictGui(Thread):
                 )
                 col = col + 1 if col == 0 else 0
                 self.app.update()
-                print(self._power_district_buttons[pd.tmcc_id].tk.winfo_y())
+                y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y()
+                h = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
+                print(y, h, y + h)
 
     def sort_by_number(self) -> None:
         self.by_number.text_bold = True
