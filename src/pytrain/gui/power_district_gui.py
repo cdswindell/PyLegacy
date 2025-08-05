@@ -42,7 +42,7 @@ class PowerDistrictGui(Thread):
 
     def close(self) -> None:
         print("Closing PowerDistrictGui...")
-        self.app.after(50, self.app.destroy)
+        self.app.after(50,self.app.destroy)
         self.join()
         print("Exiting PowerDistrictGui...")
 
