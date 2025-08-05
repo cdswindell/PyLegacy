@@ -15,41 +15,43 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
 
 
-class PowerDistrictGui(Thread):
-    def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
-        super().__init__(daemon=True, name="Power District GUI")
+class StateBasedGui:
+    def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
         self._cv = Condition(RLock())
-        self.width = width
-        self.height = height
+        if width is None or height is None:
+            app = App(title="Screen Size Detector")
+            # Access the underlying tkinter root window
+            tkinter_root = app.tk
+            # Get the screen width and height
+            self.width = tkinter_root.winfo_screenwidth()
+            self.height = tkinter_root.winfo_screenheight()
+        else:
+            self.width = width
+            self.height = height
         self.label = label
-        self._max_name_len = 0
-        self._max_button_rows = self._max_button_cols = None
-        self._first_button_col = 0
-        self._districts = dict[int, AccessoryState]()
-        self._power_district_buttons = dict[int, PushButton]()
+
         self._enabled_bg = "green"
         self._disabled_bg = "black"
         self._enabled_text = "black"
         self._disabled_text = "lightgrey"
         self.left_arrow = find_file("left_arrow.jpg")
         self.right_arrow = find_file("right_arrow.jpg")
+
+
+class PowerDistrictGui(StateBasedGui, Thread):
+    def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
+        StateBasedGui.__init__(self, label, width, height)
+        Thread.__init__(self, daemon=True, name="Power District GUI")
+
+        self._max_name_len = 0
+        self._max_button_rows = self._max_button_cols = None
+        self._first_button_col = 0
+        self._districts = dict[int, AccessoryState]()
+        self._power_district_buttons = dict[int, PushButton]()
+
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
         self.pd_button_height = self.left_scroll_btn = self.right_scroll_btn = None
         self.sort_func = None
-
-        app = App(title="Screen Size Detector")
-
-        # Access the underlying tkinter root window
-        tkinter_root = app.tk
-
-        # Get the screen width and height
-        screen_width = tkinter_root.winfo_screenwidth()
-        screen_height = tkinter_root.winfo_screenheight()
-
-        # Print the dimensions
-        print(f"Screen Width: {screen_width} pixels")
-        print(f"Screen Height: {screen_height} pixels")
-        app.destroy()
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()

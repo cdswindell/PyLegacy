@@ -12,22 +12,23 @@ from enum import unique
 from pathlib import Path
 from threading import Event, Thread
 
+from PIL import Image, ImageDraw, ImageFont
 from luma.core.interface.serial import i2c, spi
 from luma.core.virtual import hotspot
 from luma.oled.device import sh1107, ssd1306, ssd1309, ssd1322, ssd1325, ssd1362
-from PIL import Image, ImageDraw, ImageFont
 
-from ...protocol.constants import Mixins
 from ..utils.sh1122 import sh1122
 from ..utils.text_buffer import TextBuffer
+from ...protocol.constants import Mixins
 
 
+# noinspection PyTypeHints
 def make_font(name: str, size: int) -> ImageFont:
     if name is None or name.strip() == "" or name.strip() == "default" or name.strip() == "Aileron":
         return ImageFont.load_default(size)
     else:
         name = name.replace(" ", "")
-        if name.endswith(".ttf") is False:
+        if not name.endswith(".ttf"):
             name += ".ttf"
         font_path = str(Path(__file__).resolve().parent.joinpath("fonts", name))
         return ImageFont.truetype(font_path, size)
@@ -191,7 +192,7 @@ class Oled(Thread, TextBuffer):
     ) -> None:
         super().write(c, at, fmt, center)
         row_no = at if isinstance(at, int) else self.row
-        if blink is True:
+        if blink:
             self._blinks.add(row_no)
         else:
             self._blinks.discard(row_no)
@@ -240,10 +241,10 @@ class Oled(Thread, TextBuffer):
         self.stop()
 
     def run(self) -> None:
-        while self._is_running is True:
+        while self._is_running:
             with self.synchronizer:
                 self.synchronizer.wait()
-                if self._is_running is True:
+                if self._is_running:
                     self.update_display()
 
     def pause(self) -> None:
@@ -264,7 +265,7 @@ class Oled(Thread, TextBuffer):
                 self._image = Image.new(self._device.mode, self._device.size, "black")
                 self._canvas = ImageDraw.Draw(self._image)
             fs = self.row_height
-            if selective is True:
+            if selective:
                 rows = self.changed_rows
             else:
                 rows = range(self.rows)
@@ -289,7 +290,7 @@ class Oled(Thread, TextBuffer):
     def refresh_display(self) -> None:
         with self.synchronizer:
             if self.is_dirty is True or self._initial_update is True:
-                if self._initial_update is True:
+                if self._initial_update:
                     self.update_display(clear=True, selective=False)
                     self._initial_update = False
                 else:
@@ -420,7 +421,7 @@ class BlinkingHotspot(Thread, hotspot):
             with self._device.synchronizer:
                 self._device.display(self.render(self._device.image))
             self._ev.wait(self._rate)
-            if self._ev.is_set() is False:
+            if not self._ev.is_set():
                 self._display_cycle = not self._display_cycle
             if self._pause_request:
                 self._resume_ev.wait()
@@ -428,7 +429,7 @@ class BlinkingHotspot(Thread, hotspot):
 
     def render(self, image):
         draw = ImageDraw.Draw(image)
-        if self._display_cycle is False:
+        if not self._display_cycle:
             # Clear the hotspot area
             draw.rectangle(
                 (0, self._row * self._row_height, self.width - 1, ((self._row + 1) * self._row_height) - 1),
