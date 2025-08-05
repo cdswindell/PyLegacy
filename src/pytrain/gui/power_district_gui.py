@@ -1,5 +1,7 @@
 import atexit
 from threading import Condition, RLock, Thread
+from tkinter import Canvas, Scrollbar
+from tkinter.constants import HORIZONTAL
 from typing import Callable
 
 from guizero import App, Box, PushButton, Text
@@ -76,10 +78,8 @@ class PowerDistrictGui(Thread):
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
-        app.bg = "white"
-        box_c = Box(app, width="fill", align="top")
         self.box = box = Box(app, layout="grid")
-        box.bg = "white"
+        app.bg = box.bg = "white"
         label = f"{self.label} " if self.label else ""
         _ = Text(box, text=" ", grid=[0, 0, 2, 1], size=6, height=1, bold=True)
         _ = Text(box, text=f"{label}Power Districts", grid=[0, 1, 2, 1], size=24, bold=True)
@@ -110,6 +110,13 @@ class PowerDistrictGui(Thread):
 
         # define power district push buttons
         self.sort_by_number()
+
+        canvas = Canvas(app.tk, borderwidth=0)
+        canvas.pack(side="left", fill="both", expand=True)
+        # Create scrollbars and link them to the canvas
+        h_scrollbar = Scrollbar(app.tk, orient=HORIZONTAL, command=canvas.xview)
+        h_scrollbar.pack(side="right", fill="x")
+        canvas.config(xscrollcommand=h_scrollbar.set)
 
         # display GUI and start event loop; call blocks
         self.app.display()
