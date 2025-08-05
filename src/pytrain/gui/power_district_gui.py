@@ -45,10 +45,8 @@ class PowerDistrictGui(Thread):
         with self._cv:
             if not self._is_closed:
                 self._is_closed = True
-                print("Closing PowerDistrictGui...")
                 self.app.after(50, self.app.destroy)
                 self.join()
-                print("Exiting PowerDistrictGui...")
 
     def reset(self) -> None:
         self.close()
@@ -110,7 +108,6 @@ class PowerDistrictGui(Thread):
 
         # display GUI and start event loop; call blocks
         self.app.display()
-        print(f"Exiting PowerDistrictGui {self}...")
 
     def update_power_district(self, pd: AccessoryState) -> None:
         with self._cv:

@@ -736,13 +736,9 @@ class GpioHandler:
             if not hasattr(handler, "reset"):
                 log.error(f"{handler} has no 'reset' method. Skipping...")
                 continue
-            print(f"Resetting {handler}...")
             handler.reset()
-            print(f"...{handler} reset.")
             if isinstance(handler, Thread) and handler.is_alive():
-                print(f"Joining {handler}...")
                 handler.join()  # wait for thread to shut down
-                print(f"...{handler} joined.")
         cls.GPIO_HANDLER_CACHE = set()
 
         for device in cls.GPIO_DEVICE_CACHE:
