@@ -34,7 +34,7 @@ class PowerDistrictGui(Thread):
         self.left_arrow = find_file("left_arrow.jpg")
         self.right_arrow = find_file("right_arrow.jpg")
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
-        self.left_scroll_btn = self.right_scroll_btn = None
+        self.pd_button_height = self.left_scroll_btn = self.right_scroll_btn = None
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -183,14 +183,16 @@ class PowerDistrictGui(Thread):
             row = 4
             col = 0
             print(f"Active cols: {active_cols}")
-            btn_h = btn_y = None
+            btn_h = self.pd_button_height
+            btn_y = None
             self.left_scroll_btn.disabled = self.right_scroll_btn.disabled = True
             self.btn_box.visible = False
             for pd in power_districts:
-                if btn_h and btn_y and self.y_offset + btn_y + btn_h > self.height:
+                if btn_h is not None and btn_y is not None and self.y_offset + btn_y + btn_h > self.height:
                     if self._max_button_rows is None:
                         self._max_button_rows = row - 4
                         print(f"max rows: {self._max_button_rows}")
+                    btn_y = 0
                     row = 4
                     col += 1
                 if col in active_cols:
@@ -213,9 +215,10 @@ class PowerDistrictGui(Thread):
                     )
                     # recalculate height
                     self.app.update()
-                    if btn_h is None:
-                        btn_h = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
+                    if self.pd_button_height is None:
+                        btn_h = self.pd_button_height = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
                     btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
+                    print(f"btn_y: {btn_y - btn_h} {btn_y}")
                 row += 1
             if col > 1:
                 self.right_scroll_btn.enabled = True
