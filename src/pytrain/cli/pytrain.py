@@ -353,15 +353,14 @@ class PyTrain:
                     else:
                         ui: str = input(">> ")
                         self._handle_command(ui)
-                    print("Loop end")
                 except SystemExit:
-                    print("SystemExit")
                     pass
                 except ArgumentError:
                     pass
                 except KeyboardInterrupt:
                     print("KeyboardInterrupt")
                     self.shutdown()
+                    print("KeyboardInterrupt")
                     break
         finally:
             if self._headless is False and self._api is False:
