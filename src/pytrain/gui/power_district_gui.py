@@ -26,7 +26,7 @@ class PowerDistrictGui(Thread):
         self._disabled_bg = "black"
         self._enabled_text = "black"
         self._disabled_text = "lightgrey"
-        self.app = self.by_name = self.by_number = self.box = None
+        self.app = self.by_name = self.by_number = self.box = self.btn_box = None
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -97,6 +97,8 @@ class PowerDistrictGui(Thread):
         self.by_number.text_bold = True
         _ = Text(box, text=" ", grid=[0, 3, 2, 1], size=4, height=1, bold=True)
 
+        self.btn_box = Box(app, layout="grid")
+
         # define power district push buttons
         self.sort_by_number()
 
@@ -137,13 +139,13 @@ class PowerDistrictGui(Thread):
             row = 4
             col = 0
             btn_h = btn_y = None
-            self.box.visible = False
+            self.btn_box.visible = False
             for pd in power_districts:
                 if btn_h and btn_y and btn_y + btn_h > self.height:
                     row = 4
                     col += 1
                 self._power_district_buttons[pd.tmcc_id] = PushButton(
-                    self.box,
+                    self.btn_box,
                     text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
                     grid=[col, row],
                     width=self._max_name_len - 1,
@@ -161,8 +163,7 @@ class PowerDistrictGui(Thread):
                 if btn_h is None:
                     btn_h = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
                 btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
-                print(btn_y, btn_h, btn_y + btn_h)
-            self.box.visible = True
+            self.btn_box.visible = True
 
     def sort_by_number(self) -> None:
         self.by_number.text_bold = True
