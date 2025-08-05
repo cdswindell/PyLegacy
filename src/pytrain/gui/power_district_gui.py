@@ -16,7 +16,7 @@ from ..utils.path_utils import find_file
 
 
 class PowerDistrictGui(Thread):
-    def __init__(self, label: str = None, width: int = 800, height: int = 280) -> None:
+    def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
         super().__init__(daemon=True, name="Power District GUI")
         self._cv = Condition(RLock())
         self.width = width
