@@ -139,13 +139,13 @@ class PowerDistrictGui(Thread):
             row = 4
             col = 0
             btn_h = btn_y = None
-            self.btn_box.visible = False
+            self.box.visible = False
             for pd in power_districts:
                 if btn_h and btn_y and btn_y + btn_h > self.height:
                     row = 4
                     col += 1
                 self._power_district_buttons[pd.tmcc_id] = PushButton(
-                    self.btn_box,
+                    self.box,
                     text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
                     grid=[col, row],
                     width=self._max_name_len - 1,
@@ -163,7 +163,7 @@ class PowerDistrictGui(Thread):
                 if btn_h is None:
                     btn_h = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
                 btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
-            self.btn_box.visible = True
+            self.box.visible = True
 
     def sort_by_number(self) -> None:
         self.by_number.text_bold = True
