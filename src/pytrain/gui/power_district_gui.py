@@ -122,7 +122,7 @@ class PowerDistrictGui(Thread):
         scrollable_frame = Frame(canvas)
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
-        self.btn_box = Box(app, layout="grid", master=scrollable_frame)
+        self.btn_box = Box(scrollable_frame, layout="grid")
 
         # define power district push buttons
         self.sort_by_number()
