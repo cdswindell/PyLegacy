@@ -227,7 +227,8 @@ class PowerDistrictGui(Thread):
                 self.right_scroll_btn.enabled = True
             else:
                 self.right_scroll_btn.disabled = True
-            self.left_scroll_btn.enabled = col > 1
+            self.left_scroll_btn.enabled = bool(col > 1)
+            self.app.update()
 
             if self._max_button_cols is None:
                 self._max_button_cols = col + 1
