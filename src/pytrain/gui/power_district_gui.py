@@ -66,15 +66,11 @@ class PowerDistrictGui(Thread):
             # start GUI
             self.start()
 
-    def on_resize(self, event):
-        print(self.app.height)
-
     def run(self) -> None:
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
-        app.tk.bind("<Configure>", self.on_resize)
         self.box = box = Box(app, layout="grid")
         box.bg = "white"
         label = f"{self.label} " if self.label else ""
@@ -157,6 +153,7 @@ class PowerDistrictGui(Thread):
                     self._enabled_text if pd.is_aux_on else self._disabled_text
                 )
                 col = col + 1 if col == 0 else 0
+                print(self._power_district_buttons[pd.tmcc_id].tk.winfo_y())
 
     def sort_by_number(self) -> None:
         self.by_number.text_bold = True
