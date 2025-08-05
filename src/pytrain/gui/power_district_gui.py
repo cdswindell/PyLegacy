@@ -88,7 +88,7 @@ class PowerDistrictGui(Thread):
 
         label = f"{self.label} " if self.label else ""
         _ = Text(box, text=" ", grid=[0, 0, 4, 1], size=6, height=1, bold=True)
-        _ = Text(box, text=f"{label}Power Districts", grid=[1, 1, 2, 1], size=24, bold=True)
+        _ = Text(box, text=f"{label}Power Districts", grid=[1, 1, 2, 1], size=24, bold=True, align="center")
         self.by_number = PushButton(
             box,
             text="By TMCC ID",
@@ -96,6 +96,7 @@ class PowerDistrictGui(Thread):
             command=self.sort_by_number,
             padx=5,
             pady=5,
+            align="center",
         )
         self.by_name = PushButton(
             box,
@@ -105,6 +106,7 @@ class PowerDistrictGui(Thread):
             command=self.sort_by_name,
             padx=5,
             pady=5,
+            align="center",
         )
         self.by_name.text_size = self.by_number.text_size = 18
         self.by_number.text_bold = True
@@ -120,6 +122,7 @@ class PowerDistrictGui(Thread):
             image=self.left_arrow,
             height=sort_btn_height * 2,
             width=sort_btn_height * 2,
+            align="left",
         )
         self.right_scroll_btn = PushButton(
             box,
@@ -128,6 +131,7 @@ class PowerDistrictGui(Thread):
             image=self.right_arrow,
             height=sort_btn_height * 2,
             width=sort_btn_height * 2,
+            align="right",
         )
 
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
