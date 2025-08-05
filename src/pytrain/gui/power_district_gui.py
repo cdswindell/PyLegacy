@@ -76,8 +76,9 @@ class PowerDistrictGui(Thread):
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
+        app.bg = "white"
         box_c = Box(app, width="fill", align="top")
-        self.box = box = Box(box_c, layout="grid")
+        self.box = box = Box(app, layout="grid")
         box.bg = "white"
         label = f"{self.label} " if self.label else ""
         _ = Text(box, text=" ", grid=[0, 0, 2, 1], size=6, height=1, bold=True)
