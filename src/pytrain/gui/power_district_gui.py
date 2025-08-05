@@ -15,7 +15,7 @@ from ..protocol.constants import CommandScope
 
 
 class PowerDistrictGui(Thread):
-    def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
+    def __init__(self, label: str = None, width: int = 800, height: int = 380) -> None:
         super().__init__(daemon=True, name="Power District GUI")
         self.width = width
         self.height = height
