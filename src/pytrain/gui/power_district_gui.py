@@ -113,7 +113,7 @@ class PowerDistrictGui(Thread):
         sort_btn_height = self.by_number.tk.winfo_height()
         self.left_scroll_btn = PushButton(
             box,
-            grid=[0, 1, 2, 2],
+            grid=[0, 1, 1, 2],
             enabled=False,
             image=self.left_arrow,
             height=sort_btn_height * 2,
