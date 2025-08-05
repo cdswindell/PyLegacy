@@ -16,7 +16,7 @@ from ..utils.path_utils import find_file
 
 
 class PowerDistrictGui(Thread):
-    def __init__(self, label: str = None, width: int = 800, height: int = 380) -> None:
+    def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
         super().__init__(daemon=True, name="Power District GUI")
         self._cv = Condition(RLock())
         self.width = width
@@ -189,7 +189,7 @@ class PowerDistrictGui(Thread):
             for pd in power_districts:
                 if btn_h and btn_y and self.y_offset + btn_y + btn_h > self.height:
                     if self._max_button_rows is None:
-                        self._max_button_rows = row - 3
+                        self._max_button_rows = row - 4
                         print(f"max rows: {self._max_button_rows}")
                     row = 4
                     col += 1
