@@ -1,5 +1,7 @@
 import atexit
+import tkinter as tk
 from threading import Condition, RLock, Thread
+from tkinter import ttk
 from typing import Callable
 
 from guizero import App, Box, PushButton, Text
@@ -104,8 +106,31 @@ class PowerDistrictGui(Thread):
         self.app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
-        # put the buttons in a separate box
-        self.btn_box = Box(app, layout="grid")
+        # Create a frame to hold the canvas and scrollbar
+        frame = tk.Frame(app.tk)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        # Create canvas and scrollbar
+        canvas = tk.Canvas(frame)
+        scrollbar = ttk.Scrollbar(frame, orient="horizontal", command=canvas.xview)
+        scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Configure canvas
+        canvas.configure(xscrollcommand=scrollbar.set)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Create a frame inside canvas to hold the buttons
+        self.btn_box = Box(app)
+        self.btn_box.tk.master = canvas
+
+        # Create a window in the canvas to hold the buttons frame
+        canvas.create_window((0, 0), window=self.btn_box.tk, anchor="nw")
+
+        # Update scroll region when buttons are added/removed
+        def update_scroll_region(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        self.btn_box.tk.bind("<Configure>", update_scroll_region)
 
         # define power district push buttons
         self.sort_by_number()
