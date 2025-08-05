@@ -68,19 +68,20 @@ class StateBasedGui(ABC):
         self.close()
 
     @abstractmethod
-    def on_sync(self) -> None: ...
+    def on_sync(self) -> None:
+        ...
 
 
-class PowerDistrictGui(StateBasedGui, Thread):
+class PowerDistrictGui(Thread, StateBasedGui):
     def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
-        StateBasedGui.__init__(self, label, width, height)
-        Thread.__init__(self, daemon=True, name="Power District GUI")
-
         self._max_name_len = 0
         self._max_button_rows = self._max_button_cols = None
         self._first_button_col = 0
         self._districts = dict[int, AccessoryState]()
         self._power_district_buttons = dict[int, PushButton]()
+
+        Thread.__init__(self, daemon=True, name="Power District GUI")
+        StateBasedGui.__init__(self, label, width, height)
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def on_sync(self) -> None:
