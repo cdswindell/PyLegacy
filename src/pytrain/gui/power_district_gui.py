@@ -153,7 +153,7 @@ class PowerDistrictGui(Thread):
                     self._enabled_text if pd.is_aux_on else self._disabled_text
                 )
                 col = col + 1 if col == 0 else 0
-
+                self.app.update()
                 print(self._power_district_buttons[pd.tmcc_id].tk.winfo_y())
 
     def sort_by_number(self) -> None:
