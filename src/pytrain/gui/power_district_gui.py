@@ -182,11 +182,15 @@ class PowerDistrictGui(Thread):
             active_cols = {self._first_button_col, self._first_button_col + 1}
             row = 4
             col = 0
+            print(f"Active cols: {active_cols}")
             btn_h = btn_y = None
             self.left_scroll_btn.disabled = self.right_scroll_btn.disabled = True
             self.btn_box.visible = False
             for pd in power_districts:
                 if btn_h and btn_y and self.y_offset + btn_y + btn_h > self.height:
+                    if self._max_button_rows is None:
+                        self._max_button_rows = row - 3
+                        print(f"max rows: {self._max_button_rows}")
                     row = 4
                     col += 1
                 if col in active_cols:
@@ -217,9 +221,6 @@ class PowerDistrictGui(Thread):
             else:
                 self.left_scroll_btn.disabled = self.right_scroll_btn.disabled = True
 
-            if self._max_button_rows is None:
-                self._max_button_rows = row - 3
-                print(f"max rows: {self._max_button_rows}")
             if self._max_button_cols is None:
                 self._max_button_cols = col
                 print(f"max cols: {self._max_button_cols}")
