@@ -71,7 +71,6 @@ class PowerDistrictGui(Thread):
             self.start()
 
     # noinspection PyTypeChecker
-    # In the run method or elsewhere as appropriate
     def run(self) -> None:
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
