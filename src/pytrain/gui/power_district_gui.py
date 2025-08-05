@@ -139,10 +139,10 @@ class PowerDistrictGui(Thread):
                     self.box,
                     text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
                     grid=[col, row],
-                    width=self._max_name_len,
+                    width=self._max_name_len - 1,
                     command=self.switch_power_district,
                     args=[pd],
-                    padx=-1,
+                    padx=0,
                 )
                 self._power_district_buttons[pd.tmcc_id].text_size = 15
                 self._power_district_buttons[pd.tmcc_id].bg = "green" if pd.is_aux_on else "black"
