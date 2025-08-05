@@ -1,4 +1,5 @@
 import atexit
+from abc import abstractmethod, ABCMeta, ABC
 from threading import Condition, RLock, Thread
 from typing import Callable
 
@@ -15,7 +16,9 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
 
 
-class StateBasedGui:
+class StateBasedGui(ABC):
+    __metaclass__ = ABCMeta
+
     def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
         self._cv = Condition(RLock())
         if width is None or height is None:
@@ -36,19 +39,6 @@ class StateBasedGui:
         self._disabled_text = "lightgrey"
         self.left_arrow = find_file("left_arrow.jpg")
         self.right_arrow = find_file("right_arrow.jpg")
-
-
-class PowerDistrictGui(StateBasedGui, Thread):
-    def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
-        StateBasedGui.__init__(self, label, width, height)
-        Thread.__init__(self, daemon=True, name="Power District GUI")
-
-        self._max_name_len = 0
-        self._max_button_rows = self._max_button_cols = None
-        self._first_button_col = 0
-        self._districts = dict[int, AccessoryState]()
-        self._power_district_buttons = dict[int, PushButton]()
-
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
         self.pd_button_height = self.left_scroll_btn = self.right_scroll_btn = None
         self.sort_func = None
@@ -63,6 +53,7 @@ class PowerDistrictGui(StateBasedGui, Thread):
             self.on_sync()
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
+
         self._is_closed = False
         atexit.register(self.close)
 
@@ -71,10 +62,25 @@ class PowerDistrictGui(StateBasedGui, Thread):
             if not self._is_closed:
                 self._is_closed = True
                 self.app.after(10, self.app.destroy)
-                self.join()
+                # self.join()
 
     def reset(self) -> None:
         self.close()
+
+    @abstractmethod
+    def on_sync(self) -> None: ...
+
+
+class PowerDistrictGui(StateBasedGui, Thread):
+    def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
+        StateBasedGui.__init__(self, label, width, height)
+        Thread.__init__(self, daemon=True, name="Power District GUI")
+
+        self._max_name_len = 0
+        self._max_button_rows = self._max_button_cols = None
+        self._first_button_col = 0
+        self._districts = dict[int, AccessoryState]()
+        self._power_district_buttons = dict[int, PushButton]()
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def on_sync(self) -> None:
