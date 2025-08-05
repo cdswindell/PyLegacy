@@ -70,12 +70,14 @@ class PowerDistrictGui(Thread):
             # start GUI
             self.start()
 
+    # noinspection PyTypeChecker
     def run(self) -> None:
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
-        self.box = box = Box(app, layout="grid", width="fill", align="top")
+        box_c = Box(app, width="fill", align="top")
+        self.box = box = Box(box_c, layout="grid")
         box.bg = "white"
         label = f"{self.label} " if self.label else ""
         _ = Text(box, text=" ", grid=[0, 0, 2, 1], size=6, height=1, bold=True)
