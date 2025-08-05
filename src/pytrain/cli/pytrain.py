@@ -353,6 +353,7 @@ class PyTrain:
                     else:
                         ui: str = input(">> ")
                         self._handle_command(ui)
+                    print("Loop end")
                 except SystemExit:
                     pass
                 except ArgumentError:

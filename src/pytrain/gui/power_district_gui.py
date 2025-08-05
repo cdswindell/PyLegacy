@@ -63,7 +63,6 @@ class PowerDistrictGui(Thread):
                     nl = len(acc.road_name)
                     self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
                     StateWatcher(acc, self._power_district_action(acc))
-
             # start GUI
             self.start()
 
