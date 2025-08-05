@@ -106,16 +106,17 @@ class PowerDistrictGui(Thread):
         self.app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
-        self.btn_box = Box(app, layout="grid")
+        self.btn_box = btn_box = Box(app, layout="grid")
 
         # define power district push buttons
         self.sort_by_number()
 
-        canvas = Canvas(app.tk, borderwidth=0)
+        canvas = Canvas(btn_box.tk, borderwidth=0)
         canvas.pack(side="left", fill="both", expand=True)
+
         # Create scrollbars and link them to the canvas
-        h_scrollbar = Scrollbar(app.tk, orient=HORIZONTAL, command=canvas.xview)
-        h_scrollbar.pack(side="right", fill="x")
+        h_scrollbar = Scrollbar(btn_box.tk, orient=HORIZONTAL, command=canvas.xview)
+        h_scrollbar.pack(side="bottom", fill="x")
         canvas.config(xscrollcommand=h_scrollbar.set)
 
         # display GUI and start event loop; call blocks
