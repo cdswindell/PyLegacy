@@ -102,6 +102,7 @@ class PowerDistrictGui(Thread):
         self.by_number.text_bold = True
         _ = Text(box, text=" ", grid=[0, 3, 4, 1], size=4, height=1, bold=True)
         self.app.update()
+        print(self.by_number.tk.winfo_height())
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
         # put the buttons in a separate box
