@@ -120,9 +120,9 @@ class PowerDistrictGui(Thread):
 
         # Create a frame inside the canvas to hold your guizero widgets
         scrollable_frame = Frame(canvas)
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.create_window((0, self.y_offset), window=scrollable_frame, anchor="nw")
 
-        self.btn_box = Box(master=scrollable_frame, layout="grid")
+        self.btn_box = Box(app, layout="grid")
 
         # define power district push buttons
         self.sort_by_number()
