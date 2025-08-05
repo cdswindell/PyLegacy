@@ -22,7 +22,10 @@ class PowerDistrictGui(Thread):
         self._max_name_len = 0
         self._districts = dict[int, AccessoryState]()
         self._power_district_buttons = dict[int, PushButton]()
-        self.disabled_text = "lightgrey"
+        self._enabled_bg = "green"
+        self._disabled_bg = "black"
+        self._enabled_text = "black"
+        self._disabled_text = "lightgrey"
         self.app = self.by_name = self.by_number = self.box = None
 
         # listen for state changes
@@ -63,11 +66,15 @@ class PowerDistrictGui(Thread):
             # start GUI
             self.start()
 
+    def on_resize(self, event):
+        print(self.app.height)
+
     def run(self) -> None:
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
+        app.tk.bind("<Configure>", self.on_resize)
         self.box = box = Box(app, layout="grid")
         box.bg = "white"
         label = f"{self.label} " if self.label else ""
@@ -99,16 +106,16 @@ class PowerDistrictGui(Thread):
 
         # display GUI and start event loop; call blocks
         self.app.display()
-        print("Exiting...")
+        print("Exiting PowerDistrictGui...")
 
     def update_power_district(self, pd: AccessoryState) -> None:
         with self._cv:
             if pd.is_aux_on:
-                self._power_district_buttons[pd.tmcc_id].bg = "green"
-                self._power_district_buttons[pd.tmcc_id].text_color = "black"
+                self._power_district_buttons[pd.tmcc_id].bg = self._enabled_bg
+                self._power_district_buttons[pd.tmcc_id].text_color = self._enabled_text
             else:
-                self._power_district_buttons[pd.tmcc_id].bg = "black"
-                self._power_district_buttons[pd.tmcc_id].text_color = self.disabled_text
+                self._power_district_buttons[pd.tmcc_id].bg = self._disabled_bg
+                self._power_district_buttons[pd.tmcc_id].text_color = self._disabled_text
 
     def _power_district_action(self, pd: AccessoryState) -> Callable:
         def upd():
@@ -145,8 +152,10 @@ class PowerDistrictGui(Thread):
                     padx=0,
                 )
                 self._power_district_buttons[pd.tmcc_id].text_size = 15
-                self._power_district_buttons[pd.tmcc_id].bg = "green" if pd.is_aux_on else "black"
-                self._power_district_buttons[pd.tmcc_id].text_color = "black" if pd.is_aux_on else self.disabled_text
+                self._power_district_buttons[pd.tmcc_id].bg = self._enabled_bg if pd.is_aux_on else self._disabled_bg
+                self._power_district_buttons[pd.tmcc_id].text_color = (
+                    self._enabled_text if pd.is_aux_on else self._disabled_text
+                )
                 col = col + 1 if col == 0 else 0
 
     def sort_by_number(self) -> None:
