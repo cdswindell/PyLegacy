@@ -82,11 +82,13 @@ class PowerDistrictGui(Thread):
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
+
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
+
         label = f"{self.label} " if self.label else ""
         _ = Text(box, text=" ", grid=[0, 0, 4, 1], size=6, height=1, bold=True)
-        _ = Text(box, text=f"{label}Power Districts", grid=[0, 1, 4, 1], size=24, bold=True)
+        _ = Text(box, text=f"{label}Power Districts", grid=[1, 1, 2, 1], size=24, bold=True)
         self.by_number = PushButton(
             box,
             text="By TMCC ID",
