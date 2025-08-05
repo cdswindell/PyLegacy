@@ -190,6 +190,7 @@ class PowerDistrictGui(Thread):
                     row = 4
                     col += 1
                 if col in active_cols:
+                    print(f"Row: {row} Col: {col}")
                     self._power_district_buttons[pd.tmcc_id] = PushButton(
                         self.btn_box,
                         text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
@@ -216,12 +217,12 @@ class PowerDistrictGui(Thread):
             else:
                 self.left_scroll_btn.disabled = self.right_scroll_btn.disabled = True
 
-            if self._max_button_cols is None:
-                self._max_button_cols = col
-                print(f"max cols: {self._max_button_cols}")
             if self._max_button_rows is None:
                 self._max_button_rows = row - 3
                 print(f"max rows: {self._max_button_rows}")
+            if self._max_button_cols is None:
+                self._max_button_cols = col
+                print(f"max cols: {self._max_button_cols}")
             self.btn_box.visible = True
 
     def sort_by_number(self) -> None:
