@@ -26,7 +26,7 @@ class PowerDistrictGui(Thread):
         self._disabled_bg = "black"
         self._enabled_text = "black"
         self._disabled_text = "lightgrey"
-        self.app = self.by_name = self.by_number = self.box = self.btn_box = None
+        self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -100,6 +100,8 @@ class PowerDistrictGui(Thread):
         self.by_name.text_size = self.by_number.text_size = 18
         self.by_number.text_bold = True
         _ = Text(box, text=" ", grid=[0, 3, 2, 1], size=4, height=1, bold=True)
+        self.app.update()
+        self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
         self.btn_box = Box(app, layout="grid")
 
@@ -143,10 +145,8 @@ class PowerDistrictGui(Thread):
             col = 0
             btn_h = btn_y = None
             self.btn_box.visible = False
-            # self.app.update()
-            y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
             for pd in power_districts:
-                if btn_h and btn_y and y_offset + btn_y + btn_h > self.height:
+                if btn_h and btn_y and self.y_offset + btn_y + btn_h > self.height:
                     row = 4
                     col += 1
                 self._power_district_buttons[pd.tmcc_id] = PushButton(
