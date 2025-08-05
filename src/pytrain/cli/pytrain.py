@@ -355,10 +355,12 @@ class PyTrain:
                         self._handle_command(ui)
                     print("Loop end")
                 except SystemExit:
+                    print("SystemExit")
                     pass
                 except ArgumentError:
                     pass
                 except KeyboardInterrupt:
+                    print("KeyboardInterrupt")
                     self.shutdown()
                     break
         finally:
