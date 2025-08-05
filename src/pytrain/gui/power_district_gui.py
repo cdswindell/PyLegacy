@@ -1,6 +1,5 @@
 import atexit
 from threading import Condition, RLock, Thread
-from tkinter import Canvas, Scrollbar, Frame
 from typing import Callable
 
 from guizero import App, Box, PushButton, Text
@@ -28,7 +27,6 @@ class PowerDistrictGui(Thread):
         self._enabled_text = "black"
         self._disabled_text = "lightgrey"
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
-        self.canvas = self.scrollbar = None  # Add these for scrolling components
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -73,6 +71,7 @@ class PowerDistrictGui(Thread):
             self.start()
 
     # noinspection PyTypeChecker
+    # In the run method or elsewhere as appropriate
     def run(self) -> None:
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Power Districts", width=self.width, height=self.height)
@@ -106,74 +105,14 @@ class PowerDistrictGui(Thread):
         self.app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
-        # Create scrollable area for buttons
-        self._create_scrollable_button_area()
+        # put the buttons in a separate box
+        self.btn_box = Box(app, layout="grid")
 
         # define power district push buttons
         self.sort_by_number()
 
-        # display GUI and start event loop; call blocks
+        # Display GUI and start event loop; call blocks
         self.app.display()
-
-    def _create_scrollable_button_area(self):
-        """Create a scrollable area for the power district buttons"""
-        # Create a frame to hold the canvas and scrollbar
-        button_frame = Frame(self.app.tk)
-        button_frame.grid(row=4, column=0, columnspan=2, sticky="nsew", padx=10, pady=5)
-
-        # Configure grid weights so the frame expands
-        self.app.tk.grid_rowconfigure(4, weight=1)
-        self.app.tk.grid_columnconfigure(0, weight=1)
-
-        # Create canvas and scrollbar
-        self.canvas = Canvas(button_frame, highlightthickness=0, bg="white")
-        self.scrollbar = Scrollbar(button_frame, orient="vertical", command=self.canvas.yview)
-
-        # Configure canvas scrolling
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-
-        # Pack canvas and scrollbar
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-
-        # Create the guizero Box inside the canvas
-        # We need to create it with the app as parent, then reparent the tkinter widget
-        self.btn_box = Box(self.app, layout="grid")
-
-        # Create a window in the canvas to hold the btn_box
-        self.canvas_window = self.canvas.create_window(0, 0, anchor="nw", window=self.btn_box.tk)
-
-        # Bind events for scrolling
-        self.btn_box.tk.bind("<Configure>", self._on_frame_configure)
-        self.canvas.bind("<Configure>", self._on_canvas_configure)
-
-        # Bind mousewheel scrolling
-        self._bind_mousewheel()
-
-    def _on_frame_configure(self, event):
-        """Update scroll region when frame size changes"""
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-    def _on_canvas_configure(self, event):
-        """Update canvas window width when canvas size changes"""
-        canvas_width = event.width
-        self.canvas.itemconfig(self.canvas_window, width=canvas_width)
-
-    def _bind_mousewheel(self):
-        """Bind mousewheel events for scrolling"""
-
-        def _on_mousewheel(event):
-            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-        def _bind_to_mousewheel(event):
-            self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
-
-        def _unbind_from_mousewheel(event):
-            self.canvas.unbind_all("<MouseWheel>")
-
-        # Bind mousewheel when mouse enters the canvas area
-        self.canvas.bind('<Enter>', _bind_to_mousewheel)
-        self.canvas.bind('<Leave>', _unbind_from_mousewheel)
 
     def update_power_district(self, pd: AccessoryState) -> None:
         with self._cv:
@@ -205,17 +144,14 @@ class PowerDistrictGui(Thread):
     def _make_power_district_buttons(self, power_districts: list[AccessoryState] = None) -> None:
         with self._cv:
             self._reset_power_district_buttons()
-            row = 0  # Start from row 0 since we're in our own container now
+            row = 4
             col = 0
-            max_buttons_per_column = 20  # Adjust as needed
-
+            btn_h = btn_y = None
             self.btn_box.visible = False
-            for i, pd in enumerate(power_districts):
-                # Move to next column if we've reached max buttons per column
-                if i > 0 and i % max_buttons_per_column == 0:
+            for pd in power_districts:
+                if btn_h and btn_y and self.y_offset + btn_y + btn_h > self.height:
+                    row = 4
                     col += 1
-                    row = 0
-
                 self._power_district_buttons[pd.tmcc_id] = PushButton(
                     self.btn_box,
                     text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
@@ -231,11 +167,11 @@ class PowerDistrictGui(Thread):
                     self._enabled_text if pd.is_aux_on else self._disabled_text
                 )
                 row += 1
-
+                self.app.update()
+                if btn_h is None:
+                    btn_h = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
+                btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
             self.btn_box.visible = True
-
-            # Update the scroll region after adding buttons
-            self.app.after(10, lambda: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
 
     def sort_by_number(self) -> None:
         self.by_number.text_bold = True
