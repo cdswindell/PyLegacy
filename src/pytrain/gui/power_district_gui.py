@@ -222,7 +222,7 @@ class PowerDistrictGui(Thread):
                 else:
                     btn_y += btn_h
                 row += 1
-            if (self._max_button_cols is None and col > 1) or (max(active_cols) + 1 < self._max_button_cols):
+            if max(active_cols) < col:
                 self.right_scroll_btn.enable()
             else:
                 self.right_scroll_btn.disable()
@@ -231,8 +231,6 @@ class PowerDistrictGui(Thread):
             else:
                 self.left_scroll_btn.disable()
 
-            if self._max_button_cols is None:
-                self._max_button_cols = col + 1
             self.btn_box.visible = True
 
     def sort_by_number(self) -> None:
