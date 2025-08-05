@@ -141,7 +141,6 @@ class PowerDistrictGui(Thread):
                 if btn_h and btn_y and btn_y + btn_h > self.height:
                     row = 4
                     col += 1
-                    btn_y = None
                 self._power_district_buttons[pd.tmcc_id] = PushButton(
                     self.box,
                     text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
