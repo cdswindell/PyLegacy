@@ -37,6 +37,20 @@ class PowerDistrictGui(Thread):
         self.pd_button_height = self.left_scroll_btn = self.right_scroll_btn = None
         self.sort_func = None
 
+        app = App(title="Screen Size Detector")
+
+        # Access the underlying tkinter root window
+        tkinter_root = app.tk
+
+        # Get the screen width and height
+        screen_width = tkinter_root.winfo_screenwidth()
+        screen_height = tkinter_root.winfo_screenheight()
+
+        # Print the dimensions
+        print(f"Screen Width: {screen_width} pixels")
+        print(f"Screen Height: {screen_height} pixels")
+        app.destroy()
+
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
         self._state_store = ComponentStateStore.get()
