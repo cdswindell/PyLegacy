@@ -157,9 +157,9 @@ class PowerDistrictGui(Thread):
                 )
                 row += 1
                 self.app.update()
-                btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y()
                 if btn_h is None:
                     btn_h = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
+                btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
                 print(btn_y, btn_h, btn_y + btn_h)
 
     def sort_by_number(self) -> None:
