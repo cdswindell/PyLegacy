@@ -83,7 +83,7 @@ class PowerDistrictGui(Thread):
         app.full_screen = True
         app.when_closed = self.close
 
-        self.box = box = Box(app, layout="grid", width="fill", align="center", border=1)
+        self.box = box = Box(app, layout="grid", width=self.width, align="center")
         app.bg = box.bg = "white"
 
         label = f"{self.label} " if self.label else ""
