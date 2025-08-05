@@ -141,11 +141,11 @@ class PowerDistrictGui(Thread):
             self._reset_power_district_buttons()
             row = 4
             col = 0
-            btn_h = None
+            btn_h = btn_y = None
             self.btn_box.visible = False
             self.app.update()
-            btn_y = self.btn_box.tk.winfo_y()
-            print(btn_y)
+            y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
+            print(y_offset)
             for pd in power_districts:
                 if btn_h and btn_y and btn_y + btn_h > self.height:
                     row = 4
