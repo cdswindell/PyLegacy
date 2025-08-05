@@ -4,12 +4,15 @@ from typing import Callable
 
 from guizero import App, Box, PushButton, Text
 
-from .. import AccessoryState, CommandReq, TMCC1AuxCommandEnum
 from ..comm.command_listener import CommandDispatcher
+from ..db.accessory_state import AccessoryState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
+from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+from ..utils.path_utils import find_file
 
 
 class PowerDistrictGui(Thread):
@@ -26,7 +29,10 @@ class PowerDistrictGui(Thread):
         self._disabled_bg = "black"
         self._enabled_text = "black"
         self._disabled_text = "lightgrey"
+        self.left_arrow = find_file("left_arrow.jpg")
+        self.right_arrow = find_file("right_arrow.jpg")
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
+        self.left_scroll_btn = None
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -102,7 +108,18 @@ class PowerDistrictGui(Thread):
         self.by_number.text_bold = True
         _ = Text(box, text=" ", grid=[0, 3, 4, 1], size=4, height=1, bold=True)
         self.app.update()
-        print(self.by_number.tk.winfo_height())
+
+        # add scroll btns
+        sort_btn_height = self.by_number.tk.winfo_height()
+        self.left_scroll_btn = PushButton(
+            box,
+            grid=[0, 2],
+            enabled=False,
+            image=self.left_arrow,
+            height=sort_btn_height,
+            width=sort_btn_height,
+        )
+
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
         # put the buttons in a separate box
