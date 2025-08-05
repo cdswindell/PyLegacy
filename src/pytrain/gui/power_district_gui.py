@@ -125,6 +125,7 @@ class PowerDistrictGui(Thread):
             height=sort_btn_height * 2,
             width=sort_btn_height * 2,
             align="left",
+            command=self.scroll_left,
         )
         self.right_scroll_btn = PushButton(
             box,
@@ -134,6 +135,7 @@ class PowerDistrictGui(Thread):
             height=sort_btn_height * 2,
             width=sort_btn_height * 2,
             align="right",
+            command=self.scroll_right,
         )
 
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
@@ -238,4 +240,15 @@ class PowerDistrictGui(Thread):
         # define power district push buttons
         states = sorted(self._districts.values(), key=lambda x: x.road_name.lower())
         self._first_button_col = 0
+        self._make_power_district_buttons(states)
+
+    def scroll_left(self) -> None:
+        pass
+
+    def scroll_right(self) -> None:
+        self._first_button_col += 1
+        self.left_scroll_btn.enabled = True
+        self.right_scroll_btn.enabled = (self._first_button_col + 1) < (self._max_button_cols - 1)
+
+        states = sorted(self._districts.values(), key=lambda x: x.tmcc_id)
         self._make_power_district_buttons(states)
