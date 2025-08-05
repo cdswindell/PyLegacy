@@ -38,13 +38,17 @@ class PowerDistrictGui(Thread):
             self.on_sync()
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
+        self._is_closed = False
         atexit.register(self.close)
 
     def close(self) -> None:
-        print("Closing PowerDistrictGui...")
-        self.app.after(50,self.app.destroy)
-        self.join()
-        print("Exiting PowerDistrictGui...")
+        with self._cv:
+            if not self._is_closed:
+                self._is_closed = True
+                print("Closing PowerDistrictGui...")
+                self.app.after(50, self.app.destroy)
+                self.join()
+                print("Exiting PowerDistrictGui...")
 
     def reset(self) -> None:
         self.close()
