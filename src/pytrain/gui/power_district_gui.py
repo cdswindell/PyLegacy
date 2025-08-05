@@ -109,7 +109,7 @@ class PowerDistrictGui(Thread):
         # Scrollable btn_box setup
         canvas = Canvas(app.tk, width=self.width, height=self.height - self.y_offset)
         scrollbar = Scrollbar(app.tk, orient="vertical", command=canvas.yview)
-        self.btn_box = Box(app.tk, layout="grid", width=self.width)
+        self.btn_box = Box(app, layout="grid", width=self.width)
         self.btn_box.tk.update_idletasks()  # Update internal size information
 
         # Embed Box inside Canvas
