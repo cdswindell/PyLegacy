@@ -134,10 +134,14 @@ class PowerDistrictGui(Thread):
     def _make_power_district_buttons(self, power_districts: list[AccessoryState] = None) -> None:
         with self._cv:
             self._reset_power_district_buttons()
-            row = 3
+            row = 4
             col = 0
+            btn_h = btn_y = None
             for pd in power_districts:
-                row = row + 1 if col == 0 else row
+                if btn_h and btn_y and btn_y + btn_h > self.height:
+                    row = 4
+                    col += 1
+                    btn_y = None
                 self._power_district_buttons[pd.tmcc_id] = PushButton(
                     self.box,
                     text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
@@ -152,11 +156,13 @@ class PowerDistrictGui(Thread):
                 self._power_district_buttons[pd.tmcc_id].text_color = (
                     self._enabled_text if pd.is_aux_on else self._disabled_text
                 )
-                col = col + 1 if col == 0 else 0
+                row += 1
                 self.app.update()
-                y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y()
-                h = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
-                print(y, h, y + h)
+                if btn_h is None:
+                    btn_h = self._power_district_buttons[pd.tmcc_id].tk.winfo_height()
+                if btn_y is None:
+                    btn_y = self._power_district_buttons[pd.tmcc_id].tk.winfo_y()
+                print(btn_y, btn_h, btn_y + btn_h)
 
     def sort_by_number(self) -> None:
         self.by_number.text_bold = True
