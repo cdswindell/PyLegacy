@@ -283,7 +283,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def _reset_state_buttons(self) -> None:
         for pdb in self._state_buttons.values():
             self.app.after(5, pdb.destroy)
-        self._state_buttons.clear()
+        self.app.after(5, self._state_buttons.clear)
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...
