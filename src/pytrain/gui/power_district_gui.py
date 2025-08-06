@@ -66,7 +66,8 @@ class StateBasedGui(ABC):
             if not self._is_closed:
                 self._is_closed = True
                 self.app.after(50, self.app.destroy)
-                # self.join()
+                if isinstance(self, Thread):
+                    self.join()
 
     def reset(self) -> None:
         self.close()
