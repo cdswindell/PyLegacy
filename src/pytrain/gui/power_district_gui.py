@@ -29,15 +29,15 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     @abstractmethod
     def __init__(
-        self,
-        title: str,
-        label: str = None,
-        width: int = None,
-        height: int = None,
-        enabled_bg: str = "green",
-        disabled_bg: str = "black",
-        enabled_text: str = "black",
-        disabled_text: str = "lightgrey",
+            self,
+            title: str,
+            label: str = None,
+            width: int = None,
+            height: int = None,
+            enabled_bg: str = "green",
+            disabled_bg: str = "black",
+            enabled_text: str = "black",
+            disabled_text: str = "lightgrey",
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
@@ -62,13 +62,12 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.left_arrow = find_file("left_arrow.jpg")
         self.right_arrow = find_file("right_arrow.jpg")
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
-        self.pd_button_height = self.left_scroll_btn = self.right_scroll_btn = None
+        self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
         self._max_name_len = 0
         self._max_button_rows = self._max_button_cols = None
         self._first_button_col = 0
         self.sort_func = None
         self._app_active = False
-        # self._dead_buttons = Queue()
 
         # States
         self._states = dict[int, S]()
@@ -241,7 +240,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         self.btn_box,
                         text=f"#{pd.tmcc_id} {pd.road_name}",
                         grid=[col, row],
-                        width=self._max_name_len - 1,
+                        width=self._max_name_len,
                         command=self.switch_state,
                         args=[pd],
                         padx=0,
@@ -254,6 +253,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
                     # recalculate height
                     self.app.update()
+                    if self.pd_button_width is None:
+                        btn_w = self.pd_button_width = self._state_buttons[pd.tmcc_id].tk.winfo_width()
+                        print(btn_w, self.width / 2)
                     if self.pd_button_height is None:
                         btn_h = self.pd_button_height = self._state_buttons[pd.tmcc_id].tk.winfo_height()
                     btn_y = self._state_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
@@ -300,13 +302,16 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._make_state_buttons(states)
 
     @abstractmethod
-    def get_target_states(self) -> list[S]: ...
+    def get_target_states(self) -> list[S]:
+        ...
 
     @abstractmethod
-    def is_active(self, state: S) -> bool: ...
+    def is_active(self, state: S) -> bool:
+        ...
 
     @abstractmethod
-    def switch_state(self, state: S) -> bool: ...
+    def switch_state(self, state: S) -> bool:
+        ...
 
 
 class PowerDistrictsGui(StateBasedGui):
