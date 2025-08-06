@@ -22,6 +22,7 @@ S = TypeVar("S", bound=ComponentState)
 class StateBasedGui(Thread, Generic[S], ABC):
     __metaclass__ = ABCMeta
 
+    @abstractmethod
     def __init__(
         self,
         title: str,
