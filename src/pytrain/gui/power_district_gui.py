@@ -1,6 +1,5 @@
 import atexit
 from abc import abstractmethod, ABCMeta, ABC
-from queue import Queue
 from threading import Condition, RLock, Thread
 from typing import Callable, TypeVar, cast, Generic
 
@@ -64,7 +63,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._first_button_col = 0
         self.sort_func = None
         self._app_active = False
-        self._dead_buttons = Queue()
+        # self._dead_buttons = Queue()
 
         # States
         self._states = dict[int, S]()
@@ -85,11 +84,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
         atexit.register(self.close)
 
     def close(self) -> None:
-        with self._cv:
-            if not self._is_closed:
-                self._is_closed = True
-                self.app.destroy()
-                self.join()
+        if not self._is_closed:
+            self._is_closed = True
+            self.app.destroy()
+            self.join()
 
     def reset(self) -> None:
         self.close()
@@ -204,10 +202,12 @@ class StateBasedGui(Thread, Generic[S], ABC):
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
         for pdb in self._state_buttons.values():
+            text = pdb.text
             pdb.hide()
             pdb.destroy()
+            print(f"Deleted {text} button")
             # self._dead_buttons.put(pdb)
-            print(f"Queued {pdb.text} for deletion ({self._dead_buttons.qsize()})")
+            # print(f"Queued {pdb.text} for deletion ({self._dead_buttons.qsize()})")
         self._state_buttons.clear()
 
     # noinspection PyTypeChecker
