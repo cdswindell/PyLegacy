@@ -1,7 +1,7 @@
 import atexit
 import threading
 from abc import abstractmethod, ABCMeta, ABC
-from threading import Condition, RLock, Thread
+from threading import Condition, Event, RLock, Thread
 from typing import Callable, TypeVar, cast, Generic
 
 from guizero import App, Box, PushButton, Text
@@ -37,6 +37,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
+        self._close_event = Event()
         if width is None or height is None:
             app = App(title="Screen Size Detector")
             # Access the underlying tkinter root window
@@ -88,13 +89,17 @@ class StateBasedGui(Thread, Generic[S], ABC):
         if not self._is_closed:
             print(f"Closing GUI ({threading.get_native_id()})...")
             self._is_closed = True
-            self.app.destroy()
+            self._close_event.set()
             print("joining gui thread")
             self.join()
             print("GUI closed.")
 
     def reset(self) -> None:
         self.close()
+
+    def _check_close_event(self) -> None:
+        if self._close_event.is_set():
+            self.app.destroy()
 
     # noinspection PyTypeChecker
     def on_sync(self) -> None:
@@ -131,11 +136,11 @@ class StateBasedGui(Thread, Generic[S], ABC):
         return upd
 
     def run(self) -> None:
-        print(f"Run Thread: {threading.get_native_id()}")
         GpioHandler.cache_handler(self)
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
+        app.repeat(1000, self._check_close_event)
 
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
@@ -210,15 +215,11 @@ class StateBasedGui(Thread, Generic[S], ABC):
             text = pdb.text
             pdb.hide()
             pdb.destroy()
-            print(f"Deleted {text} button ({threading.get_native_id()})")
-            # self._dead_buttons.put(pdb)
-            # print(f"Queued {pdb.text} for deletion ({self._dead_buttons.qsize()})")
         self._state_buttons.clear()
 
     # noinspection PyTypeChecker
     def _make_state_buttons(self, states: list[S] = None) -> None:
         with self._cv:
-            print(f"Cycle start {threading.get_native_id()}...")
             if self._app_active:
                 self._reset_state_buttons()
             active_cols = {self._first_button_col, self._first_button_col + 1}
@@ -227,9 +228,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
             btn_h = self.pd_button_height
             btn_y = 0
-            print("Disable left scroll...")
             self.right_scroll_btn.disable()
-            print("Disable right scroll...")
             self.left_scroll_btn.disable()
 
             self.btn_box.visible = False
@@ -241,7 +240,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     row = 4
                     col += 1
                 if col in active_cols:
-                    print(f"Creating button {pd.tmcc_id}...")
                     self._state_buttons[pd.tmcc_id] = PushButton(
                         self.btn_box,
                         text=f"#{pd.tmcc_id} {pd.road_name}",
@@ -251,17 +249,13 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         args=[pd],
                         padx=0,
                     )
-                    print("Setting text size...")
                     self._state_buttons[pd.tmcc_id].text_size = 15
-                    print("Setting background...")
                     self._state_buttons[pd.tmcc_id].bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
-                    print("Setting foreground...")
                     self._state_buttons[pd.tmcc_id].text_color = (
                         self._enabled_text if self.is_active(pd) else self._disabled_text
                     )
 
                     # recalculate height
-                    print("Recalculating height...")
                     self.app.update()
                     if self.pd_button_height is None:
                         btn_h = self.pd_button_height = self._state_buttons[pd.tmcc_id].tk.winfo_height()
@@ -270,13 +264,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     btn_y += btn_h
                 row += 1
             if max(active_cols) < col:
-                print("Enable Right Scroll...")
                 self.right_scroll_btn.enable()
             if max(active_cols) > 1:
-                print("Enable Left Scroll...")
                 self.left_scroll_btn.enable()
             self.btn_box.visible = True
-            print("Cycle complete...")
 
     def sort_by_number(self) -> None:
         self.by_number.text_bold = True
