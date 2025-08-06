@@ -284,9 +284,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
-        for pdb in self._state_buttons.values():
-            self.app.after(1, pdb.destroy)
+        buttons = list(self._state_buttons.values())
         self._state_buttons.clear()
+        for pdb in buttons:
+            self.app.after(1, pdb.destroy)
         # self.app.after(5, gc.collect)
 
     @abstractmethod
