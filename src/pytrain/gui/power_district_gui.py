@@ -75,7 +75,7 @@ class StateBasedGui(ABC):
 
 
 class PowerDistrictGui(Thread, StateBasedGui):
-    def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
+    def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
         self._districts = dict[int, AccessoryState]()
         self._power_district_buttons = dict[int, PushButton]()
 
