@@ -1,4 +1,5 @@
 import atexit
+import threading
 from abc import abstractmethod, ABCMeta, ABC
 from threading import Condition, RLock, Thread
 from typing import Callable, TypeVar, cast, Generic
@@ -85,9 +86,12 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     def close(self) -> None:
         if not self._is_closed:
+            print(f"Closing GUI ({threading.get_native_id()})...")
             self._is_closed = True
             self.app.destroy()
+            print("joining gui thread")
             self.join()
+            print("GUI closed.")
 
     def reset(self) -> None:
         self.close()
@@ -127,6 +131,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         return upd
 
     def run(self) -> None:
+        print(f"Run Thread: {threading.get_native_id()}")
         GpioHandler.cache_handler(self)
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
@@ -205,7 +210,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             text = pdb.text
             pdb.hide()
             pdb.destroy()
-            print(f"Deleted {text} button")
+            print(f"Deleted {text} button ({threading.get_native_id()})")
             # self._dead_buttons.put(pdb)
             # print(f"Queued {pdb.text} for deletion ({self._dead_buttons.qsize()})")
         self._state_buttons.clear()
@@ -213,7 +218,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     # noinspection PyTypeChecker
     def _make_state_buttons(self, states: list[S] = None) -> None:
         with self._cv:
-            print("Cycle start...")
+            print(f"Cycle start {threading.get_native_id()}...")
             if self._app_active:
                 self._reset_state_buttons()
             active_cols = {self._first_button_col, self._first_button_col + 1}
