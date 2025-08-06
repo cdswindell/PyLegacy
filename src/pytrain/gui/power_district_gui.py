@@ -309,7 +309,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def switch_state(self, state: S) -> bool: ...
 
 
-class PowerDistrictGui(StateBasedGui):
+class PowerDistrictsGui(StateBasedGui):
     def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
         StateBasedGui.__init__(self, "Power Districts", label, width, height)
 
@@ -333,7 +333,7 @@ class PowerDistrictGui(StateBasedGui):
                 CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
 
 
-class SwitchGui(StateBasedGui):
+class SwitchsGui(StateBasedGui):
     def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
         StateBasedGui.__init__(self, "Switches", label, width, height, disabled_bg="red")
 
@@ -357,7 +357,7 @@ class SwitchGui(StateBasedGui):
                 CommandReq(TMCC1SwitchCommandEnum.THRU, pd.tmcc_id).send()
 
 
-class RoutesGui(StateBasedGui):
+class RoutessGui(StateBasedGui):
     def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
         StateBasedGui.__init__(self, "Routes", label, width, height, disabled_bg="red")
 
