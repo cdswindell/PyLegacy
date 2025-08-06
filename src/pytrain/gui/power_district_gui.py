@@ -1,5 +1,5 @@
 import atexit
-import threading
+import gc
 from abc import abstractmethod, ABCMeta, ABC
 from threading import Condition, Event, RLock, Thread
 from typing import Callable, TypeVar, cast, Generic
@@ -87,12 +87,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     def close(self) -> None:
         if not self._is_closed:
-            print(f"Closing GUI ({threading.get_native_id()})...")
             self._is_closed = True
             self._close_event.set()
-            print("joining gui thread")
             self.join()
-            print("GUI closed.")
 
     def reset(self) -> None:
         self.close()
@@ -208,6 +205,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
         # Display GUI and start event loop; call blocks
         self._app_active = True
         self.app.display()
+        self.app = None
+        gc.collect()
 
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
