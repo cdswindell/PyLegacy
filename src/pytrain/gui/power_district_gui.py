@@ -25,15 +25,15 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     @abstractmethod
     def __init__(
-            self,
-            title: str,
-            label: str = None,
-            width: int = None,
-            height: int = None,
-            enabled_bg: str = "green",
-            disabled_bg: str = "black",
-            enabled_text: str = "black",
-            disabled_text: str = "lightgrey",
+        self,
+        title: str,
+        label: str = None,
+        width: int = None,
+        height: int = None,
+        enabled_bg: str = "green",
+        disabled_bg: str = "black",
+        enabled_text: str = "black",
+        disabled_text: str = "lightgrey",
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
@@ -212,6 +212,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     # noinspection PyTypeChecker
     def _make_state_buttons(self, states: list[S] = None) -> None:
         with self._cv:
+            print("Cycle start...")
             if self._app_active:
                 self._reset_state_buttons()
             active_cols = {self._first_button_col, self._first_button_col + 1}
@@ -244,8 +245,11 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         args=[pd],
                         padx=0,
                     )
+                    print("Setting text size...")
                     self._state_buttons[pd.tmcc_id].text_size = 15
+                    print("Setting background...")
                     self._state_buttons[pd.tmcc_id].bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
+                    print("Setting foreground...")
                     self._state_buttons[pd.tmcc_id].text_color = (
                         self._enabled_text if self.is_active(pd) else self._disabled_text
                     )
@@ -297,16 +301,13 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._make_state_buttons(states)
 
     @abstractmethod
-    def get_target_states(self) -> list[S]:
-        ...
+    def get_target_states(self) -> list[S]: ...
 
     @abstractmethod
-    def is_active(self, state: S) -> bool:
-        ...
+    def is_active(self, state: S) -> bool: ...
 
     @abstractmethod
-    def switch_state(self, state: S) -> bool:
-        ...
+    def switch_state(self, state: S) -> bool: ...
 
 
 class PowerDistrictGui(StateBasedGui):
