@@ -94,12 +94,10 @@ class StateBasedGui(Generic[S], ABC):
                 self.start()
 
     @abstractmethod
-    def get_target_states(self) -> list[S]:
-        ...
+    def get_target_states(self) -> list[S]: ...
 
     @abstractmethod
-    def on_state_change_action(self, state: S) -> Callable:
-        ...
+    def on_state_change_action(self, state: S) -> Callable: ...
 
 
 class PowerDistrictGui(Thread, StateBasedGui):
