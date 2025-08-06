@@ -1,6 +1,7 @@
 import atexit
 import gc
 import logging
+import tkinter as tk
 from abc import abstractmethod, ABCMeta, ABC
 from threading import Condition, Event, RLock, Thread
 from typing import Callable, TypeVar, cast, Generic
@@ -42,16 +43,12 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._close_event = Event()
         if width is None or height is None:
             try:
-                app = App(title="Screen Size Detector")
-                # Access the underlying tkinter root window
-                tkinter_root = app.tk
-                # Get the screen width and height
-                self.width = tkinter_root.winfo_screenwidth()
-                self.height = tkinter_root.winfo_screenheight()
-                app.destroy()
+                root = tk.Tk()
+                self.width = root.winfo_screenwidth()
+                self.height = root.winfo_screenheight()
+                root.destroy()
             except Exception as e:
                 log.exception("Error determining window size", exc_info=e)
-            gc.collect()
         else:
             self.width = width
             self.height = height
