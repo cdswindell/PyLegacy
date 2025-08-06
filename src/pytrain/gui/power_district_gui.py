@@ -86,8 +86,12 @@ class StateBasedGui(Thread, Generic[S], ABC):
         with self._cv:
             if not self._is_closed:
                 self._is_closed = True
-                self.app.after(10, self.app.destroy)
-                self.join()
+                self.app.after(10, self._close)
+
+    def _close(self) -> None:
+        self.app.destroy()
+        self.app = None
+        self.join()
 
     def reset(self) -> None:
         self.close()
@@ -286,10 +290,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
         self._ev.clear()
-        buttons = list(self._state_buttons.values())
-        self._state_buttons.clear()
-        for pdb in buttons:
+        for pdb in self._state_buttons.values():
             pdb.destroy()
+        self._state_buttons.clear()
         self._ev.set()
         # self.app.after(5, gc.collect)
 
