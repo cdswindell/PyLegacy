@@ -1,5 +1,4 @@
 import atexit
-import gc
 from abc import abstractmethod, ABCMeta, ABC
 from threading import Condition, RLock, Thread
 from time import sleep
@@ -288,7 +287,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         for pdb in self._state_buttons.values():
             self.app.after(1, pdb.destroy)
         self._state_buttons.clear()
-        self.app.after(5, gc.collect)
+        # self.app.after(5, gc.collect)
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...
