@@ -87,7 +87,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         with self._cv:
             if not self._is_closed:
                 self._is_closed = True
-                self.app.after(10, self._close)
+                self.app.after(10, self._close, args=[self])
 
     def _close(self) -> None:
         self.app.destroy()
@@ -221,7 +221,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             if self._app_active:
                 self._ev.clear()
                 print("Calling _reset_state_buttons...")
-                self.app.after(10, self._reset_state_buttons)
+                self.app.after(10, self._reset_state_buttons, args=[self])
                 self._ev.wait()
                 print("...done")
             active_cols = {self._first_button_col, self._first_button_col + 1}
