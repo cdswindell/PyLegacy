@@ -7,13 +7,13 @@ from guizero import App, Box, PushButton, Text
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
-from ..db.component_state import ComponentState
+from ..db.component_state import ComponentState, SwitchState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1SwitchCommandEnum
 from ..utils.path_utils import find_file
 
 S = TypeVar("S", bound=ComponentState)
@@ -317,3 +317,27 @@ class PowerDistrictGui(StateBasedGui):
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
             else:
                 CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
+
+
+class SwitchGui(StateBasedGui):
+    def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
+        StateBasedGui.__init__(self, "Switches", label, width, height, disabled_bg="red")
+
+    def get_target_states(self) -> list[SwitchState]:
+        pds: list[SwitchState] = []
+        accs = self._state_store.get_all(CommandScope.SWITCH)
+        for acc in accs:
+            acc = cast(SwitchState, acc)
+            if acc.road_name and acc.road_name.lower() != "unused":
+                pds.append(acc)
+        return pds
+
+    def is_active(self, state: SwitchState) -> bool:
+        return state.is_thru
+
+    def switch_state(self, pd: SwitchState) -> None:
+        with self._cv:
+            if pd.is_thru:
+                CommandReq(TMCC1SwitchCommandEnum.OUT, pd.tmcc_id).send()
+            else:
+                CommandReq(TMCC1SwitchCommandEnum.THRU, pd.tmcc_id).send()
