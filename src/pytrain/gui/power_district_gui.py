@@ -41,6 +41,9 @@ class StateBasedGui(ABC):
         self.right_arrow = find_file("right_arrow.jpg")
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
         self.pd_button_height = self.left_scroll_btn = self.right_scroll_btn = None
+        self._max_name_len = 0
+        self._max_button_rows = self._max_button_cols = None
+        self._first_button_col = 0
         self.sort_func = None
 
         # listen for state changes
@@ -73,11 +76,11 @@ class StateBasedGui(ABC):
 
 class PowerDistrictGui(Thread, StateBasedGui):
     def __init__(self, label: str = None, width: int = 800, height: int = 480) -> None:
-        self._max_name_len = 0
-        self._max_button_rows = self._max_button_cols = None
-        self._first_button_col = 0
         self._districts = dict[int, AccessoryState]()
         self._power_district_buttons = dict[int, PushButton]()
+
+        # customize label
+        label = f"{label} Power Districts" if label else "Power Districts"
 
         Thread.__init__(self, daemon=True, name="Power District GUI")
         StateBasedGui.__init__(self, label, width, height)
@@ -111,10 +114,9 @@ class PowerDistrictGui(Thread, StateBasedGui):
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
 
-        label = f"{self.label} " if self.label else ""
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
         _ = Text(box, text="    ", grid=[1, 1], size=24)
-        _ = Text(box, text=f"{label}Power Districts", grid=[2, 1, 2, 1], size=24, bold=True)
+        _ = Text(box, text=self.label, grid=[2, 1, 2, 1], size=24, bold=True)
         _ = Text(box, text="    ", grid=[4, 1], size=24)
         self.by_number = PushButton(
             box,
@@ -199,7 +201,7 @@ class PowerDistrictGui(Thread, StateBasedGui):
             pdb.destroy()
         self._power_district_buttons.clear()
 
-    def _make_power_district_buttons(self, power_districts: list[AccessoryState] = None) -> None:
+    def _make_state_buttons(self, power_districts: list[AccessoryState] = None) -> None:
         with self._cv:
             self._reset_power_district_buttons()
             active_cols = {self._first_button_col, self._first_button_col + 1}
@@ -263,7 +265,7 @@ class PowerDistrictGui(Thread, StateBasedGui):
         self.sort_func = lambda x: x.tmcc_id
         states = sorted(self._districts.values(), key=self.sort_func)
         self._first_button_col = 0
-        self._make_power_district_buttons(states)
+        self._make_state_buttons(states)
 
     def sort_by_name(self) -> None:
         self.by_name.text_bold = True
@@ -273,16 +275,16 @@ class PowerDistrictGui(Thread, StateBasedGui):
         self.sort_func = lambda x: x.road_name.lower()
         states = sorted(self._districts.values(), key=self.sort_func)
         self._first_button_col = 0
-        self._make_power_district_buttons(states)
+        self._make_state_buttons(states)
 
     def scroll_left(self) -> None:
         self._first_button_col -= 1
 
         states = sorted(self._districts.values(), key=self.sort_func)
-        self._make_power_district_buttons(states)
+        self._make_state_buttons(states)
 
     def scroll_right(self) -> None:
         self._first_button_col += 1
 
         states = sorted(self._districts.values(), key=self.sort_func)
-        self._make_power_district_buttons(states)
+        self._make_state_buttons(states)
