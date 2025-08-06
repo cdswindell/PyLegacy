@@ -287,7 +287,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         buttons = list(self._state_buttons.values())
         self._state_buttons.clear()
         for pdb in buttons:
-            self.app.after(1, pdb.destroy)
+            pdb.destroy()
         # self.app.after(5, gc.collect)
 
     @abstractmethod
