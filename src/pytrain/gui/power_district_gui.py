@@ -220,8 +220,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
         with self._cv:
             if self._app_active:
                 self._ev.clear()
+                print("Calling _reset_state_buttons...")
                 self.app.after(10, self._reset_state_buttons)
                 self._ev.wait()
+                print("...done")
             active_cols = {self._first_button_col, self._first_button_col + 1}
             row = 4
             col = 0
