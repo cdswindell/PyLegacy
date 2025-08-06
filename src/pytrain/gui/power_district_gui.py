@@ -1,12 +1,13 @@
 import atexit
 from abc import abstractmethod, ABCMeta, ABC
 from threading import Condition, RLock, Thread
-from typing import Callable
+from typing import Callable, TypeVar, cast
 
 from guizero import App, Box, PushButton, Text
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
+from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
@@ -15,8 +16,10 @@ from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
 
+S = TypeVar("S", bound=ComponentState)
 
-class StateBasedGui(ABC):
+
+class StateBasedGui[S](ABC):
     __metaclass__ = ABCMeta
 
     def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
@@ -72,9 +75,28 @@ class StateBasedGui(ABC):
     def reset(self) -> None:
         self.close()
 
-    @abstractmethod
     def on_sync(self) -> None:
-        ...
+        if self._sync_state.is_synchronized:
+            if self._sync_watcher:
+                self._sync_watcher.shutdown()
+                self._sync_watcher = None
+            self._synchronized = True
+
+            # get all target states; watch for state changes
+            accs = self.get_target_states()
+            for acc in accs:
+                nl = len(acc.road_name)
+                self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
+                StateWatcher(acc, self.on_state_change_action(acc))
+            # start GUI
+            if isinstance(self, Thread):
+                self.start()
+
+    @abstractmethod
+    def get_target_states(self) -> list[S]: ...
+
+    @abstractmethod
+    def on_state_change_action(self, state: S) -> Callable: ...
 
 
 class PowerDistrictGui(Thread, StateBasedGui):
@@ -88,24 +110,15 @@ class PowerDistrictGui(Thread, StateBasedGui):
         Thread.__init__(self, daemon=True, name="Power District GUI")
         StateBasedGui.__init__(self, label, width, height)
 
-    # noinspection PyTypeChecker,PyUnresolvedReferences
-    def on_sync(self) -> None:
-        if self._sync_state.is_synchronized:
-            if self._sync_watcher:
-                self._sync_watcher.shutdown()
-                self._sync_watcher = None
-            self._synchronized = True
-
-            # get all accessories; watch for state changes on power districts
-            accs = self._state_store.get_all(CommandScope.ACC)
-            for acc in accs:
-                if acc.is_power_district is True and acc.road_name and acc.road_name.lower() != "unused":
-                    self._districts[acc.tmcc_id] = acc
-                    nl = len(acc.road_name)
-                    self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
-                    StateWatcher(acc, self._power_district_action(acc))
-            # start GUI
-            self.start()
+    def get_target_states(self) -> list[AccessoryState]:
+        pds: list[AccessoryState] = []
+        accs = self._state_store.get_all(CommandScope.ACC)
+        for acc in accs:
+            acc = cast(AccessoryState, acc)
+            if acc.is_power_district is True and acc.road_name and acc.road_name.lower() != "unused":
+                pds.append(acc)
+                self._districts[acc.tmcc_id] = acc
+        return pds
 
     # noinspection PyTypeChecker
     def run(self) -> None:
@@ -186,7 +199,7 @@ class PowerDistrictGui(Thread, StateBasedGui):
                 self._power_district_buttons[pd.tmcc_id].bg = self._disabled_bg
                 self._power_district_buttons[pd.tmcc_id].text_color = self._disabled_text
 
-    def _power_district_action(self, pd: AccessoryState) -> Callable:
+    def on_state_change_action(self, pd: AccessoryState) -> Callable:
         def upd():
             self.update_power_district(pd)
 
