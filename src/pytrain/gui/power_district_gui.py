@@ -1,5 +1,6 @@
 import atexit
 from abc import abstractmethod, ABCMeta, ABC
+from queue import Queue
 from threading import Condition, RLock, Thread
 from typing import Callable, TypeVar, cast, Generic
 
@@ -63,6 +64,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._first_button_col = 0
         self.sort_func = None
         self._app_active = False
+        self._dead_buttons = Queue()
 
         # States
         self._states = dict[int, S]()
@@ -203,6 +205,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def _reset_state_buttons(self) -> None:
         for pdb in self._state_buttons.values():
             pdb.hide()
+            self._dead_buttons.put(pdb)
         self._state_buttons.clear()
 
     # noinspection PyTypeChecker
