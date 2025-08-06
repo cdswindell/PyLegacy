@@ -333,7 +333,7 @@ class PowerDistrictsGui(StateBasedGui):
                 CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
 
 
-class SwitchsGui(StateBasedGui):
+class SwitchesGui(StateBasedGui):
     def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
         StateBasedGui.__init__(self, "Switches", label, width, height, disabled_bg="red")
 
@@ -357,7 +357,7 @@ class SwitchsGui(StateBasedGui):
                 CommandReq(TMCC1SwitchCommandEnum.THRU, pd.tmcc_id).send()
 
 
-class RoutessGui(StateBasedGui):
+class RoutesGui(StateBasedGui):
     def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
         StateBasedGui.__init__(self, "Routes", label, width, height, disabled_bg="red")
 
@@ -373,9 +373,9 @@ class RoutessGui(StateBasedGui):
     def is_active(self, state: RouteState) -> bool:
         return state.is_active
 
-    def switch_state(self, pd: SwitchState) -> None:
+    def switch_state(self, pd: RouteState) -> None:
         with self._cv:
-            if pd.is_thru:
+            if pd.is_active:
                 CommandReq(TMCC1RouteCommandEnum.FIRE, pd.tmcc_id).send()
             else:
                 CommandReq(TMCC1RouteCommandEnum.FIRE, pd.tmcc_id).send()
