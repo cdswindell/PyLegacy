@@ -89,10 +89,12 @@ class StateBasedGui(Thread, Generic[S], ABC):
         atexit.register(self.close)
 
     def close(self) -> None:
-        if not self._is_closed:
-            self._is_closed = True
-            self._close_event.set()
-            self.join()
+        with self._cv:
+            if not self._is_closed:
+                self._is_closed = True
+                self.app.after(10, self.app.destroy)
+                # self._close_event.set()
+                self.join()
 
     def reset(self) -> None:
         self.close()
