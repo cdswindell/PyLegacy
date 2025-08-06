@@ -205,9 +205,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def _reset_state_buttons(self) -> None:
         for pdb in self._state_buttons.values():
             pdb.hide()
-            self._dead_buttons.put(pdb)
+            pdb.destroy()
+            # self._dead_buttons.put(pdb)
             print(f"Queued {pdb.text} for deletion ({self._dead_buttons.qsize()})")
-        # self._state_buttons.clear()
+        self._state_buttons.clear()
 
     # noinspection PyTypeChecker
     def _make_state_buttons(self, states: list[S] = None) -> None:
