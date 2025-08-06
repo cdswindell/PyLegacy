@@ -1,4 +1,5 @@
 import atexit
+import gc
 from abc import abstractmethod, ABCMeta, ABC
 from threading import Condition, RLock, Thread
 from typing import Callable, TypeVar, cast, Generic
@@ -280,11 +281,15 @@ class StateBasedGui(Thread, Generic[S], ABC):
         states = sorted(self._states.values(), key=self.sort_func)
         self._make_state_buttons(states)
 
+    # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
         buttons = list(self._state_buttons.values())
         self._state_buttons.clear()
         for pdb in buttons:
             self.app.after(1, pdb.destroy)
+            pdb = None
+        buttons = None
+        self.app.after(5, gc.collect)
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...
