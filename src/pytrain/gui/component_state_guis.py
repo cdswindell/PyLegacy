@@ -1,23 +1,21 @@
 import atexit
 import gc
 import logging
-import tkinter as tk
-from abc import abstractmethod, ABCMeta, ABC
+from abc import ABC, ABCMeta, abstractmethod
 from threading import Condition, RLock, Thread
-from typing import Callable, TypeVar, cast, Generic
+from typing import Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, PushButton, Text
 
-from .. import TMCC1RouteCommandEnum
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
-from ..db.component_state import ComponentState, SwitchState, RouteState
+from ..db.component_state import ComponentState, RouteState, SwitchState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1SwitchCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1RouteCommandEnum, TMCC1SwitchCommandEnum
 from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
@@ -43,7 +41,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._cv = Condition(RLock())
         if width is None or height is None:
             try:
-                root = tk.Tk()
+                from tkinter import Tk
+
+                root = Tk()
                 self.width = root.winfo_screenwidth()
                 self.height = root.winfo_screenheight()
                 root.destroy()
