@@ -8,9 +8,10 @@ from typing import Callable, TypeVar, cast, Generic
 
 from guizero import App, Box, PushButton, Text
 
+from .. import TMCC1RouteCommandEnum
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
-from ..db.component_state import ComponentState, SwitchState
+from ..db.component_state import ComponentState, SwitchState, RouteState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
@@ -354,3 +355,27 @@ class SwitchGui(StateBasedGui):
                 CommandReq(TMCC1SwitchCommandEnum.OUT, pd.tmcc_id).send()
             else:
                 CommandReq(TMCC1SwitchCommandEnum.THRU, pd.tmcc_id).send()
+
+
+class RoutesGui(StateBasedGui):
+    def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
+        StateBasedGui.__init__(self, "Routes", label, width, height, disabled_bg="red")
+
+    def get_target_states(self) -> list[RouteState]:
+        pds: list[RouteState] = []
+        accs = self._state_store.get_all(CommandScope.ROUTE)
+        for acc in accs:
+            acc = cast(RouteState, acc)
+            if acc.road_name and acc.road_name.lower() != "unused":
+                pds.append(acc)
+        return pds
+
+    def is_active(self, state: RouteState) -> bool:
+        return state.is_active
+
+    def switch_state(self, pd: SwitchState) -> None:
+        with self._cv:
+            if pd.is_thru:
+                CommandReq(TMCC1RouteCommandEnum.FIRE, pd.tmcc_id).send()
+            else:
+                CommandReq(TMCC1RouteCommandEnum.FIRE, pd.tmcc_id).send()
