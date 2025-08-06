@@ -229,9 +229,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         padx=0,
                     )
                     self._state_buttons[pd.tmcc_id].text_size = 15
-                    self._state_buttons[pd.tmcc_id].bg = self._enabled_bg if pd.is_aux_on else self._disabled_bg
+                    self._state_buttons[pd.tmcc_id].bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
                     self._state_buttons[pd.tmcc_id].text_color = (
-                        self._enabled_text if pd.is_aux_on else self._disabled_text
+                        self._enabled_text if self.is_active(pd) else self._disabled_text
                     )
                     # recalculate height
                     self.app.update()
