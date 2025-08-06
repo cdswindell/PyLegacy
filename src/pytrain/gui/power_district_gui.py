@@ -29,15 +29,15 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     @abstractmethod
     def __init__(
-            self,
-            title: str,
-            label: str = None,
-            width: int = None,
-            height: int = None,
-            enabled_bg: str = "green",
-            disabled_bg: str = "black",
-            enabled_text: str = "black",
-            disabled_text: str = "lightgrey",
+        self,
+        title: str,
+        label: str = None,
+        width: int = None,
+        height: int = None,
+        enabled_bg: str = "green",
+        disabled_bg: str = "black",
+        enabled_text: str = "black",
+        disabled_text: str = "lightgrey",
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
@@ -240,7 +240,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         self.btn_box,
                         text=f"#{pd.tmcc_id} {pd.road_name}",
                         grid=[col, row],
-                        width="fill",
+                        width=self.width * 0.98 / 2,
                         command=self.switch_state,
                         args=[pd],
                         padx=0,
@@ -302,16 +302,13 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._make_state_buttons(states)
 
     @abstractmethod
-    def get_target_states(self) -> list[S]:
-        ...
+    def get_target_states(self) -> list[S]: ...
 
     @abstractmethod
-    def is_active(self, state: S) -> bool:
-        ...
+    def is_active(self, state: S) -> bool: ...
 
     @abstractmethod
-    def switch_state(self, state: S) -> bool:
-        ...
+    def switch_state(self, state: S) -> bool: ...
 
 
 class PowerDistrictsGui(StateBasedGui):
