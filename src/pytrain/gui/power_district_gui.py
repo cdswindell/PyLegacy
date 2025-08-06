@@ -206,6 +206,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         for pdb in self._state_buttons.values():
             pdb.hide()
             self._dead_buttons.put(pdb)
+            print(f"Queued {pdb.text} for deletion ({self._dead_buttons.qsize()}")
         self._state_buttons.clear()
 
     # noinspection PyTypeChecker
@@ -219,7 +220,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
             btn_h = self.pd_button_height
             btn_y = 0
+            print("Disable left scroll...")
             self.right_scroll_btn.disable()
+            print("Disable right scroll...")
             self.left_scroll_btn.disable()
 
             self.btn_box.visible = False
@@ -231,6 +234,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     row = 4
                     col += 1
                 if col in active_cols:
+                    print(f"Creating button {pd.tmcc_id}...")
                     self._state_buttons[pd.tmcc_id] = PushButton(
                         self.btn_box,
                         text=f"#{pd.tmcc_id} {pd.road_name}",
@@ -245,7 +249,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     self._state_buttons[pd.tmcc_id].text_color = (
                         self._enabled_text if self.is_active(pd) else self._disabled_text
                     )
+
                     # recalculate height
+                    print("Recalculating height...")
                     self.app.update()
                     if self.pd_button_height is None:
                         btn_h = self.pd_button_height = self._state_buttons[pd.tmcc_id].tk.winfo_height()
@@ -254,15 +260,13 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     btn_y += btn_h
                 row += 1
             if max(active_cols) < col:
+                print("Enable Right Scroll...")
                 self.right_scroll_btn.enable()
-            else:
-                self.right_scroll_btn.disable()
             if max(active_cols) > 1:
+                print("Enable Left Scroll...")
                 self.left_scroll_btn.enable()
-            else:
-                self.left_scroll_btn.disable()
-
             self.btn_box.visible = True
+            print("Cycle complete...")
 
     def sort_by_number(self) -> None:
         self.by_number.text_bold = True
