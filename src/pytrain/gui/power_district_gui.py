@@ -221,7 +221,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 if col in active_cols:
                     self._state_buttons[pd.tmcc_id] = PushButton(
                         self.btn_box,
-                        text=f"#{pd.tmcc_id:0>2} {pd.road_name}",
+                        text=f"#{pd.tmcc_id} {pd.road_name}",
                         grid=[col, row],
                         width=self._max_name_len - 1,
                         command=self.switch_state,
@@ -282,7 +282,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     def _reset_state_buttons(self) -> None:
         for pdb in self._state_buttons.values():
-            pdb.destroy()
+            self.app.after(5, pdb.destroy)
         self._state_buttons.clear()
 
     @abstractmethod
