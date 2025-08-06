@@ -240,7 +240,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         self.btn_box,
                         text=f"#{pd.tmcc_id} {pd.road_name}",
                         grid=[col, row],
-                        width=300,
+                        width=25,
                         command=self.switch_state,
                         args=[pd],
                         padx=0,
@@ -255,7 +255,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     self.app.update()
                     if self.pd_button_width is None:
                         btn_w = self.pd_button_width = self._state_buttons[pd.tmcc_id].tk.winfo_width()
-                        print(btn_w, self.width / 2)
+                        print(btn_w, self.width / 2, self._max_name_len, self._max_name_len * 15)
                     if self.pd_button_height is None:
                         btn_h = self.pd_button_height = self._state_buttons[pd.tmcc_id].tk.winfo_height()
                     btn_y = self._state_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
