@@ -63,6 +63,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._max_button_rows = self._max_button_cols = None
         self._first_button_col = 0
         self.sort_func = None
+        self._app_active = False
 
         # States
         self._states = dict[int, S]()
@@ -200,14 +201,27 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.sort_by_number()
 
         # Display GUI and start event loop; call blocks
+        self._app_active = True
         self.app.display()
+
+    # noinspection PyUnusedLocal
+    def _reset_state_buttons(self) -> None:
+        print("Entering _reset_state_buttons")
+        self._ev.clear()
+        for pdb in self._state_buttons.values():
+            pdb.destroy()
+        self._state_buttons.clear()
+        self._ev.set()
+        print("Exiting _reset_state_buttons")
+        # self.app.after(5, gc.collect)
 
     # noinspection PyTypeChecker
     def _make_state_buttons(self, states: list[S] = None) -> None:
         with self._cv:
-            self._ev.clear()
-            self.app.after(1, self._reset_state_buttons)
-            self._ev.wait()
+            if self._app_active:
+                self._ev.clear()
+                self.app.after(10, self._reset_state_buttons)
+                self._ev.wait()
             active_cols = {self._first_button_col, self._first_button_col + 1}
             row = 4
             col = 0
@@ -286,15 +300,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._first_button_col += 1
         states = sorted(self._states.values(), key=self.sort_func)
         self._make_state_buttons(states)
-
-    # noinspection PyUnusedLocal
-    def _reset_state_buttons(self) -> None:
-        self._ev.clear()
-        for pdb in self._state_buttons.values():
-            pdb.destroy()
-        self._state_buttons.clear()
-        self._ev.set()
-        # self.app.after(5, gc.collect)
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...
