@@ -65,14 +65,15 @@ class StateBasedGui(ABC):
         with self._cv:
             if not self._is_closed:
                 self._is_closed = True
-                self.app.after(10, self.app.destroy)
+                self.app.after(50, self.app.destroy)
                 # self.join()
 
     def reset(self) -> None:
         self.close()
 
     @abstractmethod
-    def on_sync(self) -> None: ...
+    def on_sync(self) -> None:
+        ...
 
 
 class PowerDistrictGui(Thread, StateBasedGui):
