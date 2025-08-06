@@ -72,8 +72,7 @@ class StateBasedGui(ABC):
         self.close()
 
     @abstractmethod
-    def on_sync(self) -> None:
-        ...
+    def on_sync(self) -> None: ...
 
 
 class PowerDistrictGui(Thread, StateBasedGui):
