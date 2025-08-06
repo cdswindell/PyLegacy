@@ -1,7 +1,7 @@
 import atexit
 from abc import abstractmethod, ABCMeta, ABC
 from threading import Condition, RLock, Thread
-from typing import Callable, TypeVar, cast
+from typing import Callable, TypeVar, cast, Generic
 
 from guizero import App, Box, PushButton, Text
 
@@ -19,7 +19,7 @@ from ..utils.path_utils import find_file
 S = TypeVar("S", bound=ComponentState)
 
 
-class StateBasedGui[S](ABC):
+class StateBasedGui(Generic[S], ABC):
     __metaclass__ = ABCMeta
 
     def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
@@ -85,6 +85,7 @@ class StateBasedGui[S](ABC):
             # get all target states; watch for state changes
             accs = self.get_target_states()
             for acc in accs:
+                # noinspection PyTypeChecker
                 nl = len(acc.road_name)
                 self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
                 StateWatcher(acc, self.on_state_change_action(acc))
@@ -93,10 +94,12 @@ class StateBasedGui[S](ABC):
                 self.start()
 
     @abstractmethod
-    def get_target_states(self) -> list[S]: ...
+    def get_target_states(self) -> list[S]:
+        ...
 
     @abstractmethod
-    def on_state_change_action(self, state: S) -> Callable: ...
+    def on_state_change_action(self, state: S) -> Callable:
+        ...
 
 
 class PowerDistrictGui(Thread, StateBasedGui):
