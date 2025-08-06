@@ -1,7 +1,6 @@
 import atexit
 from abc import abstractmethod, ABCMeta, ABC
-from threading import Condition, RLock, Thread
-from time import sleep
+from threading import Condition, RLock, Thread, Event
 from typing import Callable, TypeVar, cast, Generic
 
 from guizero import App, Box, PushButton, Text
@@ -37,6 +36,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
+        self._ev = Event()
         if width is None or height is None:
             app = App(title="Screen Size Detector")
             # Access the underlying tkinter root window
@@ -201,8 +201,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
     # noinspection PyTypeChecker
     def _make_state_buttons(self, states: list[S] = None) -> None:
         with self._cv:
+            self._ev.clear()
             self.app.after(1, self._reset_state_buttons)
-            sleep(0.25)
+            self._ev.wait()
             active_cols = {self._first_button_col, self._first_button_col + 1}
             row = 4
             col = 0
@@ -284,10 +285,12 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
+        self._ev.clear()
         buttons = list(self._state_buttons.values())
         self._state_buttons.clear()
         for pdb in buttons:
             pdb.destroy()
+        self._ev.set()
         # self.app.after(5, gc.collect)
 
     @abstractmethod
