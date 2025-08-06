@@ -2,6 +2,7 @@ import atexit
 import gc
 from abc import abstractmethod, ABCMeta, ABC
 from threading import Condition, RLock, Thread
+from time import sleep
 from typing import Callable, TypeVar, cast, Generic
 
 from guizero import App, Box, PushButton, Text
@@ -201,7 +202,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
     # noinspection PyTypeChecker
     def _make_state_buttons(self, states: list[S] = None) -> None:
         with self._cv:
-            self._reset_state_buttons()
+            self.app.after(1, self._reset_state_buttons)
+            sleep(0.25)
             active_cols = {self._first_button_col, self._first_button_col + 1}
             row = 4
             col = 0
@@ -283,12 +285,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
-        buttons = list(self._state_buttons.values())
-        self._state_buttons.clear()
-        for pdb in buttons:
+        for pdb in self._state_buttons.values():
             self.app.after(1, pdb.destroy)
-            pdb = None
-        buttons = None
+        self._state_buttons.clear()
         self.app.after(5, gc.collect)
 
     @abstractmethod
