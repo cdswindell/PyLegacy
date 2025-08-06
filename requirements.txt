@@ -7,7 +7,7 @@ pyserial>=3.5
 range-key-dict>=1.1
 requests>=2.32.3
 setuptools>=80.9.0
-setuptools_scm>=9.0.1
+setuptools_scm>=8.3.1
 smbus2>=0.5.0
 zeroconf>=0.147.0
 lgpio>=0.2.2.0; sys_platform == 'linux'
