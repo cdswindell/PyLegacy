@@ -1,5 +1,4 @@
 import atexit
-import gc
 from abc import abstractmethod, ABCMeta, ABC
 from threading import Condition, RLock, Thread
 from typing import Callable, TypeVar, cast, Generic
@@ -89,11 +88,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 self._is_closed = True
                 self.app.destroy()
                 self.join()
-
-    def _close(self) -> None:
-        self.app.destroy()
-        self.app = None
-        self.join()
 
     def reset(self) -> None:
         self.close()
@@ -208,9 +202,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
         for pdb in self._state_buttons.values():
-            pdb.destroy()
+            pdb.hide()
         self._state_buttons.clear()
-        gc.collect()
 
     # noinspection PyTypeChecker
     def _make_state_buttons(self, states: list[S] = None) -> None:
