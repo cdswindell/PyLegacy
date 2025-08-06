@@ -3,7 +3,7 @@ import gc
 import logging
 import tkinter as tk
 from abc import abstractmethod, ABCMeta, ABC
-from threading import Condition, Event, RLock, Thread
+from threading import Condition, RLock, Thread
 from typing import Callable, TypeVar, cast, Generic
 
 from guizero import App, Box, PushButton, Text
@@ -40,7 +40,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
-        self._close_event = Event()
         if width is None or height is None:
             try:
                 root = tk.Tk()
@@ -93,15 +92,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
             if not self._is_closed:
                 self._is_closed = True
                 self.app.after(10, self.app.destroy)
-                # self._close_event.set()
                 self.join()
 
     def reset(self) -> None:
         self.close()
-
-    def _check_close_event(self) -> None:
-        if self._close_event.is_set():
-            self.app.destroy()
 
     # noinspection PyTypeChecker
     def on_sync(self) -> None:
@@ -142,7 +136,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
-        app.repeat(1000, self._check_close_event)
 
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
@@ -266,10 +259,15 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 else:
                     btn_y += btn_h
                 row += 1
-            if max(active_cols) < col:
-                self.right_scroll_btn.enable()
-            if max(active_cols) > 1:
-                self.left_scroll_btn.enable()
+            # logic to hide/disable/enable scroll buttons
+            if col <= 1:
+                self.right_scroll_btn.hide()
+                self.left_scroll_btn.hide()
+            else:
+                if max(active_cols) < col:
+                    self.right_scroll_btn.enable()
+                if max(active_cols) > 1:
+                    self.left_scroll_btn.enable()
             self.btn_box.visible = True
 
     def sort_by_number(self) -> None:
