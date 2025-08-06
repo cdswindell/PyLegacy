@@ -28,6 +28,7 @@ class StateBasedGui(ABC):
             # Get the screen width and height
             self.width = tkinter_root.winfo_screenwidth()
             self.height = tkinter_root.winfo_screenheight()
+            app.destroy()
         else:
             self.width = width
             self.height = height
@@ -71,7 +72,8 @@ class StateBasedGui(ABC):
         self.close()
 
     @abstractmethod
-    def on_sync(self) -> None: ...
+    def on_sync(self) -> None:
+        ...
 
 
 class PowerDistrictGui(Thread, StateBasedGui):
