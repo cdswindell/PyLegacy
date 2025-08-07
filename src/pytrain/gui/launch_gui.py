@@ -239,7 +239,15 @@ class LaunchGui(Thread):
         )
 
         _ = Text(upper_box, text=" ", grid=[0, 2, 5, 1], size=self.scale(10))
-        self.message = Text(upper_box, text="", grid=[0, 3, 5, 1], size=24, color="red", bold=True, align="top")
+        self.message = Text(
+            upper_box,
+            text="",
+            grid=[0, 3, 5, 1],
+            size=self.scale(24),
+            color="red",
+            bold=True,
+            align="top",
+        )
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
         power_box = Box(lower_box, layout="grid", border=2, align="left")
@@ -367,7 +375,7 @@ class LaunchGui(Thread):
 
     def do_abort(self, detected: bool = False):
         with self._cv:
-            if not detected:
+            if not detected or not self._is_countdown:
                 self.reset_req.send()
             self.message.clear()
             if self._is_countdown:
