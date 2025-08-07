@@ -380,3 +380,29 @@ class RoutesGui(StateBasedGui):
                 CommandReq(TMCC1RouteCommandEnum.FIRE, pd.tmcc_id).send()
             else:
                 CommandReq(TMCC1RouteCommandEnum.FIRE, pd.tmcc_id).send()
+
+
+class AccessoriesGui(StateBasedGui):
+    def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
+        StateBasedGui.__init__(self, "Accessories", label, width, height)
+
+    def get_target_states(self) -> list[AccessoryState]:
+        pds: list[AccessoryState] = []
+        accs = self._state_store.get_all(CommandScope.ACC)
+        for acc in accs:
+            acc = cast(AccessoryState, acc)
+            if acc.is_power_district or acc.is_sensor_track:
+                continue
+            if acc.road_name and acc.road_name.lower() != "unused":
+                pds.append(acc)
+        return pds
+
+    def is_active(self, state: AccessoryState) -> bool:
+        return state.is_aux_on
+
+    def switch_state(self, pd: AccessoryState) -> None:
+        with self._cv:
+            if pd.is_aux_on:
+                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
+            else:
+                CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()

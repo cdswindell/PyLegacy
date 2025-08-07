@@ -48,6 +48,7 @@ from .gpio.smoke_fluid_loader import SmokeFluidLoader  # noqa: F401
 from .gpio.switch import Switch  # noqa: F401
 from .gpio.sys_admin import SystemAdmin  # noqa: F401
 from .gui.component_state_guis import (
+    AccessoriesGui,  # noqa: F401
     PowerDistrictsGui,  # noqa: F401
     RoutesGui,  # noqa: F401
     SwitchesGui,  # noqa: F401
