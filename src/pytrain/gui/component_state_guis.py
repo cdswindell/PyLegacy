@@ -381,6 +381,7 @@ class RoutesGui(StateBasedGui):
             else:
                 CommandReq(TMCC1RouteCommandEnum.FIRE, pd.tmcc_id).send()
 
+
 class AccessoriesGui(StateBasedGui):
     def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
         StateBasedGui.__init__(self, "Accessories", label, width, height)
@@ -404,4 +405,4 @@ class AccessoriesGui(StateBasedGui):
             if pd.is_aux_on:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
             else:
-                CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
+                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
