@@ -220,7 +220,7 @@ class LaunchGui(Thread):
             countdown_box,
             text="T-Minus",
             align="left",
-            size=16,
+            size=self.scale(16),
             height=2,
             bg="black",
             color="white",
@@ -230,7 +230,7 @@ class LaunchGui(Thread):
             countdown_box,
             text="-00:00",
             align="right",
-            size=18,
+            size=self.scale(18),
             height=2,
             font="DigitalDream",
             bg="black",
@@ -238,7 +238,7 @@ class LaunchGui(Thread):
             italic=True,
         )
 
-        _ = Text(upper_box, text=" ", grid=[0, 2, 5, 1], size=10)
+        _ = Text(upper_box, text=" ", grid=[0, 2, 5, 1], size=self.scale(10))
         self.message = Text(upper_box, text="", grid=[0, 3, 5, 1], size=24, color="red", bold=True, align="top")
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
