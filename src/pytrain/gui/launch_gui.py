@@ -1,4 +1,5 @@
 import atexit
+import logging
 from threading import Condition, RLock, Thread
 from time import sleep, time
 
@@ -13,13 +14,28 @@ from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCommandEnum
 from ..utils.path_utils import find_file
 
+log = logging.getLogger(__name__)
+
 
 class LaunchGui(Thread):
-    def __init__(self, tmcc_id: int = 39, track_id: int = None):
+    def __init__(self, tmcc_id: int = 39, track_id: int = None, width: int = None, height: int = None):
         # initialize guizero thread
         super().__init__(daemon=True, name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
         self.track_id = track_id
+        if width is None or height is None:
+            try:
+                from tkinter import Tk
+
+                root = Tk()
+                self.width = root.winfo_screenwidth()
+                self.height = root.winfo_screenheight()
+                root.destroy()
+            except Exception as e:
+                log.exception("Error determining window size", exc_info=e)
+        else:
+            self.width = width
+            self.height = height
         self._cv = Condition(RLock())
 
         self.launch_jpg = find_file("launch.jpg")
@@ -72,6 +88,9 @@ class LaunchGui(Thread):
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
         self._is_closed = False
         atexit.register(self.close)
+
+    def scale(self, value: int) -> int:
+        return int(value * self.width / 480)
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
@@ -165,16 +184,17 @@ class LaunchGui(Thread):
 
     def run(self):
         GpioHandler.cache_handler(self)
-        self.app = app = App(title="Launch Pad", width=480, height=320)
+        self.app = app = App(title="Launch Pad", width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
 
+        s_128 = self.scale(128)
         self.launch = PushButton(
             upper_box,
             image=self.launch_jpg,
-            height=128,
-            width=128,
+            height=s_128,
+            width=s_128,
             grid=[0, 0, 1, 2],
             align="left",
             command=self.do_launch,
@@ -183,17 +203,17 @@ class LaunchGui(Thread):
         self.abort = PushButton(
             upper_box,
             image=self.abort_jpg,
-            height=128,
-            width=128,
+            height=s_128,
+            width=s_128,
             grid=[4, 0, 1, 2],
             align="right",
             command=self.do_abort,
         )
 
         if self.tmcc_id == 39:
-            self.pad = Text(upper_box, text="Pad 39A", grid=[1, 0, 2, 1], size=30, bold=True)
+            self.pad = Text(upper_box, text="Pad 39A", grid=[1, 0, 2, 1], size=self.scale(30), bold=True)
         else:
-            self.pad = Text(upper_box, text=f"Pad {self.tmcc_id}", grid=[1, 0, 2, 1], size=28)
+            self.pad = Text(upper_box, text=f"Pad {self.tmcc_id}", grid=[1, 0, 2, 1], size=self.scale(28))
 
         countdown_box = Box(upper_box, layout="auto", border=True, grid=[1, 1, 2, 1])
         self.label = Text(
