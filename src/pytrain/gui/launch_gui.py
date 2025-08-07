@@ -375,8 +375,11 @@ class LaunchGui(Thread):
 
     def do_abort(self, detected: bool = False):
         with self._cv:
-            if not detected or not self._is_countdown:
+            if not detected:
                 self.reset_req.send()
+            if not self._is_countdown:
+                self.reset_req.send()
+                return
             self.message.clear()
             if self._is_countdown:
                 self.count.cancel(self.update_counter)
