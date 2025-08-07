@@ -221,7 +221,7 @@ class LaunchGui(Thread):
             text="T-Minus",
             align="left",
             size=self.scale(16),
-            height=2,
+            height="fill",
             bg="black",
             color="white",
             italic=True,
