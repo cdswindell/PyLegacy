@@ -166,11 +166,10 @@ class EngineState(ComponentState):
             if self.max_speed is not None:
                 max_speed = self.decode_speed_info(self.max_speed)
                 sp += f"/{max_speed:03}"
-        if self._start_stop is not None:
-            if self._start_stop in STARTUP_SET:
-                ss = " Started up"
-            elif self._start_stop in SHUTDOWN_SET:
-                ss = " Shut down"
+        if self._start_stop in STARTUP_SET:
+            ss = " Started up"
+        elif self._start_stop in SHUTDOWN_SET:
+            ss = " Shut down"
         if self.momentum is not None:
             mom = f" Mom: {self.momentum_label}"
         if self.train_brake is not None:
@@ -189,7 +188,7 @@ class EngineState(ComponentState):
             num = f" Released: {self.year}"
         if self.engine_type is not None:
             lt = f" {LOCO_TYPE.get(self.engine_type, 'NA')}"
-        if self._aux2:
+        if self._aux2 is not None:
             aux = f" Aux2: {self._aux2.name.split('_')[-1]}"
         if self.smoke_level is not None:
             sm = f" Smoke: {self.smoke_level.name.split('_')[-1].lower():<4}"
@@ -403,20 +402,20 @@ class EngineState(ComponentState):
                     startup = self._harvest_effect(cmd_effects & STARTUP_SET)
                     if isinstance(startup, CommandDefEnum):
                         self._start_stop = startup
-                    elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
-                        self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-                    elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
-                        self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-                        self._numeric = command.data
+                    elif isinstance(startup, tuple) and len(startup) == 2:
+                        if startup in TMCC2_COMMAND_TO_ALIAS_MAP:
+                            self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[startup]
+                        elif startup in TMCC1_COMMAND_TO_ALIAS_MAP:
+                            self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[startup]
                 elif cmd_effects & SHUTDOWN_SET:
                     shutdown = self._harvest_effect(cmd_effects & SHUTDOWN_SET)
                     if isinstance(shutdown, CommandDefEnum):
                         self._start_stop = shutdown
-                    elif command.is_data and (command.command, command.data) in TMCC2_COMMAND_TO_ALIAS_MAP:
-                        self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-                    elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
-                        self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
-                        self._numeric = command.data
+                    elif isinstance(shutdown, tuple) and len(shutdown) == 2:
+                        if shutdown in TMCC2_COMMAND_TO_ALIAS_MAP:
+                            self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[shutdown]
+                        elif shutdown in TMCC1_COMMAND_TO_ALIAS_MAP:
+                            self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[shutdown]
             elif (
                 isinstance(command, BaseReq)
                 and command.status == 0

@@ -160,15 +160,14 @@ class TMCC1CommandDef(CommandDef):
 
     @property
     def alias(self) -> TMCC1EngineCommandEnum | Tuple[TMCC1EngineCommandEnum, int] | None:
-        if self._alias is not None:
-            if isinstance(self._alias, str):
-                alias = TMCC1EngineCommandEnum.by_name(self._alias, raise_exception=True)
-                if self._data is None:
-                    return alias
-                else:
-                    return alias, self._data
+        if isinstance(self._alias, str):
+            alias = TMCC1EngineCommandEnum.by_name(self._alias, raise_exception=True)
+            if self._data is None:
+                return alias
             else:
-                raise ValueError(f"Cannot classify command alias: {self._alias} ({type(self._alias)})")
+                return alias, self._data
+        else:
+            raise ValueError(f"Cannot classify command alias: {self._alias} ({type(self._alias)})")
         return None
 
 
@@ -470,10 +469,10 @@ class TMCC1EngineCommandEnum(TMCC1Enum):
     SMOKE_OFF = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 8, alias="NUMERIC", data=8)
     SMOKE_ON = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 9, alias="NUMERIC", data=9)
     SOUND_ONE = TMCC1CommandDef(TMCC1_ENG_SOUND_ONE_COMMAND, alias="NUMERIC", data=2)
-    TOWER_CHATTER = TMCC1CommandDef(TMCC1_ENG_SOUND_TWO_COMMAND, alias="NUMERIC", data=7)
     START_UP_IMMEDIATE = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 3, alias="NUMERIC", data=3, aux1=True)
     STOP_IMMEDIATE = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, alias="ABSOLUTE_SPEED", data=0, filtered=True)
     TOGGLE_DIRECTION = TMCC1CommandDef(TMCC1_ENG_TOGGLE_DIRECTION_COMMAND, filtered=True)
+    TOWER_CHATTER = TMCC1CommandDef(TMCC1_ENG_SOUND_TWO_COMMAND, alias="NUMERIC", data=7)
     VOLUME_DOWN = TMCC1CommandDef(TMCC1_ENG_VOLUME_DOWN_COMMAND, alias="NUMERIC", data=4)
     VOLUME_UP = TMCC1CommandDef(TMCC1_ENG_VOLUME_UP_COMMAND, alias="NUMERIC", data=1)
     SPEED_HIGHBALL = TMCC1CommandDef(

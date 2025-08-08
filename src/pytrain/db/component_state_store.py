@@ -481,9 +481,9 @@ class DependencyCache(Generic[T, C, E]):
         # TMCC1 Engine Reset
         self.causes(
             Engine1.RESET,
-            Engine1.START_UP_IMMEDIATE,
             Engine1.SPEED_STOP_HOLD,
             Engine1.FORWARD_DIRECTION,
+            Engine1.START_UP_IMMEDIATE,
             Engine1.RPM_DOWN,
             Engine1.NUMERIC,
         )

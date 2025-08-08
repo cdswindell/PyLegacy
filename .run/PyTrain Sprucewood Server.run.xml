@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="PyTrain Sprucewood" type="PythonConfigurationType" factoryName="Python">
+  <configuration default="false" name="PyTrain Sprucewood Server" type="PythonConfigurationType" factoryName="Python">
     <module name="PyLegacy" />
     <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
