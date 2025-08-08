@@ -147,7 +147,6 @@ class LaunchGui(Thread):
 
     def sync_pad_lights(self):
         with self._cv:
-            print(f"sync_pad_lights: {self._monitored_state}")
             if self._monitored_state.is_aux2 is True:
                 self.set_lights_off_icon()
             else:
