@@ -248,6 +248,7 @@ class LaunchGui(Thread):
             color="red",
             bold=True,
             align="top",
+            height="fill",
         )
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
