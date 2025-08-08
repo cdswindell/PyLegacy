@@ -43,6 +43,8 @@ class LaunchGui(Thread):
         else:
             self.width = width
             self.height = height
+        self.s_72 = self.scale(72, 0.66666)
+        self.s_16 = self.scale(16, 0.66666)
         self._cv = Condition(RLock())
 
         self.launch_jpg = find_file("launch.jpg")
@@ -265,59 +267,59 @@ class LaunchGui(Thread):
 
         self.lower_box = lower_box = Box(app, border=2, align="bottom")
         power_box = Box(lower_box, layout="grid", border=2, align="left")
-        _ = Text(power_box, text="Power", grid=[0, 0], size=16, underline=True)
+        _ = Text(power_box, text="Power", grid=[0, 0], size=self.s_16, underline=True)
         self.power_button = PushButton(
             power_box,
             image=self.on_button,
             grid=[0, 1],
             command=self.toggle_power,
-            height=72,
-            width=72,
+            height=self.s_72,
+            width=self.s_72,
         )
 
         self.lights_box = lights_box = Box(lower_box, layout="grid", border=2, align="left")
-        _ = Text(lights_box, text="Lights", grid=[0, 0], size=16, underline=True)
+        _ = Text(lights_box, text="Lights", grid=[0, 0], size=self.s_16, underline=True)
         self.lights_button = PushButton(
             lights_box,
             image=self.on_button,
             grid=[0, 1],
             command=self.toggle_lights,
-            height=72,
-            width=72,
+            height=self.s_72,
+            width=self.s_72,
         )
 
         self.siren_box = siren_box = Box(lower_box, layout="grid", border=2, align="left")
-        _ = Text(siren_box, text="Siren", grid=[0, 0], size=16, underline=True)
+        _ = Text(siren_box, text="Siren", grid=[0, 0], size=self.s_16, underline=True)
         self.siren_button = PushButton(
             siren_box,
             image=self.siren_off,
             grid=[0, 1],
-            height=72,
-            width=72,
+            height=self.s_72,
+            width=self.s_72,
         )
         self.siren_button.when_clicked = lambda x: self.siren_req.send()
         self.siren_button.when_left_button_pressed = lambda _: self.toggle_sound(self.siren_button)
         self.siren_button.when_left_button_released = lambda _: self.toggle_sound(self.siren_button)
 
         self.klaxon_box = klaxon_box = Box(lower_box, layout="grid", border=2, align="left")
-        _ = Text(klaxon_box, text="Klaxon", grid=[0, 0], size=16, underline=True)
+        _ = Text(klaxon_box, text="Klaxon", grid=[0, 0], size=self.s_16, underline=True)
         self.klaxon_button = PushButton(
             klaxon_box,
             image=self.siren_off,
             grid=[0, 1],
-            height=72,
-            width=72,
+            height=self.s_72,
+            width=self.s_72,
         )
         self.klaxon_button.when_clicked = self.toggle_klaxon
 
         self.gantry_box = gantry_box = Box(lower_box, layout="grid", border=2, align="left")
-        _ = Text(gantry_box, text="Gantry", grid=[0, 0, 2, 1], size=16, underline=True)
+        _ = Text(gantry_box, text="Gantry", grid=[0, 0, 2, 1], size=self.s_16, underline=True)
         self.gantry_rev = PushButton(
             gantry_box,
             image=self.left_arrow,
             grid=[0, 1],
-            height=70,
-            width=70,
+            height=self.s_72,
+            width=self.s_72,
         )
         self.gantry_rev.when_clicked = lambda x: self.gantry_rev_req.send(repeat=2)
 
@@ -325,8 +327,8 @@ class LaunchGui(Thread):
             gantry_box,
             image=self.right_arrow,
             grid=[1, 1],
-            height=70,
-            width=70,
+            height=self.s_72,
+            width=self.s_72,
         )
         self.gantry_fwd.when_clicked = lambda x: self.gantry_fwd_req.send(repeat=2)
 
@@ -444,7 +446,7 @@ class LaunchGui(Thread):
         else:
             self.do_power_off()
             self.power_off_req.send()
-        self.power_button.height = self.power_button.width = 72
+        self.power_button.height = self.power_button.width = self.s_72
 
     def do_power_off(self):
         with self._cv:
@@ -454,7 +456,7 @@ class LaunchGui(Thread):
                 self._is_countdown = False
             if self.power_button.image != self.on_button:
                 self.power_button.image = self.on_button
-                self.power_button.height = self.power_button.width = 72
+                self.power_button.height = self.power_button.width = self.s_72
             self.upper_box.disable()
             self.lights_box.disable()
             self.siren_box.disable()
@@ -465,7 +467,7 @@ class LaunchGui(Thread):
         with self._cv:
             if self.power_button.image != self.off_button:
                 self.power_button.image = self.off_button
-                self.power_button.height = self.power_button.width = 72
+                self.power_button.height = self.power_button.width = self.s_72
             self.upper_box.enable()
             self.lights_box.enable()
             self.siren_box.enable()
@@ -479,13 +481,13 @@ class LaunchGui(Thread):
         with self._cv:
             if self.lights_button.image != self.off_button:
                 self.lights_button.image = self.off_button
-                self.lights_button.height = self.lights_button.width = 72
+                self.lights_button.height = self.lights_button.width = self.s_72
 
     def do_lights_off(self):
         with self._cv:
             if self.lights_button.image != self.on_button:
                 self.lights_button.image = self.on_button
-                self.lights_button.height = self.lights_button.width = 72
+                self.lights_button.height = self.lights_button.width = self.s_72
 
     def toggle_lights(self):
         with self._cv:
@@ -502,7 +504,7 @@ class LaunchGui(Thread):
 
     def do_klaxon_off(self):
         self.klaxon_button.image = self.siren_off
-        self.klaxon_button.height = self.klaxon_button.width = 72
+        self.klaxon_button.height = self.klaxon_button.width = self.s_72
 
     def toggle_sound(self, button: PushButton):
         if button.enabled is True:
@@ -510,4 +512,4 @@ class LaunchGui(Thread):
                 button.image = self.siren_on
             else:
                 button.image = self.siren_off
-            button.height = button.width = 72
+            button.height = button.width = self.s_72
