@@ -122,15 +122,20 @@ class LaunchGui(Thread):
             # power on?
             if self._monitored_state.is_started is True:
                 self.do_power_on()
-                self.lights_on_req.send()
-            else:
-                self.do_power_off()
-                self.lights_off_req.send()
-            # lights on?
-            if self._monitored_state.is_aux2 is True:
+                self.lights_on_req.send(delay=0.5)
                 self.do_lights_on()
             else:
+                self.lights_off_req.send()
+                self.do_power_off()
                 self.do_lights_off()
+            # lights on?
+            self.sync_pad_lights()
+
+    def sync_pad_lights(self):
+        if self._monitored_state.is_aux2 is True:
+            self.do_lights_on()
+        else:
+            self.do_lights_off()
 
     def __call__(self, cmd: CommandReq) -> None:
         with self._cv:
@@ -155,7 +160,7 @@ class LaunchGui(Thread):
                     if cmd.data in (3, 6):
                         # mark launch pad as on and lights as on
                         self.do_power_on()
-                        self.do_lights_on()
+                        self.sync_pad_lights()
                     elif cmd.data == 5:
                         self.do_lights_off()
                         self.do_power_off()
@@ -168,15 +173,11 @@ class LaunchGui(Thread):
                         self.do_power_on()
                         self.do_launch(15, detected=True, hold=False)
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
-                        if self._monitored_state.is_aux2 is True:
-                            self.do_lights_on()
-                        else:
-                            self.do_lights_off()
+                        self.sync_pad_lights()
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
                         self.do_lights_on()
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
                         self.do_lights_off()
-
             # remember last command
             self._last_cmd = cmd
 
@@ -245,7 +246,7 @@ class LaunchGui(Thread):
             text="",
             grid=[0, 3, 5, 1],
             size=self.scale(24),
-            color="red",
+            color="black",
             bold=True,
             align="top",
             height="fill",
@@ -371,16 +372,12 @@ class LaunchGui(Thread):
             self.launch.disable()
             self.message.clear()
             self.cancel_flashing()
+            self.message.text = "All Systems Nominal"
+            self.message.text_color = "black"
             self.update_counter(value=t_minus)
             # start the clock
             if not hold:
                 self.count.repeat(1090, self.update_counter)
-
-    def cancel_flashing(self):
-        with self._cv:
-            if self._is_flashing:
-                self.message.cancel(self.flash_message)
-                self._is_flashing = False
 
     def do_abort(self, detected: bool = False):
         with self._cv:
@@ -391,6 +388,7 @@ class LaunchGui(Thread):
             if self._is_countdown:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
+                self.message.text_color = "red"
                 if self.counter >= 0:
                     self.message.value = "** Launch Aborted **"
                 else:
@@ -410,6 +408,12 @@ class LaunchGui(Thread):
             else:
                 self.message.text_color = "red"
             self._is_flashing = True
+
+    def cancel_flashing(self):
+        with self._cv:
+            if self._is_flashing:
+                self.message.cancel(self.flash_message)
+                self._is_flashing = False
 
     def toggle_power(self):
         self.update_counter(value=0)
@@ -465,15 +469,6 @@ class LaunchGui(Thread):
             self.lights_button.image = self.on_button
             self.lights_button.height = self.lights_button.width = 72
 
-    def toggle_klaxon(self) -> None:
-        self.klaxon_req.send()
-        self.toggle_sound(self.klaxon_button)
-
-    def do_klaxon_off(self):
-        if self.klaxon_button.image != self.siren_off:
-            self.klaxon_button.image = self.siren_off
-            self.klaxon_button.height = self.klaxon_button.width = 72
-
     def toggle_lights(self):
         if self.lights_button.image == self.on_button:
             self.do_lights_on()
@@ -481,6 +476,14 @@ class LaunchGui(Thread):
         else:
             self.do_lights_off()
             self.lights_off_req.send(repeat=2)
+
+    def toggle_klaxon(self) -> None:
+        self.klaxon_req.send()
+        self.toggle_sound(self.klaxon_button)
+
+    def do_klaxon_off(self):
+        self.klaxon_button.image = self.siren_off
+        self.klaxon_button.height = self.klaxon_button.width = 72
 
     def toggle_sound(self, button: PushButton):
         if button.enabled is True:
