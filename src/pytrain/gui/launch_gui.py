@@ -471,7 +471,6 @@ class LaunchGui(Thread):
 
     def do_power_on(self):
         with self._cv:
-            print("in Power On")
             if self.power_button.image != self.off_button:
                 self.power_button.image = self.off_button
                 self.power_button.height = self.power_button.width = self.s_72
