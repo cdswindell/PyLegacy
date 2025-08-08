@@ -399,6 +399,7 @@ class LaunchGui(Thread):
                 self.message.repeat(500, self.flash_message)
             else:
                 self.reset_req.send()
+                self.update_counter(value=0)
             self.launch.enable()
             self.message.show()
 
