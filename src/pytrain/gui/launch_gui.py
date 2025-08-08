@@ -183,6 +183,8 @@ class LaunchGui(Thread):
                         self.do_klaxon_off()
                         if self._is_countdown:
                             self.do_abort(detected=True)
+                        else:
+                            self.sync_gui_state()
                 elif self.is_active():
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                         self.do_power_on()
