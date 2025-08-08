@@ -43,8 +43,8 @@ class LaunchGui(Thread):
         else:
             self.width = width
             self.height = height
-        self.s_72 = self.scale(72)
-        self.s_16 = self.scale(16)
+        self.s_72 = self.scale(72, 0.8)
+        self.s_16 = self.scale(16, 0.8)
         self._cv = Condition(RLock())
 
         self.launch_jpg = find_file("launch.jpg")
@@ -101,9 +101,9 @@ class LaunchGui(Thread):
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
-        value = int(value * self.width / 480)
+        value = max(orig_value, int(value * self.width / 480))
         if factor is not None and self.width > 480:
-            value = min(orig_value, int(factor * value))
+            value = max(orig_value, int(factor * value))
         return value
 
     def on_sync(self) -> None:
