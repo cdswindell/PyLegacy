@@ -128,7 +128,7 @@ class LaunchGui(Thread):
                 self.join()
 
     def reset(self):
-        self.reset()
+        self.close()
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
