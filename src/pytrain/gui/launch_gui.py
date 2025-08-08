@@ -43,8 +43,8 @@ class LaunchGui(Thread):
         else:
             self.width = width
             self.height = height
-        self.s_72 = self.scale(72, 0.66666)
-        self.s_16 = self.scale(16, 0.66666)
+        self.s_72 = self.scale(72, 0.75)
+        self.s_16 = self.scale(16, 00.75)
         self._cv = Condition(RLock())
 
         self.launch_jpg = find_file("launch.jpg")
