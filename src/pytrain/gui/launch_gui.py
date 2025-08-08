@@ -146,10 +146,11 @@ class LaunchGui(Thread):
 
     def sync_pad_lights(self):
         with self._cv:
+            print(f"{self._monitored_state.is_aux2}")
             if self._monitored_state.is_aux2 is True:
-                self.do_lights_off()
-            else:
                 self.do_lights_on()
+            else:
+                self.do_lights_off()
 
     def __call__(self, cmd: CommandReq) -> None:
         with self._cv:
