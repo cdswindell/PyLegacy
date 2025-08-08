@@ -243,7 +243,6 @@ class LaunchGui(Thread):
         _ = Text(upper_box, text=" ", grid=[0, 2, 5, 1], size=self.scale(10))
         self.message = Text(
             upper_box,
-            text="hello",
             grid=[0, 3, 5, 1],
             size=self.scale(24),
             color="black",
@@ -372,7 +371,7 @@ class LaunchGui(Thread):
             self.launch.disable()
             self.message.clear()
             self.cancel_flashing()
-            self.message.text = "All Systems Nominal"
+            self.message.value = "All Systems Nominal"
             self.message.text_color = "black"
             self.update_counter(value=t_minus)
             # start the clock
