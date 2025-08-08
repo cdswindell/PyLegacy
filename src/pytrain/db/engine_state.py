@@ -446,7 +446,6 @@ class EngineState(ComponentState):
                         self._d4_rec_no = command.record_no
             self.changed.set()
             self._cv.notify_all()
-            print(f"Command: {command} State: {self}")
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:

@@ -138,12 +138,8 @@ class LaunchGui(Thread):
                 # power on?
                 if self._monitored_state.is_started is True:
                     self.do_power_on()
-                    self.lights_on_req.send(delay=0.5)
-                    self.do_lights_on()
                 else:
-                    self.lights_off_req.send()
                     self.do_power_off()
-                    self.do_lights_off()
                 # lights on?
                 self.sync_pad_lights()
 
