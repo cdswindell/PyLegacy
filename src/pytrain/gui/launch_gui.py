@@ -115,6 +115,8 @@ class LaunchGui(Thread):
             self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id, False)
             if self._monitored_state is None:
                 raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
+            # watch for external state changes
+            StateWatcher(self._monitored_state, self.sync_gui_state)
             # start GUI
             self.start()
             # listen for state updates
@@ -134,7 +136,6 @@ class LaunchGui(Thread):
         if self._monitored_state:
             with self._cv:
                 # power on?
-                print(f"Monitored state: {self._monitored_state} {self._monitored_state.is_started is True}")
                 if self._monitored_state.is_started is True:
                     self.do_power_on()
                     self.lights_on_req.send(delay=0.5)
