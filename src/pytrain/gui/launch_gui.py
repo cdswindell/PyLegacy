@@ -196,6 +196,9 @@ class LaunchGui(Thread):
                         self.set_lights_off_icon()
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
                         self.set_lights_on_icon()
+                    elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
+                        self.siren_sounded()
+
             # remember last command
             self._last_cmd = cmd
 
@@ -300,7 +303,7 @@ class LaunchGui(Thread):
             grid=[0, 1],
             height=self.s_72,
             width=self.s_72,
-            command=self.sound_siren,
+            command=self.siren_req.send,
         )
         # self.siren_button.when_clicked = lambda x: self.siren_req.send()
         # self.siren_button.when_left_button_pressed = lambda _: self.toggle_sound(self.siren_button)
@@ -350,8 +353,7 @@ class LaunchGui(Thread):
         # display GUI and start event loop; call blocks
         self.app.display()
 
-    def sound_siren(self) -> None:
-        self.siren_req.send()
+    def siren_sounded(self) -> None:
         self.toggle_sound(self.siren_button)
         self.siren_button.after(13000, self.toggle_sound, [self.siren_button])
 
