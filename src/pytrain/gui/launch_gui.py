@@ -80,6 +80,7 @@ class LaunchGui(Thread):
         self._last_cmd_at = 0
         self._launch_seq_time_trigger = None
         self._is_countdown = False
+        self._is_flashing = False
         self.started_up = False
         if self._sync_state and self._sync_state.is_synchronized is True:
             self._sync_watcher = None
@@ -368,16 +369,24 @@ class LaunchGui(Thread):
             self.abort.enable()
             self.launch.disable()
             self.message.clear()
+            self.cancel_flashing()
             self.update_counter(value=t_minus)
             # start the clock
             if not hold:
                 self.count.repeat(1090, self.update_counter)
+
+    def cancel_flashing(self):
+        with self._cv:
+            if self._is_flashing:
+                self.message.cancel(self.flash_message)
+                self._is_flashing = False
 
     def do_abort(self, detected: bool = False):
         with self._cv:
             if not detected:
                 self.reset_req.send()
             self.message.clear()
+            self.cancel_flashing()
             if self._is_countdown:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
@@ -394,12 +403,17 @@ class LaunchGui(Thread):
 
     def flash_message(self):
         with self._cv:
-            self.message.visible = not self.message.visible
+            if self.message.text_color == "red":
+                self.message.text_color = self.app.bg
+            else:
+                self.message.text_color = "red"
+            self._is_flashing = True
 
     def toggle_power(self):
         self.update_counter(value=0)
         self.label.value = "T-Minus"
         self.message.clear()
+        self.cancel_flashing()
         if self.power_button.image == self.on_button:
             self.do_power_on()
             if self.track_on_req:
@@ -413,6 +427,7 @@ class LaunchGui(Thread):
 
     def do_power_off(self):
         with self._cv:
+            self.cancel_flashing()
             if self._is_countdown:
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
