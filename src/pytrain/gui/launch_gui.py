@@ -142,6 +142,7 @@ class LaunchGui(Thread):
                     self.sync_pad_lights()
                 else:
                     self.do_power_off()
+                    self.lights_off_req.send()
                     self.set_lights_on_icon()
 
     def sync_pad_lights(self):
@@ -450,6 +451,7 @@ class LaunchGui(Thread):
         else:
             self.do_power_off()
             self.power_off_req.send()
+            self.lights_off_req.send(delay=0.5)
         self.power_button.height = self.power_button.width = self.s_72
 
     def do_power_off(self):
