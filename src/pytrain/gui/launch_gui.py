@@ -119,23 +119,25 @@ class LaunchGui(Thread):
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
-            # power on?
-            if self._monitored_state.is_started is True:
-                self.do_power_on()
-                self.lights_on_req.send(delay=0.5)
-                self.do_lights_on()
-            else:
-                self.lights_off_req.send()
-                self.do_power_off()
-                self.do_lights_off()
-            # lights on?
-            self.sync_pad_lights()
+            with self._cv:
+                # power on?
+                if self._monitored_state.is_started is True:
+                    self.do_power_on()
+                    self.lights_on_req.send(delay=0.5)
+                    self.do_lights_on()
+                else:
+                    self.lights_off_req.send()
+                    self.do_power_off()
+                    self.do_lights_off()
+                # lights on?
+                self.sync_pad_lights()
 
     def sync_pad_lights(self):
-        if self._monitored_state.is_aux2 is True:
-            self.do_lights_on()
-        else:
-            self.do_lights_off()
+        with self._cv:
+            if self._monitored_state.is_aux2 is True:
+                self.do_lights_on()
+            else:
+                self.do_lights_off()
 
     def __call__(self, cmd: CommandReq) -> None:
         with self._cv:
@@ -459,22 +461,25 @@ class LaunchGui(Thread):
                 self.launch.disable()
 
     def do_lights_on(self):
-        if self.lights_button.image != self.off_button:
-            self.lights_button.image = self.off_button
-            self.lights_button.height = self.lights_button.width = 72
+        with self._cv:
+            if self.lights_button.image != self.off_button:
+                self.lights_button.image = self.off_button
+                self.lights_button.height = self.lights_button.width = 72
 
     def do_lights_off(self):
-        if self.lights_button.image != self.on_button:
-            self.lights_button.image = self.on_button
-            self.lights_button.height = self.lights_button.width = 72
+        with self._cv:
+            if self.lights_button.image != self.on_button:
+                self.lights_button.image = self.on_button
+                self.lights_button.height = self.lights_button.width = 72
 
     def toggle_lights(self):
-        if self.lights_button.image == self.on_button:
-            self.do_lights_on()
-            self.lights_on_req.send(repeat=2)
-        else:
-            self.do_lights_off()
-            self.lights_off_req.send(repeat=2)
+        with self._cv:
+            if self.lights_button.image == self.on_button:
+                self.do_lights_on()
+                self.lights_on_req.send(repeat=2)
+            else:
+                self.do_lights_off()
+                self.lights_off_req.send(repeat=2)
 
     def toggle_klaxon(self) -> None:
         self.klaxon_req.send()
