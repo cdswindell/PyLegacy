@@ -495,12 +495,12 @@ class LaunchGui(Thread):
 
     def toggle_lights(self):
         with self._cv:
-            if self.lights_button.image == self.on_button:
+            if self._monitored_state.is_aux2:
                 # self.set_lights_off_icon()
-                self.lights_on_req.send(repeat=2)
+                self.lights_off_req.send(repeat=2)
             else:
                 # self.set_lights_on_icon()
-                self.lights_off_req.send(repeat=2)
+                self.lights_on_req.send(repeat=2)
 
     def toggle_klaxon(self) -> None:
         self.klaxon_req.send()
