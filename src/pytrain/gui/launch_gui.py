@@ -300,10 +300,11 @@ class LaunchGui(Thread):
             grid=[0, 1],
             height=self.s_72,
             width=self.s_72,
+            command=self.sound_siren,
         )
-        self.siren_button.when_clicked = lambda x: self.siren_req.send()
-        self.siren_button.when_left_button_pressed = lambda _: self.toggle_sound(self.siren_button)
-        self.siren_button.when_left_button_released = lambda _: self.toggle_sound(self.siren_button)
+        # self.siren_button.when_clicked = lambda x: self.siren_req.send()
+        # self.siren_button.when_left_button_pressed = lambda _: self.toggle_sound(self.siren_button)
+        # self.siren_button.when_left_button_released = lambda _: self.toggle_sound(self.siren_button)
 
         self.klaxon_box = klaxon_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(klaxon_box, text="Klaxon", grid=[0, 0], size=self.s_16, underline=True)
@@ -348,6 +349,11 @@ class LaunchGui(Thread):
 
         # display GUI and start event loop; call blocks
         self.app.display()
+
+    def sound_siren(self) -> None:
+        self.siren_req.send()
+        self.toggle_sound(self.siren_button)
+        self.siren_button.after(13000, self.toggle_sound, self.siren_button)
 
     def update_counter(self, value: int = None):
         with self._cv:
@@ -497,10 +503,10 @@ class LaunchGui(Thread):
     def toggle_lights(self):
         with self._cv:
             if self._monitored_state.is_aux2:
-                #self.set_lights_off_icon()
+                # self.set_lights_off_icon()
                 self.lights_off_req.send(repeat=2)
             else:
-                #self.set_lights_on_icon()
+                # self.set_lights_on_icon()
                 self.lights_on_req.send(repeat=2)
 
     def toggle_klaxon(self) -> None:
