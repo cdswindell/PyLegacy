@@ -100,9 +100,10 @@ class LaunchGui(Thread):
         atexit.register(self.close)
 
     def scale(self, value: int, factor: float = None) -> int:
+        orig_value = value
         value = int(value * self.width / 480)
         if factor is not None and self.width > 480:
-            value *= factor
+            value = min(orig_value, int(factor * value))
         return value
 
     def on_sync(self) -> None:
