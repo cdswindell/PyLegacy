@@ -97,8 +97,11 @@ class LaunchGui(Thread):
         self._is_closed = False
         atexit.register(self.close)
 
-    def scale(self, value: int) -> int:
-        return int(value * self.width / 480)
+    def scale(self, value: int, factor: float = None) -> int:
+        value = int(value * self.width / 480)
+        if factor is not None and self.width > 480:
+            value *= factor
+        return value
 
     def on_sync(self) -> None:
         if self._sync_state.is_synchronized:
@@ -468,6 +471,7 @@ class LaunchGui(Thread):
             self.siren_box.enable()
             self.klaxon_box.enable()
             self.gantry_box.enable()
+            self.sync_pad_lights()
             if self._is_countdown:
                 self.launch.disable()
 
