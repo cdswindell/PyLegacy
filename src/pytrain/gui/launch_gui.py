@@ -138,10 +138,11 @@ class LaunchGui(Thread):
                 # power on?
                 if self._monitored_state.is_started is True:
                     self.do_power_on()
+                    # Lights on?
+                    self.sync_pad_lights()
                 else:
                     self.do_power_off()
-                # lights on?
-                self.sync_pad_lights()
+                    self.do_lights_off()
 
     def sync_pad_lights(self):
         with self._cv:
