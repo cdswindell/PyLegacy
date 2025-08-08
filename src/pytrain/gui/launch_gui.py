@@ -243,7 +243,7 @@ class LaunchGui(Thread):
         _ = Text(upper_box, text=" ", grid=[0, 2, 5, 1], size=self.scale(10))
         self.message = Text(
             upper_box,
-            text="",
+            text="hello",
             grid=[0, 3, 5, 1],
             size=self.scale(24),
             color="black",
