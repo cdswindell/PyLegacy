@@ -13,11 +13,12 @@ import collections
 import logging
 import threading
 from collections import defaultdict
-from typing import Generic, List, Set, Tuple, TypeVar
+from typing import Generic, List, Set, Tuple, TypeVar, cast
 
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
 from ..db.client_state_listener import ClientStateListener
+from ..db.sync_state import SyncState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import BROADCAST_ADDRESS, CommandScope
@@ -90,7 +91,7 @@ class ComponentStateStore:
         sync_state = cls._instance.get_state(CommandScope.SYNC, 99, False)
         if sync_state is None:
             return False
-        return sync_state.is_synchronized
+        return cast(SyncState, sync_state).is_synchronized
 
     def __new__(cls, *args, **kwargs):
         """
@@ -480,6 +481,7 @@ class DependencyCache(Generic[T, C, E]):
         # TMCC1 Engine Reset
         self.causes(
             Engine1.RESET,
+            Engine1.START_UP_IMMEDIATE,
             Engine1.SPEED_STOP_HOLD,
             Engine1.FORWARD_DIRECTION,
             Engine1.RPM_DOWN,
