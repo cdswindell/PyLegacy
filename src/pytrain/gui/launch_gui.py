@@ -353,7 +353,7 @@ class LaunchGui(Thread):
     def sound_siren(self) -> None:
         self.siren_req.send()
         self.toggle_sound(self.siren_button)
-        self.siren_button.after(13000, self.toggle_sound, self.siren_button)
+        self.siren_button.after(13000, self.toggle_sound, [self.siren_button])
 
     def update_counter(self, value: int = None):
         with self._cv:
