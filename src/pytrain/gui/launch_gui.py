@@ -142,7 +142,7 @@ class LaunchGui(Thread):
                     self.sync_pad_lights()
                 else:
                     self.do_power_off()
-                    self.set_lights_off_icon()
+                    self.set_lights_on_icon()
 
     def sync_pad_lights(self):
         with self._cv:
