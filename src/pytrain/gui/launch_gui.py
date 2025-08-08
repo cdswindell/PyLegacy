@@ -134,6 +134,7 @@ class LaunchGui(Thread):
         if self._monitored_state:
             with self._cv:
                 # power on?
+                print(f"Monitored state: {self._monitored_state} {self._monitored_state.is_started is True}")
                 if self._monitored_state.is_started is True:
                     self.do_power_on()
                     self.lights_on_req.send(delay=0.5)
@@ -184,6 +185,7 @@ class LaunchGui(Thread):
                         if self._is_countdown:
                             self.do_abort(detected=True)
                         else:
+                            # reset causes engine to start up, check for that state change here
                             self.sync_gui_state()
                 elif self.is_active():
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
@@ -468,6 +470,7 @@ class LaunchGui(Thread):
 
     def do_power_on(self):
         with self._cv:
+            print("in Power On")
             if self.power_button.image != self.off_button:
                 self.power_button.image = self.off_button
                 self.power_button.height = self.power_button.width = self.s_72
