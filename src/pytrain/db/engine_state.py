@@ -682,6 +682,7 @@ class EngineState(ComponentState):
 
     @property
     def is_started(self) -> bool:
+        print(f"Start/Stop: {self._start_stop} ({self._start_stop in STARTUP_SET})")
         return self._start_stop in STARTUP_SET
 
     @property
