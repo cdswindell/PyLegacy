@@ -1,3 +1,10 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
 import atexit
 import logging
 from threading import Condition, RLock, Thread
@@ -381,6 +388,10 @@ class LaunchGui(Thread):
                 self.count.repeat(1090, self.update_counter)
 
     def do_abort(self, detected: bool = False):
+        """
+        Abort launch sequence if counting down, initiate self-destruct if bird
+        is in the air.
+        """
         with self._cv:
             if not detected:
                 self.reset_req.send()
