@@ -143,7 +143,7 @@ class LaunchGui(Thread):
                 else:
                     self.do_power_off()
                     print("Sync GUI STate")
-                    # self.lights_off_req.send()
+                    #self.lights_off_req.send()
                     self.set_lights_on_icon()
 
     def sync_pad_lights(self):
