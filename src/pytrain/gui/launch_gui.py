@@ -142,8 +142,6 @@ class LaunchGui(Thread):
                     self.sync_pad_lights()
                 else:
                     self.do_power_off()
-                    print("Sync GUI STate")
-                    #self.lights_off_req.send()
                     self.set_lights_on_icon()
 
     def sync_pad_lights(self):
@@ -460,7 +458,6 @@ class LaunchGui(Thread):
         else:
             self.do_power_off()
             self.power_off_req.send()
-            print("Queuing Lights Off...")
             self.lights_off_req.send(delay=0.5)
         self.power_button.height = self.power_button.width = self.s_72
 
@@ -508,7 +505,6 @@ class LaunchGui(Thread):
     def toggle_lights(self):
         with self._cv:
             if self._monitored_state.is_aux2:
-                print("Toggle Lights Off")
                 self.lights_off_req.send(repeat=2)
             else:
                 self.lights_on_req.send(repeat=2)
