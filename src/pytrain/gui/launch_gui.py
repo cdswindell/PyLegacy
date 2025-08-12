@@ -8,7 +8,7 @@
 import atexit
 import logging
 from threading import Condition, RLock, Thread
-from time import sleep, time
+from time import time
 from tkinter import RAISED
 
 from guizero import App, Box, PushButton, Text
@@ -482,17 +482,18 @@ class LaunchGui(Thread):
         self.label.value = "T-Minus"
         self.message.clear()
         self.cancel_flashing()
+        self.lower_box.hide()
         if self.power_button.image == self.on_button:
             self.do_power_on()
             if self.track_on_req:
                 self.track_on_req.send()
-                sleep(0.5)
-            self.power_on_req.send()
+            self.power_on_req.send(delay=0.5)
         else:
             self.do_power_off()
             self.power_off_req.send()
             self.lights_off_req.send(delay=0.5)
         self.power_button.height = self.power_button.width = self.s_72
+        self.lower_box.show()
 
     def do_power_off(self):
         with self._cv:
