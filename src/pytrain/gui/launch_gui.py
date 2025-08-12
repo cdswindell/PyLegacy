@@ -368,7 +368,7 @@ class LaunchGui(Thread):
             height=self.s_72,
             width=self.s_72,
         )
-        print(self.gantry_fwd.tk.config)
+        print(self.gantry_fwd.tk.config())
         self.gantry_fwd.when_clicked = lambda x: self.gantry_fwd_req.send(repeat=2)
 
         # start upper box disabled
