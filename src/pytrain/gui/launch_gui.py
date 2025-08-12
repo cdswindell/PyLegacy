@@ -400,6 +400,7 @@ class LaunchGui(Thread):
                 self.counter = value
 
             count = self.counter if self.counter is not None else 0
+            print(f"update_counter Count: {count}")
             if -30 <= count < 0:
                 prefix = "+"
                 count = abs(count)
