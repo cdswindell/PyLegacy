@@ -336,7 +336,6 @@ class LaunchGui(Thread):
                 command=self.engr_comm_req.send,
             )
             self.engr_comms.tk.config(relief=RAISED)
-            self.engr_comms.tk.config(bd=1)
             self.engr_comms.bg = "white"
 
             self.tower_comms = PushButton(
@@ -348,7 +347,6 @@ class LaunchGui(Thread):
                 command=self.tower_comm_req.send,
             )
             self.tower_comms.tk.config(relief=RAISED)
-            self.tower_comms.tk.config(bd=1)
             self.tower_comms.bg = "white"
             pprint(self.tower_comms.tk.config())
 
