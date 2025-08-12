@@ -55,6 +55,8 @@ class LaunchGui(Thread):
         self.off_button = find_file("off_button.jpg")
         self.left_arrow = find_file("left_arrow.jpg")
         self.right_arrow = find_file("right_arrow.jpg")
+        self.engr_comm = find_file("walkie_talkie.png")
+        self.tower_comm = find_file("tower.png")
 
         self.counter = None
 
@@ -63,6 +65,7 @@ class LaunchGui(Thread):
         self.gantry_box = self.siren_box = self.klaxon_box = self.lights_box = None
         self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
         self.gantry_rev = self.gantry_fwd = None
+        self.comms_box = self.tower_comms = self.engr_comms = None
 
         self.track_on_req = CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, track_id) if track_id else None
         self.power_on_req = CommandReq(TMCC1EngineCommandEnum.START_UP_IMMEDIATE, tmcc_id)
@@ -76,6 +79,8 @@ class LaunchGui(Thread):
         self.lights_off_req = CommandReq(TMCC1EngineCommandEnum.AUX2_OFF, tmcc_id)
         self.siren_req = CommandReq(TMCC1EngineCommandEnum.BLOW_HORN_ONE, tmcc_id)
         self.klaxon_req = CommandReq(TMCC1EngineCommandEnum.RING_BELL, tmcc_id)
+        self.engr_comm_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 2)
+        self.tower_comm_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 7)
         self.launch_15_req = CommandReq(TMCC1EngineCommandEnum.REAR_COUPLER, tmcc_id)
         self.launch_seq_act = CommandReq(TMCC1EngineCommandEnum.AUX1_OPTION_ONE, tmcc_id).as_action(duration=3.5)
 
@@ -317,6 +322,27 @@ class LaunchGui(Thread):
             command=self.klaxon_req.send,
         )
 
+        if self.width > 480:
+            self.comms_box = comms_box = Box(lower_box, layout="grid", border=2, align="left")
+            _ = Text(comms_box, text="Comms", grid=[0, 0, 2, 1], size=self.s_16, underline=True)
+            self.engr_comms = PushButton(
+                comms_box,
+                image=self.engr_comm,
+                grid=[0, 1],
+                height=self.s_72,
+                width=self.s_72,
+                command=self.engr_comm_req.send,
+            )
+
+            self.tower_comms = PushButton(
+                comms_box,
+                image=self.tower_comm,
+                grid=[1, 1],
+                height=self.s_72,
+                width=self.s_72,
+                command=self.tower_comm_req.send,
+            )
+
         self.gantry_box = gantry_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(gantry_box, text="Gantry", grid=[0, 0, 2, 1], size=self.s_16, underline=True)
         self.gantry_rev = PushButton(
@@ -326,7 +352,7 @@ class LaunchGui(Thread):
             height=self.s_72,
             width=self.s_72,
         )
-        self.gantry_rev.when_clicked = lambda x: self.gantry_rev_req.send(repeat=2)
+        self.gantry_rev.when_clicked = lambda: self.gantry_rev_req.send(repeat=2)
 
         self.gantry_fwd = PushButton(
             gantry_box,
