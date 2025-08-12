@@ -552,8 +552,10 @@ class LaunchGui(Thread):
 
     def toggle_sound(self, button: PushButton):
         if button.enabled is True:
+            self.lower_box.hide()
             if button.image == self.siren_off:
                 button.image = self.siren_on
             else:
                 button.image = self.siren_off
             button.height = button.width = self.s_72
+            self.lower_box.show()
