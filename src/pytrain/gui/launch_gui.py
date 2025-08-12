@@ -160,7 +160,6 @@ class LaunchGui(Thread):
 
     def __call__(self, cmd: CommandReq) -> None:
         with self._cvc:
-            print(f"__call__ with _cv held: {cmd}")
             # handle launch sequence differently
             if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
                 if self._launch_seq_time_trigger is None:
@@ -393,9 +392,7 @@ class LaunchGui(Thread):
         self.toggle_sound(self.klaxon_button)
 
     def update_counter(self, value: int = None):
-        print(f"update_counter Countdown: {value}")
         with self._cv:
-            print(f"Value: {value}")
             prefix = "-"
             if value is None:
                 self.counter -= 1
@@ -403,7 +400,6 @@ class LaunchGui(Thread):
                 self.counter = value
 
             count = self.counter if self.counter is not None else 0
-            print(f"update_counter Count: {count}")
             if -30 <= count < 0:
                 prefix = "+"
                 count = abs(count)
@@ -413,7 +409,6 @@ class LaunchGui(Thread):
                 if count <= -30:
                     count = 0
                     if self._is_countdown:
-                        print("Canceling Countdown! (update_countdown)")
                         self.count.cancel(self.update_counter)
                         self._is_countdown = False
                         self.launch.enable()
@@ -425,7 +420,6 @@ class LaunchGui(Thread):
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
             if self._is_countdown:
-                print("Canceling Countdown!")
                 self.count.cancel(self.update_counter)
             self._is_countdown = True
             if detected:
@@ -442,9 +436,7 @@ class LaunchGui(Thread):
             self.update_counter(value=t_minus)
             # start the clock
             if not hold:
-                print("Starting Countdown!")
                 self.count.repeat(1090, self.update_counter)
-                print("Countdown Started!")
 
     def do_abort(self, detected: bool = False):
         """
@@ -457,7 +449,6 @@ class LaunchGui(Thread):
             self.message.clear()
             self.cancel_flashing()
             if self._is_countdown:
-                print("Canceling Countdown! (abort)")
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
                 self.message.text_color = "red"
@@ -509,7 +500,6 @@ class LaunchGui(Thread):
         with self._cv:
             self.cancel_flashing()
             if self._is_countdown:
-                print("Canceling Countdown! (power off)")
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
             if self.power_button.image != self.on_button:
