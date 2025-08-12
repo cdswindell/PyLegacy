@@ -47,6 +47,7 @@ class LaunchGui(Thread):
         self.s_72 = self.scale(72, 0.7)
         self.s_16 = self.scale(16, 0.7)
         self._cv = Condition(RLock())
+        self._cvc = Condition(RLock())
 
         self.launch_jpg = find_file("launch.jpg")
         self.abort_jpg = find_file("abort.jpg")
@@ -158,7 +159,7 @@ class LaunchGui(Thread):
                 self.set_lights_on_icon()
 
     def __call__(self, cmd: CommandReq) -> None:
-        with self._cv:
+        with self._cvc:
             print(f"__call__ with _cv held: {cmd}")
             # handle launch sequence differently
             if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
