@@ -335,7 +335,7 @@ class LaunchGui(Thread):
                 command=self.engr_comm_req.send,
             )
             self.engr_comms.tk.config(relief=RAISED)
-            self.engr_comms.tk.config(bd=4)
+            self.engr_comms.tk.config(bd=2)
             self.engr_comms.bg = "white"
 
             self.tower_comms = PushButton(
@@ -347,7 +347,7 @@ class LaunchGui(Thread):
                 command=self.tower_comm_req.send,
             )
             self.tower_comms.tk.config(relief=RAISED)
-            self.tower_comms.tk.config(bd=4)
+            self.tower_comms.tk.config(bd=2)
             self.tower_comms.bg = "white"
 
         self.gantry_box = gantry_box = Box(lower_box, layout="grid", border=2, align="left")
@@ -368,6 +368,7 @@ class LaunchGui(Thread):
             height=self.s_72,
             width=self.s_72,
         )
+        print(self.gantry_fwd.tk.config)
         self.gantry_fwd.when_clicked = lambda x: self.gantry_fwd_req.send(repeat=2)
 
         # start upper box disabled
