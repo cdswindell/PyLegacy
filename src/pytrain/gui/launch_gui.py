@@ -409,6 +409,7 @@ class LaunchGui(Thread):
                 if count <= -30:
                     count = 0
                     if self._is_countdown:
+                        print("Canceling Countdown! (update_countdown)")
                         self.count.cancel(self.update_counter)
                         self._is_countdown = False
                         self.launch.enable()
@@ -420,6 +421,7 @@ class LaunchGui(Thread):
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
             if self._is_countdown:
+                print("Canceling Countdown!")
                 self.count.cancel(self.update_counter)
             self._is_countdown = True
             if detected:
@@ -451,6 +453,7 @@ class LaunchGui(Thread):
             self.message.clear()
             self.cancel_flashing()
             if self._is_countdown:
+                print("Canceling Countdown! (abort)")
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
                 self.message.text_color = "red"
@@ -502,6 +505,7 @@ class LaunchGui(Thread):
         with self._cv:
             self.cancel_flashing()
             if self._is_countdown:
+                print("Canceling Countdown! (power off)")
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
             if self.power_button.image != self.on_button:
