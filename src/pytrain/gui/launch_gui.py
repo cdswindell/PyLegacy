@@ -391,6 +391,7 @@ class LaunchGui(Thread):
         self.toggle_sound(self.klaxon_button)
 
     def update_counter(self, value: int = None):
+        print(f"update_counter Countdown: {value}")
         with self._cv:
             prefix = "-"
             if value is None:
@@ -437,6 +438,7 @@ class LaunchGui(Thread):
             if not hold:
                 print("Starting Countdown!")
                 self.count.repeat(1090, self.update_counter)
+                print("Countdown Started!")
 
     def do_abort(self, detected: bool = False):
         """
