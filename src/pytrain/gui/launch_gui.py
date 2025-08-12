@@ -159,6 +159,7 @@ class LaunchGui(Thread):
 
     def __call__(self, cmd: CommandReq) -> None:
         with self._cv:
+            print(f"__call__ with _cv held: {cmd}")
             # handle launch sequence differently
             if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
                 if self._launch_seq_time_trigger is None:
