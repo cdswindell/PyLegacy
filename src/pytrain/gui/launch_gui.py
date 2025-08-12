@@ -393,6 +393,7 @@ class LaunchGui(Thread):
     def update_counter(self, value: int = None):
         print(f"update_counter Countdown: {value}")
         with self._cv:
+            print(f"Value: {value}")
             prefix = "-"
             if value is None:
                 self.counter -= 1
