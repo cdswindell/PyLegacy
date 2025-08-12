@@ -7,6 +7,7 @@
 #
 import atexit
 import logging
+from pprint import pprint
 from threading import Condition, RLock, Thread
 from time import sleep, time
 from tkinter import RAISED
@@ -349,6 +350,7 @@ class LaunchGui(Thread):
             self.tower_comms.tk.config(relief=RAISED)
             self.tower_comms.tk.config(bd=1)
             self.tower_comms.bg = "white"
+            pprint(self.tower_comms.tk.config())
 
         self.gantry_box = gantry_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(gantry_box, text="Gantry", grid=[0, 0, 2, 1], size=self.s_16, underline=True)
@@ -368,7 +370,7 @@ class LaunchGui(Thread):
             height=self.s_72,
             width=self.s_72,
         )
-        print(self.gantry_fwd.tk.config())
+        pprint(self.gantry_fwd.tk.config())
         self.gantry_fwd.when_clicked = lambda x: self.gantry_fwd_req.send(repeat=2)
 
         # start upper box disabled
