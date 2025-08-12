@@ -334,6 +334,8 @@ class LaunchGui(Thread):
                 width=self.s_72,
                 command=self.engr_comm_req.send,
             )
+            self.engr_comms.tk.config(relief=RAISED)
+            self.engr_comms.tk.config(bd=4)
             self.engr_comms.bg = "white"
 
             self.tower_comms = PushButton(
@@ -345,6 +347,7 @@ class LaunchGui(Thread):
                 command=self.tower_comm_req.send,
             )
             self.tower_comms.tk.config(relief=RAISED)
+            self.tower_comms.tk.config(bd=4)
             self.tower_comms.bg = "white"
 
         self.gantry_box = gantry_box = Box(lower_box, layout="grid", border=2, align="left")
