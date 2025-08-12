@@ -435,6 +435,7 @@ class LaunchGui(Thread):
             self.update_counter(value=t_minus)
             # start the clock
             if not hold:
+                print("Starting Countdown!")
                 self.count.repeat(1090, self.update_counter)
 
     def do_abort(self, detected: bool = False):
