@@ -9,6 +9,7 @@ import atexit
 import logging
 from threading import Condition, RLock, Thread
 from time import sleep, time
+from tkinter import RAISED
 
 from guizero import App, Box, PushButton, Text
 
@@ -343,6 +344,7 @@ class LaunchGui(Thread):
                 width=self.s_72,
                 command=self.tower_comm_req.send,
             )
+            self.tower_comms.tk.config(relief=RAISED)
             self.tower_comms.bg = "white"
 
         self.gantry_box = gantry_box = Box(lower_box, layout="grid", border=2, align="left")
