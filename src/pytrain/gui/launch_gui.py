@@ -47,7 +47,6 @@ class LaunchGui(Thread):
         self.s_72 = self.scale(72, 0.7)
         self.s_16 = self.scale(16, 0.7)
         self._cv = Condition(RLock())
-        self._cvc = Condition(RLock())
 
         self.launch_jpg = find_file("launch.jpg")
         self.abort_jpg = find_file("abort.jpg")
@@ -159,7 +158,7 @@ class LaunchGui(Thread):
                 self.set_lights_on_icon()
 
     def __call__(self, cmd: CommandReq) -> None:
-        with self._cvc:
+        with self._cv:
             # handle launch sequence differently
             if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
                 if self._launch_seq_time_trigger is None:
@@ -168,10 +167,8 @@ class LaunchGui(Thread):
                 else:
                     if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.1:
                         if not self._is_countdown:
-                            self.do_launch(76, detected=True)
-                            self._last_cmd = None
+                            self.app.after(0, self.do_launch_detected, [80])
                             self._launch_seq_time_trigger = None
-                            return
                 self._last_cmd = cmd
                 self._last_cmd_at = time()
                 return
@@ -182,32 +179,31 @@ class LaunchGui(Thread):
                 if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
                     if cmd.data in (3, 6):
                         # mark launch pad as on and lights as on
-                        self.do_power_on()
-                        self.sync_pad_lights()
+                        self.app.after(0, self.do_power_on)
+                        self.app.after(10, self.sync_pad_lights)
                     elif cmd.data == 5:
-                        self.set_lights_on_icon()
-                        self.do_power_off()
+                        self.app.after(0, self.set_lights_on_icon)
+                        self.app.after(10, self.do_power_off)
                     elif cmd.data == 0:  # reset
-                        self.do_klaxon_off()
                         if self._is_countdown:
-                            self.do_abort(detected=True)
+                            self.app.after(0, self.do_abort_detected)
                         else:
                             # reset causes engine to start up, check for that state change here
-                            self.sync_gui_state()
+                            self.app.after(0, self.sync_gui_state)
+                        self.app.after(10, self.do_klaxon_off)
                 elif self.is_active():
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
-                        self.do_power_on()
-                        self.do_launch(15, detected=True, hold=False)
+                        self.app.after(0, self.do_launch_detected, [15])
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
-                        self.sync_pad_lights()
+                        self.app.after(0, self.sync_pad_lights)
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
-                        self.set_lights_off_icon()
+                        self.app.after(0, self.set_lights_off_icon)
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
-                        self.set_lights_on_icon()
+                        self.app.after(0, self.set_lights_on_icon)
                     elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
-                        self.siren_sounded()
+                        self.app.after(0, self.siren_sounded)
                     elif cmd.command == TMCC1EngineCommandEnum.RING_BELL:
-                        self.klaxon_sounded()
+                        self.app.after(0, self.klaxon_sounded)
             # remember last command
             self._last_cmd = cmd
 
@@ -418,9 +414,13 @@ class LaunchGui(Thread):
             second = count % 60
             self.count.value = f"{prefix}{minute:02d}:{second:02d}"
 
+    def do_launch_detected(self, t_minus: int = 80):
+        self.do_launch(t_minus=t_minus, detected=True)
+
     def do_launch(self, t_minus: int = 80, detected: bool = False, hold=False):
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
+            self.do_power_on()
             if self._is_countdown:
                 self.count.cancel(self.update_counter)
             self._is_countdown = True
@@ -439,6 +439,9 @@ class LaunchGui(Thread):
             # start the clock
             if not hold:
                 self.count.repeat(1090, self.update_counter)
+
+    def do_abort_detected(self):
+        self.do_abort(detected=True)
 
     def do_abort(self, detected: bool = False):
         """
