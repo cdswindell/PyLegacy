@@ -169,7 +169,9 @@ class LaunchGui(Thread):
                     if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.1:
                         if not self._is_countdown:
                             self.do_launch(76, detected=True)
-                        self._launch_seq_time_trigger = None
+                            self._last_cmd = None
+                            self._launch_seq_time_trigger = None
+                            return
                 self._last_cmd = cmd
                 self._last_cmd_at = time()
                 return
