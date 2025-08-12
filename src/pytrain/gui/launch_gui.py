@@ -342,6 +342,7 @@ class LaunchGui(Thread):
                 width=self.s_72,
                 command=self.tower_comm_req.send,
             )
+            self.tower_comms.bg = app.bg
 
         self.gantry_box = gantry_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(gantry_box, text="Gantry", grid=[0, 0, 2, 1], size=self.s_16, underline=True)
@@ -369,6 +370,8 @@ class LaunchGui(Thread):
         self.siren_box.disable()
         self.klaxon_box.disable()
         self.gantry_box.disable()
+        if self.comms_box:
+            self.comms_box.disable()
 
         # sync GUI with current state
         self.sync_gui_state()
@@ -501,6 +504,8 @@ class LaunchGui(Thread):
             self.siren_box.disable()
             self.klaxon_box.disable()
             self.gantry_box.disable()
+            if self.comms_box:
+                self.comms_box.disable()
 
     def do_power_on(self):
         with self._cv:
@@ -512,6 +517,8 @@ class LaunchGui(Thread):
             self.siren_box.enable()
             self.klaxon_box.enable()
             self.gantry_box.enable()
+            if self.comms_box:
+                self.comms_box.enable()
             self.sync_pad_lights()
             if self._is_countdown:
                 self.launch.disable()
