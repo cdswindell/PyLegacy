@@ -74,6 +74,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.right_arrow = find_file("right_arrow.jpg")
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
         self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
+        self.aggrigator_combo = None
         self._max_name_len = 0
         self._max_button_rows = self._max_button_cols = None
         self._first_button_col = 0
@@ -104,7 +105,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 self._is_closed = True
                 self.app.after(10, self.app.destroy)
                 self.join()
-                GpioHandler.release_handler(self)
+                # GpioHandler.release_handler(self)
 
     def reset(self) -> None:
         self.close()
@@ -157,7 +158,12 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
         _ = Text(box, text="    ", grid=[1, 1], size=24)
-        _ = Text(box, text=label, grid=[2, 1, 2, 1], size=24, bold=True)
+        if self._aggrigator:
+            self.aggrigator_combo(box, options=self._aggrigator.guis, selected=self.title, grid=[2, 1, 2, 1])
+            self.aggrigator_combo.text_size = 24
+            self.aggrigator_combo.text_bold = True
+        else:
+            _ = Text(box, text=label, grid=[2, 1, 2, 1], size=24, bold=True)
         _ = Text(box, text="    ", grid=[4, 1], size=24)
         self.by_number = PushButton(
             box,
