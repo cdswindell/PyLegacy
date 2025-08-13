@@ -233,9 +233,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
         print(f"Calling app.display() {self.title} GUI")
         self.app.display()
         print(f"GUI {self.title} exiting")
-        self.app = None
-        self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = _ = None
+        self.app = self.by_name = self.by_number = self.box = self.btn_box = _ = None
         self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
+        self._state_buttons.clear()
+        self._state_buttons = None
         gc.collect()
         self._ev.set()
         print(f"GUI closed {self._ev}")
