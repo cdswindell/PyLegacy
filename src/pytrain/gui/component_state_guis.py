@@ -519,16 +519,20 @@ class ComponentStateGui(Thread):
         while True:
             print("Waiting for request to change GUI...")
             self._ev.wait()
+            self._ev.clear()
             print("Queuing request to kill old GUI...")
-            self._gui.app.after(10, self._gui.app.destroy)
+            GpioHandler.release_handler(self._gui)
+            # self._gui.app.after(10, self._gui.app.destroy)
             # wait for Gui to be destroyed
             self._gui._ev.wait(10)
+            self._gui.join()
             print(self._gui._ev)
             print("Previous GUI shutdown")
             self._gui = None
             gc.collect()
 
             # create and display new gui
+            print("Creating new GUI...")
             self._gui = self._guis[self.requested_gui](self.label, self.width, self.height, aggrigator=self)
 
     def cycle_gui(self, gui: str):
