@@ -153,7 +153,7 @@ class LaunchGui(Thread):
                     print("Detected Power Off...")
                     self.do_power_off()
                     self.set_lights_on_icon()
-                self._monitored_state.synchronizer.notify_all()
+                # self._monitored_state.synchronizer.notify_all()
 
     def sync_pad_lights(self):
         with self._monitored_state.synchronizer:
@@ -526,6 +526,7 @@ class LaunchGui(Thread):
                 self.count.cancel(self.update_counter)
                 self._is_countdown = False
             if self.power_button.image != self.on_button:
+                print("Changing 'On' Button Image...")
                 self.power_button.image = self.on_button
                 self.power_button.height = self.power_button.width = self.s_72
             self.upper_box.disable()
