@@ -105,11 +105,14 @@ class StateBasedGui(Thread, Generic[S], ABC):
         if not self._is_closed:
             self._is_closed = True
             if self.app:
-                print(f"Requesting app.destroy() {self.title} GUI")
                 self.app.after(10, self.app.destroy)
 
     def reset(self) -> None:
         self.close()
+
+    @property
+    def destroy_complete(self) -> Event:
+        return self._ev
 
     # noinspection PyTypeChecker
     def on_sync(self) -> None:
@@ -146,13 +149,11 @@ class StateBasedGui(Thread, Generic[S], ABC):
         return upd
 
     def run(self) -> None:
-        print(f"Starting {self.title} GUI")
         self._ev.clear()
         GpioHandler.cache_handler(self)
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
-        print("...")
 
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
@@ -230,20 +231,16 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
         # Display GUI and start event loop; call blocks
         self._app_active = True
-        print(f"Calling app.display() {self.title} GUI")
         self.app.display()
-        print(f"GUI {self.title} exiting")
+        # clear instance variables so GC can remove them, freeing GUIZero state
         self.app = self.by_name = self.by_number = self.box = self.btn_box = _ = None
         self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
         self._state_buttons.clear()
-        self._state_buttons = None
-        print("Calling gc...")
+
         gc.collect()
         self._ev.set()
-        print(f"GUI closed {self._ev}")
 
     def on_combo_change(self, option: str) -> None:
-        print(f"Combo changed to {option}")
         if option == self.title:
             return  # Noop
         else:
@@ -511,32 +508,27 @@ class ComponentStateGui(Thread):
             self.height = height
         self.requested_gui = initial
         # create the initially requested gui
-        print(self.guis)
         self._gui = self._guis[initial](label, width, height, aggrigator=self)
         self.start()
 
     def run(self) -> None:
         while True:
-            print("Waiting for request to change GUI...")
+            # Wait for request to change GUI
             self._ev.wait()
             self._ev.clear()
-            print("Queuing request to kill old GUI...")
+            # Close/destroy previous GUI
             GpioHandler.release_handler(self._gui)
-            # self._gui.app.after(10, self._gui.app.destroy)
             # wait for Gui to be destroyed
-            self._gui._ev.wait(10)
+            self._gui.destroy_complete.wait(10)
             self._gui.join()
-            print(self._gui._ev)
-            print("Previous GUI shutdown")
+            # clean up state
             self._gui = None
             gc.collect()
 
             # create and display new gui
-            print("Creating new GUI...")
             self._gui = self._guis[self.requested_gui](self.label, self.width, self.height, aggrigator=self)
 
     def cycle_gui(self, gui: str):
-        print(f"Cycle GUI to {gui}")
         if gui in self._guis:
             self.requested_gui = gui
             self._ev.set()
