@@ -11,7 +11,7 @@ import atexit
 import gc
 import logging
 from abc import ABC, ABCMeta, abstractmethod
-from threading import Condition, RLock, Thread
+from threading import Condition, Event, RLock, Thread
 from typing import Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, Combo, PushButton, Text
@@ -49,6 +49,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
+        self._ev = Event()
         if width is None or height is None:
             try:
                 from tkinter import Tk
@@ -145,6 +146,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     def run(self) -> None:
         print(f"Starting {self.title} GUI")
+        self._ev.clear()
         GpioHandler.cache_handler(self)
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
@@ -234,6 +236,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = _ = None
         self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
         gc.collect()
+        self._ev.set()
 
     def on_combo_change(self, option: str) -> None:
         print(f"Combo changed to {option}")
@@ -509,6 +512,8 @@ class ComponentStateGui:
         if gui in self._guis:
             if self._gui:
                 GpioHandler.release_handler(self._gui)
+                self._gui._ev.wait()
+                print("Previous GUI shutdown")
                 self._gui = None
                 gc.collect()
             # create and display new gui
