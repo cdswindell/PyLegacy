@@ -129,11 +129,10 @@ class LaunchGui(Thread):
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
 
     def close(self) -> None:
-        with self._cv:
-            if not self._is_closed:
-                self._is_closed = True
-                self.app.after(10, self.app.destroy)
-                self.join()
+        if not self._is_closed:
+            self._is_closed = True
+            self.app.after(10, self.app.destroy)
+            self.join()
 
     def reset(self):
         self.close()
