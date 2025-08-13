@@ -144,6 +144,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         return upd
 
     def run(self) -> None:
+        print(f"Starting {self.title} GUI")
         GpioHandler.cache_handler(self)
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
@@ -225,7 +226,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
         # Display GUI and start event loop; call blocks
         self._app_active = True
+        print(f"Calling app.display() {self.title} GUI")
         self.app.display()
+        print(f"GUI {self.title} exiting")
         self.app = None
         gc.collect()
 
@@ -502,14 +505,11 @@ class ComponentStateGui:
         print(f"Cycle GUI to {gui}")
         if gui in self._guis:
             if self._gui:
-                print("Closing old gui")
                 GpioHandler.release_handler(self._gui)
                 self._gui = None
                 gc.collect()
             # create and display new gui
-            print("Creating new gui")
             self._gui = self._guis[gui](self.label, self.width, self.height, aggrigator=self)
-            print("New GUI created...")
 
     @property
     def guis(self) -> list[str]:
