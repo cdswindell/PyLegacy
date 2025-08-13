@@ -237,6 +237,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
         self._state_buttons.clear()
         self._state_buttons = None
+        print("Calling gc...")
         gc.collect()
         self._ev.set()
         print(f"GUI closed {self._ev}")
@@ -516,7 +517,7 @@ class ComponentStateGui:
             if self._gui:
                 GpioHandler.release_handler(self._gui)
                 print(self._gui._ev)
-                self._gui._ev.wait(1)
+                self._gui._ev.wait(10)
                 print(self._gui._ev)
                 print("Previous GUI shutdown")
                 self._gui = None
