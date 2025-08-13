@@ -475,7 +475,7 @@ class AccessoriesGui(StateBasedGui):
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
 
 
-class ComponentStateGui:
+class ComponentStateGui(Thread):
     def __init__(
         self,
         label: str = None,
@@ -483,6 +483,8 @@ class ComponentStateGui:
         width: int = None,
         height: int = None,
     ) -> None:
+        super().__init__(daemon=True)
+        self._ev = Event()
         self._guis = {
             # "Accessories": AccessoriesGui,
             "Power Districts": PowerDistrictsGui,
@@ -507,24 +509,33 @@ class ComponentStateGui:
         else:
             self.width = width
             self.height = height
+        self.requested_gui = initial
         # create the initially requested gui
         print(self.guis)
         self._gui = self._guis[initial](label, width, height, aggrigator=self)
+        self.start()
+
+    def run(self) -> None:
+        while True:
+            print("Waiting for request to change GUI...")
+            self._ev.wait()
+            print("Queuing request to kill old GUI...")
+            self._gui.app.after(10, self._gui.app.destroy)
+            # wait for Gui to be destroyed
+            self._gui._ev.wait(10)
+            print(self._gui._ev)
+            print("Previous GUI shutdown")
+            self._gui = None
+            gc.collect()
+
+            # create and display new gui
+            self._gui = self._guis[self.requested_gui](self.label, self.width, self.height, aggrigator=self)
 
     def cycle_gui(self, gui: str):
         print(f"Cycle GUI to {gui}")
         if gui in self._guis:
-            if self._gui:
-                #GpioHandler.release_handler(self._gui)
-                self._gui.app.after(10, self._gui.app.destroy)
-                print(self._gui._ev)
-                self._gui._ev.wait(10)
-                print(self._gui._ev)
-                print("Previous GUI shutdown")
-                self._gui = None
-                gc.collect()
-            # create and display new gui
-            self._gui = self._guis[gui](self.label, self.width, self.height, aggrigator=self)
+            self.requested_gui = gui
+            self._ev.set()
 
     @property
     def guis(self) -> list[str]:
