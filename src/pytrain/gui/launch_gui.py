@@ -139,20 +139,17 @@ class LaunchGui(Thread):
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
-            print(f"sync_gui_state {self._cv}")
-            with self._cv:
-                print("Syncing GUI state...")
-                # power on?
-                if self._monitored_state.is_started is True:
-                    print("Detected Power On...")
-                    self.app.after(1, self.do_power_on)
-                    print("Checking pad lights...")
-                    self.app.after(10, self.sync_pad_lights)
-                else:
-                    print("Detected Power Off...")
-                    self.set_lights_on_icon()
-                    self.app.after(0, self.do_power_off)
-            print(f"exit sync_gui_state {self._cv}")
+            print("Syncing GUI state...")
+            # power on?
+            if self._monitored_state.is_started is True:
+                print("Detected Power On...")
+                self.app.after(10, self.do_power_on)
+                print("Checking pad lights...")
+                self.app.after(20, self.sync_pad_lights)
+            else:
+                print("Detected Power Off...")
+                self.set_lights_on_icon()
+                self.app.after(10, self.do_power_off)
 
     def sync_pad_lights(self):
         if self._monitored_state.is_aux2 is True:
@@ -161,60 +158,57 @@ class LaunchGui(Thread):
             self.set_lights_on_icon()
 
     def __call__(self, cmd: CommandReq) -> None:
-        print(f"__call__ {self._cv} {cmd}")
-        with self._cv:
-            # handle launch sequence differently
-            if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
-                if self._launch_seq_time_trigger is None:
-                    if self._last_cmd != cmd or (time() - self._last_cmd_at) > 5:
-                        self._launch_seq_time_trigger = time()
-                else:
-                    if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.1:
-                        if not self._is_countdown:
-                            self.app.after(1, self.do_launch_detected, [80])
-                            self._launch_seq_time_trigger = None
-                self._last_cmd = cmd
-                self._last_cmd_at = time()
-                return
+        # handle launch sequence differently
+        if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
+            if self._launch_seq_time_trigger is None:
+                if self._last_cmd != cmd or (time() - self._last_cmd_at) > 5:
+                    self._launch_seq_time_trigger = time()
             else:
-                self._launch_seq_time_trigger = None
-            if cmd != self._last_cmd or (time() - self._last_cmd_at) >= 1.0:
-                self._last_cmd_at = time()
-                if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
-                    if cmd.data in (3, 6):
-                        # mark launch pad as on
-                        print("Queuing do_power_on")
-                        self.app.after(10, self.do_power_on)
-                        self.app.after(20, self.sync_pad_lights)
-                    elif cmd.data == 5:
-                        self.app.after(10, self.set_lights_on_icon)
-                        self.app.after(20, self.do_power_off)
-                    elif cmd.data == 0:  # reset
-                        print("Detected Reset...")
-                        if self._is_countdown:
-                            self.app.after(10, self.do_abort_detected)
-                        # else:
-                        #     # reset causes engine to start up, check for that state change here
-                        #     print("From Reset, Checking for pad startup...")
-                        #     self.app.after(1, self.sync_gui_state)
-                        self.app.after(20, self.do_klaxon_off)
-                        print("Reset...")
-                elif self.is_active():
-                    if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
-                        self.app.after(1, self.do_launch_detected, [15])
-                    elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
-                        self.app.after(1, self.sync_pad_lights)
-                    elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
-                        self.app.after(1, self.set_lights_off_icon)
-                    elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
-                        self.app.after(1, self.set_lights_on_icon)
-                    elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
-                        self.app.after(1, self.siren_sounded)
-                    elif cmd.command == TMCC1EngineCommandEnum.RING_BELL:
-                        self.app.after(1, self.klaxon_sounded)
-            # remember last command
+                if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.1:
+                    if not self._is_countdown:
+                        self.app.after(1, self.do_launch_detected, [80])
+                        self._launch_seq_time_trigger = None
             self._last_cmd = cmd
-        print(f"__call__ done {self._cv}")
+            self._last_cmd_at = time()
+            return
+        else:
+            self._launch_seq_time_trigger = None
+        if cmd != self._last_cmd or (time() - self._last_cmd_at) >= 1.0:
+            self._last_cmd_at = time()
+            if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
+                if cmd.data in (3, 6):
+                    # mark launch pad as on
+                    print("Queuing do_power_on")
+                    self.app.after(10, self.do_power_on)
+                    self.app.after(20, self.sync_pad_lights)
+                elif cmd.data == 5:
+                    self.app.after(10, self.set_lights_on_icon)
+                    self.app.after(20, self.do_power_off)
+                elif cmd.data == 0:  # reset
+                    print("Detected Reset...")
+                    if self._is_countdown:
+                        self.app.after(10, self.do_abort_detected)
+                    # else:
+                    #     # reset causes engine to start up, check for that state change here
+                    #     print("From Reset, Checking for pad startup...")
+                    #     self.app.after(1, self.sync_gui_state)
+                    self.app.after(20, self.do_klaxon_off)
+                    print("Reset...")
+            elif self.is_active():
+                if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
+                    self.app.after(1, self.do_launch_detected, [15])
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
+                    self.app.after(1, self.sync_pad_lights)
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
+                    self.app.after(1, self.set_lights_off_icon)
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
+                    self.app.after(1, self.set_lights_on_icon)
+                elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
+                    self.app.after(1, self.siren_sounded)
+                elif cmd.command == TMCC1EngineCommandEnum.RING_BELL:
+                    self.app.after(1, self.klaxon_sounded)
+        # remember last command
+        self._last_cmd = cmd
 
     def is_active(self) -> bool:
         return True if self._monitored_state and self._monitored_state.is_started is True else False
