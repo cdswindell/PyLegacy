@@ -179,8 +179,9 @@ class LaunchGui(Thread):
                 self._last_cmd_at = time()
                 if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
                     if cmd.data in (3, 6):
-                        # mark launch pad as on and lights as on
-                        self.app.after(0, self.do_power_on)
+                        # mark launch pad as on
+                        print("Queuing do_power_on")
+                        self.app.after(1, self.do_power_on)
                         self.app.after(10, self.sync_pad_lights)
                     elif cmd.data == 5:
                         self.app.after(1, self.set_lights_on_icon)
