@@ -1,3 +1,12 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+from __future__ import annotations
+
 import atexit
 import gc
 import logging
@@ -32,6 +41,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         label: str = None,
         width: int = None,
         height: int = None,
+        aggrigator: ComponentStateGui = None,
         enabled_bg: str = "green",
         disabled_bg: str = "black",
         enabled_text: str = "black",
@@ -54,6 +64,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             self.height = height
         self.title = title
         self.label = label
+        self._aggrigator = aggrigator
 
         self._enabled_bg = enabled_bg
         self._disabled_bg = disabled_bg
@@ -93,6 +104,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 self._is_closed = True
                 self.app.after(10, self.app.destroy)
                 self.join()
+                GpioHandler.release_handler(self)
 
     def reset(self) -> None:
         self.close()
@@ -311,8 +323,14 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
 
 class PowerDistrictsGui(StateBasedGui):
-    def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
-        StateBasedGui.__init__(self, "Power Districts", label, width, height)
+    def __init__(
+        self,
+        label: str = None,
+        width: int = None,
+        height: int = None,
+        aggrigator: ComponentStateGui = None,
+    ) -> None:
+        StateBasedGui.__init__(self, "Power Districts", label, width, height, aggrigator)
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
@@ -335,8 +353,14 @@ class PowerDistrictsGui(StateBasedGui):
 
 
 class SwitchesGui(StateBasedGui):
-    def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
-        StateBasedGui.__init__(self, "Switches", label, width, height, disabled_bg="red")
+    def __init__(
+        self,
+        label: str = None,
+        width: int = None,
+        height: int = None,
+        aggrigator: ComponentStateGui = None,
+    ) -> None:
+        StateBasedGui.__init__(self, "Switches", label, width, height, aggrigator, disabled_bg="red")
 
     def get_target_states(self) -> list[SwitchState]:
         pds: list[SwitchState] = []
@@ -359,8 +383,14 @@ class SwitchesGui(StateBasedGui):
 
 
 class RoutesGui(StateBasedGui):
-    def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
-        StateBasedGui.__init__(self, "Routes", label, width, height, disabled_bg="red")
+    def __init__(
+        self,
+        label: str = None,
+        width: int = None,
+        height: int = None,
+        aggrigator: ComponentStateGui = None,
+    ) -> None:
+        StateBasedGui.__init__(self, "Routes", label, width, height, aggrigator, disabled_bg="red")
 
     def get_target_states(self) -> list[RouteState]:
         pds: list[RouteState] = []
@@ -383,8 +413,14 @@ class RoutesGui(StateBasedGui):
 
 
 class AccessoriesGui(StateBasedGui):
-    def __init__(self, label: str = None, width: int = None, height: int = None) -> None:
-        StateBasedGui.__init__(self, "Accessories", label, width, height)
+    def __init__(
+        self,
+        label: str = None,
+        width: int = None,
+        height: int = None,
+        aggrigator: ComponentStateGui = None,
+    ) -> None:
+        StateBasedGui.__init__(self, "Accessories", label, width, height, aggrigator)
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
@@ -406,3 +442,51 @@ class AccessoriesGui(StateBasedGui):
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
             else:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
+
+
+class ComponentStateGui:
+    def __init__(
+        self,
+        label: str = None,
+        initial: str = "Power Districts",
+        width: int = None,
+        height: int = None,
+    ) -> None:
+        self._guis = {
+            # "Accessories": AccessoriesGui,
+            "Power Districts": PowerDistrictsGui,
+            "Switches": SwitchesGui,
+            "Routes": RoutesGui,
+        }
+        # verify requested GUI exists:
+        if initial not in self._guis:
+            raise ValueError(f"Invalid initial GUI: {initial}")
+
+        self.label = label
+        if width is None or height is None:
+            try:
+                from tkinter import Tk
+
+                root = Tk()
+                self.width = root.winfo_screenwidth()
+                self.height = root.winfo_screenheight()
+                root.destroy()
+            except Exception as e:
+                log.exception("Error determining window size", exc_info=e)
+        else:
+            self.width = width
+            self.height = height
+        # create the initially requested gui
+        print(self.guis)
+        self._gui = self._guis[initial](label, width, height, aggrigator=self)
+
+    def swap_gui(self, gui: str):
+        if gui in self._guis:
+            if self._gui:
+                self._gui.close()
+            # create and display new gui
+            self._gui = self._guis[gui](self.label, self.width, self.height, aggrigator=self)
+
+    @property
+    def guis(self) -> list[str]:
+        return list(self._guis.keys())

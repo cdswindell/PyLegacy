@@ -4,13 +4,14 @@ import sched
 import threading
 import time
 from threading import Thread
-from typing import Callable, Dict, Tuple, TypeVar, Union
+from typing import Callable, Dict, Tuple, TypeVar, Union, cast
 
 from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device
 
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
+from ..db.engine_state import EngineState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
@@ -277,7 +278,7 @@ class GpioHandler:
 
             state = ComponentStateStore.get_state(CommandScope.ENGINE, address, create=False)
             if state:
-                return state.numeric
+                return cast(EngineState, state).numeric
         return None
 
     @staticmethod
@@ -748,6 +749,16 @@ class GpioHandler:
     @classmethod
     def cache_handler(cls, handler: Thread) -> None:
         cls.GPIO_HANDLER_CACHE.add(handler)
+
+    @classmethod
+    def release_handler(cls, handler: Thread) -> None:
+        if handler in cls.GPIO_HANDLER_CACHE:
+            if not hasattr(handler, "reset"):
+                log.error(f"{handler} has no 'reset' method. Skipping...")
+            else:
+                # noinspection PyUnresolvedReferences
+                handler.reset()
+            cls.GPIO_HANDLER_CACHE.remove(handler)
 
     @classmethod
     def cache_device(cls, device: Device) -> None:
