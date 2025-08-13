@@ -149,6 +149,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
+        print("...")
 
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
@@ -230,6 +231,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.app.display()
         print(f"GUI {self.title} exiting")
         self.app = None
+        self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = _ = None
+        self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
         gc.collect()
 
     def on_combo_change(self, option: str) -> None:
