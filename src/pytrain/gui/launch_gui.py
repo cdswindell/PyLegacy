@@ -143,8 +143,10 @@ class LaunchGui(Thread):
             with self._monitored_state.synchronizer:
                 # power on?
                 if self._monitored_state.is_started is True:
+                    print("Detected Power On...")
                     self.do_power_on()
                     # Lights on?
+                    print("Checking pad lights...")
                     self.sync_pad_lights()
                 else:
                     self.do_power_off()
@@ -192,6 +194,7 @@ class LaunchGui(Thread):
                             self.app.after(0, self.do_abort_detected)
                         else:
                             # reset causes engine to start up, check for that state change here
+                            print("From Reset, Checking for pad startup...")
                             self.app.after(0, self.sync_gui_state)
                         self.app.after(10, self.do_klaxon_off)
                         print("Reset...")
