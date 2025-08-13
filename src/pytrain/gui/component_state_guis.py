@@ -14,7 +14,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from threading import Condition, RLock, Thread
 from typing import Callable, Generic, TypeVar, cast
 
-from guizero import App, Box, PushButton, Text, Combo
+from guizero import App, Box, Combo, PushButton, Text
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
@@ -159,7 +159,13 @@ class StateBasedGui(Thread, Generic[S], ABC):
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
         _ = Text(box, text="    ", grid=[1, 1], size=24)
         if self._aggrigator:
-            self.aggrigator_combo = Combo(box, options=self._aggrigator.guis, selected=self.title, grid=[2, 1, 2, 1])
+            self.aggrigator_combo = Combo(
+                box,
+                options=self._aggrigator.guis,
+                selected=self.title,
+                grid=[2, 1, 2, 1],
+                command=self.on_combo_change,
+            )
             self.aggrigator_combo.text_size = 24
             self.aggrigator_combo.text_bold = True
         else:
@@ -223,6 +229,13 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.app.display()
         self.app = None
         gc.collect()
+
+    def on_combo_change(self, option: str) -> None:
+        print(f"Combo changed to {option}")
+        if option == self.title:
+            return  # Noop
+        else:
+            self._aggrigator.cycle_gui(option)
 
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
@@ -486,7 +499,7 @@ class ComponentStateGui:
         print(self.guis)
         self._gui = self._guis[initial](label, width, height, aggrigator=self)
 
-    def swap_gui(self, gui: str):
+    def cycle_gui(self, gui: str):
         if gui in self._guis:
             if self._gui:
                 self._gui.close()
