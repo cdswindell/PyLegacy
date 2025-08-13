@@ -14,7 +14,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from threading import Condition, RLock, Thread
 from typing import Callable, Generic, TypeVar, cast
 
-from guizero import App, Box, PushButton, Text
+from guizero import App, Box, PushButton, Text, Combo
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
@@ -105,7 +105,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 self._is_closed = True
                 self.app.after(10, self.app.destroy)
                 self.join()
-                #GpioHandler.release_handler(self)
+                # GpioHandler.release_handler(self)
 
     def reset(self) -> None:
         self.close()
@@ -159,7 +159,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
         _ = Text(box, text="    ", grid=[1, 1], size=24)
         if self._aggrigator:
-            self.aggrigator_combo(box, options = self._aggrigator.guis, selected=self.title, grid=[2, 1, 2, 1])
+            self.aggrigator_combo = Combo(box, options=self._aggrigator.guis, selected=self.title, grid=[2, 1, 2, 1])
             self.aggrigator_combo.text_size = 24
             self.aggrigator_combo.text_bold = True
         else:
