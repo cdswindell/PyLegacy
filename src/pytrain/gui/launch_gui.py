@@ -172,7 +172,7 @@ class LaunchGui(Thread):
                 else:
                     if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.1:
                         if not self._is_countdown:
-                            self.app.after(0, self.do_launch_detected, [80])
+                            self.app.after(1, self.do_launch_detected, [80])
                             self._launch_seq_time_trigger = None
                 self._last_cmd = cmd
                 self._last_cmd_at = time()
@@ -187,31 +187,31 @@ class LaunchGui(Thread):
                         self.app.after(0, self.do_power_on)
                         self.app.after(10, self.sync_pad_lights)
                     elif cmd.data == 5:
-                        self.app.after(0, self.set_lights_on_icon)
+                        self.app.after(1, self.set_lights_on_icon)
                         self.app.after(10, self.do_power_off)
                     elif cmd.data == 0:  # reset
                         print("Detected Reset...")
                         if self._is_countdown:
-                            self.app.after(0, self.do_abort_detected)
+                            self.app.after(1, self.do_abort_detected)
                         else:
                             # reset causes engine to start up, check for that state change here
                             print("From Reset, Checking for pad startup...")
-                            self.app.after(0, self.sync_gui_state)
+                            self.app.after(1, self.sync_gui_state)
                         self.app.after(10, self.do_klaxon_off)
                         print("Reset...")
                 elif self.is_active():
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
-                        self.app.after(0, self.do_launch_detected, [15])
+                        self.app.after(1, self.do_launch_detected, [15])
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
-                        self.app.after(0, self.sync_pad_lights)
+                        self.app.after(1, self.sync_pad_lights)
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
-                        self.app.after(0, self.set_lights_off_icon)
+                        self.app.after(1, self.set_lights_off_icon)
                     elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
-                        self.app.after(0, self.set_lights_on_icon)
+                        self.app.after(1, self.set_lights_on_icon)
                     elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
-                        self.app.after(0, self.siren_sounded)
+                        self.app.after(1, self.siren_sounded)
                     elif cmd.command == TMCC1EngineCommandEnum.RING_BELL:
-                        self.app.after(0, self.klaxon_sounded)
+                        self.app.after(1, self.klaxon_sounded)
             # remember last command
             self._last_cmd = cmd
             self._cv.notify_all()
