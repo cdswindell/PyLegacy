@@ -499,12 +499,15 @@ class ComponentStateGui:
         self._gui = self._guis[initial](label, width, height, aggrigator=self)
 
     def cycle_gui(self, gui: str):
+        print(f"Cycle GUI to {gui}")
         if gui in self._guis:
             if self._gui:
-                self._gui.close()
+                print("Closing old gui")
+                GpioHandler.release_handler(self._gui)
                 self._gui = None
                 gc.collect()
             # create and display new gui
+            print("Creating new gui")
             self._gui = self._guis[gui](self.label, self.width, self.height, aggrigator=self)
 
     @property
