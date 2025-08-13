@@ -177,7 +177,7 @@ class LaunchGui(Thread):
                     # mark launch pad as on
                     self.app.after(10, self.do_power_on)
                     self.app.after(20, self.sync_pad_lights)
-                elif cmd.data == 5:
+                elif cmd.data == 5:  # power down
                     self.app.after(10, self.set_lights_on_icon)
                     self.app.after(20, self.do_power_off)
                 elif cmd.data == 0:  # reset
@@ -493,12 +493,12 @@ class LaunchGui(Thread):
         else:
             self.do_power_off()
             self.power_off_req.send()
-            self.lights_off_req.send(delay=0.5)
         self.power_button.height = self.power_button.width = self.s_72
         self.lower_box.show()
 
     def do_power_off(self):
         with self._cv:
+            self.lights_off_req.send(repeat=2)
             self.cancel_flashing()
             if self._is_countdown:
                 self.count.cancel(self.update_counter)
