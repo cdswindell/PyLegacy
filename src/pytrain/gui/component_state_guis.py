@@ -515,7 +515,7 @@ class ComponentStateGui:
         print(f"Cycle GUI to {gui}")
         if gui in self._guis:
             if self._gui:
-                # GpioHandler.release_handler(self._gui)
+                #GpioHandler.release_handler(self._gui)
                 self._gui.app.after(10, self._gui.app.destroy)
                 print(self._gui._ev)
                 self._gui._ev.wait(10)
