@@ -237,6 +237,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
         gc.collect()
         self._ev.set()
+        print(f"GUI closed {self._ev}")
 
     def on_combo_change(self, option: str) -> None:
         print(f"Combo changed to {option}")
@@ -512,6 +513,7 @@ class ComponentStateGui:
         if gui in self._guis:
             if self._gui:
                 GpioHandler.release_handler(self._gui)
+                print(self._gui._ev)
                 self._gui._ev.wait()
                 print("Previous GUI shutdown")
                 self._gui = None
