@@ -103,9 +103,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
         with self._cv:
             if not self._is_closed:
                 self._is_closed = True
-                self.app.after(10, self.app.destroy)
-                # self.join()
-                # GpioHandler.release_handler(self)
+                if self.app:
+                    self.app.after(10, self.app.destroy)
 
     def reset(self) -> None:
         self.close()
@@ -503,6 +502,8 @@ class ComponentStateGui:
         if gui in self._guis:
             if self._gui:
                 self._gui.close()
+                self._gui = None
+                gc.collect()
             # create and display new gui
             self._gui = self._guis[gui](self.label, self.width, self.height, aggrigator=self)
 
