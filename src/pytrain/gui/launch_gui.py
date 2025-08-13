@@ -475,7 +475,7 @@ class LaunchGui(Thread):
                 self.update_counter(value=0)
             self.launch.enable()
             self.message.show()
-            self._cv.notify_all()
+            print("Exiting do_abort...")
 
     def flash_message(self):
         with self._cv:
