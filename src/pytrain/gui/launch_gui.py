@@ -139,17 +139,20 @@ class LaunchGui(Thread):
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
-            print("Syncing GUI state...")
-            # power on?
-            if self._monitored_state.is_started is True:
-                print("Detected Power On...")
-                self.app.after(1, self.do_power_on)
-                print("Checking pad lights...")
-                self.app.after(10, self.sync_pad_lights)
-            else:
-                print("Detected Power Off...")
-                self.set_lights_on_icon()
-                self.app.after(0, self.do_power_off)
+            print(f"sync_gui_state {self._cv}")
+            with self._cv:
+                print("Syncing GUI state...")
+                # power on?
+                if self._monitored_state.is_started is True:
+                    print("Detected Power On...")
+                    self.app.after(1, self.do_power_on)
+                    print("Checking pad lights...")
+                    self.app.after(10, self.sync_pad_lights)
+                else:
+                    print("Detected Power Off...")
+                    self.set_lights_on_icon()
+                    self.app.after(0, self.do_power_off)
+            print(f"exit sync_gui_state {self._cv}")
 
     def sync_pad_lights(self):
         if self._monitored_state.is_aux2 is True:
