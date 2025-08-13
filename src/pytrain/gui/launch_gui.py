@@ -144,12 +144,13 @@ class LaunchGui(Thread):
             # power on?
             if self._monitored_state.is_started is True:
                 print("Detected Power On...")
-                self.do_power_on()
+                self.app.after(1, self.do_power_on)
+                print("Checking pad lights...")
+                self.app.after(10, self.sync_pad_lights)
             else:
                 print("Detected Power Off...")
-                self.do_power_off()
-            print("Checking pad lights...")
-            self.set_lights_on_icon()
+                self.set_lights_on_icon()
+                self.app.after(0, self.do_power_off)
 
     def sync_pad_lights(self):
         if self._monitored_state.is_aux2 is True:
@@ -548,7 +549,6 @@ class LaunchGui(Thread):
             if self._is_countdown:
                 self.launch.disable()
             print("Power On...")
-            self._cv.notify_all()
 
     def set_lights_off_icon(self):
         if self.lights_button.image != self.off_button:
