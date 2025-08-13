@@ -509,6 +509,7 @@ class ComponentStateGui:
             # create and display new gui
             print("Creating new gui")
             self._gui = self._guis[gui](self.label, self.width, self.height, aggrigator=self)
+            print("New GUI created...")
 
     @property
     def guis(self) -> list[str]:
