@@ -158,6 +158,7 @@ class LaunchGui(Thread):
             self.set_lights_on_icon()
 
     def __call__(self, cmd: CommandReq) -> None:
+        print(f"__call__ {self._cv}")
         with self._cv:
             # handle launch sequence differently
             if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
@@ -209,6 +210,7 @@ class LaunchGui(Thread):
                         self.app.after(1, self.klaxon_sounded)
             # remember last command
             self._last_cmd = cmd
+        print(f"__call__ done {self._cv}")
 
     def is_active(self) -> bool:
         return True if self._monitored_state and self._monitored_state.is_started is True else False
@@ -393,6 +395,7 @@ class LaunchGui(Thread):
         self.toggle_sound(self.klaxon_button)
 
     def update_counter(self, value: int = None):
+        print(f"update_counter {self._cv}")
         with self._cv:
             prefix = "-"
             if value is None:
@@ -416,11 +419,13 @@ class LaunchGui(Thread):
             minute = count // 60
             second = count % 60
             self.count.value = f"{prefix}{minute:02d}:{second:02d}"
+        print(f"update_counter done {self._cv}")
 
     def do_launch_detected(self, t_minus: int = 80):
         self.do_launch(t_minus=t_minus, detected=True)
 
     def do_launch(self, t_minus: int = 80, detected: bool = False, hold=False):
+        print(f"do_launch {self._cv}")
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
             self.do_power_on()
@@ -442,6 +447,7 @@ class LaunchGui(Thread):
             # start the clock
             if not hold:
                 self.count.repeat(1090, self.update_counter)
+        print(f"do_launch done {self._cv}")
 
     def do_abort_detected(self):
         self.do_abort(detected=True)
@@ -472,7 +478,7 @@ class LaunchGui(Thread):
                 self.update_counter(value=0)
             self.launch.enable()
             self.message.show()
-            print("Exiting do_abort...")
+        print(f"Exiting do_abort... {self._cv}")
 
     def flash_message(self):
         print(f"Flash Message {self._cv}...")
@@ -482,6 +488,7 @@ class LaunchGui(Thread):
             else:
                 self.message.text_color = "red"
             self._is_flashing = True
+        print(f"Flash Message done {self._cv}")
 
     def cancel_flashing(self):
         print(f"Canceling Flash {self._cv}...")
@@ -489,6 +496,7 @@ class LaunchGui(Thread):
             if self._is_flashing:
                 self.message.cancel(self.flash_message)
                 self._is_flashing = False
+        print(f"Canceling Flash done {self._cv}")
 
     def toggle_power(self):
         self.update_counter(value=0)
@@ -509,6 +517,7 @@ class LaunchGui(Thread):
         self.lower_box.show()
 
     def do_power_off(self):
+        print(f"do_power_off {self._cv}")
         with self._cv:
             print("Power Off...")
             self.cancel_flashing()
@@ -527,8 +536,10 @@ class LaunchGui(Thread):
             self.gantry_box.disable()
             if self.comms_box:
                 self.comms_box.disable()
+        print(f"do_power_off done {self._cv}")
 
     def do_power_on(self):
+        print(f"do_power_on {self._cv}")
         with self._cv:
             if self.power_button.image != self.off_button:
                 self.power_button.image = self.off_button
@@ -544,6 +555,7 @@ class LaunchGui(Thread):
             if self._is_countdown:
                 self.launch.disable()
             print("Power On...")
+        print(f"do_power_on done {self._cv}")
 
     def set_lights_off_icon(self):
         if self.lights_button.image != self.off_button:
