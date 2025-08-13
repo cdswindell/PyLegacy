@@ -184,20 +184,20 @@ class LaunchGui(Thread):
                     if cmd.data in (3, 6):
                         # mark launch pad as on
                         print("Queuing do_power_on")
-                        self.app.after(1, self.do_power_on)
-                        self.app.after(10, self.sync_pad_lights)
+                        self.app.after(10, self.do_power_on)
+                        self.app.after(20, self.sync_pad_lights)
                     elif cmd.data == 5:
-                        self.app.after(1, self.set_lights_on_icon)
-                        self.app.after(10, self.do_power_off)
+                        self.app.after(10, self.set_lights_on_icon)
+                        self.app.after(20, self.do_power_off)
                     elif cmd.data == 0:  # reset
                         print("Detected Reset...")
                         if self._is_countdown:
-                            self.app.after(1, self.do_abort_detected)
+                            self.app.after(10, self.do_abort_detected)
                         # else:
                         #     # reset causes engine to start up, check for that state change here
                         #     print("From Reset, Checking for pad startup...")
                         #     self.app.after(1, self.sync_gui_state)
-                        self.app.after(10, self.do_klaxon_off)
+                        self.app.after(20, self.do_klaxon_off)
                         print("Reset...")
                 elif self.is_active():
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
