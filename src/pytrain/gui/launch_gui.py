@@ -140,28 +140,22 @@ class LaunchGui(Thread):
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
-            print(f"Syncing GUI state... {self._monitored_state.synchronizer}")
-            with self._monitored_state.synchronizer:
-                # power on?
-                if self._monitored_state.is_started is True:
-                    print("Detected Power On...")
-                    self.do_power_on()
-                    # Lights on?
-                    print("Checking pad lights...")
-                    self.sync_pad_lights()
-                else:
-                    print("Detected Power Off...")
-                    self.do_power_off()
-                    self.set_lights_on_icon()
-                # self._monitored_state.synchronizer.notify_all()
+            print("Syncing GUI state...")
+            # power on?
+            if self._monitored_state.is_started is True:
+                print("Detected Power On...")
+                self.do_power_on()
+            else:
+                print("Detected Power Off...")
+                self.do_power_off()
+            print("Checking pad lights...")
+            self.set_lights_on_icon()
 
     def sync_pad_lights(self):
-        with self._monitored_state.synchronizer:
-            if self._monitored_state.is_aux2 is True:
-                self.set_lights_off_icon()
-            else:
-                self.set_lights_on_icon()
-            self._monitored_state.synchronizer.notify_all()
+        if self._monitored_state.is_aux2 is True:
+            self.set_lights_off_icon()
+        else:
+            self.set_lights_on_icon()
 
     def __call__(self, cmd: CommandReq) -> None:
         with self._cv:
@@ -567,12 +561,10 @@ class LaunchGui(Thread):
             self.lights_button.height = self.lights_button.width = self.s_72
 
     def toggle_lights(self):
-        with self._monitored_state.synchronizer:
-            if self._monitored_state.is_aux2:
-                self.lights_off_req.send(repeat=2)
-            else:
-                self.lights_on_req.send(repeat=2)
-            self._monitored_state.synchronizer.notify_all()
+        if self._monitored_state.is_aux2:
+            self.lights_off_req.send(repeat=2)
+        else:
+            self.lights_on_req.send(repeat=2)
 
     def do_klaxon_off(self):
         self.klaxon_button.image = self.siren_off
