@@ -516,7 +516,8 @@ class ComponentStateGui:
             if self._gui:
                 GpioHandler.release_handler(self._gui)
                 print(self._gui._ev)
-                self._gui._ev.wait()
+                self._gui._ev.wait(1)
+                print(self._gui._ev)
                 print("Previous GUI shutdown")
                 self._gui = None
                 gc.collect()
