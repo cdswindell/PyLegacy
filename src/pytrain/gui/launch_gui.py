@@ -209,7 +209,6 @@ class LaunchGui(Thread):
                         self.app.after(1, self.klaxon_sounded)
             # remember last command
             self._last_cmd = cmd
-            self._cv.notify_all()
 
     def is_active(self) -> bool:
         return True if self._monitored_state and self._monitored_state.is_started is True else False
@@ -417,7 +416,6 @@ class LaunchGui(Thread):
             minute = count // 60
             second = count % 60
             self.count.value = f"{prefix}{minute:02d}:{second:02d}"
-            self._cv.notify_all()
 
     def do_launch_detected(self, t_minus: int = 80):
         self.do_launch(t_minus=t_minus, detected=True)
@@ -444,7 +442,6 @@ class LaunchGui(Thread):
             # start the clock
             if not hold:
                 self.count.repeat(1090, self.update_counter)
-            self._cv.notify_all()
 
     def do_abort_detected(self):
         self.do_abort(detected=True)
@@ -478,20 +475,20 @@ class LaunchGui(Thread):
             print("Exiting do_abort...")
 
     def flash_message(self):
+        print(f"Flash Message {self._cv}...")
         with self._cv:
             if self.message.text_color == "red":
                 self.message.text_color = self.app.bg
             else:
                 self.message.text_color = "red"
             self._is_flashing = True
-            self._cv.notify_all()
 
     def cancel_flashing(self):
+        print(f"Canceling Flash {self._cv}...")
         with self._cv:
             if self._is_flashing:
                 self.message.cancel(self.flash_message)
                 self._is_flashing = False
-            self._cv.notify_all()
 
     def toggle_power(self):
         self.update_counter(value=0)
@@ -530,7 +527,6 @@ class LaunchGui(Thread):
             self.gantry_box.disable()
             if self.comms_box:
                 self.comms_box.disable()
-            self._cv.notify_all()
 
     def do_power_on(self):
         with self._cv:
