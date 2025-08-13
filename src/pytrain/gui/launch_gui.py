@@ -140,7 +140,7 @@ class LaunchGui(Thread):
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
-            with self._cv:
+            with self._monitored_state.synchronizer:
                 # power on?
                 if self._monitored_state.is_started is True:
                     self.do_power_on()
@@ -149,13 +149,15 @@ class LaunchGui(Thread):
                 else:
                     self.do_power_off()
                     self.set_lights_on_icon()
+                self._monitored_state.synchronizer.notify_all()
 
     def sync_pad_lights(self):
-        with self._cv:
+        with self._monitored_state.synchronizer:
             if self._monitored_state.is_aux2 is True:
                 self.set_lights_off_icon()
             else:
                 self.set_lights_on_icon()
+            self._monitored_state.synchronizer.notify_all()
 
     def __call__(self, cmd: CommandReq) -> None:
         with self._cv:
@@ -185,12 +187,14 @@ class LaunchGui(Thread):
                         self.app.after(0, self.set_lights_on_icon)
                         self.app.after(10, self.do_power_off)
                     elif cmd.data == 0:  # reset
+                        print("Detected Reset...")
                         if self._is_countdown:
                             self.app.after(0, self.do_abort_detected)
                         else:
                             # reset causes engine to start up, check for that state change here
                             self.app.after(0, self.sync_gui_state)
                         self.app.after(10, self.do_klaxon_off)
+                        print("Reset...")
                 elif self.is_active():
                     if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                         self.app.after(0, self.do_launch_detected, [15])
@@ -206,6 +210,7 @@ class LaunchGui(Thread):
                         self.app.after(0, self.klaxon_sounded)
             # remember last command
             self._last_cmd = cmd
+            self._cv.notify_all()
 
     def is_active(self) -> bool:
         return True if self._monitored_state and self._monitored_state.is_started is True else False
@@ -413,6 +418,7 @@ class LaunchGui(Thread):
             minute = count // 60
             second = count % 60
             self.count.value = f"{prefix}{minute:02d}:{second:02d}"
+            self._cv.notify_all()
 
     def do_launch_detected(self, t_minus: int = 80):
         self.do_launch(t_minus=t_minus, detected=True)
@@ -439,6 +445,7 @@ class LaunchGui(Thread):
             # start the clock
             if not hold:
                 self.count.repeat(1090, self.update_counter)
+            self._cv.notify_all()
 
     def do_abort_detected(self):
         self.do_abort(detected=True)
@@ -448,6 +455,7 @@ class LaunchGui(Thread):
         Abort launch sequence if counting down, initiate self-destruct if bird
         is in the air.
         """
+        print(f"In Do Abort... {self._cv}")
         with self._cv:
             if not detected:
                 self.reset_req.send()
@@ -468,6 +476,7 @@ class LaunchGui(Thread):
                 self.update_counter(value=0)
             self.launch.enable()
             self.message.show()
+            self._cv.notify_all()
 
     def flash_message(self):
         with self._cv:
@@ -476,12 +485,14 @@ class LaunchGui(Thread):
             else:
                 self.message.text_color = "red"
             self._is_flashing = True
+            self._cv.notify_all()
 
     def cancel_flashing(self):
         with self._cv:
             if self._is_flashing:
                 self.message.cancel(self.flash_message)
                 self._is_flashing = False
+            self._cv.notify_all()
 
     def toggle_power(self):
         self.update_counter(value=0)
@@ -517,6 +528,7 @@ class LaunchGui(Thread):
             self.gantry_box.disable()
             if self.comms_box:
                 self.comms_box.disable()
+            self._cv.notify_all()
 
     def do_power_on(self):
         with self._cv:
@@ -533,25 +545,26 @@ class LaunchGui(Thread):
             self.sync_pad_lights()
             if self._is_countdown:
                 self.launch.disable()
+            print("Power On...")
+            self._cv.notify_all()
 
     def set_lights_off_icon(self):
-        with self._cv:
-            if self.lights_button.image != self.off_button:
-                self.lights_button.image = self.off_button
-                self.lights_button.height = self.lights_button.width = self.s_72
+        if self.lights_button.image != self.off_button:
+            self.lights_button.image = self.off_button
+            self.lights_button.height = self.lights_button.width = self.s_72
 
     def set_lights_on_icon(self):
-        with self._cv:
-            if self.lights_button.image != self.on_button:
-                self.lights_button.image = self.on_button
-                self.lights_button.height = self.lights_button.width = self.s_72
+        if self.lights_button.image != self.on_button:
+            self.lights_button.image = self.on_button
+            self.lights_button.height = self.lights_button.width = self.s_72
 
     def toggle_lights(self):
-        with self._cv:
+        with self._monitored_state.synchronizer:
             if self._monitored_state.is_aux2:
                 self.lights_off_req.send(repeat=2)
             else:
                 self.lights_on_req.send(repeat=2)
+            self._monitored_state.synchronizer.notify_all()
 
     def do_klaxon_off(self):
         self.klaxon_button.image = self.siren_off
