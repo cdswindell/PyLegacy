@@ -140,6 +140,7 @@ class LaunchGui(Thread):
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
+            print("Syncing GUI state...")
             with self._monitored_state.synchronizer:
                 # power on?
                 if self._monitored_state.is_started is True:
