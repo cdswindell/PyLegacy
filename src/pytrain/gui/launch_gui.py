@@ -187,11 +187,12 @@ class LaunchGui(Thread):
                 elif cmd.data == 0:  # reset
                     print("Detected Reset...")
                     if self._is_countdown:
+                        print("Cancelling Countdown...")
                         self.app.after(10, self.do_abort_detected)
-                    # else:
-                    #     # reset causes engine to start up, check for that state change here
-                    #     print("From Reset, Checking for pad startup...")
-                    #     self.app.after(1, self.sync_gui_state)
+                    else:
+                        # reset causes engine to start up, check for that state change here
+                        print("From Reset, syncing GUI state...")
+                        self.app.after(10, self.sync_gui_state)
                     self.app.after(20, self.do_klaxon_off)
                     print("Reset...")
             elif self.is_active():
