@@ -249,7 +249,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         # self.left_scroll_btn = self.right_scroll_btn = None
         # self.by_name = self.by_number = self.box = self.btn_box = _ = None
         # self.aggrigator_combo = None
-        self.app = None
+        # self.app = None
         # gc.collect()
 
         # notify aggrigator that previous GUI has been destroyed
