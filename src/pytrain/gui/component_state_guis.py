@@ -168,7 +168,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         if self._aggrigator:
             ag_box = Box(box, grid=[2, 1, 2, 1])
             if self.label:
-                _ = Text(ag_box, text=self.label, align="left", size=24, bold=True)
+                _ = Text(ag_box, text=self.label, align="left", size=24, bold=True, height="fill")
             self.aggrigator_combo = Combo(
                 ag_box,
                 options=self._aggrigator.guis,
