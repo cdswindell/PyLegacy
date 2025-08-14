@@ -166,11 +166,14 @@ class StateBasedGui(Thread, Generic[S], ABC):
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
         _ = Text(box, text="    ", grid=[1, 1], size=24)
         if self._aggrigator:
+            ag_box = Box(box, grid=[2, 1, 2, 1])
+            if self.label:
+                _ = Text(ag_box, text=self.label, align="left", size=24, bold=True)
             self.aggrigator_combo = Combo(
-                box,
+                ag_box,
                 options=self._aggrigator.guis,
                 selected=self.title,
-                grid=[2, 1, 2, 1],
+                align="right",
                 command=self.on_combo_change,
             )
             self.aggrigator_combo.text_size = 24
@@ -234,6 +237,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         # Display GUI and start event loop; call blocks
         self._app_active = True
         self.app.display()
+        self._app_active = False
         # clear instance variables so GC can remove them, freeing GUIZero state
         self.app = self.by_name = self.by_number = self.box = self.btn_box = _ = None
         self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
