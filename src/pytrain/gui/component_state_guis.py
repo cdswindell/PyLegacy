@@ -11,6 +11,7 @@ import atexit
 import logging
 from abc import ABC, ABCMeta, abstractmethod
 from threading import Condition, Event, RLock, Thread, get_ident
+from tkinter import TclError
 from typing import Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, Combo, PushButton, Text
@@ -162,18 +163,17 @@ class StateBasedGui(Thread, Generic[S], ABC):
         app.full_screen = True
         app.when_closed = self.close
 
-        # poll for shutdown requests from other threads; this runs on the Tk thread
+        # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():
             if self._shutdown_flag.is_set():
                 try:
                     app.destroy()
-                except Exception:
+                except TclError:
                     pass  # ignore, we're shutting down
-                return None  # stop repeating
-            return None  # guizero ignores return value but keep function small
+                return None
+            return None
 
-        # run often enough to be responsive on exit/switch
-        app.repeat(100, _poll_shutdown)
+        app.repeat(500, _poll_shutdown)
 
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
@@ -253,31 +253,23 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.sort_by_number()
 
         # Display GUI and start event loop; call blocks
-
-        # Ensure that after the app mainloop exits we clean up on the Tk thread
         try:
-            app.display()  # if not already present later in the method
-        except Exception:
+            app.display()
+        except TclError:
+            # If Tcl is already tearing down, ignore
             pass
         finally:
-            if self._aggrigator:
-                for sw in self._state_watchers.values():
-                    sw.shutdown()
-                self._state_watchers.clear()
-            # Explicitly drop references to tkinter/guizero objects on the Tk thread
-            try:
-                self.aggrigator_combo = None
-                self.left_scroll_btn = self.right_scroll_btn = None
-                self.by_name = self.by_number = None
-                self.btn_box = self.box = None
-                # Clear state button widgets to run their __del__ on this thread
-                self._state_buttons.clear()
-            except Exception:
-                pass
+            # Ensure that after the app mainloop exits we clean up on the Tk thread
+            self.aggrigator_combo = None
+            self.left_scroll_btn = None
+            self.right_scroll_btn = None
+            self.by_name = None
+            self.by_number = None
+            self.btn_box = None
+            self.box = None
+            self._state_buttons.clear()
             self.app = None
             self._ev.set()
-
-    # existing code continues...
 
     def on_combo_change(self, option: str) -> None:
         if option == self.title:
@@ -561,15 +553,14 @@ class ComponentStateGui(Thread):
             self._ev.clear()
 
             # Close/destroy previous GUI
-            # GpioHandler.release_handler(self._gui)
-            self._gui.close()
+            GpioHandler.release_handler(self._gui)
+            # self._gui.close()
 
             # wait for Gui to be destroyed
             self._gui.destroy_complete.wait(10)
-            # self._gui.join()
+            self._gui.join()
             # clean up state
             self._gui = None
-            # gc.collect()
 
             # create and display new gui
             self._gui = self._guis[self.requested_gui](self.label, self.width, self.height, aggrigator=self)
