@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import atexit
+import gc
 import logging
 from abc import ABC, ABCMeta, abstractmethod
 from threading import Condition, Event, RLock, Thread
@@ -159,9 +160,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
 
-        # customize label
-        label = f"{self.label} {self.title}" if self.label else self.title
-
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
         _ = Text(box, text="    ", grid=[1, 1], size=24)
         if self._aggrigator:
@@ -178,6 +176,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
             self.aggrigator_combo.text_size = 24
             self.aggrigator_combo.text_bold = True
         else:
+            # customize label
+            label = f"{self.label} {self.title}" if self.label else self.title
+
             _ = Text(box, text=label, grid=[2, 1, 2, 1], size=24, bold=True)
         _ = Text(box, text="    ", grid=[4, 1], size=24)
         self.by_number = PushButton(
@@ -245,10 +246,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
             sw.shutdown()
         self._state_watchers.clear()
         self._state_buttons.clear()
-        self.left_scroll_btn = self.right_scroll_btn = None
+        self.left_scroll_btn = self.right_scroll_btn = self.aggrigator_combo = None
         self.by_name = self.by_number = self.box = self.btn_box = _ = None
-        # gc.collect()
         self.app = None
+        gc.collect()
 
         # notify aggrigator that previous GUI has been destroyed
         self._ev.set()
