@@ -237,16 +237,21 @@ class StateBasedGui(Thread, Generic[S], ABC):
         # Display GUI and start event loop; call blocks
         self._app_active = True
         self.app.display()
+
+        # app has exited GUIZero event loop
         self._app_active = False
+
         # clear instance variables so GC can remove them, freeing GUIZero state
-        self.app = self.by_name = self.by_number = self.box = self.btn_box = _ = None
-        self.left_scroll_btn = self.right_scroll_btn = None
         for sw in self._state_watchers.values():
             sw.shutdown()
         self._state_watchers.clear()
         self._state_buttons.clear()
-
+        self.left_scroll_btn = self.right_scroll_btn = None
+        self.by_name = self.by_number = self.box = self.btn_box = _ = None
         gc.collect()
+        self.app = None
+
+        # notify aggrigator that previous GUI has been destroyed
         self._ev.set()
 
     def on_combo_change(self, option: str) -> None:
@@ -531,15 +536,15 @@ class ComponentStateGui(Thread):
             self._ev.clear()
 
             # Close/destroy previous GUI
-            #GpioHandler.release_handler(self._gui)
+            # GpioHandler.release_handler(self._gui)
             self._gui.close()
 
             # wait for Gui to be destroyed
             self._gui.destroy_complete.wait(10)
-            #self._gui.join()
+            # self._gui.join()
             # clean up state
             self._gui = None
-            #gc.collect()
+            # gc.collect()
 
             # create and display new gui
             self._gui = self._guis[self.requested_gui](self.label, self.width, self.height, aggrigator=self)
