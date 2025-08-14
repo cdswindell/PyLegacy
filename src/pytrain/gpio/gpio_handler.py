@@ -758,7 +758,7 @@ class GpioHandler:
             else:
                 # noinspection PyUnresolvedReferences
                 handler.reset()
-            cls.GPIO_HANDLER_CACHE.remove(handler)
+            cls.GPIO_HANDLER_CACHE.discard(handler)
 
     @classmethod
     def cache_device(cls, device: Device) -> None:
@@ -770,7 +770,7 @@ class GpioHandler:
     @classmethod
     def release_device(cls, device: Device) -> None:
         device.close()
-        cls.GPIO_DEVICE_CACHE.remove(device)
+        cls.GPIO_DEVICE_CACHE.discard(device)
 
     @classmethod
     def with_held_action(cls, action: Callable, button: Button, delay: float = 0.10) -> Callable:

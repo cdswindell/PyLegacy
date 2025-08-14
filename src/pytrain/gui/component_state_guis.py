@@ -240,7 +240,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._app_active = False
         # clear instance variables so GC can remove them, freeing GUIZero state
         self.app = self.by_name = self.by_number = self.box = self.btn_box = _ = None
-        self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
+        self.left_scroll_btn = self.right_scroll_btn = None
         for sw in self._state_watchers.values():
             sw.shutdown()
         self._state_watchers.clear()
@@ -515,18 +515,24 @@ class ComponentStateGui(Thread):
         else:
             self.width = width
             self.height = height
+        self._gui = None
         self.requested_gui = initial
-        # create the initially requested gui
-        self._gui = self._guis[initial](label, width, height, aggrigator=self)
+
         self.start()
 
     def run(self) -> None:
+        # create the initially requested gui
+        self._gui = self._guis[self.requested_gui](self.label, self.width, self.height, aggrigator=self)
+
+        # wait for user to request a different GUI
         while True:
             # Wait for request to change GUI
             self._ev.wait()
             self._ev.clear()
+
             # Close/destroy previous GUI
             GpioHandler.release_handler(self._gui)
+
             # wait for Gui to be destroyed
             self._gui.destroy_complete.wait(10)
             self._gui.join()
