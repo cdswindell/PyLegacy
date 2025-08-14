@@ -102,10 +102,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     def close(self) -> None:
         if not self._is_closed:
-            print(f"Closing {self.title} GUI")
             self._is_closed = True
             if self.app:
-                self.app.after(10, self.app.destroy)
+                self.app.after(20, self.app.destroy)
 
     def reset(self) -> None:
         self.close()
