@@ -244,7 +244,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         # clear instance variables so GC can remove them, freeing GUIZero state
         for sw in self._state_watchers.values():
             sw.shutdown()
-        self._state_watchers.clear()
+        # self._state_watchers.clear()
         # self._state_buttons.clear()
         # self.left_scroll_btn = self.right_scroll_btn = None
         # self.by_name = self.by_number = self.box = self.btn_box = _ = None
