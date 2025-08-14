@@ -85,6 +85,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         # States
         self._states = dict[int, S]()
         self._state_buttons = dict[int, PushButton]()
+        self._state_watchers = dict[int, StateWatcher]()
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -128,7 +129,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 nl = len(acc.road_name)
                 self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
                 self._states[acc.tmcc_id] = acc
-                StateWatcher(acc, self.on_state_change_action(acc))
+                self._state_watchers[acc.tmcc_id] = StateWatcher(acc, self.on_state_change_action(acc))
+
             # start GUI
             self.start()
 
@@ -235,6 +237,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
         # clear instance variables so GC can remove them, freeing GUIZero state
         self.app = self.by_name = self.by_number = self.box = self.btn_box = _ = None
         self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
+        for sw in self._state_watchers.values():
+            sw.shutdown()
+        self._state_watchers.clear()
         self._state_buttons.clear()
 
         gc.collect()
