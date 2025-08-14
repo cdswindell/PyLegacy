@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import atexit
-import gc
 import logging
 from abc import ABC, ABCMeta, abstractmethod
 from threading import Condition, Event, RLock, Thread
@@ -249,7 +248,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.left_scroll_btn = self.right_scroll_btn = self.aggrigator_combo = None
         self.by_name = self.by_number = self.box = self.btn_box = _ = None
         self.app = None
-        gc.collect()
+        # gc.collect()
 
         # notify aggrigator that previous GUI has been destroyed
         self._ev.set()
