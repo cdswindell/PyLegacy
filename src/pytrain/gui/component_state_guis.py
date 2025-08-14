@@ -531,16 +531,15 @@ class ComponentStateGui(Thread):
             self._ev.clear()
 
             # Close/destroy previous GUI
-            #GpioHandler.release_handler(self._gui)
+            # GpioHandler.release_handler(self._gui)
             self._gui.close()
 
             # wait for Gui to be destroyed
             self._gui.destroy_complete.wait(10)
-            gc.collect()
-            self._gui.join()
+            # self._gui.join()
             # clean up state
             self._gui = None
-            gc.collect()
+            # gc.collect()
 
             # create and display new gui
             self._gui = self._guis[self.requested_gui](self.label, self.width, self.height, aggrigator=self)
