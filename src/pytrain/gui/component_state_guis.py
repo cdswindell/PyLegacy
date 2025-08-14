@@ -259,7 +259,11 @@ class StateBasedGui(Thread, Generic[S], ABC):
             # If Tcl is already tearing down, ignore
             pass
         finally:
-            # Ensure that after the app mainloop exits we clean up on the Tk thread
+            # Explicitly drop references to tkinter/guizero objects on the Tk thread
+            if self._aggrigator:
+                for sw in self._state_watchers.values():
+                    sw.shutdown()
+                self._state_watchers.clear()
             self.aggrigator_combo = None
             self.left_scroll_btn = None
             self.right_scroll_btn = None
@@ -554,7 +558,7 @@ class ComponentStateGui(Thread):
 
             # Close/destroy previous GUI
             GpioHandler.release_handler(self._gui)
-            #self._gui.close()
+            # self._gui.close()
 
             # wait for Gui to be destroyed
             self._gui.destroy_complete.wait(10)
