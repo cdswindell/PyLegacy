@@ -7,9 +7,9 @@
 #
 import atexit
 import logging
-from threading import Condition, RLock, Thread
+from threading import Condition, Event, RLock, Thread
 from time import time
-from tkinter import RAISED
+from tkinter import RAISED, TclError
 
 from guizero import App, Box, PushButton, Text
 
@@ -103,7 +103,21 @@ class LaunchGui(Thread):
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
         self._is_closed = False
-        atexit.register(self.close)
+
+        # Thread-aware shutdown signaling
+        self._tk_thread_id: int | None = None
+        self._shutdown_flag = Event()
+
+    def close(self) -> None:
+        if not self._is_closed:
+            self._is_closed = True
+            self._shutdown_flag.set()
+
+    def reset(self):
+        self.close()
+
+        # Important: don't call tkinter from atexit; only signal
+        atexit.register(lambda: self._shutdown_flag.set())
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
@@ -127,15 +141,6 @@ class LaunchGui(Thread):
             self.start()
             # listen for state updates
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
-
-    def close(self) -> None:
-        if not self._is_closed:
-            self._is_closed = True
-            self.app.after(10, self.app.destroy)
-            self.join()
-
-    def reset(self):
-        self.close()
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
@@ -210,6 +215,19 @@ class LaunchGui(Thread):
         self.app = app = App(title="Launch Pad", width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
+
+        # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
+        def _poll_shutdown():
+            if self._shutdown_flag.is_set():
+                try:
+                    app.destroy()
+                except TclError:
+                    pass  # ignore, we're shutting down
+                return None
+            return None
+
+        app.repeat(500, _poll_shutdown)
+
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
 
         s_128 = self.scale(128)
@@ -374,8 +392,20 @@ class LaunchGui(Thread):
         # sync GUI with current state
         self.sync_gui_state()
 
-        # display GUI and start event loop; call blocks
-        self.app.display()
+        # Display GUI and start event loop; call blocks
+        try:
+            app.display()
+        except TclError:
+            # If Tcl is already tearing down, ignore
+            pass
+        finally:
+            self.upper_box = self.lower_box = self.message = None
+            self.launch = self.abort = self.pad = self.count = self.label = None
+            self.gantry_box = self.siren_box = self.klaxon_box = self.lights_box = None
+            self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
+            self.gantry_rev = self.gantry_fwd = None
+            self.comms_box = self.tower_comms = self.engr_comms = None
+            self.app = None
 
     def siren_sounded(self) -> None:
         self.toggle_sound(self.siren_button)
