@@ -225,7 +225,7 @@ class EngineState(ComponentState):
             # in the event the initial state hasn't been loaded from the base, resubmit the command
             if not self.is_comp_data_record:
                 if isinstance(command, CommandReq):
-                    from src.pytrain import ComponentStateStore
+                    from .component_state_store import ComponentStateStore
 
                     if not ComponentStateStore.is_state_synchronized:
                         from ..comm.command_listener import CommandDispatcher
