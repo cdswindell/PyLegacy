@@ -527,7 +527,8 @@ class LaunchGui(Thread):
 
     def do_power_off(self):
         with self._cv:
-            self.lights_off_req.send(repeat=2)
+            if self._monitored_state and self._monitored_state.is_aux2 is True:
+                self.lights_off_req.send(repeat=2)
             self.cancel_flashing()
             if self._is_countdown:
                 self.count.cancel(self.update_counter)
