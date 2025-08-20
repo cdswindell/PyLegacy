@@ -6,6 +6,7 @@
 #  SPDX-License-Identifier: LPGL
 #
 import atexit
+import gc
 import logging
 import threading
 from queue import SimpleQueue
@@ -436,11 +437,13 @@ class LaunchGui(Thread):
         # Display GUI and start event loop; call blocks
         try:
             app.display()
+            print("Exiting")
         except TclError:
             # If Tcl is already tearing down, ignore
             pass
         finally:
             self._clear_vars()
+            gc.collect()
 
     def _clear_vars(self):
         self.upper_box = self.lower_box = self.message = None
