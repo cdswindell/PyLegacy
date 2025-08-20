@@ -450,6 +450,7 @@ class LaunchGui(Thread):
         finally:
             self._clear_vars()
             gc.collect()
+            print(f"Exiting: {self._tk_thread_id}")
 
     def _clear_vars(self):
         self.upper_box = self.lower_box = self.message = None
