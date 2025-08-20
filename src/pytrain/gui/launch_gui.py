@@ -152,13 +152,6 @@ class LaunchGui(Thread):
         if self._monitored_state:
             with self._cv:
                 self._state_changed_flag.set()
-            # # power on?
-            # if self._monitored_state.is_started is True:
-            #     self.app.after(10, self.do_power_on)
-            #     self.app.after(20, self.sync_pad_lights)
-            # else:
-            #     self.set_lights_on_icon()
-            #     self.app.after(10, self.do_power_off)
 
     def sync_pad_lights(self):
         print(f"Lights: {self._monitored_state.is_aux2}")
@@ -195,6 +188,10 @@ class LaunchGui(Thread):
                     if self._last_cmd and self._last_cmd.command != TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
                         self.app.after(20, self.lights_on_req.send)
                         self.app.after(30, self.set_klaxon_on_icon)
+                        # gantry retract
+                        if cmd.data == 6:
+                            self.app.after(8000, self.set_klaxon_off_icon)
+                            self.app.after(8000, self.lights_off_req.send)
                     # self.app.after(20, self.sync_pad_lights)
                 elif cmd.data == 5:  # power down
                     self.app.after(10, self.set_lights_on_icon)
