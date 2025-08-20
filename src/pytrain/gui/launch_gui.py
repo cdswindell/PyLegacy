@@ -39,7 +39,7 @@ OF_INTEREST_COMMANDS = {
 class LaunchGui(Thread):
     def __init__(self, tmcc_id: int = 39, track_id: int = None, width: int = None, height: int = None):
         # initialize guizero thread
-        super().__init__(name=f"Pad {tmcc_id} GUI")
+        super().__init__(daemon=True, name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
         self.track_id = track_id
         if width is None or height is None:
@@ -205,8 +205,7 @@ class LaunchGui(Thread):
                     self.app.after(20, self.do_klaxon_off)
             elif self.is_active():
                 if cmd.command in OF_INTEREST_COMMANDS:
-                    with self._cv:
-                        self._cmd_queue.put(cmd)
+                    self._cmd_queue.put(cmd)
         # remember last command
         self._last_cmd = cmd
 
