@@ -10,7 +10,7 @@ import logging
 import threading
 from queue import SimpleQueue
 from threading import Condition, Event, RLock, Thread
-from time import time
+from time import time, sleep
 from tkinter import RAISED, TclError
 
 from guizero import App, Box, PushButton, Text
@@ -129,6 +129,8 @@ class LaunchGui(Thread):
             self._is_closed = True
             self._shutdown_flag.set()
             if threading.get_ident() != self._tk_thread_id:
+                print(f"Shutting down; TK Thread: {hex(self._tk_thread_id)} This thread: {hex(threading.get_ident())}")
+                sleep(1)
                 self.join()
 
     def reset(self):
