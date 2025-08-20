@@ -214,16 +214,17 @@ class LaunchGui(Thread):
 
     def _poll_external_events(self):
         if self._shutdown_flag.is_set():
-            self._shutdown_flag.clear()
             print(f"Shutting down; TK Thread: {hex(self._tk_thread_id)} This thread: {hex(threading.get_ident())}")
             try:
                 if self.app:
                     self.app.cancel(self._poll_external_events)
                     self.app.destroy()
             except TclError:
+                print("Error destroying app")
                 pass  # ignore, we're shutting down
             finally:
                 self._clear_vars()
+                self._shutdown_flag.clear()
             return None
 
         # keep touchscreen icons in sync with device state
