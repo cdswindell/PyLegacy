@@ -154,7 +154,6 @@ class LaunchGui(Thread):
                 self._state_changed_flag.set()
 
     def sync_pad_lights(self):
-        print(f"Lights: {self._monitored_state.is_aux2}")
         if self._monitored_state.is_aux2 is True:
             self.set_lights_off_icon()
         else:
@@ -184,7 +183,6 @@ class LaunchGui(Thread):
                     # mark launch pad as on
                     self.app.after(10, self.do_power_on)
                     # startup preceded by Aux1
-                    print(f"Last command: {self._last_cmd}")
                     if self._last_cmd and self._last_cmd.command != TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
                         self.app.after(20, self.lights_on_req.send)
                         self.app.after(30, self.set_klaxon_on_icon)
@@ -245,7 +243,6 @@ class LaunchGui(Thread):
                         self.do_power_on()
                         self.sync_pad_lights()
                     else:
-                        print("Setting lights off")
                         self.do_power_off()
                         self.set_lights_on_icon()
                     return None
