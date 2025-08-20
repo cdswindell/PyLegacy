@@ -7,6 +7,7 @@
 #
 import atexit
 import logging
+from queue import SimpleQueue
 from threading import Condition, Event, RLock, Thread
 from time import time
 from tkinter import RAISED, TclError
@@ -23,6 +24,15 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCom
 from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
+
+OF_INTEREST_COMMANDS = {
+    TMCC1EngineCommandEnum.REAR_COUPLER,
+    TMCC1EngineCommandEnum.AUX2_OPTION_ONE,
+    TMCC1EngineCommandEnum.AUX2_ON,
+    TMCC1EngineCommandEnum.AUX2_OFF,
+    TMCC1EngineCommandEnum.BLOW_HORN_ONE,
+    TMCC1EngineCommandEnum.RING_BELL,
+}
 
 
 class LaunchGui(Thread):
@@ -88,6 +98,7 @@ class LaunchGui(Thread):
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
         self._state_store = ComponentStateStore.get()
+        self._cmd_queue = SimpleQueue()
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         self._monitored_state = None
@@ -146,15 +157,6 @@ class LaunchGui(Thread):
     def sync_gui_state(self) -> None:
         with self._cv:
             self._state_changed_flag.set()
-        # if self._monitored_state:
-        #     with self._cv:
-        #         # power on?
-        #         if self._monitored_state.is_started is True:
-        #             self.do_power_on()
-        #             self.sync_pad_lights()
-        #         else:
-        #             self.set_lights_on_icon()
-        #             self.do_power_off()
 
     def sync_pad_lights(self):
         if self._monitored_state.is_aux2 is True:
@@ -196,18 +198,9 @@ class LaunchGui(Thread):
                         self.app.after(10, self.sync_gui_state)
                     self.app.after(20, self.do_klaxon_off)
             elif self.is_active():
-                if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
-                    self.app.after(1, self.do_launch_detected, [15])
-                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
-                    self.app.after(1, self.sync_pad_lights)
-                elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
-                    self.app.after(1, self.set_lights_off_icon)
-                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
-                    self.app.after(1, self.set_lights_on_icon)
-                elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
-                    self.app.after(1, self.siren_sounded)
-                elif cmd.command == TMCC1EngineCommandEnum.RING_BELL:
-                    self.app.after(1, self.klaxon_sounded)
+                if cmd.command in OF_INTEREST_COMMANDS:
+                    with self._cv:
+                        self._cmd_queue.put(cmd)
         # remember last command
         self._last_cmd = cmd
 
@@ -224,6 +217,7 @@ class LaunchGui(Thread):
 
         # keep touchscreen icons in sync with device state
         with self._cv:
+            # State change?
             if self._monitored_state and self._state_changed_flag.is_set():
                 self._state_changed_flag.clear()
                 # power on?
@@ -233,6 +227,24 @@ class LaunchGui(Thread):
                 else:
                     self.set_lights_on_icon()
                     self.do_power_off()
+                return None
+
+            # Command received?
+            while not self._cmd_queue.empty():
+                cmd = self._cmd_queue.get()
+                print(cmd)
+                if cmd == TMCC1EngineCommandEnum.REAR_COUPLER:
+                    self.do_launch_detected(15)
+                elif cmd == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
+                    self.sync_pad_lights()
+                elif cmd == TMCC1EngineCommandEnum.AUX2_ON:
+                    self.set_lights_off_icon()
+                elif cmd == TMCC1EngineCommandEnum.AUX2_OFF:
+                    self.set_lights_on_icon()
+                elif cmd == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
+                    self.siren_sounded()
+                elif cmd == TMCC1EngineCommandEnum.RING_BELL:
+                    self.klaxon_sounded()
         return None
 
     def run(self):
