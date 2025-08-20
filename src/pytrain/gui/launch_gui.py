@@ -150,6 +150,11 @@ class LaunchGui(Thread):
                     self._clear_vars()
             else:
                 self._shutdown_flag.set()
+            # Give the Tk/guizero loop a moment to hit _poll_external_events and destroy itself
+            if self.is_alive():
+                print("Waiting for tkinter thread to exit")
+                self.join(timeout=2.0)
+                print("tkinter thread exited")
 
     def reset(self):
         self.close()
