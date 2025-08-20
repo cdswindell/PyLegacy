@@ -1,37 +1,49 @@
 from __future__ import annotations
 
 import sys
-from typing import Callable, TypeVar, Set
+from typing import Callable, Set, TypeVar
 
 if sys.version_info >= (3, 11):
     from typing import Self
 elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
+from ..utils.validations import Validations
+from .command_def import CommandDef, CommandDefEnum
 from .constants import (
     DEFAULT_ADDRESS,
     DEFAULT_BAUDRATE,
-    DEFAULT_PORT,
     DEFAULT_DURATION_INTERVAL_MSEC,
+    DEFAULT_PORT,
     MINIMUM_DURATION_INTERVAL_MSEC,
+    CommandScope,
+    CommandSyntax,
 )
-from .constants import CommandScope, CommandSyntax
-from .tmcc2.tmcc2_constants import TMCC2Enum, TMCC2CommandPrefix, LEGACY_ENGINE_COMMAND_PREFIX
-from .tmcc2.tmcc2_constants import TMCC2RouteCommandEnum, TMCC2HaltCommandEnum, TMCC2EngineCommandEnum
-from .tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX, LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX
-from .tmcc2.tmcc2_constants import TMCC2CommandDef
-from .command_def import CommandDef, CommandDefEnum
-from .tmcc1.tmcc1_constants import TMCC1CommandDef, TMCC1_COMMAND_PREFIX, TMCC1Enum, TMCC1SyncCommandEnum
 from .tmcc1.tmcc1_constants import (
-    TMCC1HaltCommandEnum,
-    TMCC1SwitchCommandEnum,
+    TMCC1_COMMAND_PREFIX,
+    TMCC1_TRAIN_COMMAND_MODIFIER,
+    TMCC1_TRAIN_COMMAND_PURIFIER,
     TMCC1AuxCommandEnum,
+    TMCC1CommandDef,
+    TMCC1CommandIdentifier,
     TMCC1EngineCommandEnum,
+    TMCC1Enum,
+    TMCC1HaltCommandEnum,
+    TMCC1RouteCommandEnum,
+    TMCC1SwitchCommandEnum,
+    TMCC1SyncCommandEnum,
 )
-from .tmcc1.tmcc1_constants import TMCC1CommandIdentifier, TMCC1_TRAIN_COMMAND_PURIFIER
-from .tmcc1.tmcc1_constants import TMCC1_TRAIN_COMMAND_MODIFIER
-from .tmcc1.tmcc1_constants import TMCC1RouteCommandEnum
-from ..utils.validations import Validations
+from .tmcc2.tmcc2_constants import (
+    LEGACY_ENGINE_COMMAND_PREFIX,
+    LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX,
+    LEGACY_TRAIN_COMMAND_PREFIX,
+    TMCC2CommandDef,
+    TMCC2CommandPrefix,
+    TMCC2EngineCommandEnum,
+    TMCC2Enum,
+    TMCC2HaltCommandEnum,
+    TMCC2RouteCommandEnum,
+)
 
 E = TypeVar("E", bound=CommandDefEnum)
 R = TypeVar("R", bound="CommandReq")
@@ -50,8 +62,8 @@ class CommandReq:
             return cls.from_bytes(bytes(command))
         cls._vet_request(command, address, data, scope)
         # we have to do these imports here to avoid cyclic dependencies
-        from .sequence.sequence_constants import SequenceCommandEnum
         from ..protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum
+        from .sequence.sequence_constants import SequenceCommandEnum
 
         if isinstance(command, SequenceCommandEnum):
             from .sequence.sequence_req import SequenceReq
@@ -79,9 +91,9 @@ class CommandReq:
         elif is_tmcc4 is False and first_byte in TMCC_FIRST_BYTE_TO_INTERPRETER:
             cmd_req = TMCC_FIRST_BYTE_TO_INTERPRETER[first_byte](param)
         if cmd_req is not None:
-            if from_tmcc_rx is True:
+            if from_tmcc_rx:
                 cmd_req._is_tmcc_rx = True
-            if is_tmcc4 is True or cmd_req.address > 99:
+            if is_tmcc4 or cmd_req.address > 99:
                 cmd_req._is_tmcc4 = True
             return cmd_req
         raise ValueError(f"Command bytes not understood {param.hex(':')}")

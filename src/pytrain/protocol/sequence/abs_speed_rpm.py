@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from ..constants import DEFAULT_ADDRESS, CommandScope
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq
-from ..constants import CommandScope, DEFAULT_ADDRESS
-from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 
 
 class AbsoluteSpeedRpm(SequenceReq):
@@ -32,7 +32,7 @@ class AbsoluteSpeedRpm(SequenceReq):
             if self._scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 if new_scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                     self._scope = new_scope
-                    self._apply_scope()
+                    self._apply_scope(new_scope)
                     return
             raise AttributeError(f"Scope {new_scope} not supported for {self}")
 

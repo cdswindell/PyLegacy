@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from random import randint
-from typing import Dict, Tuple, TypeVar, Union, Generic
+from typing import Dict, Generic, Tuple, TypeVar, Union
 
 from gpiozero import Button
 
@@ -72,6 +72,9 @@ class EngineController(Generic[R]):
         self._state = None
         self._held_threshold = held_threshold
         self._held_frequency = held_frequency
+        self._last_tmcc_id = None
+        self._last_scope = None
+
         # define a base watcher, if requested
         if base_online_pin is not None or base_offline_pin:
             from .base_watcher import BaseWatcher
@@ -513,9 +516,12 @@ class EngineController(Generic[R]):
         reflect the new engine/train tmcc_id
         """
         self._engine_specified = True
+        self._last_scope = self._scope
+        self._last_tmcc_id = self._tmcc_id
         self._scope = scope
         self._tmcc_id = tmcc_id
         self._state = cur_state = state
+        print(f"EngineController.update: scope={scope}, tmcc_id={tmcc_id}, state={state}")
         if cur_state is None or cur_state.control_type is None:
             self._control_type = ControlType.LEGACY
         else:
