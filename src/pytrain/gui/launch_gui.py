@@ -10,7 +10,7 @@ import logging
 import threading
 from queue import SimpleQueue
 from threading import Condition, Event, RLock, Thread
-from time import time, sleep
+from time import sleep, time
 from tkinter import RAISED, TclError
 
 from guizero import App, Box, PushButton, Text
@@ -39,7 +39,7 @@ OF_INTEREST_COMMANDS = {
 class LaunchGui(Thread):
     def __init__(self, tmcc_id: int = 39, track_id: int = None, width: int = None, height: int = None):
         # initialize guizero thread
-        super().__init__(daemon=True, name=f"Pad {tmcc_id} GUI")
+        super().__init__(name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
         self.track_id = track_id
         if width is None or height is None:
@@ -129,7 +129,7 @@ class LaunchGui(Thread):
             self._is_closed = True
             self._shutdown_flag.set()
             if threading.get_ident() != self._tk_thread_id:
-                print(f"Shutting down; TK Thread: {hex(self._tk_thread_id)} This thread: {hex(threading.get_ident())}")
+                print(f"Close called; TK Thread: {hex(self._tk_thread_id)} This thread: {hex(threading.get_ident())}")
                 sleep(1)
                 self.join()
 
