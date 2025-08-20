@@ -6,6 +6,7 @@
 #  SPDX-License-Identifier: LPGL
 #
 import atexit
+import gc
 import logging
 import threading
 from queue import SimpleQueue
@@ -239,6 +240,7 @@ class LaunchGui(Thread):
             finally:
                 self._clear_vars()
                 self._shutdown_flag.clear()
+                gc.collect()
             return None
 
         # keep touchscreen icons in sync with device state
@@ -276,6 +278,21 @@ class LaunchGui(Thread):
     def run(self):
         GpioHandler.cache_handler(self)
         self._tk_thread_id = threading.get_ident()
+
+        # Make tkinter.Variable finalizer a no-op to avoid cross-thread Tk use at shutdown
+        try:
+            from tkinter import Variable  # type: ignore
+
+            if getattr(Variable.__del__, "__name__", "") != "_noop_tk_var_del":
+                # noinspection PyShadowingNames,PyUnusedLocal
+                def _noop_tk_var_del(self):  # type: ignore[override]
+                    return
+
+                Variable.__del__ = _noop_tk_var_del  # type: ignore[assignment]
+        except Exception as e:
+            # If tkinter is unavailable or structure changed, ignore
+            print(e)
+
         if self.width is None or self.height is None:
             try:
                 from tkinter import Tk
