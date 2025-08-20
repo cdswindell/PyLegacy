@@ -218,6 +218,7 @@ class EngineStatus(Thread, GpioDevice):
         cur_speed = self._monitored_state.speed if self._monitored_state else None
         if cur_speed is not None and self._last_known_speed != cur_speed:
             self._last_known_speed = cur_speed
+        print(self._monitored_state)
         self.update_display()
 
     def reset(self) -> None:
