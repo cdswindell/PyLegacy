@@ -122,8 +122,18 @@ class LaunchGui(Thread):
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
 
-        # Important: don't call tkinter from atexit; only signal
-        atexit.register(lambda: self._shutdown_flag.set())
+        atexit.register(self._on_atexit)
+
+    # Ensure the GUI thread is allowed to exit cleanly at interpreter shutdown
+    def _on_atexit(self) -> None:
+        try:
+            self.close()
+            # Give the Tk/guizero loop a moment to hit _poll_external_events and destroy itself
+            if self.is_alive():
+                self.join(timeout=2.0)
+        except Exception as e:
+            # Best-effort cleanup during interpreter shutdown
+            print(e)
 
     def close(self) -> None:
         print(f"Closing Launch Pad; TK Thread: {hex(self._tk_thread_id)} This thread: {hex(threading.get_ident())}")
