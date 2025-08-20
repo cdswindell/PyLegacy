@@ -105,6 +105,7 @@ class LaunchGui(Thread):
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
         self._shutdown_flag = Event()
+        self._monitored_state_watcher = None
         if self._sync_state and self._sync_state.is_synchronized is True:
             self._sync_watcher = None
             self.on_sync()
@@ -119,9 +120,9 @@ class LaunchGui(Thread):
             self._shutdown_flag.set()
             # Give the Tk/guizero loop a moment to hit _poll_external_events and destroy itself
             if self.is_alive():
-                print("Waiting for tkinter thread to exit")
+                print("Waiting for tkinter thread to exit (_on_atexit)")
                 self.join()
-                print("tkinter thread exited")
+                print("tkinter thread exited (_on_atexit)")
         except Exception as e:
             # Best-effort cleanup during interpreter shutdown
             print(e)
@@ -130,6 +131,9 @@ class LaunchGui(Thread):
         print(f"Closing Launch Pad; TK Thread: {hex(self._tk_thread_id)} This thread: {hex(threading.get_ident())}")
         if not self._is_closed:
             self._is_closed = True
+            if self._monitored_state_watcher:
+                self._monitored_state_watcher.shutdown()
+                self._monitored_state_watcher = None
             # If we're on the Tk thread, destroy immediately to avoid races
             if self.app and threading.get_ident() == self._tk_thread_id:
                 try:
@@ -142,9 +146,9 @@ class LaunchGui(Thread):
                 self._shutdown_flag.set()
             # Give the Tk/guizero loop a moment to hit _poll_external_events and destroy itself
             if self.is_alive():
-                print("Waiting for tkinter thread to exit")
+                print("Waiting for tkinter thread to exit (close)")
                 self.join()
-                print("tkinter thread exited")
+                print("tkinter thread exited (close)")
 
     def reset(self):
         self.close()
@@ -169,7 +173,7 @@ class LaunchGui(Thread):
             if self._monitored_state is None:
                 raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
             # watch for external state changes
-            StateWatcher(self._monitored_state, self.sync_gui_state)
+            self._monitored_state_watcher = StateWatcher(self._monitored_state, self.sync_gui_state)
             # start GUI
             self.start()
             # listen for state updates
