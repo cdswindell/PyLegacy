@@ -143,14 +143,16 @@ class LaunchGui(Thread):
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
 
     def sync_gui_state(self) -> None:
-        if self._monitored_state:
-            # power on?
-            if self._monitored_state.is_started is True:
-                self.app.after(10, self.do_power_on)
-                self.app.after(20, self.sync_pad_lights)
-            else:
-                self.set_lights_on_icon()
-                self.app.after(10, self.do_power_off)
+        pass
+        # if self._monitored_state:
+        #     with self._cv:
+        #         # power on?
+        #         if self._monitored_state.is_started is True:
+        #             self.do_power_on()
+        #             self.sync_pad_lights()
+        #         else:
+        #             self.set_lights_on_icon()
+        #             self.do_power_off()
 
     def sync_pad_lights(self):
         if self._monitored_state.is_aux2 is True:
@@ -210,6 +212,26 @@ class LaunchGui(Thread):
     def is_active(self) -> bool:
         return True if self._monitored_state and self._monitored_state.is_started is True else False
 
+    def _poll_external_events(self):
+        if self._shutdown_flag.is_set():
+            try:
+                self.app.destroy()
+            except TclError:
+                pass  # ignore, we're shutting down
+            return None
+
+        # keep touchscreen icons in sync with device state
+        if self._monitored_state:
+            with self._cv:
+                # power on?
+                if self._monitored_state.is_started is True:
+                    self.do_power_on()
+                    self.sync_pad_lights()
+                else:
+                    self.set_lights_on_icon()
+                    self.do_power_off()
+        return None
+
     def run(self):
         GpioHandler.cache_handler(self)
         self.app = app = App(title="Launch Pad", width=self.width, height=self.height)
@@ -217,19 +239,10 @@ class LaunchGui(Thread):
         app.when_closed = self.close
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
-        def _poll_shutdown():
-            if self._shutdown_flag.is_set():
-                try:
-                    app.destroy()
-                except TclError:
-                    pass  # ignore, we're shutting down
-                return None
-            return None
+        app.repeat(50, self._poll_external_events)
 
-        app.repeat(500, _poll_shutdown)
-
+        # create screen
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
-
         s_128 = self.scale(128)
         self.launch = PushButton(
             upper_box,
