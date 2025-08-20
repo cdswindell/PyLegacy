@@ -6,6 +6,7 @@
 #  SPDX-License-Identifier: LPGL
 #
 import atexit
+import gc
 import logging
 import threading
 from queue import SimpleQueue
@@ -50,6 +51,9 @@ class LaunchGui(Thread):
                 self.width = root.winfo_screenwidth()
                 self.height = root.winfo_screenheight()
                 root.destroy()
+                # noinspection PyUnusedLocal
+                root = None
+                gc.collect()
             except Exception as e:
                 log.exception("Error determining window size", exc_info=e)
         else:
