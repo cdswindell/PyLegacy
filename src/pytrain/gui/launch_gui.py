@@ -6,10 +6,7 @@
 #  SPDX-License-Identifier: LPGL
 #
 import atexit
-import gc
 import logging
-import threading
-from queue import SimpleQueue
 from threading import Condition, Event, RLock, Thread
 from time import time
 from tkinter import RAISED, TclError
@@ -27,15 +24,6 @@ from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
 
-OF_INTEREST_COMMANDS = {
-    TMCC1EngineCommandEnum.REAR_COUPLER,
-    TMCC1EngineCommandEnum.AUX2_OPTION_ONE,
-    TMCC1EngineCommandEnum.AUX2_ON,
-    TMCC1EngineCommandEnum.AUX2_OFF,
-    TMCC1EngineCommandEnum.BLOW_HORN_ONE,
-    TMCC1EngineCommandEnum.RING_BELL,
-}
-
 
 class LaunchGui(Thread):
     def __init__(self, tmcc_id: int = 39, track_id: int = None, width: int = None, height: int = None):
@@ -43,8 +31,19 @@ class LaunchGui(Thread):
         super().__init__(daemon=True, name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
         self.track_id = track_id
-        self.width = width
-        self.height = height
+        if width is None or height is None:
+            try:
+                from tkinter import Tk
+
+                root = Tk()
+                self.width = root.winfo_screenwidth()
+                self.height = root.winfo_screenheight()
+                root.destroy()
+            except Exception as e:
+                log.exception("Error determining window size", exc_info=e)
+        else:
+            self.width = width
+            self.height = height
         self.s_72 = self.scale(72, 0.7)
         self.s_16 = self.scale(16, 0.7)
         self._cv = Condition(RLock())
@@ -89,7 +88,6 @@ class LaunchGui(Thread):
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
         self._state_store = ComponentStateStore.get()
-        self._cmd_queue = SimpleQueue()
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         self._monitored_state = None
@@ -98,57 +96,22 @@ class LaunchGui(Thread):
         self._launch_seq_time_trigger = None
         self._is_countdown = False
         self._is_flashing = False
-        self._is_closed = False
         self.started_up = False
-        self._state_changed_flag = Event()
-
-        # Thread-aware shutdown signaling
-        self._tk_thread_id: int | None = None
-        self._shutdown_flag = Event()
-        self._monitored_state_watcher = None
         if self._sync_state and self._sync_state.is_synchronized is True:
             self._sync_watcher = None
             self.on_sync()
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
+        self._is_closed = False
 
-        atexit.register(self._on_atexit)
-
-    # Ensure the GUI thread is allowed to exit cleanly at interpreter shutdown
-    def _on_atexit(self) -> None:
-        try:
-            self._shutdown_flag.set()
-            # Give the Tk/guizero loop a moment to hit _poll_external_events and destroy itself
-            if self.is_alive():
-                print("Waiting for tkinter thread to exit (_on_atexit)")
-                self.join()
-                print("tkinter thread exited (_on_atexit)")
-        except Exception as e:
-            # Best-effort cleanup during interpreter shutdown
-            print(e)
+        # Thread-aware shutdown signaling
+        self._tk_thread_id: int | None = None
+        self._shutdown_flag = Event()
 
     def close(self) -> None:
-        print(f"Closing Launch Pad; TK Thread: {hex(self._tk_thread_id)} This thread: {hex(threading.get_ident())}")
         if not self._is_closed:
             self._is_closed = True
-            if self._monitored_state_watcher:
-                self._monitored_state_watcher.shutdown()
-                self._monitored_state_watcher = None
-            # If we're on the Tk thread, destroy immediately to avoid races
-            if self.app and threading.get_ident() == self._tk_thread_id:
-                try:
-                    self.app.destroy()
-                except TclError:
-                    pass
-                finally:
-                    self._clear_vars()
-            else:
-                self._shutdown_flag.set()
-            # Give the Tk/guizero loop a moment to hit _poll_external_events and destroy itself
-            if self.is_alive():
-                print("Waiting for tkinter thread to exit (close)")
-                self.join()
-                print("tkinter thread exited (close)")
+            self._shutdown_flag.set()
 
     def reset(self):
         self.close()
@@ -173,15 +136,21 @@ class LaunchGui(Thread):
             if self._monitored_state is None:
                 raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
             # watch for external state changes
-            self._monitored_state_watcher = StateWatcher(self._monitored_state, self.sync_gui_state)
+            StateWatcher(self._monitored_state, self.sync_gui_state)
             # start GUI
             self.start()
             # listen for state updates
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
 
     def sync_gui_state(self) -> None:
-        with self._cv:
-            self._state_changed_flag.set()
+        if self._monitored_state:
+            # power on?
+            if self._monitored_state.is_started is True:
+                self.app.after(10, self.do_power_on)
+                self.app.after(20, self.sync_pad_lights)
+            else:
+                self.set_lights_on_icon()
+                self.app.after(10, self.do_power_off)
 
     def sync_pad_lights(self):
         if self._monitored_state.is_aux2 is True:
@@ -223,101 +192,44 @@ class LaunchGui(Thread):
                         self.app.after(10, self.sync_gui_state)
                     self.app.after(20, self.do_klaxon_off)
             elif self.is_active():
-                if cmd.command in OF_INTEREST_COMMANDS:
-                    self._cmd_queue.put(cmd)
+                if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
+                    self.app.after(1, self.do_launch_detected, [15])
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
+                    self.app.after(1, self.sync_pad_lights)
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
+                    self.app.after(1, self.set_lights_off_icon)
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
+                    self.app.after(1, self.set_lights_on_icon)
+                elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
+                    self.app.after(1, self.siren_sounded)
+                elif cmd.command == TMCC1EngineCommandEnum.RING_BELL:
+                    self.app.after(1, self.klaxon_sounded)
         # remember last command
         self._last_cmd = cmd
 
     def is_active(self) -> bool:
         return True if self._monitored_state and self._monitored_state.is_started is True else False
 
-    def _poll_external_events(self):
-        if self._shutdown_flag.is_set():
-            print(f"Shutting down; TK Thread: {hex(self._tk_thread_id)} This thread: {hex(threading.get_ident())}")
-            try:
-                if self.app:
-                    self.app.cancel(self._poll_external_events)
-                    self.app.destroy()
-            except TclError:
-                print("Error destroying app")
-                pass  # ignore, we're shutting down
-            finally:
-                self._clear_vars()
-                self._shutdown_flag.clear()
-                gc.collect()
-            return None
-
-        # keep touchscreen icons in sync with device state
-        with self._cv:
-            # State change?
-            if self._monitored_state and self._state_changed_flag.is_set():
-                self._state_changed_flag.clear()
-                # power on?
-                if self._monitored_state.is_started is True:
-                    self.do_power_on()
-                    self.sync_pad_lights()
-                else:
-                    self.set_lights_on_icon()
-                    self.do_power_off()
-                return None
-
-            # Command received?
-            while not self._cmd_queue.empty():
-                cmd = self._cmd_queue.get()
-                print(cmd)
-                if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
-                    self.do_launch_detected(15)
-                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
-                    self.sync_pad_lights()
-                elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
-                    self.set_lights_off_icon()
-                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
-                    self.set_lights_on_icon()
-                elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
-                    self.siren_sounded()
-                elif cmd.command == TMCC1EngineCommandEnum.RING_BELL:
-                    self.klaxon_sounded()
-        return None
-
     def run(self):
         GpioHandler.cache_handler(self)
-        self._tk_thread_id = threading.get_ident()
-
-        # Make tkinter.Variable finalizer a no-op to avoid cross-thread Tk use at shutdown
-        try:
-            from tkinter import Variable  # type: ignore
-
-            if getattr(Variable.__del__, "__name__", "") != "_noop_tk_var_del":
-                # noinspection PyShadowingNames,PyUnusedLocal
-                def _noop_tk_var_del(self):  # type: ignore[override]
-                    return
-
-                Variable.__del__ = _noop_tk_var_del  # type: ignore[assignment]
-        except Exception as e:
-            # If tkinter is unavailable or structure changed, ignore
-            print(e)
-
-        if self.width is None or self.height is None:
-            try:
-                from tkinter import Tk
-
-                _tmp_root = Tk()
-                _tmp_root.withdraw()
-                self.width = _tmp_root.winfo_screenwidth()
-                self.height = _tmp_root.winfo_screenheight()
-                _tmp_root.destroy()
-            except Exception as e:
-                log.exception("Error determining window size", exc_info=e)
-
         self.app = app = App(title="Launch Pad", width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
-        app.repeat(50, self._poll_external_events)
+        def _poll_shutdown():
+            if self._shutdown_flag.is_set():
+                try:
+                    app.destroy()
+                except TclError:
+                    pass  # ignore, we're shutting down
+                return None
+            return None
 
-        # create screen
+        app.repeat(500, _poll_shutdown)
+
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
+
         s_128 = self.scale(128)
         self.launch = PushButton(
             upper_box,
@@ -487,17 +399,13 @@ class LaunchGui(Thread):
             # If Tcl is already tearing down, ignore
             pass
         finally:
-            self._clear_vars()
-        print(f"Exiting: {hex(self._tk_thread_id)}")
-
-    def _clear_vars(self):
-        self.upper_box = self.lower_box = self.message = None
-        self.launch = self.abort = self.pad = self.count = self.label = None
-        self.gantry_box = self.siren_box = self.klaxon_box = self.lights_box = None
-        self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
-        self.gantry_rev = self.gantry_fwd = None
-        self.comms_box = self.tower_comms = self.engr_comms = None
-        self.app = None
+            self.upper_box = self.lower_box = self.message = None
+            self.launch = self.abort = self.pad = self.count = self.label = None
+            self.gantry_box = self.siren_box = self.klaxon_box = self.lights_box = None
+            self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
+            self.gantry_rev = self.gantry_fwd = None
+            self.comms_box = self.tower_comms = self.engr_comms = None
+            self.app = None
 
     def siren_sounded(self) -> None:
         self.toggle_sound(self.siren_button)
