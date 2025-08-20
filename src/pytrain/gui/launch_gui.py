@@ -188,7 +188,7 @@ class LaunchGui(Thread):
                 if cmd.data in (3, 6):
                     # mark launch pad as on
                     self.app.after(10, self.do_power_on)
-                    self.app.after(20, self.lights_on_req)
+                    self.app.after(20, self.lights_on_req.send)
                     self.app.after(30, self.set_klaxon_off_icon)
                     # self.app.after(20, self.sync_pad_lights)
                 elif cmd.data == 5:  # power down
