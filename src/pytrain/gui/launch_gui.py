@@ -7,6 +7,7 @@
 #
 import atexit
 import logging
+import threading
 from queue import SimpleQueue
 from threading import Condition, Event, RLock, Thread
 from time import time
@@ -209,6 +210,7 @@ class LaunchGui(Thread):
 
     def _poll_external_events(self):
         if self._shutdown_flag.is_set():
+            print(f"Shutting down; TK Thread: {self._tk_thread_id} This thread: {threading.get_ident()}")
             try:
                 self.app.destroy()
             except TclError:
@@ -249,6 +251,7 @@ class LaunchGui(Thread):
 
     def run(self):
         GpioHandler.cache_handler(self)
+        self._tk_thread_id = threading.get_ident()
         self.app = app = App(title="Launch Pad", width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
