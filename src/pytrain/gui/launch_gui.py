@@ -184,12 +184,14 @@ class LaunchGui(Thread):
         if cmd != self._last_cmd or (time() - self._last_cmd_at) >= 1.0:
             self._last_cmd_at = time()
             if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
-                # Gantry Movement
+                # Gantry Movement/Startup
                 if cmd.data in (3, 6):
                     # mark launch pad as on
                     self.app.after(10, self.do_power_on)
-                    self.app.after(20, self.lights_on_req.send)
-                    self.app.after(30, self.set_klaxon_on_icon)
+                    # startup preceded by Aux1
+                    if self._last_cmd.data != TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
+                        self.app.after(20, self.lights_on_req.send)
+                        self.app.after(30, self.set_klaxon_on_icon)
                     # self.app.after(20, self.sync_pad_lights)
                 elif cmd.data == 5:  # power down
                     self.app.after(10, self.set_lights_on_icon)
