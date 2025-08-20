@@ -150,7 +150,8 @@ class LaunchGui(Thread):
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
-            self._state_changed_flag.set()
+            with self._cv:
+                self._state_changed_flag.set()
             # # power on?
             # if self._monitored_state.is_started is True:
             #     self.app.after(10, self.do_power_on)
@@ -238,15 +239,17 @@ class LaunchGui(Thread):
                     pass  # ignore, we're shutting down
                 return None
 
-            if self._state_changed_flag.is_set():
-                # power on?
-                if self._monitored_state.is_started is True:
-                    self.do_power_on()
-                    self.sync_pad_lights()
-                else:
-                    self.set_lights_on_icon()
-                    self.do_power_off()
-                return None
+            with self._cv:
+                if self._state_changed_flag.is_set():
+                    self._state_changed_flag.clear()
+                    # power on?
+                    if self._monitored_state.is_started is True:
+                        self.do_power_on()
+                        self.sync_pad_lights()
+                    else:
+                        self.set_lights_on_icon()
+                        self.do_power_off()
+                    return None
             return None
 
         app.repeat(250, _poll_shutdown)
