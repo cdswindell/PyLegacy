@@ -222,14 +222,13 @@ class LaunchGui(Thread):
 
         # keep touchscreen icons in sync with device state
         if self._monitored_state:
-            with self._cv:
-                # power on?
-                if self._monitored_state.is_started is True:
-                    self.do_power_on()
-                    self.sync_pad_lights()
-                else:
-                    self.set_lights_on_icon()
-                    self.do_power_off()
+            # power on?
+            if self._monitored_state.is_started is True:
+                self.do_power_on()
+                self.sync_pad_lights()
+            else:
+                self.set_lights_on_icon()
+                self.do_power_off()
         return None
 
     def run(self):
