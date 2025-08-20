@@ -6,7 +6,6 @@
 #  SPDX-License-Identifier: LPGL
 #
 import atexit
-import gc
 import logging
 import threading
 from queue import SimpleQueue
@@ -51,9 +50,6 @@ class LaunchGui(Thread):
                 self.width = root.winfo_screenwidth()
                 self.height = root.winfo_screenheight()
                 root.destroy()
-                # noinspection PyUnusedLocal
-                root = None
-                gc.collect()
             except Exception as e:
                 log.exception("Error determining window size", exc_info=e)
         else:
@@ -271,7 +267,7 @@ class LaunchGui(Thread):
         app.when_closed = self.close
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
-        app.repeat(50, self._poll_external_events)
+        app.repeat(1000, self._poll_external_events)
 
         # create screen
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
