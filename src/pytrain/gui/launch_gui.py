@@ -233,17 +233,17 @@ class LaunchGui(Thread):
             while not self._cmd_queue.empty():
                 cmd = self._cmd_queue.get()
                 print(cmd)
-                if cmd == TMCC1EngineCommandEnum.REAR_COUPLER:
+                if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                     self.do_launch_detected(15)
-                elif cmd == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
                     self.sync_pad_lights()
-                elif cmd == TMCC1EngineCommandEnum.AUX2_ON:
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
                     self.set_lights_off_icon()
-                elif cmd == TMCC1EngineCommandEnum.AUX2_OFF:
+                elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
                     self.set_lights_on_icon()
-                elif cmd == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
+                elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
                     self.siren_sounded()
-                elif cmd == TMCC1EngineCommandEnum.RING_BELL:
+                elif cmd.command == TMCC1EngineCommandEnum.RING_BELL:
                     self.klaxon_sounded()
         return None
 
