@@ -128,6 +128,8 @@ class LaunchGui(Thread):
         if not self._is_closed:
             self._is_closed = True
             self._shutdown_flag.set()
+            if threading.get_ident() != self._tk_thread_id:
+                self.join()
 
     def reset(self):
         self.close()
