@@ -561,6 +561,8 @@ class LaunchGui(Thread):
             self.siren_box.disable()
             self.klaxon_box.disable()
             self.gantry_box.disable()
+            self.set_klaxon_off_icon()
+            self.set_lights_off_icon()
             if self.comms_box:
                 self.comms_box.disable()
 
