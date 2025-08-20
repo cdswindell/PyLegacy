@@ -184,10 +184,13 @@ class LaunchGui(Thread):
         if cmd != self._last_cmd or (time() - self._last_cmd_at) >= 1.0:
             self._last_cmd_at = time()
             if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
+                # Gantry Movement
                 if cmd.data in (3, 6):
                     # mark launch pad as on
                     self.app.after(10, self.do_power_on)
-                    self.app.after(20, self.sync_pad_lights)
+                    self.app.after(20, self.lights_on_req)
+                    self.app.after(30, self.set_klaxon_off_icon)
+                    # self.app.after(20, self.sync_pad_lights)
                 elif cmd.data == 5:  # power down
                     self.app.after(10, self.set_lights_on_icon)
                     self.app.after(20, self.do_power_off)
@@ -197,7 +200,7 @@ class LaunchGui(Thread):
                     else:
                         # reset causes engine to start up, check for that state change here
                         self.app.after(10, self.sync_gui_state)
-                    self.app.after(20, self.do_klaxon_off)
+                    self.app.after(20, self.set_klaxon_off_icon)
             elif self.is_active():
                 if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                     self.app.after(1, self.do_launch_detected, [15])
@@ -243,7 +246,7 @@ class LaunchGui(Thread):
                 return None
             return None
 
-        app.repeat(500, _poll_shutdown)
+        app.repeat(250, _poll_shutdown)
 
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
 
@@ -593,8 +596,12 @@ class LaunchGui(Thread):
         else:
             self.lights_on_req.send(repeat=2)
 
-    def do_klaxon_off(self):
+    def set_klaxon_off_icon(self):
         self.klaxon_button.image = self.siren_off
+        self.klaxon_button.height = self.klaxon_button.width = self.s_72
+
+    def set_klaxon_on_icon(self):
+        self.klaxon_button.image = self.siren_on
         self.klaxon_button.height = self.klaxon_button.width = self.s_72
 
     def toggle_sound(self, button: PushButton):

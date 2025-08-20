@@ -377,7 +377,7 @@ def test_set_lights_icons_and_klaxon_off(monkeypatch):
     assert inst.lights_button.image == inst.on_button
 
     # Klaxon off updates image/size
-    inst.do_klaxon_off()
+    inst.set_klaxon_off_icon()
     assert inst.klaxon_button.image == inst.siren_off
     assert inst.klaxon_button.height == inst.s_72
     assert inst.klaxon_button.width == inst.s_72
