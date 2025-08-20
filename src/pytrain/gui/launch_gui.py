@@ -121,6 +121,9 @@ class LaunchGui(Thread):
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
 
+        # Important: don't call tkinter from atexit; only signal
+        atexit.register(lambda: self._shutdown_flag.set())
+
     def close(self) -> None:
         if not self._is_closed:
             self._is_closed = True
@@ -128,9 +131,6 @@ class LaunchGui(Thread):
 
     def reset(self):
         self.close()
-
-        # Important: don't call tkinter from atexit; only signal
-        atexit.register(lambda: self._shutdown_flag.set())
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
@@ -210,12 +210,16 @@ class LaunchGui(Thread):
 
     def _poll_external_events(self):
         if self._shutdown_flag.is_set():
+            self._shutdown_flag.clear()
             print(f"Shutting down; TK Thread: {hex(self._tk_thread_id)} This thread: {hex(threading.get_ident())}")
-            self.app.cancel(self._poll_external_events)
             try:
-                self.app.destroy()
+                if self.app:
+                    self.app.cancel(self._poll_external_events)
+                    self.app.destroy()
             except TclError:
                 pass  # ignore, we're shutting down
+            finally:
+                self._clear_vars()
             return None
 
         # keep touchscreen icons in sync with device state
@@ -258,7 +262,7 @@ class LaunchGui(Thread):
         app.when_closed = self.close
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
-        app.repeat(500, self._poll_external_events)
+        app.repeat(50, self._poll_external_events)
 
         # create screen
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
@@ -431,13 +435,16 @@ class LaunchGui(Thread):
             # If Tcl is already tearing down, ignore
             pass
         finally:
-            self.upper_box = self.lower_box = self.message = None
-            self.launch = self.abort = self.pad = self.count = self.label = None
-            self.gantry_box = self.siren_box = self.klaxon_box = self.lights_box = None
-            self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
-            self.gantry_rev = self.gantry_fwd = None
-            self.comms_box = self.tower_comms = self.engr_comms = None
-            self.app = None
+            self._clear_vars()
+
+    def _clear_vars(self):
+        self.upper_box = self.lower_box = self.message = None
+        self.launch = self.abort = self.pad = self.count = self.label = None
+        self.gantry_box = self.siren_box = self.klaxon_box = self.lights_box = None
+        self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
+        self.gantry_rev = self.gantry_fwd = None
+        self.comms_box = self.tower_comms = self.engr_comms = None
+        self.app = None
 
     def siren_sounded(self) -> None:
         self.toggle_sound(self.siren_button)
