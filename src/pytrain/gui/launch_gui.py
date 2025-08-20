@@ -249,8 +249,8 @@ class LaunchGui(Thread):
                         self.sync_pad_lights()
                     else:
                         print("Setting lights off")
-                        self.set_lights_on_icon()
                         self.do_power_off()
+                        self.set_lights_on_icon()
                     return None
             return None
 
@@ -570,7 +570,7 @@ class LaunchGui(Thread):
             self.klaxon_box.disable()
             self.gantry_box.disable()
             self.set_klaxon_off_icon()
-            self.set_lights_off_icon()
+            self.set_lights_on_icon()
             if self.comms_box:
                 self.comms_box.disable()
 
