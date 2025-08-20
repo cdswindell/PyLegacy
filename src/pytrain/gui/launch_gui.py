@@ -40,7 +40,7 @@ OF_INTEREST_COMMANDS = {
 class LaunchGui(Thread):
     def __init__(self, tmcc_id: int = 39, track_id: int = None, width: int = None, height: int = None):
         # initialize guizero thread
-        super().__init__(daemon=False, name=f"Pad {tmcc_id} GUI")
+        super().__init__(daemon=True, name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
         self.track_id = track_id
         self.width = width
@@ -120,7 +120,7 @@ class LaunchGui(Thread):
             # Give the Tk/guizero loop a moment to hit _poll_external_events and destroy itself
             if self.is_alive():
                 print("Waiting for tkinter thread to exit")
-                self.join(timeout=2.0)
+                self.join()
                 print("tkinter thread exited")
         except Exception as e:
             # Best-effort cleanup during interpreter shutdown
@@ -143,7 +143,7 @@ class LaunchGui(Thread):
             # Give the Tk/guizero loop a moment to hit _poll_external_events and destroy itself
             if self.is_alive():
                 print("Waiting for tkinter thread to exit")
-                self.join(timeout=12.0)
+                self.join()
                 print("tkinter thread exited")
 
     def reset(self):
