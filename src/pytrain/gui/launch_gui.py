@@ -97,6 +97,7 @@ class LaunchGui(Thread):
         self._is_countdown = False
         self._is_flashing = False
         self.started_up = False
+        self._state_changed_flag = Event()
         if self._sync_state and self._sync_state.is_synchronized is True:
             self._sync_watcher = None
             self.on_sync()
@@ -143,7 +144,8 @@ class LaunchGui(Thread):
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
 
     def sync_gui_state(self) -> None:
-        pass
+        with self._cv:
+            self._state_changed_flag.set()
         # if self._monitored_state:
         #     with self._cv:
         #         # power on?
@@ -221,14 +223,16 @@ class LaunchGui(Thread):
             return None
 
         # keep touchscreen icons in sync with device state
-        if self._monitored_state:
-            # power on?
-            if self._monitored_state.is_started is True:
-                self.do_power_on()
-                self.sync_pad_lights()
-            else:
-                self.set_lights_on_icon()
-                self.do_power_off()
+        with self._cv:
+            if self._monitored_state and self._state_changed_flag.is_set():
+                self._state_changed_flag.clear()
+                # power on?
+                if self._monitored_state.is_started is True:
+                    self.do_power_on()
+                    self.sync_pad_lights()
+                else:
+                    self.set_lights_on_icon()
+                    self.do_power_off()
         return None
 
     def run(self):
