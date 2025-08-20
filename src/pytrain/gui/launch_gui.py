@@ -98,16 +98,18 @@ class LaunchGui(Thread):
         self._is_flashing = False
         self.started_up = False
         self._monitored_state_watcher = None
+        self._state_changed_flag = Event()
+
+        # Thread-aware shutdown signaling
+        self._tk_thread_id: int | None = None
+        self._shutdown_flag = Event()
+        self._is_closed = False
+
         if self._sync_state and self._sync_state.is_synchronized is True:
             self._sync_watcher = None
             self.on_sync()
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
-        self._is_closed = False
-
-        # Thread-aware shutdown signaling
-        self._tk_thread_id: int | None = None
-        self._shutdown_flag = Event()
 
     def close(self) -> None:
         if not self._is_closed:
@@ -148,13 +150,14 @@ class LaunchGui(Thread):
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
-            # power on?
-            if self._monitored_state.is_started is True:
-                self.app.after(10, self.do_power_on)
-                self.app.after(20, self.sync_pad_lights)
-            else:
-                self.set_lights_on_icon()
-                self.app.after(10, self.do_power_off)
+            self._state_changed_flag.set()
+            # # power on?
+            # if self._monitored_state.is_started is True:
+            #     self.app.after(10, self.do_power_on)
+            #     self.app.after(20, self.sync_pad_lights)
+            # else:
+            #     self.set_lights_on_icon()
+            #     self.app.after(10, self.do_power_off)
 
     def sync_pad_lights(self):
         if self._monitored_state.is_aux2 is True:
@@ -227,6 +230,16 @@ class LaunchGui(Thread):
                     app.destroy()
                 except TclError:
                     pass  # ignore, we're shutting down
+                return None
+
+            if self._state_changed_flag.is_set():
+                # power on?
+                if self._monitored_state.is_started is True:
+                    self.do_power_on()
+                    self.sync_pad_lights()
+                else:
+                    self.set_lights_on_icon()
+                    self.do_power_off()
                 return None
             return None
 
