@@ -42,19 +42,8 @@ class LaunchGui(Thread):
         super().__init__(daemon=False, name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
         self.track_id = track_id
-        if width is None or height is None:
-            try:
-                from tkinter import Tk
-
-                root = Tk()
-                self.width = root.winfo_screenwidth()
-                self.height = root.winfo_screenheight()
-                root.destroy()
-            except Exception as e:
-                log.exception("Error determining window size", exc_info=e)
-        else:
-            self.width = width
-            self.height = height
+        self.width = width
+        self.height = height
         self.s_72 = self.scale(72, 0.7)
         self.s_16 = self.scale(16, 0.7)
         self._cv = Condition(RLock())
@@ -126,7 +115,7 @@ class LaunchGui(Thread):
     # Ensure the GUI thread is allowed to exit cleanly at interpreter shutdown
     def _on_atexit(self) -> None:
         try:
-            self.close()
+            self._shutdown_flag.set()
             # Give the Tk/guizero loop a moment to hit _poll_external_events and destroy itself
             if self.is_alive():
                 print("Waiting for tkinter thread to exit")
@@ -287,6 +276,18 @@ class LaunchGui(Thread):
     def run(self):
         GpioHandler.cache_handler(self)
         self._tk_thread_id = threading.get_ident()
+        if self.width is None or self.height is None:
+            try:
+                from tkinter import Tk
+
+                _tmp_root = Tk()
+                _tmp_root.withdraw()
+                self.width = _tmp_root.winfo_screenwidth()
+                self.height = _tmp_root.winfo_screenheight()
+                _tmp_root.destroy()
+            except Exception as e:
+                log.exception("Error determining window size", exc_info=e)
+
         self.app = app = App(title="Launch Pad", width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
