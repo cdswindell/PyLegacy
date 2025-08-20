@@ -125,6 +125,7 @@ class LaunchGui(Thread):
         atexit.register(lambda: self._shutdown_flag.set())
 
     def close(self) -> None:
+        print(f"Closing Launch Pad; TK Thread: {hex(self._tk_thread_id)} This thread: {hex(threading.get_ident())}")
         if not self._is_closed:
             self._is_closed = True
             self._shutdown_flag.set()
