@@ -97,6 +97,7 @@ class LaunchGui(Thread):
         self._is_countdown = False
         self._is_flashing = False
         self.started_up = False
+        self._monitored_state_watcher = None
         if self._sync_state and self._sync_state.is_synchronized is True:
             self._sync_watcher = None
             self.on_sync()
@@ -111,6 +112,9 @@ class LaunchGui(Thread):
     def close(self) -> None:
         if not self._is_closed:
             self._is_closed = True
+            if self._monitored_state_watcher:
+                self._monitored_state_watcher.shutdown()
+                self._monitored_state_watcher = None
             self._shutdown_flag.set()
 
     def reset(self):
@@ -136,7 +140,7 @@ class LaunchGui(Thread):
             if self._monitored_state is None:
                 raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
             # watch for external state changes
-            StateWatcher(self._monitored_state, self.sync_gui_state)
+            self._monitored_state_watcher = StateWatcher(self._monitored_state, self.sync_gui_state)
             # start GUI
             self.start()
             # listen for state updates
