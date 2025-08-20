@@ -110,16 +110,16 @@ class LaunchGui(Thread):
         self._is_flashing = False
         self.started_up = False
         self._state_changed_flag = Event()
+
+        # Thread-aware shutdown signaling
+        self._tk_thread_id: int | None = None
+        self._shutdown_flag = Event()
         if self._sync_state and self._sync_state.is_synchronized is True:
             self._sync_watcher = None
             self.on_sync()
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
         self._is_closed = False
-
-        # Thread-aware shutdown signaling
-        self._tk_thread_id: int | None = None
-        self._shutdown_flag = Event()
 
     def close(self) -> None:
         if not self._is_closed:
@@ -210,7 +210,7 @@ class LaunchGui(Thread):
 
     def _poll_external_events(self):
         if self._shutdown_flag.is_set():
-            print(f"Shutting down; TK Thread: {self._tk_thread_id} This thread: {threading.get_ident()}")
+            print(f"Shutting down; TK Thread: {hex(self._tk_thread_id)} This thread: {hex(threading.get_ident())}")
             try:
                 self.app.destroy()
             except TclError:
