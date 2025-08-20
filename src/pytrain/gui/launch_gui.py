@@ -293,7 +293,7 @@ class LaunchGui(Thread):
         app.when_closed = self.close
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
-        app.repeat(1000, self._poll_external_events)
+        app.repeat(50, self._poll_external_events)
 
         # create screen
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
