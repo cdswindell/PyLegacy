@@ -6,7 +6,6 @@
 #  SPDX-License-Identifier: LPGL
 #
 import atexit
-import gc
 import logging
 import threading
 from queue import SimpleQueue
@@ -130,7 +129,9 @@ class LaunchGui(Thread):
             self.close()
             # Give the Tk/guizero loop a moment to hit _poll_external_events and destroy itself
             if self.is_alive():
+                print("Waiting for tkinter thread to exit")
                 self.join(timeout=2.0)
+                print("tkinter thread exited")
         except Exception as e:
             # Best-effort cleanup during interpreter shutdown
             print(e)
@@ -147,7 +148,6 @@ class LaunchGui(Thread):
                     pass
                 finally:
                     self._clear_vars()
-                    self._shutdown_flag.clear()
             else:
                 self._shutdown_flag.set()
 
@@ -456,14 +456,12 @@ class LaunchGui(Thread):
         # Display GUI and start event loop; call blocks
         try:
             app.display()
-            print("Exiting")
         except TclError:
             # If Tcl is already tearing down, ignore
             pass
         finally:
             self._clear_vars()
-            gc.collect()
-            print(f"Exiting: {self._tk_thread_id}")
+        print(f"Exiting: {hex(self._tk_thread_id)}")
 
     def _clear_vars(self):
         self.upper_box = self.lower_box = self.message = None
