@@ -40,7 +40,7 @@ OF_INTEREST_COMMANDS = {
 class LaunchGui(Thread):
     def __init__(self, tmcc_id: int = 39, track_id: int = None, width: int = None, height: int = None):
         # initialize guizero thread
-        super().__init__(daemon=True, name=f"Pad {tmcc_id} GUI")
+        super().__init__(name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
         self.track_id = track_id
         if width is None or height is None:
