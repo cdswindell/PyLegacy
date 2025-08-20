@@ -40,7 +40,7 @@ OF_INTEREST_COMMANDS = {
 class LaunchGui(Thread):
     def __init__(self, tmcc_id: int = 39, track_id: int = None, width: int = None, height: int = None):
         # initialize guizero thread
-        super().__init__(name=f"Pad {tmcc_id} GUI")
+        super().__init__(daemon=False, name=f"Pad {tmcc_id} GUI")
         self.tmcc_id = tmcc_id
         self.track_id = track_id
         if width is None or height is None:
@@ -143,6 +143,9 @@ class LaunchGui(Thread):
 
     def reset(self):
         self.close()
+
+        # Important: don't call tkinter from atexit; only signal
+        atexit.register(lambda: self._shutdown_flag.set())
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
