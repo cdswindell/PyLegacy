@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 from .sequence_constants import SequenceCommandEnum
@@ -17,9 +19,9 @@ class AbsoluteSpeedRpm(SequenceReq):
         self._scope = scope
         self._data = data
         self._state = None
-        self.add(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, data=data, scope=CommandScope.ENGINE)
+        self.add(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, data=data, scope=scope)
         rpm = tmcc2_speed_to_rpm(data)
-        self.add(TMCC2EngineCommandEnum.DIESEL_RPM, data=rpm, scope=CommandScope.ENGINE)
+        self.add(TMCC2EngineCommandEnum.DIESEL_RPM, data=rpm, scope=scope)
 
     @property
     def scope(self) -> CommandScope | None:
@@ -32,14 +34,16 @@ class AbsoluteSpeedRpm(SequenceReq):
             if self._scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 if new_scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                     self._scope = new_scope
-                    self._apply_scope(new_scope)
+                    for cmd_req in self._requests:
+                        cmd_req.scope = new_scope
                     return
             raise AttributeError(f"Scope {new_scope} not supported for {self}")
 
     def _apply_data(self, new_data: int = None) -> int:
         from ...db.component_state_store import ComponentStateStore
+        from ...db.engine_state import EngineState
 
-        state = ComponentStateStore.get_state(self.scope, self.address, create=False)
+        state = cast(EngineState, ComponentStateStore.get_state(self.scope, self.address, create=False))
         if state:
             new_speed = min(state.speed_max, self.data)
             self._data = new_speed
