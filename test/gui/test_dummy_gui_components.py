@@ -337,6 +337,7 @@ def test_toggle_power_off_path(monkeypatch):
         self.comms_box = None
         self.power_button = DummyPushButton(image=self.off_button, height=self.s_72, width=self.s_72)
         self.lights_button = DummyPushButton(image=self.on_button, height=self.s_72, width=self.s_72)
+        self.klaxon_button = DummyPushButton(image=self.siren_on, height=self.s_72, width=self.s_72)
         self.label = DummyText(text="T-Minus")
         self.message = DummyText(text="")
         self.count = DummyText(text="")
