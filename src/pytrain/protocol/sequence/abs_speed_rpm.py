@@ -23,21 +23,22 @@ class AbsoluteSpeedRpm(SequenceReq):
         rpm = tmcc2_speed_to_rpm(data)
         self.add(TMCC2EngineCommandEnum.DIESEL_RPM, data=rpm, scope=scope)
 
-    @property
-    def scope(self) -> CommandScope | None:
-        return self._scope
-
-    @scope.setter
-    def scope(self, new_scope: CommandScope) -> None:
-        if new_scope != self._scope:
-            # can only change scope for Engine and Train commands, and then, just from the one to the other
-            if self._scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-                if new_scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-                    self._scope = new_scope
-                    for cmd_req in self._requests:
-                        cmd_req.scope = new_scope
-                    return
-            raise AttributeError(f"Scope {new_scope} not supported for {self}")
+    #
+    # @property
+    # def scope(self) -> CommandScope | None:
+    #     return self._scope
+    #
+    # @scope.setter
+    # def scope(self, new_scope: CommandScope) -> None:
+    #     if new_scope != self._scope:
+    #         # can only change scope for Engine and Train commands, and then, just from the one to the other
+    #         if self._scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+    #             if new_scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+    #                 self._scope = new_scope
+    #                 for cmd_req in self._requests:
+    #                     cmd_req.request.scope = new_scope
+    #                 return
+    #         raise AttributeError(f"Scope {new_scope} not supported for {self}")
 
     def _apply_data(self, new_data: int = None) -> int:
         from ...db.component_state_store import ComponentStateStore

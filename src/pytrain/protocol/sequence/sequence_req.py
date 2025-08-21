@@ -4,7 +4,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from time import sleep
-from typing import List, Callable, TypeVar, Tuple
+from typing import Callable, List, Tuple, TypeVar
 
 from ..multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
 
@@ -13,20 +13,20 @@ if sys.version_info >= (3, 11):
 elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
+from ...comm.comm_buffer import CommBuffer
+from ...utils.argument_parser import ArgumentParser
 from ..command_def import CommandDefEnum
 from ..command_req import CommandReq
 from ..constants import (
     DEFAULT_ADDRESS,
     DEFAULT_BAUDRATE,
+    DEFAULT_DURATION_INTERVAL_MSEC,
     DEFAULT_PORT,
+    CommandScope,
     OfficialRRSpeeds,
 )
-from ..constants import CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1RRSpeedsEnum
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
-
-from ...comm.comm_buffer import CommBuffer
-from ...utils.argument_parser import ArgumentParser
 
 T = TypeVar("T", TMCC1RRSpeedsEnum, TMCC2RRSpeedsEnum)
 
@@ -52,14 +52,12 @@ class SequenceReq(CommandReq, Sequence):
         """
         We need this function to avoid Python circular dependencies
         """
-        from .sequence_constants import SequenceCommandEnum
-        from .speed_req import SpeedReq
         from .abs_speed_rpm import AbsoluteSpeedRpm
         from .grade_crossing_req import GradeCrossingReq
-        from .ramped_speed_req import RampedSpeedReq
-        from .ramped_speed_req import RampedSpeedDialogReq
-        from .labor_effect import LaborEffectUpReq
-        from .labor_effect import LaborEffectDownReq
+        from .labor_effect import LaborEffectDownReq, LaborEffectUpReq
+        from .ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
+        from .sequence_constants import SequenceCommandEnum
+        from .speed_req import SpeedReq
 
         if command == SequenceCommandEnum.ABSOLUTE_SPEED_SEQ:
             SequenceCommandEnum.ABSOLUTE_SPEED_SEQ.value.register_cmd_class(SpeedReq)
@@ -123,6 +121,12 @@ class SequenceReq(CommandReq, Sequence):
             req = req_wrapper.request
             if req.is_data:
                 req.data = self.data
+        return 0
+
+    def _apply_scope(self, new_scope: CommandScope = None) -> int:
+        for req_wrapper in self._requests:
+            req = req_wrapper.request
+            req.scope = self.scope
         return 0
 
     def add(
@@ -191,6 +195,7 @@ class SequenceReq(CommandReq, Sequence):
         repeat: int = 1,
         delay: float = 0,
         duration: float = 0,
+        interval: int = DEFAULT_DURATION_INTERVAL_MSEC,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
@@ -292,7 +297,7 @@ class SequenceReq(CommandReq, Sequence):
 
     def _recalculate(self) -> None:
         """
-        Recalculate command state, prior to sending bytes
+        Recalculate command state before sending bytes
         """
         pass
 
