@@ -596,6 +596,7 @@ class EngineController(Generic[R]):
             max_speed = min(max_speed, speed_limit)
             steps_to_speed = GpioHandler.make_interpolator(max_speed, 0, -num_steps, num_steps)
             speed_to_steps = GpioHandler.make_interpolator(num_steps, -num_steps, 0, max_speed)
+            print(speed_cmd)
             self._speed_re.update_action(speed_cmd, cur_state, steps_to_speed, speed_to_steps)
 
         # reset the quilling horn
