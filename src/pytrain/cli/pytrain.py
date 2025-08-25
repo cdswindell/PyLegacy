@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Tuple, cast
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
+from ..db.sync_state import SyncState
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandDispatcher, CommandListener
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -272,7 +273,7 @@ class PyTrain:
                 flush=True,
             )
             sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-            if sync_state is not None:
+            if isinstance(sync_state, SyncState):
                 while not sync_state.is_synchronized:
                     cycle += 1
                     print(
@@ -1033,8 +1034,8 @@ class PyTrain:
             cycle = 0
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
             print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle]}", end="\r")
-            if sync_state is not None:
-                while sync_state.is_synchronized is not True:
+            if isinstance(sync_state, SyncState):
+                while sync_state.is_synchronized:
                     cycle += 1
                     print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle % 4]}", end="\r")
                     sleep(0.10)
