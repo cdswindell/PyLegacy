@@ -8,7 +8,6 @@
 #
 
 import requests
-from requests.exceptions import RequestException
 
 
 API_KEY = "LionChief-Android-ED2E9A6F5F08"
@@ -24,4 +23,4 @@ class ProdInfo:
             return response.json()
         else:
             msg = f"Request for product information on {bt_id} failed with status code {response.status_code}"
-            raise RequestException(msg)
+            raise requests.RequestException(msg)
