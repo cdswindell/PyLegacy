@@ -8,7 +8,7 @@
 #
 
 import requests
-from requests import RequestException
+from requests.exceptions import RequestException
 
 
 API_KEY = "LionChief-Android-ED2E9A6F5F08"
