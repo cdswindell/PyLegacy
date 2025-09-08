@@ -42,7 +42,7 @@ class MakeService:
         if self._user is None:
             print("\nA valid Raspberry Pi username is required")
             return
-        elif self.validate_username(self._user) is False:
+        elif not self.validate_username(self._user):
             print(f"\nUser '{self._user}' does not exist on this system. Exiting.")
             return
 
@@ -50,7 +50,7 @@ class MakeService:
             self.deactivate_and_remove_services()
             return
 
-        # verify template directory exists
+        # verify the template directory exists
         self._template_dir = find_dir("installation", (".", "../", "src"))
         if self._template_dir is None:
             print("\nUnable to locate directory with installation templates. Exiting")
@@ -62,14 +62,14 @@ class MakeService:
             print("\nUnable to locate virtual environment 'activate' command. Exiting")
             return
 
-        # if server, verify a base 3 and/or ser2 is specified
+        # if server, verify base 3 and/or ser2 is specified
         self._ser2 = args.ser2 is True
         if args.base is None:
             self._base_ip = None
         else:
             self._base_ip = args.base if args.base and args.base != "search" else "search"
             if self._base_ip != "search":
-                if self.is_valid_ip(self._base_ip) is False:
+                if not self.is_valid_ip(self._base_ip):
                     print(f"\nInvalid IP address '{self._base_ip}'. Exiting")
                     return
             else:
@@ -87,7 +87,7 @@ class MakeService:
 
         # verify buttons file exists
         if args.buttons_file:
-            if os.path.isfile(args.buttons_file) is False:
+            if not os.path.isfile(args.buttons_file):
                 print(f"\nButton definitions file '{args.buttons_file}' not found. Continuing")
 
         self._exe = "pytrain" if is_package() else "cli/pytrain.py"
@@ -120,6 +120,7 @@ class MakeService:
         if template is None:
             print("\nUnable to locate shell script template. Exiting")
             return None
+        template_data = ""
         with open(template, "r") as f:
             template_data = f.read()
         for key, value in self.config.items():
@@ -144,6 +145,7 @@ class MakeService:
         if template is None:
             print("\nUnable to locate service definition template. Exiting")
             return None
+        template_data = ""
         with open(template, "r") as f:
             template_data = f.read()
         for key, value in self.config.items():
@@ -297,7 +299,7 @@ class MakeService:
         else:
             print(f"\nNo {PROGRAM_NAME} server or client is currently running. Exiting")
             return
-        if self.confirm(f"Are you sure you want to deactivate and remove {PROGRAM_NAME} {mode}?") is True:
+        if self.confirm(f"Are you sure you want to deactivate and remove {PROGRAM_NAME} {mode}?"):
             path = Path(self._home, "pytrain_server.bash" if mode == "Server" else "pytrain_client.bash")
             if path.exists():
                 print(f"\nRemoving {path}...")
@@ -330,7 +332,7 @@ class MakeService:
         mode_group.add_argument(
             "-remove",
             action="store_true",
-            help="Deactivate and remove any existing {PROGRAM_NAME} service",
+            help=f"Deactivate and remove any existing {PROGRAM_NAME} service",
         )
         server_opts = parser.add_argument_group("Server options")
         server_opts.add_argument(
