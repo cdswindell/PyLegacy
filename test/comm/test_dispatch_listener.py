@@ -8,14 +8,14 @@ from typing import Any
 import pytest
 
 # noinspection PyProtectedMember
-from src.pytrain.comm.command_listener import CommandListener, CommandDispatcher, Message, Channel
+from src.pytrain.comm.command_listener import Channel, CommandDispatcher, CommandListener, Message
 from src.pytrain.protocol.command_req import CommandReq
-from src.pytrain.protocol.constants import DEFAULT_QUEUE_SIZE, BROADCAST_TOPIC, CommandScope
+from src.pytrain.protocol.constants import BROADCAST_TOPIC, DEFAULT_QUEUE_SIZE, CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
 from src.pytrain.protocol.tmcc2.tmcc2_constants import (
     TMCC2EngineCommandEnum,
-    TMCC2RouteCommandEnum,
     TMCC2HaltCommandEnum,
+    TMCC2RouteCommandEnum,
 )
 from test.test_base import TestBase
 
@@ -72,7 +72,7 @@ class TestCommandDispatcher(TestBase):
     def test_command_dispatcher_singleton(self) -> None:
         assert CommandDispatcher.is_built() is False
         dispatcher = CommandDispatcher()
-        time.sleep(0.25)
+        time.sleep(0.3)
         assert dispatcher.is_built
         assert dispatcher.is_running() is True
         assert isinstance(dispatcher, CommandDispatcher)
