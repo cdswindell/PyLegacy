@@ -17,7 +17,7 @@ from typing import cast
 
 from ..comm.comm_buffer import CommBuffer, CommBufferProxy
 from ..comm.command_listener import CommandListener, Subscriber, Topic
-from ..pdi.constants import PDI_SOP, PDI_EOP, PDI_STF
+from ..pdi.constants import PDI_EOP, PDI_SOP, PDI_STF
 from ..protocol.command_def import CommandDefEnum
 
 log = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ class ClientStateListener(threading.Thread):
         self._pdi_listener = PdiListener.build(build_base3_reader=False)
         self._tmcc_buffer = cast(CommBufferProxy, CommBuffer.build())
         self._port = self._tmcc_buffer.server_port()
-        self._is_running = True
+        self._is_running: bool = True
         self._ev = Event()
         self.start()
 
@@ -61,7 +61,7 @@ class ClientStateListener(threading.Thread):
 
         # See if this client needs an upgrade. If it does, the actual upgrade
         # will be done by the PyTrain main program
-        if self.update_client_if_needed(False) is True:
+        if self.update_client_if_needed(False):
             return
 
         self._tmcc_buffer.sync_state()  # request initial state from server
@@ -105,7 +105,7 @@ class ClientStateListener(threading.Thread):
         server_version = self._tmcc_buffer.server_version
         client_version = get_version_tuple()  # only interested in major and minor version
         if server_version is None or server_version > client_version:
-            if do_upgrade is True:
+            if do_upgrade:
                 cv = f"{get_version()}"
                 sv = f" --> v{server_version[0]}.{server_version[1]}.{server_version[2]}" if server_version else ""
                 log.info(f"Client needs update: {cv}{sv}")

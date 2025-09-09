@@ -9,9 +9,9 @@ import sys
 import threading
 import time
 import uuid
-from ipaddress import IPv6Address, IPv4Address
-from queue import Queue, Empty
-from threading import Thread, Event, Lock, Condition
+from ipaddress import IPv4Address, IPv6Address
+from queue import Empty, Queue
+from threading import Condition, Event, Lock, Thread
 
 from ..db.component_state import ComponentState
 from ..pdi.pdi_req import PdiReq
@@ -19,7 +19,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 if sys.version_info >= (3, 11):
-    from typing import Self, Dict
+    from typing import Dict, Self
 elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
@@ -29,12 +29,13 @@ from serial.serialutil import SerialException
 from ..protocol.constants import (
     DEFAULT_BAUDRATE,
     DEFAULT_PORT,
+    DEFAULT_PULSE,
     DEFAULT_QUEUE_SIZE,
+    DEFAULT_SER2_THROTTLE_DELAY,
+    DEFAULT_SERVER_PORT,
     DEFAULT_VALID_BAUDRATES,
     PROGRAM_NAME,
-    DEFAULT_PULSE,
 )
-from ..protocol.constants import DEFAULT_SER2_THROTTLE_DELAY, DEFAULT_SERVER_PORT
 
 log = logging.getLogger(__name__)
 
@@ -223,12 +224,12 @@ class CommBufferSingleton(CommBuffer, Thread):
 
     def update_state(self, state: ComponentState | CommandReq | PdiReq | bytes) -> None:
         """
-        Force a state update thru the system. Used to handle
+        Force a state update through the system. Used to handle
         non-Lionel actors, like automatic train control blocks.
         """
-        from .command_listener import CommandDispatcher
+        from ..pdi.constants import PDI_EOP, PDI_SOP
         from ..pdi.pdi_listener import PdiDispatcher
-        from ..pdi.constants import PDI_SOP, PDI_EOP
+        from .command_listener import CommandDispatcher
 
         # if we got a state, remember it, otherwise, we have to
         # parse the byte stream and convert

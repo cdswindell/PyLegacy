@@ -39,6 +39,12 @@ class PdiListener(Thread):
         return PdiListener(base3, base3_port, queue_size, build_base3_reader)
 
     @classmethod
+    def get(cls) -> PdiListener:
+        if cls._instance is None:
+            raise AttributeError("PdiListener has not been initialized")
+        return cls._instance
+
+    @classmethod
     def is_built(cls) -> bool:
         return cls._instance is not None
 
@@ -253,12 +259,21 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         self._queue = Queue[PdiReq](queue_size)
         self._tmcc_dispatcher = CommandDispatcher.build(queue_size)
         self._server_port = EnqueueProxyRequests.server_port() if EnqueueProxyRequests.is_built() else None
+        self._is_server = self._server_port is not None
         self._server_ips = get_ip_address()
         self.start()
 
     @property
     def is_broadcasts_enabled(self) -> bool:
         return self._broadcasts
+
+    @property
+    def is_server(self) -> bool:
+        return self._is_server
+
+    @property
+    def is_client(self) -> bool:
+        return not self._is_server
 
     def run(self) -> None:
         while self._is_running:
@@ -290,6 +305,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                         self._tmcc_dispatcher.offer(cmd.tmcc_command, from_pdi=True)
                     elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
                         if hasattr(cmd, "action"):
+                            self.publish((cmd.command, cmd.action), cmd)
                             self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
                         self.publish((cmd.scope, cmd.tmcc_id), cmd)
                         self.publish(cmd.scope, cmd)
@@ -353,7 +369,10 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         if channel is None:
             raise ValueError("Channel required")
         elif address is None:
-            return channel
+            if action:
+                return channel, action
+            else:
+                return channel
         elif action is None:
             return channel, address
         else:

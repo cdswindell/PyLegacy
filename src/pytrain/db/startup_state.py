@@ -11,15 +11,16 @@ from __future__ import annotations
 
 import logging
 import time
-from threading import Thread, Condition, Event
+from threading import Condition, Event, Thread
 
+from ..comm.command_listener import SYNC_COMPLETE, SYNCING, CommandDispatcher
 from ..db.component_state_store import ComponentStateStore
-from ..comm.command_listener import SYNCING, CommandDispatcher, SYNC_COMPLETE
+from ..pdi.amc2_req import Amc2StateSync
 from ..pdi.base_req import BaseReq
-from ..pdi.constants import PdiCommand, D4Action
+from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.pdi_listener import PdiListener
-from ..pdi.pdi_req import PdiReq, AllReq
+from ..pdi.pdi_req import AllReq, PdiReq
 from ..pdi.pdi_state_store import PdiStateStore
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 
@@ -27,9 +28,15 @@ log = logging.getLogger(__name__)
 
 
 class StartupState(Thread):
-    def __init__(self, listener: PdiListener, dispatcher: CommandDispatcher, pdi_state_store: PdiStateStore) -> None:
+    def __init__(
+        self,
+        listener: PdiListener,
+        dispatcher: CommandDispatcher,
+        pdi_state_store: PdiStateStore,
+    ) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup State Sniffer")
-        self.listener = listener
+        self.pdi_listener = listener
+        self.pdi_dispatcher = listener.dispatcher if listener else None
         self.pdi_state_store = pdi_state_store
         self._cv = Condition()
         self._ev = Event()
@@ -59,7 +66,7 @@ class StartupState(Thread):
                 self._processed_configs.add(self._config_key(cmd))
                 if state_requests:
                     for state_request in state_requests:
-                        self.listener.enqueue_command(state_request)
+                        self.pdi_listener.enqueue_command(state_request)
             elif isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
                 if cmd.scope == CommandScope.TRAIN and cmd.tmcc_id == 98:
                     self._dispatcher.offer(SYNC_COMPLETE)
@@ -85,13 +92,13 @@ class StartupState(Thread):
                         )
                         with self._cv:
                             self._waiting_for[req.as_key] = req
-                        self.listener.enqueue_command(req)
+                        self.pdi_listener.enqueue_command(req)
                         # get the record number of the next engine/train
                         req = D4Req(cmd.next_record_no, cmd.pdi_command, D4Action.NEXT_REC)
             if req:
                 with self._cv:
                     self._waiting_for[req.as_key] = req
-                self.listener.enqueue_command(req)
+                self.pdi_listener.enqueue_command(req)
             else:
                 with self._cv:
                     if not self._waiting_for:
@@ -122,14 +129,14 @@ class StartupState(Thread):
         return byte_str
 
     def run(self) -> None:
-        self.listener.subscribe_any(self)
-        self.listener.enqueue_command(AllReq())
-        self.listener.enqueue_command(BaseReq(0, PdiCommand.BASE))
+        self.pdi_listener.subscribe_any(self)
+        self.pdi_listener.enqueue_command(AllReq())
+        self.pdi_listener.enqueue_command(BaseReq(0, PdiCommand.BASE))
         for pdi_command in [PdiCommand.D4_ENGINE, PdiCommand.D4_TRAIN]:
             req = D4Req(0, pdi_command, D4Action.COUNT)
             with self._cv:
                 self._waiting_for[req.as_key] = req
-            self.listener.enqueue_command(req)
+            self.pdi_listener.enqueue_command(req)
         # Request engine/sw/acc roster at startup; do this by asking for
         # Eng/Train/Acc/Sw/Route then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity
@@ -143,7 +150,7 @@ class StartupState(Thread):
             req = BaseReq(1, PdiCommand.BASE_MEMORY, scope=scope)
             with self._cv:
                 self._waiting_for[req.as_key] = req
-            self.listener.enqueue_command(req)
+            self.pdi_listener.enqueue_command(req)
 
         # now wait for all responses; this will not track LCS devices reporting their config
         # because of the AllReq
@@ -159,6 +166,11 @@ class StartupState(Thread):
                     log.info(f"Initial state loaded from Base 3: {time.time() - now:.2f} seconds elapsed.")
                     break
             total_time += 0.25
+        # register handlers for special cases where additional processing
+        # is required to process state
+        _ = Amc2StateSync(self.pdi_listener)
+        # print out any stragglers; this is an error we should address
         for k, v in self._waiting_for.items():
             log.info(f"Failed to receive {k} state: {v}")
-        self.listener.unsubscribe_any(self)
+
+        self.pdi_listener.unsubscribe_any(self)

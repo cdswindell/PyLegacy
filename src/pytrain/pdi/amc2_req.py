@@ -1,9 +1,18 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from ..db.component_state import L, T
 from ..protocol.constants import CommandScope, Mixins
+from ..utils.singleton import singleton
 from ..utils.validations import Validations
 from .constants import PDI_EOP, PDI_SOP, Amc2Action, PdiCommand
 from .lcs_req import LcsReq
@@ -302,3 +311,25 @@ class Amc2Req(LcsReq):
         byte_str += self._motor1.speed.to_bytes(1, byteorder="big") if self._motor1 else NULL_BYTE
         byte_str += self._motor2.speed.to_bytes(1, byteorder="big") if self._motor2 else NULL_BYTE
         return byte_str
+
+
+@singleton
+class Amc2StateSync:
+    from .pdi_listener import PdiListener
+
+    def __init__(self, listener: PdiListener) -> None:
+        self._pdi_listener = listener
+        self._pdi_dispatcher = dispatcher = listener.dispatcher
+        dispatcher.subscribe(self, PdiCommand.AMC2_RX, action=Amc2Action.MOTOR)
+        dispatcher.subscribe(self, PdiCommand.AMC2_RX, action=Amc2Action.LAMP)
+        dispatcher.subscribe(self, PdiCommand.AMC2_RX, action=Amc2Action.MOTOR_CONFIG)
+
+    def __call__(self, command: Amc2Req) -> None:
+        # if we receive a motor/lamp/motor_config RX, request complete configuration
+        if isinstance(command, Amc2Req) and command.action in {
+            Amc2Action.LAMP,
+            Amc2Action.MOTOR,
+            Amc2Action.MOTOR_CONFIG,
+        }:
+            # send config command to retrieve complete config
+            Amc2Req(command.tmcc_id, PdiCommand.AMC2_GET, Amc2Action.CONFIG).send()

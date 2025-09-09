@@ -1035,7 +1035,7 @@ class PyTrain:
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
             print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle]}", end="\r")
             if isinstance(sync_state, SyncState):
-                while sync_state.is_synchronized:
+                while not sync_state.is_synchronized:
                     cycle += 1
                     print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle % 4]}", end="\r")
                     sleep(0.10)
