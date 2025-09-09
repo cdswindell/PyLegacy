@@ -148,6 +148,9 @@ class AccessoryState(TmccState):
                     elif isinstance(command, Amc2Req):
                         self._pdi_source = True
                         self._amc2 = True
+                        if command.action in {Amc2Action.LAMP, Amc2Action.MOTOR, Amc2Action.MOTOR_CONFIG}:
+                            # send config command to retrieve complete config
+                            Amc2Req(command.tmcc_id, PdiCommand.AMC2_GET, Amc2Action.CONFIG).send()
                 elif isinstance(command, IrdaReq):
                     if self._first_pdi_command is None:
                         self._first_pdi_command = command.command

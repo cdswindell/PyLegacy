@@ -27,7 +27,6 @@ from typing import Any, Dict, List, Tuple, cast
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
-from ..db.sync_state import SyncState
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandDispatcher, CommandListener
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -37,6 +36,7 @@ from ..db.component_state_store import ComponentStateStore
 from ..db.engine_state import EngineState
 from ..db.prod_info import ProdInfo
 from ..db.startup_state import StartupState
+from ..db.sync_state import SyncState
 from ..gpio.gpio_handler import GpioHandler
 from ..pdi.amc2_req import Amc2Req, Direction
 from ..pdi.asc2_req import Asc2Req
@@ -1148,7 +1148,7 @@ class PyTrain:
                         db = None
                         action = D4Action.QUERY
                     agr = D4Req(rec_no, pdi, action=action, start=start, data_length=length, data_bytes=db)
-        elif param_len >= 2 and param[0].lower().startswith("m"):
+        elif param_len >= 2 and param[0].lower().startswith("m"):  # Base Memory commands
             pdi = PdiCommand.BASE_MEMORY
             rec_no = int(param[1], 16) if "0x" in param[1] else int(param[1])
             start = (int(param[2], 16) if "0x" in param[2] else int(param[2])) if param_len > 2 else 0
