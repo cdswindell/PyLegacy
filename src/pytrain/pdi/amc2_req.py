@@ -123,16 +123,16 @@ class Amc2Req(LcsReq):
                 self._lamp3 = Amc2Lamp(3, self._data[20]) if data_len > 20 else None
                 self._lamp4 = Amc2Lamp(4, self._data[21]) if data_len > 21 else None
             elif self._action == Amc2Action.MOTOR:
-                self._motor = self._data[4] if data_len > 4 else None
-                self._speed = self._data[5] if data_len > 5 else None
-                self._direction = self._data[6] if data_len > 6 else None
+                self._motor = self._data[3] if data_len > 3 else None
+                self._speed = self._data[4] if data_len > 4 else None
+                self._direction = self._data[5] if data_len > 5 else None
             elif self._action == Amc2Action.LAMP:
-                self._lamp = self._data[4] if data_len > 4 else None
-                self._level = self._data[5] if data_len > 5 else None
+                self._lamp = self._data[3] if data_len > 3 else None
+                self._level = self._data[4] if data_len > 4 else None
             elif self._action == Amc2Action.MOTOR_CONFIG:
-                self._motor = self._data[4] if data_len > 4 else None
-                self._output_type = self._data[5] if data_len > 5 else None
-                self._restore_state = bool(self._data[6]) if data_len > 6 else None
+                self._motor = self._data[3] if data_len > 3 else None
+                self._output_type = self._data[4] if data_len > 4 else None
+                self._restore_state = bool(self._data[5]) if data_len > 5 else None
         else:
             self._action = action
             self._debug = debug
@@ -216,13 +216,13 @@ class Amc2Req(LcsReq):
                 l1 = f"{self._lamp1}"
                 return f"{at} {m1} {m2} {l1} Debug: {self.debug} ({self.packet})"
             elif self._action == Amc2Action.MOTOR:
-                return f"Motor: {self.motor} Speed: {self.speed} Dir: {self.direction.label} ({self.packet})"
+                return f"Motor: {self.motor + 1} Speed: {self.speed} Dir: {self.direction.label} ({self.packet})"
             elif self._action == Amc2Action.LAMP:
-                return f"Lamp: {self.lamp} Level: {self.level} ({self.packet})"
+                return f"Lamp: {self.lamp + 1} Level: {self.level} ({self.packet})"
             elif self._action == Amc2Action.MOTOR_CONFIG:
                 ot = f"Output Type: {self.output_type.label}"
                 rs = f"Restore State: {'On' if self._restore_state else 'Off'}"
-                return f"Motor: {self.motor} {ot} {rs} ({self.packet})"
+                return f"Motor: {self.motor + 1} {ot} {rs} ({self.packet})"
         return super().payload
 
     @property
