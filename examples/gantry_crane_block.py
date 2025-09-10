@@ -1,4 +1,4 @@
-from pytrain import GantryCrane, PowerDistrict, Switch
+from pytrain import PowerDistrict, GantryCrane, Switch
 
 g = GantryCrane(
     address=87,
@@ -6,8 +6,8 @@ g = GantryCrane(
     cab_right_pin=21,
     ro_left_pin=12,
     ro_right_pin=16,
-    bo_down_pin=8,
-    bo_up_pin=7,
+    bo_down_pin=7,
+    bo_up_pin=8,
     mag_pin=25,
     led_pin=24,
     cab_rotary_encoder=True,
