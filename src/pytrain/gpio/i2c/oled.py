@@ -86,7 +86,6 @@ class Oled(Thread, TextBuffer):
         TextBuffer.__init__(self, rows, auto_update=auto_update)
 
         self._image = Image.new(self._device.mode, self._device.size, "black")
-        print(type(self._image))
         self._canvas = ImageDraw.Draw(self._image)
         self._font_size = font_size
         if font_family is None or font_family == "default":
@@ -316,7 +315,7 @@ class ScrollingHotspot(Thread, hotspot):
     Support Scrolling Text
     """
 
-    def __init__(self, oled: Oled, text, row: int = 0):
+    def __init__(self, oled: Oled, text, row: int = 0, rate: int = 2):
         super().__init__()
         Thread.__init__(self, daemon=True)
         hotspot.__init__(self, oled.width, oled.font_size)
@@ -327,7 +326,7 @@ class ScrollingHotspot(Thread, hotspot):
         self._font = oled.font
         self._row = row
         self._text = text + " " + text
-        self._scroll_speed = 1
+        self._scroll_speed = rate
         self._text_width, _ = oled.measure_text(text)
         x, y = oled.measure_text(" ")
         self._text_width += x
