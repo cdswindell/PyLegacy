@@ -55,7 +55,7 @@ class Oled(Thread, TextBuffer):
         x_offset: int = 2,
         auto_update: bool = True,
         spi_speed: int = 4000000,
-        scroll_rate: float = 0.02,
+        scroll_rate: float = 0.03,
     ) -> None:
         super().__init__()
         if address:
@@ -75,7 +75,7 @@ class Oled(Thread, TextBuffer):
             spi_dev = getattr(self._serial, "_spi")
             spi_dev.max_speed_hz = spi_speed
 
-        self._scroll_rate = scroll_rate if scroll_rate and scroll_rate > 0 else 0.02
+        self._scroll_rate = scroll_rate if scroll_rate and scroll_rate > 0 else 0.03
 
         # set contrast to maximum
         self._device.contrast(255)
@@ -318,7 +318,7 @@ class ScrollingHotspot(Thread, hotspot):
     Support Scrolling Text
     """
 
-    def __init__(self, oled: Oled, text, row: int = 0, rate: float = 0.02):
+    def __init__(self, oled: Oled, text, row: int = 0, rate: float = 0.03):
         super().__init__()
         Thread.__init__(self, daemon=True)
         hotspot.__init__(self, oled.width, oled.font_size)
@@ -330,7 +330,7 @@ class ScrollingHotspot(Thread, hotspot):
         self._row = row
         self._text = text + " " + text
         self._scroll_speed = 1
-        self._scroll_rate = rate if rate and rate > 0 else 0.02
+        self._scroll_rate = rate if rate and rate > 0 else 0.03
         self._text_width, _ = oled.measure_text(text)
         x, y = oled.measure_text(" ")
         self._text_width += x

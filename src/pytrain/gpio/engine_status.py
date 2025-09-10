@@ -30,7 +30,7 @@ class EngineStatus(Thread, GpioDevice):
         scope: CommandScope = CommandScope.ENGINE,
         address: int = None,
         device: OledDevice | str = OledDevice.ssd1322,
-        scroll_rate: float = 0.02,
+        scroll_rate: float = 0.03,
     ) -> None:
         self._lock = RLock()
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Engine Status Oled")
