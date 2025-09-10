@@ -1,4 +1,4 @@
-from pytrain import PowerDistrict, GantryCrane, Switch
+from pytrain import GantryCrane, PowerDistrict, Switch
 
 g = GantryCrane(
     address=87,
