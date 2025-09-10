@@ -28,12 +28,13 @@ class EngineStatus(Thread, GpioDevice):
         self,
         tmcc_id: int | EngineState = DEFAULT_ADDRESS,
         scope: CommandScope = CommandScope.ENGINE,
-        address: int = 0x3C,
-        device: OledDevice | str = OledDevice.ssd1309,
+        address: int = None,
+        device: OledDevice | str = OledDevice.ssd1322,
+        scroll_rate: float = 0.02,
     ) -> None:
         self._lock = RLock()
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Engine Status Oled")
-        self._oled = Oled(address, device, auto_update=False)
+        self._oled = Oled(address, device, auto_update=False, scroll_rate=scroll_rate)
         self._state_store = ComponentStateStore.get()
         if isinstance(tmcc_id, EngineState):
             self._monitored_state = tmcc_id

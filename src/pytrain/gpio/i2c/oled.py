@@ -49,12 +49,13 @@ class Oled(Thread, TextBuffer):
     def __init__(
         self,
         address: int = 0x3C,
-        device: OledDevice | str = OledDevice.ssd1309,
+        device: OledDevice | str = OledDevice.ssd1322,
         font_size: int = 15,
         font_family: str = "DejaVuSansMono-Bold.ttf",
         x_offset: int = 2,
         auto_update: bool = True,
         spi_speed: int = 4000000,
+        scroll_rate: float = 0.02,
     ) -> None:
         super().__init__()
         if address:
@@ -73,6 +74,8 @@ class Oled(Thread, TextBuffer):
         if isinstance(self._serial, spi) and spi_speed and hasattr(self._serial, "_spi"):
             spi_dev = getattr(self._serial, "_spi")
             spi_dev.max_speed_hz = spi_speed
+
+        self._scroll_rate = scroll_rate if scroll_rate and scroll_rate > 0 else 0.02
 
         # set contrast to maximum
         self._device.contrast(255)
@@ -283,7 +286,7 @@ class Oled(Thread, TextBuffer):
                         else:
                             self._canvas.text((self._x_offset, (i * fs) - 3), self[i], "white", self._font)
                     else:
-                        self._hotspots[i] = ScrollingHotspot(self, self[i], row=i)
+                        self._hotspots[i] = ScrollingHotspot(self, self[i], row=i, rate=self._scroll_rate)
             # Display the constructed image on the display
             self._device.display(self._image)
 
@@ -315,7 +318,7 @@ class ScrollingHotspot(Thread, hotspot):
     Support Scrolling Text
     """
 
-    def __init__(self, oled: Oled, text, row: int = 0, rate: int = 1):
+    def __init__(self, oled: Oled, text, row: int = 0, rate: float = 0.02):
         super().__init__()
         Thread.__init__(self, daemon=True)
         hotspot.__init__(self, oled.width, oled.font_size)
@@ -326,7 +329,8 @@ class ScrollingHotspot(Thread, hotspot):
         self._font = oled.font
         self._row = row
         self._text = text + " " + text
-        self._scroll_speed = rate
+        self._scroll_speed = 1
+        self._scroll_rate = rate if rate and rate > 0 else 0.02
         self._text_width, _ = oled.measure_text(text)
         x, y = oled.measure_text(" ")
         self._text_width += x
@@ -370,7 +374,7 @@ class ScrollingHotspot(Thread, hotspot):
         while self._is_running and self._ev.is_set() is False:
             with self._device.synchronizer:
                 self._device.display(self.render(self._device.image))
-            self._ev.wait(.03)
+            self._ev.wait(self._scroll_rate)
             if self._pause_request:
                 self._resume_ev.wait()
                 self._resume_ev.clear()
