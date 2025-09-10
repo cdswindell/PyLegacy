@@ -370,7 +370,7 @@ class ScrollingHotspot(Thread, hotspot):
         while self._is_running and self._ev.is_set() is False:
             with self._device.synchronizer:
                 self._device.display(self.render(self._device.image))
-            self._ev.wait(1)
+            self._ev.wait(0.1)
             if self._pause_request:
                 self._resume_ev.wait()
                 self._resume_ev.clear()
