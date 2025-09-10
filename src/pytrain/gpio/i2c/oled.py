@@ -12,14 +12,14 @@ from enum import unique
 from pathlib import Path
 from threading import Event, Thread
 
-from PIL import Image, ImageDraw, ImageFont
 from luma.core.interface.serial import i2c, spi
 from luma.core.virtual import hotspot
 from luma.oled.device import sh1107, ssd1306, ssd1309, ssd1322, ssd1325, ssd1362
+from PIL import Image, ImageDraw, ImageFont
 
+from ...protocol.constants import Mixins
 from ..utils.sh1122 import sh1122
 from ..utils.text_buffer import TextBuffer
-from ...protocol.constants import Mixins
 
 
 # noinspection PyTypeHints
@@ -370,7 +370,7 @@ class ScrollingHotspot(Thread, hotspot):
         while self._is_running and self._ev.is_set() is False:
             with self._device.synchronizer:
                 self._device.display(self.render(self._device.image))
-            self._ev.wait(0.01)
+            self._ev.wait(1)
             if self._pause_request:
                 self._resume_ev.wait()
                 self._resume_ev.clear()
