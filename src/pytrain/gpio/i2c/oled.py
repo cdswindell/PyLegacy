@@ -315,7 +315,7 @@ class ScrollingHotspot(Thread, hotspot):
     Support Scrolling Text
     """
 
-    def __init__(self, oled: Oled, text, row: int = 0, rate: int = 2):
+    def __init__(self, oled: Oled, text, row: int = 0, rate: int = 1):
         super().__init__()
         Thread.__init__(self, daemon=True)
         hotspot.__init__(self, oled.width, oled.font_size)
@@ -370,7 +370,7 @@ class ScrollingHotspot(Thread, hotspot):
         while self._is_running and self._ev.is_set() is False:
             with self._device.synchronizer:
                 self._device.display(self.render(self._device.image))
-            self._ev.wait(.1)
+            self._ev.wait(0.05)
             if self._pause_request:
                 self._resume_ev.wait()
                 self._resume_ev.clear()
