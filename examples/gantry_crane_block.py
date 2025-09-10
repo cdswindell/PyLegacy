@@ -1,4 +1,3 @@
-# noinspection PyUnresolvedReferences,PyPackageRequirements
 from pytrain import GantryCrane, PowerDistrict, Switch
 
 g = GantryCrane(
@@ -9,23 +8,23 @@ g = GantryCrane(
     ro_right_pin=16,
     bo_down_pin=8,
     bo_up_pin=7,
-    mag_pin=23,
+    mag_pin=25,
     led_pin=24,
     cab_rotary_encoder=True,
 )
 
-pd13 = PowerDistrict(
-    13,
-    on_pin=17,
+pd14 = PowerDistrict(
+    14,
+    on_pin=23,
     off_pin=27,
     on_led_pin=22,
 )
 
-pd14 = PowerDistrict(
-    14,
-    on_pin=10,
-    off_pin=25,
-    on_led_pin=26,
+pd13 = PowerDistrict(
+    13,
+    on_pin=14,
+    off_pin=15,
+    on_led_pin=18,
 )
 
 sw1 = Switch(
