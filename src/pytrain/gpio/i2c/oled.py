@@ -86,6 +86,7 @@ class Oled(Thread, TextBuffer):
         TextBuffer.__init__(self, rows, auto_update=auto_update)
 
         self._image = Image.new(self._device.mode, self._device.size, "black")
+        print(type(self._image))
         self._canvas = ImageDraw.Draw(self._image)
         self._font_size = font_size
         if font_family is None or font_family == "default":
@@ -370,7 +371,7 @@ class ScrollingHotspot(Thread, hotspot):
         while self._is_running and self._ev.is_set() is False:
             with self._device.synchronizer:
                 self._device.display(self.render(self._device.image))
-            self._ev.wait(.1)
+            self._ev.wait(0.1)
             if self._pause_request:
                 self._resume_ev.wait()
                 self._resume_ev.clear()
