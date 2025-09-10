@@ -10,11 +10,11 @@ from ..gpio.i2c.lcd import LCD_PCF8574_ADDRESS, Lcd
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+from ..utils.unique_deque import UniqueDeque
 from .engine_controller import EngineController
 from .engine_status import EngineStatus
 from .gpio_device import GpioDevice, P
 from .keypad import KEYPAD_PCF8574_ADDRESS, Keypad, KeyPadI2C
-from ..utils.unique_deque import UniqueDeque
 
 COMMANDS_OF_INTEREST = {
     TMCC1EngineCommandEnum.ABSOLUTE_SPEED,
@@ -43,8 +43,9 @@ class Controller(Thread, GpioDevice):
         lcd_cols: int = 20,
         is_lcd: bool = False,
         oled_address: int = 0,
-        oled_device="ssd1362",
+        oled_device="ssd1322",
         is_oled: bool = True,
+        oled_scroll_rate: float = 0.03,
         keypad_address: int | None = KEYPAD_PCF8574_ADDRESS,
         row_pins: List[int | str] = None,
         column_pins: List[int | str] = None,
@@ -93,6 +94,7 @@ class Controller(Thread, GpioDevice):
                 oled_address=oled_address,
                 oled_device=oled_device,
                 is_oled=is_oled,
+                oled_scroll_rate=oled_scroll_rate,
                 row_pins=row_pins,
                 column_pins=column_pins,
                 base_online_pin=base_online_pin,
@@ -140,6 +142,7 @@ class Controller(Thread, GpioDevice):
                 oled_address=oled_address,
                 oled_device=oled_device,
                 is_oled=is_oled,
+                oled_scroll_rate=oled_scroll_rate,
                 keypad_address=keypad_address,
                 base_online_pin=base_online_pin,
                 base_offline_pin=base_offline_pin,
@@ -222,8 +225,9 @@ class Controller(Thread, GpioDevice):
         lcd_cols: int = 20,
         is_lcd: bool = False,
         oled_address: int = 0,
-        oled_device="ssd1362",
+        oled_device="ssd1322",
         is_oled: bool = True,
+        oled_scroll_rate: float = 0.03,
         keypad: Keypad | KeyPadI2C = None,
         num_lasts: int = 3,
     ):
@@ -236,7 +240,7 @@ class Controller(Thread, GpioDevice):
         else:
             self._lcd = None
         if is_oled is True and oled_address is not None:
-            self._status = EngineStatus(address=oled_address, device=oled_device)
+            self._status = EngineStatus(address=oled_address, device=oled_device, scroll_rate=oled_scroll_rate)
         else:
             self._status = None
 
@@ -555,8 +559,9 @@ class ControllerI2C(Controller):
         lcd_cols: int = 20,
         is_lcd: bool = False,
         oled_address: int = 0,
-        oled_device="ssd1362",
+        oled_device="ssd1322",
         is_oled: bool = True,
+        oled_scroll_rate: float = 0.03,
         num_lasts: int = 3,
     ):
         keypad = KeyPadI2C(keypad_address)
@@ -602,6 +607,7 @@ class ControllerI2C(Controller):
             oled_address=oled_address,
             oled_device=oled_device,
             is_oled=is_oled,
+            oled_scroll_rate=oled_scroll_rate,
             keypad=keypad,
             num_lasts=num_lasts,
         )
