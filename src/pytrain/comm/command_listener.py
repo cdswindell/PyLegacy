@@ -338,10 +338,10 @@ class Channel(Generic[Topic]):
     def __init__(self) -> None:
         self.subscribers: set[Subscriber] = set[Subscriber]()
 
-    def subscribe(self, subscriber: Subscriber[Message]) -> None:
+    def subscribe(self, subscriber: Subscriber) -> None:
         self.subscribers.add(subscriber)
 
-    def unsubscribe(self, subscriber: Subscriber[Message]) -> None:
+    def unsubscribe(self, subscriber: Subscriber) -> None:
         self.subscribers.remove(subscriber)
 
     def publish(self, message: Message) -> None:
@@ -480,13 +480,15 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                     if self._broadcasts:
                         self.publish(BROADCAST_TOPIC, cmd)
 
-                    # We need to query state from the Base 3 in response to certain commands.
-                    # For example, if we receive a RELATIVE SPEED command on an AMC2, we have to
-                    # get the entire AMC2 config to update the new motor speed
-                    self.request_command_impact(cmd)
-
                     # update state on all clients
                     if self._server_port is not None:
+                        # We need to query state from the Base 3 in response to certain commands.
+                        # For example, if we receive a RELATIVE SPEED command on an AMC2, we have to
+                        # get the entire AMC2 config to update the new motor speed.
+                        #
+                        # Only do this on the server.
+                        self.request_command_impact(cmd)
+
                         """
                         When we are listening to broadcasts from both the Base 3 and a Ser2, the
                         TMCC commands broadcast from the Base 3 are also sent out via the Ser2.
