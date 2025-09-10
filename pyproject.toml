@@ -41,6 +41,7 @@ dependencies = [
     "zeroconf >= 0.147.2",
     "lgpio >= 0.2.2.0; platform_system == 'Linux'",
     "rpi-lgpio >= 0.6; sys_platform == 'Linux'",
+    "spidev >= 3.7.0; sys_platform == 'Linux'",
     "typing_extensions; python_version < '3.11'"
 ]
 

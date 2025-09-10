@@ -187,7 +187,7 @@ class EngineStatus(Thread, GpioDevice):
                 row = f"{tb} {mo} {sm}{rpm}"
                 self.display[3] = row
                 cursor = (1, 8)
-            elif self.is_synchronized is True:
+            elif self.is_synchronized:
                 self.display.write(self.railroad, 0, center=True)
                 if self._tmcc_id and self._tmcc_id != 99:
                     self.display.write(f"{self.scope.label}: {self._tmcc_id}", 1, center=True)
