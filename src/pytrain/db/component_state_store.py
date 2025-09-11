@@ -27,7 +27,13 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as Engine1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as Engine2
-from .component_state import SCOPE_TO_STATE_MAP, ComponentState, ComponentStateDict, SystemStateDict
+from .component_state import (
+    SCOPE_TO_STATE_MAP,
+    ComponentState,
+    ComponentStateDict,
+    RequestConfigurationException,
+    SystemStateDict,
+)
 
 log = logging.getLogger(__name__)
 
@@ -141,39 +147,44 @@ class ComponentStateStore:
         Callback, per the Subscriber protocol in CommandListener
         """
         if command:
-            if isinstance(command, CommandReq):
-                if command.is_halt:  # send to all known devices
+            try:
+                if isinstance(command, CommandReq):
+                    if command.is_halt:  # send to all known devices
+                        if self._filter_updates and command.is_filtered:
+                            if log.isEnabledFor(logging.DEBUG):
+                                log.debug(f"Command {command} is suppressed")
+                        else:
+                            for scope in self._state:
+                                for address in self._state[scope]:
+                                    self._state[scope][address].update(command)
+                            return
+                    elif command.is_system_halt:  # send to all known engines and trains
+                        for scope in self._state:
+                            if scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                                for address in self._state[scope]:
+                                    self._state[scope][address].update(command)
+                        return
+                if command.scope in SCOPE_TO_STATE_MAP:
                     if self._filter_updates and command.is_filtered:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"Command {command} is suppressed")
                     else:
-                        for scope in self._state:
-                            for address in self._state[scope]:
-                                self._state[scope][address].update(command)
-                        return
-                elif command.is_system_halt:  # send to all known engines and trains
-                    for scope in self._state:
-                        if scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-                            for address in self._state[scope]:
-                                self._state[scope][address].update(command)
-                    return
-            if command.scope in SCOPE_TO_STATE_MAP:
-                if self._filter_updates and command.is_filtered:
-                    if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"Command {command} is suppressed")
+                        if (
+                            command.address == BROADCAST_ADDRESS and command.scope != CommandScope.SYNC
+                        ):  # broadcast address
+                            for address in self._state[command.scope]:
+                                self._state[command.scope][address].update(command)
+                        else:  # update the device state (identified by scope/address)
+                            # make sure we haven't filled a slot based on a previous engine's road number
+                            if command.address > 99:
+                                state = self.query(command.scope, command.address)
+                                if state and state.address != command.address:
+                                    del self._state[command.scope][command.address]
+                            self._state[command.scope][command.address].update(command)
                 else:
-                    if command.address == BROADCAST_ADDRESS and command.scope != CommandScope.SYNC:  # broadcast address
-                        for address in self._state[command.scope]:
-                            self._state[command.scope][address].update(command)
-                    else:  # update the device state (identified by scope/address)
-                        # make sure we haven't filled a slot based on a previous engine's road number
-                        if command.address > 99:
-                            state = self.query(command.scope, command.address)
-                            if state and state.address != command.address:
-                                del self._state[command.scope][command.address]
-                        self._state[command.scope][command.address].update(command)
-            else:
-                log.warning(f"Received Unknown State Update: {command.scope} {command}")
+                    log.warning(f"Received Unknown State Update: {command.scope} {command}")
+            except RequestConfigurationException:
+                pass
 
     @property
     def is_empty(self) -> bool:

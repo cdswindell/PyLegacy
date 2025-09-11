@@ -1,9 +1,18 @@
-from unittest import mock
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
 
 import builtins
+from unittest import mock
+
 import pytest
 
 from src.pytrain.cli.make_service import MakeService
+
 from ..test_base import TestBase
 
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, TypeVar, cast
 
 from ..pdi.base3_component import ConsistComponent, RouteComponent
 from ..pdi.pdi_req import PdiReq
@@ -380,11 +380,13 @@ class CompData(ABC, Generic[R]):
                             state = ComponentStateStore.build().get_state(req.scope, req.address, False)
                             assert state is not None
                             with state.synchronizer:
+                                from src.pytrain.db.engine_state import EngineState
+
                                 if sub_field == "rpm":
                                     rpm = req.data
-                                    labor = state.labor
+                                    labor = cast(EngineState, state).labor
                                 else:
-                                    rpm = state.rpm
+                                    rpm = cast(EngineState, state).rpm
                                     labor = req.data
                             base_value = conv_tpl[1](rpm, labor)
                         elif sub_field == "smoke":

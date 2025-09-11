@@ -1,11 +1,12 @@
 import time
+from unittest import mock
 
 # noinspection PyPackageRequirements
 import pytest
 
 # noinspection PyProtectedMember
-from src.pytrain.comm.command_listener import CommandListener, CommandDispatcher
-from src.pytrain.db.component_state import SwitchState
+from src.pytrain.comm.command_listener import CommandDispatcher, CommandListener
+from src.pytrain.db.component_state import ComponentState, SwitchState
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
@@ -32,8 +33,8 @@ def run_before_and_after_tests(tmpdir) -> None:
     assert CommandDispatcher.is_built() is False
 
 
-# noinspection PyMethodMayBeStatic
 class TestComponentStateStore(TestBase):
+    @mock.patch.object(ComponentState, "request_config", lambda self, command: None)
     def test_component_state_store_basic(self) -> None:
         # create a dispatcher to serve the store
         dispatcher = CommandDispatcher.build()

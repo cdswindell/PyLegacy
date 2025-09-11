@@ -69,6 +69,7 @@ class ComponentState(ABC, CompDataMixin):
         self._address: int | None = None
         self._spare_1: int | None = None
         self._dependencies = DependencyCache.build()
+        self._config_requested = False
 
     def __repr__(self) -> str:
         if self.is_comp_data_record is True and not self.payload:
@@ -172,6 +173,11 @@ class ComponentState(ABC, CompDataMixin):
                     f"{self.friendly_scope} #{self._address} received update for "
                     f"{command.scope.name.title()} #{command.address}, ignoring"
                 )
+            # have we received the initial configuration from Base 3? If not, trigger request
+            # and requeue this update.
+            if not self.is_comp_data_record and isinstance(command, CommandReq):
+                self.request_config(command)
+
             if self.scope != command.scope:
                 scope = command.scope.name.title()
                 raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
@@ -204,6 +210,30 @@ class ComponentState(ABC, CompDataMixin):
                     self._spare_1 = command.spare_1
         self._last_updated = time()
         self._last_command = command
+
+    def request_config(self, command: CommandReq):
+        from ..pdi.base_req import BaseReq
+        from ..comm.command_listener import CommandDispatcher
+        from .component_state_store import ComponentStateStore
+
+        requeue = True
+        if ComponentStateStore.is_state_synchronized():
+            if not self._config_requested:
+                # if we're synchronized, this component may be new; request initial config
+                self.initialize(self.scope, self.tmcc_id)
+                scope = command.scope.name.title()
+                log.debug(f"{scope} {command.address} not known, will request config and retry {command}...")
+                BaseReq(command.address, PdiCommand.BASE_MEMORY, scope=command.scope).send()
+                self._config_requested = True
+        if requeue:
+            self.schedule_call(1, CommandDispatcher.get().offer, command)
+            raise RequestConfigurationException()
+
+    @staticmethod
+    def schedule_call(delay_seconds, func, *args, **kwargs):
+        """Schedules a function call after a specified delay."""
+        timer = threading.Timer(delay_seconds, func, args=args, kwargs=kwargs)
+        timer.start()
 
     @property
     def last_updated_ago(self) -> float:
@@ -253,8 +283,9 @@ class ComponentState(ABC, CompDataMixin):
             return byte_str
 
     def _update_comp_data(self, comp_data: CompData):
-        self._comp_data = comp_data
-        self._comp_data_record = True
+        with self._cv:
+            self._comp_data = comp_data
+            self._comp_data_record = True
 
     def _harvest_effect(self, effects: Set[E]) -> E | tuple[E, int] | None:
         for effect in effects:
@@ -452,13 +483,6 @@ class RouteState(TmccState):
             if command.command == TMCC1HaltCommandEnum.HALT:
                 return
             with self.synchronizer:
-                if not self.is_comp_data_record:
-                    if isinstance(command, CommandReq):
-                        from ..comm.command_listener import CommandDispatcher
-
-                        log.info(f"Still awaiting for initial state, will retry {command}...")
-                        CommandDispatcher.get().offer(command)
-                        return
                 super().update(command)
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                     self._update_comp_data(command.comp_data)
@@ -615,3 +639,7 @@ class ComponentStateDict(ThreadSafeDefaultDict):
             value._address = key
             self[key] = value
             return self[key]
+
+
+class RequestConfigurationException(Exception):
+    pass

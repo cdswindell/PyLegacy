@@ -1,9 +1,19 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+
 import time
 from collections import defaultdict
 from unittest import mock
 
 # noinspection PyPackageRequirements
 import pytest
+
+from src.pytrain import AccessoryState, EngineState, TrainState
 
 # noinspection PyProtectedMember
 from src.pytrain.comm.command_listener import CommandDispatcher, CommandListener, Message
@@ -14,7 +24,6 @@ from src.pytrain.db.component_state import (
     SwitchState,
     SystemStateDict,
 )
-from src.pytrain import EngineState, TrainState, AccessoryState
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import BROADCAST_ADDRESS, CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Acc
@@ -35,7 +44,7 @@ def run_before_and_after_tests(tmpdir) -> None:
     # noinspection PyTypeChecker
     yield  # this is where the testing happens
 
-    # Teardown : fill with any logic you want
+    # Teardown: fill with any logic you want
     if CommandListener.is_built():
         CommandListener().shutdown()
     assert CommandListener.is_built() is False
@@ -45,7 +54,7 @@ def run_before_and_after_tests(tmpdir) -> None:
     assert CommandDispatcher.is_built() is False
 
 
-# noinspection PyMethodMayBeStatic
+# noinspection PyMethodMayBeStatic,PyAbstractClass
 class TestComponentState(TestBase):
     state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
 
@@ -100,6 +109,9 @@ class TestComponentState(TestBase):
         assert set_req is not None
         assert set_req.scope == CommandScope.SWITCH
         assert set_req.address == 1
+
+        # initialize state comp data record
+        ss.initialize(CommandScope.SWITCH, 1)
 
         # now call update
         ss.update(set_req)
@@ -162,7 +174,7 @@ class TestComponentState(TestBase):
         assert ss.is_out is True
         assert ss.is_through is False
 
-        # verify address can not be modified once set
+        # verify address cannot be modified once set
         thru_req = CommandReq(Switch.THRU, 2)
         with pytest.raises(AttributeError, match="Switch #1 received update for Switch #2, ignoring"):
             ss.update(thru_req)
@@ -211,6 +223,9 @@ class TestComponentState(TestBase):
             with pytest.raises(ValueError):
                 # noinspection PyTypeChecker
                 AccessoryState(scope)
+
+        # initialize state comp data record
+        acc_state.initialize(CommandScope.ACC, 1)
 
         # assert calling update with a valid request succeeds
         set_req = CommandReq(Acc.SET_ADDRESS, 5)
@@ -373,7 +388,7 @@ class TestComponentState(TestBase):
             assert key in ss_dict
             assert value.scope == key
             assert value is not None
-            assert ss_dict[key] == value  # identical keys should return same values
+            assert ss_dict[key] == value  # identical keys should return the same values
             assert isinstance(value, ComponentStateDict)
 
         # we should have an entry for each of the 4 scopes and that the entry is an empty
@@ -488,6 +503,7 @@ class TestComponentState(TestBase):
                 with pytest.raises(KeyError, match=f"Invalid ID: {key}"):
                     _ = cs_dict[key]
 
+    @mock.patch.object(ComponentState, "request_config", lambda self, command: None)
     def test_state_via_command_dispatcher(self) -> None:
         # set up a dispatcher and register ourselves as the handler
         dispatcher = CommandDispatcher()

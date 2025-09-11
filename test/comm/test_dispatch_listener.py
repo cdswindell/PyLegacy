@@ -32,7 +32,7 @@ def run_before_and_after_tests(tmpdir) -> None:
 
     yield  # this is where the testing happens
 
-    # Teardown : fill with any logic you want
+    # Teardown: fill with any logic you want
     CALLBACK_DICT.clear()
     if CommandListener.is_built():
         CommandListener().shutdown()
@@ -72,7 +72,7 @@ class TestCommandDispatcher(TestBase):
     def test_command_dispatcher_singleton(self) -> None:
         assert CommandDispatcher.is_built() is False
         dispatcher = CommandDispatcher()
-        time.sleep(0.3)
+        time.sleep(0.5)
         assert dispatcher.is_built
         assert dispatcher.is_running() is True
         assert isinstance(dispatcher, CommandDispatcher)

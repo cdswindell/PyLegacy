@@ -222,19 +222,6 @@ class EngineState(ComponentState):
         if command is None or (command == self._last_command and self.last_updated_ago < 1):
             return
         with self._cv:
-            # in the event the initial state hasn't been loaded from the base, resubmit the command
-            if not self.is_comp_data_record:
-                if isinstance(command, CommandReq):
-                    from .component_state_store import ComponentStateStore
-
-                    if not ComponentStateStore.is_state_synchronized:
-                        from ..comm.command_listener import CommandDispatcher
-
-                        log.info(f"Still awaiting for initial state, will retry {command}...")
-                        CommandDispatcher.get().offer(command)
-                        return
-                    else:
-                        self.initialize(self.scope, self.tmcc_id)
             super().update(command)
             if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                 self._update_comp_data(command.comp_data)
