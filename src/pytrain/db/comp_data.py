@@ -642,7 +642,7 @@ class RouteData(CompData):
         sw = ""
         ro = ""
         if self._components:
-            sw = ro = sep = ""
+            sw = ro = sep =""
             for c in self._components:
                 if c.is_route:
                     if not ro:
