@@ -12,7 +12,7 @@ description = "Control Lionel TMCC/Legacy engines, switches, and accesseries fro
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: Other Audience",
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 license = { file = "LICENSE" }
 
@@ -40,8 +41,8 @@ dependencies = [
     "smbus2 >= 0.5.0",
     "zeroconf >= 0.147.2",
     "lgpio >= 0.2.2.0; platform_system == 'Linux'",
-    "rpi-lgpio >= 0.6; sys_platform == 'Linux'",
-    "spidev >= 3.7.0; sys_platform == 'Linux'",
+    "rpi-lgpio >= 0.6; platform_system == 'Linux'",
+    "spidev >= 3.7.0; platform_system == 'Linux'",
     "typing_extensions; python_version < '3.11'"
 ]
 
@@ -49,6 +50,7 @@ keywords = [
     "automation",
     "interactive",
     "control",
+    "control panel",
     "legacy",
     "lionel",
     "model railroad",
