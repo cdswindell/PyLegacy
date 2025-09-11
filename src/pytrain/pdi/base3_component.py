@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from enum import unique, IntEnum
+from enum import IntEnum, unique
 
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import Mixins
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 
 
 @unique
@@ -144,11 +144,22 @@ class RouteComponent:
 
     @property
     def is_out(self) -> bool:
-        return self.is_thru is False
+        return 0x03 & self.flags == 1
 
     @property
-    def as_signature(self) -> dict[int, bool]:
-        return {self.tmcc_id: self.is_thru}
+    def is_route(self) -> bool:
+        return 0x03 & self.flags == 3
+
+    @property
+    def is_switch(self) -> bool:
+        return not self.is_route
+
+    @property
+    def as_signature(self) -> dict[str, bool]:
+        if self.is_switch:
+            return {f"S{self.tmcc_id}": self.is_thru}
+        else:
+            return {f"R{self.tmcc_id}": True}
 
     @property
     def as_request(self) -> CommandReq:

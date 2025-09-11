@@ -212,8 +212,8 @@ class ComponentState(ABC, CompDataMixin):
         self._last_command = command
 
     def request_config(self, command: CommandReq):
-        from ..pdi.base_req import BaseReq
         from ..comm.command_listener import CommandDispatcher
+        from ..pdi.base_req import BaseReq
         from .component_state_store import ComponentStateStore
 
         requeue = True
@@ -475,8 +475,9 @@ class RouteState(TmccState):
         if scope != CommandScope.ROUTE:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
-        self._signature: dict[int, bool] = dict()
-        self._current_state: dict[int, bool | None] = dict()
+        self._routes: set[RouteState] = set()
+        self._signature: dict[str, bool] = dict()
+        self._current_state: dict[str, bool | None] = dict()
 
     def update(self, command: L | P) -> None:
         if command:
@@ -495,12 +496,20 @@ class RouteState(TmccState):
                         store = ComponentStateStore.get()
                         for comp in comps:
                             self._signature.update(comp.as_signature)
-                            switch = store.get_state(CommandScope.SWITCH, comp.tmcc_id, True)
-                            if isinstance(switch, SwitchState):
-                                self._current_state.update(
-                                    {switch.address: switch.is_thru if switch.is_known else None}
-                                )
-                                switch.register_route(self)
+                            if comp.is_switch:
+                                switch = store.get_state(CommandScope.SWITCH, comp.tmcc_id, True)
+                                if isinstance(switch, SwitchState):
+                                    self._current_state.update(
+                                        {f"S{switch.address}": switch.is_thru if switch.is_known else None}
+                                    )
+                                    switch.register_route(self)
+                            elif comp.is_route:
+                                route = store.get_state(CommandScope.ROUTE, comp.tmcc_id, True)
+                                if isinstance(route, RouteState):
+                                    self._current_state.update(
+                                        {f"R{route.address}": route.is_active if route.is_known else None}
+                                    )
+                                    route.register_route(self)
                 elif isinstance(command, CommandReq):
                     pass
                 else:
@@ -523,12 +532,23 @@ class RouteState(TmccState):
         return self._signature == self._current_state
 
     @property
-    def as_signature(self) -> dict[int, bool]:
+    def as_signature(self) -> dict[str, bool]:
         return self._signature
+
+    def register_route(self, route: RouteState):
+        self._routes.add(route)
 
     def update_switch_state(self, switch: SwitchState) -> None:
         with self.synchronizer:
-            self._current_state.update({switch.address: switch.is_thru if switch.is_known else None})
+            self._current_state.update({f"S{switch.address}": switch.is_thru if switch.is_known else None})
+            for route in self._routes:
+                route.update_route_state(self)
+            self.changed.set()
+            self._cv.notify_all()
+
+    def update_route_state(self, route: RouteState) -> None:
+        with self.synchronizer:
+            self._current_state.update({f"R{route.address}": route.is_active if route.is_known else None})
             self.changed.set()
             self._cv.notify_all()
 
@@ -536,10 +556,17 @@ class RouteState(TmccState):
         d = super()._as_dict()
         d["active"] = self.is_active
         if self.components:
-            sw = [{"switch": c.tmcc_id, "position": "thru" if c.is_thru is True else "out"} for c in self.components]
+            sw = [
+                {"switch": c.tmcc_id, "position": "thru" if c.is_thru is True else "out"}
+                for c in self.components
+                if c.is_switch
+            ]
+            rts = [{"route": c.tmcc_id} for c in self.components if c.is_route]
         else:
             sw = list()
+            rts = list()
         d["switches"] = sw
+        d["routes"] = rts
         return d
 
 

@@ -640,14 +640,24 @@ class RouteData(CompData):
 
     def payload(self) -> str:
         sw = ""
+        ro = ""
         if self._components:
-            sw = "Switches: "
-            sep = ""
+            sw = ro = sep = ""
             for c in self._components:
-                state = "thru" if c.is_thru else "out"
-                sw += f"{sep}{c.tmcc_id:>2} [{state}]"
-                sep = ", "
-        return sw
+                if c.is_route:
+                    if not ro:
+                        ro = "Routes: "
+                        sep = ""
+                    ro += f"{sep}{c.tmcc_id:>2}"
+                    sep = ", "
+                elif c.is_switch:
+                    if not sw:
+                        sw = "Switches: "
+                        sep = ""
+                    state = "thru" if c.is_thru else "out"
+                    sw += f"{sep}{c.tmcc_id:>2} [{state}]"
+                    sep = ", "
+        return (" ".join([ro, sw])).strip()
 
 
 class CompDataMixin(Generic[C]):
