@@ -248,7 +248,7 @@ def test_update_display_with_state_populates_rows_and_cursor(patched_engine_stat
     # Provide monitored state directly via constructor by passing state object
     eng_state = make_engine_state(address=5555)
     patched_engine_status.store.set_state(CommandScope.ENGINE, 5555, eng_state)
-    eng_status = es_mod.EngineStatus(tmcc_id=getattr(eng_state, "address"), scope=CommandScope.ENGINE)
+    eng_status = es_mod.EngineStatus(tmcc_id=getattr(eng_state,'address'), scope=CommandScope.ENGINE)
 
     # After init, update_display is invoked via on_sync path or direct; ensure rows are set
     # Row 0 contains road info and labels
