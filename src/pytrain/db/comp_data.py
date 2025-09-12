@@ -393,7 +393,7 @@ class CompData(ABC, Generic[R]):
                             if cmd.is_tmcc1:
                                 base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, req.data)
                             else:
-                                base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, req.data)
+                                base_value = conv_tpl[1](TMCC2_TO_BASE_SMOKE_MAP, req.data)
                         else:
                             base_value = conv_tpl[1](req.data)
                     else:

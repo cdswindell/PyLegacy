@@ -229,8 +229,8 @@ class EngineState(ComponentState):
                     self._is_legacy = True
                     self._d4_rec_no = command.record_no
             elif isinstance(command, CommandReq):
-                if self._is_legacy is None:
-                    self._is_legacy = command.is_tmcc2 is True or self.address > 99
+                if command.is_tmcc2 is True or self.address > 99:
+                    self._is_legacy = True
 
                 # handle some aspects of the halt command
                 if command.command == TMCC1HaltCommandEnum.HALT:
@@ -294,7 +294,7 @@ class EngineState(ComponentState):
                         self._aux = cmd if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE} else self._aux
                         if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
                             if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
-                                if self._is_legacy is True:
+                                if self._is_legacy:
                                     self._aux2 = self.update_aux_state(
                                         self._aux2,
                                         TMCC2.AUX2_ON,
@@ -709,18 +709,19 @@ class EngineState(ComponentState):
 
     @property
     def is_tmcc(self) -> bool:
-        return self._is_legacy is False
+        return self._is_legacy is False or self._is_legacy is None
 
     @property
     def is_legacy(self) -> bool:
-        if self._is_legacy is None:
-            if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and self.address > 99:
+        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and self.address > 99:
+            self._is_legacy = True
+        elif self.control_type is not None and self.control_type != 255:
+            if self.control_type == LEGACY_CONTROL_TYPE:
                 self._is_legacy = True
-            elif self.control_type is not None:
-                if self.control_type == LEGACY_CONTROL_TYPE:
-                    self._is_legacy = True
-                else:
-                    self._is_legacy = False
+            else:
+                self._is_legacy = False
+        elif self._is_legacy is None:
+            return False
         return self._is_legacy is True
 
     @property

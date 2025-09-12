@@ -223,7 +223,7 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
 
     @property
     def as_bytes(self) -> bytes:
-        return self.value.to_bytes(1)
+        return self.value.to_bytes(1, byteorder="big")
 
 
 class ActionDef:
