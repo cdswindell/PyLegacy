@@ -55,7 +55,7 @@ class TestCompData:
         assert to_bytes_called, "custom to_bytes must be invoked"
 
     def test_update_pkg(self):
-        pkg = UpdatePkg("speed", 0x07, 1, b"\x2A")
+        pkg = UpdatePkg("speed", 0x07, 1, b"\x2a")
         s = repr(pkg)
         # format: "<field>: Address: <hex> Length: <len> data: <hex data>"
         assert "speed" in s
