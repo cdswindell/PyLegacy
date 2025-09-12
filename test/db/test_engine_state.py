@@ -60,7 +60,7 @@ class TestEngineStateBehavior:
 
         e.comp_data._max_speed = 200  # type: ignore[attr-defined]
         e.comp_data._speed_limit = 255  # type: ignore[attr-defined]
-        assert e.speed_max == 200  # legacy default cap when limits unset (255)
+        assert e.speed_max == 200 # legacy default cap when limits unset (255)
 
         # Non-legacy should never exceed 31
         e._is_legacy = False  # type: ignore[attr-defined]
