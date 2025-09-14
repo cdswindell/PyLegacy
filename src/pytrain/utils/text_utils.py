@@ -14,10 +14,10 @@ U33C_PATTERN = re.compile(r"[A-Z]\d{2}[A-Z]")
 
 def title(text: str):
     if text:
-        parts = text.strip().split(" ")
+        parts = [x for x in text.strip().split(" ") if x]
         for i, part in enumerate(parts):
             part = part.strip().upper()
-            if len(part) > 3:
+            if len(part) > 3 or part.upper() in {"ACE"}:
                 if part.startswith("SD") and (part.endswith("ACE") or part.endswith("AC")):
                     if part.endswith("ACE"):
                         part = part.replace("ACE", "ACe")
@@ -25,7 +25,7 @@ def title(text: str):
                         part = part.replace("AC", "ACe")
                 elif part.startswith("SD"):
                     if i + 1 < len(parts) and parts[i + 1].upper() == "ACE":
-                        part = part + "ACe"
+                        part = part.strip() + "ACe"
                         part = part.replace("SD-", "SD")
                         parts[i + 1] = ""
                 elif part.startswith("FA-") or part.startswith("RS-") or part.startswith("GP"):
@@ -35,6 +35,7 @@ def title(text: str):
                 else:
                     part = part.capitalize()
             elif part in {
+                "AND",
                 "BEE",
                 "CAR",
                 "MAN",
