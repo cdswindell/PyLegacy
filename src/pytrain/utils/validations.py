@@ -7,7 +7,6 @@
 #
 #
 
-
 class Validations:
     @classmethod
     def validate_int(
