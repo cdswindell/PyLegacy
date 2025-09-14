@@ -29,6 +29,18 @@ def test_sd70ace_variants_compact_and_split():
     assert title("  sd70   ace  ") == "SD70ACe"
 
 
+def test_sd80mac_variants_compact_and_split():
+    # Compact forms
+    assert title("sd80mac") == "SD80MAC"
+
+    # Split forms
+    assert title("sd-80 mac") == "SD80MAC"
+    assert title("sd80 mac") == "SD80MAC"
+
+    # Extra spaces should be normalized
+    assert title("  sd80   mac  ") == "SD80MAC"
+
+
 def test_preserve_series_codes_and_patterns():
     # Should remain uppercase as-is for these prefixes/patterns
     assert title("fa-2") == "FA-2"
@@ -43,7 +55,7 @@ def test_general_capitalization_and_short_words():
     assert title("hello WORLD") == "Hello World"
 
     # Selected short words are capitalized (not kept uppercase)
-    assert title("and bee car man new old pad rio to") == "And Bee Car Man New Old Pad Rio To"
+    assert title("and bee car dry ice man new old pad rio to") == "And Bee Car Dry Ice Man New Old Pad Rio To"
 
     # Mixed phrase showing both rules
     assert title("new york central") == "New York Central"

@@ -17,17 +17,22 @@ def title(text: str):
         parts = [x for x in text.strip().split(" ") if x]
         for i, part in enumerate(parts):
             part = part.strip().upper()
-            if len(part) > 3 or part.upper() in {"ACE"}:
-                if part.startswith("SD") and (part.endswith("ACE") or part.endswith("AC")):
+            if len(part) > 3 or part.upper() in {"ACE", "MAC"}:
+                if part.startswith("SD") and (part.endswith("ACE") or part.endswith("AC")) and not part.endswith("MAC"):
                     if part.endswith("ACE"):
                         part = part.replace("ACE", "ACe")
                     else:
                         part = part.replace("AC", "ACe")
                 elif part.startswith("SD"):
-                    if i + 1 < len(parts) and parts[i + 1].upper() == "ACE":
-                        part = part.strip() + "ACe"
-                        part = part.replace("SD-", "SD")
-                        parts[i + 1] = ""
+                    if i + 1 < len(parts):
+                        if parts[i + 1].upper() == "ACE":
+                            part = part.strip() + "ACe"
+                            part = part.replace("SD-", "SD")
+                            parts[i + 1] = ""
+                        elif parts[i + 1].upper() == "MAC":
+                            part = part.strip() + "MAC"
+                            part = part.replace("SD-", "SD")
+                            parts[i + 1] = ""
                 elif part.startswith("FA-") or part.startswith("RS-") or part.startswith("GP"):
                     pass
                 elif U33C_PATTERN.match(part):
@@ -38,6 +43,8 @@ def title(text: str):
                 "AND",
                 "BEE",
                 "CAR",
+                "DRY",
+                "ICE",
                 "MAN",
                 "NEW",
                 "OLD",
