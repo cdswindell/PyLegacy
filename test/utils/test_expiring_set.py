@@ -79,7 +79,6 @@ def test_len_after_expiry_timestamp(fake_time):
     fake_time.advance(0.9)
     assert len(s) == 0
 
-
 def test_readd_after_expiry_updates_timestamp(fake_time):
     s = ExpiringSet(max_age_seconds=1.0)
     key = b"\xaa"
