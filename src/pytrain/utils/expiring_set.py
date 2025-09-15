@@ -43,7 +43,7 @@ class ExpiringSet:
 
     def add(self, value):
         with self._lock:
-            if self.contains(value) is False:
+            if not self.contains(value):
                 self.container[value] = time()
 
     def clear(self):
