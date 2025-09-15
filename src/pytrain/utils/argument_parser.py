@@ -38,14 +38,14 @@ class PyTrainArgumentParser(ArgumentParser):
 
     def error(self, message: str) -> None:
         self._error_message = message
-        if self.is_exit_on_error is True:
+        if self.is_exit_on_error:
             super().error(message)
         else:
             raise ArgumentError(None, message)
 
     def exit(self, status: int = 0, message: str = None) -> None:
         self._error_message = message
-        if self.is_exit_on_error is True:
+        if self.is_exit_on_error:
             super().exit(status, message)
         else:
             raise ArgumentError(None, message)
@@ -82,18 +82,18 @@ class PyTrainArgumentParser(ArgumentParser):
     # noinspection PyProtectedMember
     def remove_args(self, args: List[str]) -> None:
         for arg in args:
+            arg_no_prefix = arg.replace("-", "")
             for action in self._actions:
                 opts = action.option_strings
-                if (opts and opts[0] == arg) or action.dest == arg:
+                if (opts and opts[0] == arg) or action.dest == arg_no_prefix:
                     self._remove_action(action)
                     break
 
             for action in self._action_groups:
                 for group_action in action._group_actions:
                     opts = group_action.option_strings
-                    if (opts and opts[0] == arg) or group_action.dest == arg:
+                    if (opts and opts[0] == arg) or group_action.dest == arg_no_prefix:
                         action._group_actions.remove(group_action)
-                        break
 
 
 class StripPrefixesHelpFormatter(HelpFormatter):
