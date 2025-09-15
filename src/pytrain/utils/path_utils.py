@@ -7,6 +7,7 @@
 #
 #
 import os
+from pathlib import Path
 from typing import Tuple
 
 EXCLUDE = {
@@ -15,6 +16,7 @@ EXCLUDE = {
     ".github",
     ".idea",
     ".git",
+    "venv",
 }
 
 
@@ -23,6 +25,13 @@ def find_dir(target: str, places: Tuple = (".", "../")) -> str | None:
         if os.path.isdir(d):
             for root, dirs, _ in os.walk(d):
                 if root.startswith("./.") or root.startswith("./venv/"):
+                    continue
+                root_path = Path(os.path.abspath(root))
+                parts = root_path.parts
+                if len(parts) == 0:
+                    continue
+                parent = parts[-1]
+                if parent.startswith(".") or parent in EXCLUDE:
                     continue
                 for cd in dirs:
                     if cd.startswith(".") or cd in EXCLUDE:
@@ -38,7 +47,12 @@ def find_file(target: str, places: Tuple = (".", "../")) -> str | None:
             for root, dirs, files in os.walk(d):
                 if root.startswith("./.") or root.startswith("./venv/"):
                     continue
-                if set(root.split("/")) & EXCLUDE:
+                root_path = Path(os.path.abspath(root))
+                parts = root_path.parts
+                if len(parts) == 0:
+                    continue
+                parent = parts[-1]
+                if parent.startswith(".") or parent in EXCLUDE:
                     continue
                 for file in files:
                     if file.startswith(".") or file in EXCLUDE:
