@@ -10,13 +10,25 @@
 import os
 from pathlib import Path
 
-
-from src.pytrain.utils.path_utils import find_dir, find_file, EXCLUDE
+from src.pytrain.utils.path_utils import EXCLUDE, find_dir, find_file
 
 
 def norm(p: str) -> str:
     # Normalize to handle platform-specific separators and any mixed use of "/"
     return os.path.normpath(p) if p is not None else None
+
+
+def test_find_installation_dir():
+    result = find_dir("installation")
+    assert norm(result) == norm(os.path.join("src", "pytrain", "installation"))
+
+
+def test_find_installation_files():
+    result = find_file("pytrain.bash.template")
+    assert norm(result) == norm(os.path.join("src", "pytrain", "installation", "pytrain.bash.template"))
+
+    result = find_file("pytrain.service.template")
+    assert norm(result) == norm(os.path.join("src", "pytrain", "installation", "pytrain.service.template"))
 
 
 def test_find_dir_simple(tmp_path: Path):

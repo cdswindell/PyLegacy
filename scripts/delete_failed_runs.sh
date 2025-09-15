@@ -1,5 +1,4 @@
 #!/bin/bash
-
 #
 #
 # PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
@@ -10,8 +9,14 @@
 #
 #
 
-OWNER="cdswindell"
-REPO="PyLegacy"
+# Require OWNER as the first argument; allow REPO as optional (defaults to "PyLegacy")
+OWNER="${1:-}"
+REPO="${2:-PyLegacy}"
+if [[ -z "$OWNER" ]]; then
+  echo "Usage: $0 OWNER [REPO]"
+  exit 1
+fi
+
 PER_PAGE=100
 PAGE=1
 DELETED=0
