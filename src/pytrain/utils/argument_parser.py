@@ -64,8 +64,10 @@ class PyTrainArgumentParser(ArgumentParser):
                 args = self.parse_args(args)
             except ArgumentError as e:
                 msg = e.message
+                args = []
             except Exception as e:
                 msg = str(e)
+                args = []
             finally:
                 if eoe is not None:
                     self._exit_on_error = eoe
@@ -82,18 +84,51 @@ class PyTrainArgumentParser(ArgumentParser):
     # noinspection PyProtectedMember
     def remove_args(self, args: List[str]) -> None:
         for arg in args:
-            arg_no_prefix = arg.replace("-", "")
-            for action in self._actions:
-                opts = action.option_strings
-                if (opts and opts[0] == arg) or action.dest == arg_no_prefix:
-                    self._remove_action(action)
-                    break
+            # Accept either "-foo" or "foo"
+            arg_no_prefix = arg.lstrip("-")
 
-            for action in self._action_groups:
-                for group_action in action._group_actions:
-                    opts = group_action.option_strings
-                    if (opts and opts[0] == arg) or group_action.dest == arg_no_prefix:
-                        action._group_actions.remove(group_action)
+            # Find ALL matching actions by option string or dest
+            matches = []
+            for action in list(getattr(self, "_actions", ())):
+                option_strings = getattr(action, "option_strings", ())
+                if arg in option_strings or getattr(action, "dest", None) == arg_no_prefix:
+                    matches.append(action)
+
+            if not matches:
+                continue
+
+            # All containers that might hold references to the action or its option mappings
+            containers = [self]
+            containers.extend(getattr(self, "_action_groups", ()))
+            containers.extend(getattr(self, "_mutually_exclusive_groups", ()))
+
+            for target_action in matches:
+                # Capture the option strings before removal
+                opt_strs = list(getattr(target_action, "option_strings", ()))
+
+                # Remove from parser core structures
+                self._remove_action(target_action)
+
+                # Remove from action groups' lists
+                for group in getattr(self, "_action_groups", ()):
+                    ga = getattr(group, "_group_actions", None)
+                    if ga and target_action in ga:
+                        ga.remove(target_action)
+
+                # Remove from mutually exclusive groups' lists
+                for mex_group in getattr(self, "_mutually_exclusive_groups", ()):
+                    mga = getattr(mex_group, "_group_actions", None)
+                    if mga and target_action in mga:
+                        mga.remove(target_action)
+
+                # Purge option string mappings from all containers
+                for container in containers:
+                    mapping = getattr(container, "_option_string_actions", None)
+                    if not mapping:
+                        continue
+                    for opt in opt_strs:
+                        if mapping.get(opt) is target_action:
+                            del mapping[opt]
 
 
 class StripPrefixesHelpFormatter(HelpFormatter):
