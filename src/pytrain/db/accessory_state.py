@@ -164,6 +164,7 @@ class AccessoryState(TmccState):
             or self._aux1_state is not None
             or self._aux2_state is not None
             or self._number is not None
+            or self._pdi_config is not None
         )
 
     @property

@@ -168,7 +168,6 @@ class TMCC1CommandDef(CommandDef):
                 return alias, self._data
         else:
             raise ValueError(f"Cannot classify command alias: {self._alias} ({type(self._alias)})")
-        return None
 
 
 class SyncCommandDef(TMCC1CommandDef):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..pdi.constants import PdiCommand, Bpc2Action, PDI_SOP, PDI_EOP
+from ..pdi.constants import PDI_EOP, PDI_SOP, Bpc2Action, PdiCommand
 from ..pdi.lcs_req import LcsReq
 from ..protocol.constants import CommandScope
 
@@ -19,6 +19,7 @@ class Bpc2Req(LcsReq):
         state: int = None,
         values: int = None,
         valids: int = None,
+        scope: CommandScope = None,
     ) -> None:
         super().__init__(data, pdi_command, action, ident, error)
         if isinstance(data, bytes):
@@ -30,8 +31,10 @@ class Bpc2Req(LcsReq):
                 self._restore = (self._mode & 0x80) == 0x80
                 if self._restore:
                     self._mode &= 0x7F
+                self._scope = CommandScope.TRAIN if self._mode in {0, 1} else CommandScope.ACC
             else:
                 self._mode = self._debug = self._restore = None
+                self._scope = CommandScope.ACC
 
             if self._action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                 self._state = self._data[3] if data_len > 3 else None
@@ -58,6 +61,19 @@ class Bpc2Req(LcsReq):
             self._state = state
             self._values = values
             self._valids = valids
+            if scope:
+                self._scope = scope
+            else:
+                if self._action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL2}:
+                    self._scope = CommandScope.TRAIN
+                elif self._action in {Bpc2Action.CONTROL3, Bpc2Action.CONTROL4} or mode in {2, 3}:
+                    self._scope = CommandScope.ACC
+                elif mode in {0, 1}:
+                    self._scope = CommandScope.TRAIN
+                elif mode in {2, 3}:
+                    self._scope = CommandScope.ACC
+                else:
+                    self._scope = CommandScope.ACC
 
     @property
     def mode(self) -> int | None:

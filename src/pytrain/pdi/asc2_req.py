@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from .constants import PdiCommand, Asc2Action, PDI_SOP, PDI_EOP
-from .lcs_req import LcsReq
 from ..protocol.constants import CommandScope
+from .constants import PDI_EOP, PDI_SOP, Asc2Action, PdiCommand
+from .lcs_req import LcsReq
 
 
 class Asc2Req(LcsReq):
@@ -20,6 +20,7 @@ class Asc2Req(LcsReq):
         valids: int = None,
         time: float = None,
         sub_id: int = None,
+        scope: CommandScope = None,
     ) -> None:
         super().__init__(data, pdi_command, action, ident, error)
         if isinstance(data, bytes):
@@ -29,8 +30,10 @@ class Asc2Req(LcsReq):
                 self._debug = self._data[4] if data_len > 4 else None
                 self._mode = self._data[7] if data_len > 7 else None
                 self._delay = self._data[8] / 100.0 if data_len > 8 else None
+                self._scope = CommandScope.SWITCH if self._mode == 2 else CommandScope.ACC
             else:
                 self._mode = self._debug = self._delay = None
+                self._scope = CommandScope.ACC
 
             if self._action == Asc2Action.CONTROL1:
                 self._values = self._data[3] if data_len > 3 else None
@@ -64,6 +67,7 @@ class Asc2Req(LcsReq):
             self._valids = valids
             self._time = time
             self._sub_id = sub_id
+            self._scope = scope if scope else CommandScope.ACC
 
     @property
     def mode(self) -> int | None:
