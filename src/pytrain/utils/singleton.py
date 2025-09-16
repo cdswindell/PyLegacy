@@ -17,7 +17,8 @@ def singleton(cls):
         with _lock:
             if cls not in _instances:
                 instance = cls(*args, **kwargs)
-                instance._initialized = False
+                if not hasattr(instance, "_initialized"):
+                    instance._initialized = False
                 _instances[cls] = instance
             return _instances[cls]
 
