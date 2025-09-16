@@ -223,10 +223,16 @@ class ComponentState(ABC, CompDataMixin):
                 self.initialize(self.scope, self.tmcc_id)
                 scope = command.scope.name.title()
                 log.debug(f"{scope} {command.address} not known, will request config and retry {command}...")
-                BaseReq(command.address, PdiCommand.BASE_MEMORY, scope=command.scope).send()
+                if 1 <= command.address < 99:
+                    BaseReq(command.address, PdiCommand.BASE_MEMORY, scope=command.scope).send()
+                elif 100 <= command.address <= 9999:
+                    raise NotImplementedError(f"Cannot request 4-digit engine configuration: {command}")
                 self._config_requested = True
+            else:
+                print(f"Ignoring {command} as component is not yet synchronized")
+                requeue = False
         if requeue:
-            self.schedule_call(1, CommandDispatcher.get().offer, command)
+            self.schedule_call(2.5, CommandDispatcher.get().offer, command)
             raise RequestConfigurationException()
 
     @staticmethod

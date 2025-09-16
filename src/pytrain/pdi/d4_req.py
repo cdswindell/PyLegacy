@@ -1,10 +1,10 @@
 import time
 from datetime import datetime
 
-from .constants import PdiCommand, D4Action, PDI_SOP, PDI_EOP
-from ..db.comp_data import BASE_MEMORY_ENGINE_READ_MAP, CompData, CompDataMixin, CompDataHandler
-from .pdi_req import PdiReq
+from ..db.comp_data import BASE_MEMORY_ENGINE_READ_MAP, CompData, CompDataHandler, CompDataMixin
 from ..protocol.constants import CommandScope
+from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
+from .pdi_req import PdiReq
 
 LIONEL_EPOCH: int = 1577836800  # Midnight, Jan 1 2020 UTC
 
@@ -13,7 +13,7 @@ class D4Req(PdiReq, CompDataMixin):
     @staticmethod
     def lionel_timestamp(as_bytes: bool = True) -> int | bytes:
         lts = 0xFFFFFFFF & int(time.time() - LIONEL_EPOCH)
-        if as_bytes is True:
+        if as_bytes:
             return lts.to_bytes(4, byteorder="little")
         else:
             return lts

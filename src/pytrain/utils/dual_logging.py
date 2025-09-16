@@ -64,10 +64,11 @@ class ConsoleFormatter(LogFormatter):
         super().__init__(*args, **kwargs)
 
     def formatException(self, exc_info):
-        return ""
+        # Keep traceback in console output
+        return super().formatException(exc_info)
 
     def formatStack(self, stack_trace):
-        return ""
+        return super().formatStack(stack_trace)
 
 
 # Set up logging
@@ -82,7 +83,7 @@ def set_up_logging(
     logfile_template: str = "%(color)s[%(asctime)s] [%(name)s] [%(levelname)-8s] %(message)s%(no_color)s",
 ) -> bool:
     # Create logger
-    # For simplicity, we use the root logger, i.e. call 'logging.getLogger()'
+    # For simplicity, we use the root logger, i.e., call 'logging.getLogger()'
     # without name argument. This way we can simply use module methods for
     # logging throughout the script. An alternative would be exporting the
     # logger, i.e. 'global logger; logger = logging.getLogger("<name>")'
@@ -153,6 +154,7 @@ def main():
     logging.warning("Warning message")
     logging.error("Error message")
     logging.critical("Critical message")
+    return None
 
 
 # Call main function

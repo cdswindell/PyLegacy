@@ -94,13 +94,6 @@ class UpdatePkg:
 # written to the Base 3 so it can update other attached controllers and software.
 #
 BASE_MEMORY_ENGINE_READ_MAP = {
-    0xB8: CompDataHandler(
-        "_tmcc_id",
-        4,
-        lambda t: int(PdiReq.decode_text(t)),
-        lambda t: PdiReq.encode_text(str(t).zfill(4), 4),
-        True,
-    ),
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
     0x02: CompDataHandler("_unk_2"),
@@ -152,6 +145,13 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x69: CompDataHandler("_smoke"),
     0x6A: CompDataHandler("_speed_limit"),
     0x6B: CompDataHandler("_max_speed"),
+    0xB8: CompDataHandler(
+        "_tmcc_id",
+        4,
+        lambda t: int(PdiReq.decode_text(t)),
+        lambda t: PdiReq.encode_text(str(t).zfill(4), 4),
+        True,
+    ),
     0xBC: CompDataHandler(
         "_timestamp",
         4,
