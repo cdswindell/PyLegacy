@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, cast
 
-from ..pdi.amc2_req import Amc2Req
+from ..pdi.amc2_req import Amc2Lamp, Amc2Motor, Amc2Req
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Amc2Action, Asc2Action, Bpc2Action, IrdaAction, PdiCommand
@@ -41,7 +41,6 @@ class AccessoryState(TmccState):
         self._sensor_track = False
         self._asc2 = False
         self._amc2 = False
-        self._last_amc2_device = None
         self._pdi_source = False
         self._number: int | None = None
 
@@ -61,7 +60,7 @@ class AccessoryState(TmccState):
                 l2 = f"{self._pdi_config.lamp2}"
                 l3 = f"{self._pdi_config.lamp3}"
                 l4 = f"{self._pdi_config.lamp4}"
-                ld = f" Last: {self._last_amc2_device}" if self._last_amc2_device else ""
+                ld = f" Last: {self.last_amc2_device}" if self.last_amc2_device else ""
                 aux = f"AMC 2 {at} {m1} {m2} {l1} {l2} {l3} {l4}{ld}"
             else:
                 aux = "AMC 2"
@@ -124,6 +123,8 @@ class AccessoryState(TmccState):
                                     self._last_aux2_opt1 = self.last_updated
                             if command.command == Aux.NUMERIC:
                                 self._number = command.data
+                            if self.is_amc2:
+                                self.extract_state_from_req(command)
                 elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req) or isinstance(command, Amc2Req):
                     if self._first_pdi_command is None:
                         self._first_pdi_command = command.command
@@ -214,7 +215,55 @@ class AccessoryState(TmccState):
     def value(self) -> int:
         return self._number
 
-    def extract_state_from_req(self, req: P):
+    @property
+    def number(self) -> int:
+        return self._number
+
+    @property
+    def motor1(self) -> Amc2Motor:
+        return self.get_motor(1)
+
+    @property
+    def motor2(self) -> Amc2Motor:
+        return self.get_motor(2)
+
+    def get_motor(self, num: int) -> Amc2Motor | None:
+        if self.is_amc2 and self._pdi_config:
+            return self._pdi_config.get_motor(num)
+        return None
+
+    @property
+    def lamp1(self) -> Amc2Lamp:
+        return self.get_lamp(1)
+
+    @property
+    def lamp2(self) -> Amc2Lamp:
+        return self.get_lamp(2)
+
+    @property
+    def lamp3(self) -> Amc2Lamp:
+        return self.get_lamp(3)
+
+    @property
+    def lamp4(self) -> Amc2Lamp:
+        return self.get_lamp(4)
+
+    def get_lamp(self, num: int) -> Amc2Lamp | None:
+        if self.is_amc2 and self._pdi_config:
+            return self._pdi_config.get_lamp(num)
+        return None
+
+    @property
+    def last_amc2_device(self) -> Any:
+        if self.is_amc2 and self._pdi_config:
+            num = self.number if self.number else 1
+            if 1 <= num <= 2:
+                return self._pdi_config.get_motor(num)
+            elif 3 <= num <= 6:
+                return self._pdi_config.get_lamp(num - 2)
+        return None
+
+    def extract_state_from_req(self, req: L | P):
         if isinstance(req, Amc2Req):
             if isinstance(self._pdi_config, Amc2Req):
                 self._pdi_config.update_config(req)
@@ -226,12 +275,9 @@ class AccessoryState(TmccState):
                     else:
                         self._aux_state = Aux.AUX2_OPT_ONE
                         self._aux1_state = self._aux2_state = Aux.AUX1_OFF
-            if req.action in {Amc2Action.MOTOR, Amc2Action.MOTOR_CONFIG}:
-                self._number = req.motor
-                self._last_amc2_device = self._pdi_config.get_motor(req.motor) if self._pdi_config else None
-            elif req.action == Amc2Action.LAMP:
-                self._number = req.lamp
-                self._last_amc2_device = self._pdi_config.get_lamp(req.lamp) if self._pdi_config else None
+        elif isinstance(req, CommandReq):
+            if req.command == Aux.NUMERIC and req.data and 1 <= req.data <= 6:
+                self._number = req.data
 
     def as_bytes(self) -> bytes:
         if self.comp_data is None:
@@ -254,6 +300,8 @@ class AccessoryState(TmccState):
                     cast(Bpc2Action, self._first_pdi_action),
                     state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
+                if self.number:
+                    byte_str += CommandReq(Aux.NUMERIC, self.address, self.number).as_bytes
             elif isinstance(self._first_pdi_action, Amc2Action) and isinstance(self._pdi_config, Amc2Req):
                 byte_str += self._pdi_config.as_bytes
             else:

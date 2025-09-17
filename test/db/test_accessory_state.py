@@ -97,8 +97,8 @@ class TestAccessoryState:
 
     def test_amc2_motor_marks_lcs_on_power(self):
         acc = self._new_acc(6)
-        amc2_on = Amc2Req(acc.address, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=1, speed=100)
-        acc.update(amc2_on)
+        amc2_sp = Amc2Req(acc.address, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=1, speed=100)
+        acc.update(amc2_sp)
         assert acc.is_lcs_component is True
         assert acc.is_amc2 is True
         assert acc.is_asc2 is False

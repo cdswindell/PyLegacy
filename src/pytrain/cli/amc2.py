@@ -139,13 +139,6 @@ class Amc2Cli(CliBase):
 
         if self._motor is not None:
             if self._args.on or self._args.off:
-                # req = Amc2Req(
-                #     self._amc2,
-                #     PdiCommand.AMC2_SET,
-                #     Amc2Action.MOTOR_CONFIG,
-                #     motor=self._motor,
-                #     restore_state=True if self._args.on else False,
-                # )
                 req1 = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data=self._motor + 1)
                 if self._args.on:
                     req2 = CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, self._amc2)
