@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ..protocol.constants import CommandScope
+from ..utils.validations import Validations
 from .constants import PDI_EOP, PDI_SOP, Asc2Action, PdiCommand
 from .lcs_req import LcsReq
 
@@ -59,11 +60,15 @@ class Asc2Req(LcsReq):
             else:
                 self._values = self._valids = self._time = self._sub_id = self._thru = None
         else:
+            Validations.validate_int(mode, 0, 2, "mode", True)
+            Validations.validate_float(delay, 0, 1.00, "delay", True)
+            Validations.validate_float(time, 0, 2.55, "time", True)
+            Validations.validate_int(sub_id, 1, 8, "sub_id", True)
             self._action = action
             self._mode = mode
             self._debug = debug
             self._delay: float = delay
-            self._values = values
+            self._thru = self._values = values
             self._valids = valids
             self._time = time
             self._sub_id = sub_id
@@ -103,11 +108,11 @@ class Asc2Req(LcsReq):
 
     @property
     def is_thru(self) -> bool | None:
-        return self._thru
+        return self._thru == 0 if self._thru is not None else None
 
     @property
     def is_out(self) -> bool | None:
-        return not self._thru if self._thru is not None else None
+        return not self.is_thru if self.is_thru is not None else None
 
     @property
     def payload(self) -> str | None:
@@ -145,7 +150,7 @@ class Asc2Req(LcsReq):
         if self._action == Asc2Action.CONFIG:
             if self.pdi_command != PdiCommand.ASC2_GET:
                 debug = self.debug if self.debug is not None else 0
-                delay = int(round((self.delay * 100))) if self.delay is not None else 0
+                delay = min(int(round((self.delay * 100))), 100) if self.delay is not None else 0
                 byte_str += self.tmcc_id.to_bytes(1, byteorder="big")  # allows board to be renumbered
                 byte_str += debug.to_bytes(1, byteorder="big")
                 byte_str += (0x0000).to_bytes(2, byteorder="big")
