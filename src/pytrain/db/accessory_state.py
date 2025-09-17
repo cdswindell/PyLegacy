@@ -41,6 +41,7 @@ class AccessoryState(TmccState):
         self._sensor_track = False
         self._asc2 = False
         self._amc2 = False
+        self._last_amc2_device = None
         self._pdi_source = False
         self._number: int | None = None
 
@@ -60,7 +61,8 @@ class AccessoryState(TmccState):
                 l2 = f"{self._pdi_config.lamp2}"
                 l3 = f"{self._pdi_config.lamp3}"
                 l4 = f"{self._pdi_config.lamp4}"
-                aux = f"AMC 2 {at} {m1} {m2} {l1} {l2} {l3} {l4}"
+                ld = f" Last: {self._last_amc2_device}" if self._last_amc2_device else ""
+                aux = f"AMC 2 {at} {m1} {m2} {l1} {l2} {l3} {l4}{ld}"
             else:
                 aux = "AMC 2"
         else:
@@ -148,6 +150,7 @@ class AccessoryState(TmccState):
                     elif isinstance(command, Amc2Req):
                         self._pdi_source = True
                         self._amc2 = True
+                        self.extract_state_from_req(command)
                 elif isinstance(command, IrdaReq):
                     if self._first_pdi_command is None:
                         self._first_pdi_command = command.command
@@ -210,6 +213,25 @@ class AccessoryState(TmccState):
     @property
     def value(self) -> int:
         return self._number
+
+    def extract_state_from_req(self, req: P):
+        if isinstance(req, Amc2Req):
+            if isinstance(self._pdi_config, Amc2Req):
+                self._pdi_config.update_config(req)
+                if req.is_config:
+                    if req.motor1.restore_state or req.motor2.restore_state:
+                        self._aux_state = Aux.AUX1_OPT_ONE
+                        self._aux1_state = Aux.AUX2_ON if req.motor1.restore_state else Aux.AUX1_OFF
+                        self._aux2_state = Aux.AUX2_ON if req.motor2.restore_state else Aux.AUX2_OFF
+                    else:
+                        self._aux_state = Aux.AUX2_OPT_ONE
+                        self._aux1_state = self._aux2_state = Aux.AUX1_OFF
+            if req.action in {Amc2Action.MOTOR, Amc2Action.MOTOR_CONFIG}:
+                self._number = req.motor
+                self._last_amc2_device = self._pdi_config.get_motor(req.motor) if self._pdi_config else None
+            elif req.action == Amc2Action.LAMP:
+                self._number = req.lamp
+                self._last_amc2_device = self._pdi_config.get_lamp(req.lamp) if self._pdi_config else None
 
     def as_bytes(self) -> bytes:
         if self.comp_data is None:

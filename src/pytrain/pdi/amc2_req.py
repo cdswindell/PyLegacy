@@ -103,7 +103,7 @@ class Amc2Req(LcsReq):
         speed: int = None,
         direction: Direction | None = None,
         output_type: OutputType | None = None,
-        restore_state: bool | None = None,
+        restore: bool | None = None,
         lamp: int | None = None,
         level: int = None,
     ) -> None:
@@ -117,7 +117,8 @@ class Amc2Req(LcsReq):
             self._option = None
             self._access_type = None
             self._motor = self._speed = self._direction = self._lamp = self._level = None
-            self._output_type = self._restore_state = None
+            self._output_type = self._restore = None
+            self._motors = self._lamps = []
 
             # what is the request type?
             self._action = Amc2Action(self._action_byte)
@@ -131,6 +132,7 @@ class Amc2Req(LcsReq):
                 self._lamp2 = Amc2Lamp(2, self._data[19]) if data_len > 19 else None
                 self._lamp3 = Amc2Lamp(3, self._data[20]) if data_len > 20 else None
                 self._lamp4 = Amc2Lamp(4, self._data[21]) if data_len > 21 else None
+                self._lamps = [self._lamp1, self._lamp2, self._lamp3, self._lamp4]
             elif self._action == Amc2Action.MOTOR:
                 self._motor = self._data[3] if data_len > 3 else None
                 self._speed = self._data[4] if data_len > 4 else None
@@ -141,7 +143,7 @@ class Amc2Req(LcsReq):
             elif self._action == Amc2Action.MOTOR_CONFIG:
                 self._motor = self._data[3] if data_len > 3 else None
                 self._output_type = self._data[4] if data_len > 4 else None
-                self._restore_state = bool(self._data[5]) if data_len > 5 else None
+                self._restore = bool(self._data[5]) if data_len > 5 else None
         else:
             self._action = action
             self._debug = debug
@@ -149,9 +151,10 @@ class Amc2Req(LcsReq):
             self._speed = Validations.validate_int(speed, 0, 100, "Speed", True)
             self._direction = direction.value if direction else Direction.AC.value
             self._output_type = output_type.value if output_type else OutputType.AC
-            self._restore_state = restore_state if restore_state is not None else True
+            self._restore = restore if restore is not None else True
             self._lamp = Validations.validate_int(lamp, 0, 3, "Lamp", True)
             self._level = Validations.validate_int(level, 0, 100, "Level", True)
+            print(self)
 
     @property
     def debug(self) -> int | None:
@@ -163,7 +166,7 @@ class Amc2Req(LcsReq):
 
     @property
     def motor(self) -> int:
-        return self._motor
+        return self._motor + 1 if self._motor is not None else None
 
     @property
     def speed(self) -> int:
@@ -178,8 +181,8 @@ class Amc2Req(LcsReq):
         return OutputType(self._output_type) if self._output_type is not None else OutputType.AC
 
     @property
-    def restore_state(self) -> bool:
-        return self._restore_state if self._restore_state is not None else True
+    def restore(self) -> bool:
+        return self._restore if self._restore is not None else True
 
     @property
     def motor1(self) -> Amc2Motor:
@@ -189,9 +192,15 @@ class Amc2Req(LcsReq):
     def motor2(self) -> Amc2Motor:
         return self._motor2
 
+    def get_motor(self, motor_id: int) -> Amc2Motor | None:
+        if 0 <= motor_id - 1 <= len(self._motors):
+            return self._motors[motor_id - 1]
+        else:
+            return None
+
     @property
     def lamp(self) -> int:
-        return self._lamp
+        return self._lamp + 1 if self._lamp is not None else None
 
     @property
     def level(self) -> int:
@@ -213,6 +222,12 @@ class Amc2Req(LcsReq):
     def lamp4(self) -> Amc2Lamp:
         return self._lamp4
 
+    def get_lamp(self, lamp_id: int) -> Amc2Lamp | None:
+        if 0 <= lamp_id - 1 <= len(self._lamps):
+            return self._lamps[lamp_id - 1]
+        else:
+            return None
+
     @property
     def payload(self) -> str | None:
         if self.is_error:
@@ -225,13 +240,13 @@ class Amc2Req(LcsReq):
                 l1 = f"{self._lamp1}"
                 return f"{at} {m1} {m2} {l1} Debug: {self.debug} ({self.packet})"
             elif self._action == Amc2Action.MOTOR:
-                return f"Motor: {self.motor + 1} Speed: {self.speed} Dir: {self.direction.label} ({self.packet})"
+                return f"Motor: {self.motor} Speed: {self.speed} Dir: {self.direction.label} ({self.packet})"
             elif self._action == Amc2Action.LAMP:
-                return f"Lamp: {self.lamp + 1} Level: {self.level} ({self.packet})"
+                return f"Lamp: {self.lamp} Level: {self.level} ({self.packet})"
             elif self._action == Amc2Action.MOTOR_CONFIG:
                 ot = f"Output Type: {self.output_type.label}"
-                rs = f"Restore State: {'On' if self._restore_state else 'Off'}"
-                return f"Motor: {self.motor + 1} {ot} {rs} ({self.packet})"
+                rs = f"Restore: {'To Speed' if self._restore else 'Off'}"
+                return f"Motor: {self.motor} {ot} {rs} ({self.packet})"
         return super().payload
 
     @property
@@ -252,19 +267,19 @@ class Amc2Req(LcsReq):
                 for lamp in [self._lamp1, self._lamp2, self._lamp3, self._lamp4]:
                     byte_str += lamp.level.to_bytes(1, byteorder="big") if lamp else NULL_BYTE
         elif self._action == Amc2Action.MOTOR:
-            byte_str += self.motor.to_bytes(1, byteorder="big")
+            byte_str += self._motor.to_bytes(1, byteorder="big")
             if self.pdi_command != PdiCommand.AMC2_GET:
                 byte_str += self.speed.to_bytes(1, byteorder="big")
                 byte_str += self._direction.to_bytes(1, byteorder="big")
         elif self._action == Amc2Action.LAMP:
-            byte_str += self.lamp.to_bytes(1, byteorder="big")
+            byte_str += self._lamp.to_bytes(1, byteorder="big")
             if self.pdi_command != PdiCommand.AMC2_GET:
                 byte_str += self.level.to_bytes(1, byteorder="big")
         elif self._action == Amc2Action.MOTOR_CONFIG:
-            byte_str += self.motor.to_bytes(1, byteorder="big")
+            byte_str += self._motor.to_bytes(1, byteorder="big")
             if self.pdi_command != PdiCommand.AMC2_GET:
                 byte_str += self.output_type.value.to_bytes(1, byteorder="big")
-                byte_str += self.restore_state.to_bytes(1, byteorder="big")
+                byte_str += self.restore.to_bytes(1, byteorder="big")
         elif self._action == Amc2Action.IDENTIFY:
             if self.pdi_command == PdiCommand.AMC2_SET:
                 byte_str += (self.ident if self.ident is not None else 0).to_bytes(1, byteorder="big")
@@ -274,8 +289,8 @@ class Amc2Req(LcsReq):
         byte_str += PDI_EOP.to_bytes(1, byteorder="big")
         return byte_str
 
-    @staticmethod
-    def _harvest_motors(data: bytes) -> tuple[Amc2Motor, Amc2Motor]:
+    def _harvest_motors(self, data: bytes) -> tuple[Amc2Motor, Amc2Motor]:
+        self._motors.clear()
         motor1 = Amc2Motor(
             1,
             OutputType(data[0]),
@@ -284,6 +299,7 @@ class Amc2Req(LcsReq):
             bool(data[6]),
             data[8],
         )
+        self._motors.append(motor1)
         motor2 = Amc2Motor(
             2,
             OutputType(data[1]),
@@ -292,6 +308,7 @@ class Amc2Req(LcsReq):
             bool(data[7]),
             data[9],
         )
+        self._motors.append(motor2)
         return motor1, motor2
 
     def _motors_as_bytes(self) -> bytes:
@@ -311,6 +328,22 @@ class Amc2Req(LcsReq):
         byte_str += self._motor1.speed.to_bytes(1, byteorder="big") if self._motor1 else NULL_BYTE
         byte_str += self._motor2.speed.to_bytes(1, byteorder="big") if self._motor2 else NULL_BYTE
         return byte_str
+
+    def update_config(self, req: Amc2Req) -> None:
+        if req and not req.is_config:
+            if req.action in {Amc2Action.MOTOR, Amc2Action.MOTOR_CONFIG}:
+                if 0 <= req.motor - 1 < len(self._motors):
+                    motor = self._motors[req.motor - 1]
+                    if req.action == Amc2Action.MOTOR:
+                        motor.speed = req.speed
+                        motor.direction = req.direction
+                    elif req.action == Amc2Action.MOTOR_CONFIG:
+                        motor.output_type = req.output_type
+                        motor.restore = req.restore
+            elif req.action == Amc2Action.LAMP:
+                if 0 <= req.lamp - 1 < len(self._lamps):
+                    lamp = self._lamps[req.lamp - 1]
+                    lamp.level = req.level
 
 
 @singleton

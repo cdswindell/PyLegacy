@@ -8,7 +8,7 @@
 #
 #
 import logging
-from argparse import ArgumentParser
+from argparse import ArgumentError, ArgumentParser
 from typing import List, Sequence
 
 from ..pdi.amc2_req import Amc2Req
@@ -85,7 +85,7 @@ class Amc2Cli(CliBase):
 
         opts_group = amc2_parser.add_argument_group(
             "Control options",
-            "Turn the motor/lamp on or off, or set the speed/brightness level",
+            "Turn the motor on or off, or set the speed/brightness level",
         )
         opts = opts_group.add_mutually_exclusive_group()
         opts.add_argument(
@@ -99,18 +99,18 @@ class Amc2Cli(CliBase):
             help="Turn Amc2 port on",
         )
         opts.add_argument(
-            "-level",
+            "-brightness",
             nargs=1,
             type=IntRange(0, 100),
             action="store",
-            help="Set level (speed) of Amc2 port (0 - 100)",
+            help="Set brightness (level) of Amc2 lamp port (0 - 100)",
         )
         opts.add_argument(
             "-speed",
             nargs=1,
             type=IntRange(0, 100),
             action="store",
-            help="Set speed (level) of Amc2 port (0 - 100)",
+            help="Set speed of Amc2 motor port (0 - 100)",
         )
 
         amc2_parser.add_argument(
@@ -129,10 +129,23 @@ class Amc2Cli(CliBase):
         self._amc2 = self._args.amc2
         self._motor = self._args.motor[0] - 1 if self._args.motor else None
         self._lamp = self._args.lamp[0] - 1 if self._args.lamp else None
-        self._mag = self._args.level[0] if self._args.level else self._args.speed[0] if self._args.speed else None
+        self._mag = (
+            self._args.brightness[0]
+            if self._args.brightness is not None
+            else self._args.speed[0]
+            if self._args.speed
+            else None
+        )
 
         if self._motor is not None:
             if self._args.on or self._args.off:
+                # req = Amc2Req(
+                #     self._amc2,
+                #     PdiCommand.AMC2_SET,
+                #     Amc2Action.MOTOR_CONFIG,
+                #     motor=self._motor,
+                #     restore_state=True if self._args.on else False,
+                # )
                 req1 = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data=self._motor + 1)
                 if self._args.on:
                     req2 = CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, self._amc2)
@@ -149,12 +162,7 @@ class Amc2Cli(CliBase):
                 )
         elif self._lamp is not None:
             if self._args.on or self._args.off:
-                req1 = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data=self._lamp + 3)
-                if self._args.on:
-                    req2 = CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, self._amc2)
-                else:
-                    req2 = CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self._amc2)
-                req = [req1, req2]
+                raise ArgumentError(None, "Cannot turn lamp on/off; use '-brightness <level>' instead")
             else:
                 req = Amc2Req(
                     self._amc2,
@@ -164,11 +172,12 @@ class Amc2Cli(CliBase):
                     level=self._mag,
                 )
         else:
-            raise ValueError("Must specify motor or lamp")
+            raise ArgumentError(None, "Must specify motor or lamp")
         try:
             cmd = Amc2Cmd(self._amc2, req, server=self._server)
             if self.do_fire:
                 cmd.fire(server=self._server)
             self._command = cmd
-        except ValueError as ve:
+        except ArgumentError as ve:
             log.exception(ve)
+            raise ve
