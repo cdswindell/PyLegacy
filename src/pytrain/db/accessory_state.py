@@ -270,11 +270,12 @@ class AccessoryState(TmccState):
                 if req.is_config:
                     if req.motor1.restore_state or req.motor2.restore_state:
                         self._aux_state = Aux.AUX1_OPT_ONE
-                        self._aux1_state = Aux.AUX2_ON if req.motor1.restore_state else Aux.AUX1_OFF
+                        self._aux1_state = Aux.AUX1_ON if req.motor1.restore_state else Aux.AUX1_OFF
                         self._aux2_state = Aux.AUX2_ON if req.motor2.restore_state else Aux.AUX2_OFF
                     else:
                         self._aux_state = Aux.AUX2_OPT_ONE
-                        self._aux1_state = self._aux2_state = Aux.AUX1_OFF
+                        self._aux1_state = Aux.AUX1_OFF
+                        self._aux2_state = Aux.AUX2_OFF
         elif isinstance(req, CommandReq):
             if req.command == Aux.NUMERIC and req.data and 1 <= req.data <= 6:
                 self._number = req.data

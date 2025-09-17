@@ -79,6 +79,13 @@ class AccCli(CliBase):
             dest="command",
             help="Set accessory address",
         )
+        aux_group.add_argument(
+            "-reset",
+            action="store_const",
+            const=TMCC1AuxCommandEnum.RESET,
+            dest="command",
+            help="Reset accessory",
+        )
         # fire command
         return PyTrainArgumentParser(
             "Operate specified accessory (1 - 99)",

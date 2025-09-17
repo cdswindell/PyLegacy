@@ -203,11 +203,12 @@ class CommandReq:
         )
 
         if request and request.command_def.is_aux1_prefixed is True:
-            prefix_bytes = CommandReq(
-                TMCC1EngineCommandEnum.AUX1_OPTION_ONE,
-                address=request.address,
-                scope=request.scope,
-            ).as_bytes
+            cmd_enum = (
+                TMCC1AuxCommandEnum.AUX1_OPT_ONE
+                if request.scope == CommandScope.ACC
+                else TMCC1EngineCommandEnum.AUX1_OPTION_ONE
+            )
+            prefix_bytes = CommandReq(cmd_enum, address=request.address, scope=request.scope).as_bytes
         else:
             prefix_bytes = None
 

@@ -118,6 +118,7 @@ class Amc2Cli(CliBase):
             action="store",
             help=f"IP Address of {PROGRAM_NAME} server, if client. Server communicates with Base 3/LCS SER2",
         )
+
         # fire command
         return PyTrainArgumentParser(
             "Operate specified Amc2 (1 - 99)",

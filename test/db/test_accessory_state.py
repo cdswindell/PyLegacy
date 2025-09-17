@@ -96,13 +96,40 @@ class TestAccessoryState:
         assert acc.aux_state == Aux.AUX2_OPT_ONE
 
     def test_amc2_motor_marks_lcs_on_power(self):
-        acc = self._new_acc(6)
-        amc2_sp = Amc2Req(acc.address, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=1, speed=100)
-        acc.update(amc2_sp)
+        config = Amc2Req.from_bytes(bytes.fromhex("d1461903190000000202020303010100000000000000000077df"))
+        acc = self._new_acc(25)
+        acc.update(config)
         assert acc.is_lcs_component is True
         assert acc.is_amc2 is True
-        assert acc.is_asc2 is False
-        assert acc.is_power_district is False
+        assert acc.is_known
+        assert acc.aux_state == Aux.AUX2_OPT_ONE
+        assert acc.aux1_state == Aux.AUX1_OFF
+        assert acc.aux2_state == Aux.AUX2_OFF
+
+        assert acc.motor1
+        assert acc.motor1.speed == 0
+        assert acc.motor1.restore_state is False
+
+        assert acc.motor2
+        assert acc.motor2.speed == 0
+        assert acc.motor2.restore_state is False
+
+        amc2_sp = Amc2Req(acc.address, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=1, speed=100)
+        acc.update(amc2_sp)
+
+        assert acc.motor2
+        assert acc.motor2.speed == 100
+        assert acc.motor2.restore_state is False
+
+        assert acc.motor1
+        assert acc.motor1.speed == 0
+        assert acc.motor1.restore_state is False
+
+        amc2_sp = Amc2Req(acc.address, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=0, speed=50)
+        acc.update(amc2_sp)
+
+        assert acc.motor1.speed == 50
+        assert acc.motor2.speed == 100
 
     def test_irda_marks_sensor_track_and_serialization_includes_irda(self):
         acc = self._new_acc(18)

@@ -161,7 +161,10 @@ class TMCC1CommandDef(CommandDef):
     @property
     def alias(self) -> TMCC1EngineCommandEnum | Tuple[TMCC1EngineCommandEnum, int] | None:
         if isinstance(self._alias, str):
-            alias = TMCC1EngineCommandEnum.by_name(self._alias, raise_exception=True)
+            if self._command_ident == TMCC1CommandIdentifier.ACC:
+                alias = TMCC1AuxCommandEnum.by_name(self._alias, raise_exception=True)
+            else:
+                alias = TMCC1EngineCommandEnum.by_name(self._alias, raise_exception=True)
             if self._data is None:
                 return alias
             else:
@@ -311,11 +314,12 @@ class TMCC1AuxCommandEnum(TMCC1Enum):
     BOOST = TMCC1CommandDef(TMCC1_ACC_BOOST_COMMAND, TMCC1CommandIdentifier.ACC)
     BRAKE = TMCC1CommandDef(TMCC1_ACC_BRAKE_COMMAND, TMCC1CommandIdentifier.ACC)
     FORWARD_SPEED = TMCC1CommandDef(TMCC1_ACC_FORWARD_SPEED_COMMAND, TMCC1CommandIdentifier.ACC, d_max=3)
-    REVERSE_SPEED = TMCC1CommandDef(
-        TMCC1_ACC_REVERSE_SPEED_COMMAND, TMCC1CommandIdentifier.ACC, d_map=REVERSE_SPEED_MAP
-    )
+    RESET = TMCC1CommandDef(TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=0, aux1=True)
     RELATIVE_SPEED = TMCC1CommandDef(
         TMCC1_ACC_RELATIVE_SPEED_COMMAND, TMCC1CommandIdentifier.ACC, d_map=RELATIVE_SPEED_MAP
+    )
+    REVERSE_SPEED = TMCC1CommandDef(
+        TMCC1_ACC_REVERSE_SPEED_COMMAND, TMCC1CommandIdentifier.ACC, d_map=REVERSE_SPEED_MAP
     )
 
 
