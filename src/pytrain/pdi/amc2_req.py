@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from ..db.component_state import L, T
 from ..protocol.constants import CommandScope, Mixins
@@ -66,10 +66,6 @@ class Amc2Motor:
     restore: bool
     restore_state: bool
     speed: int
-    state: bool = field(init=False)
-
-    def __post_init__(self):
-        self.state = self.speed > 0 and self.restore and self.restore_state
 
     def __repr__(self) -> str:
         t = f"Output: {self.output_type.label}"
@@ -79,6 +75,10 @@ class Amc2Motor:
             r += f" to {'On' if self.restore_state else 'Off'}"
         c = "On" if self.state else "Off"
         return f"Mo #{self.id} {t} {d} Speed: {self.speed} {r} Now: {c}"
+
+    @property
+    def state(self) -> bool:
+        return self.speed > 0 and self.restore_state
 
 
 @dataclass(slots=True)

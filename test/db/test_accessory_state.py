@@ -108,28 +108,36 @@ class TestAccessoryState:
 
         assert acc.motor1
         assert acc.motor1.speed == 0
+        assert acc.motor1.state is False
         assert acc.motor1.restore_state is False
 
         assert acc.motor2
         assert acc.motor2.speed == 0
+        assert acc.motor2.state is False
         assert acc.motor2.restore_state is False
 
         amc2_sp = Amc2Req(acc.address, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=1, speed=100)
         acc.update(amc2_sp)
+        acc.motor2.restore_state = True
 
         assert acc.motor2
         assert acc.motor2.speed == 100
-        assert acc.motor2.restore_state is False
+        assert acc.motor2.state
+        assert acc.motor2.restore_state is True
 
         assert acc.motor1
         assert acc.motor1.speed == 0
+        assert acc.motor1.state is False
         assert acc.motor1.restore_state is False
 
         amc2_sp = Amc2Req(acc.address, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=0, speed=50)
         acc.update(amc2_sp)
+        acc.motor1.restore_state = True
 
         assert acc.motor1.speed == 50
         assert acc.motor2.speed == 100
+        assert acc.motor1.state
+        assert acc.motor2.state
 
     def test_irda_marks_sensor_track_and_serialization_includes_irda(self):
         acc = self._new_acc(18)
