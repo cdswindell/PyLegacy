@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 
 class Amc2Cmd(CommandBase):
-    def __init__(self, tmcc_id: int, req: Amc2Req | CommandReq, server: str = None) -> None:
+    def __init__(self, tmcc_id: int, req: Amc2Req | CommandReq | List[Amc2Req], server: str = None) -> None:
         if tmcc_id < 1 or tmcc_id > 99:
             raise ValueError("Amc2 ID must be between 1 and 99")
         super().__init__(None, req, tmcc_id, CommandScope.AMC2, server=server)
@@ -87,7 +87,7 @@ class Amc2Cli(CliBase):
             "Control options",
             "Turn the motor on or off, or set the speed/brightness level",
         )
-        opts = opts_group.add_mutually_exclusive_group()
+        opts = opts_group.add_mutually_exclusive_group(required=True)
         opts.add_argument(
             "-off",
             action="store_true",
@@ -138,33 +138,43 @@ class Amc2Cli(CliBase):
             else None
         )
 
+        req = []
         if self._motor is not None:
-            if self._args.on or self._args.off:
-                req1 = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data=self._motor + 1)
-                if self._args.on:
-                    req2 = CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, self._amc2)
-                else:
-                    req2 = CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self._amc2)
-                req = [req1, req2]
-            else:
-                req = Amc2Req(
-                    self._amc2,
-                    PdiCommand.AMC2_SET,
-                    Amc2Action.MOTOR,
-                    motor=self._motor,
-                    speed=self._mag,
+            # we want to issue a turn-on command if the specified magnitude is > 0 or
+            # if the explicit -on option was specified
+            turn_on = self._args.on
+            if self._mag is not None:
+                req.append(
+                    Amc2Req(
+                        self._amc2,
+                        PdiCommand.AMC2_SET,
+                        Amc2Action.MOTOR,
+                        motor=self._motor,
+                        speed=self._mag,
+                    )
                 )
+                turn_on = self._mag > 0
+            # set the numeric value to the motor number; keeps the AMC2 in sync with motor port
+            req.append(CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data=self._motor + 1))
+            if turn_on:
+                req.append(CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, self._amc2))
+            else:
+                req.append(CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self._amc2))
         elif self._lamp is not None:
             if self._args.on or self._args.off:
                 raise ArgumentError(None, "Cannot turn lamp on/off; use '-brightness <level>' instead")
             else:
-                req = Amc2Req(
-                    self._amc2,
-                    PdiCommand.AMC2_SET,
-                    Amc2Action.LAMP,
-                    lamp=self._lamp,
-                    level=self._mag,
+                req.append(
+                    Amc2Req(
+                        self._amc2,
+                        PdiCommand.AMC2_SET,
+                        Amc2Action.LAMP,
+                        lamp=self._lamp,
+                        level=self._mag,
+                    )
                 )
+            # set the numeric value to the motor number; keeps the AMC2 in sync with motor port
+            req.append(CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data=self._lamp + 3))
         else:
             raise ArgumentError(None, "Must specify motor or lamp")
         try:
