@@ -304,8 +304,6 @@ class AccessoryState(TmccState):
                     values=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
             elif isinstance(self._first_pdi_action, Bpc2Action):
-                print(self._first_pdi_command.name, self._first_pdi_action.name)
-                print(f"Config: {self._pdi_config}")
                 byte_str += Bpc2Req(
                     self.address,
                     self._first_pdi_command,
