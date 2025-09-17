@@ -1,7 +1,7 @@
 import abc
 from abc import ABC
 from ipaddress import IPv4Address, IPv6Address
-from typing import Sequence, TypeVar
+from typing import Sequence, TypeVar, cast
 
 from ..comm.comm_buffer import CommBuffer
 from ..pdi.pdi_req import PdiReq
@@ -42,7 +42,7 @@ class CommandBase(ABC):
 
         # persist command information
         self._command_def_enum: CommandDefEnum = command
-        self._command_def: CommandDef = command.value if command else None
+        self._command_def: CommandDef = cast(CommandDefEnum, command).value if command else None
         self._command_req: R = command_req
         self._data: int = data
         self._scope: CommandScope = scope

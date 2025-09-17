@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..pdi.constants import PDI_EOP, PDI_SOP, Bpc2Action, PdiCommand
 from ..pdi.lcs_req import LcsReq
 from ..protocol.constants import CommandScope
+from ..utils.validations import Validations
 
 
 class Bpc2Req(LcsReq):
@@ -54,6 +55,8 @@ class Bpc2Req(LcsReq):
             else:
                 self._state = self._values = self._valids = None
         else:
+            Validations.validate_int(mode, 0, 3, "Mode", True)
+            Validations.validate_int(state, 0, 1, "Mode", True)
             self._action = action
             self._mode = mode
             self._debug = debug
@@ -133,13 +136,6 @@ class Bpc2Req(LcsReq):
             if self.pdi_command != PdiCommand.BPC2_GET:
                 byte_str += (self.state if self.state is not None else 0).to_bytes(1, byteorder="big")
         elif self._action in {Bpc2Action.CONTROL2, Bpc2Action.CONTROL4}:
-            if self.pdi_command != PdiCommand.BPC2_GET:
-                byte_str += (self.state if self.state is not None else 0).to_bytes(1, byteorder="big")
-                values = self.values if self.values is not None else 0
-                valids = self.values if self.valids is not None else 0
-                byte_str += values.to_bytes(1, byteorder="big")
-                byte_str += valids.to_bytes(1, byteorder="big")
-        elif self._action == Bpc2Action.CONTROL2:
             if self.pdi_command != PdiCommand.BPC2_GET:
                 values = self.values if self.values is not None else 0
                 valids = self.values if self.valids is not None else 0

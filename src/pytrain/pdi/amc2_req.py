@@ -197,7 +197,7 @@ class Amc2Req(LcsReq):
         return self._motor2
 
     def get_motor(self, motor_id: int) -> Amc2Motor | None:
-        if 0 <= motor_id - 1 <= len(self._motors):
+        if 0 <= motor_id - 1 < len(self._motors):
             return self._motors[motor_id - 1]
         else:
             return None
@@ -227,7 +227,7 @@ class Amc2Req(LcsReq):
         return self._lamp4
 
     def get_lamp(self, lamp_id: int) -> Amc2Lamp | None:
-        if 0 <= lamp_id - 1 <= len(self._lamps):
+        if 0 <= lamp_id - 1 < len(self._lamps):
             return self._lamps[lamp_id - 1]
         else:
             return None
