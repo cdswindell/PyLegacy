@@ -14,7 +14,7 @@ from typing import Any, Dict, cast
 from ..pdi.amc2_req import Amc2Lamp, Amc2Motor, Amc2Req
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
-from ..pdi.constants import Amc2Action, Asc2Action, Bpc2Action, IrdaAction, PdiCommand
+from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
@@ -66,8 +66,8 @@ class AccessoryState(TmccState):
             else:
                 aux = "Amc2"
         else:
-            if self.is_lcs_component:
-                aux = "Asc2 " + "ON" if self._aux_state == Aux.AUX1_OPT_ONE else "OFF"
+            if self.is_asc2:
+                aux = "Asc2 " + ("ON" if self._aux_state == Aux.AUX1_OPT_ONE else "OFF")
             else:
                 aux, aux1, aux2, aux_num = self._get_aux_state()
         return f"{aux}{aux1}{aux2}{aux_num}"
@@ -284,8 +284,6 @@ class AccessoryState(TmccState):
             if req.command == Aux.NUMERIC:
                 if req.data and 1 <= req.data <= 6:
                     self._number = req.data
-                elif req.data == 0:
-                    pass
 
     def as_bytes(self) -> bytes:
         if self.comp_data is None:
@@ -310,7 +308,7 @@ class AccessoryState(TmccState):
                     cast(Bpc2Action, self._first_pdi_action),
                     state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
-            elif isinstance(self._first_pdi_action, Amc2Action) and isinstance(self._pdi_config, Amc2Req):
+            elif isinstance(self._pdi_config, Amc2Req):
                 if self.number:
                     byte_str += CommandReq(Aux.NUMERIC, self.address, self.number).as_bytes
             else:

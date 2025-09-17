@@ -17,6 +17,7 @@ from src.pytrain.pdi.irda_req import IrdaReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
 
 
 class TestAccessoryState:
@@ -188,3 +189,94 @@ class TestAccessoryState:
         assert isinstance(s, str)
         assert "Aux" in s or "Unknown" in s
         assert "Aux Num:" in s
+
+    def test_halt_resets_aux_and_number(self):
+        acc = self._new_acc(31)
+        # Turn on via TMCC and set a number
+        acc.update(CommandReq.build(Aux.AUX1_OPT_ONE, acc.address))
+        acc.update(CommandReq.build(Aux.NUMERIC, acc.address, data=4))
+        assert acc.aux_state == Aux.AUX1_OPT_ONE
+        assert acc.value == 4
+
+        # HALT should force OFF and clear number
+        halt = CommandReq.build(TMCC1HaltCommandEnum.HALT, acc.address)
+        acc.update(halt)
+        assert acc.aux_state == Aux.AUX2_OPT_ONE
+        assert acc.aux1_state == Aux.AUX1_OFF
+        assert acc.aux2_state == Aux.AUX2_OFF
+        assert acc.value is None
+
+    def test_tmcc_commands_ignored_after_pdi_source(self):
+        acc = self._new_acc(32)
+        # Establish LCS source via ASC2, ON
+        asc2_on = Asc2Req(acc.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1)
+        acc.update(asc2_on)
+        assert acc.is_lcs_component is True
+        assert acc.aux_state == Aux.AUX1_OPT_ONE
+        assert acc.aux1_state == Aux.AUX1_ON
+        assert acc.aux2_state == Aux.AUX2_ON
+
+        # TMCC accessory commands should NOT change state once LCS source
+        acc.update(CommandReq.build(Aux.AUX1_OFF, acc.address))
+        acc.update(CommandReq.build(Aux.AUX2_OFF, acc.address))
+        # Still the LCS-determined ON state
+        assert acc.aux_state == Aux.AUX1_OPT_ONE
+        assert acc.aux1_state == Aux.AUX1_ON
+        assert acc.aux2_state == Aux.AUX2_ON
+
+    def test_payload_for_asc2_includes_prefix_for_on_and_off(self):
+        # ON
+        acc_on = self._new_acc(33)
+        acc_on.update(Asc2Req(acc_on.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1))
+        s_on = acc_on.payload
+        assert isinstance(s_on, str)
+        # Should include "Asc2 " and reflect ON
+        assert "Asc2" in s_on
+
+        # OFF
+        acc_off = self._new_acc(34)
+        acc_off.update(Asc2Req(acc_off.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0))
+        s_off = acc_off.payload
+        assert isinstance(s_off, str)
+        # Should include "Asc2 " and reflect OFF, not just bare "OFF"
+        assert "Asc2" in s_off
+
+    def test_as_bytes_lcs_asc2_uses_first_action_and_value(self):
+        acc = self._new_acc(35)
+        # First PDI action (CONTROL1) ON should be serialized accordingly
+        asc2_on = Asc2Req(acc.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1)
+        acc.update(asc2_on)
+        bs_on = acc.as_bytes()
+        # Expected serialized action should be present
+        expected_on = Asc2Req(acc.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).as_bytes
+        assert expected_on in bs_on
+
+        # Now OFF updates the aux state; as_bytes should reflect OFF
+        asc2_off = Asc2Req(acc.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0)
+        acc.update(asc2_off)
+        bs_off = acc.as_bytes()
+        expected_off = Asc2Req(acc.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).as_bytes
+        assert expected_off in bs_off
+
+    def test_as_bytes_amc2_includes_numeric_when_set(self):
+        acc = self._new_acc(25)
+        # Provide AMC2 config to establish AMC2/LCS context
+        cfg = Amc2Req.from_bytes(bytes.fromhex("d1461903190000000202020303010100000000000000000077df"))
+        acc.update(cfg)
+        assert acc.is_amc2 is True and acc.is_lcs_component is True
+
+        # Set a number; for AMC2, as_bytes should include the numeric packet
+        acc.update(CommandReq.build(Aux.NUMERIC, acc.address, data=5))
+        blob = acc.as_bytes()
+        numeric_bytes = CommandReq(Aux.NUMERIC, acc.address, 5).as_bytes
+        assert numeric_bytes in blob
+
+    def test_get_motor_and_lamps_none_when_not_amc2(self):
+        acc = self._new_acc(37)
+        # Plain accessory
+        assert acc.get_motor(1) is None
+        assert acc.get_motor(2) is None
+        assert acc.get_lamp(1) is None
+        assert acc.get_lamp(2) is None
+        assert acc.get_lamp(3) is None
+        assert acc.get_lamp(4) is None
