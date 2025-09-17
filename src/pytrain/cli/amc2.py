@@ -144,13 +144,15 @@ class Amc2Cli(CliBase):
             # if the explicit -on option was specified
             turn_on = self._args.on
             if self._mag is not None:
-                req.append(Amc2Req(
-                    self._amc2,
-                    PdiCommand.AMC2_SET,
-                    Amc2Action.MOTOR,
-                    motor=self._motor,
-                    speed=self._mag,
-                ))
+                req.append(
+                    Amc2Req(
+                        self._amc2,
+                        PdiCommand.AMC2_SET,
+                        Amc2Action.MOTOR,
+                        motor=self._motor,
+                        speed=self._mag,
+                    )
+                )
                 turn_on = self._mag > 0
             # set the numeric value to the motor number; keeps the AMC2 in sync with motor port
             req.append(CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data=self._motor + 1))
@@ -162,13 +164,15 @@ class Amc2Cli(CliBase):
             if self._args.on or self._args.off:
                 raise ArgumentError(None, "Cannot turn lamp on/off; use '-brightness <level>' instead")
             else:
-                req.append(Amc2Req(
-                    self._amc2,
-                    PdiCommand.AMC2_SET,
-                    Amc2Action.LAMP,
-                    lamp=self._lamp,
-                    level=self._mag,
-                ))
+                req.append(
+                    Amc2Req(
+                        self._amc2,
+                        PdiCommand.AMC2_SET,
+                        Amc2Action.LAMP,
+                        lamp=self._lamp,
+                        level=self._mag,
+                    )
+                )
             # set the numeric value to the motor number; keeps the AMC2 in sync with motor port
             req.append(CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._amc2, data=self._lamp + 3))
         else:
