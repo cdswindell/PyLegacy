@@ -131,13 +131,14 @@ class AccessoryState(TmccState):
                             if self.is_amc2:
                                 self.extract_state_from_req(command)
                 elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req) or isinstance(command, Amc2Req):
-                    if self._first_pdi_command is None:
-                        self._first_pdi_command = command.command
-                    if self._first_pdi_action is None:
-                        self._first_pdi_action = command.action
                     if command.is_config:
                         self._pdi_config = command
                         self._pdi_config_count += 1
+                    else:
+                        if self._first_pdi_command is None:
+                            self._first_pdi_command = command.command
+                        if self._first_pdi_action is None:
+                            self._first_pdi_action = command.action
                     if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                         self._pdi_source = True
                         if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
@@ -293,6 +294,8 @@ class AccessoryState(TmccState):
         if self._sensor_track:
             byte_str += IrdaReq(self.address, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC).as_bytes
         elif self.is_lcs_component:
+            if self._pdi_config and self._pdi_config.is_config:
+                byte_str += self._pdi_config.as_bytes
             if isinstance(self._first_pdi_action, Asc2Action):
                 byte_str += Asc2Req(
                     self.address,
@@ -309,10 +312,9 @@ class AccessoryState(TmccState):
                     cast(Bpc2Action, self._first_pdi_action),
                     state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
+            elif isinstance(self._first_pdi_action, Amc2Action) and isinstance(self._pdi_config, Amc2Req):
                 if self.number:
                     byte_str += CommandReq(Aux.NUMERIC, self.address, self.number).as_bytes
-            elif isinstance(self._first_pdi_action, Amc2Action) and isinstance(self._pdi_config, Amc2Req):
-                byte_str += self._pdi_config.as_bytes
             else:
                 log.error(f"State req for lcs device: {self._first_pdi_command.name} {self._first_pdi_action.name}")
         else:
