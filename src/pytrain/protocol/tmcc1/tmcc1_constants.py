@@ -300,7 +300,7 @@ TMCC1_ACC_REVERSE_SPEED_COMMAND: int = 0x807C
 @unique
 class TMCC1AuxCommandEnum(TMCC1Enum):
     SET_ADDRESS = TMCC1CommandDef(TMCC1_ACC_SET_ADDRESS_COMMAND, TMCC1CommandIdentifier.ACC)
-    NUMERIC = TMCC1CommandDef(TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandIdentifier.ACC, d_max=9, aux1=True)
+    NUMERIC = TMCC1CommandDef(TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandIdentifier.ACC, d_max=9)
     AUX1_OFF = TMCC1CommandDef(TMCC1_ACC_AUX_1_OFF_COMMAND, TMCC1CommandIdentifier.ACC)
     AUX1_ON = TMCC1CommandDef(TMCC1_ACC_AUX_1_ON_COMMAND, TMCC1CommandIdentifier.ACC)
     AUX1_OPT_ONE = TMCC1CommandDef(TMCC1_ACC_AUX_1_OPTION_1_COMMAND, TMCC1CommandIdentifier.ACC)
@@ -314,7 +314,7 @@ class TMCC1AuxCommandEnum(TMCC1Enum):
     BOOST = TMCC1CommandDef(TMCC1_ACC_BOOST_COMMAND, TMCC1CommandIdentifier.ACC)
     BRAKE = TMCC1CommandDef(TMCC1_ACC_BRAKE_COMMAND, TMCC1CommandIdentifier.ACC)
     FORWARD_SPEED = TMCC1CommandDef(TMCC1_ACC_FORWARD_SPEED_COMMAND, TMCC1CommandIdentifier.ACC, d_max=3)
-    RESET = TMCC1CommandDef(TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=0, aux1=True)
+    RESET = TMCC1CommandDef(TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=0)
     RELATIVE_SPEED = TMCC1CommandDef(
         TMCC1_ACC_RELATIVE_SPEED_COMMAND, TMCC1CommandIdentifier.ACC, d_map=RELATIVE_SPEED_MAP
     )

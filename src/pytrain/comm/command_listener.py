@@ -52,6 +52,7 @@ SYNC_COMPLETE = CommandReq(TMCC1SyncCommandEnum.SYNCHRONIZED)
 # impacted state
 #
 COMMAND_IMPACTS = {
+    TMCC1AuxCommandEnum.NUMERIC: (lambda x: x.is_amc2, Amc2Req.request_config),
     TMCC1AuxCommandEnum.RELATIVE_SPEED: (lambda x: x.is_amc2, Amc2Req.request_config),
     TMCC1AuxCommandEnum.AUX1_OPT_ONE: (lambda x: x.is_amc2, Amc2Req.request_config),
     TMCC1AuxCommandEnum.AUX2_OPT_ONE: (lambda x: x.is_amc2, Amc2Req.request_config),

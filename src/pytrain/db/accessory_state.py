@@ -32,6 +32,7 @@ class AccessoryState(TmccState):
         self._first_pdi_command = None
         self._first_pdi_action = None
         self._pdi_config = None
+        self._pdi_config_count = 0
         self._last_aux1_opt1 = None
         self._last_aux2_opt1 = None
         self._aux1_state: Aux | None = None
@@ -60,24 +61,28 @@ class AccessoryState(TmccState):
                 l2 = f"{self._pdi_config.lamp2}"
                 l3 = f"{self._pdi_config.lamp3}"
                 l4 = f"{self._pdi_config.lamp4}"
-                ld = f" Last: {self.last_amc2_device}" if self.last_amc2_device else ""
-                aux = f"AMC 2 {at} {m1} {m2} {l1} {l2} {l3} {l4}{ld}"
+                aux, aux1, aux2, aux_num = self._get_aux_state()
+                aux = f"Amc2 {at} {m1} {m2} {l1} {l2} {l3} {l4} {aux}"
             else:
-                aux = "AMC 2"
+                aux = "Amc2"
         else:
             if self.is_lcs_component:
                 aux = "Asc2 " + "ON" if self._aux_state == Aux.AUX1_OPT_ONE else "OFF"
             else:
-                if self.aux_state == Aux.AUX1_OPT_ONE:
-                    aux = "Aux 1"
-                elif self.aux_state == Aux.AUX2_OPT_ONE:
-                    aux = "Aux 2"
-                else:
-                    aux = "Unknown"
-                aux1 = f" Aux1: {self.aux1_state.name if self.aux1_state is not None else 'Unknown'}"
-                aux2 = f" Aux2: {self.aux2_state.name if self.aux2_state is not None else 'Unknown'}"
-                aux_num = f" Aux Num: {self._number if self._number is not None else 'NA'}"
+                aux, aux1, aux2, aux_num = self._get_aux_state()
         return f"{aux}{aux1}{aux2}{aux_num}"
+
+    def _get_aux_state(self) -> tuple[str, str, str, str]:
+        if self.aux_state == Aux.AUX1_OPT_ONE:
+            aux = "Aux: Aux 1"
+        elif self.aux_state == Aux.AUX2_OPT_ONE:
+            aux = "Aux: Aux 2"
+        else:
+            aux = "Aux: Unknown"
+        aux1 = f" Aux1: {self.aux1_state.name if self.aux1_state is not None else 'Unknown'}"
+        aux2 = f" Aux2: {self.aux2_state.name if self.aux2_state is not None else 'Unknown'}"
+        aux_num = f" Aux Num: {self._number if self._number is not None else 'NA'}"
+        return aux, aux1, aux2, aux_num
 
     # noinspection DuplicatedCode
     def update(self, command: L | P) -> None:
@@ -132,6 +137,7 @@ class AccessoryState(TmccState):
                         self._first_pdi_action = command.action
                     if command.is_config:
                         self._pdi_config = command
+                        self._pdi_config_count += 1
                     if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                         self._pdi_source = True
                         if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
@@ -253,32 +259,32 @@ class AccessoryState(TmccState):
             return self._pdi_config.get_lamp(num)
         return None
 
-    @property
-    def last_amc2_device(self) -> Any:
-        if self.is_amc2 and self._pdi_config:
-            num = self.number if self.number else 1
-            if 1 <= num <= 2:
-                return self._pdi_config.get_motor(num)
-            elif 3 <= num <= 6:
-                return self._pdi_config.get_lamp(num - 2)
-        return None
+    def is_motor_on(self, motor: Amc2Motor) -> bool:
+        if motor:
+            if self._pdi_config_count == 1:
+                return motor.speed > 0 and motor.restore_state
+            else:
+                return motor.speed > 0 and motor.state
+        return False
 
     def extract_state_from_req(self, req: L | P):
         if isinstance(req, Amc2Req):
             if isinstance(self._pdi_config, Amc2Req):
                 self._pdi_config.update_config(req)
                 if req.is_config:
-                    if req.motor1.restore_state or req.motor2.restore_state:
-                        self._aux_state = Aux.AUX1_OPT_ONE
-                        self._aux1_state = Aux.AUX1_ON if req.motor1.restore_state else Aux.AUX1_OFF
-                        self._aux2_state = Aux.AUX2_ON if req.motor2.restore_state else Aux.AUX2_OFF
-                    else:
-                        self._aux_state = Aux.AUX2_OPT_ONE
-                        self._aux1_state = Aux.AUX1_OFF
-                        self._aux2_state = Aux.AUX2_OFF
+                    self._aux1_state = Aux.AUX1_ON if self.is_motor_on(req.motor1) else Aux.AUX1_OFF
+                    self._aux2_state = Aux.AUX2_ON if self.is_motor_on(req.motor2) else Aux.AUX2_OFF
+                    self._aux_state = (
+                        Aux.AUX1_OPT_ONE
+                        if self._aux1_state == Aux.AUX1_ON or self._aux2_state == Aux.AUX2_ON
+                        else Aux.AUX2_OPT_ONE
+                    )
         elif isinstance(req, CommandReq):
-            if req.command == Aux.NUMERIC and req.data and 1 <= req.data <= 6:
-                self._number = req.data
+            if req.command == Aux.NUMERIC:
+                if req.data and 1 <= req.data <= 6:
+                    self._number = req.data
+                elif req.data == 0:
+                    pass
 
     def as_bytes(self) -> bytes:
         if self.comp_data is None:
