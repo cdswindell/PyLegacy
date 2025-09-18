@@ -14,12 +14,12 @@ from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 from test.test_base import TestBase
 
 
+# noinspection PyTypeChecker
 @pytest.fixture(autouse=True)
 def run_before_and_after_tests(tmpdir) -> None:
     """
     Fixture to execute asserts before and after a test is run
     """
-    # Setup: fill with any logic you want
 
     yield  # this is where the testing happens
 
@@ -36,6 +36,8 @@ def run_before_and_after_tests(tmpdir) -> None:
 class TestComponentStateStore(TestBase):
     @mock.patch.object(ComponentState, "request_config", lambda self, command: None)
     def test_component_state_store_basic(self) -> None:
+        assert ComponentStateStore.is_built() is False
+
         # create a dispatcher to serve the store
         dispatcher = CommandDispatcher.build()
         assert dispatcher is not None
