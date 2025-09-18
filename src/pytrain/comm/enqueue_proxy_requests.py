@@ -189,8 +189,8 @@ class EnqueueProxyRequests(Thread):
             return {(k[0], k[1]) for k, v in self._clients.items()}
 
     def run(self) -> None:
-        from .command_listener import CommandDispatcher
         from .. import get_version_bytes
+        from .command_listener import CommandDispatcher
 
         """
         Simplified TCP/IP Server listens for command requests from client and executes them
@@ -280,7 +280,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 enqueue_proxy.client_disconnect(client_ip, client_port, client_id)
                 log.info(f"Client at {client_ip}:{client_port} disconnecting...")
             elif byte_stream == REGISTER_REQUEST:
-                if enqueue_proxy.is_client(client_ip, client_port, client_id) is False:
+                if not enqueue_proxy.is_client(client_ip, client_port, client_id):
                     ver = f" v{client_version[0]}.{client_version[1]}.{client_version[2]}" if client_version else "?"
                     log.info(f"Client at {client_ip}:{client_port}{ver} connecting...")
                 enqueue_proxy.client_connect(client_ip, client_port, client_id)
@@ -331,7 +331,13 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
                 client_version = (major, minor, patch)
             elif len(byte_stream) > 18:  # port and UUID as bytes
                 client_port = int.from_bytes(byte_stream[3:5], "big")
-                client_uuid = uuid.UUID(bytes=byte_stream[5:])
+                try:
+                    client_uuid = uuid.UUID(bytes=byte_stream[5:])
+                except ValueError:
+                    addenda = byte_stream[3:].decode("utf-8", errors="ignore")
+                    parts = addenda.split(":")
+                    client_ip = parts[0] if parts[0] else None
+                    client_port = int(parts[1]) if len(parts) > 1 else None
             elif len(byte_stream) > 5:
                 addenda = byte_stream[3:].decode("utf-8", errors="ignore")
                 parts = addenda.split(":")

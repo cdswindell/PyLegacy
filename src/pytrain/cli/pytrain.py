@@ -163,7 +163,7 @@ class PyTrain:
             self._server, self._port = info
             self._server_ips = {self._server}
         elif self._server is not None:
-            pass
+            self._server_ips = {self._server}
         else:
             if args.ser2 is False:
                 raise AttributeError(f"{PROGRAM_NAME} requires either an LCS SER2 and/or Base 2/3 connection")
@@ -633,7 +633,7 @@ class PyTrain:
     def do_admin_cmd(self, command: CommandDefEnum, args: List[str] = None):
         cmd = CommandReq(command)
         # special case to see if we want to operate on a different client node
-        if args and args[0] not in self._server_ips and args[0] != "me":
+        if self._server_ips and args and args[0] not in self._server_ips and args[0] != "me":
             # point to point; command will execute on the specified node
             arg_parts = args[0].split(":")
             addr = arg_parts[0] if len(arg_parts) > 0 else None
@@ -1142,15 +1142,15 @@ class PyTrain:
         print("TMCC command echoing DISABLED...")
         if self._pdi_buffer:
             self._pdi_buffer.unsubscribe(self, BROADCAST_TOPIC)
-        print("PDI command echoing DISABLED")
+        print("PDI command echoing DISABLED...")
         self._echo = False
 
     def _enable_echo(self):
         self._tmcc_listener.listen_for(self, BROADCAST_TOPIC)
-        print("TMCC command echoing ENABLED..")
+        print("TMCC command echoing ENABLED...")
         if self._pdi_buffer:
             self._pdi_buffer.listen_for(self, BROADCAST_TOPIC)
-        print("PDI command echoing ENABLED")
+        print("PDI command echoing ENABLED...")
         self._echo = True
 
     def _do_pdi(self, param: List[str]) -> None:
