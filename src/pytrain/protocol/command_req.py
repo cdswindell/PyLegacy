@@ -168,13 +168,13 @@ class CommandReq:
             raise TypeError(f"Command def not recognized: '{command}'")
 
         syntax = CommandSyntax.LEGACY if enum_class == TMCC2Enum else CommandSyntax.TMCC
+        if scope is None:
+            scope = command.scope
         min_val = 0 if scope in {CommandScope.ENGINE} and syntax == CommandSyntax.LEGACY else 1
         max_val = 9999 if scope in {CommandScope.ENGINE} and syntax == CommandSyntax.LEGACY else 99
         if syntax == CommandSyntax.TMCC and command == TMCC1RouteCommandEnum.FIRE:
             scope = TMCC1CommandIdentifier.ROUTE
             max_val = 31
-        if scope is None:
-            scope = command.scope
         if command.command_def.is_addressable:
             Validations.validate_int(address, min_value=min_val, max_value=max_val, label=scope.name.title())
         if data is not None and command.command_def.is_data:

@@ -62,6 +62,7 @@ def build_store(*, is_base=False, is_ser2=False, topics=None, listeners=()):
 
 
 # Ensure request_config doesn't try to schedule/raise; instead, initialize
+# noinspection PyUnusedLocal
 def _mock_request_config(self, command):
     # address is set in update() before request_config() is called
     self.initialize(self.scope, self.address)
@@ -196,12 +197,12 @@ class TestComponentStateStoreUpdates:
         with mock.patch.object(ComponentState, "request_config", _mock_request_config):
             # Seed two different scopes
             store(CommandReq.build(Aux.AUX1_ON, 5))  # ACC
-            store(CommandReq.build(Engine2.SPEED_MEDIUM, 77))  # ENGINE
+            store(CommandReq.build(Engine2.SPEED_MEDIUM, 777))  # ENGINE
 
             # Send TMCC1 HALT (is_halt)
             store(CommandReq(Halt1.HALT))
         # Accessory state remains valid; Engine should have SPEED_STOP_HOLD or STOP
-        eng = store.query(CommandScope.ENGINE, 77)
+        eng = store.query(CommandScope.ENGINE, 777)
         assert eng is not None
         assert eng.speed == 0
 
