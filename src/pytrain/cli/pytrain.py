@@ -113,6 +113,7 @@ class PyTrain:
         self._receiver = None
         self._state_store = None
         self._pdi_store = None
+        self._debug = args.debug
         self._echo = args.echo
         self._headless = args.headless
         self._ser2 = args.ser2
@@ -224,6 +225,8 @@ class PyTrain:
             is_base=self._is_base,
             is_ser2=self._is_ser2,
         )
+        if self._args.debug:
+            self._enable_debug()
         if self._args.echo:
             self._enable_echo()
 
@@ -318,7 +321,7 @@ class PyTrain:
                 self._buttons_loader.join()
 
             # print opening line
-            log.info(f"{PROGRAM_NAME}, {self._version}")
+            log.info(f"{PROGRAM_NAME} {'Server' if self.is_server else 'Client'} {self._version}")
 
             if self._headless is False:
                 # provide limited command line recall and editing
@@ -489,6 +492,7 @@ class PyTrain:
             const=DEFAULT_BUTTONS_FILE,
             help=f"Load button definitions at start up (default file: {DEFAULT_BUTTONS_FILE})",
         )
+        misc_opts.add_argument("-debug", action="store_true", help="Enable debug logging")
         misc_opts.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
         misc_opts.add_argument(
             "-headless", action="store_true", help="Do not prompt for user input (run in background),"
@@ -518,7 +522,7 @@ class PyTrain:
         from .. import get_version
 
         try:
-            ver = f"{PROGRAM_NAME} {self._version} {'Client' if self.is_client else 'Server'}"
+            ver = f"{PROGRAM_NAME} {'Client' if self.is_client else 'Server'} {self._version}"
             if self.is_client is True and self._server:
                 s_ver = self._tmcc_buffer.server_version
                 ver += f"; Server v{'.'.join([str(x) for x in s_ver])} @{self._server}"
@@ -768,6 +772,11 @@ class PyTrain:
                 sys.argv.append("-echo")
             elif self._echo is False and "-echo" in sys.argv:
                 sys.argv.remove("-echo")
+
+            if self._debug is True and "-debug" not in sys.argv:
+                sys.argv.append("-debug")
+            elif self._debug is False and "-debug" in sys.argv:
+                sys.argv.remove("-debug")
             os.execv(sys.argv[0], sys.argv)
 
     @property
@@ -976,6 +985,9 @@ class PyTrain:
                         except Exception as e:
                             log.warning(e)
                         return None
+                    if parse_only is False and args.command == "debug":
+                        self._handle_debug(ui_parts)
+                        return None
                     if parse_only is False and args.command == "echo":
                         self._handle_echo(ui_parts)
                         return None
@@ -1013,6 +1025,8 @@ class PyTrain:
                         raise ArgumentError(None, f"'{ui}' is not a valid command")
                     if parse_only is True and isinstance(ui_parser, PyTrainArgumentParser):
                         return cli_cmd.command.command_req
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug(f"Sending {cli_cmd.command.command_req}")
                     cli_cmd.send()
                 except ArgumentError as e:
                     if parse_only:
@@ -1088,6 +1102,30 @@ class PyTrain:
             print("No data")
         except Exception as e:
             log.exception(e)
+
+    def _handle_debug(self, ui_parts: List[str] = None):
+        if ui_parts is None:
+            ui_parts = ["debug"]
+        if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == "on"):
+            if self._debug is False:
+                self._enable_debug()
+        else:
+            if self._debug is True:
+                self._disable_debug()
+
+    def _disable_debug(self):
+        print("Debug logging DISABLED...")
+        log.setLevel(logging.INFO)
+        for handler in log.root.handlers:
+            handler.setLevel(logging.INFO)
+        self._debug = False
+
+    def _enable_debug(self):
+        print("Debug logging ENABLED...")
+        log.setLevel(logging.DEBUG)
+        for handler in log.root.handlers:
+            handler.setLevel(logging.DEBUG)
+        self._debug = True
 
     def _handle_echo(self, ui_parts: List[str] = None):
         if ui_parts is None:
@@ -1270,6 +1308,9 @@ class PyTrain:
         )
         group.add_argument(
             "-dialogs", action="store_const", const=DialogsCli, dest="command", help="Trigger RailSounds dialogs"
+        )
+        group.add_argument(
+            "-debug", action="store_const", const="debug", dest="command", help="Enable/disable debug logging"
         )
         group.add_argument(
             "-echo", action="store_const", const="echo", dest="command", help="Enable/disable TMCC command echoing"

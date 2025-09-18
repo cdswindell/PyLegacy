@@ -40,7 +40,7 @@ class LogFormatter(logging.Formatter):
         logging.ERROR: "\033[1;31m",  # bright/bold red
         logging.WARNING: "\033[1;33m",  # bright/bold yellow
         logging.INFO: "\033[40;37m",  # white / light gray
-        logging.DEBUG: "\033[1;30m",  # bright/bold dark gray
+        logging.DEBUG: "\033[0;32m",  # light green
     }
 
     RESET_CODE = "\033[0m"

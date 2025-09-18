@@ -512,7 +512,6 @@ class EngineCli(CliBaseTMCC):
             option = self._decode_engine_option()  # raise ValueError if you can't decode
             if option is None:
                 raise ValueError("Must specify an option, use -h for help")
-            log.debug(self._args)
             scope = self._determine_scope()
             if self.is_tmcc2 or option.is_tmcc2:
                 cmd = EngineCmdTMCC2(
