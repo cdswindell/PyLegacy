@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from src.pytrain.comm.command_listener import SYNC_COMPLETE
@@ -62,13 +64,15 @@ def build_component_store():
 
 
 @pytest.fixture(autouse=True)
-def no_thread_start(monkeypatch):
+def no_thread_start(monkeypatch, request):
     # Prevent the background thread from running in tests to avoid timing dependencies
     # noinspection PyTypeChecker, PyUnusedLocal
     def dummy_run(self):
         return None
 
-    monkeypatch.setattr(StartupState, "run", dummy_run)
+    # Allow specific tests to use the real run() by marking them with @pytest.mark.allow_thread
+    if not request.node.get_closest_marker("allow_thread"):
+        monkeypatch.setattr(StartupState, "run", dummy_run)
     yield
 
 
@@ -207,6 +211,31 @@ def test_base_memory_triggers_sync_complete_and_next_query(monkeypatch):
     assert len(listener.enqueued) == 0
 
 
+# noinspection PyTypeChecker
+def test_base_memory_requests_created_for_all_scopes():
+    listener = MockPdiListener()
+    dispatcher = MockDispatcher()
+    pdi_state_store = MockPdiStateStore()
+
+    ss = StartupState(listener, dispatcher, pdi_state_store)
+
+    # For each scope, simulate a valid BASE_MEMORY record and ensure a follow-up request is enqueued
+    for scope in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ROUTE, CommandScope.ACC]:
+        tmcc_id = 1  # less than 98 so that a "next" query should be generated
+        record_len = PdiReq.scope_record_length(scope)
+        base_cmd = make_dummy_basereq_for_memory(scope, tmcc_id=tmcc_id, data_length=record_len)
+
+        ss(base_cmd)
+
+        # Verify the last enqueued command is a BaseReq "next" record for the same scope
+        assert len(listener.enqueued) >= 1
+        next_req = listener.enqueued[-1]
+        assert isinstance(next_req, BaseReq)
+        assert next_req.pdi_command == PdiCommand.BASE_MEMORY
+        assert next_req.tmcc_id == tmcc_id + 1
+        assert next_req.scope == scope
+
+
 # noinspection PyTypeChecker, PyUnusedLocal, PyPropertyAccess
 def test_d4_count_requests_first_record():
     listener = MockPdiListener()
@@ -254,3 +283,61 @@ def test_event_set_when_waiting_for_empty():
 
     # Event should be set when no outstanding requests remain
     assert ss._ev.is_set()
+
+
+@pytest.mark.allow_thread
+@pytest.mark.timeout(2)
+def test_run_enqueues_base_memory_requests_for_all_scopes():
+    listener = MockPdiListener()
+    dispatcher = MockDispatcher()
+    pdi_state_store = MockPdiStateStore()
+
+    # noinspection PyTypeChecker
+    ss = StartupState(listener, dispatcher, pdi_state_store)
+
+    # Give the background thread a brief moment to enqueue initial requests
+    time.sleep(0.05)
+
+    # Collect BASE_MEMORY requests created by StartupState.run() for tmcc_id 1
+    scopes_found = set()
+    for req in listener.enqueued:
+        if isinstance(req, BaseReq) and req.pdi_command == PdiCommand.BASE_MEMORY and req.tmcc_id == 1:
+            scopes_found.add(req.scope)
+
+    assert scopes_found == {
+        CommandScope.ENGINE,
+        CommandScope.TRAIN,
+        CommandScope.SWITCH,
+        CommandScope.ACC,
+        CommandScope.ROUTE,
+    }
+
+    # Unblock the thread's wait loop and allow it to finish
+    ss._ev.set()
+    ss.join(timeout=1)
+
+
+def test_base_memory_id1_responses_trigger_id2_requests_per_scope():
+    listener = MockPdiListener()
+    dispatcher = MockDispatcher()
+    pdi_state_store = MockPdiStateStore()
+
+    # noinspection PyTypeChecker
+    ss = StartupState(listener, dispatcher, pdi_state_store)
+
+    # Simulate BASE_MEMORY responses for tmcc_id=1 across all scopes
+    scopes = [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ROUTE, CommandScope.SWITCH, CommandScope.ACC]
+    for scope in scopes:
+        record_len = PdiReq.scope_record_length(scope)
+        resp = make_dummy_basereq_for_memory(scope, tmcc_id=1, data_length=record_len)
+        ss(resp)
+
+    # For each scope ensure a follow-up BASE_MEMORY request for tmcc_id=2 was enqueued
+    for scope in scopes:
+        assert any(
+            isinstance(req, BaseReq)
+            and req.pdi_command == PdiCommand.BASE_MEMORY
+            and req.scope == scope
+            and req.tmcc_id == 2
+            for req in listener.enqueued
+        ), f"Expected BASE_MEMORY tmcc_id=2 for scope {scope}"
