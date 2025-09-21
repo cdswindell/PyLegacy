@@ -65,6 +65,7 @@ def test_init_only_called_once(monkeypatch):
     assert s1 is s2
     assert created["count"] == 1, "SystemDeviceDict should be constructed only once"
 
+
 # noinspection PyTypeChecker
 def test_register_pdi_device_delegates_and_returns(monkeypatch):
     captured = {"arg": None}
