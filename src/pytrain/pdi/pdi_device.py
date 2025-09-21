@@ -4,7 +4,7 @@ import abc
 import logging
 from abc import ABC
 from collections import defaultdict
-from enum import Enum, unique
+from enum import unique
 from typing import List, TypeVar
 
 from ..protocol.constants import CommandScope, Mixins
@@ -161,9 +161,10 @@ class IrdaDeviceConfig(PdiDeviceConfig):
 A = TypeVar("A", bound=PdiAction)
 
 
+# noinspection PyTypeHints
 class DeviceWrapper:
     C = TypeVar("C", bound=PdiReq.__class__)
-    E = TypeVar("E", bound=Enum)
+    E = TypeVar("E", bound=Mixins)
     T = TypeVar("T", bound=PdiReq)
     DC = TypeVar("DC", bound=PdiDeviceConfig.__class__)
 
