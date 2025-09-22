@@ -1273,6 +1273,8 @@ class PyTrain:
         else:
             agr = AllReq()
         if agr is not None:
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(f"Sending {agr}...")
             if self.is_server:
                 self._pdi_buffer.enqueue_command(agr)
             else:

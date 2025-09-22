@@ -155,7 +155,7 @@ class PdiListener(Thread):
                             dq_len -= 1
                         try:
                             if log.isEnabledFor(logging.DEBUG):
-                                log.debug(f"Offering->0x{req_bytes.hex(':')}")
+                                log.debug(f"PDI Dispatcher offered->0x{req_bytes.hex(' ')}")
                             self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
                         except Exception as e:
                             log.error(f"Failed to dispatch request: {req_bytes.hex(':')}")
@@ -285,7 +285,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             cmd: PdiReq = self._queue.get()
             try:
                 if log.isEnabledFor(logging.DEBUG):
-                    log.debug(cmd)
+                    log.debug(f"PDI Dispatcher processing: {cmd}")
                 # update broadcast channels, mostly used for command echoing
                 if self._broadcasts:
                     self.publish(BROADCAST_TOPIC, cmd)
