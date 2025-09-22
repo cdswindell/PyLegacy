@@ -364,6 +364,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             self._cv.notify()
         PdiDispatcher._instance = None
 
+    # noinspection PyUnreachableCode
     @staticmethod
     def _make_channel(channel: Topic, address: int = None, action: PdiAction = None) -> Topic | Tuple:
         if channel is None:
