@@ -520,7 +520,7 @@ class AccessoriesGui(StateBasedGui):
 
     def when_held(self, event) -> None:
         if event.widget.component_state.tmcc_id in self._is_momentary:
-            print(f"held: {event.widget.text} {event}")
+            print(f"held: {event.widget.text} {type(event)} {dir(event)}")
 
 
 class ComponentStateGui(Thread):
