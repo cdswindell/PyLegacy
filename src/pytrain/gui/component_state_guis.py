@@ -322,7 +322,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         padx=0,
                     )
                     pb.component_state = pd
-                    pb.when_left_button_pressed = self.when_held
                     pb.text_size = 15
                     pb.bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
                     pb.text_color = self._enabled_text if self.is_active(pd) else self._disabled_text
@@ -375,9 +374,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._first_button_col += 1
         states = sorted(self._states.values(), key=self.sort_func)
         self._make_state_buttons(states)
-
-    def when_held(self, event: EventData) -> None:
-        pass
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...
@@ -489,6 +485,11 @@ class AccessoriesGui(StateBasedGui):
     ) -> None:
         self._is_momentary = set()
         StateBasedGui.__init__(self, "Accessories", label, width, height, aggrigator)
+        for tmcc_id in self._is_momentary:
+            pb = self._state_buttons[tmcc_id]
+            pb.released_event = Event()
+            pb.when_left_button_pressed = self.when_pressed
+            pb.when_left_button_released = self.when_released
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
@@ -519,9 +520,19 @@ class AccessoriesGui(StateBasedGui):
             else:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
 
-    def when_held(self, event) -> None:
-        if event.widget.component_state.tmcc_id in self._is_momentary:
-            print(f"held: {event.widget.text} {type(event)} {dir(event)} {dir(event.widget)}")
+    @staticmethod
+    def when_pressed(event: EventData) -> None:
+        print("pressed")
+        pb = event.widget
+        pb.released_event.clear()
+        while not pb.released_event.wait(1.0):
+            if not pb.released_event.is_set():
+                print("still pressed")
+
+    @staticmethod
+    def when_released(event: EventData) -> None:
+        print("released")
+        event.widget.released_event.set()
 
 
 class ComponentStateGui(Thread):
