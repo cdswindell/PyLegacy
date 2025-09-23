@@ -345,6 +345,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     self.right_scroll_btn.enable()
                 if max(active_cols) > 1:
                     self.left_scroll_btn.enable()
+
+            # call post process handler
+            self._post_process_state_buttons()
             self.btn_box.visible = True
 
     def sort_by_number(self) -> None:
@@ -374,6 +377,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._first_button_col += 1
         states = sorted(self._states.values(), key=self.sort_func)
         self._make_state_buttons(states)
+
+    def _post_process_state_buttons(self) -> None:
+        pass
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...
@@ -485,6 +491,8 @@ class AccessoriesGui(StateBasedGui):
     ) -> None:
         self._is_momentary = set()
         StateBasedGui.__init__(self, "Accessories", label, width, height, aggrigator)
+
+    def _post_process_state_buttons(self) -> None:
         for tmcc_id in self._is_momentary:
             pb = self._state_buttons[tmcc_id]
             pb.released_event = Event()
