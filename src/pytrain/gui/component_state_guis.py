@@ -519,7 +519,7 @@ class AccessoriesGui(StateBasedGui):
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
 
     def when_held(self, event) -> None:
-        if event.widget.tmcc_id in self._is_momentary:
+        if event.widget.component_state.tmcc_id in self._is_momentary:
             print(f"held: {event.widget.text} {event}")
 
 
