@@ -15,6 +15,7 @@ from tkinter import TclError
 from typing import Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, Combo, PushButton, Text
+from guizero.event import EventData
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
@@ -375,7 +376,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         states = sorted(self._states.values(), key=self.sort_func)
         self._make_state_buttons(states)
 
-    def when_held(self, event) -> None:
+    def when_held(self, event: EventData) -> None:
         pass
 
     @abstractmethod
@@ -520,7 +521,7 @@ class AccessoriesGui(StateBasedGui):
 
     def when_held(self, event) -> None:
         if event.widget.component_state.tmcc_id in self._is_momentary:
-            print(f"held: {event.widget.text} {type(event)} {dir(event)}")
+            print(f"held: {event.widget.text} {type(event)} {dir(event)} {dir(event.widget)}")
 
 
 class ComponentStateGui(Thread):
