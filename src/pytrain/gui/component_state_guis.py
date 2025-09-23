@@ -485,8 +485,8 @@ class AccessoriesGui(StateBasedGui):
         height: int = None,
         aggrigator: ComponentStateGui = None,
     ) -> None:
+        self._is_momentary = set()
         StateBasedGui.__init__(self, "Accessories", label, width, height, aggrigator)
-        self._is_aux1 = set()
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
@@ -499,18 +499,18 @@ class AccessoriesGui(StateBasedGui):
                 pds.append(acc)
                 name_lc = acc.road_name.lower()
                 if "aux1" in name_lc or "ax1" in name_lc or "(a1)" in name_lc:
-                    self._is_aux1.add(acc.address)
+                    self._is_momentary.add(acc.address)
         return pds
 
     def is_active(self, state: AccessoryState) -> bool:
-        if state.address in self._is_aux1:
+        if state.address in self._is_momentary:
             return False
         else:
             return state.is_aux_on
 
     def switch_state(self, pd: AccessoryState) -> None:
         with self._cv:
-            if pd.tmcc_id in self._is_aux1:
+            if pd.tmcc_id in self._is_momentary:
                 pass
             elif pd.is_aux_on:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
