@@ -533,9 +533,7 @@ class AccessoriesGui(StateBasedGui):
         print("pressed")
         pb = event.widget
         pb.released_event.clear()
-        while not pb.released_event.wait(1.0):
-            if not pb.released_event.is_set():
-                print("still pressed")
+        _ = MomentaryActionHandler(pb, pb.released_event, pb.component_state)
 
     @staticmethod
     def when_released(event: EventData) -> None:
@@ -612,3 +610,20 @@ class ComponentStateGui(Thread):
     @property
     def guis(self) -> list[str]:
         return list(self._guis.keys())
+
+
+class MomentaryActionHandler(Thread, Generic[S]):
+    def __init__(self, widget: PushButton, event: Event, state: S) -> None:
+        super().__init__(daemon=True)
+        self._widget = widget
+        self._ev = event
+        self._state = state
+        self.start()
+
+    def run(self) -> None:
+        while not self._ev.wait(1.0):
+            if not self._ev.is_set():
+                print("still pressed")
+            else:
+                break
+        print("Exiting MomentaryActionHandler Thread")
