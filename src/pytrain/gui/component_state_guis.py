@@ -311,7 +311,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     row = 4
                     col += 1
                 if col in active_cols:
-                    self._state_buttons[pd.tmcc_id] = PushButton(
+                    self._state_buttons[pd.tmcc_id] = pb = PushButton(
                         self.btn_box,
                         text=f"#{pd.tmcc_id} {pd.road_name}",
                         grid=[col, row],
@@ -320,11 +320,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         args=[pd],
                         padx=0,
                     )
-                    self._state_buttons[pd.tmcc_id].text_size = 15
-                    self._state_buttons[pd.tmcc_id].bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
-                    self._state_buttons[pd.tmcc_id].text_color = (
-                        self._enabled_text if self.is_active(pd) else self._disabled_text
-                    )
+                    pb.when_left_button_pressed = self.when_held
+                    pb.text_size = 15
+                    pb.bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
+                    pb.text_color = self._enabled_text if self.is_active(pd) else self._disabled_text
 
                     # recalculate height
                     self.app.update()
@@ -374,6 +373,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._first_button_col += 1
         states = sorted(self._states.values(), key=self.sort_func)
         self._make_state_buttons(states)
+
+    def when_held(self, event) -> None:
+        pass
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...
@@ -484,27 +486,39 @@ class AccessoriesGui(StateBasedGui):
         aggrigator: ComponentStateGui = None,
     ) -> None:
         StateBasedGui.__init__(self, "Accessories", label, width, height, aggrigator)
+        self._is_aux1 = set()
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
         accs = self._state_store.get_all(CommandScope.ACC)
         for acc in accs:
             acc = cast(AccessoryState, acc)
-            if acc.is_power_district or acc.is_sensor_track:
+            if acc.is_power_district or acc.is_sensor_track or acc.is_amc2:
                 continue
-            if acc.road_name and acc.road_name.lower() != "unused":
+            if acc.road_name and acc.road_name.lower().strip() != "unused":
                 pds.append(acc)
+                name_lc = acc.road_name.lower()
+                if "aux1" in name_lc or "ax1" in name_lc or "(a1)" in name_lc:
+                    self._is_aux1.add(acc.address)
         return pds
 
     def is_active(self, state: AccessoryState) -> bool:
-        return state.is_aux_on
+        if state.address in self._is_aux1:
+            return False
+        else:
+            return state.is_aux_on
 
     def switch_state(self, pd: AccessoryState) -> None:
         with self._cv:
-            if pd.is_aux_on:
+            if pd.tmcc_id in self._is_aux1:
+                pass
+            elif pd.is_aux_on:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
             else:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
+
+    def when_held(self, event) -> None:
+        print(f"held: {event.widget.text}")
 
 
 class ComponentStateGui(Thread):
@@ -518,7 +532,7 @@ class ComponentStateGui(Thread):
         super().__init__(daemon=True)
         self._ev = Event()
         self._guis = {
-            # "Accessories": AccessoriesGui,
+            "Accessories": AccessoriesGui,
             "Power Districts": PowerDistrictsGui,
             "Switches": SwitchesGui,
             "Routes": RoutesGui,
