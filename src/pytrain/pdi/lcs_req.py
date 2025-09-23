@@ -54,13 +54,13 @@ class LcsReq(PdiReq, ABC):
         ident: int | None = None,
         error: bool = False,
     ) -> None:
-        super().__init__(data, pdi_command)
         self._board_id = self._num_ids = self._model = self._uart0 = self._uart1 = self._base_type = None
         self._error_code = None
         self._dc_volts: float | None = None
         self._action: T = action
         self._version = self._revision = self._sub_revision = None
         self._error = error
+        super().__init__(data, pdi_command)
         if isinstance(data, bytes):
             if not self.is_lcs:
                 raise AttributeError(f"Invalid PDI LCS Request: {data}")

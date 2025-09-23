@@ -7,7 +7,6 @@
 #
 
 import threading
-from typing import cast
 from unittest import mock
 
 import pytest
@@ -37,13 +36,13 @@ class DummyListener:
         self.calls.append((subscriber, topic, args, kwargs))
 
 
-# noinspection PyProtectedMember
+# noinspection PyProtectedMember,PyTypeChecker
 @pytest.fixture(autouse=True)
 def reset_singletons():
     # Ensure a clean state store each test
     with ComponentStateStore._lock:
         ComponentStateStore.reset()
-        ComponentStateStore._instance = cast(ComponentStateStore, None)
+        ComponentStateStore._instance = None
     # Force building a new instance by re-instantiating
     # No direct API to clear _instance, so create a new instance for each test
     yield

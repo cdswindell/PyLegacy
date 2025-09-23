@@ -5,6 +5,7 @@ Lionel PDI Command Protocol Constants
 from __future__ import annotations
 
 from enum import Enum, IntEnum, unique
+from typing import Literal
 
 from ..protocol.constants import Mixins
 
@@ -249,6 +250,16 @@ class ActionDef:
     def is_responses(self) -> bool:
         return self._responds
 
+    def to_bytes(self, length: int = 1, byteorder: Literal["little", "big"] = "big") -> bytes:
+        return self.bits.to_bytes(length, byteorder)
+
+    def __repr__(self) -> str:
+        opts = ""
+        opts += "g" if self.is_gettable else "x"
+        opts += "s" if self.is_settable else "x"
+        opts += "r" if self.is_responses else "x"
+        return f"{self.bits} [{opts}]"
+
 
 @unique
 class PdiAction(Mixins, FriendlyMixins):
@@ -257,11 +268,15 @@ class PdiAction(Mixins, FriendlyMixins):
     """
 
     def __repr__(self) -> str:
+        return f"{self.title} [{self.opts}]"
+
+    @property
+    def opts(self) -> str:
         opts = ""
         opts += "g" if self.value.is_gettable else "x"
         opts += "s" if self.value.is_settable else "x"
         opts += "r" if self.value.is_responses else "x"
-        return f"{self.title} [{opts}]"
+        return opts
 
     @property
     def bits(self) -> int | None:
@@ -277,6 +292,18 @@ class PdiAction(Mixins, FriendlyMixins):
     @property
     def as_bytes(self) -> bytes:
         return self.bits.to_bytes(1, byteorder="big")
+
+    @property
+    def is_gettable(self) -> bool:
+        return self.value.is_gettable
+
+    @property
+    def is_settable(self) -> bool:
+        return self.value.is_settable
+
+    @property
+    def is_responses(self) -> bool:
+        return self.value.is_responses
 
 
 ACTION_QUERY = 0x10

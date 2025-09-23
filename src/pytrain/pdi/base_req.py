@@ -133,6 +133,7 @@ class BaseReq(PdiReq, CompDataMixin):
         else:
             return cls(address, PdiCommand.UPDATE_ENGINE_SPEED, flags=0xC2, speed=speed)
 
+    # noinspection PyUnreachableCode
     @classmethod
     def update_eng(
         cls,
