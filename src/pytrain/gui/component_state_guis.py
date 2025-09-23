@@ -320,6 +320,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         args=[pd],
                         padx=0,
                     )
+                    pb.component_state = pd
                     pb.when_left_button_pressed = self.when_held
                     pb.text_size = 15
                     pb.bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
@@ -518,7 +519,8 @@ class AccessoriesGui(StateBasedGui):
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
 
     def when_held(self, event) -> None:
-        print(f"held: {event.widget.text}")
+        if event.widget.tmcc_id in self._is_momentary:
+            print(f"held: {event.widget.text} {event}")
 
 
 class ComponentStateGui(Thread):
