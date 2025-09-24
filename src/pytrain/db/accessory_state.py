@@ -155,7 +155,6 @@ class AccessoryState(TmccState):
                             self._aux1_state = Aux.AUX1_OFF
                             self._aux2_state = Aux.AUX2_OFF
                             self._aux_state = Aux.AUX2_OPT_ONE
-                        print(f"asc2: {self} command: {command}")
                     elif isinstance(command, Amc2Req):
                         self._pdi_source = True
                         self._amc2 = True

@@ -161,9 +161,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     def on_state_change_action(self, pd: S) -> Callable:
         def upd():
-            print(f"Shutdown: {self._shutdown_flag.is_set()}")
             if not self._shutdown_flag.is_set():
-                print(f"State Change Detected: {pd}")
                 self.app.after(0, lambda: self.update_button(pd))
 
         return upd
@@ -171,7 +169,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def run(self) -> None:
         self._shutdown_flag.clear()
         self._ev.clear()
-        self._tk_thread_id = thread_id = get_ident()
+        self._tk_thread_id = get_ident()
         GpioHandler.cache_handler(self)
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
@@ -180,8 +178,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():
             self._app_counter += 1
-            if self._app_counter % 100 == 0:
-                print(f"GuiZero thread {thread_id} is alive ({self._app_counter})")
             if self._shutdown_flag.is_set():
                 try:
                     app.destroy()
@@ -291,7 +287,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
             self._state_buttons.clear()
             self.app = None
             self._ev.set()
-            print("GuiZero thread shutting down")
 
     def on_combo_change(self, option: str) -> None:
         if option == self.title:
