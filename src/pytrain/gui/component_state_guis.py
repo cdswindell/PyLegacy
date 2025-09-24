@@ -90,6 +90,11 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._state_buttons = dict[int, PushButton]()
         self._state_watchers = dict[int, StateWatcher]()
 
+        # Thread-aware shutdown signaling
+        self._tk_thread_id: int | None = None
+        self._is_closed = False
+        self._shutdown_flag = Event()
+
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
         self._state_store = ComponentStateStore.get()
@@ -100,12 +105,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
             self.on_sync()
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
-
-        self._is_closed = False
-
-        # Thread-aware shutdown signaling
-        self._tk_thread_id: int | None = None
-        self._shutdown_flag = Event()
 
         # Important: don't call tkinter from atexit; only signal
         atexit.register(lambda: self._shutdown_flag.set())
