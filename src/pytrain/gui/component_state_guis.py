@@ -169,7 +169,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def run(self) -> None:
         self._ev.clear()
         self._tk_thread_id = get_ident()
-        print(self._tk_thread_id)
         GpioHandler.cache_handler(self)
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
@@ -557,7 +556,6 @@ class AccessoriesGui(StateBasedGui):
             else:
                 self._released_events[state.tmcc_id] = event = Event()
             _ = MomentaryActionHandler(pb, event, state, 0.2)
-        print(get_ident(), self._tk_thread_id)
         # self.app.after(10, self._set_button_active, [state])
 
     def when_released(self, event: EventData) -> None:
@@ -567,7 +565,6 @@ class AccessoriesGui(StateBasedGui):
         else:
             state = event.widget.component_state
             self._released_events[state.tmcc_id].set()
-        print(get_ident(), self._tk_thread_id)
         # self.app.after(10, self._set_button_inactive, [state])
 
 
