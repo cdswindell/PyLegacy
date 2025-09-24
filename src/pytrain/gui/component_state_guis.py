@@ -297,6 +297,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
         for pdb in self._state_buttons.values():
             if hasattr(pdb, "component_state"):
                 pdb.component_state = None
+            if hasattr(pdb, "when_left_button_pressed"):
+                pdb.when_left_button_pressed = None
+            if hasattr(pdb, "when_left_button_released"):
+                pdb.when_left_button_released = None
             pdb.hide()
             pdb.destroy()
         self._state_buttons.clear()
