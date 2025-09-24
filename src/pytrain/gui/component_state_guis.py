@@ -556,7 +556,7 @@ class AccessoriesGui(StateBasedGui):
             else:
                 self._released_events[state.tmcc_id] = event = Event()
             _ = MomentaryActionHandler(pb, event, state, 0.2)
-        self.app.after(10, self._set_button_active, [state])
+        # self.app.after(10, self._set_button_active, [state])
 
     def when_released(self, event: EventData) -> None:
         state = event.widget.component_state
@@ -565,7 +565,7 @@ class AccessoriesGui(StateBasedGui):
         else:
             state = event.widget.component_state
             self._released_events[state.tmcc_id].set()
-        self.app.after(10, self._set_button_inactive, [state])
+        # self.app.after(10, self._set_button_inactive, [state])
 
 
 class ComponentStateGui(Thread):
