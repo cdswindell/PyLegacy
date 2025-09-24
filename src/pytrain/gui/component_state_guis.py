@@ -169,6 +169,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def run(self) -> None:
         self._ev.clear()
         self._tk_thread_id = get_ident()
+        print(self._tk_thread_id)
         GpioHandler.cache_handler(self)
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
