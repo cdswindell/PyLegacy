@@ -163,13 +163,14 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     def on_state_change_action(self, pd: S) -> Callable:
         def upd():
-            self.update_button(pd)
+            if self._app_active:
+                self.app.after(0, lambda: self.update_button(pd))
 
         return upd
 
     def run(self) -> None:
         self._ev.clear()
-        self._tk_thread_id = get_ident()
+        self._tk_thread_id = thread_id = get_ident()
         GpioHandler.cache_handler(self)
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
@@ -179,7 +180,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         def _poll_shutdown():
             self._app_counter += 1
             if self._app_counter % 100 == 0:
-                print(f"GuiZero thread {self._tk_thread_id} is alive ({self._app_counter})")
+                print(f"GuiZero thread {thread_id} is alive ({self._app_counter})")
             if self._shutdown_flag.is_set():
                 try:
                     app.destroy()
@@ -269,6 +270,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
         # Display GUI and start event loop; call blocks
         try:
+            self._app_active = True
             app.display()
         except TclError:
             # If Tcl is already tearing down, ignore
