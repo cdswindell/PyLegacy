@@ -42,6 +42,7 @@ def title(text: str):
             elif part in {
                 "AND",
                 "BEE",
+                "CAN",
                 "CAR",
                 "DRY",
                 "ICE",
