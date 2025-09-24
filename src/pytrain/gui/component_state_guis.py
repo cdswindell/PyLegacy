@@ -83,7 +83,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._max_button_rows = self._max_button_cols = None
         self._first_button_col = 0
         self.sort_func = None
-        self._app_active = False
         self._app_counter = 0
 
         # States
@@ -163,7 +162,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     def on_state_change_action(self, pd: S) -> Callable:
         def upd():
-            if self._app_active:
+            if not self._shutdown_flag.is_set():
+                print(f"State Change Detected: {pd}")
                 self.app.after(0, lambda: self.update_button(pd))
 
         return upd
@@ -270,7 +270,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
         # Display GUI and start event loop; call blocks
         try:
-            self._app_active = True
             app.display()
         except TclError:
             # If Tcl is already tearing down, ignore
@@ -315,7 +314,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     # noinspection PyTypeChecker
     def _make_state_buttons(self, states: list[S] = None) -> None:
         with self._cv:
-            if self._app_active:
+            if self._state_buttons:
                 self._reset_state_buttons()
             active_cols = {self._first_button_col, self._first_button_col + 1}
             row = 4
