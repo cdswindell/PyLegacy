@@ -531,7 +531,7 @@ class AccessoriesGui(StateBasedGui):
 
     def is_active(self, state: AccessoryState) -> bool:
         if state.address in self._is_momentary:
-            return False
+            return state.is_aux_on
         else:
             return state.is_aux_on
 
