@@ -162,6 +162,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     def on_state_change_action(self, pd: S) -> Callable:
         def upd():
+            print(f"Shutdown: {self._shutdown_flag.is_set()}")
             if not self._shutdown_flag.is_set():
                 print(f"State Change Detected: {pd}")
                 self.app.after(0, lambda: self.update_button(pd))
@@ -169,6 +170,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         return upd
 
     def run(self) -> None:
+        self._shutdown_flag.clear()
         self._ev.clear()
         self._tk_thread_id = thread_id = get_ident()
         GpioHandler.cache_handler(self)
