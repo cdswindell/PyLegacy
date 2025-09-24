@@ -146,11 +146,19 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def update_button(self, pd: S) -> None:
         with self._cv:
             if self.is_active(pd):
-                self._state_buttons[pd.tmcc_id].bg = self._enabled_bg
-                self._state_buttons[pd.tmcc_id].text_color = self._enabled_text
+                self._set_button_active(pd)
             else:
-                self._state_buttons[pd.tmcc_id].bg = self._disabled_bg
-                self._state_buttons[pd.tmcc_id].text_color = self._disabled_text
+                self._set_button_inactive(pd)
+
+    # noinspection PyTypeChecker
+    def _set_button_inactive(self, pd: S):
+        self._state_buttons[pd.tmcc_id].bg = self._disabled_bg
+        self._state_buttons[pd.tmcc_id].text_color = self._disabled_text
+
+    # noinspection PyTypeChecker
+    def _set_button_active(self, pd: S):
+        self._state_buttons[pd.tmcc_id].bg = self._enabled_bg
+        self._state_buttons[pd.tmcc_id].text_color = self._enabled_text
 
     def on_state_change_action(self, pd: S) -> Callable:
         def upd():
@@ -530,8 +538,7 @@ class AccessoriesGui(StateBasedGui):
             else:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
 
-    @staticmethod
-    def when_pressed(event: EventData) -> None:
+    def when_pressed(self, event: EventData) -> None:
         print("pressed")
         pb = event.widget
         pb.released_event.clear()
@@ -540,15 +547,16 @@ class AccessoriesGui(StateBasedGui):
             Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
         else:
             _ = MomentaryActionHandler(pb, pb.released_event, state, 0.2)
+        self._set_button_active(state)
 
-    @staticmethod
-    def when_released(event: EventData) -> None:
+    def when_released(self, event: EventData) -> None:
         print("released")
         state = event.widget.component_state
         if state.is_asc2:
             Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
         else:
             event.widget.released_event.set()
+        self._set_button_inactive(state)
 
 
 class ComponentStateGui(Thread):
