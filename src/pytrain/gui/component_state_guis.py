@@ -23,6 +23,8 @@ from ..db.component_state import ComponentState, RouteState, SwitchState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
+from ..pdi.asc2_req import Asc2Req
+from ..pdi.constants import Asc2Action, PdiCommand
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1RouteCommandEnum, TMCC1SwitchCommandEnum
@@ -533,12 +535,20 @@ class AccessoriesGui(StateBasedGui):
         print("pressed")
         pb = event.widget
         pb.released_event.clear()
-        _ = MomentaryActionHandler(pb, pb.released_event, pb.component_state)
+        state = pb.component_state
+        if state.is_asc2:
+            Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
+        else:
+            _ = MomentaryActionHandler(pb, pb.released_event, state, 0.2)
 
     @staticmethod
     def when_released(event: EventData) -> None:
         print("released")
-        event.widget.released_event.set()
+        state = event.widget.component_state
+        if state.is_asc2:
+            Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
+        else:
+            event.widget.released_event.set()
 
 
 class ComponentStateGui(Thread):
@@ -613,15 +623,16 @@ class ComponentStateGui(Thread):
 
 
 class MomentaryActionHandler(Thread, Generic[S]):
-    def __init__(self, widget: PushButton, event: Event, state: S) -> None:
+    def __init__(self, widget: PushButton, event: Event, state: S, timeout: float) -> None:
         super().__init__(daemon=True)
         self._widget = widget
         self._ev = event
         self._state = state
+        self._timeout = timeout
         self.start()
 
     def run(self) -> None:
-        while not self._ev.wait(1.0):
+        while not self._ev.wait(self._timeout):
             if not self._ev.is_set():
                 print("still pressed")
             else:
