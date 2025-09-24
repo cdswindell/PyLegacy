@@ -112,19 +112,18 @@ class Amc2Req(LcsReq):
         lamp: int | None = None,
         level: int = None,
     ) -> None:
+        # initialize all
+        self._debug = False
+        self._motor1 = self._motor2 = None
+        self._lamp1 = self._lamp2 = self._lamp3 = self._lamp4 = None
+        self._option = None
+        self._access_type = None
+        self._motor = self._speed = self._direction = self._lamp = self._level = None
+        self._output_type = self._restore = None
+        self._motors = self._lamps = []
         super().__init__(data, pdi_command, action, ident, error)
         self.scope = CommandScope.ACC
         if isinstance(data, bytes):
-            # initialize all
-            self._debug = False
-            self._motor1 = self._motor2 = None
-            self._lamp1 = self._lamp2 = self._lamp3 = self._lamp4 = None
-            self._option = None
-            self._access_type = None
-            self._motor = self._speed = self._direction = self._lamp = self._level = None
-            self._output_type = self._restore = None
-            self._motors = self._lamps = []
-
             # what is the request type?
             self._action = Amc2Action(self._action_byte)
             data_len = len(self._data)
