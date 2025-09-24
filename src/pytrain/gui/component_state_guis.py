@@ -84,6 +84,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._first_button_col = 0
         self.sort_func = None
         self._app_active = False
+        self._app_counter = 0
 
         # States
         self._states = dict[int, S]()
@@ -176,6 +177,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():
+            self._app_counter += 1
+            if self._app_counter % 100 == 0:
+                print(f"GuiZero thread {self._tk_thread_id} is alive ({self._app_counter})")
             if self._shutdown_flag.is_set():
                 try:
                     app.destroy()
@@ -285,6 +289,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             self._state_buttons.clear()
             self.app = None
             self._ev.set()
+            print("GuiZero thread shutting down")
 
     def on_combo_change(self, option: str) -> None:
         if option == self.title:
