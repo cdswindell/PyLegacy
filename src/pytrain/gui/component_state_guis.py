@@ -295,6 +295,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
         for pdb in self._state_buttons.values():
+            if hasattr(pdb, "component_state"):
+                pdb.component_state = None
             pdb.hide()
             pdb.destroy()
         self._state_buttons.clear()
@@ -500,12 +502,12 @@ class AccessoriesGui(StateBasedGui):
         aggrigator: ComponentStateGui = None,
     ) -> None:
         self._is_momentary = set()
+        self._released_events = dict[int, Event]()
         StateBasedGui.__init__(self, "Accessories", label, width, height, aggrigator)
 
     def _post_process_state_buttons(self) -> None:
         for tmcc_id in self._is_momentary:
             pb = self._state_buttons[tmcc_id]
-            pb.released_event = Event()
             pb.when_left_button_pressed = self.when_pressed
             pb.when_left_button_released = self.when_released
 
@@ -539,23 +541,26 @@ class AccessoriesGui(StateBasedGui):
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
 
     def when_pressed(self, event: EventData) -> None:
-        print("pressed")
         pb = event.widget
-        pb.released_event.clear()
         state = pb.component_state
         if state.is_asc2:
             Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
         else:
-            _ = MomentaryActionHandler(pb, pb.released_event, state, 0.2)
+            if state.tmcc_id in self._released_events:
+                event = self._released_events[state.tmcc_id]
+                self._released_events[state.tmcc_id].clear()
+            else:
+                self._released_events[state.tmcc_id] = event = Event()
+            _ = MomentaryActionHandler(pb, event, state, 0.2)
         self._set_button_active(state)
 
     def when_released(self, event: EventData) -> None:
-        print("released")
         state = event.widget.component_state
         if state.is_asc2:
             Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
         else:
-            event.widget.released_event.set()
+            state = event.widget.component_state
+            self._released_events[state.tmcc_id].set()
         self._set_button_inactive(state)
 
 
@@ -645,4 +650,3 @@ class MomentaryActionHandler(Thread, Generic[S]):
                 print("still pressed")
             else:
                 break
-        print("Exiting MomentaryActionHandler Thread")
