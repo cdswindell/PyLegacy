@@ -204,7 +204,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             ag_box = Box(box, grid=[2, 1, 2, 1], layout="auto")
             if self.label:
                 # Wrap the Text in a vertical container so we can insert a spacer above it
-                txt_vbox = Box(ag_box, layout="auto", align="left", height=1, width=1)
+                txt_vbox = Box(ag_box, layout="auto", align="left")
                 txt_spacer = Box(txt_vbox, height=1, width=1)  # will be set after measuring
                 txt_lbl = Text(txt_vbox, text=self.label + ": ", align="top", size=ats, bold=True)
             # Wrap the Combo in a vertical container as well
