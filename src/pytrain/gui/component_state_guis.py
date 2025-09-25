@@ -164,6 +164,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     def on_state_change_action(self, pd: S) -> Callable:
         def upd():
+            print(f"Updating button for {pd} {not self._shutdown_flag.is_set()}")
             if not self._shutdown_flag.is_set():
                 self.app.after(0, lambda: self.update_button(pd))
 
