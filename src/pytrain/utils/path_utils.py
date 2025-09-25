@@ -30,8 +30,13 @@ def find_dir(target: str, places: Tuple = (".", "../")) -> str | None:
                 parts = root_path.parts
                 if len(parts) == 0:
                     continue
-                parent = parts[-1]
-                if parent.startswith(".") or parent in EXCLUDE:
+                do_continue = False
+                if len(parts) > 1:
+                    for comp_dir in parts[1:]:
+                        if comp_dir.startswith(".") or comp_dir in EXCLUDE:
+                            do_continue = True
+                            break
+                if do_continue:
                     continue
                 for cd in dirs:
                     if cd.startswith(".") or cd in EXCLUDE:
@@ -51,8 +56,13 @@ def find_file(target: str, places: Tuple = (".", "../")) -> str | None:
                 parts = root_path.parts
                 if len(parts) == 0:
                     continue
-                parent = parts[-1]
-                if parent.startswith(".") or parent in EXCLUDE:
+                do_continue = False
+                if len(parts) > 1:
+                    for comp_dir in parts[1:]:
+                        if comp_dir.startswith(".") or comp_dir in EXCLUDE:
+                            do_continue = True
+                            break
+                if do_continue:
                     continue
                 for file in files:
                     if file.startswith(".") or file in EXCLUDE:
