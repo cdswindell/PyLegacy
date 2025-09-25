@@ -140,6 +140,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
                 self._states[acc.tmcc_id] = acc
                 self._state_watchers[acc.tmcc_id] = StateWatcher(acc, self.on_state_change_action(acc))
+                print(f"Created sw for {acc.tmcc_id}")
 
             # start GUI
             self.start()
