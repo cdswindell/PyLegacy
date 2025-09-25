@@ -202,19 +202,14 @@ class StateBasedGui(Thread, Generic[S], ABC):
             txt_lbl = txt_spacer = None
             ats = int(round(23 * self._scale_by))
             ag_box = Box(box, grid=[2, 1, 2, 1], layout="auto")
-            print(1)
             if self.label:
                 # Wrap the Text in a vertical container so we can insert a spacer above it
                 txt_vbox = Box(ag_box, layout="auto", align="left")
-                print(2)
                 txt_spacer = Box(txt_vbox)  # will be set after measuring
-                print(3)
                 txt_lbl = Text(txt_vbox, text=self.label + ": ", align="top", size=ats, bold=True)
             # Wrap the Combo in a vertical container as well
             combo_vbox = Box(ag_box, layout="auto", align="right")
-            print(4)
             combo_spacer = Box(combo_vbox)  # will be set after measuring
-            print(5)
             self.aggrigator_combo = Combo(
                 combo_vbox,
                 options=self._aggrigator.guis,
@@ -294,10 +289,11 @@ class StateBasedGui(Thread, Generic[S], ABC):
             command=self.scroll_right,
         )
 
+        self.app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
         # put the buttons in a separate box
-        self.btn_box = Box(app, layout="grid", align="bottom", width="fill", height="fill")
+        self.btn_box = Box(app, layout="grid", width="fill", height="fill")
         print(6)
 
         # define power district push buttons
