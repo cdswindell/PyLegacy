@@ -200,7 +200,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
         if self._aggrigator:
             ag_box = Box(box, grid=[2, 1, 2, 1])
             if self.label:
-                _ = Text(ag_box, text=self.label, align="left", size=ts, bold=True, height="fill")
+                cb_label = Text(ag_box, text=self.label, align="left", size=ts, bold=True, height="fill")
+                cb_label.text_size = int(round(24 * self._scale_by))
             self.aggrigator_combo = Combo(
                 ag_box,
                 options=self._aggrigator.guis,
@@ -208,12 +209,11 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 align="right",
                 command=self.on_combo_change,
             )
-            self.aggrigator_combo.text_size = ts
+            self.aggrigator_combo.text_size = int(round(23 * self._scale_by))
             self.aggrigator_combo.text_bold = True
         else:
             # customize label
             label = f"{self.label} {self.title}" if self.label else self.title
-
             _ = Text(box, text=label, grid=[2, 1, 2, 1], size=ts, bold=True)
         _ = Text(box, text="    ", grid=[4, 1], size=ts)
         self.by_number = PushButton(
@@ -233,7 +233,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             padx=5,
             pady=5,
         )
-        self.by_name.text_size = self.by_number.text_size = 18
+        self.by_name.text_size = self.by_number.text_size = int(round(18 * self._scale_by))
         self.by_number.text_bold = True
         _ = Text(box, text=" ", grid=[0, 3, 6, 1], size=4, height=1, bold=True)
         self.app.update()
