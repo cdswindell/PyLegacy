@@ -202,9 +202,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             ats = int(round(23 * self._scale_by))
             ag_box = Box(box, grid=[2, 1, 2, 1])
             if self.label:
-                cb_label = Text(ag_box, text=self.label, align="left", size=ats, bold=True, height="fill")
-                cb_label.text_size = int(round(23 * self._scale_by))
-                cb_label.text_bold = True
+                _ = Text(ag_box, text=self.label, align="left", size=ats, bold=True, height="fill")
             self.aggrigator_combo = Combo(
                 ag_box,
                 options=self._aggrigator.guis,
@@ -363,6 +361,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     btn_y += btn_h
                 row += 1
             # logic to hide/disable/enable scroll buttons
+            print(f"Row: {row} Col: {col}")
             if col <= 1:
                 self.right_scroll_btn.hide()
                 self.left_scroll_btn.hide()
