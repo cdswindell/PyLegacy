@@ -317,7 +317,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
             self.by_number = None
             self.btn_box = None
             self.box = None
-            self._reset_state_buttons()
+            self._state_buttons.clear()
+            self._state_buttons = None
             self.app = None
             self._ev.set()
 
