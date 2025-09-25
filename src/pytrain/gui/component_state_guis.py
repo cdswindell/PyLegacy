@@ -293,7 +293,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
         # put the buttons in a separate box
-        self.btn_box = Box(app, layout="grid", width="fill", height="fill")
+        self.btn_box = Box(app, layout="grid")
         print(6)
 
         # define power district push buttons
