@@ -146,7 +146,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     # noinspection PyTypeChecker
     def update_button(self, pd: S) -> None:
+        print("in update_button...")
         with self._cv:
+            print("After lock")
             if self.is_active(pd):
                 self._set_button_active(pd)
             else:
@@ -164,7 +166,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     def on_state_change_action(self, pd: S) -> Callable:
         def upd():
-            print(f"Updating button for {pd} {not self._shutdown_flag.is_set()}")
             if not self._shutdown_flag.is_set():
                 self.app.after(0, lambda: self.update_button(pd))
 
