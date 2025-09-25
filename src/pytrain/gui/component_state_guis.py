@@ -201,7 +201,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             ag_box = Box(box, grid=[2, 1, 2, 1])
             if self.label:
                 cb_label = Text(ag_box, text=self.label, align="left", size=ts, bold=True, height="fill")
-                cb_label.text_size = int(round(24 * self._scale_by))
+                cb_label.text_size = int(round(23 * self._scale_by))
             self.aggrigator_combo = Combo(
                 ag_box,
                 options=self._aggrigator.guis,
@@ -334,7 +334,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     row = 4
                     col += 1
                 if col in active_cols:
-                    print(f"Button width: {int(round(self.width / 2 / (13 * self._scale_by)))} {self.width}")
                     self._state_buttons[pd.tmcc_id] = pb = PushButton(
                         self.btn_box,
                         text=f"#{pd.tmcc_id} {pd.road_name}",
