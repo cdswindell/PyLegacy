@@ -167,6 +167,7 @@ class AccessoryState(TmccState):
                     self._sensor_track = True
                 self.changed.set()
                 self._cv.notify_all()
+                print(command)
 
     @property
     def is_known(self) -> bool:
