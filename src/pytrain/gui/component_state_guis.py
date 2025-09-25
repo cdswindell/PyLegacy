@@ -49,6 +49,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         disabled_bg: str = "black",
         enabled_text: str = "black",
         disabled_text: str = "lightgrey",
+        scale_by: float = 1.0,
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
@@ -69,6 +70,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.title = title
         self.label = label
         self._aggrigator = aggrigator
+        self._scale_by = scale_by
+        self._text_size = 24 * scale_by
 
         self._enabled_bg = enabled_bg
         self._disabled_bg = disabled_bg
@@ -191,12 +194,13 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
 
+        ts = self._text_size
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
-        _ = Text(box, text="    ", grid=[1, 1], size=24)
+        _ = Text(box, text="    ", grid=[1, 1], size=ts)
         if self._aggrigator:
             ag_box = Box(box, grid=[2, 1, 2, 1])
             if self.label:
-                _ = Text(ag_box, text=self.label, align="left", size=24, bold=True, height="fill")
+                _ = Text(ag_box, text=self.label, align="left", size=ts, bold=True, height="fill")
             self.aggrigator_combo = Combo(
                 ag_box,
                 options=self._aggrigator.guis,
@@ -204,14 +208,14 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 align="right",
                 command=self.on_combo_change,
             )
-            self.aggrigator_combo.text_size = 24
+            self.aggrigator_combo.text_size = ts
             self.aggrigator_combo.text_bold = True
         else:
             # customize label
             label = f"{self.label} {self.title}" if self.label else self.title
 
-            _ = Text(box, text=label, grid=[2, 1, 2, 1], size=24, bold=True)
-        _ = Text(box, text="    ", grid=[4, 1], size=24)
+            _ = Text(box, text=label, grid=[2, 1, 2, 1], size=ts, bold=True)
+        _ = Text(box, text="    ", grid=[4, 1], size=ts)
         self.by_number = PushButton(
             box,
             text="By TMCC ID",
@@ -340,7 +344,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         padx=0,
                     )
                     pb.component_state = pd
-                    pb.text_size = 15
+                    pb.text_size = int(round(15 * self._scale_by))
                     pb.bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
                     pb.text_color = self._enabled_text if self.is_active(pd) else self._disabled_text
 
