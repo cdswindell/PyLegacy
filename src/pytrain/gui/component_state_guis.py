@@ -146,7 +146,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     # noinspection PyTypeChecker
     def update_button(self, pd: S) -> None:
-        print("Subclass")
         with self._cv:
             if self.is_active(pd):
                 self._set_button_active(pd)
@@ -619,6 +618,7 @@ class AccessoriesGui(StateBasedGui):
 
     def switch_state(self, pd: AccessoryState, extra: Any = None) -> None:
         with self._cv:
+            print(f"SwitchState: tmcc_id: {pd.tmcc_id}, is_momentary: {pd.tmcc_id in self._is_momentary}")
             if pd.tmcc_id in self._is_momentary:
                 pass
             elif pd.is_aux_on:
