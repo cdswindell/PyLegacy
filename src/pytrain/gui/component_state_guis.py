@@ -211,7 +211,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 command=self.on_combo_change,
                 height="fill",
             )
-            self.aggrigator_combo.tk.configure(pady=3)
+            self.aggrigator_combo.tk.configure(pady=10)
             self.aggrigator_combo.text_size = ats
             self.aggrigator_combo.text_bold = True
         else:
