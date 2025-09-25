@@ -230,7 +230,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 # After creation, force layout and measure actual heights
                 self.app.update()
                 txt_h = txt_lbl.tk.winfo_height() if self.label else 0
-
                 combo_h = self.aggrigator_combo.tk.winfo_height()
                 if txt_h < combo_h:
                     delta = (combo_h - txt_h) // 2
@@ -299,6 +298,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
         # put the buttons in a separate box
         self.btn_box = Box(app, layout="grid")
+        print(6)
 
         # define power district push buttons
         self.sort_by_number()
