@@ -12,7 +12,7 @@ import logging
 from abc import ABC, ABCMeta, abstractmethod
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
-from typing import Callable, Generic, TypeVar, cast
+from typing import Callable, Generic, TypeVar, cast, Any
 
 from guizero import App, Box, Combo, PushButton, Text
 from guizero.event import EventData
@@ -437,10 +437,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def get_target_states(self) -> list[S]: ...
 
     @abstractmethod
-    def is_active(self, state: S) -> bool: ...
+    def is_active(self, state: S, extra: Any = None) -> bool: ...
 
     @abstractmethod
-    def switch_state(self, state: S) -> bool: ...
+    def switch_state(self, state: S, extra: Any = None) -> bool: ...
 
 
 class PowerDistrictsGui(StateBasedGui):
@@ -463,10 +463,10 @@ class PowerDistrictsGui(StateBasedGui):
                 pds.append(acc)
         return pds
 
-    def is_active(self, state: AccessoryState) -> bool:
+    def is_active(self, state: AccessoryState, extra: Any = None) -> bool:
         return state.is_aux_on
 
-    def switch_state(self, pd: AccessoryState) -> None:
+    def switch_state(self, pd: AccessoryState, extra: Any = None) -> None:
         with self._cv:
             if pd.is_aux_on:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
@@ -494,10 +494,10 @@ class SwitchesGui(StateBasedGui):
                 pds.append(acc)
         return pds
 
-    def is_active(self, state: SwitchState) -> bool:
+    def is_active(self, state: SwitchState, extra: Any = None) -> bool:
         return state.is_thru
 
-    def switch_state(self, pd: SwitchState) -> None:
+    def switch_state(self, pd: SwitchState, extra: Any = None) -> None:
         with self._cv:
             if pd.is_thru:
                 CommandReq(TMCC1SwitchCommandEnum.OUT, pd.tmcc_id).send()
@@ -525,15 +525,47 @@ class RoutesGui(StateBasedGui):
                 pds.append(acc)
         return pds
 
-    def is_active(self, state: RouteState) -> bool:
+    def is_active(self, state: RouteState, extra: Any = None) -> bool:
         return state.is_active
 
-    def switch_state(self, pd: RouteState) -> None:
+    def switch_state(self, pd: RouteState, extra: Any = None) -> None:
         with self._cv:
             if pd.is_active:
                 CommandReq(TMCC1RouteCommandEnum.FIRE, pd.tmcc_id).send()
             else:
                 CommandReq(TMCC1RouteCommandEnum.FIRE, pd.tmcc_id).send()
+
+
+class MotorsGui(StateBasedGui):
+    def __init__(
+        self,
+        label: str = None,
+        width: int = None,
+        height: int = None,
+        aggrigator: ComponentStateGui = None,
+        scale_by: float = 1.0,
+    ) -> None:
+        StateBasedGui.__init__(self, "Motors", label, width, height, aggrigator, scale_by=scale_by)
+
+    def get_target_states(self) -> list[AccessoryState]:
+        pds: list[AccessoryState] = []
+        accs = self._state_store.get_all(CommandScope.ACC)
+        for acc in accs:
+            acc = cast(AccessoryState, acc)
+            if acc.is_amc2 and acc.road_name and acc.road_name.lower() != "unused":
+                pds.append(acc)
+        return pds
+
+    def is_active(self, state: AccessoryState, extra: int = 1) -> bool:
+        return state.motor2.state if extra == 2 else state.motor1.state
+
+    def switch_state(self, pd: AccessoryState, extra: int = 1) -> None:
+        with self._cv:
+            CommandReq(TMCC1AuxCommandEnum.NUMERIC, pd.tmcc_id, data=extra).send()
+            if self.is_active(pd, extra):
+                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
+            else:
+                CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
 
 
 class AccessoriesGui(StateBasedGui):
@@ -566,17 +598,14 @@ class AccessoriesGui(StateBasedGui):
             if acc.road_name and acc.road_name.lower().strip() != "unused":
                 pds.append(acc)
                 name_lc = acc.road_name.lower()
-                if "aux1" in name_lc or "ax1" in name_lc or "(a1)" in name_lc:
+                if "aux1" in name_lc or "ax1" in name_lc or "(a1)" or "(m)" in name_lc:
                     self._is_momentary.add(acc.address)
         return pds
 
-    def is_active(self, state: AccessoryState) -> bool:
-        if state.address in self._is_momentary:
-            return state.is_aux_on
-        else:
-            return state.is_aux_on
+    def is_active(self, state: AccessoryState, extra: Any = None) -> bool:
+        return state.is_aux_on
 
-    def switch_state(self, pd: AccessoryState) -> None:
+    def switch_state(self, pd: AccessoryState, extra: Any = None) -> None:
         with self._cv:
             if pd.tmcc_id in self._is_momentary:
                 pass
@@ -622,9 +651,10 @@ class ComponentStateGui(Thread):
         self._ev = Event()
         self._guis = {
             "Accessories": AccessoriesGui,
+            "Motors": MotorsGui,
             "Power Districts": PowerDistrictsGui,
-            "Switches": SwitchesGui,
             "Routes": RoutesGui,
+            "Switches": SwitchesGui,
         }
         # verify requested GUI exists:
         if initial not in self._guis:
