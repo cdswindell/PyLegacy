@@ -199,20 +199,47 @@ class StateBasedGui(Thread, Generic[S], ABC):
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
         _ = Text(box, text="    ", grid=[1, 1], size=ts)
         if self._aggrigator:
+            txt_lbl = txt_spacer = None
             ats = int(round(23 * self._scale_by))
             ag_box = Box(box, grid=[2, 1, 2, 1])
             if self.label:
-                _ = Text(ag_box, text=self.label + ": ", align="left", size=ats, bold=True, height="fill")
+                # Wrap the Text in a vertical container so we can insert a spacer above it
+                txt_vbox = Box(ag_box, layout="auto", align="left")
+                txt_spacer = Box(txt_vbox, height=0, width=1)  # will be set after measuring
+                txt_lbl = Text(txt_vbox, text=self.label + ": ", align="top", size=ats, bold=True)
+            # Wrap the Combo in a vertical container as well
+            combo_vbox = Box(ag_box, layout="auto", align="right")
+            combo_spacer = Box(combo_vbox, height=0, width=1)  # will be set after measuring
             self.aggrigator_combo = Combo(
-                ag_box,
+                combo_vbox,
                 options=self._aggrigator.guis,
                 selected=self.title,
-                align="right",
+                align="top",
                 command=self.on_combo_change,
-                height="fill",
             )
             self.aggrigator_combo.text_size = ats
             self.aggrigator_combo.text_bold = True
+
+            # Compute center-offset and add top spacer to the shorter control
+            if self.label:
+                # After creation, force layout and measure actual heights
+                self.app.update()
+                txt_h = txt_lbl.tk.winfo_height() if self.label else 0
+
+                combo_h = self.aggrigator_combo.tk.winfo_height()
+                if txt_h < combo_h:
+                    delta = (combo_h - txt_h) // 2
+                    txt_spacer.height = max(0, delta)
+                    combo_spacer.height = 0
+                elif combo_h < txt_h:
+                    delta = (txt_h - combo_h) // 2
+                    combo_spacer.height = max(0, delta)
+                    txt_spacer.height = 0
+                else:
+                    txt_spacer.height = combo_spacer.height = 0
+            else:
+                # No label Text; ensure combo is not offset
+                combo_spacer.height = 0
         else:
             # customize label
             label = f"{self.label} {self.title}" if self.label else self.title
