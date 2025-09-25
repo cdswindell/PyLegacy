@@ -609,7 +609,7 @@ class AccessoriesGui(StateBasedGui):
             if acc.road_name and acc.road_name.lower().strip() != "unused":
                 pds.append(acc)
                 name_lc = acc.road_name.lower()
-                if "aux1" in name_lc or "ax1" in name_lc or "(a1)" or "(m)" in name_lc:
+                if "aux1" in name_lc or "ax1" in name_lc or "(a1)" in name_lc or "(m)" in name_lc:
                     print(f"Adding {name_lc} ({acc}) to is_momentary...")
                     self._is_momentary.add(acc.address)
         return pds
