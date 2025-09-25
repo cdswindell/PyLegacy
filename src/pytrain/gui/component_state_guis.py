@@ -568,16 +568,16 @@ class MotorsGui(StateBasedGui):
             else:
                 CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
 
-    def update_button(self, pd: AccessoryState) -> None:
-        with self._cv:
-            print(f"MotorGui Number: {pd.number}")
-            if pd.number in {1, 2}:
-                if self.is_active(pd, extra=pd.number):
-                    print("activating...")
-                    self._set_button_active(pd)
-                else:
-                    print("deactivating...")
-                    self._set_button_inactive(pd)
+    # def update_button(self, pd: AccessoryState) -> None:
+    #     with self._cv:
+    #         print(f"MotorGui Number: {pd.number}")
+    #         if pd.number in {1, 2}:
+    #             if self.is_active(pd, extra=pd.number):
+    #                 print("activating...")
+    #                 self._set_button_active(pd)
+    #             else:
+    #                 print("deactivating...")
+    #                 self._set_button_inactive(pd)
 
 
 class AccessoriesGui(StateBasedGui):
