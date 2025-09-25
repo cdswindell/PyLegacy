@@ -557,7 +557,7 @@ class MotorsGui(StateBasedGui):
         return pds
 
     def is_active(self, state: AccessoryState, extra: int = 1) -> bool:
-        print(state)
+        print(state.motor1.state)
         return state.motor2.state if extra == 2 else state.motor1.state
 
     def switch_state(self, pd: AccessoryState, extra: int = 1) -> None:
