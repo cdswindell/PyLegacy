@@ -140,16 +140,13 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
                 self._states[acc.tmcc_id] = acc
                 self._state_watchers[acc.tmcc_id] = StateWatcher(acc, self.on_state_change_action(acc))
-                print(f"Created sw for {acc.tmcc_id}")
 
             # start GUI
             self.start()
 
     # noinspection PyTypeChecker
     def update_button(self, pd: S) -> None:
-        print("in update_button...")
         with self._cv:
-            print("After lock")
             if self.is_active(pd):
                 self._set_button_active(pd)
             else:
