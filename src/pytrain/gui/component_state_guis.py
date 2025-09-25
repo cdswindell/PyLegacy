@@ -557,7 +557,6 @@ class MotorsGui(StateBasedGui):
         return pds
 
     def is_active(self, state: AccessoryState, extra: int = 1) -> bool:
-        print(state.motor1.state)
         return state.motor2.state if extra == 2 else state.motor1.state
 
     def switch_state(self, pd: AccessoryState, extra: int = 1) -> None:
@@ -570,10 +569,13 @@ class MotorsGui(StateBasedGui):
 
     def update_button(self, pd: AccessoryState) -> None:
         with self._cv:
+            print(f"Number: {pd.number}")
             if pd.number in {1, 2}:
                 if self.is_active(pd, extra=pd.number):
+                    print("activating...")
                     self._set_button_active(pd)
                 else:
+                    print("deactivating...")
                     self._set_button_inactive(pd)
 
 
