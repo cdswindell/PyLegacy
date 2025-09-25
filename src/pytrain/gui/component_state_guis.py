@@ -525,9 +525,10 @@ class AccessoriesGui(StateBasedGui):
 
     def _post_process_state_buttons(self) -> None:
         for tmcc_id in self._is_momentary:
-            pb = self._state_buttons[tmcc_id]
-            pb.when_left_button_pressed = self.when_pressed
-            pb.when_left_button_released = self.when_released
+            if tmcc_id in self._state_buttons:
+                pb = self._state_buttons[tmcc_id]
+                pb.when_left_button_pressed = self.when_pressed
+                pb.when_left_button_released = self.when_released
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
