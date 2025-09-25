@@ -20,13 +20,14 @@ class DummyGui:
     instances = []
     closed = []
 
-    def __init__(self, label=None, width=None, height=None, aggrigator=None):
+    def __init__(self, label=None, width=None, height=None, aggrigator=None, scale_by: float = 1.0):
         self.label = label
         self.width = width
         self.height = height
         self.aggrigator = aggrigator
         self.destroy_complete = Event()
         self._closed = False
+        self._scale_by = scale_by
 
         # track instance lifecycle for tests
         DummyGui.instances.append(self)

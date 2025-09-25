@@ -420,8 +420,9 @@ class PowerDistrictsGui(StateBasedGui):
         width: int = None,
         height: int = None,
         aggrigator: ComponentStateGui = None,
+        scale_by: float = 1.0,
     ) -> None:
-        StateBasedGui.__init__(self, "Power Districts", label, width, height, aggrigator)
+        StateBasedGui.__init__(self, "Power Districts", label, width, height, aggrigator, scale_by=scale_by)
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
@@ -450,8 +451,9 @@ class SwitchesGui(StateBasedGui):
         width: int = None,
         height: int = None,
         aggrigator: ComponentStateGui = None,
+        scale_by: float = 1.0,
     ) -> None:
-        StateBasedGui.__init__(self, "Switches", label, width, height, aggrigator, disabled_bg="red")
+        StateBasedGui.__init__(self, "Switches", label, width, height, aggrigator, disabled_bg="red", scale_by=scale_by)
 
     def get_target_states(self) -> list[SwitchState]:
         pds: list[SwitchState] = []
@@ -480,8 +482,9 @@ class RoutesGui(StateBasedGui):
         width: int = None,
         height: int = None,
         aggrigator: ComponentStateGui = None,
+        scale_by: float = 1.0,
     ) -> None:
-        StateBasedGui.__init__(self, "Routes", label, width, height, aggrigator, disabled_bg="red")
+        StateBasedGui.__init__(self, "Routes", label, width, height, aggrigator, disabled_bg="red", scale_by=scale_by)
 
     def get_target_states(self) -> list[RouteState]:
         pds: list[RouteState] = []
@@ -510,10 +513,11 @@ class AccessoriesGui(StateBasedGui):
         width: int = None,
         height: int = None,
         aggrigator: ComponentStateGui = None,
+        scale_by: float = 1.0,
     ) -> None:
         self._is_momentary = set()
         self._released_events = dict[int, Event]()
-        StateBasedGui.__init__(self, "Accessories", label, width, height, aggrigator)
+        StateBasedGui.__init__(self, "Accessories", label, width, height, aggrigator, scale_by=scale_by)
 
     def _post_process_state_buttons(self) -> None:
         for tmcc_id in self._is_momentary:
@@ -581,6 +585,7 @@ class ComponentStateGui(Thread):
         initial: str = "Power Districts",
         width: int = None,
         height: int = None,
+        scale_by: float = 1.0,
     ) -> None:
         super().__init__(daemon=True)
         self._ev = Event()
@@ -608,6 +613,7 @@ class ComponentStateGui(Thread):
         else:
             self.width = width
             self.height = height
+        self._scale_by = scale_by
         self._gui = None
         self.requested_gui = initial
 
@@ -615,7 +621,9 @@ class ComponentStateGui(Thread):
 
     def run(self) -> None:
         # create the initially requested gui
-        self._gui = self._guis[self.requested_gui](self.label, self.width, self.height, aggrigator=self)
+        self._gui = self._guis[self.requested_gui](
+            self.label, self.width, self.height, aggrigator=self, scale_by=self._scale_by
+        )
 
         # wait for user to request a different GUI
         while True:
@@ -633,7 +641,9 @@ class ComponentStateGui(Thread):
             self._gui = None
 
             # create and display new gui
-            self._gui = self._guis[self.requested_gui](self.label, self.width, self.height, aggrigator=self)
+            self._gui = self._guis[self.requested_gui](
+                self.label, self.width, self.height, aggrigator=self, scale_by=self._scale_by
+            )
 
     def cycle_gui(self, gui: str):
         if gui in self._guis:
