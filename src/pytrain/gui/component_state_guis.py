@@ -169,6 +169,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
         return upd
 
+    # noinspection PyTypeChecker
     def run(self) -> None:
         self._shutdown_flag.clear()
         self._ev.clear()
@@ -198,10 +199,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
         _ = Text(box, text="    ", grid=[1, 1], size=ts)
         if self._aggrigator:
+            ats = int(round(23 * self._scale_by))
             ag_box = Box(box, grid=[2, 1, 2, 1])
             if self.label:
-                # cb_label = Text(ag_box, text=self.label, align="left", size=ts, bold=True, height="fill")
-                cb_label = PushButton(ag_box, text=self.label, align="left", width=len(self.label))
+                cb_label = Text(ag_box, text=self.label, align="left", size=ats, bold=True, height="fill")
                 cb_label.text_size = int(round(23 * self._scale_by))
                 cb_label.text_bold = True
             self.aggrigator_combo = Combo(
@@ -210,8 +211,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 selected=self.title,
                 align="right",
                 command=self.on_combo_change,
+                height="fill",
             )
-            self.aggrigator_combo.text_size = int(round(23 * self._scale_by))
+            self.aggrigator_combo.text_size = ats
             self.aggrigator_combo.text_bold = True
         else:
             # customize label
