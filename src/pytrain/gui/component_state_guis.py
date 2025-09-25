@@ -211,6 +211,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 command=self.on_combo_change,
                 height="fill",
             )
+            self.aggrigator_combo.tk.configure(pady=4)
             self.aggrigator_combo.text_size = ats
             self.aggrigator_combo.text_bold = True
         else:
@@ -358,11 +359,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         btn_h = self.pd_button_height = self._state_buttons[pd.tmcc_id].tk.winfo_height()
                     btn_y = self._state_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
                 else:
-                    print(pd)
                     btn_y += btn_h
                 row += 1
             # logic to hide/disable/enable scroll buttons
-            print(f"Row: {row} Col: {col}")
             if col <= 1:
                 self.right_scroll_btn.hide()
                 self.left_scroll_btn.hide()
