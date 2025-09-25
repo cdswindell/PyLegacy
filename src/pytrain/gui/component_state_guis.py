@@ -610,7 +610,6 @@ class AccessoriesGui(StateBasedGui):
                 pds.append(acc)
                 name_lc = acc.road_name.lower()
                 if "aux1" in name_lc or "ax1" in name_lc or "(a1)" in name_lc or "(m)" in name_lc:
-                    print(f"Adding {name_lc} ({acc}) to is_momentary...")
                     self._is_momentary.add(acc.address)
         return pds
 
@@ -619,9 +618,7 @@ class AccessoriesGui(StateBasedGui):
 
     def switch_state(self, pd: AccessoryState, extra: Any = None) -> None:
         with self._cv:
-            print(f"SwitchState: tmcc_id: {pd.tmcc_id}, is_momentary: {pd.tmcc_id in self._is_momentary}")
             if pd.tmcc_id in self._is_momentary:
-                print(f"SwitchState: {pd} is momentary")
                 pass
             elif pd.is_aux_on:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
