@@ -358,6 +358,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         btn_h = self.pd_button_height = self._state_buttons[pd.tmcc_id].tk.winfo_height()
                     btn_y = self._state_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
                 else:
+                    print(pd)
                     btn_y += btn_h
                 row += 1
             # logic to hide/disable/enable scroll buttons
