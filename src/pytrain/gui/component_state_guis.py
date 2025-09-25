@@ -201,7 +201,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         if self._aggrigator:
             txt_lbl = txt_spacer = None
             ats = int(round(23 * self._scale_by))
-            ag_box = Box(box, grid=[2, 1, 2, 1])
+            ag_box = Box(box, grid=[2, 1, 2, 1], layout="auto")
             print(1)
             if self.label:
                 # Wrap the Text in a vertical container so we can insert a spacer above it
