@@ -202,7 +202,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             ats = int(round(23 * self._scale_by))
             ag_box = Box(box, grid=[2, 1, 2, 1])
             if self.label:
-                _ = Text(ag_box, text=self.label, align="left", size=ats, bold=True, height="fill")
+                _ = Text(ag_box, text=self.label + ": ", align="left", size=ats, bold=True, height="fill")
             self.aggrigator_combo = Combo(
                 ag_box,
                 options=self._aggrigator.guis,
