@@ -338,7 +338,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                         self.btn_box,
                         text=f"#{pd.tmcc_id} {pd.road_name}",
                         grid=[col, row],
-                        width=int(self.width / 2 / (13 * self._scale_by)),
+                        # width=int(self.width / 2 / (13 * self._scale_by)),
                         command=self.switch_state,
                         args=[pd],
                         padx=0,
