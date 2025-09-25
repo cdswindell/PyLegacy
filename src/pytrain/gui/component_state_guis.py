@@ -71,7 +71,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.label = label
         self._aggrigator = aggrigator
         self._scale_by = scale_by
-        self._text_size: int = int(round(24 * scale_by))
+        self._text_size: int = 24
 
         self._enabled_bg = enabled_bg
         self._disabled_bg = disabled_bg
