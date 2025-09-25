@@ -200,8 +200,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
         if self._aggrigator:
             ag_box = Box(box, grid=[2, 1, 2, 1])
             if self.label:
-                cb_label = Text(ag_box, text=self.label, align="left", size=ts, bold=True, height="fill")
+                # cb_label = Text(ag_box, text=self.label, align="left", size=ts, bold=True, height="fill")
+                cb_label = PushButton(ag_box, text=self.label, align="left", width=len(self.label))
                 cb_label.text_size = int(round(23 * self._scale_by))
+                cb_label.text_bold = True
             self.aggrigator_combo = Combo(
                 ag_box,
                 options=self._aggrigator.guis,
