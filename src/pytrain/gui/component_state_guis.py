@@ -168,8 +168,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def on_state_change_action(self, pd: S) -> Callable:
         def upd():
             if not self._shutdown_flag.is_set():
-                print(self.update_button)
-                self.app.after(0, self.update_button, [pd])
+                self.app.after(0, self.update_button, (pd,))
 
         return upd
 
@@ -586,8 +585,9 @@ class MotorsGui(StateBasedGui):
         print("MotorGui!")
         with self._cv:
             widgets = cast(PushButton, self._state_buttons[pd.tmcc_id])
-            if widgets.motor in {1, 2}:
-                if self.is_motor_active(pd, widgets.motor):
+            motor = getattr(widgets, "motor", None)
+            if motor in {1, 2}:
+                if self.is_motor_active(pd, motor):
                     print("activating...")
                     self._set_button_active(widgets)
                 else:
