@@ -15,7 +15,7 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Callable, Generic, TypeVar, cast, Any
 
-from guizero import App, Box, Combo, PushButton, Text
+from guizero import App, Box, Combo, PushButton, Text, Slider
 from guizero.base import Widget
 from guizero.event import EventData
 
@@ -626,7 +626,7 @@ class MotorsGui(StateBasedGui):
         row: int,
         col: int,
     ) -> tuple[list[Widget], int, int]:
-        ts = self._text_size
+        ts = int(round(23 * self._scale_by))
         widgets: list[Widget] = []
         # make title label
         title = Text(self.btn_box, text=f"#{pd.tmcc_id} {pd.road_name}", grid=[col, row, 2, 1], size=ts, bold=True)
@@ -640,6 +640,11 @@ class MotorsGui(StateBasedGui):
         if pd.motor1.state:
             self._set_button_active(m1_pwr)
         widgets.append(m1_pwr)
+
+        # motor 1 control
+        m1_ctl = Slider(self.btn_box, grid=[col + 1, row])
+        m1_ctl.value = pd.motor1.speed
+        widgets.append(m1_ctl)
 
         # make motor 2 on/off button
         m2_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col + 1)
