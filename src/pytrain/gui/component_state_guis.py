@@ -582,18 +582,20 @@ class MotorsGui(StateBasedGui):
     @staticmethod
     def is_motor_active(state: AccessoryState, motor: int) -> bool:
         motor = state.get_motor(motor)
+        print(f"Motor: {motor} active: {motor.state}")
         return motor.state if motor else False
 
-    def set_state(self, pd: AccessoryState, motor: int, speed: int = None) -> None:
+    def set_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
         with self._cv:
+            pd: AccessoryState = self._states[tmcc_id]
             if speed is not None:
                 pass
             else:
-                CommandReq(TMCC1AuxCommandEnum.NUMERIC, pd.tmcc_id, data=motor).send()
+                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
                 if self.is_motor_active(pd, motor):
-                    CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
+                    CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
                 else:
-                    CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
+                    CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
 
     def _make_state_button(
         self,
@@ -605,7 +607,7 @@ class MotorsGui(StateBasedGui):
         # make motor 1 on/off button
         m1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
         m1_pwr.motor = 1
-        m1_pwr.update_command(self.set_state, [pd, 1])
+        m1_pwr.update_command(self.set_state, [pd.tmcc_id, 1])
         widgets.append(m1_pwr)
         return m1_pwr, btn_h, btn_y
 
