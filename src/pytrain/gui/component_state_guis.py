@@ -170,7 +170,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             if not self._shutdown_flag.is_set():
                 pd: S = self._states[tmcc_id]
                 print(self.update_button)
-                self.app.after(0, self.update_button, args=[pd])
+                self.app.after(0, self.update_button, args=[self, pd])
 
         return upd
 
