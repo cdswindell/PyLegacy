@@ -369,7 +369,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     row = 4
                     col += 1
                 if col in active_cols:
-                    btn_h, btn_y, pb = self._make_state_widgets(pd, row, col)
+                    pb, btn_h, btn_y = self._make_state_widgets(pd, row, col)
                     self._state_buttons[pd.tmcc_id] = pb
                 else:
                     btn_y += btn_h
