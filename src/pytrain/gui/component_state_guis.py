@@ -203,7 +203,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     pass
             return None
 
-        app.repeat(50, _poll_shutdown)
+        app.repeat(25, _poll_shutdown)
 
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
