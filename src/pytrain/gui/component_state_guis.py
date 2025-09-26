@@ -148,9 +148,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
             self.start()
 
     # noinspection PyTypeChecker
-    def update_button(self, pd: S) -> None:
+    def update_button(self, tmcc_id: int) -> None:
         with self._cv:
-            pb = self._state_buttons[pd.tmcc_id]
+            pd: S = self._states[tmcc_id]
+            pb = self._state_buttons[tmcc_id]
             if self.is_active(pd):
                 self._set_button_active(pb)
             else:
@@ -169,8 +170,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def on_state_change_action(self, tmcc_id: int) -> Callable:
         def upd():
             if not self._shutdown_flag.is_set():
-                pd: S = self._states[tmcc_id]
-                self.app.after(0, self.update_button, args=[pd])
+                self._message_queue.put((self.update_button, [tmcc_id]))
 
         return upd
 
@@ -590,18 +590,19 @@ class MotorsGui(StateBasedGui):
     def switch_state(self, pd: AccessoryState) -> None:
         pass
 
-    def on_state_change_action(self, tmcc_id: int) -> Callable:
-        def upd():
-            if not self._shutdown_flag.is_set():
-                pd: AccessoryState = self._states[tmcc_id]
-                self._message_queue.put((self.update_motor_button, [pd]))
-
-        return upd
+    # def on_state_change_action(self, tmcc_id: int) -> Callable:
+    #     def upd():
+    #         if not self._shutdown_flag.is_set():
+    #             pd: AccessoryState = self._states[tmcc_id]
+    #             self._message_queue.put((self.update_motor_button, [pd]))
+    #
+    #     return upd
 
     # noinspection PyTypeChecker
-    def update_motor_button(self, pd: S) -> None:
+    def update_button(self, tmcc_id: int) -> None:
         with self._cv:
-            widgets = cast(PushButton, self._state_buttons[pd.tmcc_id])
+            pd = self._states[tmcc_id]
+            widgets = cast(PushButton, self._state_buttons[tmcc_id])
             motor = getattr(widgets, "motor", None)
             if motor in {1, 2}:
                 if self.is_motor_active(pd, motor):
