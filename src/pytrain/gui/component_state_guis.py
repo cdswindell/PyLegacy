@@ -606,10 +606,10 @@ class MotorsGui(StateBasedGui):
             if motor in {1, 2}:
                 if self.is_motor_active(pd, motor):
                     print("activating...")
-                    # self.app.after(0, self._set_button_active, args=[widgets])
+                    self._set_button_active(widgets)
                 else:
                     print("deactivating...")
-                    # self.app.after(0, self._set_button_inactive, args=[widgets])
+                    self._set_button_inactive(widgets)
 
     @staticmethod
     def is_motor_active(state: AccessoryState, motor: int) -> bool:
