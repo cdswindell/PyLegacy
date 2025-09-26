@@ -454,10 +454,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
     def get_target_states(self) -> list[S]: ...
 
     @abstractmethod
-    def is_active(self, state: S, extra: Any = None) -> bool: ...
+    def is_active(self, state: S) -> bool: ...
 
     @abstractmethod
-    def switch_state(self, state: S, extra: Any = None) -> bool: ...
+    def switch_state(self, state: S) -> bool: ...
 
 
 class PowerDistrictsGui(StateBasedGui):
@@ -480,10 +480,10 @@ class PowerDistrictsGui(StateBasedGui):
                 pds.append(acc)
         return pds
 
-    def is_active(self, state: AccessoryState, extra: Any = None) -> bool:
+    def is_active(self, state: AccessoryState) -> bool:
         return state.is_aux_on
 
-    def switch_state(self, pd: AccessoryState, extra: Any = None) -> None:
+    def switch_state(self, pd: AccessoryState) -> None:
         with self._cv:
             if pd.is_aux_on:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
@@ -511,10 +511,10 @@ class SwitchesGui(StateBasedGui):
                 pds.append(acc)
         return pds
 
-    def is_active(self, state: SwitchState, extra: Any = None) -> bool:
+    def is_active(self, state: SwitchState) -> bool:
         return state.is_thru
 
-    def switch_state(self, pd: SwitchState, extra: Any = None) -> None:
+    def switch_state(self, pd: SwitchState) -> None:
         with self._cv:
             if pd.is_thru:
                 CommandReq(TMCC1SwitchCommandEnum.OUT, pd.tmcc_id).send()
@@ -542,10 +542,10 @@ class RoutesGui(StateBasedGui):
                 pds.append(acc)
         return pds
 
-    def is_active(self, state: RouteState, extra: Any = None) -> bool:
+    def is_active(self, state: RouteState) -> bool:
         return state.is_active
 
-    def switch_state(self, pd: RouteState, extra: Any = None) -> None:
+    def switch_state(self, pd: RouteState) -> None:
         with self._cv:
             if pd.is_active:
                 CommandReq(TMCC1RouteCommandEnum.FIRE, pd.tmcc_id).send()
@@ -573,13 +573,14 @@ class MotorsGui(StateBasedGui):
                 pds.append(acc)
         return pds
 
-    def is_active(self, state: AccessoryState, extra: int = 1) -> bool:
-        return state.motor2.state if extra == 2 else state.motor1.state
+    def is_active(self, state: AccessoryState) -> bool:
+        return False
 
-    def switch_state(self, pd: AccessoryState, extra: int = 1) -> None:
+    def switch_state(self, pd: AccessoryState) -> None:
         with self._cv:
+            extra = pd.number
             CommandReq(TMCC1AuxCommandEnum.NUMERIC, pd.tmcc_id, data=extra).send()
-            if self.is_active(pd, extra):
+            if self.is_active(pd):
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
             else:
                 CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
@@ -630,10 +631,10 @@ class AccessoriesGui(StateBasedGui):
                     self._is_momentary.add(acc.address)
         return pds
 
-    def is_active(self, state: AccessoryState, extra: Any = None) -> bool:
+    def is_active(self, state: AccessoryState) -> bool:
         return state.is_aux_on
 
-    def switch_state(self, pd: AccessoryState, extra: Any = None) -> None:
+    def switch_state(self, pd: AccessoryState) -> None:
         with self._cv:
             if pd.tmcc_id in self._is_momentary:
                 pass
