@@ -331,14 +331,17 @@ class StateBasedGui(Thread, Generic[S], ABC):
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
         for pdb in self._state_buttons.values():
-            if hasattr(pdb, "component_state"):
-                pdb.component_state = None
-            if hasattr(pdb, "when_left_button_pressed"):
-                pdb.when_left_button_pressed = None
-            if hasattr(pdb, "when_left_button_released"):
-                pdb.when_left_button_released = None
-            pdb.hide()
-            pdb.destroy()
+            if not isinstance(pdb, list):
+                pdb = [pdb]
+            for widget in pdb:
+                if hasattr(widget, "component_state"):
+                    widget.component_state = None
+                if hasattr(widget, "when_left_button_pressed"):
+                    widget.when_left_button_pressed = None
+                if hasattr(widget, "when_left_button_released"):
+                    widget.when_left_button_released = None
+                widget.hide()
+                widget.destroy()
         self._state_buttons.clear()
 
     # noinspection PyTypeChecker
@@ -381,10 +384,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     # recalculate height
                     self.app.update()
                     if self.pd_button_width is None:
-                        self.pd_button_width = self._state_buttons[pd.tmcc_id].tk.winfo_width()
+                        self.pd_button_width = pb.tk.winfo_width()
                     if self.pd_button_height is None:
-                        btn_h = self.pd_button_height = self._state_buttons[pd.tmcc_id].tk.winfo_height()
-                    btn_y = self._state_buttons[pd.tmcc_id].tk.winfo_y() + btn_h
+                        btn_h = self.pd_button_height = pb.tk.winfo_height()
+                    btn_y = pb.tk.winfo_y() + btn_h
                 else:
                     btn_y += btn_h
                 row += 1
