@@ -595,13 +595,16 @@ class MotorsGui(StateBasedGui):
             pd = self._states[tmcc_id]
             widgets = self._state_buttons[tmcc_id]
             if isinstance(widgets, list):
-                for widget in [x for x in widgets if isinstance(x, PushButton)]:
+                for widget in widgets:
                     motor = getattr(widget, "motor", None)
-                    if motor in {1, 2}:
+                    if isinstance(widget, PushButton) and motor in {1, 2}:
                         if self.is_motor_active(pd, motor):
                             self._set_button_active(widget)
                         else:
                             self._set_button_inactive(widget)
+                    if isinstance(widget, Slider) and motor in {1, 2}:
+                        motor = pd.get_motor(motor)
+                        widget.value = motor.speed if motor else 0.0
 
     @staticmethod
     def is_motor_active(state: AccessoryState, motor: int) -> bool:
@@ -642,8 +645,9 @@ class MotorsGui(StateBasedGui):
         widgets.append(m1_pwr)
 
         # motor 1 control
-        m1_ctl = Slider(self.btn_box, grid=[col, row + 1], height=btn_h, width="fill")
+        m1_ctl = Slider(self.btn_box, grid=[col, row + 1], height=btn_h, width=self.pd_button_width)
         m1_ctl.value = pd.motor1.speed
+        m1_ctl.motor = 1
         widgets.append(m1_ctl)
 
         # make motor 2 on/off button
@@ -654,6 +658,12 @@ class MotorsGui(StateBasedGui):
         if pd.motor2.state:
             self._set_button_active(m2_pwr)
         widgets.append(m2_pwr)
+
+        # motor 2 control
+        m2_ctl = Slider(self.btn_box, grid=[col + 1, row + 1], height=btn_h, width=self.pd_button_width)
+        m2_ctl.value = pd.motor2.speed
+        m2_ctl.motor = 2
+        widgets.append(m1_ctl)
         return widgets, btn_h, btn_y
 
 
