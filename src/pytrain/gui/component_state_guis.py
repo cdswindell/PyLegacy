@@ -640,7 +640,7 @@ class MotorsGui(StateBasedGui):
         row += 1
         m2_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
         m2_pwr.text = "Motor #2"
-        m2_pwr.motor = 1
+        m2_pwr.motor = 2
         m2_pwr.update_command(self.set_state, args=[pd.tmcc_id, 2])
         if pd.motor2.state:
             self._set_button_active(m2_pwr)
