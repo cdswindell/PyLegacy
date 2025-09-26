@@ -140,7 +140,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 nl = len(acc.road_name)
                 self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
                 self._states[acc.tmcc_id] = acc
-                self._state_watchers[acc.tmcc_id] = StateWatcher(acc, self.on_state_change_action(acc))
+                self._state_watchers[acc.tmcc_id] = StateWatcher(acc, self.on_state_change_action(acc.tmcc_id))
 
             # start GUI
             self.start()
@@ -165,9 +165,11 @@ class StateBasedGui(Thread, Generic[S], ABC):
         widget.bg = self._enabled_bg
         widget.text_color = self._enabled_text
 
-    def on_state_change_action(self, pd: S) -> Callable:
+    def on_state_change_action(self, tmcc_id: int) -> Callable:
         def upd():
             if not self._shutdown_flag.is_set():
+                pd: S = self._states[tmcc_id]
+                print(self.update_button)
                 self.app.after(0, self.update_button, (pd,))
 
         return upd
@@ -622,7 +624,7 @@ class MotorsGui(StateBasedGui):
         # make motor 1 on/off button
         m1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
         m1_pwr.motor = 1
-        m1_pwr.update_command(self.set_state, [pd.tmcc_id, 1])
+        m1_pwr.update_command(self.set_state, args=[pd.tmcc_id, 1])
         widgets.append(m1_pwr)
         return m1_pwr, btn_h, btn_y
 
