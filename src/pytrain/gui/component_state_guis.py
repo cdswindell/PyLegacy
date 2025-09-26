@@ -10,6 +10,7 @@ from __future__ import annotations
 import atexit
 import logging
 from abc import ABC, ABCMeta, abstractmethod
+from queue import Queue, Empty
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Callable, Generic, TypeVar, cast, Any
@@ -88,6 +89,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._first_button_col = 0
         self.sort_func = None
         self._app_counter = 0
+        self._message_queue = Queue()
 
         # States
         self._states = dict[int, S]()
@@ -191,6 +193,14 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 except TclError:
                     pass  # ignore, we're shutting down
                 return None
+            else:
+                try:
+                    message = self._message_queue.get_nowait()
+                    print(message)
+                    if isinstance(message, tuple):
+                        message[0](*message[1])
+                except Empty:
+                    pass
             return None
 
         app.repeat(50, _poll_shutdown)
@@ -584,7 +594,7 @@ class MotorsGui(StateBasedGui):
         def upd():
             if not self._shutdown_flag.is_set():
                 pd: AccessoryState = self._states[tmcc_id]
-                self.update_motor_button(pd)
+                self._message_queue.put((self.update_motor_button, [pd]))
 
         return upd
 
