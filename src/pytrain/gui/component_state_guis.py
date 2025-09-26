@@ -170,7 +170,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             if not self._shutdown_flag.is_set():
                 pd: S = self._states[tmcc_id]
                 print(self.update_button)
-                self.app.after(0, self.update_button, args=[self, pd])
+                self.app.after(0, self.update_button, args=[pd])
 
         return upd
 
@@ -581,6 +581,15 @@ class MotorsGui(StateBasedGui):
 
     def switch_state(self, pd: AccessoryState) -> None:
         pass
+
+    def on_state_change_action(self, tmcc_id: int) -> Callable:
+        def upd():
+            if not self._shutdown_flag.is_set():
+                pd: AccessoryState = self._states[tmcc_id]
+                print(self.update_button)
+                self.app.after(0, self.update_button, args=[pd])
+
+        return upd
 
     # noinspection PyTypeChecker
     def update_button(self, pd: S) -> None:
