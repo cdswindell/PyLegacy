@@ -642,7 +642,7 @@ class MotorsGui(StateBasedGui):
         widgets.append(m1_pwr)
 
         # motor 1 control
-        m1_ctl = Slider(self.btn_box, grid=[col + 1, row])
+        m1_ctl = Slider(self.btn_box, grid=[col, row + 1])
         m1_ctl.value = pd.motor1.speed
         widgets.append(m1_ctl)
 
