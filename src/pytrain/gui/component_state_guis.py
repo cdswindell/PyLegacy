@@ -196,7 +196,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
             else:
                 try:
                     message = self._message_queue.get_nowait()
-                    print(message)
                     if isinstance(message, tuple):
                         message[0](*message[1])
                 except Empty:
@@ -590,27 +589,19 @@ class MotorsGui(StateBasedGui):
     def switch_state(self, pd: AccessoryState) -> None:
         pass
 
-    # def on_state_change_action(self, tmcc_id: int) -> Callable:
-    #     def upd():
-    #         if not self._shutdown_flag.is_set():
-    #             pd: AccessoryState = self._states[tmcc_id]
-    #             self._message_queue.put((self.update_motor_button, [pd]))
-    #
-    #     return upd
-
     # noinspection PyTypeChecker
     def update_button(self, tmcc_id: int) -> None:
         with self._cv:
             pd = self._states[tmcc_id]
-            widgets = cast(PushButton, self._state_buttons[tmcc_id])
-            motor = getattr(widgets, "motor", None)
-            if motor in {1, 2}:
-                if self.is_motor_active(pd, motor):
-                    print("activating...")
-                    self._set_button_active(widgets)
-                else:
-                    print("deactivating...")
-                    self._set_button_inactive(widgets)
+            widgets = self._state_buttons[tmcc_id]
+            if isinstance(widgets, list):
+                for widget in widgets[0:2]:
+                    motor = getattr(widget, "motor", None)
+                    if motor in {1, 2}:
+                        if self.is_motor_active(pd, motor):
+                            self._set_button_active(widget)
+                        else:
+                            self._set_button_inactive(widget)
 
     @staticmethod
     def is_motor_active(state: AccessoryState, motor: int) -> bool:
@@ -638,10 +629,23 @@ class MotorsGui(StateBasedGui):
         widgets: list[Widget] = []
         # make motor 1 on/off button
         m1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        m1_pwr.text = "Motor #1"
         m1_pwr.motor = 1
         m1_pwr.update_command(self.set_state, args=[pd.tmcc_id, 1])
+        if pd.motor1.state:
+            self._set_button_active(m1_pwr)
         widgets.append(m1_pwr)
-        return m1_pwr, btn_h, btn_y
+
+        # make motor 2 on/off button
+        row += 1
+        m2_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        m2_pwr.text = "Motor #2"
+        m2_pwr.motor = 1
+        m2_pwr.update_command(self.set_state, args=[pd.tmcc_id, 2])
+        if pd.motor2.state:
+            self._set_button_active(m2_pwr)
+        widgets.append(m2_pwr)
+        return widgets, btn_h, btn_y
 
 
 class AccessoriesGui(StateBasedGui):
