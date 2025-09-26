@@ -369,7 +369,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     row = 4
                     col += 1
                 if col in active_cols:
-                    pb, btn_h, btn_y = self._make_state_widgets(pd, row, col)
+                    pb, btn_h, btn_y = self._make_state_button(pd, row, col)
                     self._state_buttons[pd.tmcc_id] = pb
                 else:
                     btn_y += btn_h
@@ -388,12 +388,12 @@ class StateBasedGui(Thread, Generic[S], ABC):
             self._post_process_state_buttons()
             self.btn_box.visible = True
 
-    def _make_state_widgets(
+    def _make_state_button(
         self,
         pd: S | Any,
         row: int,
         col: int,
-    ) -> tuple[PushButton, Any, Any]:
+    ) -> tuple[PushButton | list[Widget], int, int]:
         pb = PushButton(
             self.btn_box,
             text=f"#{pd.tmcc_id} {pd.road_name}",
@@ -577,24 +577,48 @@ class MotorsGui(StateBasedGui):
         return False
 
     def switch_state(self, pd: AccessoryState) -> None:
-        with self._cv:
-            extra = pd.number
-            CommandReq(TMCC1AuxCommandEnum.NUMERIC, pd.tmcc_id, data=extra).send()
-            if self.is_active(pd):
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
-            else:
-                CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
+        pass
 
-    # def update_button(self, pd: AccessoryState) -> None:
-    #     with self._cv:
-    #         print(f"MotorGui Number: {pd.number}")
-    #         if pd.number in {1, 2}:
-    #             if self.is_active(pd, extra=pd.number):
-    #                 print("activating...")
-    #                 self._set_button_active(pd)
-    #             else:
-    #                 print("deactivating...")
-    #                 self._set_button_inactive(pd)
+    @staticmethod
+    def is_motor_active(state: AccessoryState, motor: int) -> bool:
+        motor = state.get_motor(motor)
+        return motor.state if motor else False
+
+    def set_state(self, pd: AccessoryState, motor: int, speed: int = None) -> None:
+        with self._cv:
+            if speed is not None:
+                pass
+            else:
+                CommandReq(TMCC1AuxCommandEnum.NUMERIC, pd.tmcc_id, data=motor).send()
+                if self.is_motor_active(pd, motor):
+                    CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, pd.tmcc_id).send()
+                else:
+                    CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, pd.tmcc_id).send()
+
+    def _make_state_button(
+        self,
+        pd: AccessoryState,
+        row: int,
+        col: int,
+    ) -> tuple[list[Widget], int, int]:
+        widgets: list[Widget] = []
+        # make motor 1 on/off button
+        m1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        m1_pwr.motor = 1
+        m1_pwr.update_command(self.set_state, [pd, 1])
+        widgets.append(m1_pwr)
+        return m1_pwr, btn_h, btn_y
+
+    def update_button(self, pd: AccessoryState) -> None:
+        with self._cv:
+            widgets = cast(PushButton, self._state_buttons[pd.tmcc_id])
+            if widgets.motor in {1, 2}:
+                if self.is_motor_active(pd, widgets.motor):
+                    print("activating...")
+                    self._set_button_active(widgets)
+                else:
+                    print("deactivating...")
+                    self._set_button_inactive(widgets)
 
 
 class AccessoriesGui(StateBasedGui):
