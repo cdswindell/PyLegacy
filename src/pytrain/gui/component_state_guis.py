@@ -595,7 +595,7 @@ class MotorsGui(StateBasedGui):
             pd = self._states[tmcc_id]
             widgets = self._state_buttons[tmcc_id]
             if isinstance(widgets, list):
-                for widget in widgets[0:2]:
+                for widget in [x for x in widgets if isinstance(x, PushButton)]:
                     motor = getattr(widget, "motor", None)
                     if motor in {1, 2}:
                         if self.is_motor_active(pd, motor):
@@ -626,8 +626,13 @@ class MotorsGui(StateBasedGui):
         row: int,
         col: int,
     ) -> tuple[list[Widget], int, int]:
+        ts = self._text_size
         widgets: list[Widget] = []
+        # make title label
+        title = Text(self.btn_box, text=f"#{pd.tmcc_id} {pd.road_name}", grid=[col, row, 2, 1], size=ts, bold=True)
+        widgets.append(title)
         # make motor 1 on/off button
+        row += 1
         m1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
         m1_pwr.text = "Motor #1"
         m1_pwr.motor = 1
@@ -637,8 +642,7 @@ class MotorsGui(StateBasedGui):
         widgets.append(m1_pwr)
 
         # make motor 2 on/off button
-        row += 1
-        m2_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        m2_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col + 1)
         m2_pwr.text = "Motor #2"
         m2_pwr.motor = 2
         m2_pwr.update_command(self.set_state, args=[pd.tmcc_id, 2])
