@@ -616,16 +616,16 @@ class MotorsGui(StateBasedGui):
     def set_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
         with self._cv:
             pd: AccessoryState = self._states[tmcc_id]
+            force_activate = False
             if speed is not None:
-                req = Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=motor, speed=speed)
-                print(req)
-                req.send()
+                Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=motor, speed=speed).send()
+                force_activate = True
+
+            CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
+            if not force_activate and self.is_motor_active(pd, motor):
+                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
             else:
-                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
-                if self.is_motor_active(pd, motor):
-                    CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
-                else:
-                    CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
+                CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
 
     def _make_state_button(
         self,
