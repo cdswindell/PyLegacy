@@ -369,27 +369,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     row = 4
                     col += 1
                 if col in active_cols:
-                    self._state_buttons[pd.tmcc_id] = pb = PushButton(
-                        self.btn_box,
-                        text=f"#{pd.tmcc_id} {pd.road_name}",
-                        grid=[col, row],
-                        width=int(round(self.width / 2 / (13 * self._scale_by))),
-                        command=self.switch_state,
-                        args=[pd],
-                        padx=0,
-                    )
-                    pb.component_state = pd
-                    pb.text_size = int(round(15 * self._scale_by))
-                    pb.bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
-                    pb.text_color = self._enabled_text if self.is_active(pd) else self._disabled_text
-
-                    # recalculate height
-                    self.app.update()
-                    if self.pd_button_width is None:
-                        self.pd_button_width = pb.tk.winfo_width()
-                    if self.pd_button_height is None:
-                        btn_h = self.pd_button_height = pb.tk.winfo_height()
-                    btn_y = pb.tk.winfo_y() + btn_h
+                    btn_h, btn_y, pb = self._make_state_widgets(pd, row, col)
+                    self._state_buttons[pd.tmcc_id] = pb
                 else:
                     btn_y += btn_h
                 row += 1
@@ -406,6 +387,37 @@ class StateBasedGui(Thread, Generic[S], ABC):
             # call post process handler
             self._post_process_state_buttons()
             self.btn_box.visible = True
+
+    def _make_state_widgets(
+        self,
+        pd: S | Any,
+        row: int,
+        col: int,
+    ) -> tuple[PushButton, Any, Any]:
+        pb = PushButton(
+            self.btn_box,
+            text=f"#{pd.tmcc_id} {pd.road_name}",
+            grid=[col, row],
+            width=int(round(self.width / 2 / (13 * self._scale_by))),
+            command=self.switch_state,
+            args=[pd],
+            padx=0,
+        )
+        pb.component_state = pd
+        pb.text_size = int(round(15 * self._scale_by))
+        pb.bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
+        pb.text_color = self._enabled_text if self.is_active(pd) else self._disabled_text
+
+        # recalculate height
+        self.app.update()
+        if self.pd_button_width is None:
+            self.pd_button_width = pb.tk.winfo_width()
+        if self.pd_button_height is None:
+            btn_h = self.pd_button_height = pb.tk.winfo_height()
+        else:
+            btn_h = self.pd_button_height
+        btn_y = pb.tk.winfo_y() + btn_h
+        return pb, btn_h, btn_y
 
     def sort_by_number(self) -> None:
         self.by_number.text_bold = True
