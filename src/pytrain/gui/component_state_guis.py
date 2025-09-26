@@ -605,6 +605,7 @@ class MotorsGui(StateBasedGui):
                     if isinstance(widget, Slider) and motor in {1, 2}:
                         motor = pd.get_motor(motor)
                         widget.value = motor.speed if motor else 0.0
+                        widget.bg = self._enabled_bg if self.is_motor_active(pd, motor.id) else self._disabled_bg
 
     @staticmethod
     def is_motor_active(state: AccessoryState, motor: int) -> bool:
@@ -640,8 +641,6 @@ class MotorsGui(StateBasedGui):
         m1_pwr.text = "Motor #1"
         m1_pwr.motor = 1
         m1_pwr.update_command(self.set_state, args=[pd.tmcc_id, 1])
-        if pd.motor1.state:
-            self._set_button_active(m1_pwr)
         widgets.append(m1_pwr)
 
         # motor 1 control
@@ -655,8 +654,6 @@ class MotorsGui(StateBasedGui):
         m2_pwr.text = "Motor #2"
         m2_pwr.motor = 2
         m2_pwr.update_command(self.set_state, args=[pd.tmcc_id, 2])
-        if pd.motor2.state:
-            self._set_button_active(m2_pwr)
         widgets.append(m2_pwr)
 
         # motor 2 control
@@ -664,6 +661,10 @@ class MotorsGui(StateBasedGui):
         m2_ctl.value = pd.motor2.speed
         m2_ctl.motor = 2
         widgets.append(m1_ctl)
+
+        # noinspection PyTypeChecker
+        self._state_buttons[pd.tmcc_id] = widgets
+        self.update_button(pd.tmcc_id)
         return widgets, btn_h, btn_y
 
 
