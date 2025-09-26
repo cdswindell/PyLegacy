@@ -25,8 +25,9 @@ from ..db.component_state import ComponentState, RouteState, SwitchState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
+from ..pdi.amc2_req import Amc2Req
 from ..pdi.asc2_req import Asc2Req
-from ..pdi.constants import Asc2Action, PdiCommand
+from ..pdi.constants import Asc2Action, PdiCommand, Amc2Action
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1RouteCommandEnum, TMCC1SwitchCommandEnum
@@ -605,7 +606,7 @@ class MotorsGui(StateBasedGui):
                     if isinstance(widget, Slider) and motor in {1, 2}:
                         motor = pd.get_motor(motor)
                         widget.value = motor.speed if motor else 0.0
-                        widget.bg = self._enabled_bg if self.is_motor_active(pd, motor.id) else self._disabled_bg
+                        widget.bg = self._enabled_bg if self.is_motor_active(pd, motor.id) else "lightgrey"
 
     @staticmethod
     def is_motor_active(state: AccessoryState, motor: int) -> bool:
@@ -616,7 +617,9 @@ class MotorsGui(StateBasedGui):
         with self._cv:
             pd: AccessoryState = self._states[tmcc_id]
             if speed is not None:
-                pass
+                req = Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=motor, speed=speed)
+                print(req)
+                req.send()
             else:
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
                 if self.is_motor_active(pd, motor):
@@ -644,7 +647,15 @@ class MotorsGui(StateBasedGui):
         widgets.append(m1_pwr)
 
         # motor 1 control
-        m1_ctl = Slider(self.btn_box, grid=[col, row + 1], height=btn_h, width=self.pd_button_width)
+        slider_height = int(round(btn_h * 0.8))
+        m1_ctl = Slider(
+            self.btn_box,
+            grid=[col, row + 1],
+            height=slider_height,
+            width=self.pd_button_width,
+            step=5,
+            command=lambda value: self.set_state(pd.tmcc_id, 1, value),
+        )
         m1_ctl.value = pd.motor1.speed
         m1_ctl.motor = 1
         widgets.append(m1_ctl)
@@ -657,7 +668,14 @@ class MotorsGui(StateBasedGui):
         widgets.append(m2_pwr)
 
         # motor 2 control
-        m2_ctl = Slider(self.btn_box, grid=[col + 1, row + 1], height=btn_h, width=self.pd_button_width)
+        m2_ctl = Slider(
+            self.btn_box,
+            grid=[col + 1, row + 1],
+            height=slider_height,
+            width=self.pd_button_width,
+            step=5,
+            command=lambda value: self.set_state(pd.tmcc_id, 2, value),
+        )
         m2_ctl.value = pd.motor2.speed
         m2_ctl.motor = 2
         widgets.append(m1_ctl)
