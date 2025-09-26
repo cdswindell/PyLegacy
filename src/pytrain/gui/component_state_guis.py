@@ -15,6 +15,7 @@ from tkinter import TclError
 from typing import Callable, Generic, TypeVar, cast, Any
 
 from guizero import App, Box, Combo, PushButton, Text
+from guizero.base import Widget
 from guizero.event import EventData
 
 from ..comm.command_listener import CommandDispatcher
@@ -147,20 +148,21 @@ class StateBasedGui(Thread, Generic[S], ABC):
     # noinspection PyTypeChecker
     def update_button(self, pd: S) -> None:
         with self._cv:
+            pb = self._state_buttons[pd.tmcc_id]
             if self.is_active(pd):
-                self._set_button_active(pd)
+                self._set_button_active(pb)
             else:
-                self._set_button_inactive(pd)
+                self._set_button_inactive(pb)
 
     # noinspection PyTypeChecker
-    def _set_button_inactive(self, pd: S):
-        self._state_buttons[pd.tmcc_id].bg = self._disabled_bg
-        self._state_buttons[pd.tmcc_id].text_color = self._disabled_text
+    def _set_button_inactive(self, widget: Widget):
+        widget.bg = self._disabled_bg
+        widget.text_color = self._disabled_text
 
     # noinspection PyTypeChecker
-    def _set_button_active(self, pd: S):
-        self._state_buttons[pd.tmcc_id].bg = self._enabled_bg
-        self._state_buttons[pd.tmcc_id].text_color = self._enabled_text
+    def _set_button_active(self, widget: Widget):
+        widget.bg = self._enabled_bg
+        widget.text_color = self._enabled_text
 
     def on_state_change_action(self, pd: S) -> Callable:
         def upd():
@@ -640,7 +642,7 @@ class AccessoriesGui(StateBasedGui):
             else:
                 self._released_events[state.tmcc_id] = event = Event()
             _ = MomentaryActionHandler(pb, event, state, 0.2)
-        # self.app.after(10, self._set_button_active, [state])
+        # self.app.after(10, self._set_button_active, [event.widget])
 
     def when_released(self, event: EventData) -> None:
         state = event.widget.component_state
@@ -649,7 +651,7 @@ class AccessoriesGui(StateBasedGui):
         else:
             state = event.widget.component_state
             self._released_events[state.tmcc_id].set()
-        # self.app.after(10, self._set_button_inactive, [state])
+        # self.app.after(10, self._set_button_inactive, [event.widget])
 
 
 class ComponentStateGui(Thread):
