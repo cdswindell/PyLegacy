@@ -584,8 +584,7 @@ class MotorsGui(StateBasedGui):
         def upd():
             if not self._shutdown_flag.is_set():
                 pd: AccessoryState = self._states[tmcc_id]
-                print(self.update_button)
-                self.app.after(0, self.update_motor_button, args=[pd])
+                self.update_motor_button(pd)
 
         return upd
 
@@ -598,10 +597,10 @@ class MotorsGui(StateBasedGui):
             if motor in {1, 2}:
                 if self.is_motor_active(pd, motor):
                     print("activating...")
-                    self._set_button_active(widgets)
+                    self.app.after(0, self._set_button_active, args=[widgets])
                 else:
                     print("deactivating...")
-                    self._set_button_inactive(widgets)
+                    self.app.after(0, self._set_button_inactive, args=[widgets])
 
     @staticmethod
     def is_motor_active(state: AccessoryState, motor: int) -> bool:
