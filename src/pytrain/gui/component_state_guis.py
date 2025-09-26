@@ -612,19 +612,6 @@ class MotorsGui(StateBasedGui):
         widgets.append(m1_pwr)
         return m1_pwr, btn_h, btn_y
 
-    # noinspection PyTypeChecker
-    def update_button(self, pd: S) -> None:
-        print("MotorGui!")
-        with self._cv:
-            widgets = cast(PushButton, self._state_buttons[pd.tmcc_id])
-            if widgets.motor in {1, 2}:
-                if self.is_motor_active(pd, widgets.motor):
-                    print("activating...")
-                    self._set_button_active(widgets)
-                else:
-                    print("deactivating...")
-                    self._set_button_inactive(widgets)
-
 
 class AccessoriesGui(StateBasedGui):
     def __init__(
