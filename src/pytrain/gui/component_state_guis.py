@@ -147,7 +147,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
 
     # noinspection PyTypeChecker
     def update_button(self, pd: S) -> None:
-        print("Subclass!")
         with self._cv:
             pb = self._state_buttons[pd.tmcc_id]
             if self.is_active(pd):
@@ -586,12 +585,12 @@ class MotorsGui(StateBasedGui):
             if not self._shutdown_flag.is_set():
                 pd: AccessoryState = self._states[tmcc_id]
                 print(self.update_button)
-                self.app.after(0, self.update_button, args=[pd])
+                self.app.after(0, self.update_motor_button, args=[pd])
 
         return upd
 
     # noinspection PyTypeChecker
-    def update_button(self, pd: S) -> None:
+    def update_motor_button(self, pd: S) -> None:
         print("MotorGui!")
         with self._cv:
             widgets = cast(PushButton, self._state_buttons[pd.tmcc_id])
