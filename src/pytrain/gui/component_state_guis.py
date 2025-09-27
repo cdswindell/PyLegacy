@@ -635,6 +635,9 @@ class MotorsGui(StateBasedGui):
                 else:
                     CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
 
+    def on_slider(self, tmcc_id: int, motor: int) -> Callable:
+        return lambda value: self.set_state(tmcc_id, motor, value)
+
     def _make_state_button(
         self,
         pd: AccessoryState,
@@ -669,7 +672,7 @@ class MotorsGui(StateBasedGui):
         m1_ctl.value = pd.motor1.speed
         m1_ctl.motor = 1
         m1_ctl.bg = self._enabled_bg if pd.motor1.state else "lightgrey"
-        m1_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 1, value))
+        m1_ctl.update_command(self.on_slider(pd.tmcc_id, 1))
         widgets.append(m1_ctl)
 
         # make motor 2 on/off button
@@ -692,13 +695,11 @@ class MotorsGui(StateBasedGui):
         m2_ctl.value = pd.motor2.speed
         m2_ctl.motor = 2
         m2_ctl.bg = self._enabled_bg if self.is_motor_active(pd, 2) else "lightgrey"
-        m2_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 2, value))
+        m2_ctl.update_command(self.on_slider(pd.tmcc_id, 2))
         widgets.append(m2_ctl)
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
-        print(f"Initial State: {pd}")
-        self._making_buttons = False
         return widgets, btn_h, btn_y
 
 
