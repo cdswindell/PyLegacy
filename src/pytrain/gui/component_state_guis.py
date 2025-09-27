@@ -615,9 +615,6 @@ class MotorsGui(StateBasedGui):
         return state.is_motor_on(state.motor2 if motor == 2 else state.motor1)
 
     def set_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
-        print(f"Making Buttons: {self._making_buttons}")
-        if self._making_buttons:
-            return
         with self._cv:
             pd: AccessoryState = self._states[tmcc_id]
             if speed is not None:
@@ -644,7 +641,6 @@ class MotorsGui(StateBasedGui):
         row: int,
         col: int,
     ) -> tuple[list[Widget], int, int]:
-        self._making_buttons = True
         ts = int(round(23 * self._scale_by))
         widgets: list[Widget] = []
         # make title label
