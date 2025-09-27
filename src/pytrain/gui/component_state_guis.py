@@ -605,6 +605,7 @@ class MotorsGui(StateBasedGui):
                             self._set_button_inactive(widget)
                     if isinstance(widget, Slider) and motor in {1, 2}:
                         motor_state = pd.get_motor(motor)
+                        print(f"AMC2 State Changed: {motor_state}")
                         widget.value = motor_state.speed if motor_state else 0.0
                         widget.bg = self._enabled_bg if self.is_motor_active(pd, motor) else "lightgrey"
 
@@ -616,16 +617,20 @@ class MotorsGui(StateBasedGui):
     def set_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
         with self._cv:
             pd: AccessoryState = self._states[tmcc_id]
-            force_activate = False
             if speed is not None:
+                print(f"*** Setting motor {motor} speed to {speed}")
                 Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=motor - 1, speed=speed).send()
-                force_activate = True
-
-            CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
-            if not force_activate and self.is_motor_active(pd, motor):
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
+                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
+                if speed:
+                    CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
+                else:
+                    CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
             else:
-                CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
+                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
+                if self.is_motor_active(pd, motor):
+                    CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
+                else:
+                    CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
 
     def _make_state_button(
         self,

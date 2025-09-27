@@ -334,17 +334,14 @@ class Amc2Req(LcsReq):
     def update_config(self, req: Amc2Req) -> None:
         if req and not req.is_config:
             if req.action in {Amc2Action.MOTOR, Amc2Action.MOTOR_CONFIG}:
-                print(req)
                 if 0 <= (req.motor - 1) < len(self._motors):
                     motor = self._motors[req.motor - 1]
-                    print(f"Motor {req.motor}: {motor}")
                     if req.action == Amc2Action.MOTOR:
                         motor.speed = req.speed
                         motor.direction = req.direction
                     elif req.action == Amc2Action.MOTOR_CONFIG:
                         motor.output_type = req.output_type
                         motor.restore = req.restore
-                    print(f"Motor {req.motor} updated to {motor.speed} {motor}")
             elif req.action == Amc2Action.LAMP:
                 if 0 <= (req.lamp - 1) < len(self._lamps):
                     lamp = self._lamps[req.lamp - 1]
