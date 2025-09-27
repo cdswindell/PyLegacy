@@ -673,7 +673,7 @@ class MotorsGui(StateBasedGui):
         m1_ctl.value = pd.motor1.speed
         m1_ctl.motor = 1
         m1_ctl.bg = self._enabled_bg if pd.motor1.state else "lightgrey"
-        m1_db = DebouncedSlider(self, pd.tmcc_id, 1, self.app, 350)
+        m1_db = DebouncedSlider(self, pd.tmcc_id, 1)
         m1_ctl.update_command(m1_db.on_change)
         widgets.append(m1_ctl)
 
@@ -854,12 +854,12 @@ class ComponentStateGui(Thread):
 
 
 class DebouncedSlider:
-    def __init__(self, gui: MotorsGui, tmcc_id: int, motor: int, app: App, delay_ms=300):
+    def __init__(self, gui: MotorsGui, tmcc_id: int, motor: int, delay_ms=500):
         self._gui = gui
         self._tmcc_id = tmcc_id
         self._motor = motor
-        self._app = app
-        self._tk = app.tk
+        self._app = gui.app
+        self._tk = gui.app.tk
         self._after_id = None
         self._delay = delay_ms
         self._last_value = None
