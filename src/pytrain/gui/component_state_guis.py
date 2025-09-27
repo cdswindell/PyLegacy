@@ -682,7 +682,7 @@ class MotorsGui(StateBasedGui):
         m1_ctl.value = pd.motor1.speed
         m1_ctl.motor = 1
         m1_ctl.bg = self._enabled_bg if pd.motor1.state else "lightgrey"
-        m1_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 1, value))
+        # m1_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 1, value))
         widgets.append(m1_ctl)
 
         # make motor 2 on/off button
