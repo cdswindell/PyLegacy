@@ -343,6 +343,7 @@ class Amc2Req(LcsReq):
                     elif req.action == Amc2Action.MOTOR_CONFIG:
                         motor.output_type = req.output_type
                         motor.restore = req.restore
+                    print(f"Motor {req.motor} updated to {motor.speed} {motor}")
             elif req.action == Amc2Action.LAMP:
                 if 0 <= req.lamp - 1 < len(self._lamps):
                     lamp = self._lamps[req.lamp]
