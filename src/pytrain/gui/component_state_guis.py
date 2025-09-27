@@ -677,13 +677,13 @@ class MotorsGui(StateBasedGui):
             grid=[col, row + 1],
             height=slider_height,
             width=self.pd_button_width,
-            command=self.on_slider,
             step=5,
         )
         m1_ctl.value = pd.motor1.speed
         m1_ctl.motor = 1
         m1_ctl.bg = self._enabled_bg if pd.motor1.state else "lightgrey"
-        # m1_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 1, value))
+        m1_db = DebouncedSlider(self, pd.tmcc_id, 1, m1_ctl, 250)
+        m1_ctl.update_command(m1_db.on_change)
         widgets.append(m1_ctl)
 
         # make motor 2 on/off button
@@ -860,6 +860,35 @@ class ComponentStateGui(Thread):
     @property
     def guis(self) -> list[str]:
         return list(self._guis.keys())
+
+
+class DebouncedSlider:
+    def __init__(self, gui: MotorsGui, tmcc_id: int, motor: int, slider: Slider, delay_ms=300):
+        self._gui = gui
+        self._tmcc_id = tmcc_id
+        self._motor = motor
+        self._slider = slider
+        self._after_id = None
+        self._delay = delay_ms
+        self._last_value = None
+
+    def on_change(self, value):
+        self._last_value = int(value)
+        # Cancel previously scheduled call if any
+        if self._after_id is not None:
+            self._slider.cancel(self._after_id)
+            self._after_id = None
+        # Schedule new call after user stops moving for delay_ms
+        self._after_id = self._slider.after(self._delay, self._fire)
+
+    def _fire(self):
+        self._after_id = None
+        self.commit(self._last_value)
+
+    def commit(self, value):
+        # Do the real work once sliding has paused
+        print(f"Committed value: {value}")
+        self._gui.set_state(self._tmcc_id, self._motor, value)
 
 
 class MomentaryActionHandler(Thread, Generic[S]):
