@@ -575,14 +575,12 @@ class MotorsGui(StateBasedGui):
     ) -> None:
         StateBasedGui.__init__(self, "Motors", label, width, height, aggrigator, scale_by=scale_by)
         self._making_buttons = True
-        print(f"*** Making Buttons: {self._making_buttons} {self}")
 
     def _post_process_state_buttons(self) -> None:
         self.app.after(500, self.clear_making_buttons)
 
     def clear_making_buttons(self) -> None:
         self._making_buttons = False
-        print("Setting Make Buttons False...")
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
@@ -615,7 +613,6 @@ class MotorsGui(StateBasedGui):
                     if isinstance(widget, Slider) and motor in {1, 2}:
                         motor_state = pd.get_motor(motor)
                         if widget.value != motor_state.speed if motor_state else 0:
-                            print(f"AMC2 State Changed: {motor_state}")
                             widget.value = motor_state.speed if motor_state else 0.0
                         widget.bg = self._enabled_bg if self.is_motor_active(pd, motor) else "lightgrey"
 
@@ -624,13 +621,11 @@ class MotorsGui(StateBasedGui):
         return state.is_motor_on(state.motor2 if motor == 2 else state.motor1)
 
     def set_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
-        print(f"Making Buttons: {self._making_buttons} {self}")
         if self._making_buttons:
             return
         with self._cv:
             pd: AccessoryState = self._states[tmcc_id]
-            if speed is not None:
-                print(f"*** Setting motor {motor} speed to {speed}")
+            if speed is not None and speed != pd.motor1.speed if motor == 1 else pd.motor2.speed:
                 Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=motor - 1, speed=speed).send()
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
                 if speed:
@@ -644,16 +639,12 @@ class MotorsGui(StateBasedGui):
                 else:
                     CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
 
-    def on_slider(self, value: int) -> None:
-        print(f"Slider Value: {value} {self}")
-
     def _make_state_button(
         self,
         pd: AccessoryState,
         row: int,
         col: int,
     ) -> tuple[list[Widget], int, int]:
-        print(f"+++ Making Buttons: {self._making_buttons} {self}")
         self._making_buttons = True
         ts = int(round(23 * self._scale_by))
         widgets: list[Widget] = []
@@ -682,7 +673,7 @@ class MotorsGui(StateBasedGui):
         m1_ctl.value = pd.motor1.speed
         m1_ctl.motor = 1
         m1_ctl.bg = self._enabled_bg if pd.motor1.state else "lightgrey"
-        m1_db = DebouncedSlider(self, pd.tmcc_id, 1, m1_ctl, 250)
+        m1_db = DebouncedSlider(self, pd.tmcc_id, 1, m1_ctl, 350)
         m1_ctl.update_command(m1_db.on_change)
         widgets.append(m1_ctl)
 
