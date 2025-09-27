@@ -575,6 +575,7 @@ class MotorsGui(StateBasedGui):
     ) -> None:
         StateBasedGui.__init__(self, "Motors", label, width, height, aggrigator, scale_by=scale_by)
         self._making_buttons = True
+        print(f"*** Making Buttons: {self._making_buttons} {self}")
 
     def _post_process_state_buttons(self) -> None:
         self._making_buttons = False
@@ -618,7 +619,7 @@ class MotorsGui(StateBasedGui):
         return state.is_motor_on(state.motor2 if motor == 2 else state.motor1)
 
     def set_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
-        print(f"Making Buttons: {self._making_buttons}")
+        print(f"Making Buttons: {self._making_buttons} {self}")
         if self._making_buttons:
             return
         with self._cv:
