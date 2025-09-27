@@ -573,8 +573,8 @@ class MotorsGui(StateBasedGui):
         aggrigator: ComponentStateGui = None,
         scale_by: float = 1.0,
     ) -> None:
-        self._making_buttons = True
         StateBasedGui.__init__(self, "Motors", label, width, height, aggrigator, scale_by=scale_by)
+        self._making_buttons = True
 
     def _post_process_state_buttons(self) -> None:
         self._making_buttons = False
