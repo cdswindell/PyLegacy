@@ -578,7 +578,7 @@ class MotorsGui(StateBasedGui):
         print(f"*** Making Buttons: {self._making_buttons} {self}")
 
     def _post_process_state_buttons(self) -> None:
-        self.app.after(2000, self.clear_making_buttons)
+        self.app.after(500, self.clear_making_buttons)
 
     def clear_making_buttons(self) -> None:
         self._making_buttons = False
