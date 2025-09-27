@@ -703,7 +703,7 @@ class MotorsGui(StateBasedGui):
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
-        sleep(1.0)
+        sleep(10.0)
         return widgets, btn_h, btn_y
 
 
