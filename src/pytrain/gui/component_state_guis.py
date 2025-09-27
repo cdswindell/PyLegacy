@@ -678,7 +678,7 @@ class MotorsGui(StateBasedGui):
         )
         m2_ctl.value = pd.motor2.speed
         m2_ctl.motor = 2
-        widgets.append(m1_ctl)
+        widgets.append(m2_ctl)
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
