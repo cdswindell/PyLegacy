@@ -697,7 +697,8 @@ class MotorsGui(StateBasedGui):
         m2_ctl.value = pd.motor2.speed
         m2_ctl.motor = 2
         m2_ctl.bg = self._enabled_bg if self.is_motor_active(pd, 2) else "lightgrey"
-        m2_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 2, value))
+        m2_db = DebouncedSlider(self, pd.tmcc_id, 2)
+        m2_ctl.update_command(m2_db.on_change)
         widgets.append(m2_ctl)
 
         # noinspection PyTypeChecker
