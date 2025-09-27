@@ -643,6 +643,9 @@ class MotorsGui(StateBasedGui):
                 else:
                     CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
 
+    def on_slider(self, value: int) -> None:
+        print(f"Slider Value: {value} {self}")
+
     def _make_state_button(
         self,
         pd: AccessoryState,
@@ -673,6 +676,7 @@ class MotorsGui(StateBasedGui):
             grid=[col, row + 1],
             height=slider_height,
             width=self.pd_button_width,
+            command=self.on_slider,
             step=5,
         )
         m1_ctl.value = pd.motor1.speed
