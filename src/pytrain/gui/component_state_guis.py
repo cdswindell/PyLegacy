@@ -644,6 +644,7 @@ class MotorsGui(StateBasedGui):
         row: int,
         col: int,
     ) -> tuple[list[Widget], int, int]:
+        self._making_buttons = True
         ts = int(round(23 * self._scale_by))
         widgets: list[Widget] = []
         # make title label
