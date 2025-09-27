@@ -12,7 +12,6 @@ import logging
 from abc import ABC, ABCMeta, abstractmethod
 from queue import Queue, Empty
 from threading import Condition, Event, RLock, Thread, get_ident
-from time import sleep
 from tkinter import TclError
 from typing import Callable, Generic, TypeVar, cast, Any
 
@@ -580,6 +579,7 @@ class MotorsGui(StateBasedGui):
 
     def _post_process_state_buttons(self) -> None:
         self._making_buttons = False
+        print("Setting Make Buttons False...")
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
@@ -703,7 +703,6 @@ class MotorsGui(StateBasedGui):
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
-        sleep(10.0)
         return widgets, btn_h, btn_y
 
 
