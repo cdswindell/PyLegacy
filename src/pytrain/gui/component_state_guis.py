@@ -648,6 +648,8 @@ class MotorsGui(StateBasedGui):
         m1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
         m1_pwr.text = "Motor #1"
         m1_pwr.motor = 1
+        if self.is_motor_active(pd, 1):
+            self._set_button_active(m1_pwr)
         m1_pwr.update_command(self.set_state, args=[pd.tmcc_id, 1])
         widgets.append(m1_pwr)
 
@@ -659,16 +661,19 @@ class MotorsGui(StateBasedGui):
             height=slider_height,
             width=self.pd_button_width,
             step=5,
-            command=lambda value: self.set_state(pd.tmcc_id, 1, value),
         )
         m1_ctl.value = pd.motor1.speed
         m1_ctl.motor = 1
+        m1_ctl.bg = self._enabled_bg if self.is_motor_active(pd, 1) else "lightgrey"
+        m1_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 1, value))
         widgets.append(m1_ctl)
 
         # make motor 2 on/off button
         m2_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col + 1)
         m2_pwr.text = "Motor #2"
         m2_pwr.motor = 2
+        if self.is_motor_active(pd, 2):
+            self._set_button_active(m2_pwr)
         m2_pwr.update_command(self.set_state, args=[pd.tmcc_id, 2])
         widgets.append(m2_pwr)
 
@@ -679,17 +684,16 @@ class MotorsGui(StateBasedGui):
             height=slider_height,
             width=self.pd_button_width,
             step=5,
-            command=lambda value: self.set_state(pd.tmcc_id, 2, value),
         )
         m2_ctl.value = pd.motor2.speed
         m2_ctl.motor = 2
+        m2_ctl.bg = self._enabled_bg if self.is_motor_active(pd, 2) else "lightgrey"
+        m2_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 2, value))
         widgets.append(m2_ctl)
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
         print(f"Initial State: {pd}")
-        self._states[pd.tmcc_id] = pd
-        self.update_button(pd.tmcc_id)
         return widgets, btn_h, btn_y
 
 
