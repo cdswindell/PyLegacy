@@ -611,8 +611,7 @@ class MotorsGui(StateBasedGui):
 
     @staticmethod
     def is_motor_active(state: AccessoryState, motor: int) -> bool:
-        motor = state.get_motor(motor)
-        return motor.state if motor else False
+        return state.is_motor_on(state.motor2 if motor == 2 else state.motor1)
 
     def set_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
         with self._cv:
@@ -648,7 +647,7 @@ class MotorsGui(StateBasedGui):
         m1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
         m1_pwr.text = "Motor #1"
         m1_pwr.motor = 1
-        if self.is_motor_active(pd, 1):
+        if pd.motor1.state:
             self._set_button_active(m1_pwr)
         m1_pwr.update_command(self.set_state, args=[pd.tmcc_id, 1])
         widgets.append(m1_pwr)
@@ -664,7 +663,7 @@ class MotorsGui(StateBasedGui):
         )
         m1_ctl.value = pd.motor1.speed
         m1_ctl.motor = 1
-        m1_ctl.bg = self._enabled_bg if self.is_motor_active(pd, 1) else "lightgrey"
+        m1_ctl.bg = self._enabled_bg if pd.motor1.state else "lightgrey"
         m1_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 1, value))
         widgets.append(m1_ctl)
 
