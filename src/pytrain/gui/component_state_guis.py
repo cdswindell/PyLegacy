@@ -573,8 +573,11 @@ class MotorsGui(StateBasedGui):
         aggrigator: ComponentStateGui = None,
         scale_by: float = 1.0,
     ) -> None:
-        self._making_buttons = False
+        self._making_buttons = True
         StateBasedGui.__init__(self, "Motors", label, width, height, aggrigator, scale_by=scale_by)
+
+    def _post_process_state_buttons(self) -> None:
+        self._making_buttons = False
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
@@ -615,6 +618,8 @@ class MotorsGui(StateBasedGui):
         return state.is_motor_on(state.motor2 if motor == 2 else state.motor1)
 
     def set_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
+        if self._making_buttons:
+            return
         with self._cv:
             pd: AccessoryState = self._states[tmcc_id]
             if speed is not None:
@@ -631,9 +636,6 @@ class MotorsGui(StateBasedGui):
                     CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
                 else:
                     CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
-
-    def on_slider(self, tmcc_id: int, motor: int) -> Callable:
-        return lambda value: self.set_state(tmcc_id, motor, value)
 
     def _make_state_button(
         self,
@@ -668,7 +670,7 @@ class MotorsGui(StateBasedGui):
         m1_ctl.value = pd.motor1.speed
         m1_ctl.motor = 1
         m1_ctl.bg = self._enabled_bg if pd.motor1.state else "lightgrey"
-        m1_ctl.update_command(self.on_slider(pd.tmcc_id, 1))
+        m1_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 1, value))
         widgets.append(m1_ctl)
 
         # make motor 2 on/off button
@@ -691,7 +693,7 @@ class MotorsGui(StateBasedGui):
         m2_ctl.value = pd.motor2.speed
         m2_ctl.motor = 2
         m2_ctl.bg = self._enabled_bg if self.is_motor_active(pd, 2) else "lightgrey"
-        m2_ctl.update_command(self.on_slider(pd.tmcc_id, 2))
+        m2_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 2, value))
         widgets.append(m2_ctl)
 
         # noinspection PyTypeChecker
