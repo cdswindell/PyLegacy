@@ -336,7 +336,7 @@ class Amc2Req(LcsReq):
         if req and not req.is_config:
             if req.action in {Amc2Action.MOTOR, Amc2Action.MOTOR_CONFIG}:
                 if 0 <= req.motor - 1 < len(self._motors):
-                    motor = self._motors[req.motor - 1]
+                    motor = self._motors[req.motor]
                     if req.action == Amc2Action.MOTOR:
                         motor.speed = req.speed
                         motor.direction = req.direction
@@ -345,7 +345,7 @@ class Amc2Req(LcsReq):
                         motor.restore = req.restore
             elif req.action == Amc2Action.LAMP:
                 if 0 <= req.lamp - 1 < len(self._lamps):
-                    lamp = self._lamps[req.lamp - 1]
+                    lamp = self._lamps[req.lamp]
                     lamp.level = req.level
 
 
