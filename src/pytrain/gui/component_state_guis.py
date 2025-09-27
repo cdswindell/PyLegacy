@@ -614,8 +614,9 @@ class MotorsGui(StateBasedGui):
                             self._set_button_inactive(widget)
                     if isinstance(widget, Slider) and motor in {1, 2}:
                         motor_state = pd.get_motor(motor)
-                        print(f"AMC2 State Changed: {motor_state}")
-                        widget.value = motor_state.speed if motor_state else 0.0
+                        if widget.value != motor_state.speed if motor_state else 0:
+                            print(f"AMC2 State Changed: {motor_state}")
+                            widget.value = motor_state.speed if motor_state else 0.0
                         widget.bg = self._enabled_bg if self.is_motor_active(pd, motor) else "lightgrey"
 
     @staticmethod
