@@ -664,7 +664,7 @@ class MotorsGui(StateBasedGui):
         m1_ctl.value = pd.motor1.speed
         m1_ctl.motor = 1
         m1_ctl.bg = self._enabled_bg if pd.motor1.state else "lightgrey"
-        m1_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 1, value))
+        # m1_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 1, value))
         widgets.append(m1_ctl)
 
         # make motor 2 on/off button
@@ -687,7 +687,7 @@ class MotorsGui(StateBasedGui):
         m2_ctl.value = pd.motor2.speed
         m2_ctl.motor = 2
         m2_ctl.bg = self._enabled_bg if self.is_motor_active(pd, 2) else "lightgrey"
-        m2_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 2, value))
+        # m2_ctl.update_command(lambda value: self.set_state(pd.tmcc_id, 2, value))
         widgets.append(m2_ctl)
 
         # noinspection PyTypeChecker
