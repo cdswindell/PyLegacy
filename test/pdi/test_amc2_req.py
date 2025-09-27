@@ -5,6 +5,7 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+import pytest
 
 # pytest
 
@@ -57,9 +58,11 @@ def test_get_motor_and_lamp_bounds_safe():
     # Valid IDs 1..2 for motors and 1..4 for lamps
     assert req.get_motor(1) is req.motor1
     assert req.get_motor(2) is req.motor2
-    # Out of range -> None
-    assert req.get_motor(0) is None
-    assert req.get_motor(3) is None
+    # Out of range -> exception
+    with pytest.raises(ValueError):
+        _ = req.get_motor(0)
+    with pytest.raises(ValueError):
+        _ = req.get_motor(3)
 
     assert req.get_lamp(0) is None
     assert req.get_lamp(5) is None

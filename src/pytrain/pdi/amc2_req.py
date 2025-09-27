@@ -195,11 +195,10 @@ class Amc2Req(LcsReq):
     def motor2(self) -> Amc2Motor:
         return self._motor2
 
-    def get_motor(self, motor_id: int) -> Amc2Motor | None:
+    def get_motor(self, motor_id: int) -> Amc2Motor:
         if 0 <= (motor_id - 1) < len(self._motors):
             return self._motors[motor_id - 1]
-        else:
-            return None
+        raise ValueError(f"Motor {motor_id} must be between 1 and 2")
 
     @property
     def lamp(self) -> int:
@@ -335,8 +334,10 @@ class Amc2Req(LcsReq):
     def update_config(self, req: Amc2Req) -> None:
         if req and not req.is_config:
             if req.action in {Amc2Action.MOTOR, Amc2Action.MOTOR_CONFIG}:
-                if 0 <= req.motor - 1 < len(self._motors):
-                    motor = self._motors[req.motor]
+                print(req)
+                if 0 <= (req.motor - 1) < len(self._motors):
+                    motor = self._motors[req.motor - 1]
+                    print(f"Motor {req.motor}: {motor}")
                     if req.action == Amc2Action.MOTOR:
                         motor.speed = req.speed
                         motor.direction = req.direction
@@ -345,8 +346,8 @@ class Amc2Req(LcsReq):
                         motor.restore = req.restore
                     print(f"Motor {req.motor} updated to {motor.speed} {motor}")
             elif req.action == Amc2Action.LAMP:
-                if 0 <= req.lamp - 1 < len(self._lamps):
-                    lamp = self._lamps[req.lamp]
+                if 0 <= (req.lamp - 1) < len(self._lamps):
+                    lamp = self._lamps[req.lamp - 1]
                     lamp.level = req.level
 
 
