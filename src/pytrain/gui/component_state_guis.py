@@ -687,6 +687,8 @@ class MotorsGui(StateBasedGui):
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
+        print(f"Initial State: {pd}")
+        self._states[pd.tmcc_id] = pd
         self.update_button(pd.tmcc_id)
         return widgets, btn_h, btn_y
 
