@@ -618,6 +618,7 @@ class MotorsGui(StateBasedGui):
         return state.is_motor_on(state.motor2 if motor == 2 else state.motor1)
 
     def set_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
+        print(f"Making Buttons: {self._making_buttons}")
         if self._making_buttons:
             return
         with self._cv:
