@@ -618,7 +618,7 @@ class MotorsGui(StateBasedGui):
             pd: AccessoryState = self._states[tmcc_id]
             force_activate = False
             if speed is not None:
-                Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=motor, speed=speed).send()
+                Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=motor - 1, speed=speed).send()
                 force_activate = True
 
             CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
