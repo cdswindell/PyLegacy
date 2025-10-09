@@ -681,6 +681,12 @@ class MotorsGui(StateBasedGui):
             if level is not None and level != lamp_state.level:
                 Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=level).send()
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
+            else:
+                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
+                if self.is_lamp_active(pd, lamp):
+                    Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=0).send()
+                else:
+                    Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=100).send()
 
     def _make_state_button(
         self,
@@ -752,6 +758,7 @@ class MotorsGui(StateBasedGui):
         l1_pwr.lamp = 1
         if pd.lamp1.level:
             self._set_button_active(l1_pwr)
+        l1_pwr.update_command(self.set_lamp_state, args=[pd.tmcc_id, 1])
         widgets.append(l1_pwr)
 
         slider_height = int(round(btn_h * 0.9))
@@ -768,8 +775,30 @@ class MotorsGui(StateBasedGui):
         l1_db = DebouncedSlider(self, pd.tmcc_id, 1, is_lamp=True)
         l1_ctl.update_command(l1_db.on_change)
         widgets.append(l1_ctl)
-        l1_ctl.update_command(l1_db.on_change)
-        widgets.append(l1_ctl)
+
+        # make Lamp 2 control
+        l2_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        l2_pwr.text = "Lamp #2"
+        l2_pwr.lamp = 2
+        if pd.lamp2.level:
+            self._set_button_active(l2_pwr)
+        l2_pwr.update_command(self.set_lamp_state, args=[pd.tmcc_id, 2])
+        widgets.append(l2_pwr)
+
+        slider_height = int(round(btn_h * 0.9))
+        l2_ctl = Slider(
+            self.btn_box,
+            grid=[col + 1, row + 1],
+            height=slider_height,
+            width=self.pd_button_width,
+            step=5,
+        )
+        l2_ctl.value = pd.lamp2.level
+        l2_ctl.lamp = 2
+        l2_ctl.bg = self._enabled_bg if pd.lamp2.level else "lightgrey"
+        l2_db = DebouncedSlider(self, pd.tmcc_id, 2, is_lamp=True)
+        l2_ctl.update_command(l2_db.on_change)
+        widgets.append(l2_ctl)
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
