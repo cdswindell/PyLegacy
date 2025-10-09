@@ -290,6 +290,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
             width=sort_btn_height * 2,
             align="left",
             command=self.scroll_left,
+            padx=20,
+            pady=10,
         )
         self.right_scroll_btn = PushButton(
             box,
@@ -300,6 +302,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
             width=sort_btn_height * 2,
             align="right",
             command=self.scroll_right,
+            padx=20,
+            pady=10,
         )
 
         self.app.update()
