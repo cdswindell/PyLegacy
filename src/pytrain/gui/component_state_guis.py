@@ -700,7 +700,7 @@ class MotorsGui(StateBasedGui):
         m1_ctl.value = pd.motor1.speed
         m1_ctl.motor = 1
         m1_ctl.bg = self._enabled_bg if pd.motor1.state else "lightgrey"
-        m1_db = DebouncedSlider(self, pd.tmcc_id, 1)
+        m1_db = DebouncedSlider(self, pd.tmcc_id, 1, is_motor=True)
         m1_ctl.update_command(m1_db.on_change)
         widgets.append(m1_ctl)
 
@@ -724,7 +724,7 @@ class MotorsGui(StateBasedGui):
         m2_ctl.value = pd.motor2.speed
         m2_ctl.motor = 2
         m2_ctl.bg = self._enabled_bg if self.is_motor_active(pd, 2) else "lightgrey"
-        m2_db = DebouncedSlider(self, pd.tmcc_id, 2)
+        m2_db = DebouncedSlider(self, pd.tmcc_id, 2, is_motor=True)
         m2_ctl.update_command(m2_db.on_change)
         widgets.append(m2_ctl)
 
@@ -740,7 +740,7 @@ class MotorsGui(StateBasedGui):
         slider_height = int(round(btn_h * 0.9))
         l1_ctl = Slider(
             self.btn_box,
-            grid=[col, row],
+            grid=[col, row + 1],
             height=slider_height,
             width=self.pd_button_width,
             step=5,
@@ -748,7 +748,9 @@ class MotorsGui(StateBasedGui):
         l1_ctl.value = pd.lamp1.level
         l1_ctl.lamp = 1
         l1_ctl.bg = self._enabled_bg if pd.lamp1.level else "lightgrey"
-        l1_db = DebouncedSlider(self, pd.tmcc_id, 1)
+        l1_db = DebouncedSlider(self, pd.tmcc_id, 1, is_lamp=True)
+        l1_ctl.update_command(l1_db.on_change)
+        widgets.append(l1_ctl)
         l1_ctl.update_command(l1_db.on_change)
         widgets.append(l1_ctl)
 
