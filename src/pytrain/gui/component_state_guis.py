@@ -678,15 +678,17 @@ class MotorsGui(StateBasedGui):
             pd: AccessoryState = self._states[tmcc_id]
             lamp_state = pd.get_lamp(lamp)
             print(f"Lamp {lamp} Level: {level} state: {lamp_state}")
-            if level is not None and level != lamp_state.level:
-                Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=level).send()
-                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
-            else:
+            if level is None:
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
                 if self.is_lamp_active(pd, lamp):
+                    print("Turning lamp off...")
                     Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=0).send()
                 else:
+                    print("Turning lamp on...")
                     Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=100).send()
+            elif level != lamp_state.level:
+                Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=level).send()
+                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
 
     def _make_state_button(
         self,
