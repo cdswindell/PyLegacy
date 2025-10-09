@@ -262,20 +262,26 @@ class StateBasedGui(Thread, Generic[S], ABC):
             text="By TMCC ID",
             grid=[2, 2],
             command=self.sort_by_number,
-            padx=20,
-            pady=10,
+            padx=5,
+            pady=5,
         )
+
         self.by_name = PushButton(
             box,
             text="By Name",
             grid=[3, 2],
             width=len("By TMCC ID"),
             command=self.sort_by_name,
-            padx=20,
-            pady=10,
+            padx=5,
+            pady=5,
         )
+        self.by_number.tk.grid_configure(padx=12, pady=8)
         self.by_name.text_size = self.by_number.text_size = int(round(18 * self._scale_by))
         self.by_number.text_bold = True
+
+        self.by_number.tk.grid_configure(padx=12, pady=8)
+        self.by_name.tk.grid_configure(padx=12, pady=8)
+
         _ = Text(box, text=" ", grid=[0, 3, 6, 1], size=4, height=1, bold=True)
         self.app.update()
 
