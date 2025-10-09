@@ -729,7 +729,7 @@ class MotorsGui(StateBasedGui):
         widgets.append(m2_ctl)
 
         # make Lamp 1 control
-        row += 1
+        row += 2
         l1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
         l1_pwr.text = "Lamp #1"
         l1_pwr.lamp = 1
