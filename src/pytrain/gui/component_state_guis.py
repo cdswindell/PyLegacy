@@ -262,8 +262,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
             text="By TMCC ID",
             grid=[2, 2],
             command=self.sort_by_number,
-            padx=5,
-            pady=5,
+            padx=20,
+            pady=10,
         )
         self.by_name = PushButton(
             box,
@@ -271,8 +271,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
             grid=[3, 2],
             width=len("By TMCC ID"),
             command=self.sort_by_name,
-            padx=5,
-            pady=5,
+            padx=20,
+            pady=10,
         )
         self.by_name.text_size = self.by_number.text_size = int(round(18 * self._scale_by))
         self.by_number.text_bold = True
@@ -290,8 +290,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
             width=sort_btn_height * 2,
             align="left",
             command=self.scroll_left,
-            padx=40,
-            pady=20,
         )
         self.right_scroll_btn = PushButton(
             box,
@@ -302,8 +300,6 @@ class StateBasedGui(Thread, Generic[S], ABC):
             width=sort_btn_height * 2,
             align="right",
             command=self.scroll_right,
-            padx=40,
-            pady=20,
         )
 
         self.app.update()
