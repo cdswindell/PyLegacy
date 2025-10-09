@@ -281,13 +281,13 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.by_name.text_size = self.by_number.text_size = int(round(18 * self._scale_by))
         self.by_number.text_bold = True
 
-        parent = self.by_number.tk.master
-        parent.grid_columnconfigure(self.by_number.tk.grid_info()["column"], pad=1)
-        parent.grid_columnconfigure(self.by_name.tk.grid_info()["column"], pad=20)
-        parent.grid_rowconfigure(self.by_number.tk.grid_info()["row"], pad=30)
-
         _ = Text(box, text=" ", grid=[0, 3, 6, 1], size=4, height=1, bold=True)
         self.app.update()
+
+        parent = self.by_number.tk.master
+        parent.grid_columnconfigure(self.by_number.tk.grid_info()["column"], pad=1)
+        parent.grid_columnconfigure(self.by_name.tk.grid_info()["column"], pad=1)
+        parent.grid_rowconfigure(self.by_number.tk.grid_info()["row"], pad=30)
 
         # add scroll btns
         sort_btn_height = self.by_number.tk.winfo_height()
