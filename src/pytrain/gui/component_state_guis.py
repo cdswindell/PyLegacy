@@ -78,7 +78,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._button_pad_x = 20
         self._button_pad_y = 10
         self._button_text_pad_x = 10
-        self._button_text_pad_y = 15
+        self._button_text_pad_y = 12
 
         self._enabled_bg = enabled_bg
         self._disabled_bg = disabled_bg
