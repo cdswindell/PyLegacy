@@ -582,6 +582,10 @@ class MotorsGui(StateBasedGui):
     def clear_making_buttons(self) -> None:
         self._making_buttons = False
 
+    @property
+    def is_making_buttons(self) -> bool:
+        return self._making_buttons
+
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
         accs = self._state_store.get_all(CommandScope.ACC)
@@ -866,6 +870,8 @@ class DebouncedSlider:
         self._last_value = None
 
     def on_change(self, value):
+        if self._gui.is_making_buttons:
+            return
         self._last_value = int(value)
         # Cancel previously scheduled call if any
         if self._after_id is not None:
