@@ -285,9 +285,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.app.update()
 
         parent = self.by_number.tk.master
-        parent.grid_columnconfigure(self.by_number.tk.grid_info()["column"], pad=20)
-        parent.grid_columnconfigure(self.by_name.tk.grid_info()["column"], pad=20)
-        parent.grid_rowconfigure(self.by_number.tk.grid_info()["row"], pad=1)
+        parent.grid_columnconfigure(self.by_number.tk.grid_info()["column"], pad=40)
+        parent.grid_columnconfigure(self.by_name.tk.grid_info()["column"], pad=40)
+        parent.grid_rowconfigure(self.by_number.tk.grid_info()["row"], pad=10)
 
         # add scroll btns
         sort_btn_height = self.by_number.tk.winfo_height()
