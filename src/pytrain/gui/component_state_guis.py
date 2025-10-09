@@ -636,7 +636,7 @@ class MotorsGui(StateBasedGui):
     def is_motor_active(state: AccessoryState, motor: int) -> bool:
         return state.is_motor_on(state.motor2 if motor == 2 else state.motor1)
 
-    def set_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
+    def set_motor_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
         if self._making_buttons:
             return
         with self._cv:
@@ -655,6 +655,16 @@ class MotorsGui(StateBasedGui):
                 else:
                     CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
 
+    def set_lamp_state(self, tmcc_id: int, lamp: int, level: int = None) -> None:
+        if self._making_buttons:
+            return
+        with self._cv:
+            pd: AccessoryState = self._states[tmcc_id]
+            lamp_state = pd.get_lamp(lamp)
+            if level is not None and level != lamp_state.level:
+                Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp + 1, level=level).send()
+                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 1).send()
+
     def _make_state_button(
         self,
         pd: AccessoryState,
@@ -667,6 +677,7 @@ class MotorsGui(StateBasedGui):
         # make title label
         title = Text(self.btn_box, text=f"#{pd.tmcc_id} {pd.road_name}", grid=[col, row, 2, 1], size=ts, bold=True)
         widgets.append(title)
+
         # make motor 1 on/off button
         row += 1
         m1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
@@ -674,7 +685,7 @@ class MotorsGui(StateBasedGui):
         m1_pwr.motor = 1
         if pd.motor1.state:
             self._set_button_active(m1_pwr)
-        m1_pwr.update_command(self.set_state, args=[pd.tmcc_id, 1])
+        m1_pwr.update_command(self.set_motor_state, args=[pd.tmcc_id, 1])
         widgets.append(m1_pwr)
 
         # motor 1 control
@@ -699,7 +710,7 @@ class MotorsGui(StateBasedGui):
         m2_pwr.motor = 2
         if self.is_motor_active(pd, 2):
             self._set_button_active(m2_pwr)
-        m2_pwr.update_command(self.set_state, args=[pd.tmcc_id, 2])
+        m2_pwr.update_command(self.set_motor_state, args=[pd.tmcc_id, 2])
         widgets.append(m2_pwr)
 
         # motor 2 control
@@ -716,6 +727,30 @@ class MotorsGui(StateBasedGui):
         m2_db = DebouncedSlider(self, pd.tmcc_id, 2)
         m2_ctl.update_command(m2_db.on_change)
         widgets.append(m2_ctl)
+
+        # make Lamp 1 control
+        row += 1
+        l1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        l1_pwr.text = "Lamp #1"
+        l1_pwr.lamp = 1
+        if pd.lamp1.level:
+            self._set_button_active(l1_pwr)
+        widgets.append(l1_pwr)
+
+        slider_height = int(round(btn_h * 0.9))
+        l1_ctl = Slider(
+            self.btn_box,
+            grid=[col, row],
+            height=slider_height,
+            width=self.pd_button_width,
+            step=5,
+        )
+        l1_ctl.value = pd.lamp1.level
+        l1_ctl.lamp = 1
+        l1_ctl.bg = self._enabled_bg if pd.lamp1.level else "lightgrey"
+        l1_db = DebouncedSlider(self, pd.tmcc_id, 1)
+        l1_ctl.update_command(l1_db.on_change)
+        widgets.append(l1_ctl)
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
@@ -871,10 +906,20 @@ class ComponentStateGui(Thread):
 
 
 class DebouncedSlider:
-    def __init__(self, gui: MotorsGui, tmcc_id: int, motor: int, delay_ms=500):
+    def __init__(
+        self,
+        gui: MotorsGui,
+        tmcc_id: int,
+        device: int,
+        delay_ms=500,
+        is_motor: bool = False,
+        is_lamp: bool = False,
+    ) -> None:
+        self._is_lamp = is_lamp
+        self._is_motor = is_motor
         self._gui = gui
         self._tmcc_id = tmcc_id
-        self._motor = motor
+        self._device = device
         self._app = gui.app
         self._tk = gui.app.tk
         self._after_id = None
@@ -898,7 +943,10 @@ class DebouncedSlider:
 
     def commit(self, value):
         # Do the real work once sliding has paused
-        self._gui.set_state(self._tmcc_id, self._motor, value)
+        if self._is_motor:
+            self._gui.set_motor_state(self._tmcc_id, self._device, value)
+        elif self._is_lamp:
+            self._gui.set_lamp_state(self._tmcc_id, self._device, value)
 
 
 class MomentaryActionHandler(Thread, Generic[S]):

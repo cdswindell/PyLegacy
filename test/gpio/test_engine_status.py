@@ -18,7 +18,7 @@ from src.pytrain.protocol.constants import CommandScope
 class DummyOled:
     def __init__(self, address: Optional[int], device: Any, auto_update: bool = False, scroll_rate: float = 0.03):
         self._rows = ["", "", "", ""]
-        self._cols = 21  # pick width > 20 to exercise wider formatting branch
+        self._cols = 21  # pick width > 20 to exercise a wider formatting branch
         self._updates = 0
         self._clears = 0
         self._writes = []  # records (text, row, kwargs)
@@ -125,7 +125,7 @@ def patched_engine_status(monkeypatch):
     monkeypatch.setattr(es_mod, "Oled", DummyOled, raising=True)
     monkeypatch.setattr(es_mod, "StateWatcher", DummyWatcher, raising=True)
 
-    # Prepare and patch a dummy state store
+    # Prepare and patch a stub state store
     store = DummyStateStore()
     # SYNC state: address 99
     sync_state = DummyState(is_synchronized=False)
