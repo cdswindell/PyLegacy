@@ -621,8 +621,14 @@ class MotorsGui(StateBasedGui):
             if isinstance(widgets, list):
                 for widget in widgets:
                     motor = getattr(widget, "motor", None)
+                    lamp = getattr(widget, "lamp", None)
                     if isinstance(widget, PushButton) and motor in {1, 2}:
                         if self.is_motor_active(pd, motor):
+                            self._set_button_active(widget)
+                        else:
+                            self._set_button_inactive(widget)
+                    if isinstance(widget, PushButton) and lamp in {1, 2, 3, 4}:
+                        if self.is_lamp_active(pd, lamp):
                             self._set_button_active(widget)
                         else:
                             self._set_button_inactive(widget)
@@ -631,10 +637,20 @@ class MotorsGui(StateBasedGui):
                         if widget.value != motor_state.speed if motor_state else 0:
                             widget.value = motor_state.speed if motor_state else 0.0
                         widget.bg = self._enabled_bg if self.is_motor_active(pd, motor) else "lightgrey"
+                    if isinstance(widget, Slider) and lamp in {1, 2, 3, 4}:
+                        lamp_state = pd.get_lamp(lamp)
+                        if widget.value != lamp_state.level if lamp_state else 0:
+                            widget.value = lamp_state.level if lamp_state else 0.0
+                        widget.bg = self._enabled_bg if self.is_lamp_active(pd, lamp) else "lightgrey"
 
     @staticmethod
     def is_motor_active(state: AccessoryState, motor: int) -> bool:
         return state.is_motor_on(state.motor2 if motor == 2 else state.motor1)
+
+    @staticmethod
+    def is_lamp_active(state: AccessoryState, lamp: int) -> bool:
+        lamp_state = state.get_lamp(lamp)
+        return lamp_state and lamp_state.level > 0
 
     def set_motor_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
         if self._making_buttons:
