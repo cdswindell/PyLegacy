@@ -629,7 +629,7 @@ class MotorsGui(StateBasedGui):
             return
         with self._cv:
             pd: AccessoryState = self._states[tmcc_id]
-            if speed is not None and speed != pd.motor1.speed if motor == 1 else pd.motor2.speed:
+            if speed is not None and speed != (pd.motor1.speed if motor == 1 else pd.motor2.speed):
                 Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=motor - 1, speed=speed).send()
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
                 if speed:

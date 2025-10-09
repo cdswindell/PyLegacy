@@ -158,6 +158,7 @@ class Amc2Req(LcsReq):
             self._restore = restore if restore is not None else True
             self._lamp = Validations.validate_int(lamp, 0, 3, "Lamp", True)
             self._level = Validations.validate_int(level, 0, 100, "Level", True)
+            print(self)
 
     @property
     def debug(self) -> int | None:
