@@ -666,7 +666,7 @@ class MotorsGui(StateBasedGui):
         widgets.append(m1_pwr)
 
         # motor 1 control
-        slider_height = int(round(btn_h * 0.8))
+        slider_height = int(round(btn_h))
         m1_ctl = Slider(
             self.btn_box,
             grid=[col, row + 1],
@@ -886,7 +886,6 @@ class DebouncedSlider:
 
     def commit(self, value):
         # Do the real work once sliding has paused
-        print(f"Committed value: {value}")
         self._gui.set_state(self._tmcc_id, self._motor, value)
 
 
