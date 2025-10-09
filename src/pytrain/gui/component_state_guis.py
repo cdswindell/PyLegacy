@@ -77,7 +77,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._text_size: int = 24
         self._button_pad_x = 20
         self._button_pad_y = 10
-        self._button_text_pad = 10
+        self._button_text_pad_x = 10
+        self._button_text_pad_y = 15
 
         self._enabled_bg = enabled_bg
         self._disabled_bg = disabled_bg
@@ -265,8 +266,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
             text="By TMCC ID",
             grid=[2, 2],
             command=self.sort_by_number,
-            padx=self._button_text_pad,
-            pady=self._button_text_pad,
+            padx=self._button_text_pad_x,
+            pady=self._button_text_pad_y,
         )
 
         self.by_name = PushButton(
@@ -275,8 +276,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
             grid=[3, 2],
             width=len("By TMCC ID"),
             command=self.sort_by_name,
-            padx=self._button_text_pad,
-            pady=self._button_text_pad,
+            padx=self._button_text_pad_x,
+            pady=self._button_text_pad_y,
         )
         self.by_name.text_size = self.by_number.text_size = int(round(18 * self._scale_by))
         self.by_number.text_bold = True
@@ -423,7 +424,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             command=self.switch_state,
             args=[pd],
             padx=0,
-            pady=5,
+            pady=self._button_text_pad_y,
         )
         pb.component_state = pd
         pb.text_size = int(round(15 * self._scale_by))
