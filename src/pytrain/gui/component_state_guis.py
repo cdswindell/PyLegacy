@@ -279,8 +279,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.by_number.text_bold = True
 
         parent = self.by_number.tk.master
-        parent.grid_configure(self.by_number.tk, padx=20, pady=30)
-        parent.grid_configure(self.by_name.tk, padx=20, pady=30)
+        parent.grid_columnconfigure(self.by_number.tk.grid_info()["column"], pad=20)
+        parent.grid_columnconfigure(self.by_name.tk.grid_info()["column"], pad=20)
+        parent.grid_rowconfigure(self.by_number.tk.grid_info()["row"], pad=30)
 
         _ = Text(box, text=" ", grid=[0, 3, 6, 1], size=4, height=1, bold=True)
         self.app.update()
