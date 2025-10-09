@@ -657,19 +657,19 @@ class MotorsGui(StateBasedGui):
             return
         with self._cv:
             pd: AccessoryState = self._states[tmcc_id]
-            if speed is not None and speed != (pd.motor1.speed if motor == 1 else pd.motor2.speed):
+            if speed is None:
+                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
+                if self.is_motor_active(pd, motor):
+                    CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
+                else:
+                    CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
+            elif speed != (pd.motor1.speed if motor == 1 else pd.motor2.speed):
                 Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=motor - 1, speed=speed).send()
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
                 if speed:
                     CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
                 else:
                     CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
-            else:
-                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
-                if self.is_motor_active(pd, motor):
-                    CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
-                else:
-                    CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
 
     def set_lamp_state(self, tmcc_id: int, lamp: int, level: int = None) -> None:
         if self._making_buttons:
@@ -677,15 +677,12 @@ class MotorsGui(StateBasedGui):
         with self._cv:
             pd: AccessoryState = self._states[tmcc_id]
             lamp_state = pd.get_lamp(lamp)
-            print(f"Lamp {lamp} Level: {level} state: {lamp_state}")
             if level is None:
-                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
                 if self.is_lamp_active(pd, lamp):
-                    print("Turning lamp off...")
                     Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=0).send()
                 else:
-                    print("Turning lamp on...")
                     Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=100).send()
+                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
             elif level != lamp_state.level:
                 Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=level).send()
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
