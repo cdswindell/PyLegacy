@@ -423,6 +423,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             command=self.switch_state,
             args=[pd],
             padx=0,
+            pady=5,
         )
         pb.component_state = pd
         pb.text_size = int(round(15 * self._scale_by))
@@ -676,7 +677,7 @@ class MotorsGui(StateBasedGui):
         widgets.append(m1_pwr)
 
         # motor 1 control
-        slider_height = int(round(btn_h))
+        slider_height = int(round(btn_h * 0.9))
         m1_ctl = Slider(
             self.btn_box,
             grid=[col, row + 1],
