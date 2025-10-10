@@ -57,7 +57,6 @@ jobs:
           LDSHARED: "gcc -shared -Wl,-rpath,/usr/local/lib"
           LD_LIBRARY_PATH: "/usr/local/lib:${LD_LIBRARY_PATH}"
         run: |
-          test -f /tmp/lg/lg/pyproject.toml -o -f /tmp/lg/lg/setup.py || { echo "lg package dir missing"; ls -la /tmp/lg; ls -la /tmp/lg/lg || true; exit 1; }
           python -m pip install --no-binary=lgpio "$SDIST"
       - name: Install requirements (non-3.13)
         if: matrix.python-version != '3.13'
