@@ -42,16 +42,25 @@ jobs:
           # Ensure the loader can find /usr/local/lib
           echo "/usr/local/lib" | sudo tee /etc/ld.so.conf.d/usr-local-lib.conf
           sudo ldconfig
-      - name: Force-install lgpio from source (only on 3.13)
+      - name: Install deps (only on 3.13)
         if: matrix.python-version == '3.13'
         env:
           CFLAGS: "-I/usr/local/include"
-          LDFLAGS: "-L/usr/local/lib"
+          LDFLAGS: "-L/usr/local/lib -Wl,-rpath,/usr/local/lib"
           LD_LIBRARY_PATH: "/usr/local/lib:${LD_LIBRARY_PATH}"
+          PIP_NO_BINARY: "lgpio"
         run: |
-          # Build python bindings against the installed native lib
-          git clone https://github.com/joan2937/lg /tmp/lg
-          python -m pip install --no-binary=:all: /tmp/lg/lgpio
+          python -m pip install --upgrade pip
+          python -m pip install ruff pytest
+          # build python lgpio against the native lib using rpath to /usr/local/lib
+          python -m pip install --no-binary=lgpio lgpio
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Install deps (non-3.13)
+        if: matrix.python-version != '3.13'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ruff pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Lint with ruff
         run: ruff check --output-format=github --target-version=py310
       - name: check code formatting
