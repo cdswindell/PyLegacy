@@ -62,8 +62,8 @@ jobs:
           LDSHARED: "gcc -shared -Wl,-rpath,/usr/local/lib"
           LD_LIBRARY_PATH: "/usr/local/lib:${LD_LIBRARY_PATH}"
         run: |
-          test -d /tmp/lg/pylgpio || { echo "pylgpio dir missing"; ls -la /tmp/lg; exit 1; }
-          python -m pip install --no-binary=lgpio /tmp/lg/pylgpio
+          test -f /tmp/lg/lgpio/pyproject.toml -o -f /tmp/lg/lgpio/setup.py || { echo "lgpio package dir missing"; ls -la /tmp/lg; ls -la /tmp/lg/lgpio || true; exit 1; }
+          python -m pip install --no-binary=lgpio /tmp/lg/lgpio
       - name: Install requirements (non-3.13)
         if: matrix.python-version != '3.13'
         run: |
