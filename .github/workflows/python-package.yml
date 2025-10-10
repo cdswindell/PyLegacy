@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.10", "3.11", "3.12" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
 
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +30,15 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ruff pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Build and install lgpio from source on 3.13
+        if: matrix.python-version == '3.13'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3-dev git
+          git clone https://github.com/joan2937/lg /tmp/lg
+          cd /tmp/lg/lgpio
+          python setup.py build
+          python -m pip install .
       - name: Lint with ruff
         run: ruff check --output-format=github --target-version=py310
       - name: check code formatting
