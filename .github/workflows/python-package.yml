@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.11", "3.12", "3.13" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
 
     steps:
       - uses: actions/checkout@v4
@@ -34,13 +34,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential git swig pkg-config
-          if [ -d /tmp/lg/.git ]; then
-            git -C /tmp/lg fetch --all --prune
-            git -C /tmp/lg reset --hard origin/master
-          else
-            rm -rf /tmp/lg
-            git clone https://github.com/joan2937/lg /tmp/lg
-          fi
+          rm -rf /tmp/lg
+          git clone https://github.com/joan2937/lg /tmp/lg
       - name: Build and install native lg (only on 3.13)
         if: matrix.python-version == '3.13'
         run: |
@@ -63,7 +58,7 @@ jobs:
           LD_LIBRARY_PATH: "/usr/local/lib:${LD_LIBRARY_PATH}"
         run: |
           test -f /tmp/lg/lg/pyproject.toml -o -f /tmp/lg/lg/setup.py || { echo "lg package dir missing"; ls -la /tmp/lg; ls -la /tmp/lg/lg || true; exit 1; }
-          python -m pip install --no-binary=lgpio /tmp/lg/lg
+          python -m pip install --no-binary=lgpio "$SDIST"
       - name: Install requirements (non-3.13)
         if: matrix.python-version != '3.13'
         run: |
