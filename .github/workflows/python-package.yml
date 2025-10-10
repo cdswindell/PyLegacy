@@ -30,14 +30,17 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ruff pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-      - name: Build and install lgpio from source on 3.13
+      - name: Build and install lg native lib and lgpio (only on 3.13)
         if: matrix.python-version == '3.13'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential python3-dev git
+          sudo apt-get install -y build-essential python3-dev git swig
           git clone https://github.com/joan2937/lg /tmp/lg
-          cd /tmp/lg/lgpio
-          python setup.py build
+          cd /tmp/lg
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+          cd lgpio
           python -m pip install .
       - name: Lint with ruff
         run: ruff check --output-format=github --target-version=py310
