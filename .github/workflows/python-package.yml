@@ -56,7 +56,12 @@ jobs:
           LDFLAGS: "-L/usr/local/lib -Wl,-rpath,/usr/local/lib"
           LDSHARED: "gcc -shared -Wl,-rpath,/usr/local/lib"
           LD_LIBRARY_PATH: "/usr/local/lib:${LD_LIBRARY_PATH}"
+          PIP_NO_BINARY: "lgpio"
         run: |
+          # build sdist for lgpio so we don't guess subdirs
+          make -C /tmp/lg sdist
+          SDIST=$(ls -1 /tmp/lg/dist/lgpio-*.tar.gz | head -n1)
+          test -f "$SDIST" || { echo "lgpio sdist not found"; ls -la /tmp/lg/dist || true; exit 1; }
           python -m pip install --no-binary=lgpio "$SDIST"
       - name: Install requirements (non-3.13)
         if: matrix.python-version != '3.13'
