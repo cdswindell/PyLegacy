@@ -750,54 +750,36 @@ class MotorsGui(StateBasedGui):
         m2_ctl.update_command(m2_db.on_change)
         widgets.append(m2_ctl)
 
-        # make Lamp 1 control
-        row += 2
-        l1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
-        l1_pwr.text = "Lamp #1"
-        l1_pwr.lamp = 1
-        if pd.lamp1.level:
-            self._set_button_active(l1_pwr)
-        l1_pwr.update_command(self.set_lamp_state, args=[pd.tmcc_id, 1])
-        widgets.append(l1_pwr)
+        # make Lamp controls
+        for lamp_no in range(1, 5):
+            lamp = pd.get_lamp(lamp_no)
+            if lamp_no % 2 == 1:
+                row += 2
+                lamp_col = col
+            else:
+                lamp_col = col + 1
+            pwr, btn_h, btn_y = super()._make_state_button(pd, row, lamp_col)
+            pwr.text = f"Lamp #{lamp_no}"
+            pwr.lamp = lamp_no
+            if lamp.level:
+                self._set_button_active(pwr)
+            pwr.update_command(self.set_lamp_state, args=[pd.tmcc_id, lamp_no])
+            widgets.append(pwr)
 
-        slider_height = int(round(btn_h * 0.9))
-        l1_ctl = Slider(
-            self.btn_box,
-            grid=[col, row + 1],
-            height=slider_height,
-            width=self.pd_button_width,
-            step=5,
-        )
-        l1_ctl.value = pd.lamp1.level
-        l1_ctl.lamp = 1
-        l1_ctl.bg = self._enabled_bg if pd.lamp1.level else "lightgrey"
-        l1_db = DebouncedSlider(self, pd.tmcc_id, 1, is_lamp=True)
-        l1_ctl.update_command(l1_db.on_change)
-        widgets.append(l1_ctl)
-
-        # make Lamp 2 control
-        l2_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col + 1)
-        l2_pwr.text = "Lamp #2"
-        l2_pwr.lamp = 2
-        if pd.lamp2.level:
-            self._set_button_active(l2_pwr)
-        l2_pwr.update_command(self.set_lamp_state, args=[pd.tmcc_id, 2])
-        widgets.append(l2_pwr)
-
-        slider_height = int(round(btn_h * 0.9))
-        l2_ctl = Slider(
-            self.btn_box,
-            grid=[col + 1, row + 1],
-            height=slider_height,
-            width=self.pd_button_width,
-            step=5,
-        )
-        l2_ctl.value = pd.lamp2.level
-        l2_ctl.lamp = 2
-        l2_ctl.bg = self._enabled_bg if pd.lamp2.level else "lightgrey"
-        l2_db = DebouncedSlider(self, pd.tmcc_id, 2, is_lamp=True)
-        l2_ctl.update_command(l2_db.on_change)
-        widgets.append(l2_ctl)
+            slider_height = int(round(btn_h * 0.9))
+            ctl = Slider(
+                self.btn_box,
+                grid=[lamp_col, row + 1],
+                height=slider_height,
+                width=self.pd_button_width,
+                step=5,
+            )
+            ctl.value = lamp.level
+            ctl.lamp = lamp_no
+            ctl.bg = self._enabled_bg if lamp.level else "lightgrey"
+            dbs = DebouncedSlider(self, pd.tmcc_id, lamp_no, is_lamp=True)
+            ctl.update_command(dbs.on_change)
+            widgets.append(ctl)
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
