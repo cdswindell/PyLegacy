@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from collections import deque
 from threading import Condition, Event
@@ -10,6 +11,8 @@ from gpiozero.threads import GPIOThread
 from smbus2 import SMBus
 
 from .gpio_handler import GpioHandler
+
+log = logging.getLogger(__name__)
 
 DEFAULT_4X4_KEYS = (
     ("1", "2", "3", "A"),
@@ -322,15 +325,21 @@ class KeyPadI2C:
         Reads the state of the matrix keypad. If a key is being pressed, return it
         once released. If no key is being pressed, return None.
         """
-        for r, row_pin in enumerate(self._row_pins):
-            bus.write_byte(self._i2c_address, 0xFF & ~(1 << row_pin))
-            time.sleep(0.001)
-            for c, col_pin in enumerate(self._col_pins):
-                if bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
-                    while bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
-                        time.sleep(0.05)
-                    return self._keys[r][c]
-        time.sleep(0.05)
+        ri = rpi = None
+        try:
+            for r, row_pin in enumerate(self._row_pins):
+                ri = r
+                rpi = row_pin
+                bus.write_byte(self._i2c_address, 0xFF & ~(1 << row_pin))
+                time.sleep(0.001)
+                for c, col_pin in enumerate(self._col_pins):
+                    if bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
+                        while bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
+                            time.sleep(0.05)
+                        return self._keys[r][c]
+            time.sleep(0.05)
+        except OSError as e:
+            log.exception(f"r: {ri} row_pin: {rpi} ({0xFF & ~(1 << rpi)}) Error reading keypad: {e}", exc_info=e)
         return None
 
 
