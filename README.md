@@ -1,4 +1,4 @@
-This project contains software to operate and control trains and other equipment that utilize
+This project contains software to operate and control trains and other equipment that uses
 Lionel's [TMCC and Legacy serial command protocol](https://ogrforum.com/fileSendAction/fcType/0/fcOid/156701992259624343/filePointer/156701992265497355/fodoid/156701992265497351/LCS-LEGACY-Protocol-Spec-v1.21.pdf).
 Most Lionel engines produced after 2000 support either TMCC or Legacy, and all engines produced after 2010 do.
 Additionally, Lionel makes track switches, operating accessories, as well as LCS modules that control your
@@ -34,10 +34,11 @@ Minimum requirements to use **PyTrain** are:
 
 * A Lionel Base 3 running the most current Lionel firmware
 * One or more Raspberry Pi 4 or 5 Wi-Fi-equipped computers with at least 2 GB of RAM running
-  Raspberry PI OS 64-bit Bookworm
+  Raspberry PI OS 64-bit Bookworm or Trixie (released October 2025)
 * A Mac or Windows computer to set up the Raspberry Pi(s)
 * All hardware connected to the same Wi-Fi network
-* Python 3.11 - 3.13 installed (Python 3.11 is standard with the Bookworm release of Raspberry Pi OS; Python 3.13 is standard with the new
+* Python 3.11 – 3.13 installed (Python 3.11 is standard with the Bookworm release of Raspberry Pi OS; Python 3.13 is
+  standard with the new
   Trixie release.)
 * Internet access (to download software)
 
@@ -55,7 +56,7 @@ Notes:
 
 #### Create a Python Virtual Environment
 
-**PyTrain** is a pure Python application designed to run under Python 3.10, 3.11, and 3.12.
+**PyTrain** is a pure Python application written to run under 3.11, 3.12, and 3.13.
 To prevent conflicts between Python applications that use different versions of common support
 libraries, most platforms (macOS and Raspberry) require new python packages to be installed into
 [virtual environments](https://developer.vonage.com/en/blog/a-comprehensive-guide-on-working-with-python-virtual-environments#using-venv).
@@ -100,7 +101,7 @@ PyTrain Service registered successfully!
 
 ### Raspberry Pi Configuration
 
-Out of the box, as Raspberry Pi 4/5 supports **PyTrain** and can be installed and run as
+Out of the box, the Raspberry Pi 4 and 5 support **PyTrain**, which can be installed and run as
 detailed above. However, the Pi and its OS were developed to be low-cost, general purpose computers
 capable of sending and receiving email, running web browsers, playing games, driving printers, etc.
 Disabling and removing the unneeded software means there will be more of your Pi available for **PyTrain**.
@@ -109,7 +110,7 @@ Disabling and removing the unneeded software means there will be more of your Pi
 not needed to support **PyTrain**.It also can configure the hardware interfaces appropriately. Your
 Pi will boot faster and use less memory if you remove all the suggested software. If you change
 your mind, deleted packages can be reinstalled at any time.
-**PiConfig** is installed alongside of **PyTrain**.
+**PiConfig** is installed alongside **PyTrain**.
 
 To run PiConfig:
 
@@ -124,17 +125,22 @@ source ./bin/activate
 
 ```aiignore
 (PyTrain) davids@PiZ2w:~/dev/PyTrain $ piconfig -h
-usage: piconfig [-h] [-quiet] [-all] [-check] [-configuration] [-expand_file_system] [-packages] [-services] [-version]
+usage: piconfig.py [-h] [-check | -all | -configuration | -packages | -services] [-expand_file_system] [-enable_spi] [-quiet] [-version]
 
-options:
+Optimize Raspberry Pi for use with PyTrain
+
+Options:
   -h, --help           show this help message and exit
-  -quiet               Operate quietly and don't provide feedback
-  -all                 Perform all optimizations
   -check               Check Raspberry Pi configuration (no changes made; default option)
-  -configuration       Enable/disable Raspberry Pi configuration options
+  -all                 Perform all optimizations
+  -configuration       Optimize Raspberry Pi configuration options
+  -packages            Optimize packages
+  -services            Optimize services
+
+Miscellaneous options:
   -expand_file_system  Expand file system and reboot
-  -packages            Only remove unneeded packages
-  -services            Only disable unneeded services
+  -enable_spi          Enable the SPI interface (and don't try to disable it)
+  -quiet               Operate quietly and don't provide feedback
   -version             Show version and exit
 (PyTrain) davids@PiZ2w:~/dev/PyTrain $ 
 ```
@@ -163,7 +169,7 @@ sudo reboot
 ### Running **PyTrain**
 
 **PyTrain** is the heart of the system. In addition to allowing you to control layout from
-it's command-line interface, **PyTrain**:
+its command-line interface, **PyTrain**:
 
 * allows you to map physical button presses to Lionel TMCC commands, allowing you to build
   simple to sophisticated control panels to run your layout
@@ -223,7 +229,7 @@ If you also have an LCS Ser2 connected to a USB port on your Pi:
 pytrain -base 192.168.1.124 -ser2
 ```
 
-In this configuration, **PyTrain** will send all commands directly to the Base 3, but will monitor
+In this configuration, **PyTrain** will send all commands directly to the Base 3 but will monitor
 the Ser2 for all TMCC command activity. This is important because currently, with Base 3 firmware
 v1.32, the Base 3 broadcasts a limited subset of the TMCC command activity, whereas all activity is
 reflected out of the LCS Ser2.
@@ -298,7 +304,7 @@ pip install -U pytrain-ogr
 
 The PyLegacy project is intended for:
 
-* Model railroad enthusiasts wanting to add
+* Model railroad enthusiasts that want to add
   physical control panels to run their layout, including:
     * operating accessories
     * switches (turnouts)
@@ -306,17 +312,18 @@ The PyLegacy project is intended for:
     * routes
     * layout segments (e.g., yards, stations)
     * engines, trains, and operating cars equipped with TMCC or Legacy technology
-    * control and recieve information from Lionel LCS Sensor Tracks
-    * LCS devices, including the ASC2, STM2, and BPC2
+    * control and receive information from Lionel LCS Sensor Tracks
+        * LCS devices, including the ASC2, STM2, and BPC2
 * Developers interested in:
     * automated train control
-    * adding elements of randomness into their layouts (lights on & off, sounding horn or bell effects, etc.)
-    * building sequence commands that start up, ramp an engine to speed, then stop and shut down an engine
-    * integration with smart speakers and intelligent assistants (e.g., Alexa, Ok Google)
-    * console control of a layout via [ssh](https://www.raspberrypi.com/documentation/computers/remote-access.html#ssh)
-    * integrating model railroading and computer science
-    * learning the Lionel TMCC/Legacy command protocol
-    * continuing to develop software post retirement :smirk:
+    * adding elements of randomness into their layouts (lights on and off, sounding horn or bell effects, etc.)
+        * building sequence commands that start up, ramp an engine to speed, then stop and shut down an engine
+        * integration with smart speakers and intelligent assistants (e.g., Alexa, Ok Google)
+        * console control of a layout
+          via [ssh](https://www.raspberrypi.com/documentation/computers/remote-access.html#ssh)
+        * integrating model railroading and computer science
+        * learning the Lionel TMCC/Legacy command protocol
+    * continuing to develop software post-retirement :smirk:
 
 ### Model Railroad Enthusiasts
 
@@ -336,7 +343,7 @@ buttons, switches, LEDs, etc., to a Pi that you mount within your panel. The Ras
 your layout via Wi-Fi to a Lionel Base 3 or LCS Wi-Fi module. The only wire you need to connect to your panel
 is power for the Pi itself!
 
-What if you want multiple control panels situated near the layout elements you want to control? Simple!
+What if you want multiple control panels, each placed near the layout elements you want to control?
 Use multiple Raspberry Pis, mounting one in each control panel. The Pis communicate directly to a Base
 3 (or LCS Wi-Fi module), or, you designate one of your Pi's as a _**server**_. This Pi will handle all
 communication to and from your layout, and all the Pis that service your other panels, the _clients_,
@@ -349,7 +356,7 @@ physical buttons, LEDs, etc. connect to. **PyTrain** does the rest.
 
 Let's say you want to control Lionel Turnout 12 (TMCC ID is 12).
 The turnout can be a TMCC Command Controlled model or one that is wired to an LCS ASC2.
-In this example, our panel would consist of a momentary (on)-off-(on) toggle switch and 2 bi-color red/green
+In this example, our panel would consist of a momentary (on)-off-(on) toggle switch and two bi-color red/green
 LEDs. The LEDs show the active path a train would take when traversing the turnout from right to left. In the
 panel below, the _through_ position is set, so the _through_ LED is green, and the _out_ LED is red. If we pull
 down and release the toggle switch, the turnout changes to the _out_ position, and its LED lights green,
@@ -380,7 +387,7 @@ project, which is used by **PyTrain**:
 To control and show the state of our turnout, we connect the center terminal of the toggle switch and
 the common cathode lead of our Bi-Color LEDs to a GND pin on the Pi (any will do). We next pick
 the pins we will connect the other two terminals of the toggle (up for _through_ and down for _out_), and
-the 4 leads of the 2 LEDs. We can use any of the pins colored green above, as well as GPIO pins 7, 8, 9, 10, 11,
+the four leads of the two LEDs. We can use any of the pins colored green above, as well as GPIO pins 7, 8, 9, 10, 11,
 14, and 15. Pins GPIO 2 and GPIO 3 are reserved to communicate with expander boards that provide
 additional GPIO pins, as are pins ID SD and ID SC.
 
@@ -419,7 +426,7 @@ sends the TMCC command to your Base 3 or LCS Wi-Fi to set the turnout to the _ou
 also turns off the power to pin 9 and turns on the power to pin 10, causing the red element in
 the "through" led to illuminate, and the green element in the _out_ led to illuminate. The **PyTrain**
 software supports _**all**_ TMCC and Legacy commands, including almost all the
-functionality available on the Cab 2 and Cab 3 controllers, including control of engine smoke, lights,
+functionality available on the Cab 2 and Cab 3 controllers. This includes engine smoke, lights,
 engine sounds, speed, momentum, volume, dialog, whistle and bell sounds, and much more.
 It can also fire routes, control momentary and on/off accessories, rotate gantry cranes, etc.
 
@@ -536,7 +543,7 @@ sudo apt-get install swig
 
 **Note**: some or all of this software may already be installed on your pi
 
-### Installation and one time setup
+### Installation and one-time setup
 
 ```
 cd /where/you/like/your/source

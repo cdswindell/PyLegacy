@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from threading import RLock, Thread
 from time import sleep
-from typing import List
+from typing import List, cast
 
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
@@ -426,6 +426,8 @@ class Controller(Thread, GpioDevice):
         self.update_display()
 
     def update_engine(self, engine_id: str | int | None):
+        from ..db.engine_state import EngineState
+
         if engine_id:
             tmcc_id = int(engine_id)
             # allow use of road numbers; unless an engine supports 4-digit addressing,
@@ -443,7 +445,7 @@ class Controller(Thread, GpioDevice):
                 self._tmcc_id = tmcc_id
                 if self._status:
                     self._status.update_engine(self._tmcc_id, self._scope)
-                self._last_known_speed = self._state.speed if self._state else None
+                self._last_known_speed = cast(EngineState, self._state).speed if self._state else None
                 if self._engine_controller:
                     self._engine_controller.update(tmcc_id, self._scope, self._state)
             else:
