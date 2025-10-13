@@ -36,6 +36,7 @@ dependencies = [
     "pyserial >= 3.5",
     "range-key-dict >= 1.1",
     "requests >= 2.32.5",
+    "rpi-lgpio >= 0.6; platform_system == 'Linux'",
     "setuptools >= 80.9.0",
     "setuptools_scm >= 9.2.0",
     "smbus2 >= 0.5.0",

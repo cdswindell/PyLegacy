@@ -19,6 +19,9 @@ P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, i
 R = TypeVar("R", bound=CommandReq)
 
 
+#
+# requires rpi-lgpio
+#
 class EngineController(Generic[R]):
     def __init__(
         self,

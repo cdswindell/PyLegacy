@@ -23,6 +23,9 @@ FWD = "\u00bb"
 BELL = "\u266b"
 
 
+#
+# requires rpi-lgpio
+#
 class EngineStatus(Thread, GpioDevice):
     def __init__(
         self,

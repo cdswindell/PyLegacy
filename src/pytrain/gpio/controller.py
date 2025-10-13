@@ -34,6 +34,9 @@ COMMANDS_OF_INTEREST = {
 }
 
 
+#
+# requires rpi-lgpio
+#
 class Controller(Thread, GpioDevice):
     @classmethod
     def build(

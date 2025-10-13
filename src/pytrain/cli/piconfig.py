@@ -56,6 +56,7 @@ SERVICES = [
 PACKAGES = [
     "squeekboard",  # must be removed before labwc...
     "bluez",
+    "chromium",
     "colord",
     "cups",
     "cups-browsed",
