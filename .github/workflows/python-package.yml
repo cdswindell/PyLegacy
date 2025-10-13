@@ -25,6 +25,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Lint with ruff
+        run: ruff check --output-format=github --target-version=py310
+      - name: check code formatting
+        run: ruff format --diff --target-version=py310
       - name: Prepare lgpio sources (only on 3.13)
         if: matrix.python-version == '3.13'
         run: |
@@ -40,9 +44,5 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ruff pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-      - name: Lint with ruff
-        run: ruff check --output-format=github --target-version=py310
-      - name: check code formatting
-        run: ruff format --diff --target-version=py310
       - name: Test with pytest
         run: pytest
