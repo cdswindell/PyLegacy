@@ -29,7 +29,7 @@ jobs:
         run: ruff check --output-format=github --target-version=py310
       - name: check code formatting
         run: ruff format --diff --target-version=py310
-      - name: Prepare lgpio sources (only on 3.13)
+      - name: Build lgpio from sources (only on 3.13)
         if: matrix.python-version == '3.13'
         run: |
           sudo apt-get update
