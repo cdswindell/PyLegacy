@@ -37,7 +37,8 @@ Minimum requirements to use **PyTrain** are:
   Raspberry PI OS 64-bit Bookworm
 * A Mac or Windows computer to set up the Raspberry Pi(s)
 * All hardware connected to the same Wi-Fi network
-* Python 3.10 - 3.12 installed (Python 3.11 is standard with the Bookworm release of Raspberry Pi OS)
+* Python 3.11 - 3.13 installed (Python 3.11 is standard with the Bookworm release of Raspberry Pi OS; Python 3.13 is standard with the new
+  Trixie release.)
 * Internet access (to download software)
 
 Notes:
