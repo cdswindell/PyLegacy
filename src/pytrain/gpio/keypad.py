@@ -275,6 +275,8 @@ class KeyPadI2C:
         # Interrupt-driven vs polling mode
         self._int_button = None
         if interrupt_pin is not None:
+            with SMBus(1) as bus:
+                bus.write_byte(self._i2c_address, 0x0)
             # Configure INT pin as active-low button; let gpiozero debounce the INT line
             self._int_button = GpioHandler.make_button(interrupt_pin)
             self._int_button.when_pressed = self._on_interrupt  # pressed == INT low
