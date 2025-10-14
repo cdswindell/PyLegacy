@@ -247,7 +247,7 @@ class KeyPadI2C:
         eol_key: str = "#",
         swap_key: str = "*",
         key_queue: KeyQueue = None,
-        interrupt_pin: int = 12,
+        interrupt_pin: int = None,
     ):
         self._i2c_address = i2c_address
         self._row_pins = row_pins
@@ -352,35 +352,20 @@ class KeyPadI2C:
         once released. If no key is being pressed, return None.
         """
         try:
-            self._key_released_event.clear()
-
-            # Start from all-highs: rows idle high, columns high (inputs with external pull-ups)
-            ALL_HIGH = 0xFF
-
             for r, row_pin in enumerate(self._row_pins):
-                # Build a byte that keeps all columns high (1) and drives only this row low (0)
-                row_mask = 0xFF ^ (1 << row_pin)  # all ones except selected row bit = 0
-                bus.write_byte(self._i2c_address, row_mask)
-                time.sleep(0.002)  # allow bus/IO to settle
-
+                bus.write_byte(self._i2c_address, 0xFF & ~(1 << row_pin))
+                # wait for i2c bus to settle
+                time.sleep(0.002)
                 read_byte = bus.read_byte(self._i2c_address) & 0xFF
-
                 for c, col_pin in enumerate(self._col_pins):
-                    if (read_byte & (1 << col_pin)) == 0:
-                        # Key at (r,c) is pressed; wait for release
-                        while (bus.read_byte(self._i2c_address) & (1 << col_pin)) == 0:
+                    if read_byte & (1 << col_pin) == 0:
+                        # don't return keypress until released
+                        while bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
                             self._key_released_event.wait(0.05)
-                        # Restore all-highs before returning
-                        bus.write_byte(self._i2c_address, ALL_HIGH)
                         return self._keys[r][c]
-
-                # Restore all-highs between row scans (helps some wiring setups)
-                bus.write_byte(self._i2c_address, ALL_HIGH)
-                time.sleep(0.001)
-
         except OSError as e:
             if e.errno == 121:
-                pass  # transient I2C error
+                pass  # artifact of sharing 3.3v between I2C and GPIO
             else:
                 log.exception(f"Error reading keypad: {e}", exc_info=e)
         return None
@@ -394,7 +379,7 @@ class KeyPadI2C:
         try:
             with SMBus(1) as bus:
                 # Clear INT by reading once, then perform scan
-                _ = bus.read_byte(self._i2c_address)
+                # _ = bus.read_byte(self._i2c_address)
                 print(f"Key: {self.get_keypress(bus)}")
                 # read_keypad waits for release internally; no loop needed here
         except Exception as e:
