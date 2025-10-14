@@ -375,10 +375,28 @@ class KeyPadI2C:
             return
         try:
             with SMBus(1) as bus:
-                state = bus.read_byte(self._i2c_address) & 0xFF  # read inputs
-                # active-low example: bits that are 0 are active
-                active_pins = [pin for pin in range(8) if (state & (1 << pin)) == 0]
-                print(f"Raw: 0b{state:08b}, active-low pins: {active_pins}")
+                # 1) Read once to acknowledge/reflect state and allow INT to release
+                _ = bus.read_byte(self._i2c_address) & 0xFF
+
+                # 2) Perform a quick row scan to identify the key
+                key = self.get_keypress(bus)
+                print(f"Key: {key}")
+
+                # 3) Optional: wait for release so we don't retrigger too fast.
+                #    We do a lightweight read loop; INT will assert again on release,
+                #    but this ensures our handler doesn't double-fire on a single press.
+                if key is not None:
+                    # Drive all high (idle) so columns float high via quasi-bidirectional pull-ups
+                    bus.write_byte(self._i2c_address, 0xFF)
+                    # Wait until all columns read high again (released)
+                    release_deadline = time.time() + 1.0  # simple safety timeout
+                    while time.time() < release_deadline:
+                        state = bus.read_byte(self._i2c_address) & 0xFF
+                        # If any column remains low, key still held
+                        if any((state & (1 << c)) == 0 for c in self._col_pins):
+                            time.sleep(0.02)
+                            continue
+                        break
         except Exception as e:
             log.exception("Error handling keypad interrupt", exc_info=e)
 
