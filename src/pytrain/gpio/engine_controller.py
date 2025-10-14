@@ -527,7 +527,7 @@ class EngineController(Generic[R]):
         self._scope = scope
         self._tmcc_id = tmcc_id
         self._state = cur_state = state
-        log.info(f"EngineController.update: scope={scope}, tmcc_id={tmcc_id}, state={state}")
+        log.debug(f"EngineController.update: scope={scope}, tmcc_id={tmcc_id}, state={state}")
         if cur_state is None or cur_state.control_type is None:
             self._control_type = ControlType.LEGACY
         else:
