@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import deque
-from threading import Condition, Event, RLock, Thread
+from threading import Condition, Event, RLock
 from typing import List, Callable
 
 from gpiozero import Button, CompositeDevice, GPIOPinMissing, DigitalOutputDevice, event, EventsMixin
@@ -247,7 +247,7 @@ class KeyPadI2C:
         eol_key: str = "#",
         swap_key: str = "*",
         key_queue: KeyQueue = None,
-        interrupt_pin: int = 12,
+        interrupt_pin: int = None,
     ):
         self._i2c_address = i2c_address
         self._row_pins = row_pins
@@ -272,30 +272,12 @@ class KeyPadI2C:
 
         self._keypress_handler = self._key_queue.keypress_handler()
 
-        # track optional interrupt vs. polling resources
-        self._scan_thread = None
-        self._interrupt_btn = None
-        self._interrupt_worker = None
-
-        if interrupt_pin:
-            # PCF8574 INT is open-drain, active-low; treat as a Button input
-            self._interrupt_btn = GpioHandler.make_button(interrupt_pin)
-            # reduce bounce time to catch rapid transitions reliably
-            try:
-                self._interrupt_btn.bounce_time = 0.002
-            except AttributeError:
-                pass
-            # lightweight worker to do the I2C read outside the gpio callback
-            self._interrupt_worker = _InterruptWorker(self._handle_interrupt_read)
-            # fire on falling edge (active-low); gpiozero Button uses when_pressed for active transition
-            self._interrupt_btn.when_pressed = self._interrupt_worker.pulse
-        else:
-            # create the background thread to continually scan the matrix
-            self._scan_thread = GPIOThread(self._scan_keyboard)
-            self._scan_thread.daemon = True
-            self._is_running = True
-            self._scan_thread.start()
-            GpioHandler.cache_handler(self._scan_thread)
+        # create the background thread to continually scan the matrix
+        self._scan_thread = GPIOThread(self._scan_keyboard)
+        self._scan_thread.daemon = True
+        self._is_running = True
+        self._scan_thread.start()
+        GpioHandler.cache_handler(self._scan_thread)
 
     def reset(self) -> None:
         self.close()
@@ -304,18 +286,8 @@ class KeyPadI2C:
         self._is_running = False
         if self._key_queue:
             self._key_queue.reset()
-        # remove callback to avoid errors from interrupt after close
         if self._scan_thread:
             self._scan_thread.stop()
-        if self._interrupt_btn:
-            try:
-                # detach callback first to prevent new pulses during teardown
-                self._interrupt_btn.when_pressed = None
-            except AttributeError:
-                pass
-            self._interrupt_btn.close()
-        if self._interrupt_worker:
-            self._interrupt_worker.close()
 
     @property
     def keypress(self) -> str | None:
@@ -358,29 +330,6 @@ class KeyPadI2C:
             print(f"Key pressed: {key}")
         return key
 
-    def _handle_interrupt_read(self) -> None:
-        """
-        Service routine for INT pin notifications: perform a single keypad read.
-        """
-        if not self._is_running:
-            return
-        try:
-            with SMBus(1) as bus:
-                # drain any pending INT bursts by coalescing within a short window
-                start = time.time()
-                key = None
-                while True:
-                    k = self.get_keypress(bus)
-                    key = k or key
-                    # PCF8574 INT remains low while any input is active; give a few ms to settle
-                    if time.time() - start > 0.01:
-                        break
-                    time.sleep(0.002)
-        except OSError as e:
-            log.exception("Interrupt read failed (I2C error)", exc_info=e)
-        except RuntimeError as e:
-            log.exception("Interrupt read failed (runtime error)", exc_info=e)
-
     def read_keypad(self, bus: SMBus = None):
         if bus is None:
             bus = SMBus(1)
@@ -391,67 +340,22 @@ class KeyPadI2C:
         try:
             self._key_released_event.clear()
             for r, row_pin in enumerate(self._row_pins):
-                # drive a single row low, others high via PCF8574
                 bus.write_byte(self._i2c_address, 0xFF & ~(1 << row_pin))
-                # let lines settle
-                time.sleep(0.001)
+                # wait for i2c bus to settle
+                time.sleep(0.002)
                 read_byte = bus.read_byte(self._i2c_address) & 0xFF
                 for c, col_pin in enumerate(self._col_pins):
-                    if (read_byte & (1 << col_pin)) == 0:
-                        # wait for release but avoid busy loop; also timeout to prevent hangs
-                        start = time.time()
-                        while True:
-                            if (bus.read_byte(self._i2c_address) & (1 << col_pin)) != 0:
-                                break
-                            if time.time() - start > 0.5:
-                                break
-                            self._key_released_event.wait(0.02)
+                    if read_byte & (1 << col_pin) == 0:
+                        # don't return keypress until released
+                        while bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
+                            self._key_released_event.wait(0.05)
                         return self._keys[r][c]
         except OSError as e:
-            if getattr(e, "errno", None) == 121:
-                # I2C arbitration/slave NACK; ignore transient glitch
-                return None
-            log.exception("Error reading keypad", exc_info=e)
+            if e.errno == 121:
+                pass  # artifact of sharing 3.3v between I2C and GPIO
+            else:
+                log.exception(f"Error reading keypad: {e}", exc_info=e)
         return None
-
-
-class _InterruptWorker:
-    """
-    Coalesces rapid INT pulses and runs a handler once per burst.
-    """
-
-    def __init__(self, handler: Callable[[], None], debounce_ms: int = 20):
-        self._handler = handler
-        self._pending = Event()
-        self._stop = Event()
-        self._debounce = debounce_ms / 1000.0
-        self._thread = Thread(target=self._run, name="KeypadINTWorker", daemon=True)
-        self._thread.start()
-
-    def pulse(self):
-        self._pending.set()
-
-    def close(self):
-        self._stop.set()
-        self._pending.set()
-        if self._thread.is_alive():
-            self._thread.join(timeout=0.5)
-
-    def _run(self):
-        while not self._stop.is_set():
-            self._pending.wait(1.0)
-            if self._stop.is_set():
-                break
-            if self._pending.is_set():
-                # debounce/coalesce rapid INT pulses
-                time.sleep(self._debounce)
-                self._pending.clear()
-                try:
-                    self._handler()
-                except OSError as e:
-                    log.exception("Interrupt worker handler failed (I2C error)", exc_info=e)
-                except RuntimeError as e:
-                    log.exception("Interrupt worker handler failed (runtime error)", exc_info=e)
 
 
 class KeyQueue:
