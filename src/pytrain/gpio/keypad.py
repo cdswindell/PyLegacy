@@ -336,7 +336,10 @@ class KeyPadI2C:
                         return self._keys[r][c]
             time.sleep(0.05)
         except OSError as e:
-            log.exception(f"Error reading keypad: {e}", exc_info=e)
+            if e.errno == 121:
+                pass  # artifact of sharing 3.3v between I2C and GPIO
+            else:
+                log.exception(f"Error reading keypad: {e}", exc_info=e)
         return None
 
 
