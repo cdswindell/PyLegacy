@@ -247,7 +247,7 @@ class KeyPadI2C:
         eol_key: str = "#",
         swap_key: str = "*",
         key_queue: KeyQueue = None,
-        interrupt_pin: int = None,
+        interrupt_pin: int = 12,
     ):
         self._i2c_address = i2c_address
         self._row_pins = row_pins
@@ -276,12 +276,7 @@ class KeyPadI2C:
         self._int_button = None
         if interrupt_pin is not None:
             # Configure INT pin as active-low button; let gpiozero debounce the INT line
-            self._int_button = Button(
-                interrupt_pin,
-                pull_up=True,
-                bounce_time=0.01,
-                hold_repeat=False,
-            )
+            self._int_button = GpioHandler.make_button(interrupt_pin)
             self._int_button.when_pressed = self._on_interrupt  # pressed == INT low
             GpioHandler.cache_device(self._int_button)
         else:
@@ -378,10 +373,10 @@ class KeyPadI2C:
             return
         try:
             with SMBus(1) as bus:
-                # Clear INT by reading once, then perform scan
-                # _ = bus.read_byte(self._i2c_address)
-                print(f"Key: {self.get_keypress(bus)}")
-                # read_keypad waits for release internally; no loop needed here
+                state = bus.read_byte(self._i2c_address) & 0xFF  # read inputs
+                # active-low example: bits that are 0 are active
+                active_pins = [pin for pin in range(8) if (state & (1 << pin)) == 0]
+                print(f"Raw: 0b{state:08b}, active-low pins: {active_pins}")
         except Exception as e:
             log.exception("Error handling keypad interrupt", exc_info=e)
 
