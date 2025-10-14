@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from random import randint
 from typing import Dict, Generic, Tuple, TypeVar, Union
 
@@ -14,6 +15,8 @@ from ..protocol.sequence.abs_speed_rpm import AbsoluteSpeedRpm
 from ..protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+
+log = logging.getLogger(__name__)
 
 P = TypeVar("P", bound=Union[int, str, Tuple[int], Tuple[int, int], Tuple[int, int, int]])
 R = TypeVar("R", bound=CommandReq)
@@ -524,7 +527,7 @@ class EngineController(Generic[R]):
         self._scope = scope
         self._tmcc_id = tmcc_id
         self._state = cur_state = state
-        print(f"EngineController.update: scope={scope}, tmcc_id={tmcc_id}, state={state}")
+        log.info(f"EngineController.update: scope={scope}, tmcc_id={tmcc_id}, state={state}")
         if cur_state is None or cur_state.control_type is None:
             self._control_type = ControlType.LEGACY
         else:
