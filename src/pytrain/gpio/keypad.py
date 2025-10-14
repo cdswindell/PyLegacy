@@ -272,12 +272,25 @@ class KeyPadI2C:
 
         self._keypress_handler = self._key_queue.keypress_handler()
 
-        # create the background thread to continually scan the matrix
-        self._scan_thread = GPIOThread(self._scan_keyboard)
-        self._scan_thread.daemon = True
-        self._is_running = True
-        self._scan_thread.start()
-        GpioHandler.cache_handler(self._scan_thread)
+        # Interrupt-driven vs polling mode
+        self._int_button = None
+        if interrupt_pin is not None:
+            # Configure INT pin as active-low button; let gpiozero debounce the INT line
+            self._int_button = Button(
+                interrupt_pin,
+                pull_up=True,
+                bounce_time=0.01,
+                hold_repeat=False,
+            )
+            self._int_button.when_pressed = self._on_interrupt  # pressed == INT low
+            GpioHandler.cache_device(self._int_button)
+        else:
+            # create the background thread to continually scan the matrix (polling)
+            self._scan_thread = GPIOThread(self._scan_keyboard)
+            self._scan_thread.daemon = True
+            self._is_running = True
+            self._scan_thread.start()
+            GpioHandler.cache_handler(self._scan_thread)
 
     def reset(self) -> None:
         self.close()
@@ -286,8 +299,10 @@ class KeyPadI2C:
         self._is_running = False
         if self._key_queue:
             self._key_queue.reset()
-        if self._scan_thread:
+        if hasattr(self, "_scan_thread") and self._scan_thread:
             self._scan_thread.stop()
+        if self._int_button:
+            self._int_button.close()
 
     @property
     def keypress(self) -> str | None:
@@ -356,6 +371,21 @@ class KeyPadI2C:
             else:
                 log.exception(f"Error reading keypad: {e}", exc_info=e)
         return None
+
+    def _on_interrupt(self) -> None:
+        """
+        Handle PCF8574 INT falling edge: read to clear INT and scan to find the key.
+        """
+        if not self._is_running:
+            return
+        try:
+            with SMBus(1) as bus:
+                # Clear INT by reading once, then perform scan
+                _ = bus.read_byte(self._i2c_address)
+                self.get_keypress(bus)
+                # read_keypad waits for release internally; no loop needed here
+        except Exception as e:
+            log.exception("Error handling keypad interrupt", exc_info=e)
 
 
 class KeyQueue:
