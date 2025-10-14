@@ -353,20 +353,34 @@ class KeyPadI2C:
         """
         try:
             self._key_released_event.clear()
+
+            # Start from all-highs: rows idle high, columns high (inputs with external pull-ups)
+            ALL_HIGH = 0xFF
+
             for r, row_pin in enumerate(self._row_pins):
-                bus.write_byte(self._i2c_address, 0xFF & ~(1 << row_pin))
-                # wait for i2c bus to settle
-                time.sleep(0.002)
+                # Build a byte that keeps all columns high (1) and drives only this row low (0)
+                row_mask = 0xFF ^ (1 << row_pin)  # all ones except selected row bit = 0
+                bus.write_byte(self._i2c_address, row_mask)
+                time.sleep(0.002)  # allow bus/IO to settle
+
                 read_byte = bus.read_byte(self._i2c_address) & 0xFF
+
                 for c, col_pin in enumerate(self._col_pins):
-                    if read_byte & (1 << col_pin) == 0:
-                        # don't return keypress until released
-                        while bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
+                    if (read_byte & (1 << col_pin)) == 0:
+                        # Key at (r,c) is pressed; wait for release
+                        while (bus.read_byte(self._i2c_address) & (1 << col_pin)) == 0:
                             self._key_released_event.wait(0.05)
+                        # Restore all-highs before returning
+                        bus.write_byte(self._i2c_address, ALL_HIGH)
                         return self._keys[r][c]
+
+                # Restore all-highs between row scans (helps some wiring setups)
+                bus.write_byte(self._i2c_address, ALL_HIGH)
+                time.sleep(0.001)
+
         except OSError as e:
             if e.errno == 121:
-                pass  # artifact of sharing 3.3v between I2C and GPIO
+                pass  # transient I2C error
             else:
                 log.exception(f"Error reading keypad: {e}", exc_info=e)
         return None
