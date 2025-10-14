@@ -247,7 +247,7 @@ class KeyPadI2C:
         eol_key: str = "#",
         swap_key: str = "*",
         key_queue: KeyQueue = None,
-        interrupt_pin: int = None,
+        interrupt_pin: int = 12,
     ):
         self._i2c_address = i2c_address
         self._row_pins = row_pins
