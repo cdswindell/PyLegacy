@@ -400,7 +400,7 @@ class _InterruptWorker:
     Coalesces rapid INT pulses and runs a handler once per burst.
     """
 
-    def __init__(self, handler: Callable[[], None], debounce_ms: int = 2):
+    def __init__(self, handler: Callable[[], None], debounce_ms: int = 20):
         self._handler = handler
         self._pending = Event()
         self._stop = Event()
