@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import deque
-from threading import Condition, Event
+from threading import Condition, Event, RLock
 from typing import List, Callable
 
 from gpiozero import Button, CompositeDevice, GPIOPinMissing, DigitalOutputDevice, event, EventsMixin
@@ -247,6 +247,7 @@ class KeyPadI2C:
         eol_key: str = "#",
         swap_key: str = "*",
         key_queue: KeyQueue = None,
+        interrupt_pin: int = None,
     ):
         self._i2c_address = i2c_address
         self._row_pins = row_pins
@@ -255,6 +256,8 @@ class KeyPadI2C:
         self._last_value = None
         self._keypress = self._last_keypress = None
         self._keys = keys
+        self._key_cv = Condition(RLock())
+        self._key_released_event = Event()
         if key_queue is None:
             self._key_queue = KeyQueue(
                 clear_key=clear_key,
@@ -266,14 +269,19 @@ class KeyPadI2C:
             self._key_queue = key_queue
         else:
             raise ValueError(f"{key_queue} is not a KeyQueue")
+
         self._keypress_handler = self._key_queue.keypress_handler()
 
-        # create the background thread to continually scan the matrix
-        self._scan_thread = GPIOThread(self._scan_keyboard)
-        self._scan_thread.daemon = True
-        self._is_running = True
-        self._scan_thread.start()
-        GpioHandler.cache_handler(self._scan_thread)
+        if interrupt_pin:
+            self._interrupt_btn = GpioHandler.make_button(interrupt_pin)
+            self._interrupt_btn.when_released = lambda: self._key_released_event.set()
+        else:
+            # create the background thread to continually scan the matrix
+            self._scan_thread = GPIOThread(self._scan_keyboard)
+            self._scan_thread.daemon = True
+            self._is_running = True
+            self._scan_thread.start()
+            GpioHandler.cache_handler(self._scan_thread)
 
     def reset(self) -> None:
         self.close()
@@ -312,11 +320,18 @@ class KeyPadI2C:
         """
         with SMBus(1) as bus:  # Use the appropriate I2C bus number
             while self._is_running is True and self._scan_thread.stopping.is_set() is False:
-                key = self.read_keypad(bus)
-                if key is not None:
-                    self._last_keypress = self._keypress
-                    self._keypress = key
-                    self._keypress_handler(self)
+                self.get_keypress(bus)
+                # give CPU a break
+                time.sleep(0.02)
+
+    def get_keypress(self, bus: SMBus) -> str:
+        key = self.read_keypad(bus)
+        if key is not None:
+            self._last_keypress = self._keypress
+            self._keypress = key
+            self._keypress_handler(self)
+            print(f"Key pressed: {key}")
+        return key
 
     def read_keypad(self, bus: SMBus = None):
         if bus is None:
@@ -326,15 +341,18 @@ class KeyPadI2C:
         once released. If no key is being pressed, return None.
         """
         try:
+            self._key_released_event.clear()
             for r, row_pin in enumerate(self._row_pins):
                 bus.write_byte(self._i2c_address, 0xFF & ~(1 << row_pin))
+                # wait for i2c bus to settle
                 time.sleep(0.002)
+                read_byte = bus.read_byte(self._i2c_address) & 0xFF
                 for c, col_pin in enumerate(self._col_pins):
-                    if bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
+                    if read_byte & (1 << col_pin) == 0:
+                        # don't return keypress until released
                         while bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
-                            time.sleep(0.05)
+                            self._key_released_event.wait(0.05)
                         return self._keys[r][c]
-            time.sleep(0.05)
         except OSError as e:
             if e.errno == 121:
                 pass  # artifact of sharing 3.3v between I2C and GPIO
