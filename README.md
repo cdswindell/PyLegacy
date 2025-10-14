@@ -190,30 +190,37 @@ its command-line interface, **PyTrain**:
 **PyTrain** has several startup switches that control what it does:
 
 ```aiignore
-usage: pytrain  [-h] [-base [BASE ...] | -client | -server SERVER] 
-                [-ser2] [-baudrate {9600,19200,38400,57600,115200}] [-port PORT] 
-                [-echo] [-headless] [-no_wait] [-ser2]
-                [-server_port SERVER_PORT] [-startup_script STARTUP_SCRIPT] [-version]
+usage: pytrain.py [-version] [-h] [-base [BASE ...] | -client | -server SERVER] [-server_port SERVER_PORT] [-baudrate {9600,19200,38400,57600,115200}] [-port PORT]
+                  [-ser2] [-buttons_file [BUTTONS_FILE]] [-debug] [-echo] [-headless] [-no_wait] [-replay_file [REPLAY_FILE]]
 
 Send TMCC and Legacy-formatted commands to a Lionel Base 3 and/or LCS Ser2
 
 options:
+  -version              Show version and exit
   -h, --help            show this help message and exit
   -base [BASE ...]      Connect to Lionel Base 2/3 or LCS Wi-Fi at IP address (Server mode)
   -client               Connect to an available PyTrain server (Client mode)
   -server SERVER        Connect to PyTrain server at IP address (Client mode)
-  -ser2                 Send or receive TMCC commands from an LCS Ser2
+
+Client/Server options:
+  -server_port SERVER_PORT
+                        Server port that remote clients connect to (default: 5110)
+
+LCS Ser2 options:
   -baudrate {9600,19200,38400,57600,115200}
-                        Baud Rate used to communicate with LCS Ser2 (9600)
+                        Baud Rate (9600)
   -port PORT            Serial port for LCS Ser2 connection (/dev/ttyUSB0)
+  -ser2                 Send or receive TMCC commands from an LCS Ser2
+
+Miscellaneous options:
+  -buttons_file [BUTTONS_FILE]
+                        Load button definitions at start up (default file: buttons.py)
+  -debug                Enable debug logging
   -echo                 Echo received TMCC/PDI commands to console
   -headless             Do not prompt for user input (run in background),
   -no_wait              Do not wait for roster download
-  -server_port SERVER_PORT
-                        Port to use for remote connections, if client (default: 5110)
-  -startup_script STARTUP_SCRIPT
-                        Run the commands in the specified file at start up (default: buttons.py)
-  -version              Show version and exit
+  -replay_file [REPLAY_FILE]
+                        Replay PyTrain commands at start up (default file: replay.txt)
 ```
 
 For example, to connect to a Lionel Base 3, you specify the Base 3's IP address on your local
@@ -241,29 +248,34 @@ reflected out of the LCS Ser2.
 ```aiignore
 >> ?
 usage:  [h]
-        accessory | db | decode | dialogs | echo | effects | engine | train | halt | lighting |
-        pdi | quit | reboot | restart | route | shutdown | sounds | switch | update | upgrade | 
-        uptime | version
+        [accessory | asc2 | amc2 | bpc2 | db | decode | dialogs | debug | echo | effects | engine | train | halt | info | lighting | pdi | quit | reboot | restart | resync | route | send | shutdown | sounds | switch | update | upgrade | uptime | version]
 
 Valid commands:
 
 options:
   h, help    show this help message and exit
   accessory  Issue accessory commands
+  asc2       Issue Asc2 commands
+  amc2       Issue Amc2 commands
+  bpc2       Issue Bpc2 commands
   db         Query engine/train/switch/accessory state
   decode     Decode TMCC command bytes
   dialogs    Trigger RailSounds dialogs
+  debug      Enable/disable debug logging
   echo       Enable/disable TMCC command echoing
   effects    Issue engine/train effects commands
   engine     Issue engine commands
   train      Issue train commands
   halt       Emergency stop
+  info       Get product info from Lionel
   lighting   Issue engine/train lighting effects commands
   pdi        Sent PDI commands
   quit       Quit PyTrain
-  reboot     Quit PyTrain and reboot all nodes,
-  restart    Quit PyTrain and restart on all nodes,
+  reboot     Quit PyTrain and reboot all nodes
+  restart    Quit PyTrain and restart on all nodes
+  resync     Reload PyTrain state from Lionel Base 3
   route      Fire defined routes
+  send       Send TMCC/PDI command bytes
   shutdown   Quit PyTrain and shutdown all nodes
   sounds     Issue engine/train RailSound effects commands
   switch     Throw switches
@@ -272,9 +284,8 @@ options:
   uptime     Elapsed time this instance of PyTrain has been active,
   version    Show current PyTrain version,
 
-Commands can be abbreviated, so long as they are unique; e.g., 'en', or 'eng' are the same as typing 
-'engine'. Help on a specific command is also available by typing the command name (or abbreviation), 
-followed by '-h', e.g., 'sw -h'
+Commands can be abbreviated, so long as they are unique; e.g., 'en', or 'eng' are the same as typing 'engine'. Help on a specific command is also available by
+typing the command name (or abbreviation), followed by '-h', e.g., 'sw -h'
 ```
 
 * To echo TMCC/Lionel commands:
@@ -510,7 +521,7 @@ you to operate engines, control switches and accessories, and fire custom routes
 
 `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
 
-- Python 3.12.6 (your version may be newer; Note: Python 3.13 is _**not**_ supported:
+- Python 3.12.6 (your version may be newer):
 
 `brew install python@3.12`
 
