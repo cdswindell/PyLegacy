@@ -280,6 +280,11 @@ class KeyPadI2C:
         if interrupt_pin:
             # PCF8574 INT is open-drain, active-low; treat as a Button input
             self._interrupt_btn = GpioHandler.make_button(interrupt_pin)
+            # reduce bounce time to catch rapid transitions reliably
+            try:
+                self._interrupt_btn.bounce_time = 0.002
+            except AttributeError:
+                pass
             # lightweight worker to do the I2C read outside the gpio callback
             self._interrupt_worker = _InterruptWorker(self._handle_interrupt_read)
             # fire on falling edge (active-low); gpiozero Button uses when_pressed for active transition
@@ -304,9 +309,9 @@ class KeyPadI2C:
             self._scan_thread.stop()
         if self._interrupt_btn:
             try:
+                # detach callback first to prevent new pulses during teardown
                 self._interrupt_btn.when_pressed = None
             except AttributeError:
-                # Button may already be partially deinitialized
                 pass
             self._interrupt_btn.close()
         if self._interrupt_worker:
@@ -357,14 +362,23 @@ class KeyPadI2C:
         """
         Service routine for INT pin notifications: perform a single keypad read.
         """
+        if not self._is_running:
+            return
         try:
             with SMBus(1) as bus:
-                self.get_keypress(bus)
+                # drain any pending INT bursts by coalescing within a short window
+                start = time.time()
+                key = None
+                while True:
+                    k = self.get_keypress(bus)
+                    key = k or key
+                    # PCF8574 INT remains low while any input is active; give a few ms to settle
+                    if time.time() - start > 0.01:
+                        break
+                    time.sleep(0.002)
         except OSError as e:
-            # I2C-related failure while servicing interrupt
             log.exception("Interrupt read failed (I2C error)", exc_info=e)
         except RuntimeError as e:
-            # GPIO subsystem or handler-level runtime issue
             log.exception("Interrupt read failed (runtime error)", exc_info=e)
 
     def read_keypad(self, bus: SMBus = None):
@@ -377,21 +391,27 @@ class KeyPadI2C:
         try:
             self._key_released_event.clear()
             for r, row_pin in enumerate(self._row_pins):
+                # drive a single row low, others high via PCF8574
                 bus.write_byte(self._i2c_address, 0xFF & ~(1 << row_pin))
-                # wait for i2c bus to settle
-                time.sleep(0.002)
+                # let lines settle
+                time.sleep(0.001)
                 read_byte = bus.read_byte(self._i2c_address) & 0xFF
                 for c, col_pin in enumerate(self._col_pins):
-                    if read_byte & (1 << col_pin) == 0:
-                        # don't return keypress until released
-                        while bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
-                            self._key_released_event.wait(0.05)
+                    if (read_byte & (1 << col_pin)) == 0:
+                        # wait for release but avoid busy loop; also timeout to prevent hangs
+                        start = time.time()
+                        while True:
+                            if (bus.read_byte(self._i2c_address) & (1 << col_pin)) != 0:
+                                break
+                            if time.time() - start > 0.5:
+                                break
+                            self._key_released_event.wait(0.02)
                         return self._keys[r][c]
         except OSError as e:
-            if e.errno == 121:
-                pass  # artifact of sharing 3.3v between I2C and GPIO
-            else:
-                log.exception(f"Error reading keypad: {e}", exc_info=e)
+            if getattr(e, "errno", None) == 121:
+                # I2C arbitration/slave NACK; ignore transient glitch
+                return None
+            log.exception("Error reading keypad", exc_info=e)
         return None
 
 
@@ -423,6 +443,7 @@ class _InterruptWorker:
             if self._stop.is_set():
                 break
             if self._pending.is_set():
+                # debounce/coalesce rapid INT pulses
                 time.sleep(self._debounce)
                 self._pending.clear()
                 try:
