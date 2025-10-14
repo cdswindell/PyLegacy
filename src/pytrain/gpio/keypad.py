@@ -397,6 +397,7 @@ class KeyPadI2C:
                             time.sleep(0.02)
                             continue
                         break
+                bus.write_byte(self._i2c_address, 0x0F)
         except Exception as e:
             log.exception("Error handling keypad interrupt", exc_info=e)
 
