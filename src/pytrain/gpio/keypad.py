@@ -342,7 +342,6 @@ class KeyPadI2C:
             self._last_keypress = self._keypress
             self._keypress = key
             self._keypress_handler(self)
-            print(f"Key pressed: {key}")
         return key
 
     def read_keypad(self, bus: SMBus = None):
@@ -382,7 +381,7 @@ class KeyPadI2C:
             with SMBus(1) as bus:
                 # Clear INT by reading once, then perform scan
                 # _ = bus.read_byte(self._i2c_address)
-                self.get_keypress(bus)
+                print(f"Key: {self.get_keypress(bus)}")
                 # read_keypad waits for release internally; no loop needed here
         except Exception as e:
             log.exception("Error handling keypad interrupt", exc_info=e)
