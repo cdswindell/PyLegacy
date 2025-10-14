@@ -381,7 +381,7 @@ class KeyPadI2C:
         try:
             with SMBus(1) as bus:
                 # Clear INT by reading once, then perform scan
-                _ = bus.read_byte(self._i2c_address)
+                # _ = bus.read_byte(self._i2c_address)
                 self.get_keypress(bus)
                 # read_keypad waits for release internally; no loop needed here
         except Exception as e:
