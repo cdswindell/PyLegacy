@@ -21,28 +21,32 @@ from ..utils.argument_parser import PyTrainArgumentParser
 from ..utils.path_utils import find_file
 
 
-class MakeService(_MakeBase):
+class MakeGui(_MakeBase):
     def __init__(self, cmd_line: list[str] = None) -> None:
-        self._start_service = False
+        self._start_gui = False
+        self._launch_path = self._desktop_path = None
         super().__init__(cmd_line)
 
     def program(self) -> str:
-        return "make_service"
+        return "make_gui"
 
     def function(self) -> str:
-        return "service"
+        return "GUI"
 
     def postprocess_args(self) -> None:
         if self._args.start is True:
-            self._start_service = True
-        self._buttons_file = self._args.buttons_file
+            self._start_gui = True
+        self._buttons_file = DEFAULT_BUTTONS_FILE
+        self._launch_path = Path(self._home, "launch_pytrain.bash")
+        self._desktop_path = Path(self._home, ".config", "autostart", "pytrain.desktop")
+        print(self._desktop_path, self._launch_path)
 
     def config_header(self) -> list[str]:
         from .. import PROGRAM_NAME
 
         lines = list()
         lines.append(f"\nInstalling {PROGRAM_NAME} as a systemd service with these settings:")
-        lines.append(f"  Start service now: {'Yes' if self._start_service is True else 'No'}")
+        lines.append(f"  Start GUI now: {'Yes' if self._start_gui is True else 'No'}")
         return lines
 
     def install(self) -> None:
@@ -54,20 +58,14 @@ class MakeService(_MakeBase):
     def remove(self) -> None:
         from .. import PROGRAM_NAME
 
-        if self.is_server_present:
-            mode = "Server"
-        elif self.is_client_present:
-            mode = "Client"
-        else:
-            print(f"\nNo {PROGRAM_NAME} server or client is currently running. Exiting")
+        if not self.is_gui_present:
+            print(f"\nNo {PROGRAM_NAME} GUI detected. Exiting")
             return
-        if self.confirm(f"Are you sure you want to deactivate and remove {PROGRAM_NAME} {mode}?"):
-            path = Path(self._home, "pytrain_server.bash" if mode == "Server" else "pytrain_client.bash")
-            if path.exists():
-                print(f"\nRemoving {path}...")
-                path.unlink(missing_ok=True)
-            print(f"\nDeactivating {PROGRAM_NAME} {mode} service...")
-            self.deactivate_service("pytrain_server" if mode == "Server" else "pytrain_client")
+        if self.confirm(f"Are you sure you want to remove {PROGRAM_NAME} GUI?"):
+            for path in (self._desktop_path, self._launch_path):
+                if path.exists():
+                    print(f"\nRemoving {path}...")
+                    path.unlink(missing_ok=True)
 
     def command_line_parser(self) -> ArgumentParser:
         from .. import PROGRAM_NAME
@@ -75,20 +73,13 @@ class MakeService(_MakeBase):
         parser = ArgumentParser(add_help=False)
         misc_opts = parser.add_argument_group("Service options")
         misc_opts.add_argument(
-            "-buttons_file",
-            nargs="?",
-            default=None,
-            const=DEFAULT_BUTTONS_FILE,
-            help=f"Button definitions file, loaded when {PROGRAM_NAME} service starts",
-        )
-        misc_opts.add_argument(
             "-start",
             action="store_true",
-            help=f"Start {PROGRAM_NAME} Client/Server now (otherwise, it starts on reboot)",
+            help=f"Start {PROGRAM_NAME} GUI now (otherwise, it starts on reboot)",
         )
         return PyTrainArgumentParser(
             prog=self._prog,
-            description=f"Launch {PROGRAM_NAME} as a systemd service when your Raspberry Pi is powered on",
+            description=f"Launch {PROGRAM_NAME} GUI when your Raspberry Pi is powered on",
             parents=[self._command_line_parser(), parser],
         )
 
@@ -163,7 +154,7 @@ class MakeService(_MakeBase):
         if result.returncode != 0:
             print(f"Error enabling {PROGRAM_NAME} service: {result.stderr} Exiting")
             return None
-        if self._start_service:
+        if self._start_gui:
             subprocess.run(
                 f"sudo systemctl restart {service}".split(),
             )
@@ -171,19 +162,17 @@ class MakeService(_MakeBase):
         return service
 
     @property
-    def is_server_present(self) -> bool:
-        return self.is_service_present("pytrain_server")
-
-    @property
-    def is_client_present(self) -> bool:
-        return self.is_service_present("pytrain_client")
+    def is_gui_present(self) -> bool:
+        launch_path = Path(self._home, "launch_pytrain.bash")
+        desktop_path = Path(self._home, ".config", "autostart", "pytrain.desktop")
+        return launch_path.exists() and desktop_path.exists()
 
 
 def main(args: list[str] | None = None) -> int:
     if args is None:
         args = sys.argv[1:]
     try:
-        MakeService(args)
+        MakeGui(args)
         return 0
     except Exception as e:
         # Output anything else nicely formatted on stderr and exit code 1

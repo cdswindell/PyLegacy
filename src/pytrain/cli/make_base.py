@@ -50,6 +50,9 @@ class _MakeBase(ABC):
             return
 
         if args.remove is True:
+            if platform.system().lower() != "linux":
+                print(f"\nPlease run {self._prog} from a Raspberry Pi. Exiting")
+                return
             self.remove()
             return
 

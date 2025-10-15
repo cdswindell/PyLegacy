@@ -1,4 +1,4 @@
 [Desktop Entry]
 Type=Application
 Name=PyTrain
-Exec=___HOMEDIR___/launch_pytrain.sh
+Exec=___HOMEDIR___/launch_pytrain.bash
