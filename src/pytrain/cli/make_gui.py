@@ -50,10 +50,17 @@ class MakeGui(_MakeBase):
         return lines
 
     def install(self) -> None:
+        from .. import PROGRAM_NAME
+
         path = self.make_shell_script()
         if path:
             self._config["___SHELL_SCRIPT___"] = str(path)
-            self.install_service()
+            desktop = self.make_python_desktop_file()
+            if desktop:
+                self._config["___DESKTOP___"] = str(desktop)
+                if self._start_gui:
+                    subprocess.run(path)
+                    print(f"\n{PROGRAM_NAME} GUI started...")
 
     def remove(self) -> None:
         from .. import PROGRAM_NAME
@@ -100,6 +107,30 @@ class MakeGui(_MakeBase):
         with open(path, "w") as f:
             f.write(template_data)
         os.chmod(path, 0o755)
+        print(f"\n{path} created")
+        return path
+
+    def make_python_desktop_file(self) -> Path | None:
+        template = find_file("python_desktop.template", (".", "../", "src"))
+        if template is None:
+            print("\nUnable to locate shell script template. Exiting")
+            return None
+        template_data = ""
+        with open(template, "r") as f:
+            template_data = f.read()
+        for key, value in self.config.items():
+            template_data = template_data.replace(key, value)
+        # make sure directory exists
+        path = self._desktop_path
+        if not path.parent.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            os.chmod(path.parent, 0o755)
+        # write the shell script file
+        if path.exists():
+            shutil.copy2(path, path.with_suffix(".bak"))
+        with open(path, "w") as f:
+            f.write(template_data)
+
         print(f"\n{path} created")
         return path
 

@@ -30,7 +30,7 @@ if [ -n "$BUTTONS_FILE" ]; then
   fi
 
   if [ -n "$BUTTONS_FILE" ]; then
-    echo "Using button definitions in: $BUTTONS_FILE"
+    echo "Using GUI specified in: $BUTTONS_FILE"
     START=-buttons
   fi
 fi

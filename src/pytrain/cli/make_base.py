@@ -29,7 +29,7 @@ class _MakeBase(ABC):
     def __init__(self, cmd_line: list[str] = None) -> None:
         from .. import is_package
 
-        self._user = getpass.getuser()
+        self._user = cur_user = getpass.getuser()
         self._home = Path.home()
         self._cwd = Path.cwd()
         self._buttons_file = None
@@ -51,6 +51,8 @@ class _MakeBase(ABC):
         elif not self.validate_username(self._user):
             print(f"\nUser '{self._user}' does not exist on this system. Exiting.")
             return
+        elif self._user != cur_user:
+            self._home = Path(os.path.expanduser(f"~{self._user}"))
 
         if args.remove is True:
             if platform.system().lower() != "linux":
