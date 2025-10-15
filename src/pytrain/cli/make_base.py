@@ -180,6 +180,7 @@ class _MakeBase(ABC):
 
     @staticmethod
     def spawn_detached(path: str | Path, *args: str) -> None:
+        path = str(path) if isinstance(path, Path) else path
         # Ensure executable; if it’s a script without exec bit, call its interpreter
         cmd = [path, *args]
         if path.endswith(".py"):
