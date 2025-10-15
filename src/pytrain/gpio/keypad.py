@@ -385,6 +385,7 @@ class KeyPadI2C:
                 #    We do a lightweight read loop; INT will assert again on release,
                 #    but this ensures our handler doesn't double-fire on a single press.
                 if key is not None:
+                    print(f"Key '{key}' pressed...")
                     # Drive all high (idle) so columns float high via quasi-bidirectional pull-ups
                     bus.write_byte(self._i2c_address, 0xFF)
                     # Wait until all columns read high again (released)
@@ -394,7 +395,7 @@ class KeyPadI2C:
                         # If any column remains low, key still held
                         if any((state & (1 << c)) == 0 for c in self._col_pins):
                             active_pins = [pin for pin in range(8) if (state & (1 << pin)) == 0]
-                            print(f"Waiting for key release... Raw: 0b{state:08b}, active-low pins: {active_pins}")
+                            print(f"Waiting for '{key}' release... Raw: 0b{state:08b}, active-low pins: {active_pins}")
                             time.sleep(0.02)
                             continue
                         break
