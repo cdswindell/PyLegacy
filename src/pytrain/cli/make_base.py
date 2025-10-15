@@ -57,10 +57,13 @@ class _MakeBase(ABC):
         elif self._user != cur_user:
             self._home = Path(os.path.expanduser(f"~{self._user}"))
 
+        # only allow running on a Raspberry Pi
+        if platform.system().lower() != "linux":
+            print(f"\nPlease run {self._prog} from a Raspberry Pi. Exiting")
+            return
+
+        # process remove request, if specified
         if args.remove is True:
-            if platform.system().lower() != "linux":
-                print(f"\nPlease run {self._prog} from a Raspberry Pi. Exiting")
-                return
             self.remove()
             return
 
@@ -265,7 +268,7 @@ class _MakeBase(ABC):
         subprocess.run("sudo systemctl daemon-reload".split())
         subprocess.run("sudo systemctl reset-failed".split())
 
-    def _command_line_parser(self) -> ArgumentParser:
+    def _command_line_parser(self) -> PyTrainArgumentParser:
         from .. import PROGRAM_NAME, get_version
 
         parser = PyTrainArgumentParser(add_help=False)

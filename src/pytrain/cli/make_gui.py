@@ -82,6 +82,70 @@ class MakeGui(_MakeBase):
         from .. import PROGRAM_NAME
 
         parser = ArgumentParser(add_help=False)
+        sp = parser.add_subparsers(dest="gui", required=True, help="Available GUIs")
+
+        comp = sp.add_parser(
+            "component_state",
+            aliases=["co", "state"],
+            allow_abbrev=True,
+            help="Component State GUI",
+        )
+
+        comp.add_argument(
+            "-initial",
+            type=str,
+            default="Power Districts",
+            help="Initial Display (default: Power Districts)",
+        )
+        comp.add_argument(
+            "-name",
+            type=str,
+            help="Layout Name",
+        )
+        comp.add_argument(
+            "-scale_by",
+            type=float,
+            default=1.0,
+            help="Text Scale Factor (default: 1.0)",
+        )
+
+        acc = sp.add_parser(
+            "accessories",
+            aliases=["acc"],
+            allow_abbrev=True,
+            help="Component State GUI",
+        )
+
+        acc.add_argument(
+            "-name",
+            type=str,
+            help="Layout Name",
+        )
+        acc.add_argument(
+            "-scale_by",
+            type=float,
+            default=1.0,
+            help="Text Scale Factor (default: 1.0)",
+        )
+
+        pad = sp.add_parser(
+            "launch_pad",
+            aliases=["la", "pad"],
+            allow_abbrev=True,
+            help="Launch Pad GUI",
+        )
+        pad.add_argument(
+            "-tmcc_id",
+            type=int,
+            default=39,
+            help="Launch Pad TMCC ID (default: 39)",
+        )
+        pad.add_argument(
+            "-track_id",
+            type=int,
+            help="Launch Pad Track Power District TMCC ID",
+        )
+
         misc_opts = parser.add_argument_group("Service options")
         misc_opts.add_argument(
             "-start",
