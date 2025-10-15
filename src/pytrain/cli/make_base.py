@@ -40,6 +40,9 @@ class _MakeBase(ABC):
             args = self.command_line_parser().parse_args()
         self._args = args
 
+        # handle subclass arguments
+        self.postprocess_args()
+
         # verify username
         self._user = args.user
         if self._user is None:
@@ -90,9 +93,6 @@ class _MakeBase(ABC):
                 print("\nA Lionel Base IP address is not required when configuring as a client. Continuing")
             if args.ser2 is True:
                 print("\nA Ser2 is not required when configuring as a client. Continuing")
-
-        # handle subclass arguments
-        self.postprocess_args()
 
         # verify buttons file exists
         if self._buttons_file:
