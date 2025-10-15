@@ -45,7 +45,7 @@ class MakeGui(_MakeBase):
         from .. import PROGRAM_NAME
 
         lines = list()
-        lines.append(f"\nInstalling {PROGRAM_NAME} as a systemd service with these settings:")
+        lines.append(f"\nInstalling the {PROGRAM_NAME} GUI with these settings:")
         lines.append(f"  Start GUI now: {'Yes' if self._start_gui is True else 'No'}")
         return lines
 
@@ -61,7 +61,7 @@ class MakeGui(_MakeBase):
         if not self.is_gui_present:
             print(f"\nNo {PROGRAM_NAME} GUI detected. Exiting")
             return
-        if self.confirm(f"Are you sure you want to remove {PROGRAM_NAME} GUI?"):
+        if self.confirm(f"Are you sure you want to remove the {PROGRAM_NAME} GUI?"):
             for path in (self._desktop_path, self._launch_path):
                 if path.exists():
                     print(f"\nRemoving {path}...")
@@ -84,7 +84,7 @@ class MakeGui(_MakeBase):
         )
 
     def make_shell_script(self) -> Path | None:
-        template = find_file("pytrain.bash.template", (".", "../", "src"))
+        template = find_file("launch_pytrain.bash.template", (".", "../", "src"))
         if template is None:
             print("\nUnable to locate shell script template. Exiting")
             return None
@@ -93,7 +93,7 @@ class MakeGui(_MakeBase):
             template_data = f.read()
         for key, value in self.config.items():
             template_data = template_data.replace(key, value)
-        path = Path(self._home, "pytrain_server.bash" if self.is_server else "pytrain_client.bash")
+        path = self._launch_path
         # write the shell script file
         if path.exists():
             shutil.copy2(path, path.with_suffix(".bak"))
