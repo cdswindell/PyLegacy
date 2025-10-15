@@ -42,5 +42,5 @@ cd $PYTRAIN_HOME || exit
 source ___ACTIVATE___; export PYTHONPATH=.
 
 # run the program with appropriate arguments
-___PYTRAIN___  -headless ___CLIENT______LIONELBASE______LCSSER2______ECHO___ $START $BUTTONS_FILE
+___PYTRAIN___  -headless___CLIENT______LIONELBASE______LCSSER2______ECHO___ $START $BUTTONS_FILE
 

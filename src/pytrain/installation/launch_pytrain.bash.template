@@ -46,4 +46,4 @@ DISPLAY=:0
 export DISPLAY
 
 # run the program with appropriate arguments
-___PYTRAIN___  -headless ___CLIENT______LIONELBASE______LCSSER2______ECHO___ $START $BUTTONS_FILE
+___PYTRAIN___  -headless___CLIENT______LIONELBASE______LCSSER2______ECHO___ $START $BUTTONS_FILE
