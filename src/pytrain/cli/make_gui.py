@@ -21,7 +21,7 @@ from ..utils.path_utils import find_file
 class MakeGui(_MakeBase):
     def __init__(self, cmd_line: list[str] = None) -> None:
         self._start_gui = False
-        self._launch_path = self._desktop_path = None
+        self._launch_path = self._desktop_path = self._imports = None
         super().__init__(cmd_line)
 
     def program(self) -> str:
@@ -31,11 +31,16 @@ class MakeGui(_MakeBase):
         return "GUI"
 
     def postprocess_args(self) -> None:
+        from .. import PROGRAM_BASE, is_package
+
         if self._args.start is True:
             self._start_gui = True
         self._buttons_file = DEFAULT_BUTTONS_FILE
         self._launch_path = Path(self._home, "launch_pytrain.bash")
         self._desktop_path = Path(self._home, ".config", "autostart", "pytrain.desktop")
+
+        self._imports = f"from {PROGRAM_BASE if is_package() else 'src.' + PROGRAM_BASE} import *"
+        self._config["___IMPORTS___"] = self._imports
 
     def config_header(self) -> list[str]:
         from .. import PROGRAM_NAME
@@ -43,6 +48,7 @@ class MakeGui(_MakeBase):
         lines = list()
         lines.append(f"\nInstalling the {PROGRAM_NAME} GUI with these settings:")
         lines.append(f"  Start GUI now: {'Yes' if self._start_gui is True else 'No'}")
+        lines.append(f"  Imports: {self._imports}")
         return lines
 
     def install(self) -> None:
@@ -123,8 +129,6 @@ class MakeGui(_MakeBase):
             path.parent.mkdir(parents=True, exist_ok=True)
             os.chmod(path.parent, 0o755)
         # write the shell script file
-        if path.exists():
-            shutil.copy2(path, path.with_suffix(".bak"))
         with open(path, "w") as f:
             f.write(template_data)
 

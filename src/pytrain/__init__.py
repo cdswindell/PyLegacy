@@ -58,6 +58,7 @@ from .gui.launch_gui import LaunchGui  # noqa: F401
 from .protocol.command_def import CommandDefEnum  # noqa: F401
 from .protocol.command_req import CommandReq  # noqa: F401
 from .protocol.constants import (
+    PROGRAM_BASE,  # noqa: F401
     PROGRAM_NAME,
     CommandScope,  # noqa: F401
     CommandSyntax,  # noqa: F401
