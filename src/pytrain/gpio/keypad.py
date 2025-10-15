@@ -247,7 +247,7 @@ class KeyPadI2C:
         eol_key: str = "#",
         swap_key: str = "*",
         key_queue: KeyQueue = None,
-        interrupt_pin: int = 12,
+        interrupt_pin: int = None,
     ):
         self._i2c_address = i2c_address
         self._row_pins = row_pins
@@ -273,14 +273,16 @@ class KeyPadI2C:
         # Interrupt-driven vs polling mode
         self._int_button = None
         if interrupt_pin is not None:
+            log.debug(f"Using interrupt pin {interrupt_pin} for i2c keypad...")
+            # set all row pins active to allow button press to be detected
             with SMBus(1) as bus:
                 bus.write_byte(self._i2c_address, 0b00001111)
             # Configure INT pin as active-low button; let gpiozero debounce the INT line
             self._int_button = GpioHandler.make_button(interrupt_pin)
             self._int_button.when_pressed = self._on_interrupt  # pressed == INT low
-            GpioHandler.cache_device(self._int_button)
         else:
             # create the background thread to continually scan the matrix (polling)
+            log.debug("Using polling mode for i2c keypad...")
             self._scan_thread = GPIOThread(self._scan_keyboard)
             self._scan_thread.daemon = True
             self._is_running = True

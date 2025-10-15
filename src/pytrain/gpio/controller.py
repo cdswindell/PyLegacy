@@ -96,6 +96,7 @@ class Controller(Thread, GpioDevice):
         train_brake_chn: int = None,
         quilling_horn_chn: int = None,
         num_lasts: int = 4,
+        interrupt_pin: int = None,
     ) -> Controller:
         if row_pins and column_pins:
             c = Controller(
@@ -191,6 +192,7 @@ class Controller(Thread, GpioDevice):
                 train_brake_chn=train_brake_chn,
                 quilling_horn_chn=quilling_horn_chn,
                 num_lasts=num_lasts,
+                interrupt_pin=interrupt_pin,
             )
         return c
 
@@ -577,8 +579,9 @@ class ControllerI2C(Controller):
         is_oled: bool = True,
         oled_scroll_rate: float = 0.03,
         num_lasts: int = 3,
+        interrupt_pin: int = None,
     ):
-        keypad = KeyPadI2C(keypad_address)
+        keypad = KeyPadI2C(keypad_address, interrupt_pin=interrupt_pin)
         super().__init__(
             speed_pins=speed_pins,
             halt_pin=halt_pin,
