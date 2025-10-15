@@ -178,6 +178,18 @@ class _MakeBase(ABC):
         return self.confirm("\nConfirm? [y/n] ")
 
     @staticmethod
+    def spawn_detached(path: str | Path, *args: str) -> None:
+        with open(os.devnull, "wb") as devnull:
+            subprocess.Popen(
+                [str(path), *args],
+                stdout=devnull,
+                stderr=devnull,
+                stdin=devnull,
+                close_fds=True,
+                start_new_session=True,  # setsid()
+            )
+
+    @staticmethod
     def confirm(msg: str = None) -> bool:
         msg = msg if msg else "Continue? [y/n] "
         answer = input(msg)

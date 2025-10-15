@@ -59,7 +59,7 @@ class MakeGui(_MakeBase):
             if desktop:
                 self._config["___DESKTOP___"] = str(desktop)
                 if self._start_gui:
-                    subprocess.run(path)
+                    self.spawn_detached(path)
                     print(f"\n{PROGRAM_NAME} GUI started...")
 
     def remove(self) -> None:
