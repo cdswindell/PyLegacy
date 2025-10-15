@@ -38,8 +38,9 @@ class MakeGui(_MakeBase):
         self._buttons_file = DEFAULT_BUTTONS_FILE
         self._launch_path = Path(self._home, "launch_pytrain.bash")
         self._desktop_path = Path(self._home, ".config", "autostart", "pytrain.desktop")
-
         self._imports = f"from {PROGRAM_BASE if is_package() else 'src.' + PROGRAM_BASE} import *"
+
+    def postprocess_config(self) -> None:
         self._config["___IMPORTS___"] = self._imports
 
     def config_header(self) -> list[str]:

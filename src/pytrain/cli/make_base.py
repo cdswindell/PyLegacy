@@ -123,6 +123,10 @@ class _MakeBase(ABC):
             "___USERHOME___": str(self._home),
             "___USER___": self._user,
         }
+
+        # handle subclass config
+        self.postprocess_config()
+
         if self.confirm_environment():
             self.install()
         else:
@@ -326,6 +330,10 @@ class _MakeBase(ABC):
         except KeyError:
             return False
 
+    def postprocess_args(self) -> None: ...
+
+    def postprocess_config(self) -> None: ...
+
     @abstractmethod
     def program(self) -> str: ...
 
@@ -334,8 +342,6 @@ class _MakeBase(ABC):
 
     @abstractmethod
     def config_header(self) -> list[str]: ...
-
-    def postprocess_args(self) -> None: ...
 
     @abstractmethod
     def install(self) -> str: ...
