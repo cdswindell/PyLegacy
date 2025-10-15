@@ -94,8 +94,10 @@ class _MakeBase(ABC):
         if args.mode == "client":
             if self._base_ip is not None:
                 print("\nA Lionel Base IP address is not required when configuring as a client. Continuing")
-            if args.ser2 is True:
+                self._base_ip = None
+            if args.ser2:
                 print("\nA Ser2 is not required when configuring as a client. Continuing")
+                args.ser2 = False
 
         # verify buttons file exists
         if self._buttons_file:
@@ -108,15 +110,15 @@ class _MakeBase(ABC):
         self._config = {
             "___ACTIVATE___": str(self._activate_cmd),
             "___BUTTONS___": self._buttons_file if self._buttons_file else "",
-            "___CLIENT___": "-client" if self.is_client else "",
+            "___CLIENT___": " -client" if self.is_client else "",
             "___ECHO___": " -echo" if self._echo is True else "",
             "___HOME___": str(self._home),
             "___LCSSER2___": " -ser2" if self._ser2 is True else "",
-            "___LIONELBASE___": f"-base {self._base_ip}" if self._base_ip is not None else "",
+            "___LIONELBASE___": f" -base {self._base_ip}" if self._base_ip is not None else "",
             "___MODE___": "Server" if self.is_server else "Client",
             "___PYTRAINHOME___": str(self._cwd),
-            "___USERHOME___": str(self._home),
             "___PYTRAIN___": str(self._exe),
+            "___USERHOME___": str(self._home),
             "___USER___": self._user,
         }
         if self.confirm_environment():
