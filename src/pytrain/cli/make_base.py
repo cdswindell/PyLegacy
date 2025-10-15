@@ -13,6 +13,7 @@ import os
 import platform
 import pwd
 import subprocess
+import sys
 from abc import ABC, ABCMeta, abstractmethod
 from argparse import ArgumentParser
 from pathlib import Path
@@ -179,14 +180,28 @@ class _MakeBase(ABC):
 
     @staticmethod
     def spawn_detached(path: str | Path, *args: str) -> None:
-        with open(os.devnull, "wb") as devnull:
+        # Ensure executable; if it’s a script without exec bit, call its interpreter
+        cmd = [path, *args]
+        if path.endswith(".py"):
+            cmd = [sys.executable, path, *args]
+        elif path.endswith(".sh") or path.endswith(".bash"):
+            cmd = ["/bin/bash", path, *args]
+
+        # Detach: new session, no stdio, independent cwd and env if desired
+        with (
+            open(os.devnull, "rb") as devnull_in,
+            open(os.devnull, "wb") as devnull_out,
+            open(os.devnull, "wb") as devnull_err,
+        ):
             subprocess.Popen(
-                [str(path), *args],
-                stdout=devnull,
-                stderr=devnull,
-                stdin=devnull,
+                cmd,
+                stdin=devnull_in,
+                stdout=devnull_out,
+                stderr=devnull_err,
                 close_fds=True,
-                start_new_session=True,  # setsid()
+                start_new_session=True,  # posix: setsid()
+                cwd="/",  # optional: avoid holding current directory
+                env=os.environ.copy(),  # optional: prune/adjust as needed
             )
 
     @staticmethod
