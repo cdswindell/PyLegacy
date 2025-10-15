@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -61,6 +62,7 @@ class MakeGui(_MakeBase):
                 if self._start_gui:
                     self.spawn_detached(path)
                     print(f"\n{PROGRAM_NAME} GUI started...")
+                    time.sleep(60)
 
     def remove(self) -> None:
         from .. import PROGRAM_NAME
