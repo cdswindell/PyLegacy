@@ -88,13 +88,13 @@ class _MakeBase(ABC):
             if args.ser2 is True:
                 print("\nA Ser2 is not required when configuring as a client. Continuing")
 
+        # handle subclass arguments
+        self.postprocess_args()
+
         # verify buttons file exists
         if self._buttons_file:
             if not os.path.isfile(self._buttons_file):
                 print(f"\nButton definitions file '{self._buttons_file}' not found. Continuing")
-
-        # handle subclass arguments
-        self.postprocess_args()
 
         self._exe = "pytrain" if is_package() else "cli/pytrain.py"
         self._echo = args.echo is True

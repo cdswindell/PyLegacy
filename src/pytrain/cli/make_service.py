@@ -83,7 +83,7 @@ class MakeService(_MakeBase):
             nargs="?",
             default=None,
             const=DEFAULT_BUTTONS_FILE,
-            help=f"Button definitions file, loaded when {PROGRAM_NAME} starts",
+            help=f"Button definitions file, loaded when {PROGRAM_NAME} service starts",
         )
         misc_opts.add_argument(
             "-start",
