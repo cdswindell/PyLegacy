@@ -111,9 +111,9 @@ class MakeGui(_MakeBase):
         return path
 
     def make_python_desktop_file(self) -> Path | None:
-        template = find_file("python_desktop.template", (".", "../", "src"))
+        template = find_file("pytrain_desktop.template", (".", "../", "src"))
         if template is None:
-            print("\nUnable to locate shell script template. Exiting")
+            print("\nUnable to locate desktop template. Exiting")
             return None
         template_data = ""
         with open(template, "r") as f:
