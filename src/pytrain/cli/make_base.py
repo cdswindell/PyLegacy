@@ -106,7 +106,7 @@ class _MakeBase(ABC):
         self._cmd_line = self.command_line
         self._config = {
             "___ACTIVATE___": str(self._activate_cmd),
-            "___BUTTONS___": self._args.buttons_file if self._args.buttons_file else "",
+            "___BUTTONS___": self._buttons_file if self._buttons_file else "",
             "___CLIENT___": "-client" if self.is_client else "",
             "___ECHO___": " -echo" if self._echo is True else "",
             "___HOME___": str(self._home),
@@ -166,7 +166,7 @@ class _MakeBase(ABC):
         if self._args.mode == "server":
             print(f"  Lionel Base IP addresses: {self._base_ip}")
             print(f"  Use Ser2: {'Yes' if self._args.ser2 is True else 'No'}")
-        print(f"  Button definitions file: {self._args.buttons_file if self._args.buttons_file else 'None'}")
+        print(f"  Button definitions file: {self._buttons_file if self._buttons_file else 'None'}")
         print(f"  Run as user: {self._user}")
         print(f"  User '{self._user} Home: {self._home}")
         print(f"  Echo TMCC/Legacy/Pdi commands to log file: {'Yes' if self._echo is True else 'No'}")
