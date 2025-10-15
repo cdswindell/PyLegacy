@@ -97,7 +97,7 @@ class _MakeBase(ABC):
                 self._base_ip = None
             if args.ser2:
                 print("\nA Ser2 is not required when configuring as a client. Continuing")
-                args.ser2 = False
+                self._ser2 = args.ser2 = False
 
         # verify buttons file exists
         if self._buttons_file:

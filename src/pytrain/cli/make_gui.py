@@ -7,12 +7,8 @@
 #
 #
 import os
-import platform
 import shutil
-import subprocess
 import sys
-import tempfile
-import time
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -40,7 +36,6 @@ class MakeGui(_MakeBase):
         self._buttons_file = DEFAULT_BUTTONS_FILE
         self._launch_path = Path(self._home, "launch_pytrain.bash")
         self._desktop_path = Path(self._home, ".config", "autostart", "pytrain.desktop")
-        print(self._desktop_path, self._launch_path)
 
     def config_header(self) -> list[str]:
         from .. import PROGRAM_NAME
@@ -62,7 +57,6 @@ class MakeGui(_MakeBase):
                 if self._start_gui:
                     self.spawn_detached(path)
                     print(f"\n{PROGRAM_NAME} GUI started...")
-                    time.sleep(60)
 
     def remove(self) -> None:
         from .. import PROGRAM_NAME
@@ -135,64 +129,6 @@ class MakeGui(_MakeBase):
 
         print(f"\n{path} created")
         return path
-
-    def install_service(self) -> str | None:
-        from .. import PROGRAM_NAME
-
-        if platform.system().lower() != "linux":
-            print(f"\nPlease run {self._prog} from a Raspberry Pi. Exiting")
-            return None
-        template = find_file("pytrain.service.template", (".", "../", "src"))
-        if template is None:
-            print("\nUnable to locate service definition template. Exiting")
-            return None
-        template_data = ""
-        with open(template, "r") as f:
-            template_data = f.read()
-        for key, value in self.config.items():
-            template_data = template_data.replace(key, value)
-        tmp = tempfile.NamedTemporaryFile()
-        with open(tmp.name, "w") as f:
-            f.write(template_data)
-        service = "pytrain_server.service" if self.is_server else "pytrain_client.service"
-        result = subprocess.run(
-            f"sudo cp -f {tmp.name} /etc/systemd/system/{service}".split(),
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            print(f"Error creating /etc/systemd/system/{service}: {result.stderr} Exiting")
-            return None
-        result = subprocess.run(
-            f"sudo chmod 644 /etc/systemd/system/{service}".split(),
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            print(f"Error changing mode of /etc/systemd/system/{service}: {result.stderr} Exiting")
-            return None
-        result = subprocess.run(
-            "sudo systemctl daemon-reload".split(),
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            print(f"Error reloading system daemons: {result.stderr} Exiting")
-            return None
-        result = subprocess.run(
-            f"sudo systemctl enable {service}".split(),
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            print(f"Error enabling {PROGRAM_NAME} service: {result.stderr} Exiting")
-            return None
-        if self._start_gui:
-            subprocess.run(
-                f"sudo systemctl restart {service}".split(),
-            )
-            print(f"\n{PROGRAM_NAME} service started...")
-        return service
 
     @property
     def is_gui_present(self) -> bool:
