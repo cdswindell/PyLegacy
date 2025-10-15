@@ -15,22 +15,27 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from abc import ABC, ABCMeta, abstractmethod
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import Dict
 
+from ..utils.argument_parser import PyTrainArgumentParser
 from ..utils.path_utils import find_dir, find_file
 from .pytrain import DEFAULT_BUTTONS_FILE
 
 
-class MakeService:
+class _MakeBase(ABC):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
     def __init__(self, cmd_line: list[str] = None) -> None:
         from .. import is_package
 
         self._user = getpass.getuser()
         self._home = Path.home()
         self._cwd = Path.cwd()
-        self._prog = "make_service" if is_package() else "make_service.py"
+        self._prog = f"{self.program()}" if is_package() else f"{self.program()}.py"
         if cmd_line:
             args = self.command_line_parser().parse_args(cmd_line)
         else:
@@ -47,7 +52,7 @@ class MakeService:
             return
 
         if args.remove is True:
-            self.deactivate_and_remove_services()
+            self.remove()
             return
 
         # verify the template directory exists
@@ -90,6 +95,9 @@ class MakeService:
             if not os.path.isfile(args.buttons_file):
                 print(f"\nButton definitions file '{args.buttons_file}' not found. Continuing")
 
+        # handle subclass arguments
+        self.postprocess_args()
+
         self._exe = "pytrain" if is_package() else "cli/pytrain.py"
         self._echo = args.echo is True
         self._cmd_line = self.command_line
@@ -103,17 +111,258 @@ class MakeService:
             "___LIONELBASE___": f"-base {self._base_ip}" if self._base_ip is not None else "",
             "___MODE___": "Server" if self.is_server else "Client",
             "___PYTRAINHOME___": str(self._cwd),
+            "___USERHOME___": str(self._home),
             "___PYTRAIN___": str(self._exe),
             "___USER___": self._user,
         }
-        self._start_service = args.start is True
         if self.confirm_environment():
-            path = self.make_shell_script()
-            if path:
-                self._config["___SHELL_SCRIPT___"] = str(path)
-                self.install_service()
+            self.install()
         else:
             print("\nRe-run this script with the -h option for help")
+
+    @property
+    def is_client(self) -> bool:
+        return self._args.mode == "client"
+
+    @property
+    def is_server(self) -> bool:
+        return self._args.mode == "server"
+
+    @property
+    def config(self) -> Dict[str, str]:
+        return self._config
+
+    @property
+    def pytrain_path(self) -> str:
+        return f"{self._cwd}/{self._exe}"
+
+    @property
+    def command_line(self) -> str | None:
+        cmd_line = f"{self._exe} -headless"
+        if self._args.mode == "client":
+            cmd_line += " -client"
+        else:
+            if self._base_ip:
+                ip = self._base_ip
+                ip = f" {ip}" if ip != "search" else ""
+                cmd_line += f" -base{ip}"
+            if self._args.ser2 is True:
+                cmd_line += " -ser2"
+        if self._echo is True:
+            cmd_line += " -echo"
+        if self._args.buttons_file:
+            cmd_line += f" -buttons {self._args.buttons_file}"
+        return cmd_line
+
+    def confirm_environment(self) -> bool:
+        from .. import PROGRAM_NAME
+
+        self.config_header()
+        print(f"  Mode: {'Client' if self._args.mode == 'client' else 'Server'}")
+        if self._args.mode == "server":
+            print(f"  Lionel Base IP addresses: {self._base_ip}")
+            print(f"  Use Ser2: {'Yes' if self._args.ser2 is True else 'No'}")
+        print(f"  Button definitions file: {self._args.buttons_file if self._args.buttons_file else 'None'}")
+        print(f"  Run as user: {self._user}")
+        print(f"  User '{self._user} Home: {self._home}")
+        print(f"  Echo TMCC/Legacy/Pdi commands to log file: {'Yes' if self._echo is True else 'No'}")
+        print(f"  System type: {platform.system()}")
+        print(f"  Virtual environment activation command: {self._activate_cmd}")
+        print(f"  {PROGRAM_NAME} Exe: {self._exe}")
+        print(f"  {PROGRAM_NAME} Home: {self._cwd}")
+        print(f"  {PROGRAM_NAME} Command Line: {self._cmd_line}")
+        return self.confirm("\nConfirm? [y/n] ")
+
+    @staticmethod
+    def confirm(msg: str = None) -> bool:
+        msg = msg if msg else "Continue? [y/n] "
+        answer = input(msg)
+        return True if answer.lower() in ["y", "yes"] else False
+
+    @staticmethod
+    def is_valid_ip(ip: str) -> bool:
+        try:
+            ipaddress.ip_address(ip)
+            return True
+        except ValueError:
+            return False
+
+    @staticmethod
+    def is_service_present(service: str) -> bool:
+        cmd = f"sudo systemctl status {service}.service"
+        result = subprocess.run(cmd.split(), capture_output=True)
+        if result.returncode == 4 or os.path.exists(f"/etc/systemd/system/{service}.service") is False:
+            return False
+        else:
+            return True
+
+    @staticmethod
+    def deactivate_service(service: str) -> None:
+        subprocess.run(f"sudo systemctl stop {service}.service".split())
+        subprocess.run(f"sudo systemctl disable {service}.service".split())
+        subprocess.run(f"sudo rm -fr /etc/systemd/system/{service}.service".split())
+        subprocess.run("sudo systemctl daemon-reload".split())
+        subprocess.run("sudo systemctl reset-failed".split())
+
+    def _command_line_parser(self) -> ArgumentParser:
+        from .. import PROGRAM_NAME, get_version
+
+        parser = PyTrainArgumentParser(add_help=False)
+        mode_group = parser.add_mutually_exclusive_group(required=True)
+        mode_group.add_argument(
+            "-client",
+            action="store_const",
+            const="client",
+            dest="mode",
+            help=f"Configure this node as a {PROGRAM_NAME} client",
+        )
+        mode_group.add_argument(
+            "-server",
+            action="store_const",
+            const="server",
+            dest="mode",
+            help=f"Configure this node as a {PROGRAM_NAME} server",
+        )
+        mode_group.add_argument(
+            "-remove",
+            action="store_true",
+            help=f"Deactivate and remove any existing {PROGRAM_NAME} {self.function()}",
+        )
+        server_opts = parser.add_argument_group("Server options")
+        server_opts.add_argument(
+            "-base",
+            nargs="?",
+            default=None,
+            const="search",
+            help="IP address of Lionel Base 3 or LCS Wi-Fi module",
+        )
+        server_opts.add_argument(
+            "-ser2",
+            action="store_true",
+            help="Send or receive TMCC commands from an LCS Ser2",
+        )
+        misc_opts = parser.add_argument_group("Miscellaneous options")
+        misc_opts.add_argument(
+            "-buttons_file",
+            nargs="?",
+            default=None,
+            const=DEFAULT_BUTTONS_FILE,
+            help=f"Button definitions file, loaded when {PROGRAM_NAME} starts",
+        )
+        misc_opts.add_argument(
+            "-echo",
+            action="store_true",
+            help="Echo received TMCC/Legacy/Pdi commands to log file",
+        )
+        misc_opts.add_argument(
+            "-user",
+            action="store",
+            default=self._user,
+            help=f"Raspberry Pi user to run {PROGRAM_NAME} as (default: {self._user})",
+        )
+        misc_opts.add_argument(
+            "-version",
+            action="version",
+            version=f"{self.__class__.__name__} {get_version()}",
+            help="Show version and exit",
+        )
+        return parser
+
+    @staticmethod
+    def validate_username(user: str) -> bool:
+        try:
+            pwd.getpwnam(user)
+            return True
+        except KeyError:
+            return False
+
+    @abstractmethod
+    def program(self) -> str: ...
+
+    @abstractmethod
+    def function(self) -> str: ...
+
+    @abstractmethod
+    def config_header(self) -> None: ...
+
+    def postprocess_args(self) -> None: ...
+
+    @abstractmethod
+    def install(self) -> str: ...
+
+    @abstractmethod
+    def remove(self) -> str: ...
+
+    @abstractmethod
+    def command_line_parser(self) -> ArgumentParser: ...
+
+
+class MakeService(_MakeBase):
+    def __init__(self, cmd_line: list[str] = None) -> None:
+        self._start_service = False
+        super().__init__(cmd_line)
+
+    def program(self) -> str:
+        return "make_service"
+
+    def function(self) -> str:
+        return "service"
+
+    def postprocess_args(self) -> None:
+        if self._args.start is True:
+            self._start_service = True
+
+    def config_header(self) -> list[str]:
+        from .. import PROGRAM_NAME
+
+        lines = list()
+        lines.append(f"\nInstalling {PROGRAM_NAME} as a systemd service with these settings:")
+        lines.append(f"  Start service now: {'Yes' if self._start_service is True else 'No'}")
+        return lines
+
+    def install(self) -> None:
+        path = self.make_shell_script()
+        if path:
+            self._config["___SHELL_SCRIPT___"] = str(path)
+            self.install_service()
+
+    def remove(self) -> None:
+        from .. import PROGRAM_NAME
+
+        if platform.system().lower() != "linux":
+            print(f"\nPlease run {self._prog} from a Raspberry Pi. Exiting")
+            return
+
+        if self.is_server_present:
+            mode = "Server"
+        elif self.is_client_present:
+            mode = "Client"
+        else:
+            print(f"\nNo {PROGRAM_NAME} server or client is currently running. Exiting")
+            return
+        if self.confirm(f"Are you sure you want to deactivate and remove {PROGRAM_NAME} {mode}?"):
+            path = Path(self._home, "pytrain_server.bash" if mode == "Server" else "pytrain_client.bash")
+            if path.exists():
+                print(f"\nRemoving {path}...")
+                path.unlink(missing_ok=True)
+            print(f"\nDeactivating {PROGRAM_NAME} {mode} service...")
+            self.deactivate_service("pytrain_server" if mode == "Server" else "pytrain_client")
+
+    def command_line_parser(self) -> ArgumentParser:
+        from .. import PROGRAM_NAME
+
+        parser = ArgumentParser(add_help=False)
+        misc_opts = parser.add_argument_group("Service options")
+        misc_opts.add_argument(
+            "-start",
+            action="store_true",
+            help=f"Start {PROGRAM_NAME} Client/Server now (otherwise, it starts on reboot)",
+        )
+        return PyTrainArgumentParser(
+            prog=self._prog,
+            description=f"Launch {PROGRAM_NAME} as a systemd service when your Raspberry Pi is powered on",
+            parents=[self._command_line_parser(), parser],
+        )
 
     def make_shell_script(self) -> Path | None:
         template = find_file("pytrain.bash.template", (".", "../", "src"))
@@ -194,198 +443,12 @@ class MakeService:
         return service
 
     @property
-    def is_client(self) -> bool:
-        return self._args.mode == "client"
-
-    @property
-    def is_server(self) -> bool:
-        return self._args.mode == "server"
-
-    @property
-    def config(self) -> Dict[str, str]:
-        return self._config
-
-    @property
-    def pytrain_path(self) -> str:
-        return f"{self._cwd}/{self._exe}"
-
-    @property
-    def command_line(self) -> str | None:
-        cmd_line = f"{self._exe} -headless"
-        if self._args.mode == "client":
-            cmd_line += " -client"
-        else:
-            if self._base_ip:
-                ip = self._base_ip
-                ip = f" {ip}" if ip != "search" else ""
-                cmd_line += f" -base{ip}"
-            if self._args.ser2 is True:
-                cmd_line += " -ser2"
-        if self._echo is True:
-            cmd_line += " -echo"
-        if self._args.buttons_file:
-            cmd_line += f" -buttons {self._args.buttons_file}"
-        return cmd_line
-
-    def confirm_environment(self) -> bool:
-        from .. import PROGRAM_NAME
-
-        print(f"\nInstalling {PROGRAM_NAME} as a systemd service with these settings:")
-        print(f"  Mode: {'Client' if self._args.mode == 'client' else 'Server'}")
-        if self._args.mode == "server":
-            print(f"  Lionel Base IP addresses: {self._base_ip}")
-            print(f"  Use Ser2: {'Yes' if self._args.ser2 is True else 'No'}")
-        print(f"  Button definitions file: {self._args.buttons_file if self._args.buttons_file else 'None'}")
-        print(f"  Run as user: {self._user}")
-        print(f"  User '{self._user} Home: {self._home}")
-        print(f"  Echo TMCC/Legacy/Pdi commands to log file: {'Yes' if self._echo is True else 'No'}")
-        print(f"  System type: {platform.system()}")
-        print(f"  Virtual environment activation command: {self._activate_cmd}")
-        print(f"  {PROGRAM_NAME} Exe: {self._exe}")
-        print(f"  {PROGRAM_NAME} Home: {self._cwd}")
-        print(f"  {PROGRAM_NAME} Command Line: {self._cmd_line}")
-        return self.confirm("\nConfirm? [y/n] ")
-
-    @staticmethod
-    def confirm(msg: str = None) -> bool:
-        msg = msg if msg else "Continue? [y/n] "
-        answer = input(msg)
-        return True if answer.lower() in ["y", "yes"] else False
-
-    @staticmethod
-    def is_valid_ip(ip: str) -> bool:
-        try:
-            ipaddress.ip_address(ip)
-            return True
-        except ValueError:
-            return False
-
-    @staticmethod
-    def is_service_present(service: str) -> bool:
-        cmd = f"sudo systemctl status {service}.service"
-        result = subprocess.run(cmd.split(), capture_output=True)
-        if result.returncode == 4 or os.path.exists(f"/etc/systemd/system/{service}.service") is False:
-            return False
-        else:
-            return True
-
-    @staticmethod
-    def deactivate_service(service: str) -> None:
-        subprocess.run(f"sudo systemctl stop {service}.service".split())
-        subprocess.run(f"sudo systemctl disable {service}.service".split())
-        subprocess.run(f"sudo rm -fr /etc/systemd/system/{service}.service".split())
-        subprocess.run("sudo systemctl daemon-reload".split())
-        subprocess.run("sudo systemctl reset-failed".split())
-
-    @property
     def is_server_present(self) -> bool:
         return self.is_service_present("pytrain_server")
 
     @property
     def is_client_present(self) -> bool:
         return self.is_service_present("pytrain_client")
-
-    def deactivate_and_remove_services(self):
-        from .. import PROGRAM_NAME
-
-        if platform.system().lower() != "linux":
-            print(f"\nPlease run {self._prog} from a Raspberry Pi. Exiting")
-            return
-
-        if self.is_server_present:
-            mode = "Server"
-        elif self.is_client_present:
-            mode = "Client"
-        else:
-            print(f"\nNo {PROGRAM_NAME} server or client is currently running. Exiting")
-            return
-        if self.confirm(f"Are you sure you want to deactivate and remove {PROGRAM_NAME} {mode}?"):
-            path = Path(self._home, "pytrain_server.bash" if mode == "Server" else "pytrain_client.bash")
-            if path.exists():
-                print(f"\nRemoving {path}...")
-                path.unlink(missing_ok=True)
-            print(f"\nDeactivating {PROGRAM_NAME} {mode} service...")
-            self.deactivate_service("pytrain_server" if mode == "Server" else "pytrain_client")
-
-    def command_line_parser(self) -> ArgumentParser:
-        from .. import PROGRAM_NAME, get_version
-
-        parser = ArgumentParser(
-            prog=self._prog,
-            description=f"Launch {PROGRAM_NAME} as a systemd service when your Raspberry Pi is powered on",
-        )
-        mode_group = parser.add_mutually_exclusive_group(required=True)
-        mode_group.add_argument(
-            "-client",
-            action="store_const",
-            const="client",
-            dest="mode",
-            help=f"Configure this node as a {PROGRAM_NAME} client",
-        )
-        mode_group.add_argument(
-            "-server",
-            action="store_const",
-            const="server",
-            dest="mode",
-            help=f"Configure this node as a {PROGRAM_NAME} server",
-        )
-        mode_group.add_argument(
-            "-remove",
-            action="store_true",
-            help=f"Deactivate and remove any existing {PROGRAM_NAME} service",
-        )
-        server_opts = parser.add_argument_group("Server options")
-        server_opts.add_argument(
-            "-base",
-            nargs="?",
-            default=None,
-            const="search",
-            help="IP address of Lionel Base 3 or LCS Wi-Fi module",
-        )
-        server_opts.add_argument(
-            "-ser2",
-            action="store_true",
-            help="Send or receive TMCC commands from an LCS Ser2",
-        )
-        misc_opts = parser.add_argument_group("Miscellaneous options")
-        misc_opts.add_argument(
-            "-buttons_file",
-            nargs="?",
-            default=None,
-            const=DEFAULT_BUTTONS_FILE,
-            help=f"Button definitions file, loaded when {PROGRAM_NAME} starts",
-        )
-        misc_opts.add_argument(
-            "-echo",
-            action="store_true",
-            help="Echo received TMCC/Legacy/Pdi commands to log file",
-        )
-        misc_opts.add_argument(
-            "-start",
-            action="store_true",
-            help=f"Start {PROGRAM_NAME} Client/Server now (otherwise, it starts on reboot)",
-        )
-        misc_opts.add_argument(
-            "-user",
-            action="store",
-            default=self._user,
-            help=f"Raspberry Pi user to run {PROGRAM_NAME} as (default: {self._user})",
-        )
-        misc_opts.add_argument(
-            "-version",
-            action="version",
-            version=f"{self.__class__.__name__} {get_version()}",
-            help="Show version and exit",
-        )
-        return parser
-
-    @staticmethod
-    def validate_username(user: str) -> bool:
-        try:
-            pwd.getpwnam(user)
-            return True
-        except KeyError:
-            return False
 
 
 def main(args: list[str] | None = None) -> int:

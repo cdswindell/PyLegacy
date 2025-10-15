@@ -1,0 +1,50 @@
+#!/bin/bash
+#
+#
+# PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+# Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+# SPDX-License-Identifier: LPGL
+#
+
+PYTRAIN_HOME="___PYTRAINHOME___"
+BUTTONS_FILE="___BUTTONS___"
+CLIENT="___CLIENT___"
+ECHO="___ECHO___"
+
+# if a buttons file is specified, use it if found
+if [ -n "$BUTTONS_FILE" ]; then
+  if [ -f $BUTTONS_FILE ]; then
+    :
+  elif [ -f $PYTRAIN_HOME/$BUTTONS_FILE ]; then
+    BUTTONS_FILE=$PYTRAIN_HOME/$BUTTONS_FILE
+  elif [ -f $PYTRAIN_HOME$BUTTONS_FILE ]; then
+    BUTTONS_FILE=$PYTRAIN_HOME$BUTTONS_FILE
+  else
+    echo "Can not find button definitions file: $BUTTONS_FILE, continuing..."
+    BUTTONS_FILE=
+    START=
+  fi
+
+  if [ -n "$BUTTONS_FILE" ]; then
+    echo "Using button definitions in: $BUTTONS_FILE"
+    START=-buttons
+  fi
+fi
+
+# change direction to PYTRAIN_HOME
+cd $PYTRAIN_HOME || exit
+# cd /home/davids/dev/PyLegacyEnv/PyLegacy
+
+# activate the virtual environment
+source ___ACTIVATE___; export PYTHONPATH=.
+# source ../bin/activate
+#export PYTHONPATH=.
+
+# set DISPLAY to default screen
+DISPLAY=:0
+export DISPLAY
+
+# run the program with appropriate arguments
+___PYTRAIN___  -headless ___CLIENT______ECHO___ $START $BUTTONS_FILE
