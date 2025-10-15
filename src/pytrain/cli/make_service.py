@@ -16,6 +16,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from .make_base import _MakeBase
+from .pytrain import DEFAULT_BUTTONS_FILE
 from ..utils.argument_parser import PyTrainArgumentParser
 from ..utils.path_utils import find_file
 
@@ -34,6 +35,7 @@ class MakeService(_MakeBase):
     def postprocess_args(self) -> None:
         if self._args.start is True:
             self._start_service = True
+        self._buttons_file = self._args.buttons_file
 
     def config_header(self) -> list[str]:
         from .. import PROGRAM_NAME
@@ -76,6 +78,13 @@ class MakeService(_MakeBase):
 
         parser = ArgumentParser(add_help=False)
         misc_opts = parser.add_argument_group("Service options")
+        misc_opts.add_argument(
+            "-buttons_file",
+            nargs="?",
+            default=None,
+            const=DEFAULT_BUTTONS_FILE,
+            help=f"Button definitions file, loaded when {PROGRAM_NAME} starts",
+        )
         misc_opts.add_argument(
             "-start",
             action="store_true",

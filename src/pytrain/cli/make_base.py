@@ -18,9 +18,8 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Dict
 
-from src.pytrain import find_dir, find_file
-from src.pytrain.cli.pytrain import DEFAULT_BUTTONS_FILE
-from src.pytrain.utils.argument_parser import PyTrainArgumentParser
+from .. import find_dir, find_file
+from ..utils.argument_parser import PyTrainArgumentParser
 
 
 class _MakeBase(ABC):
@@ -33,6 +32,7 @@ class _MakeBase(ABC):
         self._user = getpass.getuser()
         self._home = Path.home()
         self._cwd = Path.cwd()
+        self._buttons_file = None
         self._prog = f"{self.program()}" if is_package() else f"{self.program()}.py"
         if cmd_line:
             args = self.command_line_parser().parse_args(cmd_line)
@@ -89,9 +89,9 @@ class _MakeBase(ABC):
                 print("\nA Ser2 is not required when configuring as a client. Continuing")
 
         # verify buttons file exists
-        if args.buttons_file:
-            if not os.path.isfile(args.buttons_file):
-                print(f"\nButton definitions file '{args.buttons_file}' not found. Continuing")
+        if self._buttons_file:
+            if not os.path.isfile(self._buttons_file):
+                print(f"\nButton definitions file '{self._buttons_file}' not found. Continuing")
 
         # handle subclass arguments
         self.postprocess_args()
@@ -148,8 +148,8 @@ class _MakeBase(ABC):
                 cmd_line += " -ser2"
         if self._echo is True:
             cmd_line += " -echo"
-        if self._args.buttons_file:
-            cmd_line += f" -buttons {self._args.buttons_file}"
+        if self._buttons_file:
+            cmd_line += f" -buttons {self._buttons_file}"
         return cmd_line
 
     def confirm_environment(self) -> bool:
@@ -241,13 +241,6 @@ class _MakeBase(ABC):
             help="Send or receive TMCC commands from an LCS Ser2",
         )
         misc_opts = parser.add_argument_group("Miscellaneous options")
-        misc_opts.add_argument(
-            "-buttons_file",
-            nargs="?",
-            default=None,
-            const=DEFAULT_BUTTONS_FILE,
-            help=f"Button definitions file, loaded when {PROGRAM_NAME} starts",
-        )
         misc_opts.add_argument(
             "-echo",
             action="store_true",
