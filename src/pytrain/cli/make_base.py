@@ -19,6 +19,8 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Dict
 
+import psutil
+
 from .. import find_dir, find_file
 from ..utils.argument_parser import PyTrainArgumentParser
 
@@ -179,6 +181,27 @@ class _MakeBase(ABC):
         print(f"  {PROGRAM_NAME} Home: {self._cwd}")
         print(f"  {PROGRAM_NAME} Command Line: {self._cmd_line}")
         return self.confirm("\nConfirm? [y/n] ")
+
+    @staticmethod
+    def find_and_kill_process(process_name: str = None, cmdline: str | set[str] = None) -> None:
+        """Finds and kills all processes with the given name."""
+        process = None
+        if cmdline and isinstance(cmdline, str):
+            cmdline = set(cmdline.split())
+        for p in psutil.process_iter():
+            try:
+                if process_name and p.name() == process_name:
+                    process = p
+                elif cmdline and cmdline.intersection(set(p.cmdline())):
+                    process = p
+
+                if process:
+                    print(f"Attempting to kill process {p.pid} ({' '.join(p.cmdline())})...")
+                    p.kill()
+                    print(f"Process {p.pid} killed.")
+                    return
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                print(f"Could not access or kill process with name '{process_name}'.")
 
     @staticmethod
     def spawn_detached(path: str | Path, *args: str) -> None:
