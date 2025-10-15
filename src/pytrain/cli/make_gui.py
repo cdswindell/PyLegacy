@@ -33,6 +33,8 @@ class MakeGui(_MakeBase):
     def postprocess_args(self) -> None:
         from .. import PROGRAM_BASE, is_package
 
+        if not self._args.remove and not self._args.gui:
+            self._parser.error("the following arguments are required: gui")
         if self._args.start is True:
             self._start_gui = True
         self._buttons_file = DEFAULT_BUTTONS_FILE
@@ -82,7 +84,7 @@ class MakeGui(_MakeBase):
         from .. import PROGRAM_NAME
 
         parser = ArgumentParser(add_help=False)
-        sp = parser.add_subparsers(dest="gui", required=True, help="Available GUIs")
+        sp = parser.add_subparsers(dest="gui", help="Available GUIs")
 
         comp = sp.add_parser(
             "component_state",

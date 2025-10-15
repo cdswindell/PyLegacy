@@ -37,10 +37,11 @@ class _MakeBase(ABC):
         self._cwd = Path.cwd()
         self._buttons_file = None
         self._prog = f"{self.program()}" if is_package() else f"{self.program()}.py"
+        self._parser = parser = self.command_line_parser()
         if cmd_line:
-            args = self.command_line_parser().parse_args(cmd_line)
+            args = parser.parse_args(cmd_line)
         else:
-            args = self.command_line_parser().parse_args()
+            args = parser.parse_args()
         self._args = args
 
         # handle subclass arguments
