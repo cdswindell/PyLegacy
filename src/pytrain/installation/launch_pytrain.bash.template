@@ -10,6 +10,8 @@
 
 PYTRAIN_HOME="___PYTRAINHOME___"
 BUTTONS_FILE="___BUTTONS___"
+LIONEL_BASE="___LIONELBASE___"
+LCS_SER_2="___LCSSER2___"
 CLIENT="___CLIENT___"
 ECHO="___ECHO___"
 
@@ -35,16 +37,13 @@ fi
 
 # change direction to PYTRAIN_HOME
 cd $PYTRAIN_HOME || exit
-# cd /home/davids/dev/PyLegacyEnv/PyLegacy
 
 # activate the virtual environment
 source ___ACTIVATE___; export PYTHONPATH=.
-# source ../bin/activate
-#export PYTHONPATH=.
 
 # set DISPLAY to default screen
 DISPLAY=:0
 export DISPLAY
 
 # run the program with appropriate arguments
-___PYTRAIN___  -headless ___CLIENT______ECHO___ $START $BUTTONS_FILE
+___PYTRAIN___  -headless ___CLIENT______LIONELBASE______LCSSER2______ECHO___ $START $BUTTONS_FILE
