@@ -157,7 +157,8 @@ class _MakeBase(ABC):
     def confirm_environment(self) -> bool:
         from .. import PROGRAM_NAME
 
-        self.config_header()
+        for line in self.config_header():
+            print(line)
         print(f"  Mode: {'Client' if self._args.mode == 'client' else 'Server'}")
         if self._args.mode == "server":
             print(f"  Lionel Base IP addresses: {self._base_ip}")
@@ -283,7 +284,7 @@ class _MakeBase(ABC):
     def function(self) -> str: ...
 
     @abstractmethod
-    def config_header(self) -> None: ...
+    def config_header(self) -> list[str]: ...
 
     def postprocess_args(self) -> None: ...
 
