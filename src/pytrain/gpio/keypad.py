@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import deque
-from threading import Condition, Event, RLock
+from threading import Condition, Event
 from typing import List, Callable
 
 from gpiozero import Button, CompositeDevice, GPIOPinMissing, DigitalOutputDevice, event, EventsMixin
@@ -256,8 +256,6 @@ class KeyPadI2C:
         self._last_value = None
         self._keypress = self._last_keypress = None
         self._keys = keys
-        self._key_cv = Condition(RLock())
-        self._key_released_event = Event()
         if key_queue is None:
             self._key_queue = KeyQueue(
                 clear_key=clear_key,
@@ -358,7 +356,7 @@ class KeyPadI2C:
                     if read_byte & (1 << col_pin) == 0:
                         # don't return keypress until released
                         while bus.read_byte(self._i2c_address) & (1 << col_pin) == 0:
-                            self._key_released_event.wait(0.05)
+                            time.sleep(0.02)
                         return self._keys[r][c]
         except OSError as e:
             if e.errno == 121:
@@ -379,26 +377,9 @@ class KeyPadI2C:
                 _ = bus.read_byte(self._i2c_address) & 0xFF
 
                 # 2) Perform a quick row scan to identify the key
-                key = self.get_keypress(bus)
+                self.get_keypress(bus)
 
-                # 3) Optional: wait for release so we don't retrigger too fast.
-                #    We do a lightweight read loop; INT will assert again on release,
-                #    but this ensures our handler doesn't double-fire on a single press.
-                if key is not None:
-                    print(f"Key '{key}' pressed...")
-                    # Drive all high (idle) so columns float high via quasi-bidirectional pull-ups
-                    bus.write_byte(self._i2c_address, 0xFF)
-                    # Wait until all columns read high again (released)
-                    release_deadline = time.time() + 1.0  # simple safety timeout
-                    while time.time() < release_deadline:
-                        state = bus.read_byte(self._i2c_address) & 0xFF
-                        # If any column remains low, key still held
-                        if any((state & (1 << c)) == 0 for c in self._col_pins):
-                            active_pins = [pin for pin in range(8) if (state & (1 << pin)) == 0]
-                            print(f"Waiting for '{key}' release... Raw: 0b{state:08b}, active-low pins: {active_pins}")
-                            time.sleep(0.02)
-                            continue
-                        break
+                # 3) reset all rows to high and await next key press
                 bus.write_byte(self._i2c_address, 0x0F)
         except Exception as e:
             log.exception("Error handling keypad interrupt", exc_info=e)
