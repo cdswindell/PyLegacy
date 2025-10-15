@@ -380,7 +380,6 @@ class KeyPadI2C:
 
                 # 2) Perform a quick row scan to identify the key
                 key = self.get_keypress(bus)
-                print(f"Key: {key}")
 
                 # 3) Optional: wait for release so we don't retrigger too fast.
                 #    We do a lightweight read loop; INT will assert again on release,
@@ -394,6 +393,8 @@ class KeyPadI2C:
                         state = bus.read_byte(self._i2c_address) & 0xFF
                         # If any column remains low, key still held
                         if any((state & (1 << c)) == 0 for c in self._col_pins):
+                            active_pins = [pin for pin in range(8) if (state & (1 << pin)) == 0]
+                            print(f"Waiting for key release... Raw: 0b{state:08b}, active-low pins: {active_pins}")
                             time.sleep(0.02)
                             continue
                         break
