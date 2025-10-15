@@ -5,7 +5,9 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-#
+import logging
 ___IMPORTS___
+
+logger = logging.getLogger(__name__)
 
 ___GUI___

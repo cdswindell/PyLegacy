@@ -10,3 +10,5 @@ pytrain.log*
 replay.txt
 .pytrain.history
 pytrain.history
+buttons.py
+raspinfo.txt
