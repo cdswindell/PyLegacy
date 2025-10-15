@@ -339,6 +339,8 @@ class KeyPadI2C:
             self._last_keypress = self._keypress
             self._keypress = key
             self._keypress_handler(self)
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(f"Key '{key}' pressed...")
         return key
 
     def read_keypad(self, bus: SMBus = None):
