@@ -219,9 +219,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
         ts = self._text_size
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
         _ = Text(box, text="    ", grid=[1, 1], size=ts)
+        ats = int(round(23 * self._scale_by))
         if self._aggrigator:
             txt_lbl = txt_spacer = None
-            ats = int(round(23 * self._scale_by))
             ag_box = Box(box, grid=[2, 1, 2, 1], layout="auto")
             if self.label:
                 # Wrap the Text in a vertical container so we can insert a spacer above it
@@ -263,7 +263,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         else:
             # customize label
             label = f"{self.label} {self.title}" if self.label else self.title
-            _ = Text(box, text=label, grid=[2, 1, 2, 1], size=ts, bold=True)
+            _ = Text(box, text=label, grid=[2, 1, 2, 1], size=ats, bold=True)
         _ = Text(box, text="    ", grid=[4, 1], size=ts)
         self.by_number = PushButton(
             box,
