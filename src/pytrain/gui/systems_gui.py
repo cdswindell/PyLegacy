@@ -135,8 +135,13 @@ class SystemsGui(StateBasedGui):
         self.set_button_inactive(btn)
         widgets.append(btn)
 
+        # spacer
+        row += 1
+        spacer = Text(self.btn_box, text=" ", grid=[col, row], size=ts)
+        widgets.append(spacer)
+
         # make shutdown button
-        row += 2
+        row += 1
         btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
         btn.text = "Shutdown All Nodes"
         safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.SHUTDOWN), self._hold_for)
