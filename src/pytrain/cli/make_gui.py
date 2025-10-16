@@ -50,8 +50,8 @@ GUI_ARG_TO_CLASS = {
 }
 
 CLASS_TO_TEMPLATE = {
-    AccessoriesGui: f"{AccessoriesGui.name()}(label=___LABEL__, scale_by=__SCALE_BY__)",
-    ComponentStateGui: f"{ComponentStateGui.name()}(label=___LABEL__, initial=__INITIAL__, scale_by=__SCALE_BY__)",
+    AccessoriesGui: f"{AccessoriesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
+    ComponentStateGui: f"{ComponentStateGui.name()}(label=__LABEL__, initial=__INITIAL__, scale_by=__SCALE_BY__)",
     LaunchGui: f"{LaunchGui.__name__}(tmcc_id=__TMCC_ID__, track_id=__TRACK_ID__)",
     MotorsGui: f"{MotorsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
     PowerDistrictsGui: f"{PowerDistrictsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
@@ -402,7 +402,7 @@ class MakeGui(_MakeBase):
         if hasattr(self._args, "initial"):
             self._gui_config["__INITIAL__"] = f"'{self._args.initial.title()}'" if self._args.initial else "None"
         if hasattr(self._args, "label"):
-            self._gui_config["___LABEL__"] = f"'{self._args.label}'" if self._args.label else "None"
+            self._gui_config["__LABEL__"] = f"'{self._args.label}'" if self._args.label else "None"
         if hasattr(self._args, "scale_by"):
             self._gui_config["__SCALE_BY__"] = str(self._args.scale_by)
         if hasattr(self._args, "tmcc_id"):
