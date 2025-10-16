@@ -156,17 +156,17 @@ class StateBasedGui(Thread, Generic[S], ABC):
             pd: S = self._states[tmcc_id]
             pb = self._state_buttons[tmcc_id]
             if self.is_active(pd):
-                self._set_button_active(pb)
+                self.set_button_active(pb)
             else:
-                self._set_button_inactive(pb)
+                self.set_button_inactive(pb)
 
     # noinspection PyTypeChecker
-    def _set_button_inactive(self, widget: Widget):
+    def set_button_inactive(self, widget: Widget):
         widget.bg = self._disabled_bg
         widget.text_color = self._disabled_text
 
     # noinspection PyTypeChecker
-    def _set_button_active(self, widget: Widget):
+    def set_button_active(self, widget: Widget):
         widget.bg = self._enabled_bg
         widget.text_color = self._enabled_text
 

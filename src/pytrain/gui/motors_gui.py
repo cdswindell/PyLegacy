@@ -72,14 +72,14 @@ class MotorsGui(StateBasedGui):
                     lamp = getattr(widget, "lamp", None)
                     if isinstance(widget, PushButton) and motor in {1, 2}:
                         if self.is_motor_active(pd, motor):
-                            self._set_button_active(widget)
+                            self.set_button_active(widget)
                         else:
-                            self._set_button_inactive(widget)
+                            self.set_button_inactive(widget)
                     if isinstance(widget, PushButton) and lamp in {1, 2, 3, 4}:
                         if self.is_lamp_active(pd, lamp):
-                            self._set_button_active(widget)
+                            self.set_button_active(widget)
                         else:
-                            self._set_button_inactive(widget)
+                            self.set_button_inactive(widget)
                     if isinstance(widget, Slider) and motor in {1, 2}:
                         motor_state = pd.get_motor(motor)
                         if widget.value != motor_state.speed if motor_state else 0:
@@ -154,7 +154,7 @@ class MotorsGui(StateBasedGui):
         m1_pwr.text = "Motor #1"
         m1_pwr.motor = 1
         if pd.motor1.state:
-            self._set_button_active(m1_pwr)
+            self.set_button_active(m1_pwr)
         m1_pwr.update_command(self.set_motor_state, args=[pd.tmcc_id, 1])
         widgets.append(m1_pwr)
 
@@ -179,7 +179,7 @@ class MotorsGui(StateBasedGui):
         m2_pwr.text = "Motor #2"
         m2_pwr.motor = 2
         if self.is_motor_active(pd, 2):
-            self._set_button_active(m2_pwr)
+            self.set_button_active(m2_pwr)
         m2_pwr.update_command(self.set_motor_state, args=[pd.tmcc_id, 2])
         widgets.append(m2_pwr)
 
@@ -210,7 +210,7 @@ class MotorsGui(StateBasedGui):
             pwr.text = f"Lamp #{lamp_no}"
             pwr.lamp = lamp_no
             if lamp.level:
-                self._set_button_active(pwr)
+                self.set_button_active(pwr)
             pwr.update_command(self.set_lamp_state, args=[pd.tmcc_id, lamp_no])
             widgets.append(pwr)
 

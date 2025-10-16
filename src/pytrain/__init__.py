@@ -52,6 +52,7 @@ from .gui.accessories_gui import AccessoriesGui  # noqa: F401
 from .gui.motors_gui import MotorsGui  # noqa: F401
 from .gui.routes_gui import RoutesGui  # noqa: F401
 from .gui.switches_gui import SwitchesGui  # noqa: F401
+from .gui.systems_gui import SystemsGui  # noqa: F401
 from .gui.power_district_gui import PowerDistrictsGui  # noqa: F401
 from .gui.launch_gui import LaunchGui  # noqa: F401
 from .protocol.command_def import CommandDefEnum  # noqa: F401

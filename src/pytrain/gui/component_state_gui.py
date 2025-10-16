@@ -35,6 +35,7 @@ class ComponentStateGui(Thread):
         from ..gui.power_district_gui import PowerDistrictsGui
         from ..gui.routes_gui import RoutesGui
         from ..gui.switches_gui import SwitchesGui
+        from .systems_gui import SystemsGui
 
         super().__init__(daemon=True)
         self._ev = Event()
@@ -44,6 +45,7 @@ class ComponentStateGui(Thread):
             "Power Districts": PowerDistrictsGui,
             "Routes": RoutesGui,
             "Switches": SwitchesGui,
+            "System Administration": SystemsGui,
         }
         # verify requested GUI exists:
         if initial.title() not in self._guis:
