@@ -184,5 +184,5 @@ class UniqueChoice:
         if len(matches) == 1:
             return matches[0]
         if not matches:
-            raise ArgumentTypeError(f"invalid choice '{arg}'; choose from: {', '.join(self.prefixes)}")
+            raise ArgumentTypeError(f"invalid choice '{arg}'; choose from {', '.join(self.prefixes)}")
         raise ArgumentTypeError(f"ambiguous choice '{arg}': {', '.join(matches)}")
