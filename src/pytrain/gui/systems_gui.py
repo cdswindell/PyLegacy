@@ -41,6 +41,23 @@ class SystemsGui(StateBasedGui):
             scale_by=scale_by,
         )
 
+    # noinspection PyTypeChecker
+    def on_sync(self) -> None:
+        if self._sync_state.is_synchronized:
+            if self._sync_watcher:
+                self._sync_watcher.shutdown()
+                self._sync_watcher = None
+            self._synchronized = True
+
+            # get all target states; watch for state changes
+            accs = self.get_target_states()  # should be just 1
+            for acc in accs:
+                self._states[acc.tmcc_id] = acc
+            self._max_name_len = 12
+
+            # start GUI
+            self.start()
+
     def get_target_states(self) -> list[SyncState]:
         pds: list[SyncState] = []
         accs = self._state_store.get_all(CommandScope.SYNC)
