@@ -102,7 +102,7 @@ class MakeGui(_MakeBase):
         from .. import PROGRAM_NAME
 
         lines = list()
-        lines.append(f"\nInstalling the {PROGRAM_NAME} GUI with these settings:")
+        lines.append(f"\nInstalling the {PROGRAM_NAME} {self._gui_class.__name__} GUI with these settings:")
         lines.append(f"  Start GUI now: {'Yes' if self._start_gui is True else 'No'}")
         lines.append(f"  Imports: {self._imports}")
         lines.append(f"  GUI: {self._gui_stmt}")
@@ -134,7 +134,7 @@ class MakeGui(_MakeBase):
 
         if self._start_gui:
             self.spawn_detached(path)
-            print(f"\n{PROGRAM_NAME} GUI started...")
+            print(f"\nStarting {PROGRAM_NAME} {self._gui_class.__name__} GUI...")
 
     def remove(self) -> None:
         from .. import PROGRAM_NAME
