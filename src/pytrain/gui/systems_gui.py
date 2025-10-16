@@ -87,13 +87,23 @@ class SystemsGui(StateBasedGui):
         ts = int(round(23 * self._scale_by))
         title = Text(
             self.btn_box,
-            text=f"Hold For {self._hold_for} seconds",
+            text=f"Press for {self._hold_for} seconds",
             grid=[col, row, 2, 1],
             size=ts,
             bold=True,
             color="red",
         )
         widgets.append(title)
+
+        # make reboot button
+        row += 1
+        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn.text = "Reload Base 3 State"
+        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.RESYNC), self._hold_for)
+        btn.when_left_button_pressed = safety.on_press
+        btn.when_left_button_released = safety.on_release
+        self.set_button_inactive(btn)
+        widgets.append(btn)
 
         # make reboot button
         row += 1
@@ -110,6 +120,26 @@ class SystemsGui(StateBasedGui):
         btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
         btn.text = f"Update {PROGRAM_NAME} Software"
         safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.UPDATE), self._hold_for)
+        btn.when_left_button_pressed = safety.on_press
+        btn.when_left_button_released = safety.on_release
+        self.set_button_inactive(btn)
+        widgets.append(btn)
+
+        # make upgrade button
+        row += 1
+        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn.text = "Upgrade Raspberry Pi Software"
+        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.UPGRADE), self._hold_for)
+        btn.when_left_button_pressed = safety.on_press
+        btn.when_left_button_released = safety.on_release
+        self.set_button_inactive(btn)
+        widgets.append(btn)
+
+        # make shutdown button
+        row += 1
+        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn.text = "Shutdown All Nodes"
+        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.SHUTDOWN), self._hold_for)
         btn.when_left_button_pressed = safety.on_press
         btn.when_left_button_released = safety.on_release
         self.set_button_inactive(btn)
