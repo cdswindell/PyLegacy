@@ -107,16 +107,6 @@ class SystemsGui(StateBasedGui):
         self.set_button_inactive(btn)
         widgets.append(btn)
 
-        # make reboot button
-        row += 1
-        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
-        btn.text = "Reboot All Nodes"
-        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.REBOOT), self._hold_for)
-        btn.when_left_button_pressed = safety.on_press
-        btn.when_left_button_released = safety.on_release
-        self.set_button_inactive(btn)
-        widgets.append(btn)
-
         # make update button
         row += 1
         btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
@@ -141,6 +131,16 @@ class SystemsGui(StateBasedGui):
         row += 1
         spacer = Text(self.btn_box, text=" ", grid=[col, row], size=ts)
         widgets.append(spacer)
+
+        # make reboot button
+        row += 1
+        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn.text = "Reboot All Nodes"
+        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.REBOOT), self._hold_for)
+        btn.when_left_button_pressed = safety.on_press
+        btn.when_left_button_released = safety.on_release
+        self.set_button_inactive(btn)
+        widgets.append(btn)
 
         # make shutdown button
         row += 1
