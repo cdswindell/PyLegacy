@@ -3,8 +3,13 @@ from threading import Event
 
 import pytest
 
+import src.pytrain.gui.component_state_gui
+
 # Target module
-from src.pytrain.gui import component_state_guis as mod
+from src.pytrain.gui import state_based_gui as mod
+from src.pytrain.gui import power_district_gui as pd_mod
+from src.pytrain.gui import routes_gui as ro_mod
+from src.pytrain.gui import switches_gui as sw_mod
 
 
 class DummyGui:
@@ -56,9 +61,9 @@ def patch_gui_classes(monkeypatch):
     DummyGui.instances.clear()
     DummyGui.closed.clear()
 
-    monkeypatch.setattr(mod, "PowerDistrictsGui", DummyGui, raising=True)
-    monkeypatch.setattr(mod, "SwitchesGui", DummyGui, raising=True)
-    monkeypatch.setattr(mod, "RoutesGui", DummyGui, raising=True)
+    monkeypatch.setattr(pd_mod, "PowerDistrictsGui", DummyGui, raising=True)
+    monkeypatch.setattr(sw_mod, "SwitchesGui", DummyGui, raising=True)
+    monkeypatch.setattr(ro_mod, "RoutesGui", DummyGui, raising=True)
 
     # Ensure switching calls actually close our DummyGui
     def fake_release_handler(handler):
@@ -88,12 +93,12 @@ def wait_for(predicate, timeout=2.0, interval=0.01):
 def test_invalid_initial_gui_raises():
     with pytest.raises(ValueError):
         # Pass a bogus initial name which is not present in the _guis map
-        mod.ComponentStateGui(label="X", initial="Not A GUI", width=100, height=100)
+        src.pytrain.gui.component_state_gui.ComponentStateGui(label="X", initial="Not A GUI", width=100, height=100)
 
 
 def test_initial_gui_is_created_and_aggregator_set():
     # Using default initial "Power Districts" which we patched to DummyGui
-    comp = mod.ComponentStateGui(label="My Label", width=320, height=240)
+    comp = src.pytrain.gui.component_state_gui.ComponentStateGui(label="My Label", width=320, height=240)
 
     # Wait until the ComponentStateGui thread creates the initial GUI
     assert wait_for(lambda: len(DummyGui.instances) == 1), "Initial GUI instance was not created"
@@ -108,7 +113,7 @@ def test_initial_gui_is_created_and_aggregator_set():
 
 
 def test_cycle_gui_switches_and_closes_previous():
-    comp = mod.ComponentStateGui(label=None, width=640, height=480)
+    comp = src.pytrain.gui.component_state_gui.ComponentStateGui(label=None, width=640, height=480)
 
     # initial GUI created
     assert wait_for(lambda: len(DummyGui.instances) == 1)
@@ -131,7 +136,7 @@ def test_cycle_gui_switches_and_closes_previous():
 
 
 def test_cycle_gui_ignores_unknown_key():
-    comp = mod.ComponentStateGui(width=200, height=200)
+    comp = src.pytrain.gui.component_state_gui.ComponentStateGui(width=200, height=200)
 
     assert wait_for(lambda: len(DummyGui.instances) == 1)
 
@@ -144,7 +149,7 @@ def test_cycle_gui_ignores_unknown_key():
 
 
 def test_guis_property_lists_expected_entries():
-    comp = mod.ComponentStateGui(width=200, height=200)
+    comp = src.pytrain.gui.component_state_gui.ComponentStateGui(width=200, height=200)
 
     # The keys come from ComponentStateGui._guis dict
     names = comp.guis

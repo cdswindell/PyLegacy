@@ -17,15 +17,13 @@ from pathlib import Path
 
 from .make_base import _MakeBase
 from .pytrain import DEFAULT_BUTTONS_FILE
-from ..gui.component_state_guis import (
-    ComponentStateGui,
-    MotorsGui,
-    AccessoriesGui,
-    RoutesGui,
-    SwitchesGui,
-    PowerDistrictsGui,
-)
+from ..gui.component_state_gui import ComponentStateGui
+from ..gui.accessories_gui import AccessoriesGui
 from ..gui.launch_gui import LaunchGui
+from ..gui.motors_gui import MotorsGui
+from ..gui.power_district_gui import PowerDistrictsGui
+from ..gui.routes_gui import RoutesGui
+from ..gui.switches_gui import SwitchesGui
 from ..utils.argument_parser import PyTrainArgumentParser, UniqueChoice, IntRange
 from ..utils.path_utils import find_file, find_dir
 
