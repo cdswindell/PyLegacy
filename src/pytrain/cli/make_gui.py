@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
@@ -26,8 +27,7 @@ from ..gui.component_state_guis import (
 )
 from ..gui.launch_gui import LaunchGui
 from ..utils.argument_parser import PyTrainArgumentParser, UniqueChoice, IntRange
-from ..utils.path_utils import find_file
-
+from ..utils.path_utils import find_file, find_dir
 
 GUI_ARG_TO_CLASS = {
     "ac": AccessoriesGui,
@@ -59,12 +59,16 @@ CLASS_TO_TEMPLATE = {
     SwitchesGui: f"{SwitchesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
 }
 
+NEED_FONTS = {
+    LaunchGui,
+}
+
 
 class MakeGui(_MakeBase):
     def __init__(self, cmd_line: list[str] = None) -> None:
         self._start_gui = False
-        self._launch_path = self._desktop_path = self._buttons_path = self._imports = None
-        self._gui_class = self._gui_stmt = None
+        self._launch_path = self._desktop_path = self._buttons_path = self._fonts_path = None
+        self._imports = self._gui_class = self._gui_stmt = None
         self._gui_config = dict()
         super().__init__(cmd_line)
 
@@ -85,6 +89,7 @@ class MakeGui(_MakeBase):
         self._launch_path = Path(self._home, "launch_pytrain.bash")
         self._desktop_path = Path(self._home, ".config", "autostart", "pytrain.desktop")
         self._buttons_path = Path(self._cwd, self._buttons_file)
+        self._fonts_path = Path(self._home, ".fonts")
         self._imports = f"from {PROGRAM_BASE if is_package() else 'src.' + PROGRAM_BASE} import *"
         self._gui_class = GUI_ARG_TO_CLASS.get(self._args.gui)
         self.harvest_gui_config()
@@ -109,15 +114,27 @@ class MakeGui(_MakeBase):
         path = self.make_shell_script()
         if path:
             self._config["___SHELL_SCRIPT___"] = str(path)
-            desktop = self.make_python_desktop_file()
-            if desktop:
-                self._config["___DESKTOP___"] = str(desktop)
-                buttons = self.make_buttons_file()
-                if buttons:
-                    self._config["___BUTTONS___"] = str(buttons)
-                    if self._start_gui:
-                        self.spawn_detached(path)
-                        print(f"\n{PROGRAM_NAME} GUI started...")
+        else:
+            return
+
+        desktop = self.make_python_desktop_file()
+        if desktop:
+            self._config["___DESKTOP___"] = str(desktop)
+        else:
+            return
+
+        buttons = self.make_buttons_file()
+        if buttons:
+            self._config["___BUTTONS___"] = str(buttons)
+        else:
+            return
+
+        if self._gui_class in NEED_FONTS:
+            self.install_fonts()
+
+        if self._start_gui:
+            self.spawn_detached(path)
+            print(f"\n{PROGRAM_NAME} GUI started...")
 
     def remove(self) -> None:
         from .. import PROGRAM_NAME
@@ -127,7 +144,7 @@ class MakeGui(_MakeBase):
             return
         if self.confirm(f"Are you sure you want to remove the {PROGRAM_NAME} GUI?"):
             self.find_and_kill_process(cmdline="python3 headless -buttons")
-            for path in (self._desktop_path, self._launch_path):
+            for path in (self._desktop_path, self._launch_path, self._buttons_path):
                 if path.exists():
                     print(f"\nRemoving {path}...")
                     path.unlink(missing_ok=True)
@@ -358,6 +375,27 @@ class MakeGui(_MakeBase):
             f.write(template_data)
 
         print(f"\n{path} created")
+        return path
+
+    def install_fonts(self) -> Path | None:
+        template = find_dir("fonts", (".", "../", "src"))
+        if template is None:
+            print("\nUnable to locate fonts directory. Exiting")
+            return None
+        path = self._fonts_path
+        if not path.exists():
+            path.mkdir(parents=True, exist_ok=True)
+        # copy the fonts directory
+        try:
+            shutil.copytree(template, path, dirs_exist_ok=True)
+            subprocess.run(["fc-cache", "-f", "-v"])
+            print(f"Installed fonts to: {path}")
+        except shutil.Error as e:
+            print(f"Error copying directory: {e}")
+            path = None
+        except OSError as e:
+            print(f"Error: {e}")
+            path = None
         return path
 
     def harvest_gui_config(self):
