@@ -101,7 +101,7 @@ class SystemsGui(StateBasedGui):
         row += 1
         btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
         btn.text = "Reload Base 3 State"
-        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.RESYNC), self._hold_for)
+        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.RESYNC), self._hold_for)
         btn.when_left_button_pressed = safety.on_press
         btn.when_left_button_released = safety.on_release
         self.set_button_inactive(btn)
@@ -111,7 +111,7 @@ class SystemsGui(StateBasedGui):
         row += 1
         btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
         btn.text = f"Update {PROGRAM_NAME} Software"
-        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.UPDATE), self._hold_for)
+        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.UPDATE), self._hold_for)
         btn.when_left_button_pressed = safety.on_press
         btn.when_left_button_released = safety.on_release
         self.set_button_inactive(btn)
@@ -121,7 +121,7 @@ class SystemsGui(StateBasedGui):
         row += 1
         btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
         btn.text = "Upgrade Raspberry Pi Software"
-        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.UPGRADE), self._hold_for)
+        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.UPGRADE), self._hold_for)
         btn.when_left_button_pressed = safety.on_press
         btn.when_left_button_released = safety.on_release
         self.set_button_inactive(btn)
@@ -136,7 +136,7 @@ class SystemsGui(StateBasedGui):
         row += 1
         btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
         btn.text = "Reboot All Nodes"
-        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.REBOOT), self._hold_for)
+        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.REBOOT), self._hold_for)
         btn.when_left_button_pressed = safety.on_press
         btn.when_left_button_released = safety.on_release
         self.set_button_inactive(btn)
@@ -146,7 +146,7 @@ class SystemsGui(StateBasedGui):
         row += 1
         btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
         btn.text = "Shutdown All Nodes"
-        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.SHUTDOWN), self._hold_for)
+        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.SHUTDOWN), self._hold_for)
         btn.when_left_button_pressed = safety.on_press
         btn.when_left_button_released = safety.on_release
         self.set_button_inactive(btn)
@@ -161,11 +161,13 @@ class PushButtonHoldHelper:
     def __init__(
         self,
         gui: SystemsGui,
+        button: Widget,
         command: CommandReq,
         hold_for=5,
     ) -> None:
         self._gui = gui
         self._command = command
+        self._button = button
         self._hold_for = hold_for * 1000
         self._app = gui.app
         self._tk = gui.app.tk
@@ -195,5 +197,6 @@ class PushButtonHoldHelper:
 
     def fire(self):
         with self._cv:
+            self._gui.set_button_inactive(self._button)
             self._after_id = None
             self._command.send()
