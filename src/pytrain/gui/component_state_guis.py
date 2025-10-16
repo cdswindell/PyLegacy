@@ -262,7 +262,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 combo_spacer.height = 0
         else:
             # customize label
-            label = f"{self.label} {self.title}" if self.label else self.title
+            label = f"{self.label}: {self.title}" if self.label else self.title
             _ = Text(box, text=label, grid=[2, 1, 2, 1], size=ats, bold=True)
         _ = Text(box, text="    ", grid=[4, 1], size=ts)
         self.by_number = PushButton(
