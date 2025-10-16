@@ -81,8 +81,8 @@ class SystemsGui(StateBasedGui):
         row: int,
         col: int,
     ) -> tuple[list[Widget], int, int]:
-        self.by_name.disable()
-        self.by_number.disable()
+        self.by_name.hide()
+        self.by_number.hide()
         widgets: list[Widget] = []
 
         # make title label

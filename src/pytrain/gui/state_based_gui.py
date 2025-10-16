@@ -379,8 +379,8 @@ class StateBasedGui(Thread, Generic[S], ABC):
             btn_y = 0
             self.right_scroll_btn.disable()
             self.left_scroll_btn.disable()
-            self.by_name.enable()
-            self.by_number.enable()
+            self.by_name.show()
+            self.by_number.show()
 
             self.btn_box.visible = False
             for pd in states:
