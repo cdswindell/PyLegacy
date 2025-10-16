@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from threading import Condition, RLock
 
+from guizero import Text
 from guizero.base import Widget
 from guizero.event import EventData
 
@@ -30,6 +31,7 @@ class SystemsGui(StateBasedGui):
         height: int = None,
         aggrigator: ComponentStateGui = None,
         scale_by: float = 1.0,
+        hold_for: int = 5,
     ) -> None:
         StateBasedGui.__init__(
             self,
@@ -38,8 +40,10 @@ class SystemsGui(StateBasedGui):
             width,
             height,
             aggrigator,
+            enabled_bg="red",
             scale_by=scale_by,
         )
+        self._hold_for = hold_for
 
     # noinspection PyTypeChecker
     def on_sync(self) -> None:
@@ -79,14 +83,37 @@ class SystemsGui(StateBasedGui):
     ) -> tuple[list[Widget], int, int]:
         widgets: list[Widget] = []
 
+        # make title label
+        ts = int(round(23 * self._scale_by))
+        title = Text(
+            self.btn_box,
+            text=f"Hold For {self._hold_for} seconds",
+            grid=[col, row, 2, 1],
+            size=ts,
+            bold=True,
+            color="red",
+        )
+        widgets.append(title)
+
         # make reboot button
-        rb_btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
-        rb_btn.text = "Reboot All Nodes"
-        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.REBOOT))
-        rb_btn.when_left_button_pressed = safety.on_press
-        rb_btn.when_left_button_released = safety.on_release
-        self.set_button_inactive(rb_btn)
-        widgets.append(rb_btn)
+        row += 1
+        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn.text = "Reboot All Nodes"
+        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.REBOOT), self._hold_for)
+        btn.when_left_button_pressed = safety.on_press
+        btn.when_left_button_released = safety.on_release
+        self.set_button_inactive(btn)
+        widgets.append(btn)
+
+        # make update button
+        row += 1
+        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn.text = f"Update {PROGRAM_NAME} Software"
+        safety = PushButtonHoldHelper(self, CommandReq(TMCC1SyncCommandEnum.UPDATE), self._hold_for)
+        btn.when_left_button_pressed = safety.on_press
+        btn.when_left_button_released = safety.on_release
+        self.set_button_inactive(btn)
+        widgets.append(btn)
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
@@ -98,11 +125,11 @@ class PushButtonHoldHelper:
         self,
         gui: SystemsGui,
         command: CommandReq,
-        hold_for=5000,
+        hold_for=5,
     ) -> None:
         self._gui = gui
         self._command = command
-        self._hold_for = hold_for
+        self._hold_for = hold_for * 1000
         self._app = gui.app
         self._tk = gui.app.tk
         self._after_id = None

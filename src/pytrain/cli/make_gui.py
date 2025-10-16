@@ -24,6 +24,7 @@ from ..gui.motors_gui import MotorsGui
 from ..gui.power_district_gui import PowerDistrictsGui
 from ..gui.routes_gui import RoutesGui
 from ..gui.switches_gui import SwitchesGui
+from ..gui.systems_gui import SystemsGui
 from ..utils.argument_parser import PyTrainArgumentParser, UniqueChoice, IntRange
 from ..utils.path_utils import find_file, find_dir
 
@@ -45,6 +46,8 @@ GUI_ARG_TO_CLASS = {
     "state": ComponentStateGui,
     "sw": SwitchesGui,
     "switches": SwitchesGui,
+    "sy": SystemsGui,
+    "systems": SystemsGui,
 }
 
 CLASS_TO_TEMPLATE = {
@@ -55,11 +58,23 @@ CLASS_TO_TEMPLATE = {
     PowerDistrictsGui: f"{PowerDistrictsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
     RoutesGui: f"{RoutesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
     SwitchesGui: f"{SwitchesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
+    SystemsGui: f"{SystemsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__, hold_for=__HOLD_FOR__)",
 }
 
 NEED_FONTS = {
     LaunchGui,
 }
+
+CHOICES = [
+    "accessories",
+    "motors",
+    "power districts",
+    "routes",
+    "switches",
+    "systems",
+]
+
+CHOICES_HELP = ", ".join([x.title() for x in CHOICES])
 
 
 class MakeGui(_MakeBase):
@@ -185,12 +200,11 @@ class MakeGui(_MakeBase):
 
         comp.add_argument(
             "-initial",
-            type=UniqueChoice(["accessories", "motors", "power districts", "routes", "switches"]),
+            type=UniqueChoice(CHOICES),
             nargs="?",
             const="power districts",
             default="power districts",
-            help="Initial Display (default: Power Districts, choices: Accessories, Motors, Power Districts, Routes, "
-            "Switches)",
+            help=f"Initial Display (default: Power Districts, choices: {CHOICES_HELP})",
         )
         comp.add_argument(
             "-label",
@@ -300,6 +314,33 @@ class MakeGui(_MakeBase):
             help="Text Scale Factor (default: 1.0)",
         )
 
+        # Systems GUI
+        sy = sp.add_parser(
+            "systems",
+            aliases=["sy"],
+            allow_abbrev=True,
+            help=f"{PROGRAM_NAME} Systems Administration GUI",
+        )
+        sy.add_argument(
+            "-label",
+            type=str,
+            help="Layout Name",
+        )
+        sy.add_argument(
+            "-scale_by",
+            type=float,
+            default=1.0,
+            help="Text Scale Factor (default: 1.0)",
+        )
+        sy.add_argument(
+            "-hold_for",
+            type=IntRange(1, 10),
+            default=5,
+            const=5,
+            nargs="?",
+            help="Hold time before performing action (default: 5 seconds)",
+        )
+
         misc_opts = parser.add_argument_group("Service options")
         misc_opts.add_argument(
             "-start",
@@ -403,6 +444,8 @@ class MakeGui(_MakeBase):
             self._gui_config["__LABEL__"] = f"'{self._args.label}'" if self._args.label else "None"
         if hasattr(self._args, "scale_by"):
             self._gui_config["__SCALE_BY__"] = str(self._args.scale_by)
+        if hasattr(self._args, "hold_for"):
+            self._gui_config["__HOLD_FOR__"] = str(self._args.hold_for)
         if hasattr(self._args, "tmcc_id"):
             self._gui_config["__TMCC_ID__"] = str(self._args.tmcc_id)
         if hasattr(self._args, "track_id"):
