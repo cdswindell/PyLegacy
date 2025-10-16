@@ -40,6 +40,10 @@ S = TypeVar("S", bound=ComponentState)
 class StateBasedGui(Thread, Generic[S], ABC):
     __metaclass__ = ABCMeta
 
+    @classmethod
+    def name(cls) -> str:
+        return cls.__name__
+
     @abstractmethod
     def __init__(
         self,
@@ -857,6 +861,10 @@ class AccessoriesGui(StateBasedGui):
 
 
 class ComponentStateGui(Thread):
+    @classmethod
+    def name(cls) -> str:
+        return cls.__name__
+
     def __init__(
         self,
         label: str = None,
@@ -875,7 +883,7 @@ class ComponentStateGui(Thread):
             "Switches": SwitchesGui,
         }
         # verify requested GUI exists:
-        if initial not in self._guis:
+        if initial.title() not in self._guis:
             raise ValueError(f"Invalid initial GUI: {initial}")
 
         self.label = label

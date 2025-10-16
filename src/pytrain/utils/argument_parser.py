@@ -7,7 +7,7 @@
 #
 #
 import argparse
-from argparse import ArgumentError, ArgumentParser, HelpFormatter
+from argparse import ArgumentError, ArgumentTypeError, ArgumentParser, HelpFormatter
 from threading import Lock
 from typing import List, cast
 
@@ -172,3 +172,17 @@ class IntRange:
             return argparse.ArgumentTypeError(f"Must be an integer <= {self.imax}")
         else:
             return argparse.ArgumentTypeError("Must be an integer")
+
+
+class UniqueChoice:
+    def __init__(self, prefixes: List[str]):
+        self.prefixes = prefixes
+
+    def __call__(self, arg):
+        arg = arg.lower()
+        matches = [c for c in self.prefixes if c.startswith(arg)]
+        if len(matches) == 1:
+            return matches[0]
+        if not matches:
+            raise ArgumentTypeError(f"invalid choice '{arg}'")
+        raise ArgumentTypeError(f"ambiguous choice '{arg}': {', '.join(matches)}")

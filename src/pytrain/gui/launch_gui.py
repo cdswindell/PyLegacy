@@ -492,8 +492,8 @@ class LaunchGui(Thread):
 
     def do_abort(self, detected: bool = False):
         """
-        Abort launch sequence if counting down, initiate self-destruct if bird
-        is in the air.
+        Abort launch sequence if counting down, initiate self-destruct
+        if the rocket is in the air.
         """
         with self._cv:
             if not detected:
