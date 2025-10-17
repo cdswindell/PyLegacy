@@ -60,7 +60,7 @@ CLASS_TO_TEMPLATE = {
     PowerDistrictsGui: f"{PowerDistrictsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
     RoutesGui: f"{RoutesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
     SwitchesGui: f"{SwitchesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
-    SystemsGui: f"{SystemsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__, hold_for=__HOLD_FOR__)",
+    SystemsGui: f"{SystemsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__, hold_for=__PRESS_FOR__)",
 }
 
 NEED_FONTS = {
@@ -449,8 +449,8 @@ class MakeGui(_MakeBase):
             self._gui_config["__LABEL__"] = f"'{self._args.label}'" if self._args.label else "None"
         if hasattr(self._args, "scale_by"):
             self._gui_config["__SCALE_BY__"] = str(self._args.scale_by)
-        if hasattr(self._args, "hold_for"):
-            self._gui_config["__HOLD_FOR__"] = str(self._args.hold_for)
+        if hasattr(self._args, "press_for"):
+            self._gui_config["__PRESS_FOR__"] = str(self._args.press_for)
         if hasattr(self._args, "tmcc_id"):
             self._gui_config["__TMCC_ID__"] = str(self._args.tmcc_id)
         if hasattr(self._args, "track_id"):
