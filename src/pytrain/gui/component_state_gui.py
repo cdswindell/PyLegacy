@@ -45,7 +45,7 @@ class ComponentStateGui(Thread):
             "Power Districts": PowerDistrictsGui,
             "Routes": RoutesGui,
             "Switches": SwitchesGui,
-            "System Administration": SystemsGui,
+            "Systems": SystemsGui,
         }
         # verify requested GUI exists:
         if initial.title() not in self._guis:
@@ -93,7 +93,7 @@ class ComponentStateGui(Thread):
             self._gui = None
 
             # create and display new gui
-            self._gui = self._guis[self.requested_gui](
+            self._gui = self._guis.get(self.requested_gui)(
                 self.label, self.width, self.height, aggrigator=self, scale_by=self._scale_by
             )
 
