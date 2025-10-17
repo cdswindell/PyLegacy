@@ -25,6 +25,7 @@ from ..gui.power_district_gui import PowerDistrictsGui
 from ..gui.routes_gui import RoutesGui
 from ..gui.switches_gui import SwitchesGui
 from ..gui.systems_gui import SystemsGui
+from ..protocol.constants import PROGRAM_NAME
 from ..utils.argument_parser import PyTrainArgumentParser, UniqueChoice, IntRange
 from ..utils.path_utils import find_file, find_dir
 
@@ -71,7 +72,7 @@ CHOICES = [
     "power districts",
     "routes",
     "switches",
-    "systems",
+    f"{PROGRAM_NAME} Administration".lower(),
 ]
 
 CHOICES_HELP = ", ".join([x.title() for x in CHOICES])
@@ -121,8 +122,6 @@ class MakeGui(_MakeBase):
         self._config["___GUI___"] = self._gui_stmt = self.construct_gui_stmt()
 
     def config_header(self) -> list[str]:
-        from .. import PROGRAM_NAME
-
         lines = list()
         lines.append(f"\nInstalling the {PROGRAM_NAME} {self._gui_class.__name__} GUI with these settings:")
         lines.append(f"  Start GUI now: {'Yes' if self._start_gui is True else 'No'}")
@@ -131,8 +130,6 @@ class MakeGui(_MakeBase):
         return lines
 
     def install(self) -> None:
-        from .. import PROGRAM_NAME
-
         path = self.make_shell_script()
         if path:
             self._config["___SHELL_SCRIPT___"] = str(path)
@@ -159,8 +156,6 @@ class MakeGui(_MakeBase):
             print(f"\nStarting {PROGRAM_NAME} {self._gui_class.__name__} GUI...")
 
     def remove(self) -> None:
-        from .. import PROGRAM_NAME
-
         if not self.is_gui_present:
             print(f"\nNo {PROGRAM_NAME} GUI detected. Exiting")
             return
@@ -173,8 +168,6 @@ class MakeGui(_MakeBase):
 
     # noinspection PyTypeChecker
     def command_line_parser(self) -> ArgumentParser:
-        from .. import PROGRAM_NAME
-
         parser = ArgumentParser(add_help=False)
         sp = parser.add_subparsers(dest="gui", help="Available GUIs")
 
