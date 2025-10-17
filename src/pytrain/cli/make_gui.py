@@ -48,6 +48,7 @@ GUI_ARG_TO_CLASS = {
     "sw": SwitchesGui,
     "switches": SwitchesGui,
     "sy": SystemsGui,
+    "pa": SystemsGui,
     f"{PROGRAM_NAME}_administration".lower(): SystemsGui,
 }
 
@@ -319,9 +320,9 @@ class MakeGui(_MakeBase):
         # Systems GUI
         sy = sp.add_parser(
             f"{PROGRAM_NAME}_administration".lower(),
-            aliases=["sy"],
+            aliases=["pa", "sy"],
             allow_abbrev=True,
-            help=f"{PROGRAM_NAME} Systems Administration GUI",
+            help=f"{PROGRAM_NAME} System Administration GUI",
         )
         sy.add_argument(
             "-label",
