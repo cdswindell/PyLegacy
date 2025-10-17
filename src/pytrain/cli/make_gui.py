@@ -336,12 +336,12 @@ class MakeGui(_MakeBase):
             help="Text Scale Factor (default: 1.0)",
         )
         sy.add_argument(
-            "-hold_for",
+            "-press_for",
             type=IntRange(1, 10),
             default=5,
             const=5,
             nargs="?",
-            help="Hold time before performing action (default: 5 seconds)",
+            help="Time button must be pressed before performing action (default: 5 seconds)",
         )
 
         misc_opts = parser.add_argument_group("Service options")
