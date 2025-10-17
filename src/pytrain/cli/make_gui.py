@@ -78,6 +78,15 @@ CHOICES_HELP = ", ".join([x.title() for x in CHOICES])
 
 
 class MakeGui(_MakeBase):
+    """
+    Handles the creation, configuration, and management of a graphical user interface (GUI) for PyTrain.
+
+    This class facilitates the configuration and installation of various GUI components as specified by command-line
+    arguments. It is designed to be extensible to support multiple GUI types, offering flexibility for user interaction
+    and program operations. The functionality includes argument preprocessing, GUI setup, installation, and removal,
+    as well as command-line parser configuration tailored to specific GUI requirements.
+    """
+
     def __init__(self, cmd_line: list[str] = None) -> None:
         self._start_gui = False
         self._launch_path = self._desktop_path = self._buttons_path = self._fonts_path = None
