@@ -75,7 +75,7 @@ CHOICES = [
     f"{PROGRAM_NAME} Administration".lower(),
 ]
 
-CHOICES_HELP = ", ".join([x.title() for x in CHOICES])
+CHOICES_HELP = ", ".join([x.title() for x in CHOICES]).replace(PROGRAM_NAME.title(), PROGRAM_NAME)
 
 
 class MakeGui(_MakeBase):
