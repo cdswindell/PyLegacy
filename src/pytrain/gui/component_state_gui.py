@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from threading import Thread, Event
 
+from ..protocol.constants import PROGRAM_NAME
 from ..gpio.gpio_handler import GpioHandler
 
 log = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ class ComponentStateGui(Thread):
             "Power Districts": PowerDistrictsGui,
             "Routes": RoutesGui,
             "Switches": SwitchesGui,
-            "Systems": SystemsGui,
+            f"{PROGRAM_NAME} Administration": SystemsGui,
         }
         # verify requested GUI exists:
         if initial.title() not in self._guis:
