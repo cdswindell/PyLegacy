@@ -48,7 +48,7 @@ GUI_ARG_TO_CLASS = {
     "sw": SwitchesGui,
     "switches": SwitchesGui,
     "sy": SystemsGui,
-    "systems": SystemsGui,
+    f"{PROGRAM_NAME}_administration".lower(): SystemsGui,
 }
 
 CLASS_TO_TEMPLATE = {
@@ -318,7 +318,7 @@ class MakeGui(_MakeBase):
 
         # Systems GUI
         sy = sp.add_parser(
-            "systems",
+            f"{PROGRAM_NAME}_administration".lower(),
             aliases=["sy"],
             allow_abbrev=True,
             help=f"{PROGRAM_NAME} Systems Administration GUI",

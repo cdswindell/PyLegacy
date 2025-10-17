@@ -52,6 +52,15 @@ class ComponentStateGui(Thread):
         if initial.lower() not in [x.lower() for x in self._guis.keys()]:
             raise ValueError(f"Invalid initial GUI: {initial}")
 
+        # case-correct initial
+        for key in self._guis.keys():
+            if initial.lower() == key.lower():
+                initial = key
+                break
+
+        if label is not None:
+            label = label.title()
+
         self.label = label
         if width is None or height is None:
             try:
