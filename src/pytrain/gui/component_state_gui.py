@@ -49,6 +49,7 @@ class ComponentStateGui(Thread):
             f"{PROGRAM_NAME} Administration": SystemsGui,
         }
         # verify requested GUI exists:
+        print(list[self._guis.keys()])
         if initial.title() not in self._guis:
             raise ValueError(f"Invalid initial GUI: {initial}")
 
