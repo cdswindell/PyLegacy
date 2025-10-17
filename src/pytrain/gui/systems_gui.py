@@ -97,11 +97,21 @@ class SystemsGui(StateBasedGui):
         )
         widgets.append(title)
 
-        # make reboot button
+        # make reload button
         row += 1
         btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
         btn.text = "Reload Base 3 State"
         safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.RESYNC), self._hold_for)
+        btn.when_left_button_pressed = safety.on_press
+        btn.when_left_button_released = safety.on_release
+        self.set_button_inactive(btn)
+        widgets.append(btn)
+
+        # make restart button
+        row += 1
+        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn.text = "Restart All Nodes"
+        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.RESTART), self._hold_for)
         btn.when_left_button_pressed = safety.on_press
         btn.when_left_button_released = safety.on_release
         self.set_button_inactive(btn)
