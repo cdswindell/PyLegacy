@@ -441,7 +441,9 @@ class MakeGui(_MakeBase):
 
     def harvest_gui_config(self):
         if hasattr(self._args, "initial"):
-            self._gui_config["__INITIAL__"] = f"'{self._args.initial.title()}'" if self._args.initial else "None"
+            initial = f"'{self._args.initial.title()}'" if self._args.initial else "None"
+            initial = initial.replace(PROGRAM_NAME.title(), PROGRAM_NAME)
+            self._gui_config["__INITIAL__"] = initial
         if hasattr(self._args, "label"):
             self._gui_config["__LABEL__"] = f"'{self._args.label}'" if self._args.label else "None"
         if hasattr(self._args, "scale_by"):
