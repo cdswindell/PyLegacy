@@ -63,6 +63,8 @@ PACKAGES = [
     "cups-common",
     "dbus-org.freedesktop.ModemManager1",
     "firefox",
+    "ghostscript",
+    "gvfs",
     "labwc",
     "libcups",
     "libcups2",
@@ -78,6 +80,9 @@ PACKAGES = [
     "raindrop",
     "rpi-connect",
     "rpicam-apps",
+    "vlc",
+    "vlc-bin",
+    "vlc-data",
 ]
 
 

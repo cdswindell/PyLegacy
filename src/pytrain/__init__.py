@@ -47,14 +47,15 @@ from .gpio.route import Route  # noqa: F401
 from .gpio.smoke_fluid_loader import SmokeFluidLoader  # noqa: F401
 from .gpio.switch import Switch  # noqa: F401
 from .gpio.sys_admin import SystemAdmin  # noqa: F401
-from .gui.component_state_gui import ComponentStateGui  # noqa: F401
 from .gui.accessories_gui import AccessoriesGui  # noqa: F401
+from .gui.component_state_gui import ComponentStateGui  # noqa: F401
+from .gui.launch_gui import LaunchGui  # noqa: F401
+from .gui.milk_loader_gui import MilkLoaderGui  # noqa: F401
 from .gui.motors_gui import MotorsGui  # noqa: F401
+from .gui.power_district_gui import PowerDistrictsGui  # noqa: F401
 from .gui.routes_gui import RoutesGui  # noqa: F401
 from .gui.switches_gui import SwitchesGui  # noqa: F401
 from .gui.systems_gui import SystemsGui  # noqa: F401
-from .gui.power_district_gui import PowerDistrictsGui  # noqa: F401
-from .gui.launch_gui import LaunchGui  # noqa: F401
 from .protocol.command_def import CommandDefEnum  # noqa: F401
 from .protocol.command_req import CommandReq  # noqa: F401
 from .protocol.constants import (
