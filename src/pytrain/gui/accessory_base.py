@@ -22,7 +22,7 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar
 
-from guizero import App, Box, Combo, PushButton, Text
+from guizero import App, Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
 
 from ..comm.command_listener import CommandDispatcher
@@ -215,7 +215,9 @@ class AccessoryBase(Thread, Generic[S], ABC):
         app.bg = box.bg = "white"
 
         ts = self._text_size
-        _ = Text(box, text=" ", grid=[0, 0, 1, 1], size=6, height=1, bold=True)
+        row_num = 0
+        _ = Text(box, text=" ", grid=[0, row_num, 1, 1], size=6, height=1, bold=True)
+        row_num += 1
         ats = int(round(23 * self._scale_by))
         if self._aggrigator:
             txt_lbl = txt_spacer = None
@@ -260,8 +262,15 @@ class AccessoryBase(Thread, Generic[S], ABC):
         else:
             # customize label
             label = self.title
-            _ = Text(box, text=label, grid=[0, 1], size=ats, bold=True)
-        _ = Text(box, text="    ", grid=[0, 2], size=ts)
+            _ = Text(box, text=label, grid=[0, row_num], size=ats, bold=True)
+            row_num += 1
+        _ = Text(box, text="    ", grid=[0, row_num], size=ts)
+        row_num += 1
+
+        if self.image_file:
+            image_height = int(round(self.height * 0.30))
+            _ = Picture(box, image=self.image_file, grid=[0, row_num], height=image_height)
+            row_num += 1
 
         self.app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
