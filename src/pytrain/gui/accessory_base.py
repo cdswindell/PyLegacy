@@ -270,8 +270,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
         if self.image_file:
             iw, ih = self.get_jpg_dimensions(self.image_file)
-            image_height = int(round(self.height * 0.50))
-            image_width = int(round(self.width * 0.50))
+            image_height = int(round(ih * 0.11))
+            image_width = 192  # int(round(self.width * 0.50))
             print(f"image_height={image_height} sw: {self.width} sh: {self.height} {iw} {ih}")
             _ = Picture(box, image=self.image_file, grid=[0, row_num], width=image_width, height=image_height)
             row_num += 1
