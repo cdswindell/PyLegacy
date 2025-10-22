@@ -58,6 +58,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         enabled_text: str = "black",
         disabled_text: str = "lightgrey",
         scale_by: float = 1.0,
+        max_image_width: float = 0.80,
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
@@ -79,6 +80,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.image_file = image_file
         self._aggrigator = aggrigator
         self._scale_by = scale_by
+        self._max_image_width = max_image_width
         self._text_size: int = 24
         self._button_pad_x = 20
         self._button_pad_y = 10
@@ -269,11 +271,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
         row_num += 1
 
         if self.image_file:
-            iw, ih = self.get_jpg_dimensions(self.image_file)
-            image_height = int(round(ih * 0.11))
-            image_width = 480  # int(round(self.width * 0.50))
-            print(f"image_height={image_height} sw: {self.width} sh: {self.height} {iw} {ih}")
-            _ = Picture(box, image=self.image_file, grid=[0, row_num], width=image_width, height=image_height)
+            iw, ih = self.get_scaled_jpg_size(self.image_file)
+            _ = Picture(box, image=self.image_file, grid=[0, row_num], width=iw, height=ih)
             row_num += 1
 
         self.app.update()
@@ -394,27 +393,37 @@ class AccessoryBase(Thread, Generic[S], ABC):
         pass
 
     @staticmethod
-    def get_jpg_dimensions(image_path):
+    def get_jpg_size(image_file: str):
         """
         Retrieves the native width and height of a JPG image.
 
         Args:
-            image_path (str): The path to the JPG image file.
+            image_file (str): The path to the JPG image file.
 
         Returns:
             tuple: A tuple containing the width and height (width, height)
                    in pixels, or (None, None) if an error occurs.
         """
         try:
-            with Image.open(image_path) as img:
+            with Image.open(image_file) as img:
                 width, height = img.size
                 return width, height
         except FileNotFoundError as e:
-            log.exception(f"Error: Image file not found at {image_path}", exc_info=e)
+            log.exception(f"Error: Image file not found at {image_file}", exc_info=e)
             return None, None
         except Exception as e:
             print(f"An error occurred: {e}")
             return None, None
+
+    # noinspection PyTypeChecker
+    def get_scaled_jpg_size(self, image_file: str) -> tuple[int, int]:
+        iw, ih = self.get_jpg_size(image_file)
+        if iw is None or ih is None:
+            return None, None
+        scaled_width = int(round(self.width * self._max_image_width))
+        scale_factor = scaled_width / iw
+        scaled_height = int(round(ih * scale_factor))
+        return scaled_width, scaled_height
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...
