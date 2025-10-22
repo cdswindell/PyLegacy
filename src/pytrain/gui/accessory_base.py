@@ -20,7 +20,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
-from typing import Any, Callable, Generic, TypeVar
+from typing import Callable, Generic, TypeVar
 
 from guizero import App, Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
@@ -86,10 +86,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self._max_image_width = max_image_width
         self._max_image_height = max_image_height
         self._text_size: int = 24
-        self._button_pad_x = 20
-        self._button_pad_y = 10
-        self._button_text_pad_x = 10
-        self._button_text_pad_y = 12
         self.s_72 = self.scale(72, 0.7)
         self.s_16 = self.scale(16, 0.7)
 
@@ -100,18 +96,14 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.app = self.box = self.acc_box = self.y_offset = None
         self.pd_button_height = self.pd_button_width = None
         self.aggrigator_combo = None
-        self.on_button = find_file("on_button.jpg")
-        self.off_button = find_file("off_button.jpg")
-        self._max_name_len = 0
-        self._max_button_rows = self._max_button_cols = None
-        self._first_button_col = 0
-        self.sort_func = None
+        self.turn_on_button = find_file("on_button.jpg")
+        self.turn_off_button = find_file("off_button.jpg")
         self._app_counter = 0
         self._message_queue = Queue()
 
         # States
         self._states = dict[int, S]()
-        self._state_buttons = dict[int, PushButton]()
+        self._state_buttons = dict[int, Widget]()
         self._state_watchers = dict[int, StateWatcher]()
 
         # Thread-aware shutdown signaling
@@ -157,8 +149,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
             # get all target states; watch for state changes
             accs = self.get_target_states()
             for acc in accs:
-                nl = len(acc.road_name) if acc.road_name else 0
-                self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
                 self._states[acc.tmcc_id] = acc
                 self._state_watchers[acc.tmcc_id] = StateWatcher(acc, self.on_state_change_action(acc.tmcc_id))
 
@@ -177,13 +167,21 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
-        widget.bg = self._disabled_bg
-        widget.text_color = self._disabled_text
+        if isinstance(widget, PowerButton):
+            widget.image = self.turn_off_button
+            widget.height = widget.width = self.s_72
+        else:
+            widget.bg = self._disabled_bg
+            widget.text_color = self._disabled_text
 
     # noinspection PyTypeChecker
     def set_button_active(self, widget: Widget):
-        widget.bg = self._enabled_bg
-        widget.text_color = self._enabled_text
+        if isinstance(widget, PowerButton):
+            widget.image = self.turn_on_button
+            widget.height = widget.width = self.s_72
+        else:
+            widget.bg = self._enabled_bg
+            widget.text_color = self._enabled_text
 
     def on_state_change_action(self, tmcc_id: int) -> Callable:
         def upd():
@@ -191,6 +189,11 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 self._message_queue.put((self.update_button, [tmcc_id]))
 
         return upd
+
+    # noinspection PyTypeChecker
+    def register_widget(self, state: S, widget: Widget) -> None:
+        self._state_buttons[state.tmcc_id] = widget
+        self.update_button(state.tmcc_id)
 
     # noinspection PyTypeChecker
     def run(self) -> None:
@@ -330,38 +333,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 widget.destroy()
         self._state_buttons.clear()
 
-    def _make_state_button(
-        self,
-        pd: S | Any,
-        row: int,
-        col: int,
-    ) -> tuple[PushButton | list[Widget], int, int]:
-        pb = PushButton(
-            self.btn_box,
-            text=f"#{pd.tmcc_id} {pd.road_name}",
-            grid=[col, row],
-            width=int(round(self.width / 2 / (13 * self._scale_by))),
-            command=self.switch_state,
-            args=[pd],
-            padx=0,
-            pady=self._button_text_pad_y,
-        )
-        pb.component_state = pd
-        pb.text_size = int(round(15 * self._scale_by))
-        pb.bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
-        pb.text_color = self._enabled_text if self.is_active(pd) else self._disabled_text
-
-        # recalculate height
-        self.app.update()
-        if self.pd_button_width is None:
-            self.pd_button_width = pb.tk.winfo_width()
-        if self.pd_button_height is None:
-            btn_h = self.pd_button_height = pb.tk.winfo_height()
-        else:
-            btn_h = self.pd_button_height
-        btn_y = pb.tk.winfo_y() + btn_h
-        return pb, btn_h, btn_y
-
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
         value = max(orig_value, int(value * self.width / 480))
@@ -435,3 +406,7 @@ class MomentaryActionHandler(Thread, Generic[S]):
                 print("still pressed")
             else:
                 break
+
+
+class PowerButton(PushButton):
+    pass
