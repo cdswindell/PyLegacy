@@ -269,7 +269,9 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
         if self.image_file:
             image_height = int(round(self.height * 0.30))
-            _ = Picture(box, image=self.image_file, grid=[0, row_num], height=image_height)
+            image_width = int(round(self.width * 0.30))
+            print(f"image_height={image_height} screen height: {self.height}")
+            _ = Picture(box, image=self.image_file, grid=[0, row_num], width=image_width, height=image_height)
             row_num += 1
 
         self.app.update()
