@@ -60,7 +60,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         disabled_text: str = "lightgrey",
         scale_by: float = 1.0,
         max_image_width: float = 0.80,
-        max_image_height: float = 0.50,
+        max_image_height: float = 0.45,
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())

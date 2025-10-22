@@ -35,6 +35,7 @@ class MilkLoaderGui(AccessoryBase):
         self._variant = variant
         self.power_button = self.conveyor_button = self.eject_button = None
         self.power_state = self.conveyor_state = self.eject_state = None
+        self.eject_image = find_file("depot-milk-can-eject.jpeg")
         super().__init__(self._title, self._image)
 
     @staticmethod
@@ -78,6 +79,16 @@ class MilkLoaderGui(AccessoryBase):
         self.conveyor_button = PushButton(
             conveyor_box,
             image=self.on_button,
+            grid=[0, 1],
+            height=self.s_72,
+            width=self.s_72,
+        )
+
+        eject_box = Box(box, layout="grid", border=2, align="left")
+        _ = Text(eject_box, text="Eject", grid=[0, 0], size=self.s_16, underline=True)
+        self.eject_button = PushButton(
+            eject_box,
+            image=self.eject_image,
             grid=[0, 1],
             height=self.s_72,
             width=self.s_72,
