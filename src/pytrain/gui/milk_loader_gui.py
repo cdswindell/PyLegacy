@@ -64,7 +64,7 @@ class MilkLoaderGui(AccessoryBase):
         pass
 
     def build_accessory_controls(self, box: Box) -> None:
-        power_box = Box(box, layout="grid", border=2, align="left")
+        power_box = Box(box, layout="grid", border=2, align="top")
         _ = Text(power_box, text="Power", grid=[0, 0], size=self.s_16, underline=True)
         self.power_button = PowerButton(
             power_box,
@@ -75,7 +75,7 @@ class MilkLoaderGui(AccessoryBase):
         )
         self.register_widget(self.power_state, self.power_button)
 
-        conveyor_box = Box(box, layout="grid", border=2, align="left")
+        conveyor_box = Box(box, layout="grid", border=2, align="top")
         _ = Text(conveyor_box, text="Conveyor", grid=[0, 0], size=self.s_16, underline=True)
         self.conveyor_button = PowerButton(
             conveyor_box,
@@ -89,7 +89,7 @@ class MilkLoaderGui(AccessoryBase):
         conveyor_box_width = conveyor_box.tk.winfo_width()
         conveyor_box_height = conveyor_box.tk.winfo_height()
 
-        eject_box = Box(box, layout="grid", border=2, align="left")
+        eject_box = Box(box, layout="grid", border=2, align="top")
         _ = Text(eject_box, text="Eject", grid=[0, 0], size=self.s_16, underline=True)
         self.eject_button = PushButton(
             eject_box,
