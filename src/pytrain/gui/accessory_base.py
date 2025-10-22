@@ -59,6 +59,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         disabled_text: str = "lightgrey",
         scale_by: float = 1.0,
         max_image_width: float = 0.80,
+        max_image_height: float = 0.50,
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
@@ -81,6 +82,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self._aggrigator = aggrigator
         self._scale_by = scale_by
         self._max_image_width = max_image_width
+        self._max_image_height = max_image_height
         self._text_size: int = 24
         self._button_pad_x = 20
         self._button_pad_y = 10
@@ -423,6 +425,10 @@ class AccessoryBase(Thread, Generic[S], ABC):
         scaled_width = int(round(self.width * self._max_image_width))
         scale_factor = scaled_width / iw
         scaled_height = int(round(ih * scale_factor))
+        print(f"Display: {self.width}x{self.height} Image: {scaled_width}x{scaled_height}")
+        # if the image takes up too much height, do more scaling
+        if (scaled_height / self.height) > self._max_image_height:
+            print(scaled_height / self.height)
         return scaled_width, scaled_height
 
     @abstractmethod
