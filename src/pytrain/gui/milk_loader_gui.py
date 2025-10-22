@@ -103,4 +103,4 @@ class MilkLoaderGui(AccessoryBase):
         )
 
         for child in box.children:
-            child.padding = 15
+            child.padding = 5
