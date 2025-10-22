@@ -33,7 +33,7 @@ class MilkLoaderGui(AccessoryBase):
         self._conveyor = conveyor
         self._eject = eject
         self._variant = variant
-        self.power_button = None
+        self.power_button = self.conveyor_button = self.eject_button = None
         self.power_state = self.conveyor_state = self.eject_state = None
         super().__init__(self._title, self._image)
 
@@ -67,6 +67,16 @@ class MilkLoaderGui(AccessoryBase):
         _ = Text(power_box, text="Power", grid=[0, 0], size=self.s_16, underline=True)
         self.power_button = PushButton(
             power_box,
+            image=self.on_button,
+            grid=[0, 1],
+            height=self.s_72,
+            width=self.s_72,
+        )
+
+        conveyor_box = Box(box, layout="grid", border=2, align="left")
+        _ = Text(conveyor_box, text="Conveyor", grid=[0, 0], size=self.s_16, underline=True)
+        self.conveyor_button = PushButton(
+            conveyor_box,
             image=self.on_button,
             grid=[0, 1],
             height=self.s_72,
