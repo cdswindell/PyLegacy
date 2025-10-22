@@ -24,6 +24,7 @@ from typing import Any, Callable, Generic, TypeVar
 
 from guizero import App, Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
+from PIL import Image
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.component_state import ComponentState
@@ -268,9 +269,10 @@ class AccessoryBase(Thread, Generic[S], ABC):
         row_num += 1
 
         if self.image_file:
-            image_height = int(round(self.height * 0.30))
-            image_width = int(round(self.width * 0.30))
-            print(f"image_height={image_height} screen height: {self.height}")
+            iw, ih = self.get_jpg_dimensions(self.image_file)
+            image_height = int(round(self.height * 0.50))
+            image_width = int(round(self.width * 0.50))
+            print(f"image_height={image_height} screen height: {self.height} {iw} {ih}")
             _ = Picture(box, image=self.image_file, grid=[0, row_num], width=image_width, height=image_height)
             row_num += 1
 
@@ -390,6 +392,29 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
     def _post_process_state_buttons(self) -> None:
         pass
+
+    @staticmethod
+    def get_jpg_dimensions(image_path):
+        """
+        Retrieves the native width and height of a JPG image.
+
+        Args:
+            image_path (str): The path to the JPG image file.
+
+        Returns:
+            tuple: A tuple containing the width and height (width, height)
+                   in pixels, or (None, None) if an error occurs.
+        """
+        try:
+            with Image.open(image_path) as img:
+                width, height = img.size
+                return width, height
+        except FileNotFoundError as e:
+            log.exception(f"Error: Image file not found at {image_path}", exc_info=e)
+            return None, None
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return None, None
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...
