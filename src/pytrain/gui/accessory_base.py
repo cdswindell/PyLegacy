@@ -32,6 +32,7 @@ from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
 from ..protocol.constants import CommandScope
+from ..utils.path_utils import find_file
 from .component_state_gui import ComponentStateGui
 
 log = logging.getLogger(__name__)
@@ -79,6 +80,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
             self.height = height
         self.title = title
         self.image_file = image_file
+        self._image = None
         self._aggrigator = aggrigator
         self._scale_by = scale_by
         self._max_image_width = max_image_width
@@ -88,14 +90,18 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self._button_pad_y = 10
         self._button_text_pad_x = 10
         self._button_text_pad_y = 12
+        self.s_72 = self.scale(72, 0.7)
+        self.s_16 = self.scale(16, 0.7)
 
         self._enabled_bg = enabled_bg
         self._disabled_bg = disabled_bg
         self._enabled_text = enabled_text
         self._disabled_text = disabled_text
-        self.app = self.box = self.btn_box = self.y_offset = None
+        self.app = self.box = self.acc_box = self.y_offset = None
         self.pd_button_height = self.pd_button_width = None
         self.aggrigator_combo = None
+        self.on_button = find_file("on_button.jpg")
+        self.off_button = find_file("off_button.jpg")
         self._max_name_len = 0
         self._max_button_rows = self._max_button_cols = None
         self._first_button_col = 0
@@ -272,19 +278,18 @@ class AccessoryBase(Thread, Generic[S], ABC):
         _ = Text(box, text="    ", grid=[0, row_num], size=ts)
         row_num += 1
 
+        self._image = None
         if self.image_file:
             iw, ih = self.get_scaled_jpg_size(self.image_file)
-            _ = Picture(box, image=self.image_file, grid=[0, row_num], width=iw, height=ih)
+            self._image = Picture(box, image=self.image_file, grid=[0, row_num], width=iw, height=ih)
             row_num += 1
 
         self.app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
-        # put the buttons in a separate box
-        self.btn_box = Box(app, layout="grid")
-
         # build state buttons
-        self.build_accessory_controls()
+        self.acc_box = acc_box = Box(self.app, border=2, align="bottom")
+        self.build_accessory_controls(acc_box)
 
         # Display GUI and start event loop; call blocks
         try:
@@ -299,8 +304,9 @@ class AccessoryBase(Thread, Generic[S], ABC):
                     sw.shutdown()
                 self._state_watchers.clear()
             self.aggrigator_combo = None
-            self.btn_box = None
             self.box = None
+            self.acc_box = None
+            self._image = None
             self._state_buttons.clear()
             self._state_buttons = None
             self.app = None
@@ -327,37 +333,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 widget.hide()
                 widget.destroy()
         self._state_buttons.clear()
-
-    # noinspection PyTypeChecker
-    def _make_state_buttons(self, states: list[S] = None) -> None:
-        with self._cv:
-            if self._state_buttons:
-                self._reset_state_buttons()
-            active_cols = {self._first_button_col, self._first_button_col + 1}
-            row = 4
-            col = 0
-
-            btn_h = self.pd_button_height
-            btn_y = 0
-
-            self.btn_box.visible = False
-            for pd in states:
-                if btn_h is not None and btn_y is not None and self.y_offset + btn_y + btn_h > self.height:
-                    if self._max_button_rows is None:
-                        self._max_button_rows = row - 4
-                    btn_y = 0
-                    row = 4
-                    col += 1
-                if col in active_cols:
-                    pb, btn_h, btn_y = self._make_state_button(pd, row, col)
-                    self._state_buttons[pd.tmcc_id] = pb
-                else:
-                    btn_y += btn_h
-                row += 1
-
-            # call post process handler
-            self._post_process_state_buttons()
-            self.btn_box.visible = True
 
     def _make_state_button(
         self,
@@ -391,8 +366,12 @@ class AccessoryBase(Thread, Generic[S], ABC):
         btn_y = pb.tk.winfo_y() + btn_h
         return pb, btn_h, btn_y
 
-    def _post_process_state_buttons(self) -> None:
-        pass
+    def scale(self, value: int, factor: float = None) -> int:
+        orig_value = value
+        value = max(orig_value, int(value * self.width / 480))
+        if factor is not None and self.width > 480:
+            value = max(orig_value, int(factor * value))
+        return value
 
     @staticmethod
     def get_jpg_size(image_file: str):
@@ -442,7 +421,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
     def switch_state(self, state: S) -> bool: ...
 
     @abstractmethod
-    def build_accessory_controls(self) -> None: ...
+    def build_accessory_controls(self, box: Box) -> None: ...
 
 
 class MomentaryActionHandler(Thread, Generic[S]):

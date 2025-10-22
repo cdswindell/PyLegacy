@@ -5,6 +5,8 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+from guizero import Box, PushButton, Text
+
 from ..db.accessory_state import AccessoryState
 from ..protocol.constants import CommandScope
 from ..utils.path_utils import find_file
@@ -24,22 +26,6 @@ TITLES = {
 
 
 class MilkLoaderGui(AccessoryBase):
-    def get_target_states(self) -> list[S]:
-        return [
-            self._state_store.get_state(CommandScope.ACC, self._power),
-            self._state_store.get_state(CommandScope.ACC, self._conveyor),
-            self._state_store.get_state(CommandScope.ACC, self._eject),
-        ]
-
-    def is_active(self, state: AccessoryState) -> bool:
-        return state.is_aux_on
-
-    def switch_state(self, state: S) -> bool:
-        pass
-
-    def build_accessory_controls(self) -> None:
-        pass
-
     def __init__(self, power: int, conveyor: int, eject: int, variant: str = "Moose Pond"):
         # identify the accessory
         self._title, self._image = self.get_variant(variant)
@@ -47,6 +33,8 @@ class MilkLoaderGui(AccessoryBase):
         self._conveyor = conveyor
         self._eject = eject
         self._variant = variant
+        self.power_button = None
+        self.power_state = self.conveyor_state = self.eject_state = None
         super().__init__(self._title, self._image)
 
     @staticmethod
@@ -56,4 +44,31 @@ class MilkLoaderGui(AccessoryBase):
             if variant in k:
                 title = TITLES[v]
                 return title, find_file(v)
-        raise ValueError(f"Unknown milk loader: {variant}")
+        raise ValueError(f"Unsupported milk loader: {variant}")
+
+    def get_target_states(self) -> list[S]:
+        self.power_state = self._state_store.get_state(CommandScope.ACC, self._power)
+        self.conveyor_state = self._state_store.get_state(CommandScope.ACC, self._conveyor)
+        self.eject_state = self._state_store.get_state(CommandScope.ACC, self._eject)
+        return [
+            self.power_state,
+            self.conveyor_state,
+            self.eject_state,
+        ]
+
+    def is_active(self, state: AccessoryState) -> bool:
+        return state.is_aux_on
+
+    def switch_state(self, state: S) -> bool:
+        pass
+
+    def build_accessory_controls(self, box: Box) -> None:
+        power_box = Box(box, layout="grid", border=2, align="left")
+        _ = Text(power_box, text="Power", grid=[0, 0], size=self.s_16, underline=True)
+        self.power_button = PushButton(
+            power_box,
+            image=self.on_button,
+            grid=[0, 1],
+            height=self.s_72,
+            width=self.s_72,
+        )
