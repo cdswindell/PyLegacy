@@ -168,7 +168,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
         if isinstance(widget, PowerButton):
-            widget.image = self.turn_off_button
+            widget.image = self.turn_on_button
             widget.height = widget.width = self.s_72
         else:
             widget.bg = self._disabled_bg
@@ -177,7 +177,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
     # noinspection PyTypeChecker
     def set_button_active(self, widget: Widget):
         if isinstance(widget, PowerButton):
-            widget.image = self.turn_on_button
+            widget.image = self.turn_off_button
             widget.height = widget.width = self.s_72
         else:
             widget.bg = self._enabled_bg
