@@ -429,6 +429,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         # if the image takes up too much height, do more scaling
         if (scaled_height / self.height) > self._max_image_height:
             print(scaled_height / self.height)
+            scaled_height = int(round(self.height * self._max_image_height))
         return scaled_width, scaled_height
 
     @abstractmethod
