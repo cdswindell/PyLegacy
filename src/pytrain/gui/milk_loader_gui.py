@@ -64,9 +64,11 @@ class MilkLoaderGui(AccessoryBase):
         pass
 
     def build_accessory_controls(self, panel: Box) -> None:
+        max_text_len = len("Conveyor") + 4
         box = Box(panel, layout="grid")
         power_box = Box(box, layout="auto", border=2, grid=[0, 0], align="top")
-        _ = Text(power_box, text="Power", align="top", size=self.s_16, underline=True)
+        tb = Text(power_box, text="Power", align="top", size=self.s_16, underline=True)
+        tb.width = max_text_len
         self.power_button = PowerButton(
             power_box,
             image=self.turn_on_button,
@@ -77,7 +79,8 @@ class MilkLoaderGui(AccessoryBase):
         self.register_widget(self.power_state, self.power_button)
 
         conveyor_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
-        _ = Text(conveyor_box, text="Conveyor", align="top", size=self.s_16, underline=True)
+        tb = Text(conveyor_box, text="Conveyor", align="top", size=self.s_16, underline=True)
+        tb.width = max_text_len
         self.conveyor_button = PowerButton(
             conveyor_box,
             image=self.turn_on_button,
@@ -87,11 +90,10 @@ class MilkLoaderGui(AccessoryBase):
         )
         self.register_widget(self.conveyor_state, self.conveyor_button)
         self.app.update()
-        # conveyor_box_width = conveyor_box.tk.winfo_width()
-        # conveyor_box_height = conveyor_box.tk.winfo_height()
 
         eject_box = Box(box, layout="auto", border=2, grid=[2, 0], align="top")
-        _ = Text(eject_box, text="  Eject ", align="top", size=self.s_16, underline=True)
+        tb = Text(eject_box, text="Eject", align="top", size=self.s_16, underline=True)
+        tb.width = max_text_len
         self.eject_button = PushButton(
             eject_box,
             image=self.eject_image,
@@ -99,9 +101,6 @@ class MilkLoaderGui(AccessoryBase):
             height=self.s_72,
             width=self.s_72,
         )
-        # self.register_widget(self.eject_state, self.eject_button)
-        # power_box.width = eject_box.width = conveyor_box_width
-        # power_box.height = eject_box.height = conveyor_box_height
-        # Optional spacing between boxes
+
         for child in box.children:
-            child.padding = 10
+            child.padding = 15
