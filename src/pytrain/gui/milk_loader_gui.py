@@ -64,7 +64,7 @@ class MilkLoaderGui(AccessoryBase):
         pass
 
     def build_accessory_controls(self, panel: Box) -> None:
-        max_text_len = len("Conveyor") + 4
+        max_text_len = len("Conveyor") + 2
         box = Box(panel, layout="grid")
         power_box = Box(box, layout="auto", border=2, grid=[0, 0], align="top")
         tb = Text(power_box, text="Power", align="top", size=self.s_16, underline=True)
@@ -101,6 +101,6 @@ class MilkLoaderGui(AccessoryBase):
             height=self.s_72,
             width=self.s_72,
         )
-
-        for child in box.children:
-            child.padding = 5
+        #
+        # for child in box.children:
+        #     child.padding = 5
