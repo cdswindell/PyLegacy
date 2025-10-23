@@ -411,15 +411,18 @@ class AccessoryBase(Thread, Generic[S], ABC):
     @staticmethod
     def when_pressed(event: EventData) -> None:
         pb = event.widget
-        state = pb.component_state
-        if state.is_asc2:
-            Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
+        if pb.enabled:
+            state = pb.component_state
+            if state.is_asc2:
+                Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
 
     @staticmethod
     def when_released(event: EventData) -> None:
-        state = event.widget.component_state
-        if state.is_asc2:
-            Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
+        pb = event.widget
+        if pb.enabled:
+            state = pb.component_state
+            if state.is_asc2:
+                Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...
