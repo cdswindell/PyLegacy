@@ -5,7 +5,6 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-import gc
 
 from guizero import Box, PushButton, Text
 
@@ -34,6 +33,7 @@ class FireStationGui(AccessoryBase):
         self._variant = variant
         self.power_button = self.alarm_button = None
         self.power_state = self.alarm_state = None
+        self._current_alarm_tk_image = None
         super().__init__(self._title, self._image)
 
     @staticmethod
@@ -88,11 +88,14 @@ class FireStationGui(AccessoryBase):
         self.register_widget(self.alarm_state, self.alarm_button)
         if not self.is_active(self.power_state):
             self.alarm_button.disable()
+        # Store reference to track the current PhotoImage
+        self._current_alarm_tk_image = None
 
     def post_process_when_pressed(self, button: PushButton, state: AccessoryState) -> None:
         if button == self.alarm_button:
             self.queue_message(lambda: self._twiddle_alarm_button_image())
 
+    # noinspection PyProtectedMember
     def _twiddle_alarm_button_image(self) -> None:
         """
         This method must only be called from the guizero main event loop
@@ -102,17 +105,23 @@ class FireStationGui(AccessoryBase):
             # Switch to animated gif
             self.alarm_button.image = self.alarm_on_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
+            # Store reference to the tkinter PhotoImage
+            self._current_alarm_tk_image = self.alarm_button.tk.cget("image")
             self.app.after(2500, self._twiddle_alarm_button_image)
         else:
-            # Stop the animated GIF by accessing the underlying tkinter widget
-            # Get the tkinter PhotoImage object and clear it from the widget
+            # Stop the animated GIF by blanking the widget first
             tk_button = self.alarm_button.tk
-            # Clear any image first to stop the GIF animation
-            tk_button.configure(image="")
-            # Force an update to ensure the image is cleared
-            tk_button.update_idletasks()
-            gc.collect()
+            # Get the current PhotoImage name
+            if self._current_alarm_tk_image:
+                try:
+                    # Blank the image on the widget
+                    tk_button.config(image="")
+                    # Delete the PhotoImage to stop animation
+                    self.alarm_button._image.blank()
+                except:
+                    pass
             # Now set the static image
             self.alarm_button.image = self.alarm_off_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
+            self._current_alarm_tk_image = None
         print(f"Now: {self.alarm_button.image}")
