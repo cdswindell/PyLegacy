@@ -103,13 +103,11 @@ class FireStationGui(AccessoryBase):
             self.app.after(5000, self._twiddle_alarm_button_image)
         else:
             # Ensure the GIF animation is fully detached before setting JPG
-            self.alarm_button.hide()
             # Break the tk reference chain by clearing the image first
-            self.alarm_button.image = None
+            self.alarm_button.image = self.alarm_off_image
             self.app.update()  # flush pending redraws so GIF stops
             # Now apply the static image
             self.alarm_button.image = self.alarm_off_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
-            self.alarm_button.show()
             self.app.update()
         print(f"Now: {self.alarm_button.image}")
