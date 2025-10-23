@@ -102,33 +102,17 @@ class FireStationGui(AccessoryBase):
             self.alarm_button.height = self.alarm_button.width = self.s_72
             self.app.after(5000, self._twiddle_alarm_button_image)
         else:
-            # 1) Get current Tk image name (e.g., "pyimage3") used by the button
-            try:
-                tk_btn = self.alarm_button.tk
-                current_img_name = tk_btn.cget("image")
-            except Exception:
-                current_img_name = None
+            # Python
+            from PIL import Image, ImageTk
 
-            # 2) Detach the image from the button at Tk level so it no longer references the GIF
-            try:
-                tk_btn.configure(image="")
-            except Exception:
-                pass
+            # precompute non-animated frame from your JPG (or first GIF frame if needed)
+            im = Image.open(self.alarm_off_image)
+            self._alarm_off_tk = ImageTk.PhotoImage(im)
+            # swap:
+            self.alarm_button.tk.configure(image="")
+            self.alarm_button.tk.update_idletasks()
+            self.alarm_button.image = self._alarm_off_tk
 
-            # 3) Force idle redraw so Tk processes the detach
-            try:
-                tk_btn.update_idletasks()
-            except Exception:
-                pass
-
-            # 4) Delete the Tk image object to stop the GIF's internal animation timer
-            if current_img_name:
-                try:
-                    tk_btn.call("image", "delete", current_img_name)
-                except Exception:
-                    pass
-
-            # 5) Now set the static image path on the guizero widget
-            self.alarm_button.image = self.alarm_off_image
+            # self.alarm_button.image = self.alarm_off_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
         print(f"Now: {self.alarm_button.image}")
