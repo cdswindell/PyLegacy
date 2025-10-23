@@ -196,7 +196,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         return upd
 
     def queue_message(self, message: Callable, *args: Any) -> None:
-        self._message_queue.put((message, [args]))
+        self._message_queue.put((message, args))
 
     # noinspection PyTypeChecker
     def run(self) -> None:
