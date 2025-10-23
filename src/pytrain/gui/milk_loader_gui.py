@@ -86,3 +86,4 @@ class MilkLoaderGui(AccessoryBase):
             height=self.s_72,
             width=self.s_72,
         )
+
