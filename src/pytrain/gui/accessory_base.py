@@ -99,10 +99,10 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.app = self.box = self.acc_box = self.y_offset = None
         self.pd_button_height = self.pd_button_width = None
         self.aggrigator_combo = None
-        self.turn_on_button = find_file("on_button.jpg")
-        self.turn_off_button = find_file("off_button.jpg")
-        self.alarm_on_button = find_file("red_light.jpg")
-        self.alarm_off_button = find_file("red_light_off.jpg")
+        self.turn_on_image = find_file("on_button.jpg")
+        self.turn_off_image = find_file("off_button.jpg")
+        self.alarm_on_image = find_file("red_light.jpg")
+        self.alarm_off_image = find_file("red_light_off.jpg")
         self._app_counter = 0
         self._message_queue = Queue()
 
@@ -173,7 +173,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
         if isinstance(widget, PowerButton):
-            widget.image = self.turn_on_button
+            widget.image = self.turn_on_image
             widget.height = widget.width = self.s_72
         else:
             widget.bg = self._disabled_bg
@@ -182,7 +182,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
     # noinspection PyTypeChecker
     def set_button_active(self, widget: Widget):
         if isinstance(widget, PowerButton):
-            widget.image = self.turn_off_button
+            widget.image = self.turn_off_image
             widget.height = widget.width = self.s_72
         else:
             widget.bg = self._enabled_bg
@@ -221,7 +221,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 try:
                     message = self._message_queue.get_nowait()
                     if isinstance(message, tuple):
-                        print(message)
                         if message[1] and len(message[1]) > 0:
                             message[0](*message[1])
                         else:
@@ -334,7 +333,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         tb.width = text_len
         button = PowerButton(
             btn_box,
-            image=self.turn_on_button,
+            image=self.turn_on_image,
             align="top",
             height=self.s_72,
             width=self.s_72,
