@@ -105,7 +105,7 @@ class FireStationGui(AccessoryBase):
             # Ensure the GIF animation is fully detached before setting JPG
             self.alarm_button.hide()
             # Break the tk reference chain by clearing the image first
-            self.alarm_button.image = ""
+            self.alarm_button.image = None
             self.app.update()  # flush pending redraws so GIF stops
             # Now apply the static image
             self.alarm_button.image = self.alarm_off_image
