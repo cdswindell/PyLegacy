@@ -103,7 +103,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.turn_on_image = find_file("on_button.jpg")
         self.turn_off_image = find_file("off_button.jpg")
         self.alarm_on_image = find_file("Breaking-News-Emoji.gif")
-        self.alarm_off_image = Path(find_file("red_light_off.jpg")).absolute()
+        self.alarm_off_image = str(Path(find_file("red_light_off.jpg")).absolute())
         self._app_counter = 0
         self._message_queue = Queue()
 
