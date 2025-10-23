@@ -111,8 +111,9 @@ class FireStationGui(AccessoryBase):
             # swap:
             self.alarm_button.tk.configure(image="")
             self.alarm_button.tk.update_idletasks()
-            self.alarm_button.image = self._alarm_off_tk
+            self.alarm_button.tk.configure(image=self.alarm_off_image)
 
             # self.alarm_button.image = self.alarm_off_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
+            self.alarm_button.tk.update_idletasks()
         print(f"Now: {self.alarm_button.image}")
