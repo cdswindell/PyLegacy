@@ -42,7 +42,7 @@ class MilkLoaderGui(AccessoryBase):
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:
-        variant = variant.lower().replace("'", "")
+        variant = variant.lower().replace("'", "").replace("-", "")
         for k, v in VARIANTS.items():
             if variant in k:
                 title = TITLES[v]
@@ -64,7 +64,6 @@ class MilkLoaderGui(AccessoryBase):
 
     def switch_state(self, state: AccessoryState) -> None:
         with self._cv:
-            print(state)
             if state == self.eject_state:
                 pass
             elif state.is_aux_on:
@@ -87,3 +86,6 @@ class MilkLoaderGui(AccessoryBase):
             height=self.s_72,
             width=self.s_72,
         )
+        self.eject_button.when_left_button_pressed = self.when_pressed
+        self.eject_button.when_left_button_released = self.when_released
+        self.register_widget(self.eject_state, self.eject_button)

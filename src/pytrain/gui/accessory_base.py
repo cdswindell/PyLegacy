@@ -24,6 +24,7 @@ from typing import Callable, Generic, TypeVar
 
 from guizero import App, Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
+from guizero.event import EventData
 from PIL import Image
 
 from ..comm.command_listener import CommandDispatcher
@@ -31,6 +32,8 @@ from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
+from ..pdi.asc2_req import Asc2Req
+from ..pdi.constants import Asc2Action, PdiCommand
 from ..protocol.constants import CommandScope
 from ..utils.path_utils import find_file
 from .component_state_gui import ComponentStateGui
@@ -98,6 +101,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.aggrigator_combo = None
         self.turn_on_button = find_file("on_button.jpg")
         self.turn_off_button = find_file("off_button.jpg")
+        self.alarm_on_button = find_file("red_light.jpg")
+        self.alarm_off_button = find_file("red_light_off.jpg")
         self._app_counter = 0
         self._message_queue = Queue()
 
@@ -191,11 +196,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
         return upd
 
     # noinspection PyTypeChecker
-    def register_widget(self, state: S, widget: Widget) -> None:
-        self._state_buttons[state.tmcc_id] = widget
-        self.update_button(state.tmcc_id)
-
-    # noinspection PyTypeChecker
     def run(self) -> None:
         self._shutdown_flag.clear()
         self._ev.clear()
@@ -224,6 +224,10 @@ class AccessoryBase(Thread, Generic[S], ABC):
             return None
 
         app.repeat(25, _poll_shutdown)
+
+        # clear any existing state buttons
+        if self._state_buttons:
+            self._reset_state_buttons()
 
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
@@ -311,6 +315,12 @@ class AccessoryBase(Thread, Generic[S], ABC):
             self.app = None
             self._ev.set()
 
+    # noinspection PyTypeChecker
+    def register_widget(self, state: S, widget: Widget) -> None:
+        self._state_buttons[state.tmcc_id] = widget
+        widget.component_state = state
+        self.update_button(state.tmcc_id)
+
     def make_power_button(self, state: S, label: str, col: int, text_len: int, container: Box) -> PowerButton:
         btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
         tb = Text(btn_box, text=label, align="top", size=self.s_16, underline=True)
@@ -387,12 +397,24 @@ class AccessoryBase(Thread, Generic[S], ABC):
         scaled_width = int(round(self.width * self._max_image_width))
         scale_factor = scaled_width / iw
         scaled_height = int(round(ih * scale_factor))
-        print(f"Display: {self.width}x{self.height} Image: {scaled_width}x{scaled_height}")
         # if the image takes up too much height, do more scaling
         if (scaled_height / self.height) > self._max_image_height:
             print(scaled_height / self.height)
             scaled_height = int(round(self.height * self._max_image_height))
         return scaled_width, scaled_height
+
+    @staticmethod
+    def when_pressed(event: EventData) -> None:
+        pb = event.widget
+        state = pb.component_state
+        if state.is_asc2:
+            Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
+
+    @staticmethod
+    def when_released(event: EventData) -> None:
+        state = event.widget.component_state
+        if state.is_asc2:
+            Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...
