@@ -69,11 +69,11 @@ class MilkLoaderGui(AccessoryBase):
             elif state.is_aux_on:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
                 if state == self.power_state:
-                    self.queue_message(self.eject_button.disable)
+                    self.queue_message(self.eject_button.disable, self.eject_button)
             else:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
                 if state == self.power_state:
-                    self.queue_message(self.eject_button.enable)
+                    self.queue_message(self.eject_button.enable, self.eject_button)
 
     def build_accessory_controls(self, box: Box) -> None:
         max_text_len = len("Conveyor") + 2
