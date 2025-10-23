@@ -36,7 +36,7 @@ from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import Asc2Action, PdiCommand
 from ..protocol.constants import CommandScope
 from ..utils.path_utils import find_file
-from .component_state_gui import ComponentStateGui
+from .accessory_gui import AccessoryGui
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
@@ -56,7 +56,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         image_file: str = None,
         width: int = None,
         height: int = None,
-        aggrigator: ComponentStateGui = None,
+        aggrigator: AccessoryGui = None,
         enabled_bg: str = "green",
         disabled_bg: str = "black",
         enabled_text: str = "black",

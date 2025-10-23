@@ -13,6 +13,7 @@ from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
 from .accessory_base import AccessoryBase, S
+from .accessory_gui import AccessoryGui
 
 VARIANTS = {
     "dairymens league 6-14291": "Dairymens-League-6-14291.jpg",
@@ -28,7 +29,15 @@ TITLES = {
 
 
 class MilkLoaderGui(AccessoryBase):
-    def __init__(self, power: int, conveyor: int, eject: int, variant: str = "Moose Pond"):
+    def __init__(
+        self,
+        power: int,
+        conveyor: int,
+        eject: int,
+        variant: str = None,
+        *,
+        aggrigator: AccessoryGui = None,
+    ):
         # identify the accessory
         self._title, self._image = self.get_variant(variant)
         self._power = power
@@ -38,10 +47,12 @@ class MilkLoaderGui(AccessoryBase):
         self.power_button = self.conveyor_button = self.eject_button = None
         self.power_state = self.conveyor_state = self.eject_state = None
         self.eject_image = find_file("depot-milk-can-eject.jpeg")
-        super().__init__(self._title, self._image)
+        super().__init__(self._title, self._image, aggrigator=aggrigator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:
+        if variant is None:
+            variant = "Moose Pond"
         variant = variant.lower().replace("'", "").replace("-", "")
         for k, v in VARIANTS.items():
             if variant in k:

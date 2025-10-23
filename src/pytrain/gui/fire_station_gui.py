@@ -14,6 +14,7 @@ from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
 from .accessory_base import AccessoryBase, S
+from .accessory_gui import AccessoryGui
 
 VARIANTS = {
     "mth fire station": "Fire-Station-MTH-30-9157.jpg",
@@ -25,7 +26,14 @@ TITLES = {
 
 
 class FireStationGui(AccessoryBase):
-    def __init__(self, power: int, alarm: int, variant: str = "MTH"):
+    def __init__(
+        self,
+        power: int,
+        alarm: int,
+        variant: str = None,
+        *,
+        aggrigator: AccessoryGui = None,
+    ):
         # identify the accessory
         self._title, self._image = self.get_variant(variant)
         self._power = power
@@ -33,10 +41,12 @@ class FireStationGui(AccessoryBase):
         self._variant = variant
         self.power_button = self.alarm_button = None
         self.power_state = self.alarm_state = None
-        super().__init__(self._title, self._image)
+        super().__init__(self._title, self._image, aggrigator=aggrigator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:
+        if variant is None:
+            variant = "mth fire station"
         variant = variant.lower().replace("'", "").replace("-", "")
         for k, v in VARIANTS.items():
             if variant in k:
