@@ -5,6 +5,8 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+import gc
+
 from guizero import Box, PushButton, Text
 
 from ..db.accessory_state import AccessoryState
@@ -104,6 +106,7 @@ class FireStationGui(AccessoryBase):
         else:
             # Stop the animated GIF by setting to None first, then to static image
             self.alarm_button.image = None
+            gc.collect()
             self.alarm_button.image = self.alarm_off_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
         print(f"Now: {self.alarm_button.image}")
