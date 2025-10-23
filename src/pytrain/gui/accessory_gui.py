@@ -41,7 +41,10 @@ class AccessoryGui(Thread):
             if isinstance(gui, tuple):
                 gui_class = self.get_variant(gui[0])
                 gui_args = gui[1:]
-                variant_arg = gui_args[-1].split("=")[-1]
+                if isinstance(gui_args[-1], str):
+                    variant_arg = gui_args[-1].split("=")[-1]
+                else:
+                    variant_arg = None
                 title, _ = gui_class.get_variant(variant_arg)
                 self._guis[title] = (gui_class, gui_args)
 
