@@ -97,8 +97,6 @@ class FireStationGui(AccessoryBase):
         """
         This method must only be called from the guizero main event loop
         """
-        from tkinter import PhotoImage
-
         print(f"Twiddling alarm button: {self.alarm_button.image}")
         if self.alarm_button.image == self.alarm_off_image:
             # Switch to animated gif
@@ -106,16 +104,24 @@ class FireStationGui(AccessoryBase):
             self.alarm_button.height = self.alarm_button.width = self.s_72
             self.app.after(2500, self._twiddle_alarm_button_image)
         else:
-            # Stop the animated GIF by creating a blank PhotoImage and setting it
-            tk_button = self.alarm_button.tk
-            # Create a 1x1 blank image to replace the GIF
-            blank = PhotoImage(width=1, height=1)
-            tk_button.config(image=blank)
-            # Keep a reference so it doesn't get garbage collected
-            tk_button._blank_image = blank
-            # Force update
-            tk_button.update_idletasks()
-            # Now set the static image through guizero
-            self.alarm_button.image = self.alarm_off_image
-            self.alarm_button.height = self.alarm_button.width = self.s_72
+            # Stop the animated GIF by destroying and recreating the button
+            # This is the only reliable way to stop GIF animation in tkinter
+            parent = self.alarm_button.master
+
+            # Destroy the old button (this stops the GIF)
+            self.alarm_button.destroy()
+
+            # Recreate the button with the static image
+            self.alarm_button = PushButton(
+                parent,
+                image=self.alarm_off_image,
+                align="top",
+                height=self.s_72,
+                width=self.s_72,
+            )
+            self.alarm_button.when_left_button_pressed = self.when_pressed
+            self.alarm_button.when_left_button_released = self.when_released
+            self.register_widget(self.alarm_state, self.alarm_button)
+            if not self.is_active(self.power_state):
+                self.alarm_button.disable()
         print(f"Now: {self.alarm_button.image}")
