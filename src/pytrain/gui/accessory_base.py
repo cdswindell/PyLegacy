@@ -229,7 +229,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
                     pass
             return None
 
-        app.repeat(25, _poll_shutdown)
+        app.repeat(20, _poll_shutdown)
 
         # clear any existing state buttons
         if self._state_buttons:
@@ -285,8 +285,17 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 combo_spacer.height = 0
         else:
             # customize label
-            label = self.title
-            _ = Text(box, text=label, grid=[0, row_num], size=ats, bold=True)
+            cb = Combo(
+                box,
+                options=[self.title],
+                selected=self.title,
+                grid=[0, row_num],
+                command=self.on_combo_change,
+            )
+            cb.text_size = ats
+            cb.text_bold = True
+            # label = self.title
+            # _ = Text(box, text=label, grid=[0, row_num], size=ats, bold=True)
             row_num += 1
 
         self._image = None
