@@ -100,20 +100,10 @@ class FireStationGui(AccessoryBase):
             # Switch to animated gif
             self.alarm_button.image = self.alarm_on_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
-            self.app.after(5000, self._twiddle_alarm_button_image)
+            self.app.after(2500, self._twiddle_alarm_button_image)
         else:
-            # Python
-            from PIL import Image, ImageTk
-
-            # precompute non-animated frame from your JPG (or first GIF frame if needed)
-            im = Image.open(self.alarm_off_image)
-            self._alarm_off_tk = ImageTk.PhotoImage(im)
-            # swap:
-            self.alarm_button.tk.configure(image="")
-            self.alarm_button.tk.update_idletasks()
-            self.alarm_button.tk.configure(self._alarm_off_tk)
-
-            # self.alarm_button.image = self.alarm_off_image
+            # Stop the animated GIF by setting to None first, then to static image
+            self.alarm_button.image = None
+            self.alarm_button.image = self.alarm_off_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
-            self.alarm_button.tk.update_idletasks()
         print(f"Now: {self.alarm_button.image}")
