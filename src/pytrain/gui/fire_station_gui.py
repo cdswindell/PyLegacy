@@ -118,8 +118,8 @@ class FireStationGui(AccessoryBase):
                     tk_button.config(image="")
                     # Delete the PhotoImage to stop animation
                     self.alarm_button._image.blank()
-                except:
-                    pass
+                except (AttributeError, RuntimeError, KeyError) as e:
+                    print(f"Warning: Could not blank image: {e}")
             # Now set the static image
             self.alarm_button.image = self.alarm_off_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
