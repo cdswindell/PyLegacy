@@ -407,21 +407,25 @@ class AccessoryBase(Thread, Generic[S], ABC):
             scaled_height = int(round(self.height * self._max_image_height))
         return scaled_width, scaled_height
 
-    @staticmethod
-    def when_pressed(event: EventData) -> None:
+    def when_pressed(self, event: EventData) -> None:
         pb = event.widget
         if pb.enabled:
             state = pb.component_state
             if state.is_asc2:
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
+            self.post_process_when_pressed(pb, state)
 
-    @staticmethod
-    def when_released(event: EventData) -> None:
+    def when_released(self, event: EventData) -> None:
         pb = event.widget
         if pb.enabled:
             state = pb.component_state
             if state.is_asc2:
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
+            self.post_process_when_released(pb, state)
+
+    def post_process_when_pressed(self, button: PushButton, state: S) -> None: ...
+
+    def post_process_when_released(self, button: PushButton, state: S) -> None: ...
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...

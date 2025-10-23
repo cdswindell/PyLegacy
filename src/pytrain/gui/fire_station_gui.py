@@ -86,3 +86,17 @@ class FireStationGui(AccessoryBase):
         self.register_widget(self.alarm_state, self.alarm_button)
         if not self.is_active(self.power_state):
             self.alarm_button.disable()
+
+    def post_process_when_pressed(self, button: PushButton, state: AccessoryState) -> None:
+        if button == self.alarm_button:
+            self.queue_message(lambda: self._twiddle_alarm_button_image())
+
+    def _twiddle_alarm_button_image(self) -> None:
+        """
+        This method must only be called from the guizero main event loop
+        """
+        if self.alarm_button.image == self.alarm_off_image:
+            self.alarm_button.image = self.alarm_on_image
+            self.app.after(2000, self._twiddle_alarm_button_image)
+        else:
+            self.alarm_button.image = self.alarm_off_image
