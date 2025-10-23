@@ -96,26 +96,39 @@ class FireStationGui(AccessoryBase):
         This method must only be called from the guizero main event loop
         """
         print(f"Twiddling alarm button: {self.alarm_button.image}")
-        pb = self.alarm_button
-        if pb.image == self.alarm_off_image:
+        if self.alarm_button.image == self.alarm_off_image:
             # Switch to animated gif
-            pb.image = self.alarm_on_image
-            pb.height = pb.width = self.s_72
+            self.alarm_button.image = self.alarm_on_image
+            self.alarm_button.height = self.alarm_button.width = self.s_72
             self.app.after(5000, self._twiddle_alarm_button_image)
         else:
-            # Ensure the GIF animation is fully detached before setting JPG
-            # Break the tk reference chain by clearing the image first
-            name = pb.tk.cget("image")  # current Tk image name, e.g. "pyimage3"
-            pb.tk.configure(image="")  # detach image from button (pb.image remains managed by guizero)
-            pb.tk.update_idletasks()  # ensure redraw
-            if name:
+            # 1) Get current Tk image name (e.g., "pyimage3") used by the button
+            try:
+                tk_btn = self.alarm_button.tk
+                current_img_name = tk_btn.cget("image")
+            except Exception:
+                current_img_name = None
+
+            # 2) Detach the image from the button at Tk level so it no longer references the GIF
+            try:
+                tk_btn.configure(image="")
+            except Exception:
+                pass
+
+            # 3) Force idle redraw so Tk processes the detach
+            try:
+                tk_btn.update_idletasks()
+            except Exception:
+                pass
+
+            # 4) Delete the Tk image object to stop the GIF's internal animation timer
+            if current_img_name:
                 try:
-                    pb.tk.call("image", "delete", name)  # stops animation callbacks in Tk
+                    tk_btn.call("image", "delete", current_img_name)
                 except Exception:
                     pass
-            # now set the static image (file path or a new PhotoImage)
-            pb.image = self.alarm_off_image
-            self.app.update()  # flush pending redraws so GIF stops
-            pb.height = pb.width = self.s_72
-            self.app.update()
+
+            # 5) Now set the static image path on the guizero widget
+            self.alarm_button.image = self.alarm_off_image
+            self.alarm_button.height = self.alarm_button.width = self.s_72
         print(f"Now: {self.alarm_button.image}")
