@@ -221,7 +221,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 try:
                     message = self._message_queue.get_nowait()
                     if isinstance(message, tuple):
-                        if message[1]:
+                        print(message)
+                        if message[1] and len(message[1]) > 0:
                             message[0](*message[1])
                         else:
                             message[0]()
