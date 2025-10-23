@@ -20,7 +20,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
-from typing import Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, TypeVar
 
 from guizero import App, Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
@@ -194,6 +194,9 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 self._message_queue.put((self.update_button, [tmcc_id]))
 
         return upd
+
+    def queue_message(self, message: Callable, *args: Any) -> None:
+        self._message_queue.put((message, [args]))
 
     # noinspection PyTypeChecker
     def run(self) -> None:
