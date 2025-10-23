@@ -100,5 +100,7 @@ class FireStationGui(AccessoryBase):
             self.alarm_button.height = self.alarm_button.width = self.s_72
             self.app.after(5000, self._twiddle_alarm_button_image)
         else:
+            self.alarm_button.hide()
             self.alarm_button.image = self.alarm_off_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
+            self.alarm_button.show()
