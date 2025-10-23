@@ -17,6 +17,7 @@ from __future__ import annotations
 import atexit
 import logging
 from abc import ABC, ABCMeta, abstractmethod
+from pathlib import Path
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
@@ -102,7 +103,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.turn_on_image = find_file("on_button.jpg")
         self.turn_off_image = find_file("off_button.jpg")
         self.alarm_on_image = find_file("Breaking-News-Emoji.gif")
-        self.alarm_off_image = find_file("red_light_off.jpg")
+        self.alarm_off_image = Path(find_file("red_light_off.jpg")).absolute()
         self._app_counter = 0
         self._message_queue = Queue()
 

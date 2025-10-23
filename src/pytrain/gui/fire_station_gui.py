@@ -117,3 +117,4 @@ class FireStationGui(AccessoryBase):
             self.alarm_button.height = self.alarm_button.width = self.s_72
             self.alarm_button.tk.update_idletasks()
         print(f"Now: {self.alarm_button.image}")
+
