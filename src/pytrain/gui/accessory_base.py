@@ -221,6 +221,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 try:
                     message = self._message_queue.get_nowait()
                     if isinstance(message, tuple):
+                        print(message)
                         message[0](*message[1])
                 except Empty:
                     pass
@@ -387,10 +388,9 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 return width, height
         except FileNotFoundError as e:
             log.exception(f"Error: Image file not found at {image_file}", exc_info=e)
-            return None, None
         except Exception as e:
-            print(f"An error occurred: {e}")
-            return None, None
+            log.exception(f"An error occurred: {e}", exc_info=e)
+        return None, None
 
     # noinspection PyTypeChecker
     def get_scaled_jpg_size(self, image_file: str) -> tuple[int, int]:
@@ -402,7 +402,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
         scaled_height = int(round(ih * scale_factor))
         # if the image takes up too much height, do more scaling
         if (scaled_height / self.height) > self._max_image_height:
-            print(scaled_height / self.height)
             scaled_height = int(round(self.height * self._max_image_height))
         return scaled_width, scaled_height
 
