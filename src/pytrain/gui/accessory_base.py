@@ -287,7 +287,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.app.update()
 
         # build state buttons
-        self.acc_box = acc_box = Box(self.app, border=2, align="bottom")
+        self.acc_box = acc_box = Box(self.app, border=2, align="bottom", layout="grid")
         self.build_accessory_controls(acc_box)
 
         # Display GUI and start event loop; call blocks
@@ -310,6 +310,22 @@ class AccessoryBase(Thread, Generic[S], ABC):
             self._state_buttons = None
             self.app = None
             self._ev.set()
+
+    def make_power_button(self, state: S, label: str, col: int, text_len: int, container: Box) -> PowerButton:
+        btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
+        tb = Text(btn_box, text=label, align="top", size=self.s_16, underline=True)
+        tb.width = text_len
+        button = PowerButton(
+            btn_box,
+            image=self.turn_on_button,
+            align="top",
+            height=self.s_72,
+            width=self.s_72,
+        )
+        button.tmcc_id = state.tmcc_id
+        button.update_command(self.switch_state, [state])
+        self.register_widget(state, button)
+        return button
 
     def on_combo_change(self, option: str) -> None:
         if option == self.title:

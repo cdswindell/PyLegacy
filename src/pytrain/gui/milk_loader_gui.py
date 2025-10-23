@@ -8,9 +8,11 @@
 from guizero import Box, PushButton, Text
 
 from ..db.accessory_state import AccessoryState
+from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
-from .accessory_base import AccessoryBase, PowerButton, S
+from .accessory_base import AccessoryBase, S
 
 VARIANTS = {
     "dairymens league 6-14291": "Dairymens-League-6-14291.jpg",
@@ -60,36 +62,19 @@ class MilkLoaderGui(AccessoryBase):
     def is_active(self, state: AccessoryState) -> bool:
         return state.is_aux_on
 
-    def switch_state(self, state: S) -> bool:
-        pass
+    def switch_state(self, state: AccessoryState) -> None:
+        with self._cv:
+            if state == self.eject_state:
+                pass
+            elif state.is_aux_on:
+                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
+            else:
+                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
 
-    def build_accessory_controls(self, panel: Box) -> None:
+    def build_accessory_controls(self, box: Box) -> None:
         max_text_len = len("Conveyor") + 2
-        box = Box(panel, layout="grid")
-        power_box = Box(box, layout="auto", border=2, grid=[0, 0], align="top")
-        tb = Text(power_box, text="Power", align="top", size=self.s_16, underline=True)
-        tb.width = max_text_len
-        self.power_button = PowerButton(
-            power_box,
-            image=self.turn_on_button,
-            align="top",
-            height=self.s_72,
-            width=self.s_72,
-        )
-        self.register_widget(self.power_state, self.power_button)
-
-        conveyor_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
-        tb = Text(conveyor_box, text="Conveyor", align="top", size=self.s_16, underline=True)
-        tb.width = max_text_len
-        self.conveyor_button = PowerButton(
-            conveyor_box,
-            image=self.turn_on_button,
-            align="top",
-            height=self.s_72,
-            width=self.s_72,
-        )
-        self.register_widget(self.conveyor_state, self.conveyor_button)
-        self.app.update()
+        self.power_button = self.make_power_button(self.power_state, "Power", 0, max_text_len, box)
+        self.conveyor_button = self.make_power_button(self.power_state, "Conveyor", 1, max_text_len, box)
 
         eject_box = Box(box, layout="auto", border=2, grid=[2, 0], align="top")
         tb = Text(eject_box, text="Eject", align="top", size=self.s_16, underline=True)
@@ -101,6 +86,3 @@ class MilkLoaderGui(AccessoryBase):
             height=self.s_72,
             width=self.s_72,
         )
-        #
-        # for child in box.children:
-        #     child.padding = 5
