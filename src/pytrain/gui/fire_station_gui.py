@@ -96,18 +96,26 @@ class FireStationGui(AccessoryBase):
         This method must only be called from the guizero main event loop
         """
         print(f"Twiddling alarm button: {self.alarm_button.image}")
-        if self.alarm_button.image == self.alarm_off_image:
+        pb = self.alarm_button
+        if pb.image == self.alarm_off_image:
             # Switch to animated gif
-            self.alarm_button.image = self.alarm_on_image
-            self.alarm_button.height = self.alarm_button.width = self.s_72
+            pb.image = self.alarm_on_image
+            pb.height = pb.width = self.s_72
             self.app.after(5000, self._twiddle_alarm_button_image)
         else:
             # Ensure the GIF animation is fully detached before setting JPG
             # Break the tk reference chain by clearing the image first
-            self.alarm_button.image = self.alarm_off_image
+            name = pb.tk.cget("image")  # current Tk image name, e.g. "pyimage3"
+            pb.tk.configure(image="")  # detach image from button (pb.image remains managed by guizero)
+            pb.tk.update_idletasks()  # ensure redraw
+            if name:
+                try:
+                    pb.tk.call("image", "delete", name)  # stops animation callbacks in Tk
+                except Exception:
+                    pass
+            # now set the static image (file path or a new PhotoImage)
+            pb.image = self.alarm_off_image
             self.app.update()  # flush pending redraws so GIF stops
-            # Now apply the static image
-            self.alarm_button.image = self.alarm_off_image
-            self.alarm_button.height = self.alarm_button.width = self.s_72
+            pb.height = pb.width = self.s_72
             self.app.update()
         print(f"Now: {self.alarm_button.image}")
