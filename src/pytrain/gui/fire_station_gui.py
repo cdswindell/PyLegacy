@@ -111,4 +111,5 @@ class FireStationGui(AccessoryBase):
             self.alarm_button.image = self.alarm_off_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
             self.alarm_button.show()
+            self.app.update()
         print(f"Now: {self.alarm_button.image}")
