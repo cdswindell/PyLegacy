@@ -104,9 +104,15 @@ class FireStationGui(AccessoryBase):
             self.alarm_button.height = self.alarm_button.width = self.s_72
             self.app.after(2500, self._twiddle_alarm_button_image)
         else:
-            # Stop the animated GIF by setting to None first, then to static image
-            self.alarm_button.image = None
+            # Stop the animated GIF by accessing the underlying tkinter widget
+            # Get the tkinter PhotoImage object and clear it from the widget
+            tk_button = self.alarm_button.tk
+            # Clear any image first to stop the GIF animation
+            tk_button.configure(image="")
+            # Force an update to ensure the image is cleared
+            tk_button.update_idletasks()
             gc.collect()
+            # Now set the static image
             self.alarm_button.image = self.alarm_off_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
         print(f"Now: {self.alarm_button.image}")
