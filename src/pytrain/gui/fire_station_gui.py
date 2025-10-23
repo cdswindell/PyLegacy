@@ -92,34 +92,34 @@ class FireStationGui(AccessoryBase):
         if button == self.alarm_button:
             self.queue_message(lambda: self._twiddle_alarm_button_image())
 
-    # noinspection PyProtectedMember
     def _twiddle_alarm_button_image(self) -> None:
         """
         This method must only be called from the guizero main event loop
         """
-        if self.alarm_button.image == self.alarm_off_image:
-            # Switch to animated gif
-            self.alarm_button.image = self.alarm_on_image
-            self.alarm_button.height = self.alarm_button.width = self.s_72
-            self.app.after(5000, self._twiddle_alarm_button_image)
-        else:
-            # Stop the animated GIF by destroying and recreating the button
-            # This is the only reliable way to stop GIF animation in tkinter
-            parent = self.alarm_button.master
+        with self._cv:
+            if self.alarm_button.image == self.alarm_off_image:
+                # Switch to animated gif
+                self.alarm_button.image = self.alarm_on_image
+                self.alarm_button.height = self.alarm_button.width = self.s_72
+                self.app.after(5000, self._twiddle_alarm_button_image)
+            else:
+                # Stop the animated GIF by destroying and recreating the button
+                # This is the only reliable way to stop GIF animation in tkinter
+                parent = self.alarm_button.master
 
-            # Destroy the old button (this stops the GIF)
-            self.alarm_button.destroy()
+                # Destroy the old button (this stops the GIF)
+                self.alarm_button.destroy()
 
-            # Recreate the button with the static image
-            self.alarm_button = PushButton(
-                parent,
-                image=self.alarm_off_image,
-                align="top",
-                height=self.s_72,
-                width=self.s_72,
-            )
-            self.alarm_button.when_left_button_pressed = self.when_pressed
-            self.alarm_button.when_left_button_released = self.when_released
-            self.register_widget(self.alarm_state, self.alarm_button)
-            if not self.is_active(self.power_state):
-                self.alarm_button.disable()
+                # Recreate the button with the static image
+                self.alarm_button = PushButton(
+                    parent,
+                    image=self.alarm_off_image,
+                    align="top",
+                    height=self.s_72,
+                    width=self.s_72,
+                )
+                self.alarm_button.when_left_button_pressed = self.when_pressed
+                self.alarm_button.when_left_button_released = self.when_released
+                self.register_widget(self.alarm_state, self.alarm_button)
+                if not self.is_active(self.power_state):
+                    self.alarm_button.disable()
