@@ -23,7 +23,7 @@ TITLES = {
 }
 
 
-class MilkLoaderGui(AccessoryBase):
+class FireStationGui(AccessoryBase):
     def __init__(self, power: int, alarm: int, variant: str = "MTH"):
         # identify the accessory
         self._title, self._image = self.get_variant(variant)
