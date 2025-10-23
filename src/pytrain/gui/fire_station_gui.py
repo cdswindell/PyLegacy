@@ -97,12 +97,11 @@ class FireStationGui(AccessoryBase):
         """
         This method must only be called from the guizero main event loop
         """
-        print(f"Twiddling alarm button: {self.alarm_button.image}")
         if self.alarm_button.image == self.alarm_off_image:
             # Switch to animated gif
             self.alarm_button.image = self.alarm_on_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
-            self.app.after(2500, self._twiddle_alarm_button_image)
+            self.app.after(5000, self._twiddle_alarm_button_image)
         else:
             # Stop the animated GIF by destroying and recreating the button
             # This is the only reliable way to stop GIF animation in tkinter
@@ -124,4 +123,3 @@ class FireStationGui(AccessoryBase):
             self.register_widget(self.alarm_state, self.alarm_button)
             if not self.is_active(self.power_state):
                 self.alarm_button.disable()
-        print(f"Now: {self.alarm_button.image}")
