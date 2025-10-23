@@ -33,7 +33,6 @@ class FireStationGui(AccessoryBase):
         self._variant = variant
         self.power_button = self.alarm_button = None
         self.power_state = self.alarm_state = None
-        self._current_alarm_tk_image = None
         super().__init__(self._title, self._image)
 
     @staticmethod
@@ -88,8 +87,6 @@ class FireStationGui(AccessoryBase):
         self.register_widget(self.alarm_state, self.alarm_button)
         if not self.is_active(self.power_state):
             self.alarm_button.disable()
-        # Store reference to track the current PhotoImage
-        self._current_alarm_tk_image = None
 
     def post_process_when_pressed(self, button: PushButton, state: AccessoryState) -> None:
         if button == self.alarm_button:
@@ -100,28 +97,25 @@ class FireStationGui(AccessoryBase):
         """
         This method must only be called from the guizero main event loop
         """
+        from tkinter import PhotoImage
+
         print(f"Twiddling alarm button: {self.alarm_button.image}")
         if self.alarm_button.image == self.alarm_off_image:
             # Switch to animated gif
             self.alarm_button.image = self.alarm_on_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
-            # Store reference to the tkinter PhotoImage
-            self._current_alarm_tk_image = self.alarm_button.tk.cget("image")
             self.app.after(2500, self._twiddle_alarm_button_image)
         else:
-            # Stop the animated GIF by blanking the widget first
+            # Stop the animated GIF by creating a blank PhotoImage and setting it
             tk_button = self.alarm_button.tk
-            # Get the current PhotoImage name
-            if self._current_alarm_tk_image:
-                try:
-                    # Blank the image on the widget
-                    tk_button.config(image="")
-                    # Delete the PhotoImage to stop animation
-                    self.alarm_button._image.blank()
-                except (AttributeError, RuntimeError, KeyError) as e:
-                    print(f"Warning: Could not blank image: {e}")
-            # Now set the static image
+            # Create a 1x1 blank image to replace the GIF
+            blank = PhotoImage(width=1, height=1)
+            tk_button.config(image=blank)
+            # Keep a reference so it doesn't get garbage collected
+            tk_button._blank_image = blank
+            # Force update
+            tk_button.update_idletasks()
+            # Now set the static image through guizero
             self.alarm_button.image = self.alarm_off_image
             self.alarm_button.height = self.alarm_button.width = self.s_72
-            self._current_alarm_tk_image = None
         print(f"Now: {self.alarm_button.image}")
