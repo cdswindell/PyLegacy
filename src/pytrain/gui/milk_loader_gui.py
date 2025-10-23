@@ -64,6 +64,7 @@ class MilkLoaderGui(AccessoryBase):
 
     def switch_state(self, state: AccessoryState) -> None:
         with self._cv:
+            print(state)
             if state == self.eject_state:
                 pass
             elif state.is_aux_on:
@@ -74,7 +75,7 @@ class MilkLoaderGui(AccessoryBase):
     def build_accessory_controls(self, box: Box) -> None:
         max_text_len = len("Conveyor") + 2
         self.power_button = self.make_power_button(self.power_state, "Power", 0, max_text_len, box)
-        self.conveyor_button = self.make_power_button(self.power_state, "Conveyor", 1, max_text_len, box)
+        self.conveyor_button = self.make_power_button(self.conveyor_state, "Conveyor", 1, max_text_len, box)
 
         eject_box = Box(box, layout="auto", border=2, grid=[2, 0], align="top")
         tb = Text(eject_box, text="Eject", align="top", size=self.s_16, underline=True)
