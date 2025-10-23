@@ -93,3 +93,5 @@ class MilkLoaderGui(AccessoryBase):
         self.eject_button.when_left_button_pressed = self.when_pressed
         self.eject_button.when_left_button_released = self.when_released
         self.register_widget(self.eject_state, self.eject_button)
+        if not self.is_active(self.power_state):
+            self.eject_button.disable()
