@@ -60,8 +60,6 @@ def instantiate(
     # Drop the fake self
     bound_args = list(binder.args)[1:]  # skip the placeholder for self
     bound_kwargs = dict(binder.kwargs)
-    print(f" Args: {bound_args}")
-    print(f" KwArgs: {bound_kwargs}")
 
     # Now actually construct
     return cls(*bound_args, **bound_kwargs)
@@ -110,16 +108,18 @@ class AccessoryGui(Thread):
                 title, _ = gui_class.get_variant(variant_arg)
                 self._guis[title] = (gui_class, gui_args, gui_kwargs)
 
+        self._sorted_guis = sorted(self._guis.keys(), key=lambda x: x[0])
+        print(f"Guis: {self._guis}")
+
         # verify requested GUI exists:
         if initial:
-            if initial.lower() not in [x.lower() for x in self._guis.keys()]:
-                raise ValueError(f"Invalid initial GUI: {initial}")
-
-            # case-correct initial
+            # look for partial match
             for key in self._guis.keys():
-                if initial.lower() == key.lower():
+                if initial.lower() in key.lower():
                     initial = key
                     break
+            if initial not in self._guis.keys():
+                raise ValueError(f"Invalid initial GUI: {initial}")
         else:
             initial = list(self._guis.keys())[0]
 
@@ -184,7 +184,7 @@ class AccessoryGui(Thread):
 
     @property
     def guis(self) -> list[str]:
-        return list(self._guis.keys())
+        return self._sorted_guis
 
     def _parse_tuple(self, gui: tuple) -> tuple[Any, tuple, dict]:
         if len(gui) < 2:
