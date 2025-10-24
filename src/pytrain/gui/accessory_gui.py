@@ -109,7 +109,6 @@ class AccessoryGui(Thread):
                 self._guis[title] = (gui_class, gui_args, gui_kwargs)
 
         self._sorted_guis = sorted(self._guis.keys(), key=lambda x: x[0])
-        print(f"Guis: {self._guis}")
 
         # verify requested GUI exists:
         if initial:
