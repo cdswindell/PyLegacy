@@ -9,12 +9,78 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 from threading import Event, Thread
+from typing import Any
 
 from ..gpio.gpio_handler import GpioHandler
 
 log = logging.getLogger(__name__)
+
+
+def validate_constructor_args(cls, args=(), kwargs=None):
+    kwargs = kwargs or {}
+    sig = inspect.signature(cls.__init__)
+    try:
+        b = sig.bind(None, *args, **kwargs)
+        b.apply_defaults()
+        return True, None
+    except TypeError as e:
+        return False, f"{cls.__name__}{sig}: {e}"
+
+
+def instantiate(
+    cls,
+    args: tuple[Any, ...] = (),
+    kwargs: dict[str, Any] | None = None,
+    *,
+    allow_partial: bool = False,
+    apply_defaults: bool = True,
+):
+    """
+    Validate (and optionally complete) constructor args, then instantiate `cls`.
+    - If allow_partial=True, missing optional args are ok; missing required args will still error on actual call.
+    - apply_defaults=True fills in defaulted parameters.
+    """
+    kwargs = kwargs or {}
+
+    sig = inspect.signature(cls.__init__)
+    # Pretend `self` is supplied; bind the rest
+    try:
+        # noinspection PyArgumentList
+        binder = (sig.bind_partial if allow_partial else sig.bind)(None, *args, **kwargs)
+    except TypeError as e:
+        # Produce a friendly message that shows the signature
+        raise TypeError(f"{cls.__name__}{sig}: {e}") from None
+
+    if apply_defaults:
+        binder.apply_defaults()
+
+    # Drop the fake self
+    bound_args = list(binder.args)[1:]  # skip the placeholder for self
+    bound_kwargs = dict(binder.kwargs)
+    print(f" Args: {bound_args}")
+    print(f" KwArgs: {bound_kwargs}")
+
+    # Now actually construct
+    return cls(*bound_args, **bound_kwargs)
+
+
+def coerce_value(value: str) -> Any:
+    if value.isdecimal():
+        value = int(value)
+    elif value.lower() == "true":
+        value = True
+    elif value.lower() == "false":
+        value = False
+    else:
+        try:
+            value = float(value)
+            return int(value) if value.is_integer() else value
+        except ValueError:
+            pass
+    return value
 
 
 class AccessoryGui(Thread):
@@ -39,14 +105,10 @@ class AccessoryGui(Thread):
         self._guis = {}
         for gui in args:
             if isinstance(gui, tuple):
-                gui_class = self.get_variant(gui[0])
-                gui_args = gui[1:]
-                if isinstance(gui_args[-1], str):
-                    variant_arg = gui_args[-1].split("=")[-1]
-                else:
-                    variant_arg = None
+                gui_class, gui_args, gui_kwargs = self._parse_tuple(gui)
+                variant_arg = gui_kwargs.get("variant", None)
                 title, _ = gui_class.get_variant(variant_arg)
-                self._guis[title] = (gui_class, gui_args)
+                self._guis[title] = (gui_class, gui_args, gui_kwargs)
 
         # verify requested GUI exists:
         if initial:
@@ -92,7 +154,8 @@ class AccessoryGui(Thread):
     def run(self) -> None:
         # create the initially requested gui
         gui = self._guis[self.requested_gui]
-        self._gui = gui[0](self.requested_gui, *gui[1:], aggrigator=self)
+        gui[2]["aggrigator"] = self
+        self._gui = instantiate(gui[0], gui[1], gui[2])
 
         # wait for user to request a different GUI
         while True:
@@ -111,7 +174,8 @@ class AccessoryGui(Thread):
 
             # create and display new gui
             gui = self._guis[self.requested_gui]
-            self._gui = gui[0](self.requested_gui, *gui[1:], aggrigator=self)
+            gui[2]["aggrigator"] = self
+            self._gui = instantiate(gui[0], gui[1], gui[2])
 
     def cycle_gui(self, gui: str):
         if gui in self._guis:
@@ -121,3 +185,26 @@ class AccessoryGui(Thread):
     @property
     def guis(self) -> list[str]:
         return list(self._guis.keys())
+
+    def _parse_tuple(self, gui: tuple) -> tuple[Any, tuple, dict]:
+        if len(gui) < 2:
+            raise ValueError(f"Invalid GUI tuple: {gui}")
+        gui_class = self.get_variant(gui[0])
+        gui_args = list()
+        gui_kwargs: dict[str, Any] = dict()
+        for arg in gui[1:]:
+            if isinstance(arg, str):
+                last_arg = arg.strip().split("=")
+                if len(last_arg) == 1:
+                    gui_args.append(last_arg[0])
+                elif len(last_arg) == 2 and isinstance(last_arg[0], str):
+                    gui_kwargs[last_arg[0]] = coerce_value(last_arg[1])
+                else:
+                    raise ValueError(f"Invalid variant argument format: {arg}")
+            else:
+                gui_args.append(arg)
+
+            if isinstance(gui_args[-1], str) and "variant" not in gui_kwargs:
+                gui_kwargs["variant"] = gui_args[-1]
+                gui_args = gui_args[:-1]
+        return gui_class, tuple(gui_args), gui_kwargs
