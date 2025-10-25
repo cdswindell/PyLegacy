@@ -99,18 +99,19 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self._enabled_text = enabled_text
         self._disabled_text = disabled_text
         self.app = self.box = self.acc_box = self.y_offset = None
-        self.pd_button_height = self.pd_button_width = None
         self.aggrigator_combo = None
         self.turn_on_image = find_file("on_button.jpg")
         self.turn_off_image = find_file("off_button.jpg")
         self.alarm_on_image = find_file("Breaking-News-Emoji.gif")
         self.alarm_off_image = find_file("red_light_off.jpg")
+        self.left_arrow_image = find_file("left_arrow.jpg")
+        self.right_arrow_image = find_file("right_arrow.jpg")
         self._app_counter = 0
         self._message_queue = Queue()
 
         # States
         self._states = dict[int, S]()
-        self._state_buttons = dict[int, Widget]()
+        self._state_buttons = dict[int, Widget | list[Widget]]()
         self._state_watchers = dict[int, StateWatcher]()
 
         # Thread-aware shutdown signaling
@@ -303,9 +304,16 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
     # noinspection PyTypeChecker
     def register_widget(self, state: S, widget: Widget) -> None:
-        self._state_buttons[state.tmcc_id] = widget
-        widget.component_state = state
-        self.update_button(state.tmcc_id)
+        with self._cv:
+            if state.tmcc_id in self._state_buttons:
+                if isinstance(self._state_buttons[state.tmcc_id], list):
+                    self._state_buttons[state.tmcc_id].append(widget)
+                else:
+                    self._state_buttons[state.tmcc_id] = [self._state_buttons[state.tmcc_id], widget]
+            else:
+                self._state_buttons[state.tmcc_id] = widget
+            widget.component_state = state
+            self.update_button(state.tmcc_id)
 
     def make_power_button(self, state: S, label: str, col: int, text_len: int, container: Box) -> PowerButton:
         btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")

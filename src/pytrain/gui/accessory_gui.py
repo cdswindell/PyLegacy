@@ -97,6 +97,7 @@ class AccessoryGui(Thread):
         from ..gui.fire_station_gui import FireStationGui
         from ..gui.freight_depot_gui import FreightDepotGui
         from ..gui.milk_loader_gui import MilkLoaderGui
+        from ..gui.smoke_fluid_loader_gui import SmokeFluidLoaderGui
 
         super().__init__(daemon=True)
         self._ev = Event()
@@ -105,6 +106,7 @@ class AccessoryGui(Thread):
             "fire station": FireStationGui,
             "freight depot": FreightDepotGui,
             "milk loader": MilkLoaderGui,
+            "smoke fluid loader": SmokeFluidLoaderGui,
         }
 
         # look for tuples in args; they define the guis we want
