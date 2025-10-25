@@ -78,10 +78,10 @@ class SmokeFluidLoaderGui(AccessoryBase):
         Sync gui state to accessory state
         """
         with self._cv:
-            print(self.fluid_loader_state.numeric)
-            if self.fluid_loader_state.numeric == 8 and self.lights_button.image != self.turn_on_image:
+            print(self.fluid_loader_state)
+            if self.fluid_loader_state.number == 8 and self.lights_button.image != self.turn_on_image:
                 self.lights_button.image = self.turn_on_image
-            elif self.fluid_loader_state.numeric == 9 and self.lights_button.image != self.turn_off_image:
+            elif self.fluid_loader_state.number == 9 and self.lights_button.image != self.turn_off_image:
                 self.lights_button.image = self.turn_off_image
             self.lights_button.height = self.lights_button.width = self.s_72
 
