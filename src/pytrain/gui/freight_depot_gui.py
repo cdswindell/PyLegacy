@@ -16,19 +16,15 @@ from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
 
 VARIANTS = {
-    "dairymens league 6-14291": "Dairymens-League-6-14291.jpg",
-    "moose pond creamery 6-22660": "Moose-Pond-Creamery-6-22660.jpg",
-    "mountain view creamery 6-21675": "Mountain-View-Creamery-6-21675.jpg",
+    "k lineville freight depot k-42418": "K-Lineville-Freight-Depot-K-42418.jpg",
 }
 
 TITLES = {
-    "Dairymens-League-6-14291.jpg": "Dairymen's League",
-    "Moose-Pond-Creamery-6-22660.jpg": "Moose Pond Creamery",
-    "Mountain-View-Creamery-6-21675.jpg": "Mountain View Creamery",
+    "K-Lineville-Freight-Depot-K-42418.jpg": "Freight Depot",
 }
 
 
-class MilkLoaderGui(AccessoryBase):
+class FreightDepotGui(AccessoryBase):
     def __init__(
         self,
         power: int,
@@ -39,19 +35,19 @@ class MilkLoaderGui(AccessoryBase):
         aggrigator: AccessoryGui = None,
     ):
         """
-        Create a GUI to control a K-Line/Lionel Milk Loader.
+        Create a GUI to control a K-Line Freight Depot.
 
         :param int power:
-            TMCC ID of the ACS2 port used to power the milk loader.
+            TMCC ID of the ACS2 port used to power the freight depot.
 
         :param int conveyor:
             TMCC ID of the ACS2 port used to control the conveyor belt.
 
         :param int eject:
-            TMCC ID of the ACS2 port used to eject a milk can.
+            TMCC ID of the ACS2 port used to eject a package.
 
         :param str variant:
-            Optional; Specifies the variant (Moose Pond, Dairymen's League, Mountain View).
+            Optional; Specifies the variant (K-line, ).
         """
 
         # identify the accessory
@@ -62,19 +58,19 @@ class MilkLoaderGui(AccessoryBase):
         self._variant = variant
         self.power_button = self.conveyor_button = self.eject_button = None
         self.power_state = self.conveyor_state = self.eject_state = None
-        self.eject_image = find_file("depot-milk-can-eject.jpeg")
+        self.eject_image = find_file("Man-With-Handcart.png")
         super().__init__(self._title, self._image, aggrigator=aggrigator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:
         if variant is None:
-            variant = "Moose Pond"
+            variant = "K Line"
         variant = variant.lower().replace("'", "").replace("-", "")
         for k, v in VARIANTS.items():
             if variant in k:
                 title = TITLES[v]
                 return title, find_file(v)
-        raise ValueError(f"Unsupported milk loader: {variant}")
+        raise ValueError(f"Unsupported freight depot: {variant}")
 
     def get_target_states(self) -> list[S]:
         self.power_state = self._state_store.get_state(CommandScope.ACC, self._power)

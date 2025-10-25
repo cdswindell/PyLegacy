@@ -34,6 +34,18 @@ class FireStationGui(AccessoryBase):
         *,
         aggrigator: AccessoryGui = None,
     ):
+        """
+        Create a GUI to control a MTH Fire Station.
+
+        :param int power:
+            TMCC ID of the ACS2 port used to power the milk loader.
+
+        :param int alarm:
+            TMCC ID of the ACS2 port used to trigger the alarm sequence.
+
+        :param str variant:
+            Optional; Specifies the variant (Moose Pond, Dairymen's League, Mountain View).
+        """
         # identify the accessory
         self._title, self._image = self.get_variant(variant)
         self._power = power
