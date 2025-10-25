@@ -80,10 +80,9 @@ class SmokeFluidLoaderGui(AccessoryBase):
         with self._cv:
             print(self.fluid_loader_state)
             if self.fluid_loader_state.number == 8 and self.lights_button.image != self.turn_on_image:
-                self.lights_button.image = self.turn_on_image
+                self.set_button_inactive(self.lights_button)
             elif self.fluid_loader_state.number == 9 and self.lights_button.image != self.turn_off_image:
-                self.lights_button.image = self.turn_off_image
-            self.lights_button.image.height = self.lights_button.image.width = self.s_72
+                self.set_button_active(self.lights_button)
 
     def switch_state(self, state: AccessoryState) -> None:
         pass
