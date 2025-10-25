@@ -73,7 +73,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
         return False
 
     # noinspection PyUnusedLocal
-    def update_buttons(self, tmcc_id: int) -> None:
+    def update_button(self, tmcc_id: int) -> None:
         """
         Sync gui state to accessory state
         """
