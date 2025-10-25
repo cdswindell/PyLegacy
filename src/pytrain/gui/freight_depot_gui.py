@@ -20,7 +20,7 @@ VARIANTS = {
 }
 
 TITLES = {
-    "K-Lineville-Freight-Depot-K-42418.jpg": "Freight Depot",
+    "K-Lineville-Freight-Depot-K-42418.jpg": "Lineville Freight Depot",
 }
 
 

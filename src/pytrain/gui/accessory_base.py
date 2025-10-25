@@ -87,6 +87,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self._aggrigator = aggrigator
         self._scale_by = scale_by
         self._max_image_width = max_image_width
+        if self.height > 320 and max_image_height == 0.45:
+            max_image_height = 0.55
         self._max_image_height = max_image_height
         self._text_size: int = 24
         self.s_72 = self.scale(72, 0.7)
