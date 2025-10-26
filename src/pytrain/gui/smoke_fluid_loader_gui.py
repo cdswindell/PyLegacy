@@ -6,6 +6,7 @@
 #  SPDX-License-Identifier: LPGL
 #
 from guizero import Box, PushButton, Text
+from guizero.event import EventData
 
 from .. import TMCC1AuxCommandEnum
 from ..db.accessory_state import AccessoryState
@@ -112,6 +113,8 @@ class SmokeFluidLoaderGui(AccessoryBase):
             width=self.s_72,
         )
         self.register_widget(self.fluid_loader_state, left)
+        left.when_left_button_pressed = self.when_boom_pressed
+        left.when_left_button_released = self.when_boom_released
 
         self._boom_right_button = right = PushButton(
             boom_btns,
@@ -133,3 +136,11 @@ class SmokeFluidLoaderGui(AccessoryBase):
             width=self.s_72,
         )
         self.register_widget(self.fluid_loader_state, self.droplet_button)
+
+    def when_boom_pressed(self, event: EventData) -> None:
+        pb = event.widget
+        data = 2 if pb.image == self.left_arrow_image else -2
+        CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=data).send()
+
+    def when_boom_released(self, event: EventData) -> None:
+        pass
