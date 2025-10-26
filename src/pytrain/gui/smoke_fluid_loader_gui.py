@@ -5,7 +5,7 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-from guizero import Box
+from guizero import Box, PushButton, Text
 
 from .. import TMCC1AuxCommandEnum
 from ..db.accessory_state import AccessoryState
@@ -51,7 +51,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
 
         self._variant = variant
         self.lights_button = self._boom_left_button = self._boom_right_button = self.droplet_button = None
-        self.droplet_image = find_file("depot-milk-can-eject.jpeg")
+        self.droplet_image = find_file("smoke-fluid.png")
         super().__init__(self._title, self._image, aggrigator=aggrigator)
 
     @staticmethod
@@ -78,7 +78,6 @@ class SmokeFluidLoaderGui(AccessoryBase):
         Sync gui state to accessory state
         """
         with self._cv:
-            print(self.fluid_loader_state)
             if self.fluid_loader_state.number == 8 and self.lights_button.image != self.turn_on_image:
                 self.set_button_inactive(self.lights_button)
             elif self.fluid_loader_state.number == 9 and self.lights_button.image != self.turn_off_image:
@@ -100,3 +99,37 @@ class SmokeFluidLoaderGui(AccessoryBase):
         self.lights_button = self.make_power_button(self.fluid_loader_state, "Lights", col, max_text_len, box)
         self.lights_button.update_command(self.toggle_lights)
         col += 1
+
+        boom_box = Box(box, layout="auto", border=2, grid=[col, 0], align="top")
+        col += 1
+        _ = Text(boom_box, text="Fluid Boom", align="top", size=self.s_16, underline=True)
+        boom_btns = Box(box, layout="grid", border=2, align="top")
+        self._boom_left_button = left = PushButton(
+            boom_btns,
+            image=self.left_arrow_image,
+            grid=[0, 0],
+            height=self.s_72,
+            width=self.s_72,
+        )
+        self.register_widget(self.fluid_loader_state, left)
+
+        self._boom_right_button = right = PushButton(
+            boom_btns,
+            image=self.left_arrow_image,
+            grid=[1, 0],
+            height=self.s_72,
+            width=self.s_72,
+        )
+        self.register_widget(self.fluid_loader_state, right)
+
+        droplet_box = Box(box, layout="auto", border=2, grid=[col, 0], align="top")
+        tb = Text(droplet_box, text="Droplet", align="top", size=self.s_16, underline=True)
+        tb.width = max_text_len
+        self.droplet_button = PushButton(
+            droplet_box,
+            image=self.droplet_image,
+            align="top",
+            height=self.s_72,
+            width=self.s_72,
+        )
+        self.register_widget(self.fluid_loader_state, self.droplet_button)
