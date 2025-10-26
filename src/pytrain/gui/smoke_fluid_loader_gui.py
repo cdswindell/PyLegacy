@@ -88,7 +88,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
                 lights_button = self._state_buttons[tmcc_id][0]
             else:
                 return
-            print(f"update_button: {lights_button}")
+            print(f"update_button: {lights_button == self.lights_button} {lights_button}")
             if self.fluid_loader_state.number == 8 and lights_button.image != self.turn_on_image:
                 self.set_button_inactive(lights_button)
             elif self.fluid_loader_state.number == 9 and lights_button.image != self.turn_off_image:
