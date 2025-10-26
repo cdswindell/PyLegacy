@@ -103,7 +103,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
         boom_box = Box(box, layout="auto", border=2, grid=[col, 0], align="top")
         col += 1
         _ = Text(boom_box, text="Fluid Boom", align="top", size=self.s_16, underline=True)
-        boom_btns = Box(boom_box, layout="grid", border=2, align="top")
+        boom_btns = Box(boom_box, layout="grid", align="top")
         self._boom_left_button = left = PushButton(
             boom_btns,
             image=self.left_arrow_image,
