@@ -88,7 +88,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
                 lights_button = self._state_buttons[tmcc_id][0]
             else:
                 return
-            print(f"update_button: {lights_button == self.lights_button} {lights_button}")
+
             if self.fluid_loader_state.number == 8 and lights_button.image != self.turn_on_image:
                 self.set_button_inactive(lights_button)
             elif self.fluid_loader_state.number == 9 and lights_button.image != self.turn_off_image:
@@ -152,7 +152,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
     def when_boom_pressed(self, event: EventData) -> None:
         with self._cv:
             pb = event.widget
-            speed = 2 if pb.image == self.left_arrow_image else -2
+            speed = 5 if pb.image == self.left_arrow_image else -5
             CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=speed).send()
             self._boom_active_id = self.app.tk.after(50, self.move_boom, speed)
 
