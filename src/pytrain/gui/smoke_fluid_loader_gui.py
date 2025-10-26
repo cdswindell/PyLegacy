@@ -49,6 +49,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
         self._title, self._image = self.get_variant(variant)
         self._tmcc_id = tmcc_id
         self.fluid_loader_state = None
+        self._boom_active_id = None
 
         self._variant = variant
         self.lights_button = self._boom_left_button = self._boom_right_button = self.droplet_button = None
@@ -136,11 +137,25 @@ class SmokeFluidLoaderGui(AccessoryBase):
             width=self.s_72,
         )
         self.register_widget(self.fluid_loader_state, self.droplet_button)
+        left.when_left_button_pressed = self.when_boom_pressed
+        left.when_left_button_released = self.when_boom_released
 
     def when_boom_pressed(self, event: EventData) -> None:
-        pb = event.widget
-        data = 2 if pb.image == self.left_arrow_image else -2
-        CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=data).send()
+        with self._cv:
+            pb = event.widget
+            data = 2 if pb.image == self.left_arrow_image else -2
+            CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=data).send()
+            self._boom_active_id = pb.app.tk.after(50, self.move_boom, [data])
 
     def when_boom_released(self, event: EventData) -> None:
-        pass
+        with self._cv:
+            if self._boom_active_id:
+                pb = event.widget
+                pb.app.tk.after_cancel(self._boom_active_id)
+                self._boom_active_id = None
+
+    def move_boom(self, data: int) -> None:
+        with self._cv:
+            if self._boom_active_id:
+                CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=data).send()
+                self._boom_active_id = self.app.tk.after(50, self.move_boom, [data])
