@@ -13,7 +13,7 @@ from ..db.accessory_state import AccessoryState
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..utils.path_utils import find_file
-from .accessory_base import AccessoryBase, S
+from .accessory_base import AccessoryBase, PowerButton, S
 from .accessory_gui import AccessoryGui
 
 VARIANTS = {
@@ -80,11 +80,19 @@ class SmokeFluidLoaderGui(AccessoryBase):
         Sync gui state to accessory state
         """
         with self._cv:
-            print(f"update_button: {self._state_buttons[tmcc_id]}")
-            if self.fluid_loader_state.number == 8 and self.lights_button.image != self.turn_on_image:
-                self.set_button_inactive(self.lights_button)
-            elif self.fluid_loader_state.number == 9 and self.lights_button.image != self.turn_off_image:
-                self.set_button_active(self.lights_button)
+            if self.lights_button:
+                lights_button = self.lights_button
+            elif isinstance(self._state_buttons[tmcc_id], PowerButton):
+                lights_button = self._state_buttons[tmcc_id]
+            elif isinstance(self._state_buttons[tmcc_id], list):
+                lights_button = self._state_buttons[tmcc_id][0]
+            else:
+                return
+            print(f"update_button: {lights_button}")
+            if self.fluid_loader_state.number == 8 and lights_button.image != self.turn_on_image:
+                self.set_button_inactive(lights_button)
+            elif self.fluid_loader_state.number == 9 and lights_button.image != self.turn_off_image:
+                self.set_button_active(lights_button)
 
     def switch_state(self, state: AccessoryState) -> None:
         pass
