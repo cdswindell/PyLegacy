@@ -125,6 +125,8 @@ class SmokeFluidLoaderGui(AccessoryBase):
             width=self.s_72,
         )
         self.register_widget(self.fluid_loader_state, right)
+        right.when_left_button_pressed = self.when_boom_pressed
+        right.when_left_button_released = self.when_boom_released
 
         droplet_box = Box(box, layout="auto", border=2, grid=[col, 0], align="top")
         tb = Text(droplet_box, text="Droplet", align="top", size=self.s_16, underline=True)
@@ -137,15 +139,13 @@ class SmokeFluidLoaderGui(AccessoryBase):
             width=self.s_72,
         )
         self.register_widget(self.fluid_loader_state, self.droplet_button)
-        left.when_left_button_pressed = self.when_boom_pressed
-        left.when_left_button_released = self.when_boom_released
 
     def when_boom_pressed(self, event: EventData) -> None:
         with self._cv:
             pb = event.widget
             speed = 2 if pb.image == self.left_arrow_image else -2
             CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=speed).send()
-            self._boom_active_id = self.app.tk.after(50, self.move_boom, [speed])
+            self._boom_active_id = self.app.tk.after(50, self.move_boom, speed)
 
     # noinspection PyUnusedLocal
     def when_boom_released(self, event: EventData) -> None:
@@ -159,4 +159,4 @@ class SmokeFluidLoaderGui(AccessoryBase):
             if self._boom_active_id:
                 print(f"Moving boom by {speed} {type(speed)}")
                 CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=speed).send()
-                self._boom_active_id = self.app.tk.after(50, self.move_boom, [speed])
+                self._boom_active_id = self.app.tk.after(50, self.move_boom, speed)
