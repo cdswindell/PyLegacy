@@ -50,6 +50,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
         self._tmcc_id = tmcc_id
         self.fluid_loader_state = None
         self._boom_active_id = None
+        self._delta = 0.1
 
         self._variant = variant
         self.lights_button = self._boom_left_button = self._boom_right_button = self.droplet_button = None
@@ -154,7 +155,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
             pb = event.widget
             speed = 5 if pb.image == self.left_arrow_image else -5
             CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=speed).send()
-            self._boom_active_id = self.app.tk.after(50, self.move_boom, speed)
+            self._boom_active_id = self.app.tk.after(50, self.when_boom_held, speed, self._delta)
 
     # noinspection PyUnusedLocal
     def when_boom_released(self, event: EventData) -> None:
@@ -163,8 +164,19 @@ class SmokeFluidLoaderGui(AccessoryBase):
                 self.app.tk.after_cancel(self._boom_active_id)
                 self._boom_active_id = None
 
-    def move_boom(self, speed: int) -> None:
+    def when_boom_held(self, speed: float, delta: float) -> None:
         with self._cv:
             if self._boom_active_id:
-                CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=speed).send()
-                self._boom_active_id = self.app.tk.after(50, self.move_boom, speed)
+                if delta != 0.0:
+                    if speed > 0:
+                        speed += delta
+                        if speed > 5.0:
+                            speed = 5.0
+                            delta = 0.0
+                    else:
+                        speed -= delta
+                        if speed < -5.0:
+                            speed = -5.0
+                            delta = 0.0
+                CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=int(speed)).send()
+                self._boom_active_id = self.app.tk.after(50, self.when_boom_held, speed, delta)
