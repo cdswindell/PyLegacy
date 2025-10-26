@@ -143,9 +143,9 @@ class SmokeFluidLoaderGui(AccessoryBase):
     def when_boom_pressed(self, event: EventData) -> None:
         with self._cv:
             pb = event.widget
-            data = 2 if pb.image == self.left_arrow_image else -2
-            CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=data).send()
-            self._boom_active_id = self.app.tk.after(50, self.move_boom, [data])
+            speed = 2 if pb.image == self.left_arrow_image else -2
+            CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=speed).send()
+            self._boom_active_id = self.app.tk.after(50, self.move_boom, [speed])
 
     # noinspection PyUnusedLocal
     def when_boom_released(self, event: EventData) -> None:
@@ -154,8 +154,9 @@ class SmokeFluidLoaderGui(AccessoryBase):
                 self.app.tk.after_cancel(self._boom_active_id)
                 self._boom_active_id = None
 
-    def move_boom(self, data: int) -> None:
+    def move_boom(self, speed: int) -> None:
         with self._cv:
             if self._boom_active_id:
-                CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=data).send()
-                self._boom_active_id = self.app.tk.after(50, self.move_boom, [data])
+                print(f"Moving boom by {speed} {type(speed)}")
+                CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=speed).send()
+                self._boom_active_id = self.app.tk.after(50, self.move_boom, [speed])
