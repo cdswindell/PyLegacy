@@ -147,11 +147,11 @@ class SmokeFluidLoaderGui(AccessoryBase):
             CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=data).send()
             self._boom_active_id = self.app.tk.after(50, self.move_boom, [data])
 
+    # noinspection PyUnusedLocal
     def when_boom_released(self, event: EventData) -> None:
         with self._cv:
             if self._boom_active_id:
-                pb = event.widget
-                pb.app.tk.after_cancel(self._boom_active_id)
+                self.app.tk.after_cancel(self._boom_active_id)
                 self._boom_active_id = None
 
     def move_boom(self, data: int) -> None:
