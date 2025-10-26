@@ -145,7 +145,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
             pb = event.widget
             data = 2 if pb.image == self.left_arrow_image else -2
             CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=data).send()
-            self._boom_active_id = pb.app.tk.after(50, self.move_boom, [data])
+            self._boom_active_id = self.app.tk.after(50, self.move_boom, [data])
 
     def when_boom_released(self, event: EventData) -> None:
         with self._cv:
