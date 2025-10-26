@@ -115,7 +115,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
 
         self._boom_right_button = right = PushButton(
             boom_btns,
-            image=self.left_arrow_image,
+            image=self.right_arrow_image,
             grid=[1, 0],
             height=self.s_72,
             width=self.s_72,
