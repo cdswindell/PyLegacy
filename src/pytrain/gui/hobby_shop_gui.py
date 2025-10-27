@@ -99,4 +99,5 @@ class HobbyShopGui(AccessoryBase):
         self.power_button = self.make_power_button(self.power_state, "Power", 0, max_text_len, box)
         self.motion_button = self.make_power_button(self.motion_state, "Motion", 1, max_text_len, box)
         if not self.is_active(self.power_state):
+            CommandReq(TMCC1AuxCommandEnum.AUX2_OFF, self.motion_state.tmcc_id).send()
             self.motion_button.disable()
