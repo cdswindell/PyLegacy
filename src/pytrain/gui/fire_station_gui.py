@@ -131,6 +131,8 @@ class FireStationGui(AccessoryBase):
 
                 # Destroy the old button (this stops the GIF)
                 self.alarm_button.destroy()
+                if self.alarm_state.tmcc_id in self._state_buttons:
+                    del self._state_buttons[self.alarm_state.tmcc_id]
 
                 # Recreate the button with the static image
                 self.alarm_button = PushButton(
