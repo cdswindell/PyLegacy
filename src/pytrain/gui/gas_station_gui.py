@@ -17,7 +17,7 @@ from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
 
 VARIANTS = {
-    "sinclair operating gas station 30-9101": "Sinclair-Operating-Gas-Station-30-9101.jpg",
+    "sinclair gas station 30-9101": "Sinclair-Operating-Gas-Station-30-9101.jpg",
 }
 
 TITLES = {
@@ -59,13 +59,13 @@ class GasStationGui(AccessoryBase):
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:
         if variant is None:
-            variant = "mth fire station"
+            variant = "sinclair"
         variant = variant.lower().replace("'", "").replace("-", "")
         for k, v in VARIANTS.items():
             if variant in k:
                 title = TITLES[v]
                 return title, find_file(v)
-        raise ValueError(f"Unsupported fire station: {variant}")
+        raise ValueError(f"Unsupported gas station: {variant}")
 
     def get_target_states(self) -> list[S]:
         self.power_state = self._state_store.get_state(CommandScope.ACC, self._power)
