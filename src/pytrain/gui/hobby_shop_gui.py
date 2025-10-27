@@ -79,7 +79,6 @@ class HobbyShopGui(AccessoryBase):
         ]
 
     def is_active(self, state: AccessoryState) -> bool:
-        print(f"State: {state} Is Active: {state.is_aux2_on}")
         return state.is_aux2_on
 
     def switch_state(self, state: AccessoryState) -> None:
