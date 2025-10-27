@@ -113,6 +113,7 @@ class FreightDepotGui(AccessoryBase):
             height=self.s_72,
             width=self.s_72,
         )
+        self.eject_button.bg = "white"
         self.eject_button.when_left_button_pressed = self.when_pressed
         self.eject_button.when_left_button_released = self.when_released
         self.register_widget(self.eject_state, self.eject_button)
