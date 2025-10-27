@@ -167,11 +167,12 @@ class AccessoryBase(Thread, Generic[S], ABC):
     def update_button(self, tmcc_id: int) -> None:
         with self._cv:
             pd: S = self._states[tmcc_id]
-            pb = self._state_buttons[tmcc_id]
-            if self.is_active(pd):
-                self.set_button_active(pb)
-            else:
-                self.set_button_inactive(pb)
+            pb = self._state_buttons.get(tmcc_id, None)
+            if pb:
+                if self.is_active(pd):
+                    self.set_button_active(pb)
+                else:
+                    self.set_button_inactive(pb)
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
