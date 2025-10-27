@@ -22,9 +22,9 @@ VARIANTS = {
 }
 
 TITLES = {
-    "Lionelville-Hobby-Shop-6-85294.jpg": "Dairymen's League",
-    "Madison-Hobby-Shop-6-14133.jpg": "Moose Pond Creamery",
-    "Midtown-Models-Hobby-Shop-6-32998.jpg": "Mountain View Creamery",
+    "Lionelville-Hobby-Shop-6-85294.jpg": "Lionelville Hobby Shop",
+    "Madison-Hobby-Shop-6-14133.jpg": "Madison Hobby Shop",
+    "Midtown-Models-Hobby-Shop-6-32998.jpg": "Midtown Models Hobby Shop",
 }
 
 
@@ -47,7 +47,7 @@ class HobbyShopGui(AccessoryBase):
             TMCC ID of the ACS2 port used to control the motion.
 
         :param str variant:
-            Optional; Specifies the variant (Moose Pond, Dairymen's League, Mountain View).
+            Optional; Specifies the variant (Lionelville, Madison, Midtown).
         """
 
         # identify the accessory

@@ -147,6 +147,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
             align="top",
             height=self.s_72,
             width=self.s_72,
+            command=CommandReq(TMCC1AuxCommandEnum.BRAKE, self._tmcc_id).send,
         )
         self.register_widget(self.fluid_loader_state, self.droplet_button)
 
