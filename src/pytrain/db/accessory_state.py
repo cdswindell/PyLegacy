@@ -207,6 +207,14 @@ class AccessoryState(TmccState):
         return self._aux_state == Aux.AUX1_OPT_ONE
 
     @property
+    def is_aux1_on(self) -> bool:
+        return self._aux1_state == Aux.AUX1_ON
+
+    @property
+    def is_aux2_on(self) -> bool:
+        return self._aux2_state == Aux.AUX2_ON
+
+    @property
     def is_aux_off(self) -> bool:
         return self._aux_state == Aux.AUX2_OPT_ONE
 
