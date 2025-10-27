@@ -85,11 +85,11 @@ class HobbyShopGui(AccessoryBase):
         with self._cv:
             if state.is_aux_on:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
+                if state == self.power_state and self.motion_button:
                     self.queue_message(lambda: self.motion_button.disable())
             else:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
+                if state == self.power_state and self.motion_button:
                     self.queue_message(lambda: self.motion_button.enable())
 
     def build_accessory_controls(self, box: Box) -> None:
