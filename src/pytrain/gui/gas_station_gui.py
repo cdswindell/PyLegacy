@@ -53,7 +53,7 @@ class GasStationGui(AccessoryBase):
         self._variant = variant
         self.power_button = self.car_button = None
         self.power_state = self.car_state = None
-        self.car_image = find_file("gas-station-car.png")
+        self.car_image = find_file("gas-station-car1.png")
         super().__init__(self._title, self._image, aggrigator=aggrigator)
 
     @staticmethod
