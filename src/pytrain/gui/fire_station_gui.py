@@ -17,7 +17,7 @@ from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
 
 VARIANTS = {
-    "mth fire station": "Fire-Station-MTH-30-9157.jpg",
+    "mth fire station 30-9157": "Fire-Station-MTH-30-9157.jpg",
 }
 
 TITLES = {
@@ -38,13 +38,13 @@ class FireStationGui(AccessoryBase):
         Create a GUI to control a MTH Fire Station.
 
         :param int power:
-            TMCC ID of the ACS2 port used to power the milk loader.
+            TMCC ID of the ACS2 port used to power the station.
 
         :param int alarm:
             TMCC ID of the ACS2 port used to trigger the alarm sequence.
 
         :param str variant:
-            Optional; Specifies the variant (Moose Pond, Dairymen's League, Mountain View).
+            Optional; Specifies the variant (MTH Fire Station).
         """
         # identify the accessory
         self._title, self._image = self.get_variant(variant)

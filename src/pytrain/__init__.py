@@ -51,11 +51,15 @@ from .gui.accessories_gui import AccessoriesGui  # noqa: F401
 from .gui.accessory_gui import AccessoryGui  # noqa: F401
 from .gui.component_state_gui import ComponentStateGui  # noqa: F401
 from .gui.fire_station_gui import FireStationGui  # noqa: F401
+from .gui.freight_depot_gui import FreightDepotGui  # noqa: F401
+from .gui.gas_station_gui import GasStationGui  # noqa: F401
+from .gui.hobby_shop_gui import HobbyShopGui  # noqa: F401
 from .gui.launch_gui import LaunchGui  # noqa: F401
 from .gui.milk_loader_gui import MilkLoaderGui  # noqa: F401
 from .gui.motors_gui import MotorsGui  # noqa: F401
 from .gui.power_district_gui import PowerDistrictsGui  # noqa: F401
 from .gui.routes_gui import RoutesGui  # noqa: F401
+from .gui.smoke_fluid_loader_gui import SmokeFluidLoaderGui  # noqa: F401
 from .gui.switches_gui import SwitchesGui  # noqa: F401
 from .gui.systems_gui import SystemsGui  # noqa: F401
 from .protocol.command_def import CommandDefEnum  # noqa: F401

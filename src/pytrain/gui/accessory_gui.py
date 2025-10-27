@@ -94,11 +94,12 @@ class AccessoryGui(Thread):
         scale_by: float = 1.0,
         initial: str = None,
     ) -> None:
-        from ..gui.fire_station_gui import FireStationGui
-        from ..gui.freight_depot_gui import FreightDepotGui
+        from .fire_station_gui import FireStationGui
+        from .freight_depot_gui import FreightDepotGui
+        from .gas_station_gui import GasStationGui
         from .hobby_shop_gui import HobbyShopGui
-        from ..gui.milk_loader_gui import MilkLoaderGui
-        from ..gui.smoke_fluid_loader_gui import SmokeFluidLoaderGui
+        from .milk_loader_gui import MilkLoaderGui
+        from .smoke_fluid_loader_gui import SmokeFluidLoaderGui
 
         super().__init__(daemon=True)
         self._ev = Event()
@@ -106,6 +107,7 @@ class AccessoryGui(Thread):
         self._gui_classes = {
             "fire station": FireStationGui,
             "freight depot": FreightDepotGui,
+            "gas station": GasStationGui,
             "hobby shop": HobbyShopGui,
             "milk loader": MilkLoaderGui,
             "smoke fluid loader": SmokeFluidLoaderGui,
