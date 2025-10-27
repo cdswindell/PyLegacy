@@ -105,6 +105,7 @@ class GasStationGui(AccessoryBase):
             height=self.s_72,
             width=self.s_72,
         )
+        self.car_button.bg = "white"
         self.car_button.when_left_button_pressed = self.when_pressed
         self.car_button.when_left_button_released = self.when_released
         self.register_widget(self.car_state, self.car_button)
