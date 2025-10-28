@@ -73,7 +73,7 @@ class BackhoeGui(AccessoryBase):
         pass
 
     def build_accessory_controls(self, box: Box) -> None:
-        max_text_len = len("Dig") + 4
+        max_text_len = len("Dig") + 2
         col = 0
         button_box = Box(box, layout="auto", border=2, grid=[col, 0], align="top")
         col += 1
@@ -96,4 +96,5 @@ class BackhoeGui(AccessoryBase):
 
     def set_button_inactive(self, button: AnimatedButton) -> None:
         button.image = self.backhoe_image
+        button.height = button.width = self.s_72
         button.stop_animation()
