@@ -94,6 +94,7 @@ class AccessoryGui(Thread):
         scale_by: float = 1.0,
         initial: str = None,
     ) -> None:
+        from .culvert_gui import CulvertGui
         from .fire_station_gui import FireStationGui
         from .freight_depot_gui import FreightDepotGui
         from .freight_station_gui import FreightStationGui
@@ -106,6 +107,7 @@ class AccessoryGui(Thread):
         self._ev = Event()
 
         self._gui_classes = {
+            "culvert": CulvertGui,
             "depot": FreightDepotGui,
             "fire": FireStationGui,
             "gas": GasStationGui,

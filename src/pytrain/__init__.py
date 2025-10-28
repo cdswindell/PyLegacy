@@ -50,8 +50,8 @@ from .gpio.sys_admin import SystemAdmin  # noqa: F401
 from .gui.accessories_gui import AccessoriesGui  # noqa: F401
 from .gui.accessory_gui import AccessoryGui  # noqa: F401
 from .gui.component_state_gui import ComponentStateGui  # noqa: F401
+from .gui.culvert_gui import CulvertGui  # noqa: F401
 from .gui.fire_station_gui import FireStationGui  # noqa: F401
-from .gui.freight_depot_gui import FreightDepotGui  # noqa: F401
 from .gui.freight_station_gui import FreightStationGui  # noqa: F401
 from .gui.gas_station_gui import GasStationGui  # noqa: F401
 from .gui.hobby_shop_gui import HobbyShopGui  # noqa: F401
