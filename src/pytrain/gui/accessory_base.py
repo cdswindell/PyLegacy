@@ -448,3 +448,17 @@ class MomentaryActionHandler(Thread, Generic[S]):
 
 class PowerButton(PushButton):
     pass
+
+
+class AnimatedButton(PushButton):
+    def start_animation(self) -> None:
+        if self._image_player:
+            self._image_player.start()
+
+    def stop_animation(self) -> None:
+        if self._image_player:
+            self._image_player.stop()
+
+    def _clear_image(self) -> None:
+        self.stop_animation()
+        super()._clear_image()
