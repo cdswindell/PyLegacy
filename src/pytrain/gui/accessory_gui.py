@@ -122,6 +122,7 @@ class AccessoryGui(Thread):
                 gui_class, gui_args, gui_kwargs = self._parse_tuple(gui)
                 variant_arg = gui_kwargs.get("variant", None)
                 title, _ = gui_class.get_variant(variant_arg)
+                print(title, gui_class, gui_args, gui_kwargs)
                 self._guis[title] = (gui_class, gui_args, gui_kwargs)
 
         self._sorted_guis = sorted(self._guis.keys(), key=lambda x: x[0])
