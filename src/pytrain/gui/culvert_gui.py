@@ -106,6 +106,7 @@ class CulvertGui(AccessoryBase):
             width=self.s_72,
             command=self.on_action,
         )
+        action.bg = "white"
         self.register_widget(self.culvert_state, action)
 
     def on_action(self) -> None:
