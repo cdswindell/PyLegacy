@@ -87,7 +87,8 @@ class FreightStationGui(AccessoryBase):
         """
 
         # identify the accessory
-        self._title, image = self.get_variant(variant)
+        self._title, self.image_key = self.get_variant(variant)
+        image = find_file(self.image_key)
         self._power = power
         self._platform = platform
         self._variant = variant
@@ -108,7 +109,7 @@ class FreightStationGui(AccessoryBase):
         for k, v in VARIANTS.items():
             if variant in k:
                 title = TITLES[v]
-                return title, find_file(v)
+                return title, v
         raise ValueError(f"Unsupported freight/passenger station: {variant}")
 
     def get_target_states(self) -> list[S]:
@@ -154,14 +155,14 @@ class FreightStationGui(AccessoryBase):
 
     @property
     def waiting_image(self) -> str:
-        print(self._title, type(self.image_file), self.image_file)
-        if self.image_file in FREIGHT:
+        print(self._title, type(self.image_key), self.image_key)
+        if self.image_key in FREIGHT:
             return self.freight_image
-        elif self.image_file in PASSENGER:
+        elif self.image_key in PASSENGER:
             return self.people_image
-        elif self.image_file in BREWING:
+        elif self.image_key in BREWING:
             return self.brews_image
-        raise ValueError(f"Unsupported image: {self.image_file}")
+        raise ValueError(f"Unsupported image: {self.image_key}")
 
     def when_platform_button_pressed(self) -> None:
         with self._cv:
