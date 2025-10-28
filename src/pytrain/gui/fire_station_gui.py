@@ -13,7 +13,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
-from .accessory_base import AccessoryBase, S
+from .accessory_base import AccessoryBase, AnimatedButton, S
 from .accessory_gui import AccessoryGui
 
 VARIANTS = {
@@ -97,7 +97,7 @@ class FireStationGui(AccessoryBase):
         alarm_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
         tb = Text(alarm_box, text="Alarm", align="top", size=self.s_16, underline=True)
         tb.width = max_text_len
-        self.alarm_button = PushButton(
+        self.alarm_button = AnimatedButton(
             alarm_box,
             image=self.alarm_off_image,
             align="top",
@@ -110,9 +110,22 @@ class FireStationGui(AccessoryBase):
         if not self.is_active(self.power_state):
             self.alarm_button.disable()
 
-    def post_process_when_pressed(self, button: PushButton, state: AccessoryState) -> None:
-        if button == self.alarm_button:
-            self.queue_message(lambda: self._twiddle_alarm_button_image())
+    def set_button_active(self, button: PushButton) -> None:
+        with self._cv:
+            if button == self.alarm_button:
+                # Switch to animated gif
+                self.alarm_button.image = self.alarm_on_image
+                self.alarm_button.height = self.alarm_button.width = self.s_72
+                self.app.after(5000, self.deactivate_alarm)
+
+    def deactivate_alarm(self) -> None:
+        with self._cv:
+            self.alarm_button.image = self.alarm_off_image
+            self.alarm_button.height = self.alarm_button.width = self.s_72
+
+    # def post_process_when_pressed(self, button: PushButton, state: AccessoryState) -> None:
+    #     if button == self.alarm_button:
+    #         self.queue_message(lambda: self._twiddle_alarm_button_image())
 
     def _twiddle_alarm_button_image(self) -> None:
         """

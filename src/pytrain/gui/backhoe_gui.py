@@ -92,9 +92,11 @@ class BackhoeGui(AccessoryBase):
         action.when_left_button_released = self.when_released
 
     def set_button_active(self, button: AnimatedButton) -> None:
-        button.start_animation()
+        with self._cv:
+            button.start_animation()
 
     def set_button_inactive(self, button: AnimatedButton) -> None:
-        button.image = self.backhoe_image
-        button.height = button.width = self.s_72
-        button.stop_animation()
+        with self._cv:
+            button.image = self.backhoe_image
+            button.height = button.width = self.s_72
+            button.stop_animation()
