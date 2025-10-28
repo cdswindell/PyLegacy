@@ -154,11 +154,11 @@ class FreightStationGui(AccessoryBase):
 
     @property
     def waiting_image(self) -> str:
-        if self._image in FREIGHT:
+        if self.platform_button.image in FREIGHT:
             return self.freight_image
-        elif self._image in PASSENGER:
+        elif self.platform_button.image in PASSENGER:
             return self.people_image
-        elif self._image in BREWING:
+        elif self.platform_button.image in BREWING:
             return self.brews_image
         raise ValueError(f"Unsupported image: {self._image}")
 
