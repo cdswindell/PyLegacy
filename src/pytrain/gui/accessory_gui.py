@@ -107,11 +107,11 @@ class AccessoryGui(Thread):
 
         self._gui_classes = {
             "depot": FreightDepotGui,
-            "fire station": FireStationGui,
-            "gas station": GasStationGui,
-            "hobby shop": HobbyShopGui,
-            "milk loader": MilkLoaderGui,
-            "smoke fluid loader": SmokeFluidLoaderGui,
+            "fire": FireStationGui,
+            "gas": GasStationGui,
+            "hobby": HobbyShopGui,
+            "milk": MilkLoaderGui,
+            "smoke": SmokeFluidLoaderGui,
             "station": FreightStationGui,
         }
 
@@ -122,7 +122,6 @@ class AccessoryGui(Thread):
                 gui_class, gui_args, gui_kwargs = self._parse_tuple(gui)
                 variant_arg = gui_kwargs.get("variant", None)
                 title, _ = gui_class.get_variant(variant_arg)
-                print(title, gui_class, gui_args, gui_kwargs)
                 self._guis[title] = (gui_class, gui_args, gui_kwargs)
 
         self._sorted_guis = sorted(self._guis.keys(), key=lambda x: x[0])
