@@ -5,7 +5,7 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-from guizero import Box
+from guizero import Box, PushButton, Text
 
 from ..db.accessory_state import AccessoryState
 from ..protocol.command_req import CommandReq
@@ -25,7 +25,7 @@ VARIANTS = {
     "new york central freight station 30-9151": "New-York-Central-Freight-Station-30-9151.jpg",
     "new york central passenger station 30-9164": "New-York-Central-Passenger-Station-30-9164.jpg",
     "old reading brewing co 30-90190": "Old-Reading-Brewing-Co-30-90190.jpg",
-    "pennsylvania railroad prr 30-9152": "Pennsylvania-Railroad-PRR-30-9152.jpg",
+    "pennsylvania railroad prr passenger 30-9152": "Pennsylvania-Railroad-PRR-30-9152.jpg",
     "pittsburgh brewing co 30-90189": "Pittsburgh-Brewing-Co-30-90189.jpg",
 }
 
@@ -41,6 +41,26 @@ TITLES = {
     "Old-Reading-Brewing-Co-30-90190.jpg": "Old Reading Brewing Co.",
     "Pennsylvania-Railroad-PRR-30-9152.jpg": "Pennsylvania Railroad",
     "Pittsburgh-Brewing-Co-30-90189.jpg": "Pittsburgh Brewing Co.",
+}
+
+FREIGHT = {
+    "Middletown-Freight-Station-30-9184.jpg",
+    "New-York-Central-Freight-Station-30-9151.jpg",
+}
+
+PASSENGER = {
+    "Middletown-Passenger-Station-30-9125.jpg",
+    "Middletown-Military-Station-30-9125.jpg",
+    "New-York-Central-Passenger-Station-30-9164.jpg",
+    "Pennsylvania-Railroad-PRR-30-9152.jpg",
+}
+
+BREWING = {
+    "Adolph-Coors-Brewing-Co-30-9161.jpg",
+    "Altoona-Brewing-CO-30-90191.jpg",
+    "Budweiser-30-9171.jpg",
+    "Old-Reading-Brewing-Co-30-90190.jpg",
+    "Pittsburgh-Brewing-Co-30-90189.jpg",
 }
 
 
@@ -73,6 +93,11 @@ class FreightStationGui(AccessoryBase):
         self._variant = variant
         self.power_button = self.platform_button = None
         self.power_state = self.platform_state = None
+        self._platform_text = None
+        self.brews_image = find_file("brews-waiting.png")
+        self.freight_image = find_file("freight-waiting.png")
+        self.people_image = find_file("passengers-waiting.png")
+        self.empty_image = find_file("loaded.png")
         super().__init__(self._title, self._image, aggrigator=aggrigator)
 
     @staticmethod
@@ -111,6 +136,28 @@ class FreightStationGui(AccessoryBase):
     def build_accessory_controls(self, box: Box) -> None:
         max_text_len = len("Platform") + 2
         self.power_button = self.make_power_button(self.power_state, "Power", 0, max_text_len, box)
-        self.platform_button = self.make_power_button(self.platform_state, "Platform", 1, max_text_len, box)
+        btn_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
+        tb = Text(btn_box, text="Depart", align="top", size=self.s_16, underline=True)
+        tb.width = max_text_len
+        self.platform_button = button = PushButton(
+            btn_box,
+            image=self.empty_image,
+            align="top",
+            height=self.s_72,
+            width=self.s_72,
+        )
+        button.tmcc_id = self.platform_state.tmcc_id
+        button.update_command(self.switch_state, [self.platform_state])
+        self.register_widget(self.platform_state, button)
         if not self.is_active(self.power_state):
             self.platform_button.disable()
+
+    @property
+    def waiting_image(self) -> str:
+        if self._image in FREIGHT:
+            return self.freight_image
+        elif self._image in PASSENGER:
+            return self.people_image
+        elif self._image in BREWING:
+            return self.brews_image
+        raise ValueError(f"Unsupported image: {self._image}")
