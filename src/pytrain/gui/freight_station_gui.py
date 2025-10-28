@@ -147,7 +147,7 @@ class FreightStationGui(AccessoryBase):
             width=self.s_72,
         )
         button.tmcc_id = self.platform_state.tmcc_id
-        button.update_command(self.switch_state, [self.platform_state])
+        button.update_command(self.when_platform_button_pressed)
         self.register_widget(self.platform_state, button)
         if not self.is_active(self.power_state):
             self.platform_button.disable()
