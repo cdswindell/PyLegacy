@@ -138,7 +138,7 @@ class FreightStationGui(AccessoryBase):
         max_text_len = len("Platform") + 2
         self.power_button = self.make_power_button(self.power_state, "Power", 0, max_text_len, box)
         btn_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
-        tb = Text(btn_box, text="Depart", align="top", size=self.s_16, underline=True)
+        self._platform_text = tb = Text(btn_box, text="Depart", align="top", size=self.s_16, underline=True)
         tb.width = max_text_len
         self.platform_button = button = PushButton(
             btn_box,
@@ -166,12 +166,14 @@ class FreightStationGui(AccessoryBase):
 
     def when_platform_button_pressed(self) -> None:
         with self._cv:
-            if self.platform_state == self.power_state:
+            if not self.is_active(self.power_state):
                 self.queue_message(lambda: self.platform_button.disable())
             else:
                 if self.platform_button.image == self.empty_image:
+                    self._platform_text.value = "Arrive"
                     self.platform_button.image = self.waiting_image
                 else:
-                    self.platform_button.image = self.waiting_image
+                    self._platform_text.value = "Depart"
+                    self.platform_button.image = self.empty_image
                 self.platform_button.height = self.platform_button.width = self.s_72
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self.platform_state.tmcc_id).send()
