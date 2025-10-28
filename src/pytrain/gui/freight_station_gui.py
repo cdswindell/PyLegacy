@@ -87,7 +87,7 @@ class FreightStationGui(AccessoryBase):
         """
 
         # identify the accessory
-        self._title, self._image = self.get_variant(variant)
+        self._title, image = self.get_variant(variant)
         self._power = power
         self._platform = platform
         self._variant = variant
@@ -98,7 +98,7 @@ class FreightStationGui(AccessoryBase):
         self.freight_image = find_file("freight-waiting.png")
         self.people_image = find_file("passengers-waiting.png")
         self.empty_image = find_file("loaded.png")
-        super().__init__(self._title, self._image, aggrigator=aggrigator)
+        super().__init__(self._title, image, aggrigator=aggrigator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:
@@ -154,14 +154,14 @@ class FreightStationGui(AccessoryBase):
 
     @property
     def waiting_image(self) -> str:
-        print(self._title, type(self._image), self._image)
-        if self._image in FREIGHT:
+        print(self._title, type(self.image_file), self.image_file)
+        if self.image_file in FREIGHT:
             return self.freight_image
-        elif self._image in PASSENGER:
+        elif self.image_file in PASSENGER:
             return self.people_image
-        elif self._image in BREWING:
+        elif self.image_file in BREWING:
             return self.brews_image
-        raise ValueError(f"Unsupported image: {self._image}")
+        raise ValueError(f"Unsupported image: {self.image_file}")
 
     def when_platform_button_pressed(self) -> None:
         with self._cv:
