@@ -78,7 +78,7 @@ class FreightStationGui(AccessoryBase):
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:
         if variant is None:
-            variant = "Middleton Passenger"
+            variant = "Middletown Passenger"
         variant = variant.lower().replace("'", "").replace("-", "")
         for k, v in VARIANTS.items():
             if variant in k:
