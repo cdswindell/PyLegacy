@@ -125,6 +125,8 @@ class AccessoryState(TmccState):
                                     self._last_aux2_opt1 = self.last_updated
                                 elif command.command in {Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO}:
                                     self._aux2_state = command.command
+                                    if command.command == Aux.AUX2_OFF:
+                                        self._aux_state = Aux.AUX2_OPT_ONE
                                     self._last_aux2_opt1 = self.last_updated
                             if command.command == Aux.NUMERIC:
                                 self._number = command.data
