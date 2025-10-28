@@ -154,7 +154,7 @@ class FreightStationGui(AccessoryBase):
 
     @property
     def waiting_image(self) -> str:
-        print(self._title, self._image)
+        print(self._title, type(self._image), self._image)
         if self._image in FREIGHT:
             return self.freight_image
         elif self._image in PASSENGER:
