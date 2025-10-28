@@ -122,6 +122,8 @@ class AccessoryGui(Thread):
                 gui_class, gui_args, gui_kwargs = self._parse_tuple(gui)
                 variant_arg = gui_kwargs.get("variant", None)
                 title, _ = gui_class.get_variant(variant_arg)
+                if title in self._guis:
+                    raise ValueError(f"Duplicate GUI variant: {gui[0]}: {title}")
                 self._guis[title] = (gui_class, gui_args, gui_kwargs)
 
         self._sorted_guis = sorted(self._guis.keys(), key=lambda x: x[0])
