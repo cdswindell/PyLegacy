@@ -95,4 +95,5 @@ class BackhoeGui(AccessoryBase):
         button.start_animation()
 
     def set_button_inactive(self, button: AnimatedButton) -> None:
+        button.image = self.backhoe_image
         button.stop_animation()
