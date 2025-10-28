@@ -161,3 +161,15 @@ class FreightStationGui(AccessoryBase):
         elif self._image in BREWING:
             return self.brews_image
         raise ValueError(f"Unsupported image: {self._image}")
+
+    def when_platform_button_pressed(self) -> None:
+        with self._cv:
+            if self.platform_state == self.power_state:
+                self.queue_message(lambda: self.platform_button.disable())
+            else:
+                if self.platform_button.image == self.empty_image:
+                    self.platform_button.image = self.waiting_image
+                else:
+                    self.platform_button.image = self.waiting_image
+                self.platform_button.height = self.platform_button.width = self.s_72
+                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self.platform_state.tmcc_id).send()
