@@ -5,6 +5,8 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+from tkinter import Widget
+
 from guizero import Box, PushButton, Text
 
 from ..db.accessory_state import AccessoryState
@@ -12,7 +14,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
-from .accessory_base import AccessoryBase, S
+from .accessory_base import AccessoryBase, PowerButton, S
 from .accessory_gui import AccessoryGui
 
 VARIANTS = {
@@ -135,7 +137,7 @@ class FreightStationGui(AccessoryBase):
                     self.queue_message(lambda: self.platform_button.enable())
 
     def build_accessory_controls(self, box: Box) -> None:
-        max_text_len = len("Platform") + 2
+        max_text_len = len("Depart") + 2
         self.power_button = self.make_power_button(self.power_state, "Power", 0, max_text_len, box)
         btn_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
         self._platform_text = tb = Text(btn_box, text="Depart", align="top", size=self.s_16, underline=True)
@@ -170,10 +172,25 @@ class FreightStationGui(AccessoryBase):
                 self.queue_message(lambda: self.platform_button.disable())
             else:
                 if self.platform_button.image == self.empty_image:
-                    self._platform_text.value = "Arrive"
-                    self.platform_button.image = self.waiting_image
+                    self.set_button_active(self.platform_button)
                 else:
-                    self._platform_text.value = "Depart"
-                    self.platform_button.image = self.empty_image
-                self.platform_button.height = self.platform_button.width = self.s_72
+                    self.set_button_inactive(self.platform_button)
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self.platform_state.tmcc_id).send()
+
+    # noinspection PyTypeChecker
+    def set_button_inactive(self, widget: Widget):
+        if isinstance(widget, PowerButton):
+            super().set_button_inactive(widget)
+        elif widget == self.platform_button:
+            self._platform_text.value = "Depart"
+            self.platform_button.image = self.empty_image
+            self.platform_button.height = self.platform_button.width = self.s_72
+
+    # noinspection PyTypeChecker
+    def set_button_active(self, widget: Widget):
+        if isinstance(widget, PowerButton):
+            super().set_button_active(widget)
+        elif widget == self.platform_button:
+            self._platform_text.value = "Arrive"
+            self.platform_button.image = self.waiting_image
+            self.platform_button.height = self.platform_button.width = self.s_72
