@@ -100,7 +100,7 @@ class CulvertGui(AccessoryBase):
         tb.width = max_text_len
         self.action_button = action = PushButton(
             button_box,
-            image=self.left_arrow_image,
+            image=self.action_image,
             align="top",
             height=self.s_72,
             width=self.s_72,
