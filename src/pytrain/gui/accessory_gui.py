@@ -106,13 +106,13 @@ class AccessoryGui(Thread):
         self._ev = Event()
 
         self._gui_classes = {
+            "depot": FreightDepotGui,
             "fire station": FireStationGui,
-            "freight depot": FreightDepotGui,
-            "freight station": FreightStationGui,
             "gas station": GasStationGui,
             "hobby shop": HobbyShopGui,
             "milk loader": MilkLoaderGui,
             "smoke fluid loader": SmokeFluidLoaderGui,
+            "station": FreightStationGui,
         }
 
         # look for tuples in args; they define the guis we want
