@@ -96,6 +96,7 @@ class AccessoryGui(Thread):
     ) -> None:
         from .fire_station_gui import FireStationGui
         from .freight_depot_gui import FreightDepotGui
+        from .freight_station_gui import FreightStationGui
         from .gas_station_gui import GasStationGui
         from .hobby_shop_gui import HobbyShopGui
         from .milk_loader_gui import MilkLoaderGui
@@ -107,6 +108,7 @@ class AccessoryGui(Thread):
         self._gui_classes = {
             "fire station": FireStationGui,
             "freight depot": FreightDepotGui,
+            "freight station": FreightStationGui,
             "gas station": GasStationGui,
             "hobby shop": HobbyShopGui,
             "milk loader": MilkLoaderGui,
