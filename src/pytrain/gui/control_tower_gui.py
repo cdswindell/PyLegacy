@@ -13,7 +13,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
-from .accessory_base import AccessoryBase, AnimatedButton, S
+from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
 from .accessory_gui import AccessoryGui
 
 VARIANTS = {
@@ -121,10 +121,16 @@ class ControlTowerGui(AccessoryBase):
 
     def set_button_active(self, button: AnimatedButton) -> None:
         with self._cv:
+            if isinstance(button, PowerButton):
+                super().set_button_active(button)
+                return
             button.start_animation()
 
     def set_button_inactive(self, button: AnimatedButton) -> None:
         with self._cv:
+            if isinstance(button, PowerButton):
+                super().set_button_inactive(button)
+                return
             button.image = self.motion_image
             button.height = button.width = self.s_72
             button.stop_animation()
