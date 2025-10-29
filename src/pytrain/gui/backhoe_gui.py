@@ -10,7 +10,7 @@ from guizero import Box, Text
 from ..db.accessory_state import AccessoryState
 from ..protocol.constants import CommandScope
 from ..utils.path_utils import find_file
-from .accessory_base import AccessoryBase, AnimatedButton, S
+from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
 from .accessory_gui import AccessoryGui
 
 VARIANTS = {
@@ -93,10 +93,16 @@ class BackhoeGui(AccessoryBase):
 
     def set_button_active(self, button: AnimatedButton) -> None:
         with self._cv:
-            button.start_animation()
+            if isinstance(button, PowerButton):
+                super().set_button_active(button)
+            else:
+                button.start_animation()
 
     def set_button_inactive(self, button: AnimatedButton) -> None:
         with self._cv:
-            button.image = self.backhoe_image
-            button.height = button.width = self.s_72
-            button.stop_animation()
+            if isinstance(button, PowerButton):
+                super().set_button_inactive(button)
+            else:
+                button.image = self.backhoe_image
+                button.height = button.width = self.s_72
+                button.stop_animation()
