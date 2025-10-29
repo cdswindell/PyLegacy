@@ -120,17 +120,17 @@ class ControlTowerGui(AccessoryBase):
             self.motion_button.disable()
 
     def set_button_active(self, button: AnimatedButton) -> None:
-        if isinstance(button, PowerButton):
-            super().set_button_active(button)
-            return
         with self._cv:
-            button.start_animation()
+            if isinstance(button, PowerButton):
+                super().set_button_active(button)
+            else:
+                button.start_animation()
 
     def set_button_inactive(self, button: AnimatedButton) -> None:
-        if isinstance(button, PowerButton):
-            super().set_button_inactive(button)
-            return
         with self._cv:
-            button.image = self.motion_image
-            button.height = button.width = self.s_72
-            button.stop_animation()
+            if isinstance(button, PowerButton):
+                super().set_button_inactive(button)
+            else:
+                button.image = self.motion_image
+                button.height = button.width = self.s_72
+                button.stop_animation()

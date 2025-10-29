@@ -401,6 +401,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
             # if the image takes up too much height, do more scaling
             if (scaled_height / self.height) > self._max_image_height:
                 scaled_height = int(round(self.height * self._max_image_height))
+                scale_factor = scaled_height / ih
+                scaled_width = int(round(iw * scale_factor))
         return scaled_width, scaled_height
 
     def when_pressed(self, event: EventData) -> None:
