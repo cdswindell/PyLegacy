@@ -13,7 +13,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
-from .accessory_base import AccessoryBase, AnimatedButton, S
+from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
 from .accessory_gui import AccessoryGui
 
 VARIANTS = {
@@ -78,16 +78,15 @@ class FireStationGui(AccessoryBase):
         return state.is_aux_on
 
     def switch_state(self, state: AccessoryState) -> None:
+        if state == self.alarm_state:
+            return
         with self._cv:
-            if state == self.alarm_state:
-                pass
-            elif state.is_aux_on:
+            # a bit confusing, but sending this command toggles the power
+            if state == self.power_state:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
+                if state.is_aux_on:
                     self.queue_message(lambda: self.alarm_button.disable())
-            else:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
+                else:
                     self.queue_message(lambda: self.alarm_button.enable())
 
     def build_accessory_controls(self, box: Box) -> None:
@@ -117,6 +116,8 @@ class FireStationGui(AccessoryBase):
                 self.alarm_button.image = self.alarm_on_image
                 self.alarm_button.height = self.alarm_button.width = self.s_72
                 self.app.after(5000, self.deactivate_alarm)
+            elif isinstance(button, PowerButton):
+                super().set_button_active(button)
 
     def deactivate_alarm(self) -> None:
         with self._cv:

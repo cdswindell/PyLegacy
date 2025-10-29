@@ -44,7 +44,7 @@ class GasStationGui(AccessoryBase):
             TMCC ID of the ACS2 port used to trigger the Animation.
 
         :param str variant:
-            Optional; Specifies the variant (Sinclair).
+            Optional; Specifies the variant (Sinclair, Texaco).
         """
         # identify the accessory
         self._title, self._image = self.get_variant(variant)
@@ -79,16 +79,15 @@ class GasStationGui(AccessoryBase):
         return state.is_aux_on
 
     def switch_state(self, state: AccessoryState) -> None:
+        if state == self.car_state:
+            return
         with self._cv:
-            if state == self.car_state:
-                pass
-            elif state.is_aux_on:
+            # a bit confusing, but sending this command toggles the power
+            if state == self.power_state:
                 CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
+                if state.is_aux_on:
                     self.queue_message(lambda: self.car_button.disable())
-            else:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
+                else:
                     self.queue_message(lambda: self.car_button.enable())
 
     def build_accessory_controls(self, box: Box) -> None:

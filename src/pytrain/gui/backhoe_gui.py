@@ -37,7 +37,7 @@ class BackhoeGui(AccessoryBase):
             TMCC ID of the culvert loader/unloader.
 
         :param str variant:
-            Optional; Specifies the variant (Moose Pond, Dairymen's League, Mountain View).
+            Optional; Specifies the variant (Backhoe).
         """
 
         # identify the accessory
