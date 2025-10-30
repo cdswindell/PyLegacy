@@ -111,7 +111,7 @@ class PlaygroundGui(AccessoryBase):
 
     @property
     def motion_image(self) -> str:
-        return MOTION_IMAGE.get(self.image_key, "motion.gif")
+        return find_file(MOTION_IMAGE.get(self.image_key, "motion.gif"))
 
     @property
     def motion_text(self) -> str:
