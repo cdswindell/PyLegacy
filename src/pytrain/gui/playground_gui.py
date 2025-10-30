@@ -15,18 +15,22 @@ from .accessory_gui import AccessoryGui
 
 VARIANTS = {
     "tire swing 6-82105": "Tire-Swing-6-82105.jpg",
+    "tug of war 6-82107": "Tug-of-War-6-82107.jpg",
 }
 
 TITLES = {
     "Tire-Swing-6-82105.jpg": "Tire Swing",
+    "Tug-of-War-6-82107.jpg": "Tug of War",
 }
 
 MOTION_IMAGE = {
     "Tire-Swing-6-82105.jpg": "tire-swing-child.jpg",
+    "Tug-of-War-6-82107.jpg": "tug-of-war.jpg",
 }
 
 MOTION_TEXT = {
     "Tire-Swing-6-82105.jpg": "Swing",
+    "Tug-of-War-6-82107.jpg": "Tug of War",
 }
 
 
