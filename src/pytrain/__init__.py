@@ -60,6 +60,7 @@ from .gui.hobby_shop_gui import HobbyShopGui  # noqa: F401
 from .gui.launch_gui import LaunchGui  # noqa: F401
 from .gui.milk_loader_gui import MilkLoaderGui  # noqa: F401
 from .gui.motors_gui import MotorsGui  # noqa: F401
+from .gui.playground_gui import PlaygroundGui  # noqa: F401
 from .gui.power_district_gui import PowerDistrictsGui  # noqa: F401
 from .gui.routes_gui import RoutesGui  # noqa: F401
 from .gui.smoke_fluid_loader_gui import SmokeFluidLoaderGui  # noqa: F401

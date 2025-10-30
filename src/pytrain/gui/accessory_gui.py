@@ -103,6 +103,7 @@ class AccessoryGui(Thread):
         from .gas_station_gui import GasStationGui
         from .hobby_shop_gui import HobbyShopGui
         from .milk_loader_gui import MilkLoaderGui
+        from .playground_gui import PlaygroundGui
         from .smoke_fluid_loader_gui import SmokeFluidLoaderGui
 
         super().__init__(daemon=True)
@@ -119,6 +120,7 @@ class AccessoryGui(Thread):
             "milk": MilkLoaderGui,
             "smoke": SmokeFluidLoaderGui,
             "station": FreightStationGui,
+            "playground": PlaygroundGui,
         }
 
         # look for tuples in args; they define the guis we want
