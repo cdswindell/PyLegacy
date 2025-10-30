@@ -73,7 +73,7 @@ class ControlTowerGui(AccessoryBase):
             if variant in k:
                 title = TITLES[v]
                 return title, find_file(v)
-        raise ValueError(f"Unsupported fire station: {variant}")
+        raise ValueError(f"Unsupported control tower: {variant}")
 
     def get_target_states(self) -> list[S]:
         self.lights_state = self._state_store.get_state(CommandScope.ACC, self._lights)

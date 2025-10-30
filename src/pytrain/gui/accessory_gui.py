@@ -120,7 +120,7 @@ class AccessoryGui(Thread):
             "milk": MilkLoaderGui,
             "smoke": SmokeFluidLoaderGui,
             "station": FreightStationGui,
-            "playground": PlaygroundGui,
+            "playground": PlaygroundGui
         }
 
         # look for tuples in args; they define the guis we want
