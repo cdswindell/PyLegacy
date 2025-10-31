@@ -17,11 +17,33 @@ from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
 
 VARIANTS = {
-    "sinclair gas station 30-9101": "Sinclair-Operating-Gas-Station-30-9101.jpg",
+    "esso gas station 30-9106": "Esso-Gas-Station-30-9106.jpg",
+    "shell gas station 30-9182": "Shell-Gas-Station-30-9182.jpg",
+    "sinclair gas station 30-9101": "Sinclair-Gas-Station-30-9101.jpg",
+    "texaco gas station 30-9107": "Texaco-Gas-Station-30-9107.jpg",
+    "sunoco gas station 30-9154": "Sunoco-Gas-Station-30-9154.jpg",
+    "mobile gas station 30-9124": "Mobile-Gas-Station-30-9124.jpg",
+    "gulf gas station 30-9168": "Gulf-Gas-Station-30-9168.jpg",
+    "tidewater oil gas station 30-9181": "Tidewater-Oil-Gas-Station-30-9181.jpg",
+    "route 66 gas station 30-91002": "Route-66-Gas-Station-30-91002.jpg",
+    "atlantic gas station 30 91003": "Atlantic-Gas-Station-30-91003.jpg",
+    "bp gas station 30-9181": "BP-Gas-Station-30-9181.jpg",
+    "citgo gas station 30-9113": "Citgo-Gas-Station-30-9113.jpg",
 }
 
 TITLES = {
-    "Sinclair-Operating-Gas-Station-30-9101.jpg": "Sinclair Gas Station",
+    "Esso-Gas-Station-30-9106.jpg": "Esso Gas Station",
+    "Shell-Gas-Station-30-9182.jpg": "Shell Gas Station",
+    "Sinclair-Gas-Station-30-9101.jpg": "Sinclair Gas Station",
+    "Texaco-Gas-Station-30-9107.jpg": "Texaco Gas Station",
+    "Sunoco-Gas-Station-30-9154.jpg": "Sunoco Gas Station",
+    "Mobile-Gas-Station-30-9124.jpg": "Mobile Gas Station",
+    "Gulf-Gas-Station-30-9168.jpg": "Gulf Gas Station",
+    "Tidewater-Oil-Gas-Station-30-9181.jpg": "Tidewater Oil Gas Station",
+    "Route-66-Gas-Station-30-91002.jpg": "Route 66 Gas Station",
+    "Atlantic-Gas-Station-30-91003.jpg": "Atlantic Gas Station",
+    "BP-Gas-Station-30-9181.jpg": "BP Gas Station",
+    "Citgo-Gas-Station-30-9113.jpg": "Citgo Gas Station",
 }
 
 
@@ -44,7 +66,7 @@ class GasStationGui(AccessoryBase):
             TMCC ID of the ACS2 port used to trigger the Animation.
 
         :param str variant:
-            Optional; Specifies the variant (Sinclair, Texaco).
+            Optional; Specifies the variant (Sinclair, Texaco, etc.).
         """
         # identify the accessory
         self._title, self._image = self.get_variant(variant)
