@@ -17,33 +17,33 @@ from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
 
 VARIANTS = {
-    "esso gas station 30-9106": "Esso-Gas-Station-30-9106.jpg",
-    "shell gas station 30-9182": "Shell-Gas-Station-30-9182.jpg",
-    "sinclair gas station 30-9101": "Sinclair-Gas-Station-30-9101.jpg",
-    "texaco gas station 30-9107": "Texaco-Gas-Station-30-9107.jpg",
-    "sunoco gas station 30-9154": "Sunoco-Gas-Station-30-9154.jpg",
-    "mobile gas station 30-9124": "Mobile-Gas-Station-30-9124.jpg",
-    "gulf gas station 30-9168": "Gulf-Gas-Station-30-9168.jpg",
-    "tidewater oil gas station 30-9181": "Tidewater-Oil-Gas-Station-30-9181.jpg",
-    "route 66 gas station 30-91002": "Route-66-Gas-Station-30-91002.jpg",
     "atlantic gas station 30 91003": "Atlantic-Gas-Station-30-91003.jpg",
     "bp gas station 30-9181": "BP-Gas-Station-30-9181.jpg",
     "citgo gas station 30-9113": "Citgo-Gas-Station-30-9113.jpg",
+    "esso gas station 30-9106": "Esso-Gas-Station-30-9106.jpg",
+    "gulf gas station 30-9168": "Gulf-Gas-Station-30-9168.jpg",
+    "mobile gas station 30-9124": "Mobile-Gas-Station-30-9124.jpg",
+    "route 66 gas station 30-91002": "Route-66-Gas-Station-30-91002.jpg",
+    "shell gas station 30-9182": "Shell-Gas-Station-30-9182.jpg",
+    "sinclair gas station 30-9101": "Sinclair-Gas-Station-30-9101.jpg",
+    "sunoco gas station 30-9154": "Sunoco-Gas-Station-30-9154.jpg",
+    "texaco gas station 30-91001": "Texaco-Gas-Station-30-91001.jpg",
+    "tidewater oil gas station 30-9181": "Tidewater-Oil-Gas-Station-30-9181.jpg",
 }
 
 TITLES = {
-    "Esso-Gas-Station-30-9106.jpg": "Esso Gas Station",
-    "Shell-Gas-Station-30-9182.jpg": "Shell Gas Station",
-    "Sinclair-Gas-Station-30-9101.jpg": "Sinclair Gas Station",
-    "Texaco-Gas-Station-30-9107.jpg": "Texaco Gas Station",
-    "Sunoco-Gas-Station-30-9154.jpg": "Sunoco Gas Station",
-    "Mobile-Gas-Station-30-9124.jpg": "Mobile Gas Station",
-    "Gulf-Gas-Station-30-9168.jpg": "Gulf Gas Station",
-    "Tidewater-Oil-Gas-Station-30-9181.jpg": "Tidewater Oil Gas Station",
-    "Route-66-Gas-Station-30-91002.jpg": "Route 66 Gas Station",
     "Atlantic-Gas-Station-30-91003.jpg": "Atlantic Gas Station",
     "BP-Gas-Station-30-9181.jpg": "BP Gas Station",
     "Citgo-Gas-Station-30-9113.jpg": "Citgo Gas Station",
+    "Esso-Gas-Station-30-9106.jpg": "Esso Gas Station",
+    "Gulf-Gas-Station-30-9168.jpg": "Gulf Gas Station",
+    "Mobile-Gas-Station-30-9124.jpg": "Mobile Gas Station",
+    "Route-66-Gas-Station-30-91002.jpg": "Route 66 Gas Station",
+    "Shell-Gas-Station-30-9182.jpg": "Shell Gas Station",
+    "Sinclair-Gas-Station-30-9101.jpg": "Sinclair Gas Station",
+    "Sunoco-Gas-Station-30-9154.jpg": "Sunoco Gas Station",
+    "Texaco-Gas-Station-30-91001.jpg": "Texaco Gas Station",
+    "Tidewater-Oil-Gas-Station-30-9181.jpg": "Tidewater Oil Gas Station",
 }
 
 
@@ -82,7 +82,7 @@ class GasStationGui(AccessoryBase):
     def get_variant(variant) -> tuple[str, str]:
         if variant is None:
             variant = "sinclair"
-        variant = variant.lower().replace("'", "").replace("-", "")
+        variant = GasStationGui.normalize(variant)
         for k, v in VARIANTS.items():
             if variant in k:
                 title = TITLES[v]

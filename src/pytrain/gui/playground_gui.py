@@ -74,7 +74,7 @@ class PlaygroundGui(AccessoryBase):
     def get_variant(variant) -> tuple[str, str]:
         if variant is None:
             variant = "tire swing"
-        variant = variant.lower().replace("'", "").replace("-", "")
+        variant = PlaygroundGui.normalize(variant)
         for k, v in VARIANTS.items():
             if variant in k:
                 title = TITLES[v]

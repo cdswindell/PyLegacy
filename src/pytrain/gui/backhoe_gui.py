@@ -55,7 +55,7 @@ class BackhoeGui(AccessoryBase):
     def get_variant(variant) -> tuple[str, str]:
         if variant is None:
             variant = "backhoe"
-        variant = variant.lower().replace("'", "").replace("-", "")
+        variant = BackhoeGui.normalize(variant)
         for k, v in VARIANTS.items():
             if variant in k:
                 title = TITLES[v]

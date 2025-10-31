@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import atexit
 import logging
+import re
 from abc import ABC, ABCMeta, abstractmethod
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
@@ -40,6 +41,9 @@ from .accessory_gui import AccessoryGui
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
+
+HYPHEN_CLEANUP = re.compile(r"(?<=[A-Za-z])-+(?=[A-Za-z])")
+SPACE_CLEANUP = re.compile(r"\s{2,}")
 
 
 class AccessoryBase(Thread, Generic[S], ABC):
@@ -201,6 +205,13 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
     def queue_message(self, message: Callable, *args: Any) -> None:
         self._message_queue.put((message, args))
+
+    @staticmethod
+    def normalize(text: str) -> str:
+        text = text.strip().lower()
+        text = HYPHEN_CLEANUP.sub(" ", text)
+        text = SPACE_CLEANUP.sub(" ", text)
+        return text
 
     # noinspection PyTypeChecker
     def run(self) -> None:

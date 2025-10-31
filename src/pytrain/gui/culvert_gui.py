@@ -73,7 +73,7 @@ class CulvertGui(AccessoryBase):
     def get_variant(variant) -> tuple[str, str]:
         if variant is None:
             variant = "culvert unloader"
-        variant = variant.lower().replace("'", "").replace("-", "")
+        variant = CulvertGui.normalize(variant)
         for k, v in VARIANTS.items():
             if variant in k:
                 title = TITLES[v]
