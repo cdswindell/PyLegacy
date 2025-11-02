@@ -20,7 +20,7 @@ import re
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
@@ -28,6 +28,7 @@ from guizero.event import EventData
 from PIL import Image
 
 from ..comm.command_listener import CommandDispatcher
+from ..db.base_state import BaseState
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
@@ -145,8 +146,11 @@ class EngineGui(Thread, Generic[S]):
                 self._sync_watcher.shutdown()
                 self._sync_watcher = None
             self._synchronized = True
-            self._base_state = ComponentStateStore.get().get_state(CommandScope.BASE, 99)
-            self.title = self._base_state.base_name
+            self._base_state = ComponentStateStore.get().get_state(CommandScope.BASE, 0, False)
+            if self._base_state:
+                self.title = cast(BaseState, self._base_state).base_name
+            else:
+                self.title = "PyTrain Engine GUI"
 
             # start GUI
             self.start()
