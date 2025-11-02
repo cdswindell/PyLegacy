@@ -243,12 +243,13 @@ class EngineGui(Thread, Generic[S]):
             text="Halt",
             grid=[0, 0],
             align="top",
-            width=20,
+            width=10,
             padx=self._text_pad_x,
             pady=self._text_pad_y,
         )
         halt_btn.bg = "red"
         halt_btn.text_color = "white"
+        halt_btn.text_bold = True
         halt_btn.text_size = self._text_size
 
         self.reset_btn = reset_btn = PushButton(
@@ -256,12 +257,13 @@ class EngineGui(Thread, Generic[S]):
             text="reset",
             grid=[1, 0],
             align="top",
-            width=20,
+            width=10,
             padx=self._text_pad_x,
             pady=self._text_pad_y,
         )
         reset_btn.bg = "gray"
         reset_btn.text_color = "black"
+        reset_btn.text_bold = True
         reset_btn.text_size = self._text_size
 
         self._image = None
