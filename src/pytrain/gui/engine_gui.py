@@ -59,6 +59,7 @@ class EngineGui(Thread, Generic[S]):
         enabled_text: str = "black",
         disabled_text: str = "lightgrey",
         scale_by: float = 1.0,
+        bs: int = 50,
         max_image_width: float = 0.80,
         max_image_height: float = 0.45,
     ) -> None:
@@ -94,6 +95,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_10: int = int(round(16 * scale_by))
         self._text_pad_x = 20
         self._text_pad_y = 20
+        self.bs = bs
         self.s_72 = self.scale(72, 0.7)
 
         self._enabled_bg = enabled_bg
@@ -260,16 +262,16 @@ class EngineGui(Thread, Generic[S]):
 
         row = 1
         col = 0
-        button_size = int(round(self.width / 5))
-        print(button_size)
+        # button_size = int(round(self.width / 5))
+        # print(self.width, button_size)
         for x in range(1, 10):
             nb = PushButton(
                 keypad_box,
                 text=str(x),
                 grid=[col, row],
                 align="top",
-                width=button_size,
-                height=button_size,
+                width=self.bs,
+                height=self.bs,
             )
             nb.text_color = "black"
             nb.text_size = self.s_16
