@@ -286,7 +286,7 @@ class EngineGui(Thread, Generic[S]):
 
         self.reset_btn = reset_btn = PushButton(
             emergency_box,
-            text="Reset",
+            text="2️⃣",
             grid=[2, 1],
             align="top",
             width=10,
