@@ -266,7 +266,7 @@ class EngineGui(Thread, Generic[S]):
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
-        _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1, 1], align="top", size=3, height=1, bold=True)
+        _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=3, height=1, bold=True)
 
         self.halt_btn = halt_btn = PushButton(
             emergency_box,
