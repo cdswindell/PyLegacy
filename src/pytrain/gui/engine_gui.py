@@ -91,6 +91,7 @@ class EngineGui(Thread, Generic[S]):
         self._max_image_height = max_image_height
         self.s_20: int = int(round(20 * scale_by))
         self.s_16: int = int(round(16 * scale_by))
+        self.s_10: int = int(round(16 * scale_by))
         self._text_pad_x = 20
         self._text_pad_y = 20
         self.s_72 = self.scale(72, 0.7)
@@ -246,6 +247,7 @@ class EngineGui(Thread, Generic[S]):
         # make selection box and keypad
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
         tmcc_id_box = TitleBox(keypad_box, "TMCC ID", grid=[0, 0, 3, 1])
+        tmcc_id_box.text_size = self.s_10
         self.tmcc_id_text = tmcc_id = Text(
             tmcc_id_box,
             text="0000",
@@ -259,8 +261,14 @@ class EngineGui(Thread, Generic[S]):
         row = 1
         col = 0
         for x in range(1, 10):
-            nb = PushButton(keypad_box, text=str(x), grid=[col, row], align="top", width=self.s_16)
+            nb = PushButton(
+                keypad_box,
+                text=str(x),
+                grid=[col, row],
+                align="top",
+            )
             nb.text_color = "black"
+            nb.text_size = self.s_16
             col += 1
             if col == 3:
                 col = 0
