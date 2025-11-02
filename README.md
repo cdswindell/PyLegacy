@@ -67,7 +67,7 @@ where __PyTrain__ will be installed (macOS/Raspberry Pi/Linux example):
 * Create the new virtual environment with the command:
 
 ```aiignore
-python3 -m venv --system-site-packages PyTrain
+python3 -m venv PyTrain
 ```
 
 * In the same terminal window, `cd` into the directory you created above and activate the environment:
@@ -153,7 +153,8 @@ piconfig -check
 ```
 
 * Use the `-all` option to modify your Pi's configuration and remove unnecessary software (this may
-  take some time to complete). Note that removal of the squeekboard keyboard may generate errors; these
+  take some time to complete). This also disables VNC-access and the Raspberry Pi desktop.
+  Note that removal of the squeekboard keyboard may generate errors; these
   are of no concern:
 
 ```aiignore
