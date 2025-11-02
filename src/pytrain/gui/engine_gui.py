@@ -237,34 +237,8 @@ class EngineGui(Thread, Generic[S]):
         cb.text_bold = True
         _ = Text(app, text=" ", align="top", size=6, height=1, bold=True)
 
-        self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
-        self.halt_btn = halt_btn = PushButton(
-            emergency_box,
-            text="Halt",
-            grid=[0, 0],
-            align="top",
-            width=10,
-            padx=self._text_pad_x,
-            pady=self._text_pad_y,
-        )
-        halt_btn.bg = "red"
-        halt_btn.text_color = "white"
-        halt_btn.text_bold = True
-        halt_btn.text_size = self._text_size
-
-        self.reset_btn = reset_btn = PushButton(
-            emergency_box,
-            text="reset",
-            grid=[1, 0],
-            align="top",
-            width=10,
-            padx=self._text_pad_x,
-            pady=self._text_pad_y,
-        )
-        reset_btn.bg = "gray"
-        reset_btn.text_color = "black"
-        reset_btn.text_bold = True
-        reset_btn.text_size = self._text_size
+        # Make the emergency buttons, including Halt and Reset
+        self.make_emergency_buttons(app)
 
         self._image = None
         if self.image_file:
@@ -289,6 +263,43 @@ class EngineGui(Thread, Generic[S]):
             self._image = None
             self.app = None
             self._ev.set()
+
+    def make_emergency_buttons(self, app: App):
+        self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
+        _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1, 1], align="top", size=3, height=1, bold=True)
+
+        self.halt_btn = halt_btn = PushButton(
+            emergency_box,
+            text="Halt",
+            grid=[0, 1],
+            align="top",
+            width=10,
+            padx=self._text_pad_x,
+            pady=self._text_pad_y,
+        )
+        halt_btn.bg = "red"
+        halt_btn.text_color = "white"
+        halt_btn.text_bold = True
+        halt_btn.text_size = self._text_size
+
+        _ = Text(emergency_box, text=" ", grid=[1, 1], align="top", size=6, height=1, bold=True)
+
+        self.reset_btn = reset_btn = PushButton(
+            emergency_box,
+            text="Reset",
+            grid=[2, 1],
+            align="top",
+            width=10,
+            padx=self._text_pad_x,
+            pady=self._text_pad_y,
+            enabled=False,
+        )
+        reset_btn.bg = "gray"
+        reset_btn.text_color = "black"
+        reset_btn.text_bold = True
+        reset_btn.text_size = self._text_size
+
+        _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1, 1], align="top", size=3, height=1, bold=True)
 
     def make_power_button(self, state: S, label: str, col: int, text_len: int, container: Box) -> PowerButton:
         btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
