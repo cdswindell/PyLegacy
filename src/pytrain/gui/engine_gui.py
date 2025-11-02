@@ -22,7 +22,7 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar, cast
 
-from guizero import App, Box, Combo, Picture, PushButton, Text
+from guizero import App, Box, Combo, Picture, PushButton, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
 from PIL import Image
@@ -89,11 +89,11 @@ class EngineGui(Thread, Generic[S]):
         if self.height > 320 and max_image_height == 0.45:
             max_image_height = 0.55
         self._max_image_height = max_image_height
-        self._text_size: int = int(round(20 * scale_by))
+        self.s_20: int = int(round(20 * scale_by))
+        self.s_16: int = int(round(16 * scale_by))
         self._text_pad_x = 20
         self._text_pad_y = 20
         self.s_72 = self.scale(72, 0.7)
-        self.s_16 = self.scale(16, 0.7)
 
         self._enabled_bg = enabled_bg
         self._disabled_bg = disabled_bg
@@ -110,10 +110,13 @@ class EngineGui(Thread, Generic[S]):
         self._message_queue = Queue()
 
         # various boxes
-        self.emergency_box = None
+        self.emergency_box = self.keypad_box = None
 
         # various buttons
         self.halt_btn = self.reset_btn = None
+
+        # various fields
+        self.tmcc_id_text = None
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -240,6 +243,29 @@ class EngineGui(Thread, Generic[S]):
         # Make the emergency buttons, including Halt and Reset
         self.make_emergency_buttons(app)
 
+        # make selection box and keypad
+        self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
+        tmcc_id_box = TitleBox(keypad_box, "TMCC ID", grid=[0, 0, 3, 1])
+        self.tmcc_id_text = tmcc_id = Text(
+            tmcc_id_box,
+            text="0000",
+            align="top",
+            size=self.s_20,
+            bold=True,
+        )
+        tmcc_id.text_color = "blue"
+        tmcc_id.text_bold = True
+
+        row = 1
+        col = 0
+        for x in range(1, 10):
+            nb = PushButton(keypad_box, text=str(x), grid=[col, row], align="top", width=self.s_16)
+            nb.text_color = "black"
+            col += 1
+            if col == 3:
+                col = 0
+                row += 1
+
         self._image = None
         if self.image_file:
             iw, ih = self.get_scaled_jpg_size(self.image_file)
@@ -270,7 +296,7 @@ class EngineGui(Thread, Generic[S]):
 
         self.halt_btn = halt_btn = PushButton(
             emergency_box,
-            text="Halt",
+            text=">> Halt <<",
             grid=[0, 1],
             align="top",
             width=10,
@@ -280,13 +306,13 @@ class EngineGui(Thread, Generic[S]):
         halt_btn.bg = "red"
         halt_btn.text_color = "white"
         halt_btn.text_bold = True
-        halt_btn.text_size = self._text_size
+        halt_btn.text_size = self.s_20
 
         _ = Text(emergency_box, text=" ", grid=[1, 1], align="top", size=6, height=1, bold=True)
 
         self.reset_btn = reset_btn = PushButton(
             emergency_box,
-            text="2️⃣",
+            text="Reset",
             grid=[2, 1],
             align="top",
             width=10,
@@ -297,7 +323,7 @@ class EngineGui(Thread, Generic[S]):
         reset_btn.bg = "gray"
         reset_btn.text_color = "black"
         reset_btn.text_bold = True
-        reset_btn.text_size = self._text_size
+        reset_btn.text_size = self.s_20
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
 
