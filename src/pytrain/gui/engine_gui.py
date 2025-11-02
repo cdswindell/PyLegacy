@@ -107,6 +107,12 @@ class EngineGui(Thread, Generic[S]):
         self._app_counter = 0
         self._message_queue = Queue()
 
+        # various boxes
+        self.emergency_box = None
+
+        # various buttons
+        self.halt_btn = self.reset_btn = None
+
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
         self._is_closed = False
@@ -150,7 +156,7 @@ class EngineGui(Thread, Generic[S]):
             if self._base_state:
                 self.title = cast(BaseState, self._base_state).base_name
             else:
-                self.title = "PyTrain Engine GUI"
+                self.title = "My Layout"
 
             # start GUI
             self.start()
@@ -192,6 +198,7 @@ class EngineGui(Thread, Generic[S]):
         self.app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
+        app.bg = "white"
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():
@@ -216,24 +223,24 @@ class EngineGui(Thread, Generic[S]):
 
         app.repeat(20, _poll_shutdown)
 
-        self.box = box = Box(app, layout="grid")
-        app.bg = box.bg = "white"
-
-        # ts = self._text_size
-        row_num = 0
-        _ = Text(box, text=" ", grid=[0, row_num, 1, 1], size=6, height=1, bold=True)
-        row_num += 1
         ats = int(round(23 * self._scale_by))
         # customize label
         cb = Combo(
-            box,
+            app,
             options=[self.title],
             selected=self.title,
-            grid=[0, row_num],
+            align="top",
         )
         cb.text_size = ats
         cb.text_bold = True
-        row_num += 1
+
+        self.emergency_box = emergency_box = Box(app, layout="grid")
+        self.halt_btn = halt_btn = PushButton(emergency_box, text="Halt", grid=[0, 0], align="top")
+        halt_btn.bg = "red"
+        halt_btn.text_color = "white"
+        self.reset_btn = reset_btn = PushButton(emergency_box, text="reset", grid=[1, 0], align="top")
+        reset_btn.bg = "gray"
+        reset_btn.text_color = "black"
 
         self._image = None
         if self.image_file:
