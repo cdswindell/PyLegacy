@@ -261,6 +261,7 @@ class EngineGui(Thread, Generic[S]):
         row = 1
         col = 0
         button_size = int(round(self.width / 5))
+        print(button_size)
         for x in range(1, 10):
             nb = PushButton(
                 keypad_box,
