@@ -260,12 +260,15 @@ class EngineGui(Thread, Generic[S]):
 
         row = 1
         col = 0
+        button_size = int(round(self.width / 5))
         for x in range(1, 10):
             nb = PushButton(
                 keypad_box,
                 text=str(x),
                 grid=[col, row],
                 align="top",
+                width=button_size,
+                height=button_size,
             )
             nb.text_color = "black"
             nb.text_size = self.s_16
