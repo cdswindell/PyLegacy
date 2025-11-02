@@ -299,7 +299,7 @@ class EngineGui(Thread, Generic[S]):
         reset_btn.text_bold = True
         reset_btn.text_size = self._text_size
 
-        _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1, 1], align="top", size=3, height=1, bold=True)
+        _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
 
     def make_power_button(self, state: S, label: str, col: int, text_len: int, container: Box) -> PowerButton:
         btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
