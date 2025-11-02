@@ -89,7 +89,9 @@ class EngineGui(Thread, Generic[S]):
         if self.height > 320 and max_image_height == 0.45:
             max_image_height = 0.55
         self._max_image_height = max_image_height
-        self._text_size: int = 24
+        self._text_size: int = int(round(20 * scale_by))
+        self._text_pad_x = 20
+        self._text_pad_y = 20
         self.s_72 = self.scale(72, 0.7)
         self.s_16 = self.scale(16, 0.7)
 
@@ -233,14 +235,34 @@ class EngineGui(Thread, Generic[S]):
         )
         cb.text_size = ats
         cb.text_bold = True
+        _ = Text(app, text=" ", align="top", size=6, height=1, bold=True)
 
-        self.emergency_box = emergency_box = Box(app, layout="grid")
-        self.halt_btn = halt_btn = PushButton(emergency_box, text="Halt", grid=[0, 0], align="top")
+        self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
+        self.halt_btn = halt_btn = PushButton(
+            emergency_box,
+            text="Halt",
+            grid=[0, 0],
+            align="top",
+            width=20,
+            padx=self._text_pad_x,
+            pady=self._text_pad_y,
+        )
         halt_btn.bg = "red"
         halt_btn.text_color = "white"
-        self.reset_btn = reset_btn = PushButton(emergency_box, text="reset", grid=[1, 0], align="top")
+        halt_btn.text_size = self._text_size
+
+        self.reset_btn = reset_btn = PushButton(
+            emergency_box,
+            text="reset",
+            grid=[1, 0],
+            align="top",
+            width=20,
+            padx=self._text_pad_x,
+            pady=self._text_pad_y,
+        )
         reset_btn.bg = "gray"
         reset_btn.text_color = "black"
+        reset_btn.text_size = self._text_size
 
         self._image = None
         if self.image_file:
