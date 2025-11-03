@@ -370,6 +370,7 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id.text_bold = True
         tmcc_id.text_size = self.s_20
         tmcc_id.width = 5
+        tmcc_id.height = 1
         app.update()  # we want to measure height of the title box
 
         self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
