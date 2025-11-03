@@ -103,7 +103,7 @@ class EngineGui(Thread, Generic[S]):
         self._text_pad_y = 20
         self.bs = bs
         self.s_72 = self.scale(72, 0.7)
-        self.grid_pad_by = 3
+        self.grid_pad_by = 2
         self.scope = CommandScope.ENGINE
 
         self._enabled_bg = enabled_bg
@@ -360,7 +360,7 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id.text_color = "blue"
         tmcc_id.text_bold = True
         tmcc_id.text_size = self.s_20
-        tmcc_id.width = 18
+        tmcc_id.width = 16
         _ = Text(keypad_box, text=" ", grid=[0, 1, 3, 1], align="top", size=3, height=1, bold=True)
 
         row = 2
