@@ -323,6 +323,7 @@ class EngineGui(Thread, Generic[S]):
         if scope != self.scope:
             self.tmcc_id_box.text = f"{scope.title} ID"
             self.scope = scope
+            self.update_road_name()
         else:
             self._scope_tmcc_ids[scope] = 0
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
@@ -380,6 +381,7 @@ class EngineGui(Thread, Generic[S]):
         name_text.text_bold = True
         name_text.text_size = self.s_18
         name_text.width = 20
+        name_text.tk.config(justify="left", anchor="w")  # ← this does the trick!
 
         _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
@@ -470,21 +472,26 @@ class EngineGui(Thread, Generic[S]):
         elif key == "C":
             tmcc_id = "0" * num_chars
         elif key == "↵":
-            tid = int(tmcc_id)
-            if tid:
-                self._scope_tmcc_ids[self.scope] = tid
-                state = ComponentStateStore.get().get_state(self.scope, tid, False)
-                if state:
-                    name = state.name
-                else:
-                    name = "Not Defined"
-                self.name_text.value = name
-            else:
-                self.name_text.value = ""
+            self._scope_tmcc_ids[self.scope] = int(tmcc_id)
+            self.update_road_name()
         else:
             print(f"Unknown key: {key}")
         self.tmcc_id_text.value = tmcc_id
         self.tmcc_id_text.show()
+
+    def update_road_name(self, tmcc_id: int = None):
+        if tmcc_id is None:
+            tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
+        if tmcc_id:
+            self._scope_tmcc_ids[self.scope] = tmcc_id
+            state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
+            if state:
+                name = state.name
+            else:
+                name = "Not Defined"
+            self.name_text.value = name
+        else:
+            self.name_text.value = ""
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
