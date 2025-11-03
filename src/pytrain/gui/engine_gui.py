@@ -381,8 +381,8 @@ class EngineGui(Thread, Generic[S]):
         name_text.text_size = self.s_20
         name_text.width = 16
 
-        _ = Text(info_box, text=" ", align="bottom", size=3, height=1, bold=True)
-        self.keypad_box = keypad_box = Box(info_box, layout="grid", border=2, align="bottom")
+        _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
+        self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
 
         row = 0
         for r, kr in enumerate(LAYOUT):
