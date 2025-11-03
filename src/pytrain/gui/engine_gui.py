@@ -320,8 +320,8 @@ class EngineGui(Thread, Generic[S]):
         else:
             self._scope_tmcc_ids[scope] = 0
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:04d}"
-        self.scope_keypad()
         self.scope_box.show()
+        self.scope_keypad()
 
     def scope_keypad(self):
         # if tmcc_id associated with scope is 0, then we are in entry mode;
@@ -329,11 +329,11 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id = self._scope_tmcc_ids[self.scope]
         if tmcc_id == 0:
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-                self.on_btn.show()
-                self.off_btn.show()
+                self.on_btn.visible = True
+                self.off_btn.visible = True
             else:
-                self.on_btn.hide()
-                self.off_btn.hide()
+                self.on_btn.visible = False
+                self.off_btn.visible = False
             self.keypad_box.show()
         else:
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
@@ -414,7 +414,6 @@ class EngineGui(Thread, Generic[S]):
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # spacing between buttons (in pixels)
         nb.tk.grid_configure(padx=6, pady=6)
-
         app.update()
 
     def on_keypress(self, key: str) -> None:
