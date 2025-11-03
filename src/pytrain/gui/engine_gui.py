@@ -504,9 +504,9 @@ class EngineGui(Thread, Generic[S]):
             else:
                 name = "Not Defined"
             self.name_text.value = name
-            self.update_component_image()
         else:
             self.name_text.value = ""
+        self.update_component_image()
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
