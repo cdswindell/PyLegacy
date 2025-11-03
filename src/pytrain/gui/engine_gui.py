@@ -371,11 +371,30 @@ class EngineGui(Thread, Generic[S]):
                 # spacing between buttons (in pixels)
                 nb.tk.grid_configure(padx=6, pady=6)
         # fill in last row; contents depends on scope
-        row = 6
+        row = 7
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             cell = Box(keypad_box, layout="auto", grid=[0, row])
             nb = PushButton(
-                cell, image=self.turn_on_image, align="top", height=self.button_size, width=self.button_size, text="on"
+                cell,
+                image=self.turn_on_image,
+                align="top",
+                height=self.button_size,
+                width=self.button_size,
+                text="on",
+            )
+            nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+            # spacing between buttons (in pixels)
+            nb.tk.grid_configure(padx=6, pady=6)
+
+            # off button
+            cell = Box(keypad_box, layout="auto", grid=[1, row])
+            nb = PushButton(
+                cell,
+                image=self.turn_off_image,
+                align="top",
+                height=self.button_size,
+                width=self.button_size,
+                text="off",
             )
             nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
             # spacing between buttons (in pixels)
@@ -432,6 +451,8 @@ class EngineGui(Thread, Generic[S]):
             tid = int(tmcc_id)
             if tid:
                 self._scope_tmcc_ids[self.scope] = tid
+        else:
+            print(f"Unknown key: {key}")
         self.tmcc_id_text.value = tmcc_id
         self.tmcc_id_text.show()
 
