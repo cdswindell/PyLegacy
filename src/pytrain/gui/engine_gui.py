@@ -315,6 +315,7 @@ class EngineGui(Thread, Generic[S]):
 
     def on_scope(self, scope: CommandScope) -> None:
         self.scope_box.hide()
+        force_entry_mode = False
         for k, v in self._scope_buttons.items():
             if k == scope:
                 v.bg = self._enabled_bg
@@ -326,16 +327,17 @@ class EngineGui(Thread, Generic[S]):
             self.update_road_name()
         else:
             self._scope_tmcc_ids[scope] = 0
+            force_entry_mode = True
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
         self.scope_box.show()
-        self.scope_keypad()
+        self.scope_keypad(force_entry_mode)
 
-    def scope_keypad(self):
+    def scope_keypad(self, force_entry_mode: bool = False):
         # if tmcc_id associated with scope is 0, then we are in entry mode;
         # show keypad with appropriate button
         tmcc_id = self._scope_tmcc_ids[self.scope]
-        if tmcc_id == 0:
+        if tmcc_id == 0 or force_entry_mode:
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 self.on_btn_box.show()
                 self.off_btn_box.show()
@@ -471,6 +473,7 @@ class EngineGui(Thread, Generic[S]):
             tmcc_id = tmcc_id[1:] + key
         elif key == "C":
             tmcc_id = "0" * num_chars
+            self.update_road_name(0)
         elif key == "↵":
             self._scope_tmcc_ids[self.scope] = int(tmcc_id)
             self.update_road_name()
