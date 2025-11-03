@@ -34,11 +34,9 @@ class ProdInfo:
     _bt_cache: ClassVar[dict[str, ProdInfo]] = {}
 
     def __post_init__(self):
-        print(self)
         self._image_content = None
         self._image = None
         ProdInfo._bt_cache[self.ble_hexid] = self
-        print(f"Created ProdInfo for {self.ble_hexid} cached: {self.ble_hexid in ProdInfo._bt_cache}")
 
     @property
     def image_content(self) -> bytes:
