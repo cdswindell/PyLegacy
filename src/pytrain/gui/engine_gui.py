@@ -129,12 +129,12 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box = self.keypad_box = self.scope_box = self.name_box = None
 
         # various buttons
-        self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = None
+        self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = set.set_btn = None
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = None
         self.name_text = None
-        self.on_btn_box = self.off_btn_box = None
+        self.on_btn_box = self.off_btn_box = self.set_btn_box = None
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -321,7 +321,7 @@ class EngineGui(Thread, Generic[S]):
             else:
                 v.bg = self._disabled_bg
         if scope != self.scope:
-            self.tmcc_id_box.text = f"{scope.title} TMCC ID"
+            self.tmcc_id_box.text = f"{scope.title} ID"
             self.scope = scope
         else:
             self._scope_tmcc_ids[scope] = 0
@@ -368,7 +368,7 @@ class EngineGui(Thread, Generic[S]):
         name_text.width = 16
 
         row += 1
-        self.tmcc_id_box = tmcc_id_box = TitleBox(keypad_box, f"{self.scope.title} TMCC ID", grid=[0, row, 3, 1])
+        self.tmcc_id_box = tmcc_id_box = TitleBox(keypad_box, f"{self.scope.title} ID", grid=[0, row, 3, 1])
         tmcc_id_box.text_size = self.s_12
 
         self.tmcc_id_text = tmcc_id = Text(
@@ -436,6 +436,28 @@ class EngineGui(Thread, Generic[S]):
             command=self.on_keypress,
             args=["off"],
         )
+        nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+        # spacing between buttons (in pixels)
+        nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
+
+        # set button
+        self.set_btn_box = cell = Box(keypad_box, layout="auto", grid=[2, row])
+        img = tk.PhotoImage(width=self.button_size, height=self.button_size)
+        self._btn_images.append(img)
+        self.set_btn = nb = PushButton(
+            cell,
+            align="top",
+            height=self.button_size,
+            width=self.button_size,
+            text="Set",
+            command=self.on_keypress,
+            args=["set"],
+        )
+        nb.text_color = "black"
+        nb.tk.config(image=img, compound="center")
+        nb.tk.config(width=self.button_size, height=self.button_size)
+        nb.text_size = self.s_16
+        nb.text_bold = True
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # spacing between buttons (in pixels)
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
