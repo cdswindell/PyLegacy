@@ -506,7 +506,7 @@ class EngineGui(Thread, Generic[S]):
             self.name_text.value = name
         else:
             self.name_text.value = ""
-        self.update_component_image(tmcc_id)
+        self.app.after(0, self.update_component_image, tmcc_id)
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
@@ -612,6 +612,7 @@ class EngineGui(Thread, Generic[S]):
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
 
     def update_component_image(self, tmcc_id: int = None):
+        print(f"update_component_image tmcc_id={tmcc_id}")
         self.image_box.hide()
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids[self.scope]
@@ -631,4 +632,3 @@ class EngineGui(Thread, Generic[S]):
                 self._engine_image_cache[tmcc_id] = img
             self.engine_image.tk.config(image=img)
             self.image_box.show()
-        print(f"Scope: {self.scope.title} TMCC ID: {self._scope_tmcc_ids[self.scope]} prod id: {prod_info}")
