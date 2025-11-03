@@ -120,6 +120,7 @@ class EngineGui(Thread, Generic[S]):
         self.right_arrow_image = find_file("right_arrow.jpg")
         self._app_counter = 0
         self._message_queue = Queue()
+        self._keypad_images = []
 
         # various boxes
         self.emergency_box = self.keypad_box = None
@@ -307,6 +308,7 @@ class EngineGui(Thread, Generic[S]):
         for r, kr in enumerate(LAYOUT):
             for c, label in enumerate(kr):
                 img = tk.PhotoImage(width=button_size, height=button_size)
+                self._keypad_images.append(img)
                 cell = Box(keypad_box, layout="auto", grid=[c, r + row])
                 nb = PushButton(
                     cell,
@@ -314,7 +316,6 @@ class EngineGui(Thread, Generic[S]):
                     command=self.on_keypress,
                     args=[label],
                 )
-                nb._img = img
                 nb.text_color = "black"
                 nb.tk.config(image=img, compound="center")
                 nb.tk.config(width=button_size, height=button_size)
