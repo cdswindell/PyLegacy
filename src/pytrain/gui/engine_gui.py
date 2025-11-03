@@ -120,6 +120,7 @@ class EngineGui(Thread, Generic[S]):
         self._message_queue = Queue()
         self._btn_images = []
         self._scope_buttons = {}
+        self._scope_tmcc_ids = {}
 
         # various boxes
         self.emergency_box = self.keypad_box = self.scope_box = None
@@ -254,6 +255,33 @@ class EngineGui(Thread, Generic[S]):
         self.make_keypad(app)
 
         # make scope buttons
+        self.make_scope(app)
+
+        self._image = None
+        if self.image_file:
+            iw, ih = self.get_scaled_jpg_size(self.image_file)
+            self._image = Picture(app, image=self.image_file, width=iw, height=ih)
+        #
+        # self.app.update()
+        #
+        # # build state buttons
+        # self.acc_box = Box(self.app, border=2, align="bottom", layout="grid")
+
+        # Display GUI and start event loop; call blocks
+        try:
+            app.display()
+        except TclError:
+            # If Tcl is already tearing down, ignore
+            pass
+        finally:
+            # Explicitly drop references to tkinter/guizero objects on the Tk thread
+            self.box = None
+            self.acc_box = None
+            self._image = None
+            self.app = None
+            self._ev.set()
+
+    def make_scope(self, app: App):
         button_height = int(round(50 * self._scale_by))
         self.scope_box = scope_box = Box(app, layout="grid", border=2, align="bottom")
         _ = Text(scope_box, text=" ", grid=[0, 0, 5, 1], align="top", size=3, height=1, bold=True)
@@ -282,32 +310,10 @@ class EngineGui(Thread, Generic[S]):
             scope_box.tk.grid_columnconfigure(i, weight=1)
             # associate the button with its scope
             self._scope_buttons[scope] = pb
+            self._scope_tmcc_ids[scope] = 0
         # highlight initial button
         self.on_scope(self.scope)
-
-        self._image = None
-        if self.image_file:
-            iw, ih = self.get_scaled_jpg_size(self.image_file)
-            self._image = Picture(app, image=self.image_file, width=iw, height=ih)
-        #
-        # self.app.update()
-        #
-        # # build state buttons
-        # self.acc_box = Box(self.app, border=2, align="bottom", layout="grid")
-
-        # Display GUI and start event loop; call blocks
-        try:
-            app.display()
-        except TclError:
-            # If Tcl is already tearing down, ignore
-            pass
-        finally:
-            # Explicitly drop references to tkinter/guizero objects on the Tk thread
-            self.box = None
-            self.acc_box = None
-            self._image = None
-            self.app = None
-            self._ev.set()
+        app.update()
 
     def on_scope(self, scope: CommandScope) -> None:
         self.scope_box.hide()
@@ -317,10 +323,11 @@ class EngineGui(Thread, Generic[S]):
             else:
                 v.bg = self._disabled_bg
         if scope != self.scope:
-            print(self.tmcc_id_box.text)
             self.tmcc_id_box.text = f"{scope.title} TMCC ID"
-            print(self.tmcc_id_box.text)
             self.scope = scope
+        else:
+            self._scope_tmcc_ids[scope] = 0
+        self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:04d}"
         self.scope_box.show()
 
     def make_keypad(self, app: App):
@@ -410,6 +417,10 @@ class EngineGui(Thread, Generic[S]):
             tmcc_id = tmcc_id[1:] + key
         elif key == "C":
             tmcc_id = "0000"
+        elif key == "↵":
+            tid = int(tmcc_id)
+            if tid:
+                self._scope_tmcc_ids[self.scope] = tid
         self.tmcc_id_text.value = tmcc_id
         self.tmcc_id_text.show()
 
