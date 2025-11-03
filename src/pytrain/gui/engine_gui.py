@@ -17,6 +17,7 @@ from __future__ import annotations
 import atexit
 import logging
 import re
+import tkinter as tk
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
@@ -26,7 +27,6 @@ from guizero import App, Box, Combo, Picture, PushButton, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
 from PIL import Image
-from PIL._tkinter_finder import tk
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
