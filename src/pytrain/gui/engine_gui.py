@@ -240,7 +240,10 @@ class EngineGui(Thread, Generic[S]):
                 except Empty:
                     pass
                 finally:
-                    self._message_queue.task_done()
+                    try:
+                        app.tk.update_idletasks()
+                    except TclError:
+                        pass
             return None
 
         app.repeat(20, _poll_shutdown)
