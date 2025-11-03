@@ -307,11 +307,10 @@ class EngineGui(Thread, Generic[S]):
         for r, kr in enumerate(LAYOUT):
             for c, label in enumerate(kr):
                 img = tk.PhotoImage(width=button_size, height=button_size)
+                cell = Box(keypad_box, layout="auto", grid=[c, r + row])
                 nb = PushButton(
-                    keypad_box,
+                    cell,
                     text=label,
-                    grid=[c, r + row],
-                    align="top",
                     command=self.on_keypress,
                     args=[label],
                 )
