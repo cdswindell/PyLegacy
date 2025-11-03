@@ -49,7 +49,7 @@ LAYOUT = [
     ["1", "2", "3"],
     ["4", "5", "6"],
     ["7", "8", "9"],
-    ["C", "0", "E"],
+    ["C", "0", "↵"],
 ]
 
 
@@ -228,6 +228,7 @@ class EngineGui(Thread, Generic[S]):
                     pass  # ignore, we're shutting down
                 return None
             else:
+                # Process pending messages in the queue
                 try:
                     message = self._message_queue.get_nowait()
                     if isinstance(message, tuple):
@@ -235,9 +236,11 @@ class EngineGui(Thread, Generic[S]):
                             message[0](*message[1])
                         else:
                             message[0]()
+                        app.tk.update_idletasks()
                 except Empty:
                     pass
-                app.tk.update_idletasks()
+                finally:
+                    self._message_queue.task_done()
             return None
 
         app.repeat(20, _poll_shutdown)
@@ -264,11 +267,11 @@ class EngineGui(Thread, Generic[S]):
         if self.image_file:
             iw, ih = self.get_scaled_jpg_size(self.image_file)
             self._image = Picture(app, image=self.image_file, width=iw, height=ih)
-
-        self.app.update()
-
-        # build state buttons
-        self.acc_box = Box(self.app, border=2, align="bottom", layout="grid")
+        #
+        # self.app.update()
+        #
+        # # build state buttons
+        # self.acc_box = Box(self.app, border=2, align="bottom", layout="grid")
 
         # Display GUI and start event loop; call blocks
         try:
