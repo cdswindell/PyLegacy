@@ -106,6 +106,7 @@ class EngineGui(Thread, Generic[S]):
         self._text_pad_y = 20
         self.bs = bs
         self.s_72 = self.scale(72, 0.7)
+        self.scope = CommandScope.ENGINE
 
         self._enabled_bg = enabled_bg
         self._disabled_bg = disabled_bg
@@ -123,7 +124,7 @@ class EngineGui(Thread, Generic[S]):
         self._keypad_images = []
 
         # various boxes
-        self.emergency_box = self.keypad_box = None
+        self.emergency_box = self.keypad_box = self.scope_box = None
 
         # various buttons
         self.halt_btn = self.reset_btn = None
@@ -261,6 +262,14 @@ class EngineGui(Thread, Generic[S]):
         # make selection box and keypad
         self.make_keypad(app)
 
+        # make scope buttons
+        self.scope_box = scope_box = Box(app, layout="grid", border=2, align="bottom")
+        _ = Text(scope_box, text=" ", grid=[0, 0, 5, 1], align="top", size=3, height=1, bold=True)
+        for i, scope in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
+            pb = PushButton(scope_box, text=scope, grid=[i, 1], align="top", height=1, width=6)
+            pb.text_size = self.s_18
+            pb.text_bold = True
+
         self._image = None
         if self.image_file:
             iw, ih = self.get_scaled_jpg_size(self.image_file)
@@ -289,7 +298,7 @@ class EngineGui(Thread, Generic[S]):
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
         _ = Text(keypad_box, text=" ", grid=[0, 0, 3, 1], align="top", size=3, height=1, bold=True)
 
-        tmcc_id_box = TitleBox(keypad_box, "Engine TMCC ID", grid=[0, 1, 3, 1])
+        tmcc_id_box = TitleBox(keypad_box, f"{self.scope.title} TMCC ID", grid=[0, 1, 3, 1])
         tmcc_id_box.text_size = self.s_12
 
         self.tmcc_id_text = tmcc_id = Text(

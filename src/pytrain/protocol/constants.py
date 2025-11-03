@@ -151,6 +151,18 @@ class CommandScope(Mixins):
     SYNC = 13
     BLOCK = 14
 
+    @classmethod
+    def by_prefix(cls, name: str, raise_exception: bool = False) -> Self | None:
+        value = super().by_prefix(name, False)
+        if isinstance(value, CommandScope):
+            return value
+        elif name and name.lower().startswith("rt"):
+            return cls.ROUTE
+        elif not raise_exception:
+            return None
+        else:
+            raise ValueError(f"'{name}' is not a valid {cls.__name__}")
+
 
 @unique
 class Direction(Mixins):
@@ -179,7 +191,7 @@ class CommandPrefix(Mixins, IntEnum):
 
 """
     Relative speed is specified with values ranging from -5 to 5 that are
-    mapped to values 0 - 10
+    mapped to values 0-10
 """
 RELATIVE_SPEED_MAP = dict(zip(range(-5, 6), range(0, 11)))
 REVERSE_SPEED_MAP = dict(zip(range(-3, 0), range(1, 4)))
