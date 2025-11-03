@@ -103,6 +103,7 @@ class EngineGui(Thread, Generic[S]):
         self._text_pad_y = 20
         self.bs = bs
         self.s_72 = self.scale(72, 0.7)
+        self.grid_pad_by = 3
         self.scope = CommandScope.ENGINE
 
         self._enabled_bg = enabled_bg
@@ -243,6 +244,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Make the emergency buttons, including Halt and Reset
         self.make_emergency_buttons(app)
+        _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
 
         # make selection box and keypad
         self.make_keypad(app)
@@ -344,9 +346,8 @@ class EngineGui(Thread, Generic[S]):
 
     def make_keypad(self, app: App):
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
-        _ = Text(keypad_box, text=" ", grid=[0, 0, 3, 1], align="top", size=3, height=1, bold=True)
 
-        self.tmcc_id_box = tmcc_id_box = TitleBox(keypad_box, f"{self.scope.title} TMCC ID", grid=[0, 1, 3, 1])
+        self.tmcc_id_box = tmcc_id_box = TitleBox(keypad_box, f"{self.scope.title} TMCC ID", grid=[0, 0, 3, 1])
         tmcc_id_box.text_size = self.s_12
 
         self.tmcc_id_text = tmcc_id = Text(
@@ -360,14 +361,14 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id.text_bold = True
         tmcc_id.text_size = self.s_20
         tmcc_id.width = 18
-        _ = Text(keypad_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
+        _ = Text(keypad_box, text=" ", grid=[0, 1, 3, 1], align="top", size=3, height=1, bold=True)
 
-        row = 3
+        row = 2
         for r, kr in enumerate(LAYOUT):
             for c, label in enumerate(kr):
                 img = tk.PhotoImage(width=self.button_size, height=self.button_size)
                 self._btn_images.append(img)
-                cell = Box(keypad_box, layout="auto", grid=[c, r + row])
+                cell = Box(keypad_box, layout="auto", grid=[c, row])
                 nb = PushButton(
                     cell,
                     text=label,
@@ -381,10 +382,10 @@ class EngineGui(Thread, Generic[S]):
                 nb.text_bold = True
                 nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
                 # spacing between buttons (in pixels)
-                nb.tk.grid_configure(padx=6, pady=6)
+                nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
+            row += 1
 
         # fill in last row; contents depends on scope
-        row = 7
         self.on_btn_box = cell = Box(keypad_box, layout="auto", grid=[0, row])
         self.on_btn = nb = PushButton(
             cell,
@@ -398,7 +399,7 @@ class EngineGui(Thread, Generic[S]):
         )
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # spacing between buttons (in pixels)
-        nb.tk.grid_configure(padx=6, pady=6)
+        nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
         # off button
         self.off_btn_box = cell = Box(keypad_box, layout="auto", grid=[1, row])
@@ -414,7 +415,7 @@ class EngineGui(Thread, Generic[S]):
         )
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # spacing between buttons (in pixels)
-        nb.tk.grid_configure(padx=6, pady=6)
+        nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
         app.update()
 
     def on_keypress(self, key: str) -> None:
