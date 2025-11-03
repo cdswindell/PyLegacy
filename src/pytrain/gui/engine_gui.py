@@ -126,9 +126,10 @@ class EngineGui(Thread, Generic[S]):
         self._scope_buttons = {}
         self._scope_tmcc_ids = {}
         self._engine_cache = {}
+        self._engine_image_cache = {}
 
         # various boxes
-        self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = None
+        self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
 
         # various buttons
         self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = self.set_btn = None
@@ -137,6 +138,7 @@ class EngineGui(Thread, Generic[S]):
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = None
         self.name_text = None
         self.on_btn_box = self.off_btn_box = self.set_btn_box = None
+        self.engine_image = None
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -389,6 +391,11 @@ class EngineGui(Thread, Generic[S]):
         name_text.width = 20
         name_text.tk.config(justify="left", anchor="w")  # ← this does the trick!
 
+        # add a picture placeholder here, we may not use it
+        self.image_box = image_box = Box(app, border=2, align="top")
+        self.engine_image = Picture(image_box, align="top")
+        self.image_box.hide()
+
         _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
 
@@ -605,9 +612,10 @@ class EngineGui(Thread, Generic[S]):
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
 
     def update_component_image(self):
+        self.image_box.hide()
+        tmcc_id = self._scope_tmcc_ids[self.scope]
         prod_info = None
         if self.scope in {CommandScope.ENGINE} and self._scope_tmcc_ids[self.scope] != 0:
-            tmcc_id = self._scope_tmcc_ids[self.scope]
             if tmcc_id not in self._engine_cache:
                 state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
                 if state and state.bt_id:
@@ -615,4 +623,11 @@ class EngineGui(Thread, Generic[S]):
                 self._engine_cache[tmcc_id] = prod_info
             else:
                 prod_info = self._engine_cache[tmcc_id]
+        if prod_info:
+            img = self._engine_image_cache.get(tmcc_id, None)
+            if img is None:
+                img = tk.PhotoImage(data=prod_info.image_content)
+                self._engine_image_cache[tmcc_id] = img
+            self.engine_image.tk.config(image=img)
+            self.image_box.show()
         print(f"Scope: {self.scope.title} TMCC ID: {self._scope_tmcc_ids[self.scope]} prod id: {prod_info}")
