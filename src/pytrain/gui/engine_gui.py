@@ -628,9 +628,7 @@ class EngineGui(Thread, Generic[S]):
                 elif isinstance(prod_info, Thread):
                     self.app.after(500, self.update_component_image, [tmcc_id])
                     return
-                elif isinstance(prod_info, ProdInfo):
-                    pass
-            if prod_info:
+            if isinstance(prod_info, ProdInfo):
                 img = self._engine_image_cache.get(tmcc_id, None)
                 if img is None:
                     img = tk.PhotoImage(data=prod_info.image_content)
@@ -639,9 +637,12 @@ class EngineGui(Thread, Generic[S]):
                 self.image_box.show()
 
     def request_prod_info(self, prod_info: ProdInfo | None, tmcc_id: int | Any) -> ProdInfo | None:
+        prod_info = None
         state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
         if state and state.bt_id:
             prod_info = ProdInfo.by_btid(state.bt_id)
+        else:
+            prod_info = "N/A"
         with self._cv:
             self._engine_cache[tmcc_id] = prod_info
         return prod_info
