@@ -63,7 +63,7 @@ class EngineGui(Thread, Generic[S]):
         width: int = None,
         height: int = None,
         enabled_bg: str = "green",
-        disabled_bg: str = "black",
+        disabled_bg: str = "white",
         enabled_text: str = "black",
         disabled_text: str = "lightgrey",
         scale_by: float = 1.0,
@@ -122,7 +122,8 @@ class EngineGui(Thread, Generic[S]):
         self.right_arrow_image = find_file("right_arrow.jpg")
         self._app_counter = 0
         self._message_queue = Queue()
-        self._keypad_images = []
+        self._btn_images = []
+        self._scope_buttons = {}
 
         # various boxes
         self.emergency_box = self.keypad_box = self.scope_box = None
@@ -131,7 +132,7 @@ class EngineGui(Thread, Generic[S]):
         self.halt_btn = self.reset_btn = None
 
         # various fields
-        self.tmcc_id_text = self._nbi = None
+        self.tmcc_id_box = self.tmcc_id_text = self._nbi = None
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -270,8 +271,16 @@ class EngineGui(Thread, Generic[S]):
         for i, scope in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
             # Create a PhotoImage to enforce button size
             img = tk.PhotoImage(width=self.button_size, height=button_height)
-            self._keypad_images.append(img)
-            pb = PushButton(scope_box, text=scope, grid=[i, 1], align="top", height=1)
+            self._btn_images.append(img)
+            pb = PushButton(
+                scope_box,
+                text=scope,
+                grid=[i, 1],
+                align="top",
+                height=1,
+                command=self.on_scope,
+                args=[scope],
+            )
             pb.scope = scope
             pb.text_size = self.s_18
             pb.text_bold = True
@@ -282,6 +291,8 @@ class EngineGui(Thread, Generic[S]):
 
             # Make the grid column expand to fill space
             scope_box.tk.grid_columnconfigure(i, weight=1)
+            # associate the button with its scope
+            self._scope_buttons[scope] = pb
 
         self._image = None
         if self.image_file:
@@ -307,11 +318,23 @@ class EngineGui(Thread, Generic[S]):
             self.app = None
             self._ev.set()
 
+    def on_scope(self, scope: CommandScope) -> None:
+        self.scope_box.hide()
+        for k, v in self._scope_buttons.items():
+            if k == scope:
+                v.bg = self._enabled_bg
+            else:
+                v.bg = self._disabled_bg
+        if scope != self.scope:
+            self.tmcc_id_box.value = f"{scope.title}"
+            self.scope = scope
+        self.scope_box.show()
+
     def make_keypad(self, app: App):
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
         _ = Text(keypad_box, text=" ", grid=[0, 0, 3, 1], align="top", size=3, height=1, bold=True)
 
-        tmcc_id_box = TitleBox(keypad_box, f"{self.scope.title} TMCC ID", grid=[0, 1, 3, 1])
+        self.tmcc_id_box = tmcc_id_box = TitleBox(keypad_box, f"{self.scope.title} TMCC ID", grid=[0, 1, 3, 1])
         tmcc_id_box.text_size = self.s_12
 
         self.tmcc_id_text = tmcc_id = Text(
@@ -331,7 +354,7 @@ class EngineGui(Thread, Generic[S]):
         for r, kr in enumerate(LAYOUT):
             for c, label in enumerate(kr):
                 img = tk.PhotoImage(width=self.button_size, height=self.button_size)
-                self._keypad_images.append(img)
+                self._btn_images.append(img)
                 cell = Box(keypad_box, layout="auto", grid=[c, r + row])
                 nb = PushButton(
                     cell,
