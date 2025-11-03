@@ -126,7 +126,7 @@ class EngineGui(Thread, Generic[S]):
         self._scope_tmcc_ids = {}
 
         # various boxes
-        self.emergency_box = self.keypad_box = self.scope_box = self.name_box = None
+        self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = None
 
         # various buttons
         self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = self.set_btn = None
@@ -349,10 +349,24 @@ class EngineGui(Thread, Generic[S]):
                 pass
 
     def make_keypad(self, app: App):
-        self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
+        self.info_box = info_box = Box(app, border=2, align="top")
 
-        row = 0
-        self.name_box = name_box = TitleBox(keypad_box, "Road Name", grid=[0, row, 3, 1])
+        self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="top")
+        tmcc_id_box.text_size = self.s_12
+
+        self.tmcc_id_text = tmcc_id = Text(
+            tmcc_id_box,
+            text="0000",
+            align="left",
+            bold=True,
+            width="fill",
+        )
+        tmcc_id.text_color = "blue"
+        tmcc_id.text_bold = True
+        tmcc_id.text_size = self.s_20
+        tmcc_id.width = 6
+
+        self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
         name_box.text_size = self.s_12
 
         self.name_text = name_text = Text(
@@ -367,26 +381,10 @@ class EngineGui(Thread, Generic[S]):
         name_text.text_size = self.s_20
         name_text.width = 16
 
-        row += 1
-        self.tmcc_id_box = tmcc_id_box = TitleBox(keypad_box, f"{self.scope.title} ID", grid=[0, row, 3, 1])
-        tmcc_id_box.text_size = self.s_12
+        _ = Text(info_box, text=" ", align="bottom", size=3, height=1, bold=True)
+        self.keypad_box = keypad_box = Box(info_box, layout="grid", border=2, align="bottom")
 
-        self.tmcc_id_text = tmcc_id = Text(
-            tmcc_id_box,
-            text="0000",
-            align="top",
-            bold=True,
-            width="fill",
-        )
-        tmcc_id.text_color = "blue"
-        tmcc_id.text_bold = True
-        tmcc_id.text_size = self.s_20
-        tmcc_id.width = 16
-
-        row += 1
-        _ = Text(keypad_box, text=" ", grid=[0, row, 3, 1], align="top", size=3, height=1, bold=True)
-
-        row += 1
+        row = 0
         for r, kr in enumerate(LAYOUT):
             for c, label in enumerate(kr):
                 img = tk.PhotoImage(width=self.button_size, height=self.button_size)
