@@ -328,7 +328,9 @@ class EngineGui(Thread, Generic[S]):
             else:
                 v.bg = self._disabled_bg
         if scope != self.scope:
-            self.tmcc_id_box.text = f"{scope.title}"
+            print(self.tmcc_id_box.text)
+            self.tmcc_id_box.text = f"{scope.title} TMCC ID"
+            print(self.tmcc_id_box.text)
             self.scope = scope
         self.scope_box.show()
 
