@@ -130,6 +130,7 @@ class EngineGui(Thread, Generic[S]):
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = None
+        self.on_btn_box = self.off_btn_box = None
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -329,11 +330,11 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id = self._scope_tmcc_ids[self.scope]
         if tmcc_id == 0:
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-                self.on_btn.visible = True
-                self.off_btn.visible = True
+                self.on_btn_box.show()
+                self.off_btn_box.show()
             else:
-                self.on_btn.visible = False
-                self.off_btn.visible = False
+                self.on_btn_box.hide()
+                self.off_btn_box.hide()
             self.keypad_box.show()
         else:
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
@@ -384,7 +385,7 @@ class EngineGui(Thread, Generic[S]):
 
         # fill in last row; contents depends on scope
         row = 7
-        cell = Box(keypad_box, layout="auto", grid=[0, row])
+        self.on_btn_box = cell = Box(keypad_box, layout="auto", grid=[0, row])
         self.on_btn = nb = PushButton(
             cell,
             image=self.turn_on_image,
@@ -400,7 +401,7 @@ class EngineGui(Thread, Generic[S]):
         nb.tk.grid_configure(padx=6, pady=6)
 
         # off button
-        cell = Box(keypad_box, layout="auto", grid=[1, row])
+        self.off_btn_box = cell = Box(keypad_box, layout="auto", grid=[1, row])
         self.off_btn = nb = PushButton(
             cell,
             image=self.turn_off_image,
