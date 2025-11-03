@@ -126,7 +126,7 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box = self.keypad_box = self.scope_box = None
 
         # various buttons
-        self.halt_btn = self.reset_btn = None
+        self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = None
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = None
@@ -181,21 +181,13 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
-        if isinstance(widget, PowerButton):
-            widget.image = self.turn_on_image
-            widget.height = widget.width = self.s_72
-        else:
-            widget.bg = self._disabled_bg
-            widget.text_color = self._disabled_text
+        widget.bg = self._disabled_bg
+        widget.text_color = self._disabled_text
 
     # noinspection PyTypeChecker
     def set_button_active(self, widget: Widget):
-        if isinstance(widget, PowerButton):
-            widget.image = self.turn_off_image
-            widget.height = widget.width = self.s_72
-        else:
-            widget.bg = self._enabled_bg
-            widget.text_color = self._enabled_text
+        widget.bg = self._enabled_bg
+        widget.text_color = self._enabled_text
 
     def queue_message(self, message: Callable, *args: Any) -> None:
         self._message_queue.put((message, args))
@@ -328,7 +320,26 @@ class EngineGui(Thread, Generic[S]):
         else:
             self._scope_tmcc_ids[scope] = 0
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:04d}"
+        self.scope_keypad()
         self.scope_box.show()
+
+    def scope_keypad(self):
+        # if tmcc_id associated with scope is 0, then we are in entry mode;
+        # show keypad with appropriate button
+        tmcc_id = self._scope_tmcc_ids[self.scope]
+        if tmcc_id == 0:
+            if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                self.on_btn.show()
+                self.off_btn.show()
+            else:
+                self.on_btn.hide()
+                self.off_btn.hide()
+            self.keypad_box.show()
+        else:
+            if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                self.keypad_box.hide()
+            else:
+                pass
 
     def make_keypad(self, app: App):
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
@@ -370,39 +381,39 @@ class EngineGui(Thread, Generic[S]):
                 nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
                 # spacing between buttons (in pixels)
                 nb.tk.grid_configure(padx=6, pady=6)
+
         # fill in last row; contents depends on scope
         row = 7
-        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-            cell = Box(keypad_box, layout="auto", grid=[0, row])
-            nb = PushButton(
-                cell,
-                image=self.turn_on_image,
-                align="top",
-                height=self.button_size,
-                width=self.button_size,
-                text="on",
-                command=self.on_keypress,
-                args=["on"],
-            )
-            nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-            # spacing between buttons (in pixels)
-            nb.tk.grid_configure(padx=6, pady=6)
+        cell = Box(keypad_box, layout="auto", grid=[0, row])
+        self.on_btn = nb = PushButton(
+            cell,
+            image=self.turn_on_image,
+            align="top",
+            height=self.button_size,
+            width=self.button_size,
+            text="on",
+            command=self.on_keypress,
+            args=["on"],
+        )
+        nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+        # spacing between buttons (in pixels)
+        nb.tk.grid_configure(padx=6, pady=6)
 
-            # off button
-            cell = Box(keypad_box, layout="auto", grid=[1, row])
-            nb = PushButton(
-                cell,
-                image=self.turn_off_image,
-                align="top",
-                height=self.button_size,
-                width=self.button_size,
-                text="off",
-                command=self.on_keypress,
-                args=["off"],
-            )
-            nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-            # spacing between buttons (in pixels)
-            nb.tk.grid_configure(padx=6, pady=6)
+        # off button
+        cell = Box(keypad_box, layout="auto", grid=[1, row])
+        self.off_btn = nb = PushButton(
+            cell,
+            image=self.turn_off_image,
+            align="top",
+            height=self.button_size,
+            width=self.button_size,
+            text="off",
+            command=self.on_keypress,
+            args=["off"],
+        )
+        nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+        # spacing between buttons (in pixels)
+        nb.tk.grid_configure(padx=6, pady=6)
 
         app.update()
 
@@ -524,21 +535,3 @@ class EngineGui(Thread, Generic[S]):
             state = pb.component_state
             if state.is_asc2:
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
-
-
-class PowerButton(PushButton):
-    pass
-
-
-class AnimatedButton(PushButton):
-    def start_animation(self) -> None:
-        if self._image_player:
-            self._image_player.start()
-
-    def stop_animation(self) -> None:
-        if self._image_player:
-            self._image_player.stop()
-
-    def _clear_image(self) -> None:
-        self.stop_animation()
-        super()._clear_image()
