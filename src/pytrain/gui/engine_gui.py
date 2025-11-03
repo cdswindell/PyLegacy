@@ -94,7 +94,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_20: int = int(round(20 * scale_by))
         self.s_18: int = int(round(18 * scale_by))
         self.s_16: int = int(round(16 * scale_by))
-        self.s_10: int = int(round(16 * scale_by))
+        self.s_12: int = int(round(12 * scale_by))
         self._text_pad_x = 20
         self._text_pad_y = 20
         self.bs = bs
@@ -280,7 +280,7 @@ class EngineGui(Thread, Generic[S]):
         _ = Text(keypad_box, text=" ", grid=[0, 0, 3, 1], align="top", size=3, height=1, bold=True)
 
         tmcc_id_box = TitleBox(keypad_box, "TMCC ID", grid=[0, 1, 3, 1])
-        tmcc_id_box.text_size = self.s_10
+        tmcc_id_box.text_size = self.s_12
         tmcc_id_box.width = "fill"
         self.tmcc_id_text = tmcc_id = Text(
             tmcc_id_box,
@@ -306,6 +306,8 @@ class EngineGui(Thread, Generic[S]):
                 text=str(x),
                 grid=[col, row],
                 align="top",
+                command=self.on_keypress,
+                args=[str(x)],
             )
             nb._img = img
             nb.text_color = "black"
@@ -357,6 +359,14 @@ class EngineGui(Thread, Generic[S]):
         reset_btn.text_size = self.s_20
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
+
+    def on_keypress(self, key: str) -> None:
+        tmcc_id = self.tmcc_id_text.value
+        if key.isdigit():
+            tmcc_id = tmcc_id[1:] + key
+        elif key == "Clr":
+            tmcc_id = "0000"
+        self.tmcc_id_text.value = tmcc_id
 
     def make_power_button(self, state: S, label: str, col: int, text_len: int, container: Box) -> PowerButton:
         btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
