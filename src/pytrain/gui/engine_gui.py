@@ -239,11 +239,10 @@ class EngineGui(Thread, Generic[S]):
                         app.tk.update_idletasks()
                 except Empty:
                     pass
-                finally:
-                    try:
-                        app.tk.update_idletasks()
-                    except TclError:
-                        pass
+                try:
+                    app.tk.update_idletasks()
+                except TclError:
+                    pass
             return None
 
         app.repeat(20, _poll_shutdown)
