@@ -286,14 +286,16 @@ class EngineGui(Thread, Generic[S]):
             tmcc_id_box,
             text="0000",
             align="top",
-            size=self.s_20,
             bold=True,
+            width="fill",
         )
         tmcc_id.text_color = "blue"
         tmcc_id.text_bold = True
+        tmcc_id.text_size = self.s_20
         tmcc_id.width = "fill"
+        _ = Text(keypad_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
 
-        row = 2
+        row = 3
         col = 0
         button_size = int(round(self.width / 5))
         print(self.width, button_size)
