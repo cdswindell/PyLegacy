@@ -129,7 +129,7 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box = self.keypad_box = self.scope_box = self.name_box = None
 
         # various buttons
-        self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = set.set_btn = None
+        self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = self.set_btn = None
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = None
