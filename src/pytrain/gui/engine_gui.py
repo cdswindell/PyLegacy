@@ -381,6 +381,8 @@ class EngineGui(Thread, Generic[S]):
                 height=self.button_size,
                 width=self.button_size,
                 text="on",
+                command=self.on_keypress,
+                args=["on"],
             )
             nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
             # spacing between buttons (in pixels)
@@ -395,12 +397,30 @@ class EngineGui(Thread, Generic[S]):
                 height=self.button_size,
                 width=self.button_size,
                 text="off",
+                command=self.on_keypress,
+                args=["off"],
             )
             nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
             # spacing between buttons (in pixels)
             nb.tk.grid_configure(padx=6, pady=6)
 
         app.update()
+
+    def on_keypress(self, key: str) -> None:
+        self.tmcc_id_text.hide()
+        tmcc_id = self.tmcc_id_text.value
+        if key.isdigit():
+            tmcc_id = tmcc_id[1:] + key
+        elif key == "C":
+            tmcc_id = "0000"
+        elif key == "↵":
+            tid = int(tmcc_id)
+            if tid:
+                self._scope_tmcc_ids[self.scope] = tid
+        else:
+            print(f"Unknown key: {key}")
+        self.tmcc_id_text.value = tmcc_id
+        self.tmcc_id_text.show()
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
@@ -439,22 +459,6 @@ class EngineGui(Thread, Generic[S]):
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
         app.update()
-
-    def on_keypress(self, key: str) -> None:
-        self.tmcc_id_text.hide()
-        tmcc_id = self.tmcc_id_text.value
-        if key.isdigit():
-            tmcc_id = tmcc_id[1:] + key
-        elif key == "C":
-            tmcc_id = "0000"
-        elif key == "↵":
-            tid = int(tmcc_id)
-            if tid:
-                self._scope_tmcc_ids[self.scope] = tid
-        else:
-            print(f"Unknown key: {key}")
-        self.tmcc_id_text.value = tmcc_id
-        self.tmcc_id_text.show()
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
