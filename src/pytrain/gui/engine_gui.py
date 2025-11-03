@@ -237,6 +237,7 @@ class EngineGui(Thread, Generic[S]):
                             message[0]()
                 except Empty:
                     pass
+                app.tk.update_idletasks()
             return None
 
         app.repeat(20, _poll_shutdown)
