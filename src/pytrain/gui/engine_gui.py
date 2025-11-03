@@ -326,6 +326,7 @@ class EngineGui(Thread, Generic[S]):
                 nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
                 # spacing between buttons (in pixels)
                 nb.tk.grid_configure(padx=6, pady=6)
+        app.update()
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
@@ -363,14 +364,17 @@ class EngineGui(Thread, Generic[S]):
         reset_btn.text_size = self.s_20
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
+        app.update()
 
     def on_keypress(self, key: str) -> None:
+        self.tmcc_id_text.hide()
         tmcc_id = self.tmcc_id_text.value
         if key.isdigit():
             tmcc_id = tmcc_id[1:] + key
         elif key == "C":
             tmcc_id = "0000"
         self.tmcc_id_text.value = tmcc_id
+        self.tmcc_id_text.show()
 
     def make_power_button(self, state: S, label: str, col: int, text_len: int, container: Box) -> PowerButton:
         btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
