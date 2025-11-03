@@ -99,7 +99,8 @@ class EngineGui(Thread, Generic[S]):
         self.s_18: int = int(round(18 * scale_by))
         self.s_16: int = int(round(16 * scale_by))
         self.s_12: int = int(round(12 * scale_by))
-        self.button_size = int(round(self.width / 5))
+        self.button_size = int(round(self.width / 6))
+        self.scope_size = int(round(self.width / 5))
         self._text_pad_x = 20
         self._text_pad_y = 20
         self.bs = bs
@@ -284,7 +285,7 @@ class EngineGui(Thread, Generic[S]):
         for i, scope_abbrev in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
             scope = CommandScope.by_prefix(scope_abbrev)
             # Create a PhotoImage to enforce button size
-            img = tk.PhotoImage(width=self.button_size, height=button_height)
+            img = tk.PhotoImage(width=self.scope_size, height=button_height)
             self._btn_images.append(img)
             pb = PushButton(
                 scope_box,
@@ -300,7 +301,7 @@ class EngineGui(Thread, Generic[S]):
             pb.text_bold = True
             # Configure the button with the image as background
             pb.tk.config(image=img, compound="center")
-            pb.tk.config(width=self.button_size, height=button_height)
+            pb.tk.config(width=self.scope_size, height=button_height)
             pb.tk.config(padx=0, pady=0)
             # Make the grid column expand to fill space
             scope_box.tk.grid_columnconfigure(i, weight=1)
