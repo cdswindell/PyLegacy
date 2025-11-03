@@ -286,9 +286,9 @@ class EngineGui(Thread, Generic[S]):
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
         _ = Text(keypad_box, text=" ", grid=[0, 0, 3, 1], align="top", size=3, height=1, bold=True)
 
-        tmcc_id_box = TitleBox(keypad_box, "TMCC ID", grid=[0, 1, 3, 1])
+        tmcc_id_box = TitleBox(keypad_box, "Engine TMCC ID", grid=[0, 1, 3, 1])
         tmcc_id_box.text_size = self.s_12
-        tmcc_id_box.width = "fill"
+
         self.tmcc_id_text = tmcc_id = Text(
             tmcc_id_box,
             text="0000",
@@ -299,7 +299,7 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id.text_color = "blue"
         tmcc_id.text_bold = True
         tmcc_id.text_size = self.s_20
-        tmcc_id.width = "fill"
+        tmcc_id.width = "20"
         _ = Text(keypad_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
 
         row = 3
