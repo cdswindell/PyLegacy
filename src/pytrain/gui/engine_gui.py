@@ -266,7 +266,7 @@ class EngineGui(Thread, Generic[S]):
         self.scope_box = scope_box = Box(app, layout="grid", border=2, align="bottom")
         _ = Text(scope_box, text=" ", grid=[0, 0, 5, 1], align="top", size=3, height=1, bold=True)
         for i, scope in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
-            pb = PushButton(scope_box, text=scope, grid=[i, 1], align="top", height=1, width=4)
+            pb = PushButton(scope_box, text=scope, grid=[i, 1], align="top", height=1, width=5)
             pb.scope = scope
             pb.text_size = self.s_18
             pb.text_bold = True
