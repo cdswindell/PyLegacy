@@ -26,6 +26,7 @@ from guizero import App, Box, Combo, Picture, PushButton, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
 from PIL import Image
+from PIL._tkinter_finder import tk
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
@@ -91,6 +92,7 @@ class EngineGui(Thread, Generic[S]):
             max_image_height = 0.55
         self._max_image_height = max_image_height
         self.s_20: int = int(round(20 * scale_by))
+        self.s_18: int = int(round(18 * scale_by))
         self.s_16: int = int(round(16 * scale_by))
         self.s_10: int = int(round(16 * scale_by))
         self._text_pad_x = 20
@@ -264,6 +266,7 @@ class EngineGui(Thread, Generic[S]):
         col = 0
         button_size = int(round(self.width / 5))
         print(self.width, button_size)
+        self._nbi = img = tk.PhotoImage(width=button_size, height=button_size)
         for x in range(1, 10):
             nb = PushButton(
                 keypad_box,
@@ -273,8 +276,12 @@ class EngineGui(Thread, Generic[S]):
             )
             nb.text_color = "black"
             nb.text_size = self.s_16
+            nb.tk.config(image=img, compound="center")
             nb.tk.config(width=button_size, height=button_size)
-            nb.tk.pack_propagate(False)
+            nb.text_size = self.s_20
+            nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=0)
+            # spacing between buttons (in pixels)
+            nb.tk.grid_configure(padx=6, pady=6)
             col += 1
             if col == 3:
                 col = 0
