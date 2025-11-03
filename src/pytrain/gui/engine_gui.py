@@ -294,18 +294,20 @@ class EngineGui(Thread, Generic[S]):
         col = 0
         button_size = int(round(self.width / 5))
         print(self.width, button_size)
-        self._nbi = img = tk.PhotoImage(width=button_size, height=button_size)
         for x in range(1, 10):
+            img = tk.PhotoImage(width=button_size, height=button_size)
             nb = PushButton(
                 keypad_box,
                 text=str(x),
                 grid=[col, row],
                 align="top",
             )
+            nb._img = img
             nb.text_color = "black"
             nb.tk.config(image=img, compound="center")
             nb.tk.config(width=button_size, height=button_size)
             nb.text_size = self.s_20
+            nb.text_bold = True
             nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
             # spacing between buttons (in pixels)
             nb.tk.grid_configure(padx=6, pady=6)
