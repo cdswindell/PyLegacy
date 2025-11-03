@@ -99,7 +99,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_18: int = int(round(18 * scale_by))
         self.s_16: int = int(round(16 * scale_by))
         self.s_12: int = int(round(12 * scale_by))
-        self.button_size = int(round(self.width / 6))
+        self.button_size = int(round(self.width / 5.5))
         self.scope_size = int(round(self.width / 5))
         self._text_pad_x = 20
         self._text_pad_y = 20
@@ -364,7 +364,7 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id.text_color = "blue"
         tmcc_id.text_bold = True
         tmcc_id.text_size = self.s_20
-        tmcc_id.width = 6
+        tmcc_id.width = 5
 
         self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
         name_box.text_size = self.s_12
@@ -378,8 +378,8 @@ class EngineGui(Thread, Generic[S]):
         )
         name_text.text_color = "blue"
         name_text.text_bold = True
-        name_text.text_size = self.s_20
-        name_text.width = 16
+        name_text.text_size = self.s_18
+        name_text.width = 20
 
         _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
@@ -473,6 +473,14 @@ class EngineGui(Thread, Generic[S]):
             tid = int(tmcc_id)
             if tid:
                 self._scope_tmcc_ids[self.scope] = tid
+                state = ComponentStateStore.get().get_state(self.scope, tid, False)
+                if state:
+                    name = state.name
+                else:
+                    name = "Not Defined"
+                self.name_text.value = name
+            else:
+                self.name_text.value = ""
         else:
             print(f"Unknown key: {key}")
         self.tmcc_id_text.value = tmcc_id
