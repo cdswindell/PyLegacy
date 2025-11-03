@@ -612,23 +612,42 @@ class EngineGui(Thread, Generic[S]):
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
 
     def update_component_image(self, tmcc_id: int = None):
-        print(f"update_component_image tmcc_id={tmcc_id}")
-        self.image_box.hide()
-        if tmcc_id is None:
-            tmcc_id = self._scope_tmcc_ids[self.scope]
-        prod_info = None
-        if self.scope in {CommandScope.ENGINE} and tmcc_id != 0:
-            if tmcc_id not in self._engine_cache:
-                state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
-                if state and state.bt_id:
-                    prod_info = ProdInfo.by_btid(state.bt_id)
-                self._engine_cache[tmcc_id] = prod_info
-            else:
-                prod_info = self._engine_cache[tmcc_id]
-        if prod_info:
-            img = self._engine_image_cache.get(tmcc_id, None)
-            if img is None:
-                img = tk.PhotoImage(data=prod_info.image_content)
-                self._engine_image_cache[tmcc_id] = img
-            self.engine_image.tk.config(image=img)
-            self.image_box.show()
+        with self._cv:
+            self.image_box.hide()
+            if tmcc_id is None:
+                tmcc_id = self._scope_tmcc_ids[self.scope]
+            prod_info = None
+            if self.scope in {CommandScope.ENGINE} and tmcc_id != 0:
+                prod_info = self._engine_cache.get(tmcc_id, None)
+                if prod_info is None:
+                    # Start thread to fetch product info
+                    fetch_thread = Thread(target=self._fetch_prod_info_threaded, args=(tmcc_id,), daemon=True)
+                    self._engine_cache[tmcc_id] = fetch_thread
+                    fetch_thread.start()
+                    return
+                elif isinstance(prod_info, Thread):
+                    self.app.after(500, self.update_component_image, [tmcc_id])
+                    return
+                elif isinstance(prod_info, ProdInfo):
+                    pass
+            if prod_info:
+                img = self._engine_image_cache.get(tmcc_id, None)
+                if img is None:
+                    img = tk.PhotoImage(data=prod_info.image_content)
+                    self._engine_image_cache[tmcc_id] = img
+                self.engine_image.tk.config(image=img)
+                self.image_box.show()
+
+    def request_prod_info(self, prod_info: ProdInfo | None, tmcc_id: int | Any) -> ProdInfo | None:
+        state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
+        if state and state.bt_id:
+            prod_info = ProdInfo.by_btid(state.bt_id)
+        with self._cv:
+            self._engine_cache[tmcc_id] = prod_info
+        return prod_info
+
+    def _fetch_prod_info_threaded(self, tmcc_id: int) -> None:
+        """Fetch product info in a background thread, then schedule UI update."""
+        self.request_prod_info(None, tmcc_id)
+        # Schedule the UI update on the main thread
+        self.queue_message(self.update_component_image, tmcc_id)
