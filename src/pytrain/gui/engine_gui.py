@@ -636,7 +636,7 @@ class EngineGui(Thread, Generic[S]):
                 self.engine_image.tk.config(image=img)
                 self.image_box.show()
 
-    def request_prod_info(self, prod_info: ProdInfo | None, tmcc_id: int | Any) -> ProdInfo | None:
+    def request_prod_info(self, tmcc_id: int | None) -> ProdInfo | None:
         state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
         if state and state.bt_id:
             prod_info = ProdInfo.by_btid(state.bt_id)
@@ -648,6 +648,6 @@ class EngineGui(Thread, Generic[S]):
 
     def _fetch_prod_info_threaded(self, tmcc_id: int) -> None:
         """Fetch product info in a background thread, then schedule UI update."""
-        self.request_prod_info(None, tmcc_id)
+        self.request_prod_info(tmcc_id)
         # Schedule the UI update on the main thread
         self.queue_message(self.update_component_image, tmcc_id)
