@@ -373,6 +373,7 @@ class EngineGui(Thread, Generic[S]):
         self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
         name_box.text_size = self.s_12
         name_box.height = tmcc_id_box.tk.winfo_reqheight()
+        name_box.width = self.emergency_box.winfo_reqwidth() - tmcc_id_box.tk.winfo_reqwidth()
 
         self.name_text = name_text = Text(
             name_box,
