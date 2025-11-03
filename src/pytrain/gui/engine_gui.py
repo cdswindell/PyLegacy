@@ -277,7 +277,9 @@ class EngineGui(Thread, Generic[S]):
 
     def make_keypad(self, app: App):
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
-        tmcc_id_box = TitleBox(keypad_box, "TMCC ID", grid=[0, 0, 3, 1])
+        _ = Text(keypad_box, text=" ", grid=[0, 0, 3, 1], align="top", size=3, height=1, bold=True)
+
+        tmcc_id_box = TitleBox(keypad_box, "TMCC ID", grid=[0, 1, 3, 1])
         tmcc_id_box.text_size = self.s_10
         tmcc_id_box.width = "fill"
         self.tmcc_id_text = tmcc_id = Text(
@@ -289,8 +291,9 @@ class EngineGui(Thread, Generic[S]):
         )
         tmcc_id.text_color = "blue"
         tmcc_id.text_bold = True
+        tmcc_id.width = "fill"
 
-        row = 1
+        row = 2
         col = 0
         button_size = int(round(self.width / 5))
         print(self.width, button_size)
