@@ -637,7 +637,6 @@ class EngineGui(Thread, Generic[S]):
                 self.image_box.show()
 
     def request_prod_info(self, prod_info: ProdInfo | None, tmcc_id: int | Any) -> ProdInfo | None:
-        prod_info = None
         state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
         if state and state.bt_id:
             prod_info = ProdInfo.by_btid(state.bt_id)
