@@ -102,6 +102,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_18: int = int(round(18 * scale_by))
         self.s_16: int = int(round(16 * scale_by))
         self.s_12: int = int(round(12 * scale_by))
+        self.button_size = int(round(self.width / 5))
         self._text_pad_x = 20
         self._text_pad_y = 20
         self.bs = bs
@@ -263,15 +264,24 @@ class EngineGui(Thread, Generic[S]):
         self.make_keypad(app)
 
         # make scope buttons
+        button_height = int(round(50 * self._scale_by))
         self.scope_box = scope_box = Box(app, layout="grid", border=2, align="bottom")
         _ = Text(scope_box, text=" ", grid=[0, 0, 5, 1], align="top", size=3, height=1, bold=True)
         for i, scope in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
+            # Create a PhotoImage to enforce button size
+            img = tk.PhotoImage(width=self.button_size, height=button_height)
+            self._keypad_images.append(img)
             pb = PushButton(scope_box, text=scope, grid=[i, 1], align="top", height=1)
             pb.scope = scope
             pb.text_size = self.s_18
             pb.text_bold = True
-            # Configure the grid column to expand and fill available space
-            scope_box.tk.grid_columnconfigure(i, weight=1, uniform="scope_buttons")
+            # Configure the button with the image as background
+            pb.tk.config(image=img, compound="center")
+            pb.tk.config(width=self.button_size, height=button_height)
+            pb.tk.config(padx=0, pady=0)
+
+            # Make the grid column expand to fill space
+            scope_box.tk.grid_columnconfigure(i, weight=1)
 
         self._image = None
         if self.image_file:
@@ -318,10 +328,9 @@ class EngineGui(Thread, Generic[S]):
         _ = Text(keypad_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
 
         row = 3
-        button_size = int(round(self.width / 5))
         for r, kr in enumerate(LAYOUT):
             for c, label in enumerate(kr):
-                img = tk.PhotoImage(width=button_size, height=button_size)
+                img = tk.PhotoImage(width=self.button_size, height=self.button_size)
                 self._keypad_images.append(img)
                 cell = Box(keypad_box, layout="auto", grid=[c, r + row])
                 nb = PushButton(
@@ -332,7 +341,7 @@ class EngineGui(Thread, Generic[S]):
                 )
                 nb.text_color = "black"
                 nb.tk.config(image=img, compound="center")
-                nb.tk.config(width=button_size, height=button_size)
+                nb.tk.config(width=self.button_size, height=self.button_size)
                 nb.text_size = self.s_20
                 nb.text_bold = True
                 nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
