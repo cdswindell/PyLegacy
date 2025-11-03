@@ -262,19 +262,19 @@ class EngineGui(Thread, Generic[S]):
 
         row = 1
         col = 0
-        # button_size = int(round(self.width / 5))
-        # print(self.width, button_size)
+        button_size = int(round(self.width / 5))
+        print(self.width, button_size)
         for x in range(1, 10):
             nb = PushButton(
                 keypad_box,
                 text=str(x),
                 grid=[col, row],
                 align="top",
-                width=self.bs,
-                height=self.bs,
             )
             nb.text_color = "black"
             nb.text_size = self.s_16
+            nb.tk.config(width=button_size, height=button_size)
+            nb.tk.pack_propagate(False)
             col += 1
             if col == 3:
                 col = 0
