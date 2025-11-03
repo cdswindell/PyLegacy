@@ -126,13 +126,14 @@ class EngineGui(Thread, Generic[S]):
         self._scope_tmcc_ids = {}
 
         # various boxes
-        self.emergency_box = self.keypad_box = self.scope_box = None
+        self.emergency_box = self.keypad_box = self.scope_box = self.name_box = None
 
         # various buttons
         self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = None
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = None
+        self.name_text = None
         self.on_btn_box = self.off_btn_box = None
 
         # Thread-aware shutdown signaling
@@ -324,7 +325,8 @@ class EngineGui(Thread, Generic[S]):
             self.scope = scope
         else:
             self._scope_tmcc_ids[scope] = 0
-        self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:04d}"
+        num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
+        self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
         self.scope_box.show()
         self.scope_keypad()
 
@@ -349,7 +351,24 @@ class EngineGui(Thread, Generic[S]):
     def make_keypad(self, app: App):
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
 
-        self.tmcc_id_box = tmcc_id_box = TitleBox(keypad_box, f"{self.scope.title} TMCC ID", grid=[0, 0, 3, 1])
+        row = 0
+        self.name_box = name_box = TitleBox(keypad_box, "Road Name", grid=[0, row, 3, 1])
+        name_box.text_size = self.s_12
+
+        self.name_text = name_text = Text(
+            name_box,
+            text="",
+            align="top",
+            bold=True,
+            width="fill",
+        )
+        name_text.text_color = "blue"
+        name_text.text_bold = True
+        name_text.text_size = self.s_20
+        name_text.width = 16
+
+        row += 1
+        self.tmcc_id_box = tmcc_id_box = TitleBox(keypad_box, f"{self.scope.title} TMCC ID", grid=[0, row, 3, 1])
         tmcc_id_box.text_size = self.s_12
 
         self.tmcc_id_text = tmcc_id = Text(
@@ -363,9 +382,11 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id.text_bold = True
         tmcc_id.text_size = self.s_20
         tmcc_id.width = 16
-        _ = Text(keypad_box, text=" ", grid=[0, 1, 3, 1], align="top", size=3, height=1, bold=True)
 
-        row = 2
+        row += 1
+        _ = Text(keypad_box, text=" ", grid=[0, row, 3, 1], align="top", size=3, height=1, bold=True)
+
+        row += 1
         for r, kr in enumerate(LAYOUT):
             for c, label in enumerate(kr):
                 img = tk.PhotoImage(width=self.button_size, height=self.button_size)
@@ -421,12 +442,13 @@ class EngineGui(Thread, Generic[S]):
         app.update()
 
     def on_keypress(self, key: str) -> None:
+        num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         self.tmcc_id_text.hide()
         tmcc_id = self.tmcc_id_text.value
         if key.isdigit():
             tmcc_id = tmcc_id[1:] + key
         elif key == "C":
-            tmcc_id = "0000"
+            tmcc_id = "0" * num_chars
         elif key == "↵":
             tid = int(tmcc_id)
             if tid:
