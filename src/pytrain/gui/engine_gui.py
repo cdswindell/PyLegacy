@@ -121,7 +121,7 @@ class EngineGui(Thread, Generic[S]):
         self.halt_btn = self.reset_btn = None
 
         # various fields
-        self.tmcc_id_text = None
+        self.tmcc_id_text = self._nbi = None
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -249,43 +249,7 @@ class EngineGui(Thread, Generic[S]):
         self.make_emergency_buttons(app)
 
         # make selection box and keypad
-        self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
-        tmcc_id_box = TitleBox(keypad_box, "TMCC ID", grid=[0, 0, 3, 1])
-        tmcc_id_box.text_size = self.s_10
-        self.tmcc_id_text = tmcc_id = Text(
-            tmcc_id_box,
-            text="0000",
-            align="top",
-            size=self.s_20,
-            bold=True,
-        )
-        tmcc_id.text_color = "blue"
-        tmcc_id.text_bold = True
-
-        row = 1
-        col = 0
-        button_size = int(round(self.width / 5))
-        print(self.width, button_size)
-        self._nbi = img = tk.PhotoImage(width=button_size, height=button_size)
-        for x in range(1, 10):
-            nb = PushButton(
-                keypad_box,
-                text=str(x),
-                grid=[col, row],
-                align="top",
-            )
-            nb.text_color = "black"
-            nb.text_size = self.s_16
-            nb.tk.config(image=img, compound="center")
-            nb.tk.config(width=button_size, height=button_size)
-            nb.text_size = self.s_20
-            nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=0)
-            # spacing between buttons (in pixels)
-            nb.tk.grid_configure(padx=6, pady=6)
-            col += 1
-            if col == 3:
-                col = 0
-                row += 1
+        self.make_keypad(app)
 
         self._image = None
         if self.image_file:
@@ -310,6 +274,45 @@ class EngineGui(Thread, Generic[S]):
             self._image = None
             self.app = None
             self._ev.set()
+
+    def make_keypad(self, app: App):
+        self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
+        tmcc_id_box = TitleBox(keypad_box, "TMCC ID", grid=[0, 0, 3, 1])
+        tmcc_id_box.text_size = self.s_10
+        tmcc_id_box.width = "fill"
+        self.tmcc_id_text = tmcc_id = Text(
+            tmcc_id_box,
+            text="0000",
+            align="top",
+            size=self.s_20,
+            bold=True,
+        )
+        tmcc_id.text_color = "blue"
+        tmcc_id.text_bold = True
+
+        row = 1
+        col = 0
+        button_size = int(round(self.width / 5))
+        print(self.width, button_size)
+        self._nbi = img = tk.PhotoImage(width=button_size, height=button_size)
+        for x in range(1, 10):
+            nb = PushButton(
+                keypad_box,
+                text=str(x),
+                grid=[col, row],
+                align="top",
+            )
+            nb.text_color = "black"
+            nb.tk.config(image=img, compound="center")
+            nb.tk.config(width=button_size, height=button_size)
+            nb.text_size = self.s_20
+            nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+            # spacing between buttons (in pixels)
+            nb.tk.grid_configure(padx=6, pady=6)
+            col += 1
+            if col == 3:
+                col = 0
+                row += 1
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
