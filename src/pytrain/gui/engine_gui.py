@@ -370,6 +370,17 @@ class EngineGui(Thread, Generic[S]):
                 nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
                 # spacing between buttons (in pixels)
                 nb.tk.grid_configure(padx=6, pady=6)
+        # fill in last row; contents depends on scope
+        row = 6
+        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            cell = Box(keypad_box, layout="auto", grid=[0, row])
+            nb = PushButton(
+                cell, image=self.turn_on_image, align="top", height=self.button_size, width=self.button_size, text="on"
+            )
+            nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+            # spacing between buttons (in pixels)
+            nb.tk.grid_configure(padx=6, pady=6)
+
         app.update()
 
     def make_emergency_buttons(self, app: App):
@@ -423,20 +434,6 @@ class EngineGui(Thread, Generic[S]):
                 self._scope_tmcc_ids[self.scope] = tid
         self.tmcc_id_text.value = tmcc_id
         self.tmcc_id_text.show()
-
-    def make_power_button(self, state: S, label: str, col: int, text_len: int, container: Box) -> PowerButton:
-        btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
-        tb = Text(btn_box, text=label, align="top", size=self.s_16, underline=True)
-        tb.width = text_len
-        button = PowerButton(
-            btn_box,
-            image=self.turn_on_image,
-            align="top",
-            height=self.s_72,
-            width=self.s_72,
-        )
-        button.tmcc_id = state.tmcc_id
-        return button
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
