@@ -293,6 +293,8 @@ class EngineGui(Thread, Generic[S]):
             scope_box.tk.grid_columnconfigure(i, weight=1)
             # associate the button with its scope
             self._scope_buttons[scope] = pb
+        # highlight initial button
+        self.on_scope(self.scope)
 
         self._image = None
         if self.image_file:
@@ -326,7 +328,7 @@ class EngineGui(Thread, Generic[S]):
             else:
                 v.bg = self._disabled_bg
         if scope != self.scope:
-            self.tmcc_id_box.value = f"{scope.title}"
+            self.tmcc_id_box.text = f"{scope.title}"
             self.scope = scope
         self.scope_box.show()
 
