@@ -31,6 +31,7 @@ from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
+from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
 from ..pdi.asc2_req import Asc2Req
@@ -124,6 +125,7 @@ class EngineGui(Thread, Generic[S]):
         self._btn_images = []
         self._scope_buttons = {}
         self._scope_tmcc_ids = {}
+        self._engine_cache = {}
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = None
@@ -324,7 +326,7 @@ class EngineGui(Thread, Generic[S]):
         if scope != self.scope:
             self.tmcc_id_box.text = f"{scope.title} ID"
             self.scope = scope
-            self.update_road_name()
+            self.update_component_info()
         else:
             self._scope_tmcc_ids[scope] = 0
             force_entry_mode = True
@@ -476,16 +478,16 @@ class EngineGui(Thread, Generic[S]):
             tmcc_id = tmcc_id[1:] + key
         elif key == "C":
             tmcc_id = "0" * num_chars
-            self.update_road_name(0)
+            self.update_component_info(0)
         elif key == "↵":
             self._scope_tmcc_ids[self.scope] = int(tmcc_id)
-            self.update_road_name()
+            self.update_component_info()
         else:
             print(f"Unknown key: {key}")
         self.tmcc_id_text.value = tmcc_id
         self.tmcc_id_text.show()
 
-    def update_road_name(self, tmcc_id: int = None):
+    def update_component_info(self, tmcc_id: int = None):
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
         if tmcc_id:
@@ -496,6 +498,7 @@ class EngineGui(Thread, Generic[S]):
             else:
                 name = "Not Defined"
             self.name_text.value = name
+            self.update_component_image()
         else:
             self.name_text.value = ""
 
@@ -601,3 +604,16 @@ class EngineGui(Thread, Generic[S]):
             state = pb.component_state
             if state.is_asc2:
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
+
+    def update_component_image(self):
+        prod_info = None
+        if self.scope in {CommandScope.ENGINE} and self._scope_tmcc_ids[self.scope] != 0:
+            tmcc_id = self._scope_tmcc_ids[self.scope]
+            if tmcc_id not in self._engine_cache:
+                state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
+                if state and state.bt_id:
+                    prod_info = ProdInfo.by_btid(state.bt_id)
+                self._engine_cache[tmcc_id] = prod_info
+            else:
+                prod_info = self._engine_cache[tmcc_id]
+        print(f"Scope: {self.scope.title} TMCC ID: {self._scope_tmcc_ids[self.scope]} prod id: {prod_info}")

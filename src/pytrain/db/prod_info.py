@@ -6,15 +6,61 @@
 #  SPDX-License-Identifier: LPGL
 #
 #
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import ClassVar
 
 import requests
-
 
 API_KEY = "LionChief-Android-ED2E9A6F5F08"
 PROD_INFO_URL = "https://proddb.lionel.com/api/engine/getenginebyhexid/{}"
 
 
+# noinspection PyTypeChecker
+@dataclass
 class ProdInfo:
+    id: int
+    sku_number: int
+    ble_hexid: str
+    description: str
+    road_name: str
+    road_number: str
+    gauge: str
+    image_url: str
+    _image_content: bytes = field(init=False, default=None)
+
+    # class variables
+    _bt_cache: ClassVar[dict[str, ProdInfo]] = {}
+
+    def __post_init__(self):
+        print(self)
+        self._image_content = None
+        self._image = None
+        ProdInfo._bt_cache[self.ble_hexid] = self
+        print(f"Created ProdInfo for {self.ble_hexid} cached: {self.ble_hexid in ProdInfo._bt_cache}")
+
+    @property
+    def image_content(self) -> bytes:
+        if self._image_content is None:
+            response = requests.get(self.image_url)
+            if response.status_code == 200:
+                self._image_content = response.content
+            else:
+                msg = f"Request for product image on {self.id} failed with status code {response.status_code}"
+                raise requests.RequestException(msg)
+        return self._image_content
+
+    @classmethod
+    def by_btid(cls, bt_id: str) -> ProdInfo | None:
+        if bt_id in cls._bt_cache:
+            return cls._bt_cache[bt_id]
+        prod_json = cls.get_info(bt_id)
+        if prod_json:
+            return cls.from_dict(prod_json)
+        else:
+            return None
+
     @classmethod
     def get_info(cls, bt_id: str) -> dict:
         header = {"LionelApiKey": API_KEY}
@@ -24,3 +70,26 @@ class ProdInfo:
         else:
             msg = f"Request for product information on {bt_id} failed with status code {response.status_code}"
             raise requests.RequestException(msg)
+
+    # noinspection PyTypeChecker
+    @classmethod
+    def from_dict(cls, data: dict) -> ProdInfo:
+        # Handle potential missing keys or type conversions
+        id = data.get("id", None)
+        sku_number = int(data.get("skuNumber", 0))  # Convert to int
+        image_url = data.get("imageUrl", None)
+        ble_hexid = data.get("blE_HexId", None)
+        description = data.get("description", None)
+        road_name = data.get("roadName", None)
+        road_number = data.get("roadNumber", None)
+        gauge = data.get("gauge", None)
+        return cls(
+            id=id,
+            sku_number=sku_number,
+            ble_hexid=ble_hexid,
+            description=description,
+            road_name=road_name,
+            road_number=road_number,
+            gauge=gauge,
+            image_url=image_url,
+        )
