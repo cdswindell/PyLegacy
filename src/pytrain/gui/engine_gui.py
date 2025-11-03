@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import atexit
 import logging
-import re
 import tkinter as tk
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
@@ -41,9 +40,6 @@ from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
-
-HYPHEN_CLEANUP = re.compile(r"(?<=[A-Za-z])-+(?=[A-Za-z])")
-SPACE_CLEANUP = re.compile(r"\s{2,}")
 
 LAYOUT = [
     ["1", "2", "3"],
@@ -203,13 +199,6 @@ class EngineGui(Thread, Generic[S]):
     def queue_message(self, message: Callable, *args: Any) -> None:
         self._message_queue.put((message, args))
 
-    @staticmethod
-    def normalize(text: str) -> str:
-        text = text.strip().lower()
-        text = HYPHEN_CLEANUP.sub(" ", text)
-        text = SPACE_CLEANUP.sub(" ", text)
-        return text
-
     # noinspection PyTypeChecker
     def run(self) -> None:
         self._shutdown_flag.clear()
@@ -268,13 +257,14 @@ class EngineGui(Thread, Generic[S]):
         button_height = int(round(50 * self._scale_by))
         self.scope_box = scope_box = Box(app, layout="grid", border=2, align="bottom")
         _ = Text(scope_box, text=" ", grid=[0, 0, 5, 1], align="top", size=3, height=1, bold=True)
-        for i, scope in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
+        for i, scope_abbrev in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
+            scope = CommandScope.by_prefix(scope_abbrev)
             # Create a PhotoImage to enforce button size
             img = tk.PhotoImage(width=self.button_size, height=button_height)
             self._btn_images.append(img)
             pb = PushButton(
                 scope_box,
-                text=scope,
+                text=scope_abbrev,
                 grid=[i, 1],
                 align="top",
                 height=1,
@@ -288,7 +278,6 @@ class EngineGui(Thread, Generic[S]):
             pb.tk.config(image=img, compound="center")
             pb.tk.config(width=self.button_size, height=button_height)
             pb.tk.config(padx=0, pady=0)
-
             # Make the grid column expand to fill space
             scope_box.tk.grid_columnconfigure(i, weight=1)
             # associate the button with its scope
