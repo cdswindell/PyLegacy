@@ -45,6 +45,13 @@ S = TypeVar("S", bound=ComponentState)
 HYPHEN_CLEANUP = re.compile(r"(?<=[A-Za-z])-+(?=[A-Za-z])")
 SPACE_CLEANUP = re.compile(r"\s{2,}")
 
+LAYOUT = [
+    ["1", "2", "3"],
+    ["4", "5", "6"],
+    ["7", "8", "9"],
+    ["C", "0", "↵"],
+]
+
 
 class EngineGui(Thread, Generic[S]):
     @classmethod
@@ -296,32 +303,27 @@ class EngineGui(Thread, Generic[S]):
         _ = Text(keypad_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
 
         row = 3
-        col = 0
         button_size = int(round(self.width / 5))
-        print(self.width, button_size)
-        for x in range(1, 10):
-            img = tk.PhotoImage(width=button_size, height=button_size)
-            nb = PushButton(
-                keypad_box,
-                text=str(x),
-                grid=[col, row],
-                align="top",
-                command=self.on_keypress,
-                args=[str(x)],
-            )
-            nb._img = img
-            nb.text_color = "black"
-            nb.tk.config(image=img, compound="center")
-            nb.tk.config(width=button_size, height=button_size)
-            nb.text_size = self.s_20
-            nb.text_bold = True
-            nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-            # spacing between buttons (in pixels)
-            nb.tk.grid_configure(padx=6, pady=6)
-            col += 1
-            if col == 3:
-                col = 0
-                row += 1
+        for r, kr in enumerate(LAYOUT):
+            for c, label in enumerate(kr):
+                img = tk.PhotoImage(width=button_size, height=button_size)
+                nb = PushButton(
+                    keypad_box,
+                    text=label,
+                    grid=[c, r + row],
+                    align="top",
+                    command=self.on_keypress,
+                    args=[label],
+                )
+                nb._img = img
+                nb.text_color = "black"
+                nb.tk.config(image=img, compound="center")
+                nb.tk.config(width=button_size, height=button_size)
+                nb.text_size = self.s_20
+                nb.text_bold = True
+                nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+                # spacing between buttons (in pixels)
+                nb.tk.grid_configure(padx=6, pady=6)
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
@@ -364,7 +366,7 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id = self.tmcc_id_text.value
         if key.isdigit():
             tmcc_id = tmcc_id[1:] + key
-        elif key == "Clr":
+        elif key == "C":
             tmcc_id = "0000"
         self.tmcc_id_text.value = tmcc_id
 
