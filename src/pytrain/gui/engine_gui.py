@@ -359,24 +359,18 @@ class EngineGui(Thread, Generic[S]):
         self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="left")
         tmcc_id_box.text_size = self.s_12
 
-        self.tmcc_id_text = tmcc_id = Text(
-            tmcc_id_box,
-            text="0000",
-            align="left",
-            bold=True,
-            width="fill",
-        )
+        self.tmcc_id_text = tmcc_id = Text(tmcc_id_box, text="0000", align="left", bold=True)
         tmcc_id.text_color = "blue"
         tmcc_id.text_bold = True
         tmcc_id.text_size = self.s_20
         tmcc_id.width = 5
-        tmcc_id.height = 1
         app.update()  # we want to measure height of the title box
 
         self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
         name_box.text_size = self.s_12
         name_box.height = tmcc_id_box.tk.winfo_reqheight()
         name_box.width = self.emergency_box.tk.winfo_reqwidth() - tmcc_id_box.tk.winfo_reqwidth()
+        print(f"name_box.height={name_box.height} name_box.width={name_box.width}")
 
         self.name_text = name_text = Text(
             name_box,
