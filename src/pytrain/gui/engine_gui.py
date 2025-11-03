@@ -306,7 +306,7 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id.text_color = "blue"
         tmcc_id.text_bold = True
         tmcc_id.text_size = self.s_20
-        tmcc_id.width = "20"
+        tmcc_id.width = 18
         _ = Text(keypad_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
 
         row = 3
