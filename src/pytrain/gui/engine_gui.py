@@ -94,6 +94,7 @@ class EngineGui(Thread, Generic[S]):
         if self.height > 320 and max_image_height == 0.45:
             max_image_height = 0.55
         self._max_image_height = max_image_height
+        self.s_22: int = int(round(22 * scale_by))
         self.s_20: int = int(round(20 * scale_by))
         self.s_18: int = int(round(18 * scale_by))
         self.s_16: int = int(round(16 * scale_by))
@@ -378,7 +379,7 @@ class EngineGui(Thread, Generic[S]):
                 nb.text_color = "black"
                 nb.tk.config(image=img, compound="center")
                 nb.tk.config(width=self.button_size, height=self.button_size)
-                nb.text_size = self.s_20
+                nb.text_size = self.s_22
                 nb.text_bold = True
                 nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
                 # spacing between buttons (in pixels)
