@@ -620,8 +620,8 @@ class EngineGui(Thread, Generic[S]):
                     scale = min(width_scale, height_scale)
                     print(f"Scaling image to {scale:.2f}x  {width_scale} {height_scale}")
 
-                    scaled_width = int(orig_width * scale)
-                    scaled_height = int(orig_height * scale)
+                    scaled_width = int(orig_width * width_scale)
+                    scaled_height = int(orig_height * width_scale)
 
                     img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
                     self._engine_image_cache[tmcc_id] = img
