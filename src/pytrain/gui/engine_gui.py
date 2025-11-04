@@ -330,7 +330,7 @@ class EngineGui(Thread, Generic[S]):
                 # state shouldn't be None, but good to check
                 if state:
                     action = self.get_scoped_on_change(state)
-                    self._scope_watchers[self.scope] = StateWatcher(self.scope, action)
+                    self._scope_watchers[self.scope] = StateWatcher(state, action)
 
     def get_scoped_on_change(self, state: S) -> Callable:
         action = self._scoped_callbacks.get(self.scope, lambda s: print(s))
