@@ -572,7 +572,7 @@ class EngineGui(Thread, Generic[S]):
             pass
         elif self.scope in {CommandScope.ROUTE}:
             self.fire_route_btn.bg = "white"
-            if self.scope in self._scope_tmcc_ids[self.scope] and self._scope_tmcc_ids[self.scope]:
+            if self.scope in self._scope_tmcc_ids and self._scope_tmcc_ids[self.scope]:
                 state = ComponentStateStore.get().get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
                 if isinstance(state, RouteState) and state.is_active:
                     self.fire_route_btn.bg = self._active_text
