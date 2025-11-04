@@ -156,7 +156,7 @@ class EngineGui(Thread, Generic[S]):
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
         self.name_text = None
-        self.on_btn_box = self.off_btn_box = None
+        self.on_key_cell = self.off_key_cell = None
         self.engine_image = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
 
@@ -359,11 +359,11 @@ class EngineGui(Thread, Generic[S]):
         if tmcc_id == 0 or force_entry_mode:
             self.entry_mode()
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-                self.on_btn_box.show()
-                self.off_btn_box.show()
+                self.on_key_cell.show()
+                self.off_key_cell.show()
             else:
-                self.on_btn_box.hide()
-                self.off_btn_box.hide()
+                self.on_key_cell.hide()
+                self.off_key_cell.hide()
             self.keypad_box.show()
         else:
             self.ops_mode()
@@ -449,7 +449,8 @@ class EngineGui(Thread, Generic[S]):
             row += 1
 
         # fill in last row; contents depends on scope
-        self.on_btn_box = cell = Box(keypad_box, layout="auto", grid=[0, row])
+        self.on_key_cell = cell = Box(keypad_box, layout="auto", grid=[0, row])
+        self.entry_cells.add(cell)
         self.on_btn = nb = PushButton(
             cell,
             image=self.turn_on_image,
@@ -465,7 +466,8 @@ class EngineGui(Thread, Generic[S]):
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
         # off button
-        self.off_btn_box = cell = Box(keypad_box, layout="auto", grid=[1, row])
+        self.off_key_cell = cell = Box(keypad_box, layout="auto", grid=[1, row])
+        self.entry_cells.add(cell)
         self.off_btn = nb = PushButton(
             cell,
             image=self.turn_off_image,
