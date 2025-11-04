@@ -107,6 +107,7 @@ class EngineGui(Thread, Generic[S]):
         self.bs = bs
         self.s_72 = self.scale(72, 0.7)
         self.grid_pad_by = 2
+        self.avail_image_height = self.avail_image_width = None
         self.scope = CommandScope.ENGINE
 
         self._enabled_bg = enabled_bg
@@ -629,20 +630,7 @@ class EngineGui(Thread, Generic[S]):
                     self.app.after(500, self.update_component_image, [tmcc_id])
                     return
             if isinstance(prod_info, ProdInfo):
-                # Calculate available space for the image
-                self.app.update()
-
-                # Get the heights of fixed elements
-                info_height = self.info_box.tk.winfo_reqheight()
-                keypad_height = self.keypad_box.tk.winfo_reqheight()
-                scope_height = self.scope_box.tk.winfo_reqheight()
-                header_height = self.header.tk.winfo_reqheight()
-
-                # Calculate remaining vertical space
-                available_height = (
-                    self.height - info_height - keypad_height - scope_height - header_height - 20
-                )  # 60 for spacing/borders
-                available_width = self.width - 20  # account for borders
+                available_height, available_width = self.calc_image_box_size()
 
                 # Get original image dimensions
                 from io import BytesIO
@@ -657,13 +645,8 @@ class EngineGui(Thread, Generic[S]):
                 height_scale = available_height / orig_height
                 scale = min(width_scale, height_scale)
 
-                print(
-                    f"Image: {orig_width}x{orig_height}px, av: {available_width}x{available_height}px sc: {scale:.2f}"
-                )
-
                 scaled_width = int(orig_width * scale)
                 scaled_height = int(orig_height * scale)
-                print(f"Scaled: {scaled_width}x{scaled_height}px")
 
                 # Resize image if needed
                 img = self._engine_image_cache.get(tmcc_id, None)
@@ -673,9 +656,30 @@ class EngineGui(Thread, Generic[S]):
                     self._engine_image_cache[tmcc_id] = img
 
                 self.engine_image.tk.config(image=img)
-                self.engine_image.width = scaled_width
-                self.engine_image.height = scaled_height
+                self.engine_image.width = available_width
+                self.engine_image.height = available_height
                 self.image_box.show()
+
+    def calc_image_box_size(self) -> tuple[int, int | Any]:
+        with self._cv:
+            if self.avail_image_height is None or self.avail_image_width is None:
+                # Calculate available space for the image
+                self.app.update()
+
+                # Get the heights of fixed elements
+                emergency_height = self.emergency_box.tk.winfo_reqheight()
+                info_height = self.info_box.tk.winfo_reqheight()
+                keypad_height = self.keypad_box.tk.winfo_reqheight()
+                scope_height = self.scope_box.tk.winfo_reqheight()
+                header_height = self.header.tk.winfo_reqheight()
+
+                # Calculate remaining vertical space
+                self.avail_image_height = (
+                    self.height - emergency_height - info_height - keypad_height - scope_height - header_height - 10
+                )
+                # use width of emergency height box as standard
+                self.avail_image_width = self.emergency_box.tk.winfo_reqwidth()
+        return self.avail_image_height, self.avail_image_width
 
     def request_prod_info(self, tmcc_id: int | None) -> ProdInfo | None:
         state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
