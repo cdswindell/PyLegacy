@@ -650,9 +650,9 @@ class EngineGui(Thread, Generic[S]):
                     self._engine_cache[tmcc_id] = fetch_thread
                     fetch_thread.start()
                     return
-                elif isinstance(prod_info, Thread):
-                    self.app.after(500, self.update_component_image, [tmcc_id])
-                    return
+                # elif isinstance(prod_info, Thread):
+                #     self.app.after(500, self.update_component_image, [tmcc_id])
+                #     return
             if isinstance(prod_info, ProdInfo):
                 available_height, available_width = self.calc_image_box_size()
 
