@@ -148,7 +148,7 @@ class EngineGui(Thread, Generic[S]):
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
         self.name_text = None
-        self.on_btn_box = self.off_btn_box = self.set_btn_box = None
+        self.on_btn_box = self.off_btn_box = None
         self.engine_image = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = None
 
@@ -434,8 +434,6 @@ class EngineGui(Thread, Generic[S]):
                     self.clear_key_cell = cell
                 elif label == ENTER_KEY:
                     self.enter_key_cell = cell
-                elif label == SET_KEY:
-                    self.set_key_cell = cell
             row += 1
 
         # fill in last row; contents depends on scope
@@ -471,7 +469,7 @@ class EngineGui(Thread, Generic[S]):
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
         # set button
-        self.set_btn_box = cell = Box(keypad_box, layout="auto", grid=[2, row])
+        self.set_key_cell = cell = Box(keypad_box, layout="auto", grid=[2, row])
         img = tk.PhotoImage(width=self.button_size, height=self.button_size)
         self._btn_images.append(img)
         self.set_btn = nb = PushButton(
