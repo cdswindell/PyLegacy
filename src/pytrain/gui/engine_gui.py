@@ -79,8 +79,8 @@ class EngineGui(Thread, Generic[S]):
         disabled_bg: str = "white",
         enabled_text: str = "black",
         disabled_text: str = "lightgrey",
-        active_text: str = "green",
-        inactive_text: str = "red",
+        active_bg: str = "green",
+        inactive_bg: str = "white",
         scale_by: float = 1.0,
         bs: int = 50,
         max_image_width: float = 0.80,
@@ -134,8 +134,8 @@ class EngineGui(Thread, Generic[S]):
         self._disabled_bg = disabled_bg
         self._enabled_text = enabled_text
         self._disabled_text = disabled_text
-        self._active_text = active_text
-        self._inactive_text = inactive_text
+        self._active_bg = active_bg
+        self._inactive_bg = inactive_bg
         self.app = self.box = self.acc_box = self.y_offset = None
         self.turn_on_image = find_file("on_button.jpg")
         self.turn_off_image = find_file("off_button.jpg")
@@ -149,6 +149,7 @@ class EngineGui(Thread, Generic[S]):
         self._btn_images = []
         self._scope_buttons = {}
         self._scope_tmcc_ids = {}
+        self._scope_watchers = {}
         self._engine_cache = {}
         self._engine_image_cache = {}
         self.entry_cells = set()
@@ -168,6 +169,11 @@ class EngineGui(Thread, Generic[S]):
         self.engine_image = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
         self.switch_thru_cell = self.switch_out_cell = None
+
+        # callbacks
+        self._scoped_callbacks = {
+            CommandScope.ROUTE: self.on_new_route,
+        }
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -208,7 +214,7 @@ class EngineGui(Thread, Generic[S]):
                 self._sync_watcher.shutdown()
                 self._sync_watcher = None
             self._synchronized = True
-            self._base_state = ComponentStateStore.get().get_state(CommandScope.BASE, 0, False)
+            self._base_state = self._state_store.get_state(CommandScope.BASE, 0, False)
             if self._base_state:
                 self.title = cast(BaseState, self._base_state).base_name
             else:
@@ -306,6 +312,48 @@ class EngineGui(Thread, Generic[S]):
             self._image = None
             self.app = None
             self._ev.set()
+
+    def monitor_state(self):
+        with self._cv:
+            tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
+            watcher = self._scope_watchers.get(self.scope, None)
+            if isinstance(watcher, StateWatcher) and watcher.tmcc_id == tmcc_id:
+                # we're good, return
+                return
+            if isinstance(watcher, StateWatcher):
+                # close existing watcher
+                watcher.shutdown()
+                self._scope_watchers[self.scope] = None
+            if tmcc_id:
+                # create a new state watcher to monitor state of scoped entity
+                state = self._state_store.get_state(self.scope, tmcc_id, False)
+                # state shouldn't be None, but good to check
+                if state:
+                    action = self.get_scoped_on_change(state)
+                    self._scope_watchers[self.scope] = StateWatcher(self.scope, action)
+
+    def get_scoped_on_change(self, state: S) -> Callable:
+        action = self._scoped_callbacks.get(self.scope, lambda s: print(s))
+        print(f"get_scoped_on_change: {action} {state}")
+
+        def upd():
+            if not self._shutdown_flag.is_set():
+                self._message_queue.put((action, [state]))
+
+        return upd
+
+    def on_new_route(self, state: RouteState = None):
+        # must be called from app thread!!
+        state = (
+            state
+            if state
+            else self._state_store.get_state(CommandScope.ROUTE, self._scope_tmcc_ids[CommandScope.ROUTE])
+        )
+        print(f"on_new_route: {state}")
+        if state:
+            self.fire_route_btn.bg = self._active_bg if state.is_active else self._inactive_bg
+        else:
+            self.fire_route_btn.bg = self._inactive_bg
 
     def make_scope(self, app: App):
         button_height = int(round(50 * self._scale_by))
@@ -583,12 +631,7 @@ class EngineGui(Thread, Generic[S]):
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             pass
         elif self.scope in {CommandScope.ROUTE}:
-            self.fire_route_btn.bg = "white"
-            if self.scope in self._scope_tmcc_ids and self._scope_tmcc_ids[self.scope]:
-                state = ComponentStateStore.get().get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
-                print(state)
-                if isinstance(state, RouteState) and state.is_active:
-                    self.fire_route_btn.bg = self._active_text
+            self.on_new_route()
             self.fire_route_cell.show()
         self.update_component_info()
 
@@ -597,7 +640,7 @@ class EngineGui(Thread, Generic[S]):
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
         if tmcc_id:
-            state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
+            state = self._state_store.get_state(self.scope, tmcc_id, False)
             if state:
                 name = state.name
                 self._scope_tmcc_ids[self.scope] = tmcc_id
@@ -730,7 +773,7 @@ class EngineGui(Thread, Generic[S]):
         return self.avail_image_height, self.avail_image_width
 
     def request_prod_info(self, tmcc_id: int | None) -> ProdInfo | None:
-        state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
+        state = self._state_store.get_state(self.scope, tmcc_id, False)
         if state and state.bt_id:
             prod_info = ProdInfo.by_btid(state.bt_id)
         else:

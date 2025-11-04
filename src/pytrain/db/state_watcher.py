@@ -12,8 +12,8 @@ from queue import Queue
 from threading import Thread
 from typing import Callable
 
-from .component_state import ComponentState
 from ..protocol.constants import PROGRAM_NAME
+from .component_state import ComponentState
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +33,10 @@ class StateWatcher(Thread):
     @property
     def watched(self) -> ComponentState:
         return self._state
+
+    @property
+    def tmcc_id(self) -> int:
+        return self._state.tmcc_id if self._state else None
 
     def shutdown(self) -> None:
         self._is_running = False
