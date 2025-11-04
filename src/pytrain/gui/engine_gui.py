@@ -17,6 +17,7 @@ from __future__ import annotations
 import atexit
 import logging
 import tkinter as tk
+from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
@@ -260,10 +261,6 @@ class EngineGui(Thread, Generic[S]):
         # make scope buttons
         self.make_scope(app)
 
-        self._image = None
-        if self.image_file:
-            iw, ih = self.get_scaled_jpg_size(self.image_file)
-            self._image = Picture(app, image=self.image_file, width=iw, height=ih)
         #
         # self.app.update()
         #
@@ -576,28 +573,6 @@ class EngineGui(Thread, Generic[S]):
             log.exception(f"An error occurred: {e}", exc_info=e)
         return None, None
 
-    # noinspection PyTypeChecker
-    def get_scaled_jpg_size(self, image_file: str) -> tuple[int, int]:
-        iw, ih = self.get_jpg_size(image_file)
-        if iw is None or ih is None:
-            return None, None
-        max_width = int(round(self.width * self._max_image_width))
-        max_height = int(round(self.height * self._max_image_height))
-        if ih > iw:
-            scaled_height = max_height
-            scale_factor = max_height / ih
-            scaled_width = int(round(iw * scale_factor))
-        else:
-            scaled_width = max_width
-            scale_factor = max_width / iw
-            scaled_height = int(round(ih * scale_factor))
-            # if the image takes up too much height, do more scaling
-            if (scaled_height / self.height) > self._max_image_height:
-                scaled_height = int(round(self.height * self._max_image_height))
-                scale_factor = scaled_height / ih
-                scaled_width = int(round(iw * scale_factor))
-        return scaled_width, scaled_height
-
     def when_pressed(self, event: EventData) -> None:
         pb = event.widget
         if pb.enabled:
@@ -632,27 +607,23 @@ class EngineGui(Thread, Generic[S]):
             if isinstance(prod_info, ProdInfo):
                 available_height, available_width = self.calc_image_box_size()
 
-                # Get original image dimensions
-                from io import BytesIO
-
-                from PIL import Image
-
-                pil_img = Image.open(BytesIO(prod_info.image_content))
-                orig_width, orig_height = pil_img.size
-
-                # Calculate scaling to fit available space
-                width_scale = available_width / orig_width
-                height_scale = available_height / orig_height
-                scale = min(width_scale, height_scale)
-
-                scaled_width = int(orig_width * scale)
-                scaled_height = int(orig_height * scale)
-
                 # Resize image if needed
                 img = self._engine_image_cache.get(tmcc_id, None)
                 if img is None:
-                    pil_img = pil_img.resize((scaled_width, scaled_height))
-                    img = ImageTk.PhotoImage(pil_img)
+                    # Get original image dimensions
+                    pil_img = Image.open(BytesIO(prod_info.image_content))
+                    orig_width, orig_height = pil_img.size
+
+                    # Calculate scaling to fit available space
+                    width_scale = available_width / orig_width
+                    height_scale = available_height / orig_height
+                    scale = min(width_scale, height_scale)
+                    print(f"Scaling image to {scale:.2f}x  {width_scale} {height_scale}")
+
+                    scaled_width = int(orig_width * scale)
+                    scaled_height = int(orig_height * scale)
+
+                    img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
                     self._engine_image_cache[tmcc_id] = img
 
                 self.engine_image.tk.config(image=img)
@@ -675,13 +646,10 @@ class EngineGui(Thread, Generic[S]):
 
                 # Calculate remaining vertical space
                 self.avail_image_height = (
-                    self.height - header_height - emergency_height - info_height - keypad_height - scope_height - 15
+                    self.height - header_height - emergency_height - info_height - keypad_height - scope_height - 20
                 )
                 # use width of emergency height box as standard
                 self.avail_image_width = self.emergency_box.tk.winfo_reqwidth()
-                print(
-                    f"{self.avail_image_width}x{self.avail_image_height}px ({self.emergency_box.tk.winfo_reqwidth()})"
-                )
         return self.avail_image_height, self.avail_image_width
 
     def request_prod_info(self, tmcc_id: int | None) -> ProdInfo | None:
