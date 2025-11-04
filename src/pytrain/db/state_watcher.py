@@ -56,8 +56,8 @@ class StateWatcher(Thread):
 class UpdateNotifier(Thread):
     def __init__(self, watcher: StateWatcher) -> None:
         super().__init__(daemon=True)
-        self._watcher = watcher
         self._is_running = True
+        self._watcher = watcher
         self._queue = Queue(64)
         self.start()
 
