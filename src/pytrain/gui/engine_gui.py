@@ -649,6 +649,7 @@ class EngineGui(Thread, Generic[S]):
             self.name_text.value = name
         else:
             self.name_text.value = ""
+        self.monitor_state()
         self.app.after(0, self.update_component_image, [tmcc_id])
 
     def make_emergency_buttons(self, app: App):
