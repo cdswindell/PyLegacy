@@ -28,6 +28,7 @@ from guizero.base import Widget
 from guizero.event import EventData
 from PIL import Image, ImageTk
 
+from .. import CommandReq, TMCC1RouteCommandEnum, TMCC1SwitchCommandEnum
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
 from ..db.component_state import ComponentState, RouteState
@@ -50,12 +51,18 @@ LAYOUT = [
     ["⌫", "0", "↵"],
 ]
 
-SWITCH_THROUGH_KEY = "↑"
+SWITCH_THRU_KEY = "↑"
 SWITCH_OUT_KEY = "↖↗"
 FIRE_ROUTE_KEY = "⚡"
 CLEAR_KEY = "⌫"
 ENTER_KEY = "↵"
 SET_KEY = "Set"
+
+KEY_TO_COMMAND = {
+    FIRE_ROUTE_KEY: CommandReq(TMCC1RouteCommandEnum.FIRE),
+    SWITCH_THRU_KEY: CommandReq(TMCC1SwitchCommandEnum.THRU),
+    SWITCH_OUT_KEY: CommandReq(TMCC1SwitchCommandEnum.OUT),
+}
 
 
 class EngineGui(Thread, Generic[S]):
@@ -151,7 +158,7 @@ class EngineGui(Thread, Generic[S]):
 
         # various buttons
         self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = self.set_btn = None
-        self.fire_route_btn = None
+        self.fire_route_btn = self.switch_thru_btn = self.switch_out_btn = None
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
@@ -159,6 +166,7 @@ class EngineGui(Thread, Generic[S]):
         self.on_key_cell = self.off_key_cell = None
         self.engine_image = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
+        self.switch_thru_cell = self.switch_out_cell = None
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
