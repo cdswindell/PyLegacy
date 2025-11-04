@@ -515,6 +515,7 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_info(int(tmcc_id), "")
 
     def entry_mode(self) -> None:
+        print("entry_mode:")
         self.update_component_info(0)
         self._in_entry_mode = True
         if not self.keypad_box.visible:
@@ -527,6 +528,7 @@ class EngineGui(Thread, Generic[S]):
             self.set_key_cell.show()
 
     def ops_mode(self) -> None:
+        print("ops_mode:")
         self._in_entry_mode = False
         if self.clear_key_cell.visible:
             self.clear_key_cell.hide()
@@ -537,6 +539,7 @@ class EngineGui(Thread, Generic[S]):
         self.update_component_info()
 
     def update_component_info(self, tmcc_id: int = None, not_found_value: str = "Not Defined"):
+        print("update_component_info:")
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
         if tmcc_id:
