@@ -47,11 +47,12 @@ LAYOUT = [
     ["1", "2", "3"],
     ["4", "5", "6"],
     ["7", "8", "9"],
-    ["C", "0", "⇖⇗"],
+    ["⌫", "0", "↵"],
 ]
 
-SWITCH_THROUGH = ""
+SWITCH_THROUGH = "↑"
 SWITCH_OUT = "↖↗"
+CLEAR_KEY = "⌫"
 
 
 class EngineGui(Thread, Generic[S]):
@@ -415,7 +416,7 @@ class EngineGui(Thread, Generic[S]):
                 nb.text_color = "black"
                 nb.tk.config(image=img, compound="center")
                 nb.tk.config(width=self.button_size, height=self.button_size)
-                nb.text_size = self.s_22
+                nb.text_size = self.s_22 if label.isdigit() else self.s_24
                 nb.text_bold = True
                 nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
                 # spacing between buttons (in pixels)
@@ -483,7 +484,7 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id = self.tmcc_id_text.value
         if key.isdigit():
             tmcc_id = tmcc_id[1:] + key
-        elif key == "C":
+        elif key == CLEAR_KEY:
             tmcc_id = "0" * num_chars
             self.update_component_info(0)
         elif key == "↵":
