@@ -355,6 +355,7 @@ class EngineGui(Thread, Generic[S]):
             else:
                 pass
 
+    # noinspection PyTypeChecker
     def make_keypad(self, app: App):
         self.info_box = info_box = Box(app, border=2, align="top")
 
@@ -376,7 +377,6 @@ class EngineGui(Thread, Generic[S]):
             width=self.emergency_box.tk.winfo_reqwidth() - tmcc_id_box.tk.winfo_reqwidth(),
         )
         name_box.text_size = self.s_12
-        print(f"name_box.height={name_box.height} name_box.width={name_box.width}")
 
         self.name_text = name_text = Text(
             name_box,
@@ -392,8 +392,8 @@ class EngineGui(Thread, Generic[S]):
         name_text.tk.config(justify="left", anchor="w")  # ← this does the trick!
 
         # add a picture placeholder here, we may not use it
-        self.image_box = image_box = Box(app, border=2, align="top")
-        self.engine_image = Picture(image_box, align="top")
+        self.image_box = image_box = Box(app, border=2, align="bottom", height="fill", width="fill")
+        self.engine_image = Picture(image_box, align="top", height="fill", width="fill")
         self.image_box.hide()
 
         _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
