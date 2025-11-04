@@ -667,18 +667,21 @@ class EngineGui(Thread, Generic[S]):
                 self.app.update()
 
                 # Get the heights of fixed elements
+                header_height = self.header.tk.winfo_reqheight()
                 emergency_height = self.emergency_box.tk.winfo_reqheight()
                 info_height = self.info_box.tk.winfo_reqheight()
                 keypad_height = self.keypad_box.tk.winfo_reqheight()
                 scope_height = self.scope_box.tk.winfo_reqheight()
-                header_height = self.header.tk.winfo_reqheight()
 
                 # Calculate remaining vertical space
                 self.avail_image_height = (
-                    self.height - emergency_height - info_height - keypad_height - scope_height - header_height - 10
+                    self.height - header_height - emergency_height - info_height - keypad_height - scope_height - 15
                 )
                 # use width of emergency height box as standard
                 self.avail_image_width = self.emergency_box.tk.winfo_reqwidth()
+                print(
+                    f"{self.avail_image_width}x{self.avail_image_height}px ({self.emergency_box.tk.winfo_reqwidth()})"
+                )
         return self.avail_image_height, self.avail_image_width
 
     def request_prod_info(self, tmcc_id: int | None) -> ProdInfo | None:
