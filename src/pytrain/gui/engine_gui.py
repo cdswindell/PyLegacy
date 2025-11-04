@@ -28,7 +28,6 @@ from guizero.base import Widget
 from guizero.event import EventData
 from PIL import Image, ImageTk
 
-from .. import CommandReq, TMCC1RouteCommandEnum, TMCC1SwitchCommandEnum
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
 from ..db.component_state import ComponentState, RouteState
@@ -38,7 +37,9 @@ from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import Asc2Action, PdiCommand
+from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
+from ..protocol.tmcc1.tmcc1_constants import TMCC1RouteCommandEnum, TMCC1SwitchCommandEnum
 from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
