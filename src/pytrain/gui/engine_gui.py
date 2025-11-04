@@ -663,14 +663,13 @@ class EngineGui(Thread, Generic[S]):
 
                 scaled_width = int(orig_width * scale)
                 scaled_height = int(orig_height * scale)
+                print(f"Scaled: {scaled_width}x{scaled_height}px")
 
                 # Resize image if needed
-                cache_key = (tmcc_id, scaled_width, scaled_height)
-                img = self._engine_image_cache.get(cache_key, None)
+                img = self._engine_image_cache.get(tmcc_id, None)
                 if img is None:
-                    pil_img = pil_img.resize((scaled_width, scaled_height))
-                    img = tk.PhotoImage(data=prod_info.image_content if scale >= 1.0 else pil_img)
-                    self._engine_image_cache[cache_key] = img
+                    img = pil_img.resize((scaled_width, scaled_height))
+                    self._engine_image_cache[tmcc_id] = img
 
                 self.engine_image.tk.config(image=img)
                 self.engine_image.width = scaled_width
