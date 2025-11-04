@@ -30,7 +30,7 @@ from PIL import Image, ImageTk
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
-from ..db.component_state import ComponentState
+from ..db.component_state import ComponentState, RouteState
 from ..db.component_state_store import ComponentStateStore
 from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
@@ -71,6 +71,8 @@ class EngineGui(Thread, Generic[S]):
         disabled_bg: str = "white",
         enabled_text: str = "black",
         disabled_text: str = "lightgrey",
+        active_text: str = "green",
+        inactive_text: str = "red",
         scale_by: float = 1.0,
         bs: int = 50,
         max_image_width: float = 0.80,
@@ -123,6 +125,8 @@ class EngineGui(Thread, Generic[S]):
         self._disabled_bg = disabled_bg
         self._enabled_text = enabled_text
         self._disabled_text = disabled_text
+        self._active_text = active_text
+        self._inactive_text = inactive_text
         self.app = self.box = self.acc_box = self.y_offset = None
         self.turn_on_image = find_file("on_button.jpg")
         self.turn_off_image = find_file("off_button.jpg")
@@ -138,19 +142,22 @@ class EngineGui(Thread, Generic[S]):
         self._scope_tmcc_ids = {}
         self._engine_cache = {}
         self._engine_image_cache = {}
+        self.entry_cells = set()
+        self.ops_cells = set()
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
 
         # various buttons
         self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = self.set_btn = None
+        self.fire_route_btn = None
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
         self.name_text = None
         self.on_btn_box = self.off_btn_box = None
         self.engine_image = None
-        self.clear_key_cell = self.enter_key_cell = self.set_key_cell = None
+        self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -434,8 +441,10 @@ class EngineGui(Thread, Generic[S]):
                     nb.text_size = self.s_24
                     nb.text_bold = False
                     self.clear_key_cell = cell
+                    self.entry_cells.add(cell)
                 elif label == ENTER_KEY:
                     self.enter_key_cell = cell
+                    self.entry_cells.add(cell)
             row += 1
 
         # fill in last row; contents depends on scope
@@ -472,6 +481,7 @@ class EngineGui(Thread, Generic[S]):
 
         # set button
         self.set_key_cell = cell = Box(keypad_box, layout="auto", grid=[2, row])
+        self.entry_cells.add(cell)
         img = tk.PhotoImage(width=self.button_size, height=self.button_size)
         self._btn_images.append(img)
         self.set_btn = nb = PushButton(
@@ -491,6 +501,31 @@ class EngineGui(Thread, Generic[S]):
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # spacing between buttons (in pixels)
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
+
+        # fire route Cells
+        self.fire_route_cell = cell = Box(keypad_box, layout="auto", grid=[2, row])
+        self.ops_cells.add(cell)
+        img = tk.PhotoImage(width=self.button_size, height=self.button_size)
+        self._btn_images.append(img)
+        self.fire_route_btn = nb = PushButton(
+            cell,
+            align="top",
+            height=self.button_size,
+            width=self.button_size,
+            text=FIRE_ROUTE_KEY,
+            command=self.on_keypress,
+            args=[FIRE_ROUTE_KEY],
+            visible=False,
+        )
+        nb.text_color = "black"
+        nb.tk.config(image=img, compound="center")
+        nb.tk.config(width=self.button_size, height=self.button_size)
+        nb.text_size = self.s_16
+        nb.text_bold = True
+        nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+        # spacing between buttons (in pixels)
+        nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
+
         app.update()
 
     def on_keypress(self, key: str) -> None:
@@ -518,24 +553,30 @@ class EngineGui(Thread, Generic[S]):
         print("entry_mode:")
         self.update_component_info(0)
         self._in_entry_mode = True
+        for cell in self.entry_cells:
+            if not cell.visible:
+                cell.show()
+        for cell in self.ops_cells:
+            if cell.visible:
+                cell.hide()
         if not self.keypad_box.visible:
             self.keypad_box.show()
-        if not self.clear_key_cell.visible:
-            self.clear_key_cell.show()
-        if not self.enter_key_cell.visible:
-            self.enter_key_cell.show()
-        if not self.set_key_cell.visible:
-            self.set_key_cell.show()
 
     def ops_mode(self) -> None:
         print("ops_mode:")
         self._in_entry_mode = False
-        if self.clear_key_cell.visible:
-            self.clear_key_cell.hide()
-        if self.enter_key_cell.visible:
-            self.enter_key_cell.hide()
-        if self.set_key_cell.visible:
-            self.set_key_cell.hide()
+        for cell in self.entry_cells:
+            if cell.visible:
+                cell.hide()
+        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            pass
+        elif self.scope in {CommandScope.ROUTE}:
+            self.fire_route_btn.bg = "white"
+            if self.scope in self._scope_tmcc_ids[self.scope] and self._scope_tmcc_ids[self.scope]:
+                state = ComponentStateStore.get().get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
+                if isinstance(state, RouteState) and state.is_active:
+                    self.fire_route_btn.bg = self._active_text
+            self.fire_route_cell.show()
         self.update_component_info()
 
     def update_component_info(self, tmcc_id: int = None, not_found_value: str = "Not Defined"):
@@ -599,28 +640,6 @@ class EngineGui(Thread, Generic[S]):
             value = max(orig_value, int(factor * value))
         return value
 
-    @staticmethod
-    def get_jpg_size(image_file: str):
-        """
-        Retrieves the native width and height of a JPG image.
-
-        Args:
-            image_file (str): The path to the JPG image file.
-
-        Returns:
-            tuple: A tuple containing the width and height (width, height)
-                   in pixels, or (None, None) if an error occurs.
-        """
-        try:
-            with Image.open(image_file) as img:
-                width, height = img.size
-                return width, height
-        except FileNotFoundError as e:
-            log.exception(f"Error: Image file not found at {image_file}", exc_info=e)
-        except Exception as e:
-            log.exception(f"An error occurred: {e}", exc_info=e)
-        return None, None
-
     def when_pressed(self, event: EventData) -> None:
         pb = event.widget
         if pb.enabled:
@@ -650,9 +669,6 @@ class EngineGui(Thread, Generic[S]):
                     self._engine_cache[tmcc_id] = fetch_thread
                     fetch_thread.start()
                     return
-                # elif isinstance(prod_info, Thread):
-                #     self.app.after(500, self.update_component_image, [tmcc_id])
-                #     return
             if isinstance(prod_info, ProdInfo):
                 available_height, available_width = self.calc_image_box_size()
 
