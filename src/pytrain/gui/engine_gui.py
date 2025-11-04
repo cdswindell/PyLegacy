@@ -253,7 +253,7 @@ class EngineGui(Thread, Generic[S]):
         )
         cb.text_size = self.s_24
         cb.text_bold = True
-        # _ = Text(app, text=" ", align="top", size=6, height=1, bold=True)
+        #_ = Text(app, text=" ", align="top", size=6, height=1, bold=True)
 
         # Make the emergency buttons, including Halt and Reset
         self.make_emergency_buttons(app)
