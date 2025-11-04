@@ -668,7 +668,7 @@ class EngineGui(Thread, Generic[S]):
                 # Resize image if needed
                 img = self._engine_image_cache.get(tmcc_id, None)
                 if img is None:
-                    img = pil_img.resize((scaled_width, scaled_height))
+                    img = pil_img  # .resize((scaled_width, scaled_height))
                     self._engine_image_cache[tmcc_id] = img
 
                 self.engine_image.tk.config(image=img)
