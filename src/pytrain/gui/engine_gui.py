@@ -135,7 +135,7 @@ class EngineGui(Thread, Generic[S]):
         self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = self.set_btn = None
 
         # various fields
-        self.tmcc_id_box = self.tmcc_id_text = self._nbi = None
+        self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
         self.name_text = None
         self.on_btn_box = self.off_btn_box = self.set_btn_box = None
         self.engine_image = None
@@ -239,7 +239,7 @@ class EngineGui(Thread, Generic[S]):
 
         ats = int(round(23 * self._scale_by))
         # customize label
-        cb = Combo(
+        self.header = cb = Combo(
             app,
             options=[self.title],
             selected=self.title,
@@ -636,10 +636,11 @@ class EngineGui(Thread, Generic[S]):
                 info_height = self.info_box.tk.winfo_reqheight()
                 keypad_height = self.keypad_box.tk.winfo_reqheight()
                 scope_height = self.scope_box.tk.winfo_reqheight()
+                header_height = self.header.tk.winfo_reqheight()
 
                 # Calculate remaining vertical space
                 available_height = (
-                    self.height - info_height - keypad_height - scope_height - 60
+                    self.height - info_height - keypad_height - scope_height - header_height - 20
                 )  # 60 for spacing/borders
                 available_width = self.width - 20  # account for borders
 
@@ -656,6 +657,10 @@ class EngineGui(Thread, Generic[S]):
                 height_scale = available_height / orig_height
                 scale = min(width_scale, height_scale)
 
+                print(
+                    f"Image: {orig_width}x{orig_height}px, av: {available_width}x{available_height}px sc: {scale:.2f}"
+                )
+
                 scaled_width = int(orig_width * scale)
                 scaled_height = int(orig_height * scale)
 
@@ -663,8 +668,7 @@ class EngineGui(Thread, Generic[S]):
                 cache_key = (tmcc_id, scaled_width, scaled_height)
                 img = self._engine_image_cache.get(cache_key, None)
                 if img is None:
-                    if scale < 1.0:
-                        pil_img = pil_img.resize((scaled_width, scaled_height))
+                    pil_img = pil_img.resize((scaled_width, scaled_height))
                     img = tk.PhotoImage(data=prod_info.image_content if scale >= 1.0 else pil_img)
                     self._engine_image_cache[cache_key] = img
 
