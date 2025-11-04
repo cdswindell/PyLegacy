@@ -521,7 +521,7 @@ class EngineGui(Thread, Generic[S]):
         nb.text_color = "black"
         nb.tk.config(image=img, compound="center")
         nb.tk.config(width=self.button_size, height=self.button_size)
-        nb.text_size = self.s_24
+        nb.text_size = self.s_30
         nb.text_bold = True
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # spacing between buttons (in pixels)
