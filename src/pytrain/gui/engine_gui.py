@@ -25,7 +25,7 @@ from typing import Any, Callable, Generic, TypeVar, cast
 from guizero import App, Box, Combo, Picture, PushButton, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
-from PIL import Image
+from PIL import Image, ImageTk
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
@@ -668,7 +668,8 @@ class EngineGui(Thread, Generic[S]):
                 # Resize image if needed
                 img = self._engine_image_cache.get(tmcc_id, None)
                 if img is None:
-                    img = pil_img  # .resize((scaled_width, scaled_height))
+                    pil_img = pil_img.resize((scaled_width, scaled_height))
+                    img = ImageTk.PhotoImage(pil_img)
                     self._engine_image_cache[tmcc_id] = img
 
                 self.engine_image.tk.config(image=img)
