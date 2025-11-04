@@ -105,6 +105,7 @@ class EngineGui(Thread, Generic[S]):
         if self.height > 320 and max_image_height == 0.45:
             max_image_height = 0.55
         self._max_image_height = max_image_height
+        self.s_30: int = int(round(30 * scale_by))
         self.s_24: int = int(round(24 * scale_by))
         self.s_22: int = int(round(22 * scale_by))
         self.s_20: int = int(round(20 * scale_by))
@@ -503,7 +504,7 @@ class EngineGui(Thread, Generic[S]):
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
         # fire route Cells
-        self.fire_route_cell = cell = Box(keypad_box, layout="auto", grid=[2, row])
+        self.fire_route_cell = cell = Box(keypad_box, layout="auto", grid=[1, row])
         self.ops_cells.add(cell)
         img = tk.PhotoImage(width=self.button_size, height=self.button_size)
         self._btn_images.append(img)
@@ -520,7 +521,7 @@ class EngineGui(Thread, Generic[S]):
         nb.text_color = "black"
         nb.tk.config(image=img, compound="center")
         nb.tk.config(width=self.button_size, height=self.button_size)
-        nb.text_size = self.s_16
+        nb.text_size = self.s_24
         nb.text_bold = True
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # spacing between buttons (in pixels)
@@ -574,6 +575,7 @@ class EngineGui(Thread, Generic[S]):
             self.fire_route_btn.bg = "white"
             if self.scope in self._scope_tmcc_ids and self._scope_tmcc_ids[self.scope]:
                 state = ComponentStateStore.get().get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
+                print(state)
                 if isinstance(state, RouteState) and state.is_active:
                     self.fire_route_btn.bg = self._active_text
             self.fire_route_cell.show()
