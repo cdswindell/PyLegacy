@@ -636,6 +636,7 @@ class EngineGui(Thread, Generic[S]):
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
 
     def update_component_image(self, tmcc_id: int = None):
+        print("update_component_image:")
         with self._cv:
             self.image_box.hide()
             if tmcc_id is None:
