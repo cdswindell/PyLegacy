@@ -47,7 +47,7 @@ LAYOUT = [
     ["1", "2", "3"],
     ["4", "5", "6"],
     ["7", "8", "9"],
-    ["C", "0", "↵"],
+    ["C", "0", "↖↗"],
 ]
 
 
@@ -96,6 +96,7 @@ class EngineGui(Thread, Generic[S]):
         if self.height > 320 and max_image_height == 0.45:
             max_image_height = 0.55
         self._max_image_height = max_image_height
+        self.s_24: int = int(round(24 * scale_by))
         self.s_22: int = int(round(22 * scale_by))
         self.s_20: int = int(round(20 * scale_by))
         self.s_18: int = int(round(18 * scale_by))
@@ -239,7 +240,6 @@ class EngineGui(Thread, Generic[S]):
 
         app.repeat(20, _poll_shutdown)
 
-        ats = int(round(23 * self._scale_by))
         # customize label
         self.header = cb = Combo(
             app,
@@ -247,9 +247,9 @@ class EngineGui(Thread, Generic[S]):
             selected=self.title,
             align="top",
         )
-        cb.text_size = ats
+        cb.text_size = self.s_24
         cb.text_bold = True
-        _ = Text(app, text=" ", align="top", size=6, height=1, bold=True)
+        # _ = Text(app, text=" ", align="top", size=6, height=1, bold=True)
 
         # Make the emergency buttons, including Halt and Reset
         self.make_emergency_buttons(app)
