@@ -349,6 +349,7 @@ class EngineGui(Thread, Generic[S]):
         # show keypad with appropriate button
         tmcc_id = self._scope_tmcc_ids[self.scope]
         if tmcc_id == 0 or force_entry_mode:
+            self.entry_mode()
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 self.on_btn_box.show()
                 self.off_btn_box.show()
@@ -357,6 +358,7 @@ class EngineGui(Thread, Generic[S]):
                 self.off_btn_box.hide()
             self.keypad_box.show()
         else:
+            self.ops_mode()
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 self.keypad_box.hide()
             else:
