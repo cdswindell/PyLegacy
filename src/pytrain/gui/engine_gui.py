@@ -512,7 +512,7 @@ class EngineGui(Thread, Generic[S]):
         # update information immediately if not in entry mode
         print(f"{self.scope.title} tmcc_id: {tmcc_id} Entry Mode: {self._in_entry_mode}")
         if not self._in_entry_mode:
-            self.update_component_info()
+            self.update_component_info(int(tmcc_id), "")
 
     def entry_mode(self) -> None:
         self.update_component_info(0)
@@ -536,16 +536,16 @@ class EngineGui(Thread, Generic[S]):
             self.set_key_cell.hide()
         self.update_component_info()
 
-    def update_component_info(self, tmcc_id: int = None):
+    def update_component_info(self, tmcc_id: int = None, not_found_value: str = "Not Defined"):
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
         if tmcc_id:
-            self._scope_tmcc_ids[self.scope] = tmcc_id
             state = ComponentStateStore.get().get_state(self.scope, tmcc_id, False)
             if state:
                 name = state.name
+                self._scope_tmcc_ids[self.scope] = tmcc_id
             else:
-                name = "Not Defined"
+                name = not_found_value
             self.name_text.value = name
         else:
             self.name_text.value = ""
