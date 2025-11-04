@@ -50,9 +50,12 @@ LAYOUT = [
     ["⌫", "0", "↵"],
 ]
 
-SWITCH_THROUGH = "↑"
-SWITCH_OUT = "↖↗"
+SWITCH_THROUGH_KEY = "↑"
+SWITCH_OUT_KEY = "↖↗"
+FIRE_ROUTE_KEY = "⚡"
 CLEAR_KEY = "⌫"
+ENTER_KEY = "↵"
+SET_KEY = "Set"
 
 
 class EngineGui(Thread, Generic[S]):
@@ -128,6 +131,7 @@ class EngineGui(Thread, Generic[S]):
         self.left_arrow_image = find_file("left_arrow.jpg")
         self.right_arrow_image = find_file("right_arrow.jpg")
         self._app_counter = 0
+        self._in_entry_mode = True
         self._message_queue = Queue()
         self._btn_images = []
         self._scope_buttons = {}
@@ -146,6 +150,7 @@ class EngineGui(Thread, Generic[S]):
         self.name_text = None
         self.on_btn_box = self.off_btn_box = self.set_btn_box = None
         self.engine_image = None
+        self.clear_key_cell = self.enter_key_cell = self.set_key_cell = None
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -253,7 +258,7 @@ class EngineGui(Thread, Generic[S]):
         )
         cb.text_size = self.s_24
         cb.text_bold = True
-        #_ = Text(app, text=" ", align="top", size=6, height=1, bold=True)
+        # _ = Text(app, text=" ", align="top", size=6, height=1, bold=True)
 
         # Make the emergency buttons, including Halt and Reset
         self.make_emergency_buttons(app)
@@ -421,6 +426,16 @@ class EngineGui(Thread, Generic[S]):
                 nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
                 # spacing between buttons (in pixels)
                 nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
+
+                if label == CLEAR_KEY:
+                    nb.text_color = "red"
+                    nb.text_size = self.s_24
+                    nb.text_bold = False
+                    self.clear_key_cell = cell
+                elif label == ENTER_KEY:
+                    self.enter_key_cell = cell
+                elif label == SET_KEY:
+                    self.set_key_cell = cell
             row += 1
 
         # fill in last row; contents depends on scope
@@ -486,14 +501,39 @@ class EngineGui(Thread, Generic[S]):
             tmcc_id = tmcc_id[1:] + key
         elif key == CLEAR_KEY:
             tmcc_id = "0" * num_chars
-            self.update_component_info(0)
+            self.entry_mode()
         elif key == "↵":
             self._scope_tmcc_ids[self.scope] = int(tmcc_id)
-            self.update_component_info()
+            self.ops_mode()
         else:
             print(f"Unknown key: {key}")
         self.tmcc_id_text.value = tmcc_id
         self.tmcc_id_text.show()
+        # update information immediately if not in entry mode
+        if not self._in_entry_mode:
+            self.update_component_info()
+
+    def entry_mode(self) -> None:
+        self.update_component_info(0)
+        self._in_entry_mode = True
+        if not self.keypad_box.visible:
+            self.keypad_box.show()
+        if not self.clear_key_cell.visible:
+            self.clear_key_cell.show()
+        if not self.enter_key_cell.visible:
+            self.enter_key_cell.show()
+        if not self.set_key_cell.visible:
+            self.set_key_cell.show()
+
+    def ops_mode(self) -> None:
+        self._in_entry_mode = False
+        if self.clear_key_cell.visible:
+            self.clear_key_cell.hide()
+        if self.enter_key_cell.visible:
+            self.enter_key_cell.hide()
+        if self.set_key_cell.visible:
+            self.set_key_cell.hide()
+        self.update_component_info()
 
     def update_component_info(self, tmcc_id: int = None):
         if tmcc_id is None:
