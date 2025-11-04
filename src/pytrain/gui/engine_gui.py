@@ -393,7 +393,7 @@ class EngineGui(Thread, Generic[S]):
 
         # add a picture placeholder here, we may not use it
         self.image_box = image_box = Box(app, border=2, align="top")
-        self.engine_image = Picture(image_box, align="top", height="fill", width="fill")
+        self.engine_image = Picture(image_box, align="top")
         self.image_box.hide()
 
         _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
