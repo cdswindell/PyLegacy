@@ -510,6 +510,7 @@ class EngineGui(Thread, Generic[S]):
         self.tmcc_id_text.value = tmcc_id
         self.tmcc_id_text.show()
         # update information immediately if not in entry mode
+        print(f"{self.scope.title} tmcc_id: {tmcc_id} Entry Mode: {self._in_entry_mode}")
         if not self._in_entry_mode:
             self.update_component_info()
 
