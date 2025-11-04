@@ -47,8 +47,11 @@ LAYOUT = [
     ["1", "2", "3"],
     ["4", "5", "6"],
     ["7", "8", "9"],
-    ["C", "0", "↖↗"],
+    ["C", "0", "⇖⇗"],
 ]
+
+SWITCH_THROUGH = ""
+SWITCH_OUT = "↖↗"
 
 
 class EngineGui(Thread, Generic[S]):
