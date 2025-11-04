@@ -392,7 +392,7 @@ class EngineGui(Thread, Generic[S]):
         name_text.tk.config(justify="left", anchor="w")  # ← this does the trick!
 
         # add a picture placeholder here, we may not use it
-        self.image_box = image_box = Box(app, border=2, align="bottom", height="fill", width="fill")
+        self.image_box = image_box = Box(app, border=2, align="top")
         self.engine_image = Picture(image_box, align="top", height="fill", width="fill")
         self.image_box.hide()
 
@@ -629,11 +629,48 @@ class EngineGui(Thread, Generic[S]):
                     self.app.after(500, self.update_component_image, [tmcc_id])
                     return
             if isinstance(prod_info, ProdInfo):
-                img = self._engine_image_cache.get(tmcc_id, None)
+                # Calculate available space for the image
+                self.app.update()
+
+                # Get the heights of fixed elements
+                info_height = self.info_box.tk.winfo_reqheight()
+                keypad_height = self.keypad_box.tk.winfo_reqheight()
+                scope_height = self.scope_box.tk.winfo_reqheight()
+
+                # Calculate remaining vertical space
+                available_height = (
+                    self.height - info_height - keypad_height - scope_height - 60
+                )  # 60 for spacing/borders
+                available_width = self.width - 20  # account for borders
+
+                # Get original image dimensions
+                from io import BytesIO
+
+                from PIL import Image
+
+                pil_img = Image.open(BytesIO(prod_info.image_content))
+                orig_width, orig_height = pil_img.size
+
+                # Calculate scaling to fit available space
+                width_scale = available_width / orig_width
+                height_scale = available_height / orig_height
+                scale = min(width_scale, height_scale)
+
+                scaled_width = int(orig_width * scale)
+                scaled_height = int(orig_height * scale)
+
+                # Resize image if needed
+                cache_key = (tmcc_id, scaled_width, scaled_height)
+                img = self._engine_image_cache.get(cache_key, None)
                 if img is None:
-                    img = tk.PhotoImage(data=prod_info.image_content)
-                    self._engine_image_cache[tmcc_id] = img
+                    if scale < 1.0:
+                        pil_img = pil_img.resize((scaled_width, scaled_height))
+                    img = tk.PhotoImage(data=prod_info.image_content if scale >= 1.0 else pil_img)
+                    self._engine_image_cache[cache_key] = img
+
                 self.engine_image.tk.config(image=img)
+                self.engine_image.width = scaled_width
+                self.engine_image.height = scaled_height
                 self.image_box.show()
 
     def request_prod_info(self, tmcc_id: int | None) -> ProdInfo | None:
