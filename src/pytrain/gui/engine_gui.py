@@ -648,7 +648,6 @@ class EngineGui(Thread, Generic[S]):
 
     def on_keypress(self, key: str) -> None:
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
-        # self.tmcc_id_text.hide()
         tmcc_id = self.tmcc_id_text.value
         if key.isdigit():
             tmcc_id = tmcc_id[1:] + key
@@ -663,7 +662,6 @@ class EngineGui(Thread, Generic[S]):
         else:
             print(f"Unknown key: {key}")
         self.tmcc_id_text.value = tmcc_id
-        # self.tmcc_id_text.show()
         # update information immediately if not in entry mode
         if not self._in_entry_mode and key.isdigit():
             self.update_component_info(int(tmcc_id), "")
@@ -716,7 +714,10 @@ class EngineGui(Thread, Generic[S]):
             self.name_text.value = name
         else:
             self.name_text.value = ""
+            state = None
         self.monitor_state()
+        # use the callback to update ops button state
+        self._scoped_callbacks.get(self.scope, lambda s: print(s))(state)
         self.app.after(0, self.update_component_image, [tmcc_id])
 
     def make_emergency_buttons(self, app: App):
