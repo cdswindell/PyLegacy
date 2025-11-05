@@ -702,12 +702,13 @@ class EngineGui(Thread, Generic[S]):
         print("update_component_info:")
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
+        # update the tmcc_id associated with current scope
+        self._scope_tmcc_ids[self.scope] = tmcc_id
         if tmcc_id:
             state = self._state_store.get_state(self.scope, tmcc_id, False)
             if state:
                 name = state.name
                 name = name if name and name != "NA" else not_found_value
-                self._scope_tmcc_ids[self.scope] = tmcc_id
             else:
                 name = not_found_value
             self.name_text.value = name
