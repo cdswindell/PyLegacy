@@ -4,6 +4,7 @@ gpiozero>=2.0.1
 guizero~=1.6.0
 luma.oled>=3.14.0
 psutil>=7.1.0
+python-dotenv>=1.2.1
 pyserial>=3.5
 range-key-dict>=1.1
 requests>=2.32.5

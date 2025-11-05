@@ -820,8 +820,8 @@ class EngineGui(Thread, Generic[S]):
             if img:
                 available_height, available_width = self.calc_image_box_size()
                 self.image.tk.config(image=img)
-                self.image.width = self.image_box.width = available_width
-                self.image.height = self.image_box.height = available_height
+                self.image.width = available_width
+                self.image.height = available_height
                 self.image_box.show()
 
     def get_scaled_image(self, source: str | io.BytesIO, preserve_height: bool = False) -> ImageTk.PhotoImage:

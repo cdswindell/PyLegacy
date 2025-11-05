@@ -8,13 +8,17 @@
 #
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import ClassVar
 
 import requests
+from dotenv import find_dotenv, load_dotenv
 
-API_KEY = "LionChief-Android-ED2E9A6F5F08"
-PROD_INFO_URL = "https://proddb.lionel.com/api/engine/getenginebyhexid/{}"
+# Load environment variables that drive behavior
+load_dotenv(find_dotenv())
+API_KEY = os.environ.get("LIONEL_API_KEY")
+PROD_INFO_URL = os.environ.get("PROD_INFO_URL")
 
 
 # noinspection PyTypeChecker
@@ -61,6 +65,8 @@ class ProdInfo:
 
     @classmethod
     def get_info(cls, bt_id: str) -> dict:
+        if PROD_INFO_URL is None or API_KEY is None:
+            raise ValueError("Missing required environment variables")
         header = {"LionelApiKey": API_KEY}
         response = requests.get(PROD_INFO_URL.format(bt_id), headers=header)
         if response.status_code == 200:
