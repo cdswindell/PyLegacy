@@ -624,7 +624,7 @@ class EngineGui(Thread, Generic[S]):
         )
 
         # Sensor Track Buttons
-        self.sensor_track_box = cell = Box(keypad_box, layout="auto", grid=[0, 0, 3, 1], visible=False)
+        self.sensor_track_box = cell = Box(app, layout="auto", align="top", visible=False)
         self.ops_cells.add(cell)
         self.sensor_track_buttons = bg = ButtonGroup(cell, align="top", options=SENSOR_TRACK_OPTS)
         bg.text_size = self.s_20
