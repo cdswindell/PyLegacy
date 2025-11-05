@@ -335,7 +335,6 @@ class EngineGui(Thread, Generic[S]):
 
     def get_scoped_on_change(self, state: S) -> Callable:
         action = self._scoped_callbacks.get(self.scope, lambda s: print(s))
-        print(f"get_scoped_on_change: {action} {state}")
 
         def upd():
             if not self._shutdown_flag.is_set():
@@ -345,23 +344,19 @@ class EngineGui(Thread, Generic[S]):
 
     def on_new_route(self, state: RouteState = None):
         # must be called from app thread!!
-        tmcc_id = self._scope_tmcc_ids[CommandScope.ROUTE]
-        print(f"on_new_route: ID: {tmcc_id} {state}")
-        state = state if state else self._state_store.get_state(CommandScope.ROUTE, tmcc_id, False)
-        print(f"on_new_route: ID (2): {tmcc_id} {state}")
+        if state is None:
+            tmcc_id = self._scope_tmcc_ids[CommandScope.ROUTE]
+            state = self._state_store.get_state(CommandScope.ROUTE, tmcc_id, False) if 1 <= tmcc_id < 99 else None
         if state:
             self.fire_route_btn.bg = self._active_bg if state.is_active else self._inactive_bg
         else:
             self.fire_route_btn.bg = self._inactive_bg
-            print(f"on_new_route: no state, inactivate button: {self.fire_route_btn.bg}")
 
     def on_new_switch(self, state: SwitchState = None):
         # must be called from app thread!!
-        state = (
-            state
-            if state
-            else self._state_store.get_state(CommandScope.SWITCH, self._scope_tmcc_ids[CommandScope.SWITCH])
-        )
+        if state is None:
+            tmcc_id = self._scope_tmcc_ids[CommandScope.SWITCH]
+            state = self._state_store.get_state(CommandScope.SWITCH, tmcc_id, False) if 1 <= tmcc_id < 99 else None
         if state:
             self.switch_thru_btn.bg = self._active_bg if state.is_thru else self._inactive_bg
             self.switch_out_btn.bg = self._active_bg if state.is_out else self._inactive_bg
