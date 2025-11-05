@@ -149,7 +149,7 @@ class EngineGui(Thread, Generic[S]):
         self._scope_tmcc_ids = {}
         self._scope_watchers = {}
         self._engine_cache = {}
-        self._engine_image_cache = {}
+        self._image_cache = {}
         self.entry_cells = set()
         self.ops_cells = set()
 
@@ -804,15 +804,19 @@ class EngineGui(Thread, Generic[S]):
                     return
                 if isinstance(prod_info, ProdInfo):
                     # Resize image if needed
-                    img = self._engine_image_cache.get(tmcc_id, None)
+                    img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
                     if img is None:
                         img = self.get_scaled_image(BytesIO(prod_info.image_content))
-                        self._engine_image_cache[tmcc_id] = img
+                        self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
             elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
                 if isinstance(state, AccessoryState):
-                    if state.is_asc2:
-                        img = self.get_scaled_image(self.asc2_image)
+                    img = self._image_cache.get((CommandScope.ACC, tmcc_id), None)
+                    if img is None:
+                        if state.is_asc2:
+                            img = self.get_scaled_image(self.asc2_image)
+                            self._image_cache[(CommandScope.ACC, tmcc_id)] = img
+                            print("Scaled image dimensions:", type(img))
             if img:
                 available_height, available_width = self.calc_image_box_size()
                 self.engine_image.tk.config(image=img)
@@ -820,7 +824,7 @@ class EngineGui(Thread, Generic[S]):
                 self.engine_image.height = available_height
                 self.image_box.show()
 
-    def get_scaled_image(self, source: str | io.BytesIO) -> Any:
+    def get_scaled_image(self, source: str | io.BytesIO) -> ImageTk.PhotoImage:
         available_height, available_width = self.calc_image_box_size()
         pil_img = Image.open(source)
         orig_width, orig_height = pil_img.size
