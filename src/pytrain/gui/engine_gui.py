@@ -142,6 +142,7 @@ class EngineGui(Thread, Generic[S]):
         self.right_arrow_image = find_file("right_arrow.jpg")
         self.asc2_image = find_file("LCS-ASC2-6-81639.jpg")
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
+        self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
         self._app_counter = 0
         self._in_entry_mode = True
         self._btn_images = []
@@ -772,6 +773,8 @@ class EngineGui(Thread, Generic[S]):
                             img = self.get_scaled_image(self.asc2_image, preserve_height=True)
                         elif state.is_bpc2:
                             img = self.get_scaled_image(self.bpc2_image, preserve_height=True)
+                        elif state.is_sensor_track:
+                            img = self.get_scaled_image(self.sensor_track_image, preserve_height=True)
                         if img:
                             self._image_cache[(CommandScope.ACC, tmcc_id)] = img
             if img and scope == self.scope and tmcc_id == self._scope_tmcc_ids[self.scope]:
