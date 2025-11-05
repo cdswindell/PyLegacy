@@ -82,9 +82,7 @@ class EngineGui(Thread, Generic[S]):
         active_bg: str = "green",
         inactive_bg: str = "white",
         scale_by: float = 1.0,
-        bs: int = 50,
-        max_image_width: float = 0.80,
-        max_image_height: float = 0.45,
+        repeat: int = 2,
     ) -> None:
         Thread.__init__(self, daemon=True, name="Engine GUI")
         self._cv = Condition(RLock())
@@ -109,10 +107,7 @@ class EngineGui(Thread, Generic[S]):
         self._engine_state = None
         self._image = None
         self._scale_by = scale_by
-        self._max_image_width = max_image_width
-        if self.height > 320 and max_image_height == 0.45:
-            max_image_height = 0.55
-        self._max_image_height = max_image_height
+        self.repeat = repeat
         self.s_30: int = int(round(30 * scale_by))
         self.s_24: int = int(round(24 * scale_by))
         self.s_22: int = int(round(22 * scale_by))
@@ -124,7 +119,6 @@ class EngineGui(Thread, Generic[S]):
         self.scope_size = int(round(self.width / 5))
         self._text_pad_x = 20
         self._text_pad_y = 20
-        self.bs = bs
         self.s_72 = self.scale(72, 0.7)
         self.grid_pad_by = 2
         self.avail_image_height = self.avail_image_width = None
@@ -654,11 +648,22 @@ class EngineGui(Thread, Generic[S]):
             self._scope_tmcc_ids[self.scope] = int(tmcc_id)
             self.ops_mode()
         else:
-            print(f"Unknown key: {key}")
-        self.tmcc_id_text.value = tmcc_id
+            self.do_command(key)
+
+        # self.tmcc_id_text.value = tmcc_id
         # update information immediately if not in entry mode
         if not self._in_entry_mode and key.isdigit():
             self.update_component_info(int(tmcc_id), "")
+
+    def do_command(self, key: str) -> None:
+        cmd = KEY_TO_COMMAND.get(key, None)
+        tmcc_id = self._scope_tmcc_ids[self.scope]
+        if cmd and tmcc_id:
+            cmd.scope = self.scope
+            cmd.address = self._scope_tmcc_ids[self.scope]
+            cmd.send(repeat=self.repeat)
+        else:
+            print(f"Unknown key: {key}")
 
     def entry_mode(self) -> None:
         print("entry_mode:")
