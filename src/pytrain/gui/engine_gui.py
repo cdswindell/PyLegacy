@@ -628,6 +628,19 @@ class EngineGui(Thread, Generic[S]):
         self.ops_cells.add(cell)
         self.sensor_track_buttons = bg = ButtonGroup(cell, align="top", options=SENSOR_TRACK_OPTS)
         bg.text_size = self.s_20
+
+        # Make radio buttons larger and add spacing
+        for widget in bg.tk.winfo_children():
+            widget.config(
+                font=("TkDefaultFont", self.s_20),
+                padx=10,  # Horizontal padding inside each radio button
+                pady=8,  # Vertical padding inside each radio button
+                indicatoron=1,
+                bd=2,  # Border width
+            )
+            # Increase the size of the radio button indicator
+            widget.config(selectcolor="lightblue")  # Optional: color when selected
+
         app.update()
 
     def make_keypad_button(
