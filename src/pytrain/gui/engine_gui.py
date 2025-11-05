@@ -141,6 +141,7 @@ class EngineGui(Thread, Generic[S]):
         self.left_arrow_image = find_file("left_arrow.jpg")
         self.right_arrow_image = find_file("right_arrow.jpg")
         self.asc2_image = find_file("LCS-ASC2-6-81639.jpg")
+        self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
         self._app_counter = 0
         self._in_entry_mode = True
         self._btn_images = []
@@ -769,8 +770,10 @@ class EngineGui(Thread, Generic[S]):
                     if img is None:
                         if state.is_asc2:
                             img = self.get_scaled_image(self.asc2_image, preserve_height=True)
+                        elif state.is_bpc2:
+                            img = self.get_scaled_image(self.bpc2_image, preserve_height=True)
+                        if img:
                             self._image_cache[(CommandScope.ACC, tmcc_id)] = img
-                            print("Scaled image dimensions:", type(img))
             if img and scope == self.scope and tmcc_id == self._scope_tmcc_ids[self.scope]:
                 available_height, available_width = self.calc_image_box_size()
                 self.image.tk.config(image=img)
