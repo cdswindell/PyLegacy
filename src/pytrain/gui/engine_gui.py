@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import atexit
+import io
 import logging
 import tkinter as tk
 from io import BytesIO
@@ -138,6 +139,7 @@ class EngineGui(Thread, Generic[S]):
         self.alarm_off_image = find_file("red_light_off.jpg")
         self.left_arrow_image = find_file("left_arrow.jpg")
         self.right_arrow_image = find_file("right_arrow.jpg")
+        self.asc2_image = find_file("LCS-ASC2-6-81639.jpg")
         self._app_counter = 0
         self._in_entry_mode = True
         self._message_queue = Queue()
@@ -791,6 +793,7 @@ class EngineGui(Thread, Generic[S]):
             if tmcc_id is None:
                 tmcc_id = self._scope_tmcc_ids[self.scope]
             prod_info = None
+            img = pil_img = None
             if self.scope in {CommandScope.ENGINE} and tmcc_id != 0:
                 prod_info = self._engine_cache.get(tmcc_id, None)
                 if prod_info is None:
@@ -799,31 +802,39 @@ class EngineGui(Thread, Generic[S]):
                     self._engine_cache[tmcc_id] = fetch_thread
                     fetch_thread.start()
                     return
-            if isinstance(prod_info, ProdInfo):
+                if isinstance(prod_info, ProdInfo):
+                    # Resize image if needed
+                    img = self._engine_image_cache.get(tmcc_id, None)
+                    if img is None:
+                        img = self.get_scaled_image(BytesIO(prod_info.image_content))
+                        self._engine_image_cache[tmcc_id] = img
+            elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
+                state = self._state_store.get_state(self.scope, tmcc_id, False)
+                if isinstance(AccessoryState, state):
+                    if state.is_asc2:
+                        img = self.get_scaled_image(Image.open(self.asc2_image))
+            if img:
                 available_height, available_width = self.calc_image_box_size()
-
-                # Resize image if needed
-                img = self._engine_image_cache.get(tmcc_id, None)
-                if img is None:
-                    # Get original image dimensions
-                    pil_img = Image.open(BytesIO(prod_info.image_content))
-                    orig_width, orig_height = pil_img.size
-
-                    # Calculate scaling to fit available space
-                    width_scale = available_width / orig_width
-                    height_scale = available_height / orig_height
-                    scale = min(width_scale, height_scale)
-
-                    scaled_width = int(orig_width * width_scale)
-                    scaled_height = int(orig_height * scale)
-
-                    img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
-                    self._engine_image_cache[tmcc_id] = img
-
                 self.engine_image.tk.config(image=img)
                 self.engine_image.width = available_width
                 self.engine_image.height = available_height
                 self.image_box.show()
+
+    def get_scaled_image(self, source: str | io.BytesIO) -> PhotoImage:
+        available_height, available_width = self.calc_image_box_size()
+        pil_img = Image.open(src)
+        orig_width, orig_height = pil_img.size
+
+        # Calculate scaling to fit available space
+        width_scale = available_width / orig_width
+        height_scale = available_height / orig_height
+        scale = min(width_scale, height_scale)
+
+        scaled_width = int(orig_width * width_scale)
+        scaled_height = int(orig_height * scale)
+
+        img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
+        return img
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
         with self._cv:
