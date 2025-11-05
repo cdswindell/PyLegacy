@@ -143,15 +143,16 @@ class EngineGui(Thread, Generic[S]):
         self.asc2_image = find_file("LCS-ASC2-6-81639.jpg")
         self._app_counter = 0
         self._in_entry_mode = True
-        self._message_queue = Queue()
         self._btn_images = []
         self._scope_buttons = {}
         self._scope_tmcc_ids = {}
         self._scope_watchers = {}
-        self._engine_cache = {}
+        self._prod_info_cache = {}
         self._image_cache = {}
         self.entry_cells = set()
         self.ops_cells = set()
+        self._pending_prod_infos = set()
+        self._message_queue = Queue()
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
@@ -731,6 +732,90 @@ class EngineGui(Thread, Generic[S]):
         else:
             self.image_box.hide()
 
+    def update_component_image(self, tmcc_id: int = None, key: tuple[CommandScope, int] = None) -> None:
+        print(f"update_component_image: {tmcc_id}, {key}")
+        if key is None and self.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
+            # routes and switches don't use images
+            return
+        with self._cv:
+            if key:
+                scope = key[0]
+                tmcc_id = key[1]
+            else:
+                scope = self.scope
+                if tmcc_id is None:
+                    tmcc_id = self._scope_tmcc_ids[self.scope]
+            img = None
+            if scope in {CommandScope.ENGINE} and tmcc_id != 0:
+                prod_info = self._prod_info_cache.get(tmcc_id, None)
+                if prod_info is None:
+                    # Start thread to fetch product info
+                    fetch_thread = Thread(target=self._fetch_prod_info, args=(self.scope, tmcc_id), daemon=True)
+                    self._prod_info_cache[tmcc_id] = fetch_thread
+                    fetch_thread.start()
+                    return
+                if isinstance(prod_info, ProdInfo):
+                    # Resize image if needed
+                    img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+                    if img is None:
+                        img = self.get_scaled_image(BytesIO(prod_info.image_content))
+                        self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+            elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
+                state = self._state_store.get_state(self.scope, tmcc_id, False)
+                if isinstance(state, AccessoryState):
+                    img = self._image_cache.get((CommandScope.ACC, tmcc_id), None)
+                    if img is None:
+                        if state.is_asc2:
+                            img = self.get_scaled_image(self.asc2_image, preserve_height=True)
+                            self._image_cache[(CommandScope.ACC, tmcc_id)] = img
+                            print("Scaled image dimensions:", type(img))
+            if img and scope == self.scope and tmcc_id == self._scope_tmcc_ids[self.scope]:
+                available_height, available_width = self.calc_image_box_size()
+                self.image.tk.config(image=img)
+                self.image.width = available_width
+                self.image.height = available_height
+                self.image_box.show()
+
+    def get_scaled_image(self, source: str | io.BytesIO, preserve_height: bool = False) -> ImageTk.PhotoImage:
+        available_height, available_width = self.calc_image_box_size()
+        pil_img = Image.open(source)
+        orig_width, orig_height = pil_img.size
+
+        # Calculate scaling to fit available space
+        width_scale = available_width / orig_width
+        height_scale = available_height / orig_height
+        scale = min(width_scale, height_scale)
+
+        if preserve_height:
+            scaled_width = int(orig_width * scale)
+            scaled_height = int(orig_height * height_scale)
+        else:
+            scaled_width = int(orig_width * width_scale)
+            scaled_height = int(orig_height * scale)
+        img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
+        return img
+
+    def calc_image_box_size(self) -> tuple[int, int | Any]:
+        with self._cv:
+            if self.avail_image_height is None or self.avail_image_width is None:
+                # Calculate available space for the image
+                self.app.update()
+
+                # Get the heights of fixed elements
+                header_height = self.header.tk.winfo_reqheight()
+                emergency_height = self.emergency_box.tk.winfo_reqheight()
+                info_height = self.info_box.tk.winfo_reqheight()
+                keypad_height = self.keypad_box.tk.winfo_reqheight()
+                scope_height = self.scope_box.tk.winfo_reqheight()
+
+                # Calculate remaining vertical space
+                self.avail_image_height = (
+                    self.height - header_height - emergency_height - info_height - keypad_height - scope_height - 20
+                )
+                # use width of emergency height box as standard
+                self.avail_image_width = self.emergency_box.tk.winfo_reqwidth()
+        return self.avail_image_height, self.avail_image_width
+
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
         _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=3, height=1, bold=True)
@@ -790,98 +875,26 @@ class EngineGui(Thread, Generic[S]):
             if state.is_asc2:
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
 
-    def update_component_image(self, tmcc_id: int = None):
-        print("update_component_image:")
-        if self.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
-            # routes and switches don't use images
-            return
-        with self._cv:
-            self.image_box.hide()
-            if tmcc_id is None:
-                tmcc_id = self._scope_tmcc_ids[self.scope]
-            img = None
-            if self.scope in {CommandScope.ENGINE} and tmcc_id != 0:
-                prod_info = self._engine_cache.get(tmcc_id, None)
-                if prod_info is None:
-                    # Start thread to fetch product info
-                    fetch_thread = Thread(target=self._fetch_prod_info_threaded, args=(tmcc_id,), daemon=True)
-                    self._engine_cache[tmcc_id] = fetch_thread
-                    fetch_thread.start()
-                    return
-                if isinstance(prod_info, ProdInfo):
-                    # Resize image if needed
-                    img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
-                    if img is None:
-                        img = self.get_scaled_image(BytesIO(prod_info.image_content))
-                        self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
-            elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
-                state = self._state_store.get_state(self.scope, tmcc_id, False)
-                if isinstance(state, AccessoryState):
-                    img = self._image_cache.get((CommandScope.ACC, tmcc_id), None)
-                    if img is None:
-                        if state.is_asc2:
-                            img = self.get_scaled_image(self.asc2_image, preserve_height=True)
-                            self._image_cache[(CommandScope.ACC, tmcc_id)] = img
-                            print("Scaled image dimensions:", type(img))
-            if img:
-                available_height, available_width = self.calc_image_box_size()
-                self.image.tk.config(image=img)
-                self.image.width = available_width
-                self.image.height = available_height
-                self.image_box.show()
-
-    def get_scaled_image(self, source: str | io.BytesIO, preserve_height: bool = False) -> ImageTk.PhotoImage:
-        available_height, available_width = self.calc_image_box_size()
-        pil_img = Image.open(source)
-        orig_width, orig_height = pil_img.size
-
-        # Calculate scaling to fit available space
-        width_scale = available_width / orig_width
-        height_scale = available_height / orig_height
-        scale = min(width_scale, height_scale)
-
-        if preserve_height:
-            scaled_width = int(orig_width * scale)
-            scaled_height = int(orig_height * height_scale)
-        else:
-            scaled_width = int(orig_width * width_scale)
-            scaled_height = int(orig_height * scale)
-        img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
-        return img
-
-    def calc_image_box_size(self) -> tuple[int, int | Any]:
-        with self._cv:
-            if self.avail_image_height is None or self.avail_image_width is None:
-                # Calculate available space for the image
-                self.app.update()
-
-                # Get the heights of fixed elements
-                header_height = self.header.tk.winfo_reqheight()
-                emergency_height = self.emergency_box.tk.winfo_reqheight()
-                info_height = self.info_box.tk.winfo_reqheight()
-                keypad_height = self.keypad_box.tk.winfo_reqheight()
-                scope_height = self.scope_box.tk.winfo_reqheight()
-
-                # Calculate remaining vertical space
-                self.avail_image_height = (
-                    self.height - header_height - emergency_height - info_height - keypad_height - scope_height - 20
-                )
-                # use width of emergency height box as standard
-                self.avail_image_width = self.emergency_box.tk.winfo_reqwidth()
-        return self.avail_image_height, self.avail_image_width
-
-    def request_prod_info(self, tmcc_id: int | None) -> ProdInfo | None:
+    def request_prod_info(self, scope: CommandScope, tmcc_id: int | None) -> ProdInfo | None:
         state = self._state_store.get_state(self.scope, tmcc_id, False)
         if state and state.bt_id:
             prod_info = ProdInfo.by_btid(state.bt_id)
         else:
             prod_info = "N/A"
         with self._cv:
-            self._engine_cache[tmcc_id] = prod_info
+            self._prod_info_cache[tmcc_id] = prod_info
+            self._pending_prod_infos.discard((scope, tmcc_id))
         return prod_info
 
-    def _fetch_prod_info_threaded(self, tmcc_id: int) -> None:
+    def _fetch_prod_info(self, scope: CommandScope, tmcc_id: int) -> None:
         """Fetch product info in a background thread, then schedule UI update."""
-        self.request_prod_info(tmcc_id)
+        with self._cv:
+            key = (scope, tmcc_id)
+            if key in self._pending_prod_infos:
+                # ProdInfo has already been requested, exit
+                return
+            else:
+                self._pending_prod_infos.add(key)
+        self.request_prod_info(scope, tmcc_id)
         # Schedule the UI update on the main thread
-        self.queue_message(self.update_component_image, tmcc_id)
+        self.queue_message(self.update_component_image, tmcc_id, key)
