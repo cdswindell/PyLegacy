@@ -300,7 +300,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Finally, resize image box
         available_height, available_width = self.calc_image_box_size()
-        self.image_box.tk.config(height=0, width=available_width)
+        self.image_box.tk.config(height=available_height, width=available_width)
 
         # Display GUI and start event loop; call blocks
         try:
