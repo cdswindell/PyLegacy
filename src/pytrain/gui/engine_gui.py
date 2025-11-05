@@ -630,16 +630,27 @@ class EngineGui(Thread, Generic[S]):
         bg.text_size = self.s_20
 
         # Make radio buttons larger and add spacing
+        indicator_size = int(24 * self._scale_by)
         for widget in bg.tk.winfo_children():
             widget.config(
                 font=("TkDefaultFont", self.s_20),
-                padx=10,  # Horizontal padding inside each radio button
-                pady=8,  # Vertical padding inside each radio button
-                indicatoron=1,
-                bd=2,  # Border width
+                padx=18,  # Horizontal padding inside each radio button
+                pady=6,  # Vertical padding inside each radio button
             )
             # Increase the size of the radio button indicator
-            widget.config(selectcolor="lightblue")  # Optional: color when selected
+            # Create larger radio button indicators using Tkinter variables
+            widget.tk.eval(f"""
+                image create photo radio_unsel_{id(widget)} -width {indicator_size} -height {indicator_size}
+                image create photo radio_sel_{id(widget)} -width {indicator_size} -height {indicator_size}
+                radio_unsel_{id(widget)} put white -to 0 0 {indicator_size} {indicator_size}
+                radio_sel_{id(widget)} put blue -to 0 0 {indicator_size} {indicator_size}
+            """)
+            widget.config(
+                image=f"radio_unsel_{id(widget)}",
+                selectimage=f"radio_sel_{id(widget)}",
+                compound="left",
+                indicatoron=False,
+            )
 
         app.update()
 
