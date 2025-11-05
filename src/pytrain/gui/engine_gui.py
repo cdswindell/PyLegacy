@@ -437,7 +437,7 @@ class EngineGui(Thread, Generic[S]):
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 self.keypad_box.hide()
             else:
-                pass
+                self.keypad_box.show()
 
     # noinspection PyTypeChecker
     def make_keypad(self, app: App):
