@@ -685,6 +685,9 @@ class EngineGui(Thread, Generic[S]):
         for cell in self.entry_cells:
             if cell.visible:
                 cell.hide()
+        for cell in self.ops_cells:
+            if cell.visible:
+                cell.hide()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             pass
         elif self.scope == CommandScope.ROUTE:
