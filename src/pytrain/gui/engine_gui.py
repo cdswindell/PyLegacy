@@ -651,15 +651,16 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id = self.tmcc_id_text.value
         if key.isdigit():
             tmcc_id = tmcc_id[1:] + key
+            self.tmcc_id_text.value = tmcc_id
         elif key == CLEAR_KEY:
             tmcc_id = "0" * num_chars
+            self.tmcc_id_text.value = tmcc_id
             self.entry_mode()
         elif key == "↵":
             self._scope_tmcc_ids[self.scope] = int(tmcc_id)
             self.ops_mode()
         else:
             print(f"Unknown key: {key}")
-        self.tmcc_id_text.value = tmcc_id
         self.tmcc_id_text.show()
         # update information immediately if not in entry mode
         if not self._in_entry_mode and key.isdigit():
