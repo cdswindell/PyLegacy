@@ -30,6 +30,7 @@ from guizero.event import EventData
 from PIL import Image, ImageTk
 
 from ..comm.command_listener import CommandDispatcher
+from ..db.accessory_state import AccessoryState
 from ..db.base_state import BaseState
 from ..db.component_state import ComponentState, RouteState, SwitchState
 from ..db.component_state_store import ComponentStateStore
