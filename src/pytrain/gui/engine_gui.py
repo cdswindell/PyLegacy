@@ -355,6 +355,7 @@ class EngineGui(Thread, Generic[S]):
             self.fire_route_btn.bg = self._active_bg if state.is_active else self._inactive_bg
         else:
             self.fire_route_btn.bg = self._inactive_bg
+            print(f"on_new_route: no state, inactivate button: {self.fire_route_btn.bg}")
 
     def on_new_switch(self, state: SwitchState = None):
         # must be called from app thread!!
