@@ -345,12 +345,10 @@ class EngineGui(Thread, Generic[S]):
 
     def on_new_route(self, state: RouteState = None):
         # must be called from app thread!!
-        print(f"on_new_route: {state}")
-        state = (
-            state
-            if state
-            else self._state_store.get_state(CommandScope.ROUTE, self._scope_tmcc_ids[CommandScope.ROUTE], False)
-        )
+        tmcc_id = self._scope_tmcc_ids[CommandScope.ROUTE]
+        print(f"on_new_route: ID: {tmcc_id} {state}")
+        state = state if state else self._state_store.get_state(CommandScope.ROUTE, tmcc_id, False)
+        print(f"on_new_route: ID (2): {tmcc_id} {state}")
         if state:
             self.fire_route_btn.bg = self._active_bg if state.is_active else self._inactive_bg
         else:
