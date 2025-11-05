@@ -726,8 +726,7 @@ class EngineGui(Thread, Generic[S]):
         else:
             self.name_text.value = ""
             state = None
-            self.image.image = None
-            self.image_box.hide()
+            self.clear_image()
         self.monitor_state()
         # use the callback to update ops button state
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
@@ -735,6 +734,10 @@ class EngineGui(Thread, Generic[S]):
             self.app.after(0, self.update_component_image, [tmcc_id])
         else:
             self.image_box.hide()
+
+    def clear_image(self):
+        self.image.image = None
+        self.image_box.hide()
 
     def update_component_image(self, tmcc_id: int = None, key: tuple[CommandScope, int] = None) -> None:
         print(f"update_component_image: {tmcc_id}, {key}")
@@ -764,6 +767,8 @@ class EngineGui(Thread, Generic[S]):
                     if img is None:
                         img = self.get_scaled_image(BytesIO(prod_info.image_content))
                         self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+                else:
+                    self.clear_image()
             elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
                 if isinstance(state, AccessoryState):
@@ -777,6 +782,10 @@ class EngineGui(Thread, Generic[S]):
                             img = self.get_scaled_image(self.sensor_track_image, preserve_height=True)
                         if img:
                             self._image_cache[(CommandScope.ACC, tmcc_id)] = img
+                        else:
+                            self.clear_image()
+            else:
+                self.clear_image()
             if img and scope == self.scope and tmcc_id == self._scope_tmcc_ids[self.scope]:
                 available_height, available_width = self.calc_image_box_size()
                 self.image.tk.config(image=img)
