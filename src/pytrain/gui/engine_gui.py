@@ -811,7 +811,7 @@ class EngineGui(Thread, Generic[S]):
                         self._engine_image_cache[tmcc_id] = img
             elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
-                if isinstance(AccessoryState, state):
+                if isinstance(state, AccessoryState):
                     if state.is_asc2:
                         img = self.get_scaled_image(Image.open(self.asc2_image))
             if img:
