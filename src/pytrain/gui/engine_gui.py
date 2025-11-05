@@ -298,6 +298,10 @@ class EngineGui(Thread, Generic[S]):
         # # build state buttons
         # self.acc_box = Box(self.app, border=2, align="bottom", layout="grid")
 
+        # Finally, resize image box
+        available_height, available_width = self.calc_image_box_size()
+        self.image_box.tk.config(height=0, width=available_width)
+
         # Display GUI and start event loop; call blocks
         try:
             app.display()
