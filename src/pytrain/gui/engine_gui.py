@@ -728,6 +728,8 @@ class EngineGui(Thread, Generic[S]):
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
             self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
             self.app.after(0, self.update_component_image, [tmcc_id])
+        else:
+            self.image_box.hide()
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
