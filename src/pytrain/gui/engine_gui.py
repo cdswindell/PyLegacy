@@ -24,7 +24,7 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar, cast
 
-from guizero import App, Box, Combo, Picture, PushButton, Text, TitleBox
+from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
 from PIL import Image, ImageTk
@@ -61,6 +61,19 @@ FIRE_ROUTE_KEY = "⚡"
 CLEAR_KEY = "⌫"
 ENTER_KEY = "↵"
 SET_KEY = "Set"
+
+SENSOR_TRACK_OPTS = [
+    ["No Action", 0],
+    ["Crossing Gate Signal (R->L)", 1],
+    ["Crossing Gate Signal (L->R)", 2],
+    ["10sec Bell (R->L)", 3],
+    ["10sec Bell (L->R)", 4],
+    ["Dialog Begin Journey", 5],
+    ["Dialog End Journey", 6],
+    ["Dialog Go to Slow", 7],
+    ["Dialog Go to Normal", 8],
+    ["Record Sequence", 9],
+]
 
 KEY_TO_COMMAND = {
     FIRE_ROUTE_KEY: CommandReq(TMCC2RouteCommandEnum.FIRE),
@@ -141,6 +154,7 @@ class EngineGui(Thread, Generic[S]):
         self.left_arrow_image = find_file("left_arrow.jpg")
         self.right_arrow_image = find_file("right_arrow.jpg")
         self.asc2_image = find_file("LCS-ASC2-6-81639.jpg")
+        self.amc2_image = find_file("LCS-AMC2-6-81641.jpg")
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
         self._app_counter = 0
@@ -170,6 +184,9 @@ class EngineGui(Thread, Generic[S]):
         self.image = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
         self.switch_thru_cell = self.switch_out_cell = None
+
+        # Sensor Track
+        self.sensor_track_box = self.sensor_track_buttons = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -605,6 +622,12 @@ class EngineGui(Thread, Generic[S]):
             visible=False,
             is_ops=True,
         )
+
+        # Sensor Track Buttons
+        self.sensor_track_box = cell = Box(keypad_box, layout="auto", grid=[0, 0, 3, 1], visible=False)
+        self.ops_cells.add(cell)
+        self.sensor_track_buttons = bg = ButtonGroup(cell, align="top", options=SENSOR_TRACK_OPTS)
+        bg.text_size = self.s_20
         app.update()
 
     def make_keypad_button(
@@ -707,6 +730,17 @@ class EngineGui(Thread, Generic[S]):
             self.on_new_switch()
             self.switch_thru_cell.show()
             self.switch_out_cell.show()
+        elif self.scope == CommandScope.ACC:
+            state = self._state_store.get_state(CommandScope.ACC, self._scope_tmcc_ids[self.scope], False)
+            if isinstance(state, AccessoryState):
+                if state.is_sensor_track:
+                    self.keypad_box.hide()
+                    self.sensor_track_box.show()
+                else:
+                    self.keypad_box.show()
+            else:
+                self.keypad_box.show()
+
         self.update_component_info()
 
     def update_component_info(self, tmcc_id: int = None, not_found_value: str = "Not Defined"):
@@ -778,6 +812,8 @@ class EngineGui(Thread, Generic[S]):
                             img = self.get_scaled_image(self.asc2_image, preserve_height=True)
                         elif state.is_bpc2:
                             img = self.get_scaled_image(self.bpc2_image, preserve_height=True)
+                        elif state.is_amc2:
+                            img = self.get_scaled_image(self.amc2_image, preserve_height=True)
                         elif state.is_sensor_track:
                             img = self.get_scaled_image(self.sensor_track_image, preserve_height=True)
                         if img:
