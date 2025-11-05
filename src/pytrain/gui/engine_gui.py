@@ -30,7 +30,7 @@ from PIL import Image, ImageTk
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
-from ..db.component_state import ComponentState, RouteState
+from ..db.component_state import ComponentState, RouteState, SwitchState
 from ..db.component_state_store import ComponentStateStore
 from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
@@ -173,6 +173,7 @@ class EngineGui(Thread, Generic[S]):
         # callbacks
         self._scoped_callbacks = {
             CommandScope.ROUTE: self.on_new_route,
+            CommandScope.SWITCH: self.on_new_switch,
         }
 
         # Thread-aware shutdown signaling
@@ -349,11 +350,23 @@ class EngineGui(Thread, Generic[S]):
             if state
             else self._state_store.get_state(CommandScope.ROUTE, self._scope_tmcc_ids[CommandScope.ROUTE])
         )
-        print(f"on_new_route: {state}")
         if state:
             self.fire_route_btn.bg = self._active_bg if state.is_active else self._inactive_bg
         else:
             self.fire_route_btn.bg = self._inactive_bg
+
+    def on_new_switch(self, state: SwitchState = None):
+        # must be called from app thread!!
+        state = (
+            state
+            if state
+            else self._state_store.get_state(CommandScope.SWITCH, self._scope_tmcc_ids[CommandScope.SWITCH])
+        )
+        if state:
+            self.switch_thru_btn.bg = self._active_bg if state.is_thru else self._inactive_bg
+            self.switch_out_btn.bg = self._active_bg if state.is_out else self._inactive_bg
+        else:
+            self.switch_thru_btn.bg = self.switch_out_btn.bg = self._inactive_bg
 
     def make_scope(self, app: App):
         button_height = int(round(50 * self._scale_by))
@@ -562,31 +575,75 @@ class EngineGui(Thread, Generic[S]):
         # spacing between buttons (in pixels)
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
-        # fire route Cells
-        self.fire_route_cell = cell = Box(keypad_box, layout="auto", grid=[1, row])
-        self.ops_cells.add(cell)
+        # fire route button
+        self.fire_route_cell, self.fire_route_btn = self.make_keypad_button(
+            keypad_box,
+            FIRE_ROUTE_KEY,
+            row,
+            1,
+            size=self.s_30,
+            visible=False,
+            is_ops=True,
+        )
+
+        # switch button
+        self.switch_thru_cell, self.switch_thru_btn = self.make_keypad_button(
+            keypad_box,
+            SWITCH_THRU_KEY,
+            row,
+            0,
+            size=self.s_30,
+            visible=False,
+            is_ops=True,
+        )
+        self.switch_out_cell, self.switch_out_btn = self.make_keypad_button(
+            keypad_box,
+            SWITCH_OUT_KEY,
+            row,
+            2,
+            size=self.s_30,
+            visible=False,
+            is_ops=True,
+        )
+        app.update()
+
+    def make_keypad_button(
+        self,
+        keypad_box: Box,
+        label: str,
+        row: int,
+        col: int,
+        size: int,
+        visible: bool = True,
+        bolded: bool = True,
+        is_ops: bool = False,
+        is_entry: bool = False,
+    ):
+        cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
+        if is_ops:
+            self.ops_cells.add(cell)
+        if is_entry:
+            self.entry_cells.add(cell)
         img = tk.PhotoImage(width=self.button_size, height=self.button_size)
         self._btn_images.append(img)
-        self.fire_route_btn = nb = PushButton(
+        nb = PushButton(
             cell,
             align="top",
             height=self.button_size,
             width=self.button_size,
-            text=FIRE_ROUTE_KEY,
+            text=label,
             command=self.on_keypress,
-            args=[FIRE_ROUTE_KEY],
-            visible=False,
+            args=[label],
         )
         nb.text_color = "black"
         nb.tk.config(image=img, compound="center")
         nb.tk.config(width=self.button_size, height=self.button_size)
-        nb.text_size = self.s_30
-        nb.text_bold = True
+        nb.text_size = size
+        nb.text_bold = bolded
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # spacing between buttons (in pixels)
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
-
-        app.update()
+        return cell, nb
 
     def on_keypress(self, key: str) -> None:
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
@@ -630,9 +687,13 @@ class EngineGui(Thread, Generic[S]):
                 cell.hide()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             pass
-        elif self.scope in {CommandScope.ROUTE}:
+        elif self.scope == CommandScope.ROUTE:
             self.on_new_route()
             self.fire_route_cell.show()
+        elif self.scope == CommandScope.SWITCH:
+            self.on_new_switch()
+            self.switch_thru_cell.show()
+            self.switch_out_cell.show()
         self.update_component_info()
 
     def update_component_info(self, tmcc_id: int = None, not_found_value: str = "Not Defined"):
