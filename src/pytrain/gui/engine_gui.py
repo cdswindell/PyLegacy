@@ -732,6 +732,7 @@ class EngineGui(Thread, Generic[S]):
             self.switch_out_cell.show()
         elif self.scope == CommandScope.ACC:
             state = self._state_store.get_state(CommandScope.ACC, self._scope_tmcc_ids[self.scope], False)
+            print(f"state: {state}")
             if isinstance(state, AccessoryState):
                 if state.is_sensor_track:
                     self.keypad_box.hide()
