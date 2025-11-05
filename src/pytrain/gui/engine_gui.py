@@ -724,6 +724,8 @@ class EngineGui(Thread, Generic[S]):
         else:
             self.name_text.value = ""
             state = None
+            self.image = None
+            self.image_box.hide()
         self.monitor_state()
         # use the callback to update ops button state
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
