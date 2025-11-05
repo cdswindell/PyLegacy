@@ -39,7 +39,8 @@ from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import Asc2Action, PdiCommand
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1RouteCommandEnum, TMCC1SwitchCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
+from ..protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandEnum
 from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ ENTER_KEY = "↵"
 SET_KEY = "Set"
 
 KEY_TO_COMMAND = {
-    FIRE_ROUTE_KEY: CommandReq(TMCC1RouteCommandEnum.FIRE),
+    FIRE_ROUTE_KEY: CommandReq(TMCC2RouteCommandEnum.FIRE),
     SWITCH_THRU_KEY: CommandReq(TMCC1SwitchCommandEnum.THRU),
     SWITCH_OUT_KEY: CommandReq(TMCC1SwitchCommandEnum.OUT),
 }
