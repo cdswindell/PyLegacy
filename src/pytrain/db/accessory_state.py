@@ -38,8 +38,8 @@ class AccessoryState(TmccState):
         self._aux1_state: Aux | None = None
         self._aux2_state: Aux | None = None
         self._aux_state: Aux | None = None
-        self._block_power = False
         self._sensor_track = False
+        self._bpc2 = False
         self._asc2 = False
         self._amc2 = False
         self._pdi_source = False
@@ -48,7 +48,7 @@ class AccessoryState(TmccState):
     @property
     def payload(self) -> str:
         aux1 = aux2 = aux_num = ""
-        if self._block_power:
+        if self._bpc2:
             aux = f"Block Power {'ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
         elif self._sensor_track:
             aux = "Sensor Track"
@@ -142,11 +142,11 @@ class AccessoryState(TmccState):
                     if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                         self._pdi_source = True
                         if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
-                            self._block_power = True
+                            self._bpc2 = True
                             self._asc2 = False
                         else:
                             self._asc2 = True
-                            self._block_power = False
+                            self._bpc2 = False
                         if command.state == 1:
                             self._aux1_state = Aux.AUX1_ON
                             self._aux2_state = Aux.AUX2_ON
@@ -180,7 +180,7 @@ class AccessoryState(TmccState):
 
     @property
     def is_power_district(self) -> bool:
-        return self._block_power
+        return self._bpc2
 
     @property
     def is_sensor_track(self) -> bool:
@@ -189,6 +189,10 @@ class AccessoryState(TmccState):
     @property
     def is_asc2(self) -> bool:
         return self._asc2
+
+    @property
+    def is_bpc2(self) -> bool:
+        return self._bpc2
 
     @property
     def is_amc2(self) -> bool:
@@ -334,7 +338,7 @@ class AccessoryState(TmccState):
         d = super()._as_dict()
         if self._sensor_track:
             d["type"] = "sensor track"
-        elif self._block_power:
+        elif self._bpc2:
             d["type"] = "power district"
             d["block"] = "on" if self._aux_state == Aux.AUX1_OPT_ONE else "off"
         else:
