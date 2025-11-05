@@ -814,7 +814,7 @@ class EngineGui(Thread, Generic[S]):
                     img = self._image_cache.get((CommandScope.ACC, tmcc_id), None)
                     if img is None:
                         if state.is_asc2:
-                            img = self.get_scaled_image(self.asc2_image)
+                            img = self.get_scaled_image(self.asc2_image, preserve_height=True)
                             self._image_cache[(CommandScope.ACC, tmcc_id)] = img
                             print("Scaled image dimensions:", type(img))
             if img:
@@ -824,7 +824,7 @@ class EngineGui(Thread, Generic[S]):
                 self.engine_image.height = available_height
                 self.image_box.show()
 
-    def get_scaled_image(self, source: str | io.BytesIO) -> ImageTk.PhotoImage:
+    def get_scaled_image(self, source: str | io.BytesIO, preserve_height: bool = False) -> ImageTk.PhotoImage:
         available_height, available_width = self.calc_image_box_size()
         pil_img = Image.open(source)
         orig_width, orig_height = pil_img.size
@@ -834,11 +834,13 @@ class EngineGui(Thread, Generic[S]):
         height_scale = available_height / orig_height
         scale = min(width_scale, height_scale)
 
-        scaled_width = int(orig_width * width_scale)
-        scaled_height = int(orig_height * scale)
-
+        if preserve_height:
+            scaled_width = int(orig_width * scale)
+            scaled_height = int(orig_height * height_scale)
+        else:
+            scaled_width = int(orig_width * width_scale)
+            scaled_height = int(orig_height * scale)
         img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
-        print("Scaled image dimensions:", scaled_width, "x", scaled_height, type(img))
         return img
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
