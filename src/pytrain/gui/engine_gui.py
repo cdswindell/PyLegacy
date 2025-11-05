@@ -164,7 +164,7 @@ class EngineGui(Thread, Generic[S]):
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
         self.name_text = None
         self.on_key_cell = self.off_key_cell = None
-        self.engine_image = None
+        self.image = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
         self.switch_thru_cell = self.switch_out_cell = None
 
@@ -473,7 +473,7 @@ class EngineGui(Thread, Generic[S]):
 
         # add a picture placeholder here, we may not use it
         self.image_box = image_box = Box(app, border=2, align="top")
-        self.engine_image = Picture(image_box, align="top")
+        self.image = Picture(image_box, align="top")
         self.image_box.hide()
 
         # _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
@@ -819,9 +819,9 @@ class EngineGui(Thread, Generic[S]):
                             print("Scaled image dimensions:", type(img))
             if img:
                 available_height, available_width = self.calc_image_box_size()
-                self.engine_image.tk.config(image=img)
-                self.engine_image.width = available_width
-                self.engine_image.height = available_height
+                self.image.tk.config(image=img)
+                self.image.width = self.image_box.width = available_width
+                self.image.height = available_height
                 self.image_box.show()
 
     def get_scaled_image(self, source: str | io.BytesIO, preserve_height: bool = False) -> ImageTk.PhotoImage:
