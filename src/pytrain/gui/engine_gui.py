@@ -712,7 +712,7 @@ class EngineGui(Thread, Generic[S]):
             state = None
         self.monitor_state()
         # use the callback to update ops button state
-        self._scoped_callbacks.get(self.scope, lambda s: print(s))(state)
+        self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
         self.app.after(0, self.update_component_image, [tmcc_id])
 
     def make_emergency_buttons(self, app: App):
