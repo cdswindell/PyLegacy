@@ -718,8 +718,9 @@ class EngineGui(Thread, Generic[S]):
             state = None
         self.monitor_state()
         # use the callback to update ops button state
-        self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
-        self.app.after(0, self.update_component_image, [tmcc_id])
+        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
+            self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
+            self.app.after(0, self.update_component_image, [tmcc_id])
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
@@ -782,6 +783,9 @@ class EngineGui(Thread, Generic[S]):
 
     def update_component_image(self, tmcc_id: int = None):
         print("update_component_image:")
+        if self.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
+            # routes and switches don't use images
+            return
         with self._cv:
             self.image_box.hide()
             if tmcc_id is None:
