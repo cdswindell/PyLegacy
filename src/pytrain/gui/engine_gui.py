@@ -801,11 +801,11 @@ class EngineGui(Thread, Generic[S]):
 
                     # Calculate scaling to fit available space
                     width_scale = available_width / orig_width
-                    height_scale = 1.0  # available_height / orig_height
-                    # scale = min(width_scale, height_scale)
+                    height_scale = available_height / orig_height
+                    scale = min(width_scale, height_scale)
 
                     scaled_width = int(orig_width * width_scale)
-                    scaled_height = int(orig_height * height_scale)
+                    scaled_height = int(orig_height * scale)
 
                     img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
                     self._engine_image_cache[tmcc_id] = img
