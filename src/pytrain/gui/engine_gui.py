@@ -801,7 +801,7 @@ class EngineGui(Thread, Generic[S]):
 
                     # Calculate scaling to fit available space
                     width_scale = available_width / orig_width
-                    height_scale = available_height / orig_height
+                    height_scale = 1.0  # available_height / orig_height
                     # scale = min(width_scale, height_scale)
 
                     scaled_width = int(orig_width * width_scale)
