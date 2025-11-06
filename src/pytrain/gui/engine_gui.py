@@ -769,6 +769,7 @@ class EngineGui(Thread, Generic[S]):
     def ops_mode(self) -> None:
         print(f"ops_mode: {self.scope}")
         self._in_entry_mode = False
+        self.keypad_box.hide()
         for cell in self.entry_cells:
             if cell.visible:
                 cell.hide()
@@ -788,11 +789,11 @@ class EngineGui(Thread, Generic[S]):
             self.switch_out_cell.show()
         elif self.scope == CommandScope.ACC:
             state = self._state_store.get_state(CommandScope.ACC, self._scope_tmcc_ids[self.scope], False)
-            print(f"state: {state}")
             if isinstance(state, AccessoryState):
                 if state.is_sensor_track:
-                    self.keypad_box.hide()
+                    print("Sensor Track...}")
                     self.sensor_track_box.show()
+                    self.keypad_box.hide()
                 else:
                     self.keypad_box.show()
             else:
