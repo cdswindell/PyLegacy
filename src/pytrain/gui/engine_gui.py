@@ -686,7 +686,7 @@ class EngineGui(Thread, Generic[S]):
 
     def on_sensor_track_change(self) -> None:
         tmcc_id = self._scope_tmcc_ids[self.scope]
-        st_seq = IrdaSequence.by_value(self.sensor_track_buttons.value)
+        st_seq = IrdaSequence.by_value(int(self.sensor_track_buttons.value))
         print(f"Sensor Track: {tmcc_id} {self.sensor_track_buttons.value} {st_seq.title}")
         IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
 
