@@ -165,6 +165,7 @@ class AccessoryState(TmccState):
                     if self._first_pdi_action is None:
                         self._first_pdi_action = command.action
                     self._sensor_track = True
+                    print(command)
                 self.changed.set()
                 self._cv.notify_all()
 
