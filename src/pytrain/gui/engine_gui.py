@@ -775,7 +775,7 @@ class EngineGui(Thread, Generic[S]):
             AUX1_KEY,
             row - 1,
             2,
-            self.s_22,
+            self.s_18,
             visible=False,
             is_ops=True,
             titlebox_text="Momentary",
