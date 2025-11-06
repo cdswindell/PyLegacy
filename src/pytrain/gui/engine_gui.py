@@ -158,8 +158,8 @@ class EngineGui(Thread, Generic[S]):
         self.amc2_image = find_file("LCS-AMC2-6-81641.jpg")
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
-        self.power_off_image = find_file("bulb-power-off.png")
-        self.power_on_image = find_file("bulb-power-on.png")
+        self.power_off_image = find_file("bulb-power-off.jpg")
+        self.power_on_image = find_file("bulb-power-on.jpg")
         self._app_counter = 0
         self._in_entry_mode = True
         self._btn_images = []
@@ -451,6 +451,7 @@ class EngineGui(Thread, Generic[S]):
         app.update()
 
     def on_scope(self, scope: CommandScope) -> None:
+        print(f"On Scope: {scope}")
         self.scope_box.hide()
         force_entry_mode = False
         for k, v in self._scope_buttons.items():
@@ -461,6 +462,7 @@ class EngineGui(Thread, Generic[S]):
         if scope != self.scope:
             self.tmcc_id_box.text = f"{scope.title} ID"
             self.scope = scope
+            print(f"Scope changed to {scope}; Calling update_component_info()...")
             self.update_component_info()
         else:
             self._scope_tmcc_ids[scope] = 0
@@ -797,6 +799,7 @@ class EngineGui(Thread, Generic[S]):
         # self.tmcc_id_text.value = tmcc_id
         # update information immediately if not in entry mode
         if not self._in_entry_mode and key.isdigit():
+            print("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
 
     def do_command(self, key: str) -> None:
@@ -879,6 +882,7 @@ class EngineGui(Thread, Generic[S]):
                 name = state.name
                 name = name if name and name != "NA" else not_found_value
                 if not self._in_entry_mode:
+                    print(f"Calling ops_mode: {self.scope} {name}")
                     self.ops_mode(update_info=False)
             else:
                 name = not_found_value
