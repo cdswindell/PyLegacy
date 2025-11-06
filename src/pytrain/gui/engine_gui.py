@@ -481,12 +481,12 @@ class EngineGui(Thread, Generic[S]):
                 self.keypad_box.show()
         else:
             self.ops_mode()
-            if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-                self.keypad_box.hide()
-            else:
-                print("show keypad")
-                if not self.keypad_box.visible:
-                    self.keypad_box.show()
+            # if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            #     self.keypad_box.hide()
+            # else:
+            #     if not self.keypad_box.visible:
+            #         print("Scope Keypad: show keypad")
+            #         self.keypad_box.show()
 
     # noinspection PyTypeChecker
     def make_keypad(self, app: App):
