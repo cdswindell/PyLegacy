@@ -889,12 +889,11 @@ class EngineGui(Thread, Generic[S]):
             if state:
                 name = state.name
                 name = name if name and name != "NA" else not_found_value
+                update_button_state = False
                 print(f"update_component_info: in_ops_mode: {in_ops_mode} in_entry_mode: {self._in_entry_mode}")
                 if not in_ops_mode:
                     print(f"Calling ops_mode: {self.scope} {name}")
                     self.ops_mode(update_info=False)
-                    # call to ops_mode sets button state
-                    update_button_state = False
             else:
                 name = not_found_value
             self.name_text.value = name
