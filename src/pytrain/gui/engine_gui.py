@@ -826,9 +826,11 @@ class EngineGui(Thread, Generic[S]):
             )
             cell.text_size = self.s_12
             button_size = self.titled_button_size
+            grid_pad_by = 0
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
             button_size = self.button_size
+            grid_pad_by = self.grid_pad_by
         if is_ops:
             self.ops_cells.add(cell)
         if is_entry:
@@ -854,7 +856,7 @@ class EngineGui(Thread, Generic[S]):
             nb.text_bold = bolded
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # spacing between buttons (in pixels)
-        nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
+        nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
         return cell, nb
 
     def on_keypress(self, key: str) -> None:
