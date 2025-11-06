@@ -778,7 +778,6 @@ class EngineGui(Thread, Generic[S]):
             self.s_18,
             visible=False,
             is_ops=True,
-            titlebox_text="Momentary",
             command=None,
         )
         app.update()
