@@ -745,7 +745,7 @@ class EngineGui(Thread, Generic[S]):
             command = args = None
         elif command is None:
             command = self.on_keypress
-        if size is None:
+        if size is None and label:
             size = self.s_22 if label.isdigit() else self.s_24
         cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
         if is_ops:
