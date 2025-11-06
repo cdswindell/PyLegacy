@@ -481,12 +481,6 @@ class EngineGui(Thread, Generic[S]):
                 self.keypad_box.show()
         else:
             self.ops_mode()
-            # if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-            #     self.keypad_box.hide()
-            # else:
-            #     if not self.keypad_box.visible:
-            #         print("Scope Keypad: show keypad")
-            #         self.keypad_box.show()
 
     # noinspection PyTypeChecker
     def make_keypad(self, app: App):
@@ -662,6 +656,7 @@ class EngineGui(Thread, Generic[S]):
             width=self.emergency_box_width,
         )
         bg.text_size = self.s_20
+        bg.update_command(lambda s: print(f"Selection: {bg.value}"), [bg])
 
         # Make radio buttons larger and add spacing
         indicator_size = int(22 * self._scale_by)
