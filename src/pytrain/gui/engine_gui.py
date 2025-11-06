@@ -438,10 +438,8 @@ class EngineGui(Thread, Generic[S]):
                     self.sensor_track_buttons.value = st_state.sequence.value
                 else:
                     self.sensor_track_buttons.value = None
-            elif state.is_bpc2:
+            elif state.is_bpc2 or state.is_asc2:
                 self.update_ac_status(state)
-            elif state.is_asc2:
-                pass
             elif state.is_amc2:
                 pass
 
