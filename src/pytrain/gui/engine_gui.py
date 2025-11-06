@@ -39,7 +39,8 @@ from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
 from ..pdi.asc2_req import Asc2Req
-from ..pdi.constants import Asc2Action, PdiCommand
+from ..pdi.constants import Asc2Action, IrdaAction, PdiCommand
+from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
@@ -73,7 +74,7 @@ SENSOR_TRACK_OPTS = [
     ["Dialog End Journey", 6],
     ["Dialog Go to Slow", 7],
     ["Dialog Go to Normal", 8],
-    ["Record Sequence", 9],
+    ["Recorded Sequence", 9],
 ]
 
 MAX_SENSOR_TRACK_OPT_LEN = max(len(option[0]) for option in SENSOR_TRACK_OPTS)
@@ -401,7 +402,7 @@ class EngineGui(Thread, Generic[S]):
                 st_state = self._state_store.get_state(CommandScope.IRDA, tmcc_id, False)
                 if isinstance(st_state, IrdaState):
                     print(st_state.sequence, st_state.sequence.value, st_state.sequence_str)
-                    self.sensor_track_buttons.value = 3
+                    self.sensor_track_buttons.value = st_state.sequence.value
                 else:
                     self.sensor_track_buttons.value = None
             elif state.is_bpc2:
@@ -655,9 +656,9 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             options=SENSOR_TRACK_OPTS,
             width=self.emergency_box_width,
+            command=self.on_sensor_track_change,
         )
         bg.text_size = self.s_20
-        bg.update_command(lambda s: print(f"Selection: {bg.value}"), [bg])
 
         # Make radio buttons larger and add spacing
         indicator_size = int(22 * self._scale_by)
@@ -681,8 +682,13 @@ class EngineGui(Thread, Generic[S]):
                 compound="left",
                 indicatoron=False,
             )
-
         app.update()
+
+    def on_sensor_track_change(self) -> None:
+        tmcc_id = self._scope_tmcc_ids[self.scope]
+        print(f"Sensor Track: {tmcc_id} {self.sensor_track_buttons.value}")
+        st_seq = IrdaSequence.by_value(self.sensor_track_buttons.value)
+        IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
 
     def make_keypad_button(
         self,
