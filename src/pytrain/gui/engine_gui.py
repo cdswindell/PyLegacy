@@ -780,6 +780,8 @@ class EngineGui(Thread, Generic[S]):
             is_ops=True,
             command=None,
         )
+        self.ac_aux1_btn.when_left_button_pressed = self.when_pressed
+        self.ac_aux1_btn.when_left_button_released = self.when_released
         app.update()
 
     def on_sensor_track_change(self) -> None:
@@ -1141,15 +1143,19 @@ class EngineGui(Thread, Generic[S]):
     def when_pressed(self, event: EventData) -> None:
         pb = event.widget
         if pb.enabled:
-            state = pb.component_state
-            if state.is_asc2:
+            scope = self.scope
+            tmcc_id = self._scope_tmcc_ids[scope]
+            state = self._state_store.get_state(scope, tmcc_id, False)
+            if isinstance(state, AccessoryState) and state.is_asc2:
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
 
     def when_released(self, event: EventData) -> None:
         pb = event.widget
         if pb.enabled:
-            state = pb.component_state
-            if state.is_asc2:
+            scope = self.scope
+            tmcc_id = self._scope_tmcc_ids[scope]
+            state = self._state_store.get_state(scope, tmcc_id, False)
+            if isinstance(state, AccessoryState) and state.is_asc2:
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
 
     def request_prod_info(self, scope: CommandScope, tmcc_id: int | None) -> ProdInfo | None:
