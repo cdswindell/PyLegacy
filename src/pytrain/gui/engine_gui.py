@@ -76,6 +76,9 @@ SENSOR_TRACK_OPTS = [
     ["Record Sequence", 9],
 ]
 
+MAX_SENSOR_TRACK_OPT_LEN = max(len(option[0]) for option in SENSOR_TRACK_OPTS)
+
+
 KEY_TO_COMMAND = {
     FIRE_ROUTE_KEY: CommandReq(TMCC2RouteCommandEnum.FIRE),
     SWITCH_THRU_KEY: CommandReq(TMCC1SwitchCommandEnum.THRU),
@@ -651,7 +654,7 @@ class EngineGui(Thread, Generic[S]):
             cell,
             align="top",
             options=SENSOR_TRACK_OPTS,
-            width="fill",
+            width=MAX_SENSOR_TRACK_OPT_LEN,
         )
         bg.text_size = self.s_20
 
