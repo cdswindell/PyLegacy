@@ -767,7 +767,7 @@ class EngineGui(Thread, Generic[S]):
             self.keypad_box.show()
 
     def ops_mode(self) -> None:
-        print("ops_mode:")
+        print(f"ops_mode: {self.scope}")
         self._in_entry_mode = False
         for cell in self.entry_cells:
             if cell.visible:
@@ -779,9 +779,11 @@ class EngineGui(Thread, Generic[S]):
             pass
         elif self.scope == CommandScope.ROUTE:
             self.on_new_route()
+            self.keypad_box.show()
             self.fire_route_cell.show()
         elif self.scope == CommandScope.SWITCH:
             self.on_new_switch()
+            self.keypad_box.show()
             self.switch_thru_cell.show()
             self.switch_out_cell.show()
         elif self.scope == CommandScope.ACC:
