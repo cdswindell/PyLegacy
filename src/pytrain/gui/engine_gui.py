@@ -778,7 +778,7 @@ class EngineGui(Thread, Generic[S]):
             self.s_18,
             visible=False,
             is_ops=True,
-            command=None,
+            command=False,
         )
         self.ac_aux1_btn.when_left_button_pressed = self.when_pressed
         self.ac_aux1_btn.when_left_button_released = self.when_released
