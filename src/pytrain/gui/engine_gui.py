@@ -157,9 +157,9 @@ class EngineGui(Thread, Generic[S]):
         self.asc2_image = find_file("LCS-ASC2-6-81639.jpg")
         self.amc2_image = find_file("LCS-AMC2-6-81641.jpg")
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
-        self.power_off_image = find_file("bulb-power-off.jpg")
-        self.power_on_image = find_file("bulb-power-on.jpg")
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
+        self.power_off_image = find_file("bulb-power-off.png")
+        self.power_on_image = find_file("bulb-power-on.png")
         self._app_counter = 0
         self._in_entry_mode = True
         self._btn_images = []
@@ -403,12 +403,11 @@ class EngineGui(Thread, Generic[S]):
             if state.is_sensor_track:
                 st_state = self._state_store.get_state(CommandScope.IRDA, tmcc_id, False)
                 if isinstance(st_state, IrdaState):
-                    print("ONA", st_state.sequence, st_state.sequence.value, st_state.sequence_str)
                     self.sensor_track_buttons.value = st_state.sequence.value
                 else:
                     self.sensor_track_buttons.value = None
             elif state.is_bpc2:
-                pass
+                self.ac_status_btn.image = self.power_on_image if state.is_aux_on else self.power_off_image
             elif state.is_asc2:
                 pass
             elif state.is_amc2:
