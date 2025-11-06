@@ -162,6 +162,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_16: int = int(round(16 * scale_by))
         self.s_12: int = int(round(12 * scale_by))
         self.button_size = int(round(self.width / 5.5))
+        self.titled_button_size = int(round((self.width / 5.5) * 0.9))
         self.scope_size = int(round(self.width / 5))
         self._text_pad_x = 20
         self._text_pad_y = 20
@@ -446,8 +447,8 @@ class EngineGui(Thread, Generic[S]):
         img = self.power_on_image if state.is_aux_on else self.power_off_image
         self.ac_status_btn.tk.config(
             image=img,
-            height=self.button_size,
-            width=self.button_size,
+            height=self.titled_button_size,
+            width=self.titled_button_size,
         )
         self.ac_status_btn.image = img
 
@@ -728,10 +729,10 @@ class EngineGui(Thread, Generic[S]):
 
         # BPC2/ASC2 Buttons
         self.power_off_image = ImageTk.PhotoImage(
-            Image.open(self.power_off_path).resize((self.button_size, self.button_size))
+            Image.open(self.power_off_path).resize((self.titled_button_size, self.titled_button_size))
         )
         self.power_on_image = ImageTk.PhotoImage(
-            Image.open(self.power_on_path).resize((self.button_size, self.button_size))
+            Image.open(self.power_on_path).resize((self.titled_button_size, self.titled_button_size))
         )
         self.ac_off_cell, self.ac_off_btn = self.make_keypad_button(
             keypad_box,
@@ -808,7 +809,7 @@ class EngineGui(Thread, Generic[S]):
                 height=self.button_size,
             )
             cell.text_size = self.s_12
-            button_size = int(round(self.button_size * 0.90))
+            button_size = self.titled_button_size
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
             button_size = self.button_size
