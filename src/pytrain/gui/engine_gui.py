@@ -799,7 +799,15 @@ class EngineGui(Thread, Generic[S]):
         if size is None and label:
             size = self.s_22 if label.isdigit() else self.s_24
         if titlebox_text:
-            cell = TitleBox(keypad_box, titlebox_text, layout="auto", grid=[col, row], visible=visible)
+            cell = TitleBox(
+                keypad_box,
+                titlebox_text,
+                layout="auto",
+                grid=[col, row],
+                visible=visible,
+                width=self.button_size,
+                height=self.button_size,
+            )
             cell.text_size = self.s_12
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
