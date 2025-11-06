@@ -415,8 +415,10 @@ class EngineGui(Thread, Generic[S]):
 
     def update_ac_status(self, state: AccessoryState):
         print("bpc2: Setting status image...")
-        self.ac_status_btn.image = self.power_on_image if state.is_aux_on else self.power_off_image
-        self.ac_status_btn.height = self.ac_status_btn.width = self.button_size
+        img = self.power_on_image if state.is_aux_on else self.power_off_image
+        self.ac_status_btn.tk.config(image=img, height=self.button_size, width=self.button_size)
+        # self.ac_status_btn.image = self.power_on_image if state.is_aux_on else self.power_off_image
+        # self.ac_status_btn.height = self.ac_status_btn.width = self.button_size
         print("bpc2: ...done")
 
     def make_scope(self, app: App):
