@@ -869,6 +869,7 @@ class EngineGui(Thread, Generic[S]):
                 if not self.keypad_box.visible:
                     self.keypad_box.show()
         if update_info:
+            print("ops_mode() calling update_component_info()...")
             self.update_component_info()
 
     def update_component_info(self, tmcc_id: int = None, not_found_value: str = "Not Defined"):
@@ -877,6 +878,7 @@ class EngineGui(Thread, Generic[S]):
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
         # update the tmcc_id associated with current scope
         self._scope_tmcc_ids[self.scope] = tmcc_id
+        update_button_state = True
         if tmcc_id:
             state = self._state_store.get_state(self.scope, tmcc_id, False)
             if state:
@@ -885,6 +887,8 @@ class EngineGui(Thread, Generic[S]):
                 if not self._in_entry_mode:
                     print(f"Calling ops_mode: {self.scope} {name}")
                     self.ops_mode(update_info=False)
+                    # call to ops_mode sets button state
+                    update_button_state = False
             else:
                 name = not_found_value
             self.name_text.value = name
@@ -895,7 +899,8 @@ class EngineGui(Thread, Generic[S]):
         self.monitor_state()
         # use the callback to update ops button state
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
-            self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
+            if update_button_state:
+                self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
             self.update_component_image(tmcc_id)
         else:
             self.image_box.hide()
