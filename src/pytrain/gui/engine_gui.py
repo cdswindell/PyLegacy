@@ -400,7 +400,8 @@ class EngineGui(Thread, Generic[S]):
             if state.is_sensor_track:
                 st_state = self._state_store.get_state(CommandScope.IRDA, tmcc_id, False)
                 if isinstance(st_state, IrdaState):
-                    print(st_state.sequence, st_state.sequence_str)
+                    print(st_state.sequence, st_state.sequence.value, st_state.sequence_str)
+                    self.sensor_track_buttons.value = 3
                 else:
                     self.sensor_track_buttons.value = None
             elif state.is_bpc2:
@@ -790,6 +791,7 @@ class EngineGui(Thread, Generic[S]):
                 self.keypad_box.show()
         elif self.scope == CommandScope.ACC:
             state = self._state_store.get_state(CommandScope.ACC, self._scope_tmcc_ids[self.scope], False)
+            self.on_new_accessory(state)
             if isinstance(state, AccessoryState):
                 if state.is_sensor_track:
                     print("Sensor Track...")
