@@ -176,6 +176,7 @@ class EngineGui(Thread, Generic[S]):
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
+        self.emergency_box_width = None
 
         # various buttons
         self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = self.set_btn = None
@@ -650,17 +651,11 @@ class EngineGui(Thread, Generic[S]):
         # Sensor Track Buttons
         self.sensor_track_box = cell = Box(app, layout="auto", align="top", visible=False)
         self.ops_cells.add(cell)
-
-        # Calculate pixel width based on font size and longest text
-        # Approximate character width is font_size * 0.6 for proportional fonts
-        # Add extra padding for the radio button indicator and margins
-        char_width_pixels = self.s_20 * 0.6
-        button_width_pixels = int(MAX_SENSOR_TRACK_OPT_LEN * char_width_pixels + 80)
         self.sensor_track_buttons = bg = ButtonGroup(
             cell,
             align="top",
             options=SENSOR_TRACK_OPTS,
-            width=button_width_pixels,
+            width=self.emergency_box_width,
         )
         bg.text_size = self.s_20
 
@@ -966,6 +961,7 @@ class EngineGui(Thread, Generic[S]):
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
         app.update()
+        self.emergency_box_width = emergency_box.tk.winfo_reqwidth()
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
