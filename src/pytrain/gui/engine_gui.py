@@ -56,6 +56,8 @@ FIRE_ROUTE_KEY = "⚡"
 CLEAR_KEY = "⌫"
 ENTER_KEY = "↵"
 SET_KEY = "Set"
+AC_ON_KEY = "AC ON"
+AC_OFF_KEY = "AC OFF"
 
 SENSOR_TRACK_OPTS = [
     ["No Action", 0],
@@ -187,6 +189,10 @@ class EngineGui(Thread, Generic[S]):
 
         # Sensor Track
         self.sensor_track_box = self.sensor_track_buttons = None
+
+        # BPC2/ASC2
+        self.ac_on_cell = self.ac_off_cell = None
+        self.ac_off_btn = self.ac_on_btn = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -677,6 +683,29 @@ class EngineGui(Thread, Generic[S]):
                 compound="left",
                 indicatoron=False,
             )
+
+        # BPC2/ASC2 Buttons
+        self.ac_off_cell, self.ac_off_btn = self.make_keypad_button(
+            keypad_box,
+            AC_OFF_KEY,
+            row,
+            0,
+            0,
+            image=self.turn_off_image,
+            visible=False,
+            is_ops=True,
+        )
+
+        self.ac_on_cell, self.ac_on_btn = self.make_keypad_button(
+            keypad_box,
+            AC_ON_KEY,
+            row,
+            2,
+            0,
+            image=self.turn_on_image,
+            visible=False,
+            is_ops=True,
+        )
         app.update()
 
     def on_sensor_track_change(self) -> None:
@@ -692,6 +721,7 @@ class EngineGui(Thread, Generic[S]):
         row: int,
         col: int,
         size: int,
+        image: str = None,
         visible: bool = True,
         bolded: bool = True,
         is_ops: bool = False,
@@ -716,8 +746,11 @@ class EngineGui(Thread, Generic[S]):
         nb.text_color = "black"
         nb.tk.config(image=img, compound="center")
         nb.tk.config(width=self.button_size, height=self.button_size)
-        nb.text_size = size
-        nb.text_bold = bolded
+        if image:
+            nb.image = image
+        else:
+            nb.text_size = size
+            nb.text_bold = bolded
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # spacing between buttons (in pixels)
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
@@ -795,10 +828,11 @@ class EngineGui(Thread, Generic[S]):
             self.on_new_accessory(state)
             if isinstance(state, AccessoryState):
                 if state.is_sensor_track:
-                    print("Sensor Track...")
                     self.sensor_track_box.show()
                     self.keypad_box.hide()
-                    print(f"Sensor Track; KeyPad Visible: {self.keypad_box.visible}")
+                elif state.is_bpc2:
+                    self.ac_off_cell.show()
+                    self.ac_on_cell.show()
                 else:
                     if not self.keypad_box.visible:
                         self.keypad_box.show()
