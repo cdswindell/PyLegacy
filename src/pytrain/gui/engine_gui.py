@@ -5,13 +5,6 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-
-#
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
-#
-#
-#  SPDX-License-Identifier: LPGL
-#
 from __future__ import annotations
 
 import atexit
@@ -813,7 +806,7 @@ class EngineGui(Thread, Generic[S]):
         self.update_component_info()
 
     def update_component_info(self, tmcc_id: int = None, not_found_value: str = "Not Defined"):
-        print("update_component_info:")
+        print(f"update_component_info: {tmcc_id}")
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
         # update the tmcc_id associated with current scope
@@ -823,6 +816,8 @@ class EngineGui(Thread, Generic[S]):
             if state:
                 name = state.name
                 name = name if name and name != "NA" else not_found_value
+                if not self._in_entry_mode:
+                    self.ops_mode()
             else:
                 name = not_found_value
             self.name_text.value = name
