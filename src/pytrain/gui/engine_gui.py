@@ -744,6 +744,7 @@ class EngineGui(Thread, Generic[S]):
             image=self.turn_off_image,
             visible=False,
             is_ops=True,
+            titlebox_text="Off",
         )
         self.ac_status_cell, self.ac_status_btn = self.make_keypad_button(
             keypad_box,
@@ -753,6 +754,7 @@ class EngineGui(Thread, Generic[S]):
             image=self.power_off_path,
             visible=False,
             is_ops=True,
+            titlebox_text="Status",
         )
         self.ac_on_cell, self.ac_on_btn = self.make_keypad_button(
             keypad_box,
@@ -763,6 +765,7 @@ class EngineGui(Thread, Generic[S]):
             image=self.turn_on_image,
             visible=False,
             is_ops=True,
+            titlebox_text="On",
         )
         app.update()
 
@@ -784,18 +787,23 @@ class EngineGui(Thread, Generic[S]):
         bolded: bool = True,
         is_ops: bool = False,
         is_entry: bool = False,
+        titlebox_text: str = None,
         command: Callable | None = None,
         args: list = None,
     ):
         if args is None:
             args = [label]
-        if isinstance(command, bool):
+        if isinstance(command, bool) and not command:
             command = args = None
-        elif command is None:
+        elif command is None or (isinstance(command, bool) and command):
             command = self.on_keypress
         if size is None and label:
             size = self.s_22 if label.isdigit() else self.s_24
-        cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
+        if titlebox_text:
+            cell = TitleBox(keypad_box, titlebox_text, layout="auto", grid=[col, row], visible=visible)
+            cell.text_size = self.s_12
+        else:
+            cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
         if is_ops:
             self.ops_cells.add(cell)
         if is_entry:
@@ -905,10 +913,12 @@ class EngineGui(Thread, Generic[S]):
                 if state.is_sensor_track:
                     self.sensor_track_box.show()
                     self.keypad_box.hide()
-                elif state.is_bpc2:
+                elif state.is_bpc2 or state.is_asc2:
                     self.ac_off_cell.show()
                     self.ac_status_cell.show()
                     self.ac_on_cell.show()
+                    if state.is_asc2:
+                        pass
                     if not self.keypad_box.visible:
                         self.keypad_box.show()
                 else:
