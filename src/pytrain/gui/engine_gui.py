@@ -408,13 +408,16 @@ class EngineGui(Thread, Generic[S]):
                     self.sensor_track_buttons.value = None
             elif state.is_bpc2:
                 print("bpc2: Setting status image...")
-                self.ac_status_btn.image = self.power_on_image if state.is_aux_on else self.power_off_image
-                self.ac_status_btn.height = self.ac_status_btn.width = self.button_size
+                self.queue_message(self.update_ac_status, state)
                 print("bpc2: ...done")
             elif state.is_asc2:
                 pass
             elif state.is_amc2:
                 pass
+
+    def update_ac_status(self, state: AccessoryState):
+        self.ac_status_btn.image = self.power_on_image if state.is_aux_on else self.power_off_image
+        self.ac_status_btn.height = self.ac_status_btn.width = self.button_size
 
     def make_scope(self, app: App):
         button_height = int(round(50 * self._scale_by))
