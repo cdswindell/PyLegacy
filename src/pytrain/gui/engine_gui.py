@@ -59,6 +59,7 @@ ENTER_KEY = "↵"
 SET_KEY = "Set"
 AC_ON_KEY = "AC ON"
 AC_OFF_KEY = "AC OFF"
+AUX1_KEY = "Aux1"
 
 SENSOR_TRACK_OPTS = [
     ["No Action", 0],
@@ -226,6 +227,7 @@ class EngineGui(Thread, Generic[S]):
         # BPC2/ASC2
         self.ac_on_cell = self.ac_off_cell = self.ac_status_cell = None
         self.ac_off_btn = self.ac_on_btn = self.ac_status_btn = None
+        self.ac_aux1_cell = self.ac_aux1_btn = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -766,6 +768,19 @@ class EngineGui(Thread, Generic[S]):
             is_ops=True,
             titlebox_text="On",
         )
+
+        # Acs2 Momentary Action Button
+        self.ac_aux1_cell, self.ac_aux1_btn = self.make_keypad_button(
+            keypad_box,
+            AUX1_KEY,
+            row - 1,
+            2,
+            self.s_22,
+            visible=False,
+            is_ops=True,
+            titlebox_text="Momentary",
+            command=None,
+        )
         app.update()
 
     def on_sensor_track_change(self) -> None:
@@ -927,7 +942,7 @@ class EngineGui(Thread, Generic[S]):
                     self.ac_status_cell.show()
                     self.ac_on_cell.show()
                     if state.is_asc2:
-                        pass
+                        self.ac_aux1_cell.show()
                     if not self.keypad_box.visible:
                         self.keypad_box.show()
                 else:
