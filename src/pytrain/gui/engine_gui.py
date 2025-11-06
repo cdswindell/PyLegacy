@@ -59,11 +59,11 @@ SET_KEY = "Set"
 
 SENSOR_TRACK_OPTS = [
     ["No Action", 0],
-    ["Crossing Gate Signal (R->)", 1],
-    ["Crossing Gate Signal (L->R)", 2],
+    ["Crossing Gate Signal (R➟L)", 1],
+    ["Crossing Gate Signal (L➟R)", 2],
     ["10sec Bell (R➟L)", 3],
     ["10sec Bell (L⟶R)", 4],
-    ["Dialog Begin Journey", 5],
+    ["Begin Run (R➟L) End Run (L➟R)", 5],
     ["Dialog End Journey", 6],
     ["Dialog Go to Slow", 7],
     ["Dialog Go to Normal", 8],
