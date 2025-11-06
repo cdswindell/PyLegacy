@@ -339,11 +339,10 @@ class EngineGui(Thread, Generic[S]):
         )
         cb.text_size = self.s_24
         cb.text_bold = True
-        # _ = Text(app, text=" ", align="top", size=6, height=1, bold=True)
 
         # Make the emergency buttons, including Halt and Reset
         self.make_emergency_buttons(app)
-        _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
+        # _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
 
         # make selection box and keypad
         self.make_keypad(app)
@@ -455,7 +454,7 @@ class EngineGui(Thread, Generic[S]):
     def make_scope(self, app: App):
         button_height = int(round(50 * self._scale_by))
         self.scope_box = scope_box = Box(app, layout="grid", border=2, align="bottom")
-        _ = Text(scope_box, text=" ", grid=[0, 0, 5, 1], align="top", size=3, height=1, bold=True)
+        _ = Text(scope_box, text=" ", grid=[0, 0, 5, 1], align="top", size=2, height=1, bold=True)
         for i, scope_abbrev in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
             scope = CommandScope.by_prefix(scope_abbrev)
             # Create a PhotoImage to enforce button size
@@ -1071,7 +1070,7 @@ class EngineGui(Thread, Generic[S]):
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
-        _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=3, height=1, bold=True)
+        _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=2, height=1, bold=True)
 
         self.halt_btn = halt_btn = PushButton(
             emergency_box,
@@ -1104,7 +1103,7 @@ class EngineGui(Thread, Generic[S]):
         reset_btn.text_bold = True
         reset_btn.text_size = self.s_20
 
-        _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=3, height=1, bold=True)
+        _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
         app.update()
         self.emergency_box_width = emergency_box.tk.winfo_reqwidth()
 
