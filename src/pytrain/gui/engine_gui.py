@@ -61,8 +61,8 @@ SENSOR_TRACK_OPTS = [
     ["No Action", 0],
     ["Crossing Gate Signal (R->)", 1],
     ["Crossing Gate Signal (L->R)", 2],
-    ["10sec Bell (R->L)", 3],
-    ["10sec Bell (L⇨⊳⇾►➜➞➟⟶R)", 4],
+    ["10sec Bell (R➟L)", 3],
+    ["10sec Bell (L⟶R)", 4],
     ["Dialog Begin Journey", 5],
     ["Dialog End Journey", 6],
     ["Dialog Go to Slow", 7],
@@ -70,6 +70,7 @@ SENSOR_TRACK_OPTS = [
     ["Recorded Sequence", 9],
 ]
 
+ARROWS = "⇨⊳⇾►➜➞➟⟶"
 MAX_SENSOR_TRACK_OPT_LEN = max(len(option[0]) for option in SENSOR_TRACK_OPTS)
 
 
