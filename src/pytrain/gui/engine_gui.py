@@ -1161,6 +1161,7 @@ class EngineGui(Thread, Generic[S]):
     def request_prod_info(self, scope: CommandScope, tmcc_id: int | None) -> ProdInfo | None:
         state = self._state_store.get_state(self.scope, tmcc_id, False)
         if state and state.bt_id:
+            # TODO: wrap in try/catch as it is likely user won't have API Key
             prod_info = ProdInfo.by_btid(state.bt_id)
         else:
             prod_info = "N/A"
