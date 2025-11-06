@@ -158,8 +158,9 @@ class EngineGui(Thread, Generic[S]):
         self.amc2_image = find_file("LCS-AMC2-6-81641.jpg")
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
-        self.power_off_image = find_file("bulb-power-off.png")
-        self.power_on_image = find_file("bulb-power-on.png")
+        self.power_off_path = find_file("bulb-power-off.png")
+        self.power_on_path = find_file("bulb-power-on.png")
+        self.power_off_image = self.power_on_image = None
         self._app_counter = 0
         self._in_entry_mode = True
         self._btn_images = []
@@ -407,7 +408,7 @@ class EngineGui(Thread, Generic[S]):
                 else:
                     self.sensor_track_buttons.value = None
             elif state.is_bpc2:
-                self.app.after(10, self.update_ac_status, [state])
+                self.update_ac_status(state)
             elif state.is_asc2:
                 pass
             elif state.is_amc2:
@@ -417,7 +418,7 @@ class EngineGui(Thread, Generic[S]):
         print("bpc2: Setting status image...")
         img = self.power_on_image if state.is_aux_on else self.power_off_image
         self.ac_status_btn.tk.config(
-            image=self.power_on_image if state.is_aux_on else self.power_off_image,
+            image=img,
             height=self.button_size,
             width=self.button_size,
         )
@@ -701,6 +702,12 @@ class EngineGui(Thread, Generic[S]):
             )
 
         # BPC2/ASC2 Buttons
+        self.power_off_image = tk.PhotoImage(
+            Image.open(self.power_off_path), width=self.button_size, height=self.button_size
+        )
+        self.power_on_image = tk.PhotoImage(
+            Image.open(self.power_on_path), width=self.button_size, height=self.button_size
+        )
         self.ac_off_cell, self.ac_off_btn = self.make_keypad_button(
             keypad_box,
             AC_OFF_KEY,
