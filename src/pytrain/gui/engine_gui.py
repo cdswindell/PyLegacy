@@ -655,7 +655,7 @@ class EngineGui(Thread, Generic[S]):
         # Approximate character width is font_size * 0.6 for proportional fonts
         # Add extra padding for the radio button indicator and margins
         char_width_pixels = self.s_20 * 0.6
-        button_width_pixels = int(MAX_SENSOR_TRACK_OPT_LEN * char_width_pixels + 40)
+        button_width_pixels = int(MAX_SENSOR_TRACK_OPT_LEN * char_width_pixels + 80)
         self.sensor_track_buttons = bg = ButtonGroup(
             cell,
             align="top",
@@ -671,6 +671,7 @@ class EngineGui(Thread, Generic[S]):
                 font=("TkDefaultFont", self.s_20),
                 padx=18,  # Horizontal padding inside each radio button
                 pady=6,  # Vertical padding inside each radio button
+                anchor="w",
             )
             # Increase the size of the radio button indicator
             widget.tk.eval(f"""
