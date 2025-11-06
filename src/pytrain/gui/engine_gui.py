@@ -157,6 +157,8 @@ class EngineGui(Thread, Generic[S]):
         self.asc2_image = find_file("LCS-ASC2-6-81639.jpg")
         self.amc2_image = find_file("LCS-AMC2-6-81641.jpg")
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
+        self.power_off_image = find_file("bulb-power-off.jpg")
+        self.power_on_image = find_file("bulb-power-on.jpg")
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
         self._app_counter = 0
         self._in_entry_mode = True
@@ -191,8 +193,8 @@ class EngineGui(Thread, Generic[S]):
         self.sensor_track_box = self.sensor_track_buttons = None
 
         # BPC2/ASC2
-        self.ac_on_cell = self.ac_off_cell = None
-        self.ac_off_btn = self.ac_on_btn = None
+        self.ac_on_cell = self.ac_off_cell = self.ac_status_cell = None
+        self.ac_off_btn = self.ac_on_btn = self.ac_status_btn = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -695,7 +697,15 @@ class EngineGui(Thread, Generic[S]):
             visible=False,
             is_ops=True,
         )
-
+        self.ac_status_cell, self.ac_status_btn = self.make_keypad_button(
+            keypad_box,
+            None,
+            row,
+            1,
+            image=self.power_off_image,
+            visible=False,
+            is_ops=True,
+        )
         self.ac_on_cell, self.ac_on_btn = self.make_keypad_button(
             keypad_box,
             AC_ON_KEY,
@@ -720,13 +730,23 @@ class EngineGui(Thread, Generic[S]):
         label: str,
         row: int,
         col: int,
-        size: int,
+        size: int | None = None,
         image: str = None,
         visible: bool = True,
         bolded: bool = True,
         is_ops: bool = False,
         is_entry: bool = False,
+        command: Callable | None = None,
+        args: list = None,
     ):
+        if args is None:
+            args = [label]
+        if isinstance(command, bool):
+            command = args = None
+        elif command is None:
+            command = self.on_keypress
+        if size is None:
+            size = self.s_22 if label.isdigit() else self.s_24
         cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
         if is_ops:
             self.ops_cells.add(cell)
@@ -740,8 +760,8 @@ class EngineGui(Thread, Generic[S]):
             height=self.button_size,
             width=self.button_size,
             text=label,
-            command=self.on_keypress,
-            args=[label],
+            command=command,
+            args=args,
         )
         nb.text_color = "black"
         nb.tk.config(image=img, compound="center")
