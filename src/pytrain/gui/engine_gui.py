@@ -470,6 +470,7 @@ class EngineGui(Thread, Generic[S]):
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
         self.scope_box.show()
+        print(f"On Scope: {scope} calling scope_keypad({force_entry_mode})")
         self.scope_keypad(force_entry_mode)
 
     def scope_keypad(self, force_entry_mode: bool = False):
@@ -488,6 +489,7 @@ class EngineGui(Thread, Generic[S]):
             if not self.keypad_box.visible:
                 self.keypad_box.show()
         else:
+            print("Scope Keypad calling ops_mode()...")
             self.ops_mode()
 
     # noinspection PyTypeChecker
@@ -828,7 +830,6 @@ class EngineGui(Thread, Generic[S]):
     def ops_mode(self, update_info: bool = True) -> None:
         print(f"ops_mode: {self.scope}")
         self._in_entry_mode = False
-        # self.keypad_box.hide()
         for cell in self.entry_cells:
             if cell.visible:
                 cell.hide()
@@ -895,7 +896,7 @@ class EngineGui(Thread, Generic[S]):
         # use the callback to update ops button state
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
             self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
-            self.app.after(0, self.update_component_image, [tmcc_id])
+            self.update_component_image(tmcc_id)
         else:
             self.image_box.hide()
 
