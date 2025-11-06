@@ -488,9 +488,9 @@ class EngineGui(Thread, Generic[S]):
                 self.off_key_cell.hide()
             if not self.keypad_box.visible:
                 self.keypad_box.show()
-        else:
-            print("Scope Keypad calling ops_mode()...")
-            self.ops_mode()
+        # else:
+        #     print("Scope Keypad calling ops_mode()...")
+        #     self.ops_mode()
 
     # noinspection PyTypeChecker
     def make_keypad(self, app: App):
