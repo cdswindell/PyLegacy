@@ -811,7 +811,7 @@ class EngineGui(Thread, Generic[S]):
             button_size = int(round(self.button_size * 0.90))
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
-            button_size = self.button_size * 0.90
+            button_size = self.button_size
         if is_ops:
             self.ops_cells.add(cell)
         if is_entry:
