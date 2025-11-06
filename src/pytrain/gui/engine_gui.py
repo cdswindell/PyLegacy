@@ -852,6 +852,7 @@ class EngineGui(Thread, Generic[S]):
                     self.keypad_box.hide()
                 elif state.is_bpc2:
                     self.ac_off_cell.show()
+                    self.ac_status_cell.show()
                     self.ac_on_cell.show()
                     if not self.keypad_box.visible:
                         self.keypad_box.show()
