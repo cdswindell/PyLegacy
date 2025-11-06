@@ -702,11 +702,11 @@ class EngineGui(Thread, Generic[S]):
             )
 
         # BPC2/ASC2 Buttons
-        self.power_off_image = tk.PhotoImage(
-            Image.open(self.power_off_path), width=self.button_size, height=self.button_size
+        self.power_off_image = ImageTk.PhotoImage(
+            Image.open(self.power_off_path).resize((self.button_size, self.button_size))
         )
-        self.power_on_image = tk.PhotoImage(
-            Image.open(self.power_on_path), width=self.button_size, height=self.button_size
+        self.power_on_image = ImageTk.PhotoImage(
+            Image.open(self.power_on_path).resize((self.button_size, self.button_size))
         )
         self.ac_off_cell, self.ac_off_btn = self.make_keypad_button(
             keypad_box,
