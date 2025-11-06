@@ -64,7 +64,7 @@ class Bpc2Req(LcsReq):
                 self._state = self._values = self._valids = None
         else:
             Validations.validate_int(mode, 0, 3, "Mode", True)
-            Validations.validate_int(state, 0, 1, "Mode", True)
+            Validations.validate_int(state, 0, 1, "State", True)
             self._action = action
             self._mode = mode
             self._debug = debug

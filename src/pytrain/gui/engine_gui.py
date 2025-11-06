@@ -32,7 +32,8 @@ from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
 from ..pdi.asc2_req import Asc2Req
-from ..pdi.constants import Asc2Action, IrdaAction, PdiCommand
+from ..pdi.bpc2_req import Bpc2Req
+from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
@@ -76,10 +77,30 @@ ARROWS = "⇨⊳⇾►➜➞➟⟶"
 MAX_SENSOR_TRACK_OPT_LEN = max(len(option[0]) for option in SENSOR_TRACK_OPTS)
 
 
+def send_lcs_command(state: AccessoryState) -> None:
+    if state.is_bpc2:
+        Bpc2Req(
+            state.tmcc_id,
+            PdiCommand.BPC2_SET,
+            Bpc2Action.CONTROL3,
+            state=1 if state.is_aux_on else 0,
+        ).send()
+    elif state.is_asc2:
+        Asc2Req(
+            state.tmcc_id,
+            PdiCommand.ASC2_SET,
+            Asc2Action.CONTROL1,
+            values=1 if state.is_aux_on else 0,
+            time=0,
+        ).send()
+
+
 KEY_TO_COMMAND = {
     FIRE_ROUTE_KEY: CommandReq(TMCC2RouteCommandEnum.FIRE),
     SWITCH_THRU_KEY: CommandReq(TMCC1SwitchCommandEnum.THRU),
     SWITCH_OUT_KEY: CommandReq(TMCC1SwitchCommandEnum.OUT),
+    AC_ON_KEY: send_lcs_command,
+    AC_OFF_KEY: send_lcs_command,
 }
 
 
@@ -415,7 +436,6 @@ class EngineGui(Thread, Generic[S]):
                 pass
 
     def update_ac_status(self, state: AccessoryState):
-        print("bpc2: Setting status image...")
         img = self.power_on_image if state.is_aux_on else self.power_off_image
         self.ac_status_btn.tk.config(
             image=img,
@@ -423,7 +443,6 @@ class EngineGui(Thread, Generic[S]):
             width=self.button_size,
         )
         self.ac_status_btn.image = img
-        print("bpc2: ...done")
 
     def make_scope(self, app: App):
         button_height = int(round(50 * self._scale_by))
@@ -823,9 +842,13 @@ class EngineGui(Thread, Generic[S]):
         cmd = KEY_TO_COMMAND.get(key, None)
         tmcc_id = self._scope_tmcc_ids[self.scope]
         if cmd and tmcc_id:
-            cmd.scope = self.scope
-            cmd.address = self._scope_tmcc_ids[self.scope]
-            cmd.send(repeat=self.repeat)
+            if isinstance(cmd, CommandReq):
+                cmd.scope = self.scope
+                cmd.address = self._scope_tmcc_ids[self.scope]
+                cmd.send(repeat=self.repeat)
+            elif cmd == send_lcs_command:
+                state = self._state_store.get_state(self.scope, tmcc_id)
+                cmd(state)
         else:
             print(f"Unknown key: {key}")
 
