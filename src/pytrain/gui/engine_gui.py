@@ -803,7 +803,7 @@ class EngineGui(Thread, Generic[S]):
     def ops_mode(self, update_info: bool = True) -> None:
         print(f"ops_mode: {self.scope}")
         self._in_entry_mode = False
-        self.keypad_box.hide()
+        # self.keypad_box.hide()
         for cell in self.entry_cells:
             if cell.visible:
                 cell.hide()
@@ -833,6 +833,8 @@ class EngineGui(Thread, Generic[S]):
                 elif state.is_bpc2:
                     self.ac_off_cell.show()
                     self.ac_on_cell.show()
+                    if not self.keypad_box.visible:
+                        self.keypad_box.show()
                 else:
                     if not self.keypad_box.visible:
                         self.keypad_box.show()
