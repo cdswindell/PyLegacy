@@ -650,11 +650,17 @@ class EngineGui(Thread, Generic[S]):
         # Sensor Track Buttons
         self.sensor_track_box = cell = Box(app, layout="auto", align="top", visible=False)
         self.ops_cells.add(cell)
+
+        # Calculate pixel width based on font size and longest text
+        # Approximate character width is font_size * 0.6 for proportional fonts
+        # Add extra padding for the radio button indicator and margins
+        char_width_pixels = self.s_20 * 0.6
+        button_width_pixels = int(MAX_SENSOR_TRACK_OPT_LEN * char_width_pixels + 40)
         self.sensor_track_buttons = bg = ButtonGroup(
             cell,
             align="top",
             options=SENSOR_TRACK_OPTS,
-            width=MAX_SENSOR_TRACK_OPT_LEN,
+            width=button_width_pixels,
         )
         bg.text_size = self.s_20
 
