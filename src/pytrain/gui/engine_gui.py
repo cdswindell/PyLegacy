@@ -870,9 +870,14 @@ class EngineGui(Thread, Generic[S]):
                     self.keypad_box.show()
         if update_info:
             print("ops_mode() calling update_component_info()...")
-            self.update_component_info()
+            self.update_component_info(in_ops_mode=True)
 
-    def update_component_info(self, tmcc_id: int = None, not_found_value: str = "Not Defined"):
+    def update_component_info(
+        self,
+        tmcc_id: int = None,
+        not_found_value: str = "Not Defined",
+        in_ops_mode: bool = False,
+    ) -> None:
         print(f"update_component_info: {tmcc_id}")
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
@@ -884,6 +889,7 @@ class EngineGui(Thread, Generic[S]):
             if state:
                 name = state.name
                 name = name if name and name != "NA" else not_found_value
+                print(f"update_component_info: in_ops_mode: {in_ops_mode} in_entry_mode: {self._in_entry_mode}")
                 if not self._in_entry_mode:
                     print(f"Calling ops_mode: {self.scope} {name}")
                     self.ops_mode(update_info=False)
