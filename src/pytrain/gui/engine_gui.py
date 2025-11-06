@@ -407,8 +407,10 @@ class EngineGui(Thread, Generic[S]):
                 else:
                     self.sensor_track_buttons.value = None
             elif state.is_bpc2:
+                print("bpc2: Setting status image...")
                 self.ac_status_btn.image = self.power_on_image if state.is_aux_on else self.power_off_image
                 self.ac_status_btn.height = self.ac_status_btn.width = self.button_size
+                print("bpc2: ...done")
             elif state.is_asc2:
                 pass
             elif state.is_amc2:
