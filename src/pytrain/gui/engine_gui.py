@@ -158,8 +158,8 @@ class EngineGui(Thread, Generic[S]):
         self.amc2_image = find_file("LCS-AMC2-6-81641.jpg")
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
-        self.power_off_image = find_file("bulb-power-off.jpg")
-        self.power_on_image = find_file("bulb-power-on.jpg")
+        self.power_off_image = find_file("bulb-power-off.png")
+        self.power_on_image = find_file("bulb-power-on.png")
         self._app_counter = 0
         self._in_entry_mode = True
         self._btn_images = []
@@ -415,10 +415,11 @@ class EngineGui(Thread, Generic[S]):
 
     def update_ac_status(self, state: AccessoryState):
         print("bpc2: Setting status image...")
-        img = self.power_on_image if state.is_aux_on else self.power_off_image
-        self.ac_status_btn.tk.config(image=img, height=self.button_size, width=self.button_size)
-        # self.ac_status_btn.image = self.power_on_image if state.is_aux_on else self.power_off_image
-        # self.ac_status_btn.height = self.ac_status_btn.width = self.button_size
+        self.ac_status_btn.tk.config(
+            image=self.power_on_image if state.is_aux_on else self.power_off_image,
+            height=self.button_size,
+            width=self.button_size,
+        )
         print("bpc2: ...done")
 
     def make_scope(self, app: App):
