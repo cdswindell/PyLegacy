@@ -808,26 +808,28 @@ class EngineGui(Thread, Generic[S]):
                 height=self.button_size,
             )
             cell.text_size = self.s_12
+            button_size = int(round(self.button_size * 0.90))
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
+            button_size = self.button_size * 0.90
         if is_ops:
             self.ops_cells.add(cell)
         if is_entry:
             self.entry_cells.add(cell)
-        img = tk.PhotoImage(width=self.button_size, height=self.button_size)
+        img = tk.PhotoImage(width=button_size, height=button_size)
         self._btn_images.append(img)
         nb = PushButton(
             cell,
             align="top",
-            height=self.button_size,
-            width=self.button_size,
+            height=button_size,
+            width=button_size,
             text=label,
             command=command,
             args=args,
         )
         nb.text_color = "black"
         nb.tk.config(image=img, compound="center")
-        nb.tk.config(width=self.button_size, height=self.button_size)
+        nb.tk.config(width=button_size, height=button_size)
         if image:
             nb.image = image
         else:
