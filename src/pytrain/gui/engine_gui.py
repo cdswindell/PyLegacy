@@ -77,30 +77,42 @@ ARROWS = "⇨⊳⇾►➜➞➟⟶"
 MAX_SENSOR_TRACK_OPT_LEN = max(len(option[0]) for option in SENSOR_TRACK_OPTS)
 
 
-def send_lcs_command(state: AccessoryState) -> None:
+def send_lcs_command(state: AccessoryState, value) -> None:
     if state.is_bpc2:
-        Bpc2Req(
+        cmd = Bpc2Req(
             state.tmcc_id,
             PdiCommand.BPC2_SET,
             Bpc2Action.CONTROL3,
-            state=1 if state.is_aux_on else 0,
-        ).send()
+            state=value,
+        )
+        print(cmd)
+        cmd.send()
     elif state.is_asc2:
-        Asc2Req(
+        cmd = Asc2Req(
             state.tmcc_id,
             PdiCommand.ASC2_SET,
             Asc2Action.CONTROL1,
-            values=1 if state.is_aux_on else 0,
+            values=value,
             time=0,
-        ).send()
+        )
+        print(cmd)
+        cmd.send()
+
+
+def send_lcs_on_command(state: AccessoryState) -> None:
+    send_lcs_command(state, 1)
+
+
+def send_lcs_off_command(state: AccessoryState) -> None:
+    send_lcs_command(state, 0)
 
 
 KEY_TO_COMMAND = {
     FIRE_ROUTE_KEY: CommandReq(TMCC2RouteCommandEnum.FIRE),
     SWITCH_THRU_KEY: CommandReq(TMCC1SwitchCommandEnum.THRU),
     SWITCH_OUT_KEY: CommandReq(TMCC1SwitchCommandEnum.OUT),
-    AC_ON_KEY: send_lcs_command,
-    AC_OFF_KEY: send_lcs_command,
+    AC_ON_KEY: send_lcs_on_command,
+    AC_OFF_KEY: send_lcs_off_command,
 }
 
 
@@ -846,7 +858,12 @@ class EngineGui(Thread, Generic[S]):
                 cmd.scope = self.scope
                 cmd.address = self._scope_tmcc_ids[self.scope]
                 cmd.send(repeat=self.repeat)
-            elif cmd == send_lcs_command:
+            elif cmd == send_lcs_on_command:
+                print("Turn On...")
+                state = self._state_store.get_state(self.scope, tmcc_id)
+                cmd(state)
+            elif cmd == send_lcs_off_command:
+                print("Turn Off...")
                 state = self._state_store.get_state(self.scope, tmcc_id)
                 cmd(state)
         else:
