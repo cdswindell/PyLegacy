@@ -79,24 +79,20 @@ MAX_SENSOR_TRACK_OPT_LEN = max(len(option[0]) for option in SENSOR_TRACK_OPTS)
 
 def send_lcs_command(state: AccessoryState, value) -> None:
     if state.is_bpc2:
-        cmd = Bpc2Req(
+        Bpc2Req(
             state.tmcc_id,
             PdiCommand.BPC2_SET,
             Bpc2Action.CONTROL3,
             state=value,
-        )
-        print(cmd)
-        cmd.send()
+        ).send()
     elif state.is_asc2:
-        cmd = Asc2Req(
+        Asc2Req(
             state.tmcc_id,
             PdiCommand.ASC2_SET,
             Asc2Action.CONTROL1,
             values=value,
             time=0,
-        )
-        print(cmd)
-        cmd.send()
+        ).send()
 
 
 def send_lcs_on_command(state: AccessoryState) -> None:
@@ -859,11 +855,9 @@ class EngineGui(Thread, Generic[S]):
                 cmd.address = self._scope_tmcc_ids[self.scope]
                 cmd.send(repeat=self.repeat)
             elif cmd == send_lcs_on_command:
-                print("Turn On...")
                 state = self._state_store.get_state(self.scope, tmcc_id)
                 cmd(state)
             elif cmd == send_lcs_off_command:
-                print("Turn Off...")
                 state = self._state_store.get_state(self.scope, tmcc_id)
                 cmd(state)
         else:
