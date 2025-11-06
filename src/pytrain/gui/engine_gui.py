@@ -723,7 +723,7 @@ class EngineGui(Thread, Generic[S]):
             None,
             row,
             1,
-            image=self.power_off_image,
+            image=self.power_off_path,
             visible=False,
             is_ops=True,
         )
