@@ -465,6 +465,7 @@ class EngineGui(Thread, Generic[S]):
         self.scope_keypad(force_entry_mode)
 
     def scope_keypad(self, force_entry_mode: bool = False):
+        print(f"Scope Keypad: force={force_entry_mode}")
         # if tmcc_id associated with scope is 0, then we are in entry mode;
         # show keypad with appropriate button
         tmcc_id = self._scope_tmcc_ids[self.scope]
@@ -476,13 +477,16 @@ class EngineGui(Thread, Generic[S]):
             else:
                 self.on_key_cell.hide()
                 self.off_key_cell.hide()
-            self.keypad_box.show()
+            if not self.keypad_box.visible:
+                self.keypad_box.show()
         else:
             self.ops_mode()
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 self.keypad_box.hide()
             else:
-                self.keypad_box.show()
+                print("show keypad")
+                if not self.keypad_box.visible:
+                    self.keypad_box.show()
 
     # noinspection PyTypeChecker
     def make_keypad(self, app: App):
@@ -780,25 +784,29 @@ class EngineGui(Thread, Generic[S]):
             pass
         elif self.scope == CommandScope.ROUTE:
             self.on_new_route()
-            self.keypad_box.show()
             self.fire_route_cell.show()
+            if not self.keypad_box.visible:
+                self.keypad_box.show()
         elif self.scope == CommandScope.SWITCH:
             self.on_new_switch()
-            self.keypad_box.show()
             self.switch_thru_cell.show()
             self.switch_out_cell.show()
+            if not self.keypad_box.visible:
+                self.keypad_box.show()
         elif self.scope == CommandScope.ACC:
             state = self._state_store.get_state(CommandScope.ACC, self._scope_tmcc_ids[self.scope], False)
             if isinstance(state, AccessoryState):
                 if state.is_sensor_track:
-                    print("Sensor Track...}")
+                    print("Sensor Track...")
                     self.sensor_track_box.show()
                     self.keypad_box.hide()
+                    print(f"Sensor Track; KeyPad Visible: {self.keypad_box.visible}")
                 else:
-                    self.keypad_box.show()
+                    if not self.keypad_box.visible:
+                        self.keypad_box.show()
             else:
-                self.keypad_box.show()
-
+                if not self.keypad_box.visible:
+                    self.keypad_box.show()
         self.update_component_info()
 
     def update_component_info(self, tmcc_id: int = None, not_found_value: str = "Not Defined"):
