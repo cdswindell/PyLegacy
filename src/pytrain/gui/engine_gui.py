@@ -401,7 +401,7 @@ class EngineGui(Thread, Generic[S]):
             if state.is_sensor_track:
                 st_state = self._state_store.get_state(CommandScope.IRDA, tmcc_id, False)
                 if isinstance(st_state, IrdaState):
-                    print(st_state.sequence, st_state.sequence.value, st_state.sequence_str)
+                    print("ONA", st_state.sequence, st_state.sequence.value, st_state.sequence_str)
                     self.sensor_track_buttons.value = st_state.sequence.value
                 else:
                     self.sensor_track_buttons.value = None
@@ -686,8 +686,8 @@ class EngineGui(Thread, Generic[S]):
 
     def on_sensor_track_change(self) -> None:
         tmcc_id = self._scope_tmcc_ids[self.scope]
-        print(f"Sensor Track: {tmcc_id} {self.sensor_track_buttons.value}")
         st_seq = IrdaSequence.by_value(self.sensor_track_buttons.value)
+        print(f"Sensor Track: {tmcc_id} {self.sensor_track_buttons.value} {st_seq.title}")
         IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
 
     def make_keypad_button(
