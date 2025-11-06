@@ -62,10 +62,10 @@ SENSOR_TRACK_OPTS = [
     ["Crossing Gate Signal (R➟L)", 1],
     ["Crossing Gate Signal (L➟R)", 2],
     ["10sec Bell (R➟L)", 3],
-    ["10sec Bell (L⟶R)", 4],
-    ["Begin Run (R➟L) End Run (L➟R)", 5],
+    ["10sec Bell (L➟R)", 4],
+    ["Begin Run R➟L End Run L➟R", 5],
     ["Dialog End Journey", 6],
-    ["Dialog Go to Slow", 7],
+    ["Go Slow (R➟L) Go Normal (L➟R)", 7],
     ["Dialog Go to Normal", 8],
     ["Recorded Sequence", 9],
 ]
