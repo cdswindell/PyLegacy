@@ -452,9 +452,8 @@ class EngineGui(Thread, Generic[S]):
         self.ac_status_btn.image = img
 
     def make_scope(self, app: App):
-        button_height = int(round(50 * self._scale_by))
+        button_height = int(round(45 * self._scale_by))
         self.scope_box = scope_box = Box(app, layout="grid", border=2, align="bottom")
-        # _ = Text(scope_box, text=" ", grid=[0, 0, 5, 1], align="top", size=1, height=1, bold=True)
         for i, scope_abbrev in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
             scope = CommandScope.by_prefix(scope_abbrev)
             # Create a PhotoImage to enforce button size
