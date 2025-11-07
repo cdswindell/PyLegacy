@@ -359,7 +359,7 @@ class EngineGui(Thread, Generic[S]):
         self.make_keypad(app)
 
         # make engine/train controller
-        self.engine_controller(app)
+        self.controller(app)
 
         # make scope buttons
         self.make_scope(app)
@@ -382,8 +382,27 @@ class EngineGui(Thread, Generic[S]):
             self.app = None
             self._ev.set()
 
-    def engine_controller(self, app):
-        pass
+    def controller(self, app):
+        self.controller_box = controller_box = Box(
+            app,
+            border=2,
+            align="top",
+            visible=False,
+        )
+        self.ops_cells.add(controller_box)
+        self.controller_keypad = keypad_keys = Box(
+            controller_box,
+            layout="grid",
+            border=0,
+            align="left",
+        )
+        self.controller_throttle = throttle = Box(
+            controller_box,
+            layout="grid",
+            border=1,
+            align="right",
+        )
+        print(keypad_keys, throttle)
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
@@ -584,8 +603,6 @@ class EngineGui(Thread, Generic[S]):
             layout="grid",
             border=0,
             align="top",
-            # width=self.button_size * 3 + 24,
-            # height=self.button_size * 5 + 64,
         )
 
         row = 0
@@ -989,7 +1006,8 @@ class EngineGui(Thread, Generic[S]):
             if cell.visible:
                 cell.hide()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-            pass
+            if not self.controller_box.visible:
+                self.controller_box.show()
         elif self.scope == CommandScope.ROUTE:
             self.on_new_route()
             self.fire_route_cell.show()
