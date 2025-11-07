@@ -1013,6 +1013,8 @@ class EngineGui(Thread, Generic[S]):
             if state:
                 name = state.name
                 name = name if name and name != "NA" else not_found_value
+                num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
+                self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
                 update_button_state = False
                 self.push_current(self.scope, tmcc_id, state)
                 print(f"update_component_info: in_ops_mode: {in_ops_mode} in_entry_mode: {self._in_entry_mode}")
