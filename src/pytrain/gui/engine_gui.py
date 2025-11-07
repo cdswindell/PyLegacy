@@ -52,7 +52,7 @@ LAYOUT = [
     ["⌫", "0", "↵"],
 ]
 
-HALT_KEY = ">> HALT <<"
+HALT_KEY = ">> Halt <<"
 SWITCH_THRU_KEY = "↑"
 SWITCH_OUT_KEY = "↖↗"
 FIRE_ROUTE_KEY = "⚡"
