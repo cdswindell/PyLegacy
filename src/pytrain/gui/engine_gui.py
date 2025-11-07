@@ -364,12 +364,6 @@ class EngineGui(Thread, Generic[S]):
         # make scope buttons
         self.make_scope(app)
 
-        #
-        # self.app.update()
-        #
-        # # build state buttons
-        # self.acc_box = Box(self.app, border=2, align="bottom", layout="grid")
-
         # Finally, resize image box
         available_height, available_width = self.calc_image_box_size()
         self.image_box.tk.config(height=available_height, width=available_width)
@@ -583,14 +577,15 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyTypeChecker
     def make_keypad(self, app: App):
-        self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="left")
+        self.keypad_box = keypad_box = Box(app, border=2, align="top")
+        keypad_keys = Box(keypad_box, layout="grid", border=2, align="left")
 
         row = 0
         for r, kr in enumerate(LAYOUT):
             for c, label in enumerate(kr):
                 img = tk.PhotoImage(width=self.button_size, height=self.button_size)
                 self._btn_images.append(img)
-                cell = Box(keypad_box, layout="auto", grid=[c, row])
+                cell = Box(keypad_keys, layout="auto", grid=[c, row])
                 nb = PushButton(
                     cell,
                     text=label,
@@ -618,7 +613,7 @@ class EngineGui(Thread, Generic[S]):
             row += 1
 
         # fill in last row; contents depends on scope
-        self.on_key_cell = cell = Box(keypad_box, layout="auto", grid=[0, row])
+        self.on_key_cell = cell = Box(keypad_keys, layout="auto", grid=[0, row])
         self.entry_cells.add(cell)
         self.on_btn = nb = PushButton(
             cell,
@@ -635,7 +630,7 @@ class EngineGui(Thread, Generic[S]):
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
         # off button
-        self.off_key_cell = cell = Box(keypad_box, layout="auto", grid=[1, row])
+        self.off_key_cell = cell = Box(keypad_keys, layout="auto", grid=[1, row])
         self.entry_cells.add(cell)
         self.off_btn = nb = PushButton(
             cell,
@@ -652,7 +647,7 @@ class EngineGui(Thread, Generic[S]):
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
         # set button
-        self.set_key_cell = cell = Box(keypad_box, layout="auto", grid=[2, row])
+        self.set_key_cell = cell = Box(keypad_keys, layout="auto", grid=[2, row])
         self.entry_cells.add(cell)
         img = tk.PhotoImage(width=self.button_size, height=self.button_size)
         self._btn_images.append(img)
@@ -676,7 +671,7 @@ class EngineGui(Thread, Generic[S]):
 
         # fire route button
         self.fire_route_cell, self.fire_route_btn = self.make_keypad_button(
-            keypad_box,
+            keypad_keys,
             FIRE_ROUTE_KEY,
             row,
             1,
@@ -687,7 +682,7 @@ class EngineGui(Thread, Generic[S]):
 
         # switch button
         self.switch_thru_cell, self.switch_thru_btn = self.make_keypad_button(
-            keypad_box,
+            keypad_keys,
             SWITCH_THRU_KEY,
             row,
             0,
@@ -696,7 +691,7 @@ class EngineGui(Thread, Generic[S]):
             is_ops=True,
         )
         self.switch_out_cell, self.switch_out_btn = self.make_keypad_button(
-            keypad_box,
+            keypad_keys,
             SWITCH_OUT_KEY,
             row,
             2,
@@ -749,7 +744,7 @@ class EngineGui(Thread, Generic[S]):
             Image.open(self.power_on_path).resize((self.titled_button_size, self.titled_button_size))
         )
         self.ac_off_cell, self.ac_off_btn = self.make_keypad_button(
-            keypad_box,
+            keypad_keys,
             AC_OFF_KEY,
             row,
             0,
@@ -760,7 +755,7 @@ class EngineGui(Thread, Generic[S]):
             titlebox_text="Off",
         )
         self.ac_status_cell, self.ac_status_btn = self.make_keypad_button(
-            keypad_box,
+            keypad_keys,
             None,
             row,
             1,
@@ -770,7 +765,7 @@ class EngineGui(Thread, Generic[S]):
             titlebox_text="Status",
         )
         self.ac_on_cell, self.ac_on_btn = self.make_keypad_button(
-            keypad_box,
+            keypad_keys,
             AC_ON_KEY,
             row,
             2,
@@ -783,7 +778,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Acs2 Momentary Action Button
         self.ac_aux1_cell, self.ac_aux1_btn = self.make_keypad_button(
-            keypad_box,
+            keypad_keys,
             AUX1_KEY,
             row - 1,
             2,
