@@ -40,6 +40,7 @@ from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandEnum
 from ..utils.path_utils import find_file
+from ..utils.unique_deque import UniqueDeque
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
@@ -130,6 +131,7 @@ class EngineGui(Thread, Generic[S]):
         inactive_bg: str = "white",
         scale_by: float = 1.0,
         repeat: int = 2,
+        num_recents: int = 5,
     ) -> None:
         Thread.__init__(self, daemon=True, name="Engine GUI")
         self._cv = Condition(RLock())
@@ -155,6 +157,7 @@ class EngineGui(Thread, Generic[S]):
         self._image = None
         self._scale_by = scale_by
         self.repeat = repeat
+        self.num_recents = num_recents
         self.s_30: int = int(round(30 * scale_by))
         self.s_24: int = int(round(24 * scale_by))
         self.s_22: int = int(round(22 * scale_by))
@@ -181,10 +184,6 @@ class EngineGui(Thread, Generic[S]):
         self.app = self.box = self.acc_box = self.y_offset = None
         self.turn_on_image = find_file("on_button.jpg")
         self.turn_off_image = find_file("off_button.jpg")
-        self.alarm_on_image = find_file("Breaking-News-Emoji.gif")
-        self.alarm_off_image = find_file("red_light_off.jpg")
-        self.left_arrow_image = find_file("left_arrow.jpg")
-        self.right_arrow_image = find_file("right_arrow.jpg")
         self.asc2_image = find_file("LCS-ASC2-6-81639.jpg")
         self.amc2_image = find_file("LCS-AMC2-6-81641.jpg")
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
@@ -198,6 +197,7 @@ class EngineGui(Thread, Generic[S]):
         self._scope_buttons = {}
         self._scope_tmcc_ids = {}
         self._scope_watchers = {}
+        self._scope_queue = {}
         self._prod_info_cache = {}
         self._image_cache = {}
         self.entry_cells = set()
@@ -868,7 +868,7 @@ class EngineGui(Thread, Generic[S]):
             self.tmcc_id_text.value = tmcc_id
             self.entry_mode()
         elif key == "↵":
-            self._scope_tmcc_ids[self.scope] = int(tmcc_id)
+            self.push_current(self.scope, int(tmcc_id))
             self.ops_mode()
         else:
             self.do_command(key)
@@ -878,6 +878,21 @@ class EngineGui(Thread, Generic[S]):
         if not self._in_entry_mode and key.isdigit():
             print("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
+
+    def push_current(self, scope: CommandScope, tmcc_id: int, state: S = None):
+        print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
+        self._scope_tmcc_ids[self.scope] = tmcc_id
+        if tmcc_id > 0:
+            if state is None:
+                state = self._state_store.get_state(self.scope, tmcc_id, False)
+            if state:
+                # add to scope queue
+                queue = self._scope_queue.get(self.scope, None)
+                if queue is None:
+                    queue = UniqueDeque[S](maxlen=self.num_recents)
+                    self._scope_queue[self.scope] = queue
+                queue.appendleft(state)
+                print(queue)
 
     def do_command(self, key: str) -> None:
         cmd = KEY_TO_COMMAND.get(key, None)
@@ -974,6 +989,7 @@ class EngineGui(Thread, Generic[S]):
                 name = state.name
                 name = name if name and name != "NA" else not_found_value
                 update_button_state = False
+                self.push_current(self.scope, tmcc_id, state)
                 print(f"update_component_info: in_ops_mode: {in_ops_mode} in_entry_mode: {self._in_entry_mode}")
                 if not in_ops_mode:
                     print(f"Calling ops_mode: {self.scope} {name}")
