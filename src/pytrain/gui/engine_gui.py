@@ -1029,7 +1029,7 @@ class EngineGui(Thread, Generic[S]):
     def update_component_info(
         self,
         tmcc_id: int = None,
-        not_found_value: str = "Not Found",
+        not_found_value: str = "Not Configured",
         in_ops_mode: bool = False,
     ) -> None:
         print(f"update_component_info: {tmcc_id}")
