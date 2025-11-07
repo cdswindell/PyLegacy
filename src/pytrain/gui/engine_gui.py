@@ -1037,7 +1037,7 @@ class EngineGui(Thread, Generic[S]):
             state = self._state_store.get_state(self.scope, tmcc_id, False)
             if state:
                 # Make sure ID field shows TMCC ID, not just road number
-                if tmcc_id != state.tmcc_id:
+                if tmcc_id != state.tmcc_id or tmcc_id != int(self.tmcc_id_text.value):
                     tmcc_id = state.tmcc_id
                     self._scope_tmcc_ids[self.scope] = tmcc_id
                     num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
