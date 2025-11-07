@@ -872,7 +872,7 @@ class EngineGui(Thread, Generic[S]):
             # stay in entry mode
             if self.push_current(self.scope, int(tmcc_id)):
                 self.ops_mode()
-            elif not self._in_entry_mode:
+            else:
                 self.entry_mode()
         else:
             self.do_command(key)
@@ -980,7 +980,7 @@ class EngineGui(Thread, Generic[S]):
     def update_component_info(
         self,
         tmcc_id: int = None,
-        not_found_value: str = "Not Defined",
+        not_found_value: str = "Not Found",
         in_ops_mode: bool = False,
     ) -> None:
         print(f"update_component_info: {tmcc_id}")
