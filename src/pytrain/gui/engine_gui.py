@@ -949,17 +949,21 @@ class EngineGui(Thread, Generic[S]):
     def do_command(self, key: str) -> None:
         cmd = KEY_TO_COMMAND.get(key, None)
         tmcc_id = self._scope_tmcc_ids[self.scope]
-        if cmd and tmcc_id:
-            if isinstance(cmd, CommandReq):
-                cmd.scope = self.scope
-                cmd.address = self._scope_tmcc_ids[self.scope]
+        if cmd:
+            # special case HALT cmd
+            if key == HALT_KEY:
                 cmd.send(repeat=self.repeat)
-            elif cmd == send_lcs_on_command:
-                state = self._state_store.get_state(self.scope, tmcc_id)
-                cmd(state)
-            elif cmd == send_lcs_off_command:
-                state = self._state_store.get_state(self.scope, tmcc_id)
-                cmd(state)
+            elif tmcc_id > 0:
+                if isinstance(cmd, CommandReq):
+                    cmd.scope = self.scope
+                    cmd.address = self._scope_tmcc_ids[self.scope]
+                    cmd.send(repeat=self.repeat)
+                elif cmd == send_lcs_on_command:
+                    state = self._state_store.get_state(self.scope, tmcc_id)
+                    cmd(state)
+                elif cmd == send_lcs_off_command:
+                    state = self._state_store.get_state(self.scope, tmcc_id)
+                    cmd(state)
         else:
             print(f"Unknown key: {key}")
 
