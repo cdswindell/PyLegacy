@@ -383,7 +383,7 @@ class EngineGui(Thread, Generic[S]):
         queue = self._scope_queue.get(self.scope, None)
         if queue:
             for state in queue:
-                name=state.name
+                name = state.name
                 if name:
                     options.append(name)
         return options
@@ -513,13 +513,18 @@ class EngineGui(Thread, Generic[S]):
         else:
             self._scope_tmcc_ids[scope] = 0
             force_entry_mode = True
-        self.header.options = self.get_options()
-        self.header.select_default()
+        self.rebuild_options()
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
         self.scope_box.show()
         print(f"On Scope: {scope} calling scope_keypad({force_entry_mode})")
         self.scope_keypad(force_entry_mode)
+
+    def rebuild_options(self):
+        self.header.clear()
+        for option in self.get_options():
+            self.header.append(option)
+        self.header.select_default()
 
     def scope_keypad(self, force_entry_mode: bool = False):
         print(f"Scope Keypad: force={force_entry_mode}")
@@ -910,8 +915,7 @@ class EngineGui(Thread, Generic[S]):
                     self._scope_queue[self.scope] = queue
                 queue.appendleft(state)
                 print(queue)
-                self.header.options = self.get_options()
-                self.header.select_default()
+                self.rebuild_options()
                 return True
         return False
 
