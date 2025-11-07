@@ -37,7 +37,7 @@ from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandEnum
 from ..utils.path_utils import find_file
 from ..utils.unique_deque import UniqueDeque
@@ -52,6 +52,7 @@ LAYOUT = [
     ["⌫", "0", "↵"],
 ]
 
+HALT_KEY = ">> HALT <<"
 SWITCH_THRU_KEY = "↑"
 SWITCH_OUT_KEY = "↖↗"
 FIRE_ROUTE_KEY = "⚡"
@@ -106,11 +107,12 @@ def send_lcs_off_command(state: AccessoryState) -> None:
 
 
 KEY_TO_COMMAND = {
-    FIRE_ROUTE_KEY: CommandReq(TMCC2RouteCommandEnum.FIRE),
-    SWITCH_THRU_KEY: CommandReq(TMCC1SwitchCommandEnum.THRU),
-    SWITCH_OUT_KEY: CommandReq(TMCC1SwitchCommandEnum.OUT),
-    AC_ON_KEY: send_lcs_on_command,
     AC_OFF_KEY: send_lcs_off_command,
+    AC_ON_KEY: send_lcs_on_command,
+    FIRE_ROUTE_KEY: CommandReq(TMCC2RouteCommandEnum.FIRE),
+    HALT_KEY: CommandReq(TMCC1HaltCommandEnum.HALT),
+    SWITCH_OUT_KEY: CommandReq(TMCC1SwitchCommandEnum.OUT),
+    SWITCH_THRU_KEY: CommandReq(TMCC1SwitchCommandEnum.THRU),
 }
 
 
@@ -1173,12 +1175,14 @@ class EngineGui(Thread, Generic[S]):
 
         self.halt_btn = halt_btn = PushButton(
             emergency_box,
-            text=">> Halt <<",
+            text=HALT_KEY,
             grid=[0, 1],
             align="top",
             width=10,
             padx=self._text_pad_x,
             pady=self._text_pad_y,
+            command=self.on_keypress,
+            args=[HALT_KEY],
         )
         halt_btn.bg = "red"
         halt_btn.text_color = "white"
