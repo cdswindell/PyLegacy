@@ -337,10 +337,7 @@ class EngineGui(Thread, Generic[S]):
 
         # customize label
         self.header = cb = Combo(
-            app,
-            options=self.get_options(),
-            selected=self.title,
-            align="top",
+            app, options=self.get_options(), selected=self.title, align="top", command=self.on_select_component
         )
         cb.text_size = self.s_24
         cb.text_bold = True
@@ -378,6 +375,11 @@ class EngineGui(Thread, Generic[S]):
             self._image = None
             self.app = None
             self._ev.set()
+
+    def on_select_component(self, value: str):
+        state = self._options_to_state[value]
+        print(str, state)
+        self.update_component_info(tmcc_id=state.tmcc_id)
 
     def get_options(self) -> list[str]:
         options = [self.title]
