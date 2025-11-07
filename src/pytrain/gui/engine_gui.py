@@ -174,6 +174,7 @@ class EngineGui(Thread, Generic[S]):
         self.grid_pad_by = 2
         self.avail_image_height = self.avail_image_width = None
         self.scope = CommandScope.ENGINE
+        self.options = [self.title]
 
         self._enabled_bg = enabled_bg
         self._disabled_bg = disabled_bg
@@ -336,7 +337,7 @@ class EngineGui(Thread, Generic[S]):
         # customize label
         self.header = cb = Combo(
             app,
-            options=[self.title],
+            options=self.get_options(),
             selected=self.title,
             align="top",
         )
@@ -376,6 +377,16 @@ class EngineGui(Thread, Generic[S]):
             self._image = None
             self.app = None
             self._ev.set()
+
+    def get_options(self) -> list[str]:
+        options = [self.title]
+        queue = self._scope_queue.get(self.scope, None)
+        if queue:
+            for state in queue:
+                name=state.name
+                if name:
+                    options.append(name)
+        return options
 
     def monitor_state(self):
         with self._cv:
@@ -502,6 +513,8 @@ class EngineGui(Thread, Generic[S]):
         else:
             self._scope_tmcc_ids[scope] = 0
             force_entry_mode = True
+        self.header.options = self.get_options()
+        self.header.select_default()
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
         self.scope_box.show()
@@ -897,6 +910,8 @@ class EngineGui(Thread, Generic[S]):
                     self._scope_queue[self.scope] = queue
                 queue.appendleft(state)
                 print(queue)
+                self.header.options = self.get_options()
+                self.header.select_default()
                 return True
         return False
 
