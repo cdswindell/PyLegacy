@@ -584,8 +584,8 @@ class EngineGui(Thread, Generic[S]):
             layout="grid",
             border=0,
             align="top",
-            width=self.button_size * 3 + 24,
-            height=self.button_size * 5 + 64,
+            # width=self.button_size * 3 + 24,
+            # height=self.button_size * 5 + 64,
         )
 
         row = 0
@@ -608,7 +608,9 @@ class EngineGui(Thread, Generic[S]):
                     nb.text_size = self.s_24
                     nb.text_bold = False
                     self.clear_key_cell = cell
+                    self.entry_cells.add(cell)
                 elif label == ENTER_KEY:
+                    self.entry_cells.add(cell)
                     self.enter_key_cell = cell
             row += 1
 
@@ -647,27 +649,20 @@ class EngineGui(Thread, Generic[S]):
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
         # set button
+        self.set_key_cell, self.set_btn = self.make_keypad_button(
+            keypad_keys,
+            SET_KEY,
+            row,
+            2,
+            size=self.s_16,
+            visible=True,
+            bolded=True,
+            command=self.on_keypress,
+            args=[SET_KEY],
+            is_entry=True,
+        )
         self.set_key_cell = cell = Box(keypad_keys, layout="auto", grid=[2, row])
         self.entry_cells.add(cell)
-        img = tk.PhotoImage(width=self.button_size, height=self.button_size)
-        self._btn_images.append(img)
-        self.set_btn = nb = PushButton(
-            cell,
-            align="top",
-            height=self.button_size,
-            width=self.button_size,
-            text="Set",
-            command=self.on_keypress,
-            args=["set"],
-        )
-        nb.text_color = "black"
-        nb.tk.config(image=img, compound="center")
-        nb.tk.config(width=self.button_size, height=self.button_size)
-        nb.text_size = self.s_16
-        nb.text_bold = True
-        nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-        # spacing between buttons (in pixels)
-        nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
         # fire route button
         self.fire_route_cell, self.fire_route_btn = self.make_keypad_button(
