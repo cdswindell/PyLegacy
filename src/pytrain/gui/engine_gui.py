@@ -868,8 +868,8 @@ class EngineGui(Thread, Generic[S]):
             self.tmcc_id_text.value = tmcc_id
             self.entry_mode()
         elif key == "↵":
-            self.push_current(self.scope, int(tmcc_id))
-            self.ops_mode()
+            if self.push_current(self.scope, int(tmcc_id)):
+                self.ops_mode()
         else:
             self.do_command(key)
 
@@ -879,7 +879,7 @@ class EngineGui(Thread, Generic[S]):
             print("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
 
-    def push_current(self, scope: CommandScope, tmcc_id: int, state: S = None):
+    def push_current(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         self._scope_tmcc_ids[self.scope] = tmcc_id
         if tmcc_id > 0:
@@ -893,6 +893,8 @@ class EngineGui(Thread, Generic[S]):
                     self._scope_queue[self.scope] = queue
                 queue.appendleft(state)
                 print(queue)
+                return True
+        return False
 
     def do_command(self, key: str) -> None:
         cmd = KEY_TO_COMMAND.get(key, None)
