@@ -584,7 +584,7 @@ class EngineGui(Thread, Generic[S]):
             layout="grid",
             border=0,
             align="top",
-            width=self.button_size * 3 + 20,
+            width=self.button_size * 3 + 10,
             height=self.button_size * 5 + 50,
         )
 
@@ -599,7 +599,6 @@ class EngineGui(Thread, Generic[S]):
                     size=self.s_22 if label.isdigit() else self.s_24,
                     visible=True,
                     bolded=True,
-                    is_entry=True,
                     command=self.on_keypress,
                     args=[label],
                 )
