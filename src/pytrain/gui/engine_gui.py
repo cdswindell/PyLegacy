@@ -613,8 +613,7 @@ class EngineGui(Thread, Generic[S]):
         self.image = Picture(image_box, align="top")
         self.image_box.hide()
 
-        # _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
-        self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="top")
+        self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="left")
 
         row = 0
         for r, kr in enumerate(LAYOUT):
@@ -952,7 +951,7 @@ class EngineGui(Thread, Generic[S]):
         if cmd:
             # special case HALT cmd
             if key == HALT_KEY:
-                cmd.send(repeat=self.repeat)
+                cmd.send()
             elif tmcc_id > 0:
                 if isinstance(cmd, CommandReq):
                     cmd.scope = self.scope
