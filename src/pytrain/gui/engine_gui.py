@@ -1011,11 +1011,16 @@ class EngineGui(Thread, Generic[S]):
         if tmcc_id:
             state = self._state_store.get_state(self.scope, tmcc_id, False)
             if state:
+                # Make sure ID field shows TMCC ID, not just road number
+                if tmcc_id != state.tmcc_id:
+                    tmcc_id = state.tmcc_id
+                    self._scope_tmcc_ids[self.scope] = tmcc_id
+                    num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
+                    self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
                 name = state.name
                 name = name if name and name != "NA" else not_found_value
-                num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
-                self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
                 update_button_state = False
+                # noinspection PyTypeChecker
                 self.push_current(self.scope, tmcc_id, state)
                 print(f"update_component_info: in_ops_mode: {in_ops_mode} in_entry_mode: {self._in_entry_mode}")
                 if not in_ops_mode:
