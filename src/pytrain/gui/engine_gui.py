@@ -571,14 +571,11 @@ class EngineGui(Thread, Generic[S]):
                 self.off_key_cell.hide()
             if not self.keypad_box.visible:
                 self.keypad_box.show()
-        # else:
-        #     print("Scope Keypad calling ops_mode()...")
-        #     self.ops_mode()
 
     # noinspection PyTypeChecker
     def make_keypad(self, app: App):
         self.keypad_box = keypad_box = Box(app, border=2, align="top", width=self.emergency_box_width, height="fill")
-        keypad_keys = Box(keypad_box, layout="grid", border=2, align="left")
+        keypad_keys = Box(keypad_box, layout="grid", border=2, align="top")
         self.entry_cells.add(keypad_keys)
 
         row = 0
