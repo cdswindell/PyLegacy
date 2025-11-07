@@ -583,33 +583,26 @@ class EngineGui(Thread, Generic[S]):
         row = 0
         for r, kr in enumerate(LAYOUT):
             for c, label in enumerate(kr):
-                img = tk.PhotoImage(width=self.button_size, height=self.button_size)
-                self._btn_images.append(img)
-                cell = Box(keypad_keys, layout="auto", grid=[c, row])
-                nb = PushButton(
-                    cell,
-                    text=label,
+                cell, nb = self.make_keypad_button(
+                    keypad_keys,
+                    label,
+                    row,
+                    c,
+                    size=self.s_22 if label.isdigit() else self.s_24,
+                    visible=True,
+                    bolded=True,
+                    is_entry=True,
                     command=self.on_keypress,
                     args=[label],
                 )
-                nb.text_color = "black"
-                nb.tk.config(image=img, compound="center")
-                nb.tk.config(width=self.button_size, height=self.button_size)
-                nb.text_size = self.s_22 if label.isdigit() else self.s_24
-                nb.text_bold = True
-                nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-                # spacing between buttons (in pixels)
-                nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
                 if label == CLEAR_KEY:
                     nb.text_color = "red"
                     nb.text_size = self.s_24
                     nb.text_bold = False
                     self.clear_key_cell = cell
-                    self.entry_cells.add(cell)
                 elif label == ENTER_KEY:
                     self.enter_key_cell = cell
-                    self.entry_cells.add(cell)
             row += 1
 
         # fill in last row; contents depends on scope
