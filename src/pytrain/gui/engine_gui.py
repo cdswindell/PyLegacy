@@ -1008,6 +1008,8 @@ class EngineGui(Thread, Generic[S]):
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             if not self.controller_box.visible:
                 self.controller_box.show()
+            if not self.keypad_box.visible:
+                self.keypad_box.hide()
         elif self.scope == CommandScope.ROUTE:
             self.on_new_route()
             self.fire_route_cell.show()
