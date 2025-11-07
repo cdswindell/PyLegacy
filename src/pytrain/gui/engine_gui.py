@@ -794,7 +794,7 @@ class EngineGui(Thread, Generic[S]):
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, border=2, align="top")
 
-        self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="top")
+        self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="left")
         tmcc_id_box.text_size = self.s_12
 
         self.tmcc_id_text = tmcc_id = Text(tmcc_id_box, text="0000", align="left", bold=True)
