@@ -584,8 +584,8 @@ class EngineGui(Thread, Generic[S]):
             layout="grid",
             border=0,
             align="top",
-            width=self.button_size * 3 + 10,
-            height=self.button_size * 5 + 50,
+            width=self.button_size * 3 + 16,
+            height=self.button_size * 5 + 60,
         )
 
         row = 0
