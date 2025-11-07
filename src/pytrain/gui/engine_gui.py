@@ -211,6 +211,7 @@ class EngineGui(Thread, Generic[S]):
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
+        self.controller_box = self.controller_keypad = self.controller_throttle = None
         self.emergency_box_width = None
 
         # various buttons
@@ -350,10 +351,15 @@ class EngineGui(Thread, Generic[S]):
 
         # Make the emergency buttons, including Halt and Reset
         self.make_emergency_buttons(app)
-        # _ = Text(app, text=" ", align="top", size=3, height=1, bold=True)
+
+        # Make info box for TMCC ID and Road Name
+        self.make_info_box(app)
 
         # make selection box and keypad
         self.make_keypad(app)
+
+        # make engine/train controller
+        self.engine_controller(app)
 
         # make scope buttons
         self.make_scope(app)
@@ -381,6 +387,9 @@ class EngineGui(Thread, Generic[S]):
             self._image = None
             self.app = None
             self._ev.set()
+
+    def engine_controller(self, app):
+        pass
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
@@ -574,45 +583,6 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyTypeChecker
     def make_keypad(self, app: App):
-        self.info_box = info_box = Box(app, border=2, align="top")
-
-        self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="left")
-        tmcc_id_box.text_size = self.s_12
-
-        self.tmcc_id_text = tmcc_id = Text(tmcc_id_box, text="0000", align="left", bold=True)
-        tmcc_id.text_color = "blue"
-        tmcc_id.text_bold = True
-        tmcc_id.text_size = self.s_20
-        tmcc_id.width = 5
-        app.update()  # we want to measure height of the title box
-
-        self.name_box = name_box = TitleBox(
-            info_box,
-            "Road Name",
-            align="right",
-            height=tmcc_id_box.tk.winfo_reqheight(),
-            width=self.emergency_box.tk.winfo_reqwidth() - tmcc_id_box.tk.winfo_reqwidth(),
-        )
-        name_box.text_size = self.s_12
-
-        self.name_text = name_text = Text(
-            name_box,
-            text="",
-            align="top",
-            bold=True,
-            width="fill",
-        )
-        name_text.text_color = "blue"
-        name_text.text_bold = True
-        name_text.text_size = self.s_18
-        name_text.width = 20
-        name_text.tk.config(justify="left", anchor="w")  # ← this does the trick!
-
-        # add a picture placeholder here, we may not use it
-        self.image_box = image_box = Box(app, border=2, align="top")
-        self.image = Picture(image_box, align="top")
-        self.image_box.hide()
-
         self.keypad_box = keypad_box = Box(app, layout="grid", border=2, align="left")
 
         row = 0
@@ -825,6 +795,46 @@ class EngineGui(Thread, Generic[S]):
         self.ac_aux1_btn.when_left_button_pressed = self.when_pressed
         self.ac_aux1_btn.when_left_button_released = self.when_released
         app.update()
+
+    def make_info_box(self, app: App):
+        self.info_box = info_box = Box(app, border=2, align="top")
+
+        self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="top")
+        tmcc_id_box.text_size = self.s_12
+
+        self.tmcc_id_text = tmcc_id = Text(tmcc_id_box, text="0000", align="left", bold=True)
+        tmcc_id.text_color = "blue"
+        tmcc_id.text_bold = True
+        tmcc_id.text_size = self.s_20
+        tmcc_id.width = 5
+        app.update()  # we want to measure height of the title box
+
+        self.name_box = name_box = TitleBox(
+            info_box,
+            "Road Name",
+            align="right",
+            height=tmcc_id_box.tk.winfo_reqheight(),
+            width=self.emergency_box.tk.winfo_reqwidth() - tmcc_id_box.tk.winfo_reqwidth(),
+        )
+        name_box.text_size = self.s_12
+
+        self.name_text = name_text = Text(
+            name_box,
+            text="",
+            align="top",
+            bold=True,
+            width="fill",
+        )
+        name_text.text_color = "blue"
+        name_text.text_bold = True
+        name_text.text_size = self.s_18
+        name_text.width = 20
+        name_text.tk.config(justify="left", anchor="w")  # ← this does the trick!
+
+        # add a picture placeholder here, we may not use it
+        self.image_box = image_box = Box(app, border=2, align="top")
+        self.image = Picture(image_box, align="top")
+        self.image_box.hide()
 
     def on_sensor_track_change(self) -> None:
         tmcc_id = self._scope_tmcc_ids[self.scope]
