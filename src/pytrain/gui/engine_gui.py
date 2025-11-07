@@ -198,7 +198,7 @@ class EngineGui(Thread, Generic[S]):
         self._scope_buttons = {}
         self._scope_tmcc_ids = {}
         self._scope_watchers = {}
-        self._scope_queue = {}
+        self._recents_queue = {}
         self._options_to_state = {}
         self._prod_info_cache = {}
         self._image_cache = {}
@@ -341,7 +341,7 @@ class EngineGui(Thread, Generic[S]):
             options=self.get_options(),
             selected=self.title,
             align="top",
-            command=self.on_select_component,
+            command=self.on_recents,
         )
         cb.text_size = self.s_24
         cb.text_bold = True
@@ -380,7 +380,7 @@ class EngineGui(Thread, Generic[S]):
             self.app = None
             self._ev.set()
 
-    def on_select_component(self, value: str):
+    def on_recents(self, value: str):
         print(f"on_select_component: {value}")
         if value != self.title:
             state = self._options_to_state[value]
@@ -391,7 +391,7 @@ class EngineGui(Thread, Generic[S]):
     def get_options(self) -> list[str]:
         options = [self.title]
         self._options_to_state.clear()
-        queue = self._scope_queue.get(self.scope, None)
+        queue = self._recents_queue.get(self.scope, None)
         if queue:
             num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
             for state in queue:
@@ -512,6 +512,7 @@ class EngineGui(Thread, Generic[S]):
         self.on_scope(self.scope)
         app.update()
 
+    # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope) -> None:
         print(f"On Scope: {scope}")
         self.scope_box.hide()
@@ -527,8 +528,16 @@ class EngineGui(Thread, Generic[S]):
             print(f"Scope changed to {scope}; Calling update_component_info()...")
             self.update_component_info()
         else:
-            self._scope_tmcc_ids[scope] = 0
-            force_entry_mode = True
+            # if the pressed scope button is the same as the current scope,
+            # return to entry mode or pop an element from the recents queue
+            if self._scope_tmcc_ids[scope] == 0:
+                recents = self._recents_queue.get(scope, None)
+                if isinstance(recents, UniqueDeque) and len(recents) > 0:
+                    state = cast(ComponentState, cast(object, recents[0]))
+                    self.update_component_info(tmcc_id=state.tmcc_id)
+            else:
+                self._scope_tmcc_ids[scope] = 0
+                force_entry_mode = True
         self.rebuild_options()
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
@@ -925,10 +934,10 @@ class EngineGui(Thread, Generic[S]):
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
             if state:
                 # add to scope queue
-                queue = self._scope_queue.get(self.scope, None)
+                queue = self._recents_queue.get(self.scope, None)
                 if queue is None:
                     queue = UniqueDeque[S](maxlen=self.num_recents)
-                    self._scope_queue[self.scope] = queue
+                    self._recents_queue[self.scope] = queue
                 queue.appendleft(state)
                 print(queue)
                 self.rebuild_options()
