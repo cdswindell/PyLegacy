@@ -199,6 +199,7 @@ class EngineGui(Thread, Generic[S]):
         self._scope_tmcc_ids = {}
         self._scope_watchers = {}
         self._scope_queue = {}
+        self._options_to_state = {}
         self._prod_info_cache = {}
         self._image_cache = {}
         self.entry_cells = set()
@@ -380,12 +381,18 @@ class EngineGui(Thread, Generic[S]):
 
     def get_options(self) -> list[str]:
         options = [self.title]
+        self._options_to_state.clear()
         queue = self._scope_queue.get(self.scope, None)
         if queue:
+            num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
             for state in queue:
-                name = state.name
+                name = f"{state.tmcc_id:0{num_chars}d}: {state.road_name}"
+                road_number = state.road_number
+                if road_number and road_number.isnumeric() and int(road_number) != state.tmcc_id:
+                    name += f" #{int(road_number)}"
                 if name:
                     options.append(name)
+                    self._options_to_state[name] = state
         return options
 
     def monitor_state(self):
