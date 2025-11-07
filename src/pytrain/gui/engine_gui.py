@@ -585,7 +585,7 @@ class EngineGui(Thread, Generic[S]):
             border=2,
             align="top",
             width=self.emergency_box_width,
-            height=1,
+            height=self.button_size * 5,
         )
         self.entry_cells.add(keypad_keys)
 
