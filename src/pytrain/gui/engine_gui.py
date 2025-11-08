@@ -439,8 +439,8 @@ class EngineGui(Thread, Generic[S]):
         throttle.tk.config(troughcolor="dim gray", activebackground="gray60", bg="gray20")
         throttle.tk.config(width=60, sliderlength=80)
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
-        throttle.tk.bind("<ButtonRelease-1>", lambda e: throttle.tk.master.focus_set())
-        throttle.tk.bind("<ButtonRelease>", lambda e: throttle.tk.master.focus_set())
+        throttle.tk.bind("<ButtonRelease-1>", lambda e: throttle.tk.after(100, lambda: throttle.tk.tk_focusClear()))
+        throttle.tk.bind("<ButtonRelease>", lambda e: throttle.tk.after(100, lambda: throttle.tk.tk_focusClear()))
         print(keypad_keys, throttle)
 
     def on_recents(self, value: str):
