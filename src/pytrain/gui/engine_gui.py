@@ -451,9 +451,9 @@ class EngineGui(Thread, Generic[S]):
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None) -> None:
         # run after Tk finishes internal release handling
-        print("Clear focus...")
         # only steal focus if the slider still has it
         if self.app.tk.focus_get() == self.throttle.tk:
+            print("Clear focus...")
             # send focus somewhere safe
             self.app.tk.after_idle(self.focus_widget.focus_set)
 
