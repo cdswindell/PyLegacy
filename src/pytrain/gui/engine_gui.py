@@ -431,6 +431,7 @@ class EngineGui(Thread, Generic[S]):
         )
         throttle.tk.config(from_=195, to=0)
         throttle.tk.config(troughcolor="blue", activebackground="black", bg="white")
+        throttle.tk.config(width=30, sliderlength=60)
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
         print(keypad_keys, throttle)
 
