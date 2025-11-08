@@ -438,9 +438,16 @@ class EngineGui(Thread, Generic[S]):
             height=self.button_size * 4,
         )
         throttle.text_color = "white"
-        throttle.tk.config(from_=195, to=0, takefocus=0)
-        throttle.tk.config(troughcolor="dim gray", activebackground="gray60", bg="gray20")
-        throttle.tk.config(width=60, sliderlength=80)
+        throttle.tk.config(
+            from_=195,
+            to=0,
+            takefocus=0,
+            troughcolor="dim gray",
+            activebackground="gray60",
+            bg="gray20",
+            width=60,
+            sliderlength=80,
+        )
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
         throttle.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
         throttle.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
@@ -448,14 +455,18 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):
+        """
+        Touchscreen-safe focus clearing for throttle slider.
+        Ensures focus moves off the Scale after finger release
+        and forces a redraw so the grab handle deactivates.
+        """
         if self.app.tk.focus_get() == self.throttle.tk:
-            # Move focus and reset visuals in one go
-            def do_clear():
-                self.focus_widget.focus_set()
-                self.throttle.tk.event_generate("<Leave>")
-                self.throttle.tk.update_idletasks()
+            self.app.tk.after_idle(self._do_clear_focus)
 
-            self.app.tk.after(100, do_clear)
+    def _do_clear_focus(self):
+        self.focus_widget.focus_set()
+        self.throttle.tk.event_generate("<Leave>")
+        self.throttle.tk.update_idletasks()
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
