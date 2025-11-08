@@ -445,7 +445,8 @@ class EngineGui(Thread, Generic[S]):
         app.tk.bind_all("<ButtonRelease-1>", self.clear_focus, add="+")
         print(keypad_keys)
 
-    def clear_focus(self) -> None:
+    # noinspection PyUnusedLocal
+    def clear_focus(self, e=None) -> None:
         # run after Tk finishes internal release handling
         print("Clear focus...")
         # only steal focus if the slider still has it
