@@ -425,6 +425,7 @@ class EngineGui(Thread, Generic[S]):
         )
         speed.bg = "black"
         speed.text_color = "white"
+        speed.tk.config(takefocus=1)
 
         self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
         focus_sink.place(x=-9999, y=-9999, width=1, height=1)
@@ -453,7 +454,7 @@ class EngineGui(Thread, Generic[S]):
         if self.app.tk.focus_get() == self.throttle.tk:
             # Move focus and reset visuals in one go
             def do_clear():
-                self.header.focus_set()
+                self.speed.focus_set()
                 self.throttle.tk.event_generate("<Leave>")
                 self.throttle.tk.update_idletasks()
 
