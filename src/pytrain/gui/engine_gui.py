@@ -17,7 +17,7 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar, cast
 
-from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Text, TitleBox
+from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
 from PIL import Image, ImageTk
@@ -211,7 +211,7 @@ class EngineGui(Thread, Generic[S]):
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
-        self.controller_box = self.controller_keypad = self.controller_throttle = None
+        self.controller_box = self.controller_keypad_box = self.controller_throttle_box = None
         self.emergency_box_width = None
 
         # various buttons
@@ -233,6 +233,10 @@ class EngineGui(Thread, Generic[S]):
         self.ac_on_cell = self.ac_off_cell = self.ac_status_cell = None
         self.ac_off_btn = self.ac_on_btn = self.ac_status_btn = None
         self.ac_aux1_cell = self.ac_aux1_btn = None
+
+        # controller
+        self.controller_box = self.controller_keypad_box = self.controller_throttle_box = None
+        self.throttle = self.speed = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -358,8 +362,8 @@ class EngineGui(Thread, Generic[S]):
         # make selection box and keypad
         self.make_keypad(app)
 
-        # make engine/train controller
-        self.controller(app)
+        # make engine/train make_controller
+        self.make_controller(app)
 
         # make scope buttons
         self.make_scope(app)
@@ -382,7 +386,7 @@ class EngineGui(Thread, Generic[S]):
             self.app = None
             self._ev.set()
 
-    def controller(self, app):
+    def make_controller(self, app):
         self.controller_box = controller_box = Box(
             app,
             border=2,
@@ -390,17 +394,30 @@ class EngineGui(Thread, Generic[S]):
             visible=False,
         )
         self.ops_cells.add(controller_box)
-        self.controller_keypad = keypad_keys = Box(
+        self.controller_keypad_box = keypad_keys = Box(
             controller_box,
             layout="grid",
             border=0,
             align="left",
         )
-        self.controller_throttle = throttle = Box(
+
+        self.controller_throttle_box = throttle_box = Box(
             controller_box,
             layout="grid",
             border=1,
             align="right",
+        )
+
+        cell = TitleBox(throttle_box, "Speed", align="top", border=1)
+        cell.text_size = self.s_12
+        self.speed = Text(cell, text="000", color="black", align="top", bold=True)
+        self.throttle = throttle = Slider(
+            throttle_box,
+            align="top",
+            start=0,
+            end=195,
+            horizontal=False,
+            step=1,
         )
         print(keypad_keys, throttle)
 
