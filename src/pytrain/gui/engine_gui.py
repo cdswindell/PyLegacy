@@ -457,6 +457,8 @@ class EngineGui(Thread, Generic[S]):
             print(f"Clear focus... {current}")
             # send focus somewhere safe
             self.app.tk.after(100, lambda: self.focus_widget.focus_set())
+            self.app.tk.after(120, lambda: self.throttle.tk.event_generate("<Leave>"))
+            self.app.tk.after(150, self.throttle.tk.update_idletasks)
             self.app.tk.after(200, lambda: print("After:", self.app.tk.focus_get()))
 
     def on_recents(self, value: str):
