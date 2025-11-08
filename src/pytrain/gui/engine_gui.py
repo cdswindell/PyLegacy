@@ -425,7 +425,6 @@ class EngineGui(Thread, Generic[S]):
         )
         speed.bg = "black"
         speed.text_color = "white"
-        speed.tk.config(takefocus=1)
 
         self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
         focus_sink.place(x=-9999, y=-9999, width=1, height=1)
@@ -445,8 +444,6 @@ class EngineGui(Thread, Generic[S]):
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
         throttle.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
         throttle.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
-        # app.tk.bind_all("<ButtonRelease>", self.clear_focus, add="+")
-        # app.tk.bind_all("<ButtonRelease-1>", self.clear_focus, add="+")
         print(keypad_keys)
 
     # noinspection PyUnusedLocal
@@ -454,24 +451,11 @@ class EngineGui(Thread, Generic[S]):
         if self.app.tk.focus_get() == self.throttle.tk:
             # Move focus and reset visuals in one go
             def do_clear():
-                self.speed.focus_set()
+                self.focus_widget.focus_set()
                 self.throttle.tk.event_generate("<Leave>")
                 self.throttle.tk.update_idletasks()
 
             self.app.tk.after(100, do_clear)
-
-    # # noinspection PyUnusedLocal
-    # def clear_focus(self, e=None) -> None:
-    #     # run after Tk finishes internal release handling
-    #     # only steal focus if the slider still has it
-    #     current = self.app.tk.focus_get()
-    #     if self.app.tk.focus_get() == self.throttle.tk:
-    #         print(f"Clear focus... {current}")
-    #         # send focus somewhere safe
-    #         self.app.tk.after(100, lambda: self.focus_widget.focus_set())
-    #         self.app.tk.after(120, lambda: self.throttle.tk.event_generate("<Leave>"))
-    #         self.app.tk.after(150, self.throttle.tk.update_idletasks)
-    #         self.app.tk.after(200, lambda: print("After:", self.app.tk.focus_get()))
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
