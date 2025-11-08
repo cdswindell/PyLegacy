@@ -409,15 +409,18 @@ class EngineGui(Thread, Generic[S]):
 
         cell = TitleBox(throttle_box, "Speed", align="top", border=1)
         cell.text_size = self.s_12
-        self.speed = Text(
+        self.speed = speed = Text(
             cell,
             text="000",
             color="black",
             align="top",
             bold=True,
-            size=self.s_12,
+            size=self.s_22,
             font="DigitalDream",
         )
+        speed.bg = "black"
+        speed.text_color = "white"
+
         self.throttle = throttle = Slider(
             throttle_box,
             align="top",
@@ -427,6 +430,7 @@ class EngineGui(Thread, Generic[S]):
             height=self.button_size * 4,
         )
         throttle.tk.config(from_=195, to=0)
+        throttle.tk.config(troughcolor="blue", activebackground="red", bg="white")
         print(keypad_keys, throttle)
 
     def on_recents(self, value: str):
