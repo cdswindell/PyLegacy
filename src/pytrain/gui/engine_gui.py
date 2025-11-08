@@ -453,7 +453,7 @@ class EngineGui(Thread, Generic[S]):
         if self.app.tk.focus_get() == self.throttle.tk:
             # Move focus and reset visuals in one go
             def do_clear():
-                self.focus_widget.focus_set()
+                self.header.focus_set()
                 self.throttle.tk.event_generate("<Leave>")
                 self.throttle.tk.update_idletasks()
 
