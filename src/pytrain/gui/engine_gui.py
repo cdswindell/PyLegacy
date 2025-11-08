@@ -546,28 +546,39 @@ class EngineGui(Thread, Generic[S]):
                 v.bg = self._enabled_bg
             else:
                 v.bg = self._disabled_bg
+        # if new scope selected, display most recent scoped component, if one existed
         if scope != self.scope:
             self.tmcc_id_box.text = f"{scope.title} ID"
             self.scope = scope
-            print(f"Scope changed to {scope}; Calling update_component_info()...")
-            self.update_component_info()
+            # if scoped TMCC_ID is 0, take the first item on the recents queue
+            if self._scope_tmcc_ids[scope] == 0:
+                self.display_most_recent(scope)
         else:
             # if the pressed scope button is the same as the current scope,
-            # return to entry mode or pop an element from the recents queue
+            # return to entry mode or pop an element from the recents queue,
+            # based on whether the current scope TMCC_ID is 0 or not
             if self._scope_tmcc_ids[scope] == 0:
-                recents = self._recents_queue.get(scope, None)
-                if isinstance(recents, UniqueDeque) and len(recents) > 0:
-                    state = cast(ComponentState, cast(object, recents[0]))
-                    self.update_component_info(tmcc_id=state.tmcc_id)
+                self.display_most_recent(scope)
             else:
+                # pressing the same scope button again returns to entry mode
                 self._scope_tmcc_ids[scope] = 0
-                force_entry_mode = True
+        # update display
+        self.update_component_info()
+        # force entry mode if scoped tmcc_id is 0
+        if self._scope_tmcc_ids[scope] == 0:
+            force_entry_mode = True
         self.rebuild_options()
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
         self.scope_box.show()
         print(f"On Scope: {scope} calling scope_keypad({force_entry_mode})")
         self.scope_keypad(force_entry_mode)
+
+    def display_most_recent(self, scope: CommandScope):
+        recents = self._recents_queue.get(scope, None)
+        if isinstance(recents, UniqueDeque) and len(recents) > 0:
+            state = cast(ComponentState, cast(object, recents[0]))
+            self._scope_tmcc_ids[scope] = state.tmcc_id
 
     def rebuild_options(self):
         self.header.clear()
