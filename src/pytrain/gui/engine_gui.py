@@ -445,7 +445,7 @@ class EngineGui(Thread, Generic[S]):
 
     def clear_focus(self) -> None:
         # run after Tk finishes internal release handling
-        self.app.tk.after_idle(lambda: self.app.tk.call("focus", "none"))
+        self.app.tk.after_idle(lambda: self.header.tk.focus_set())
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
