@@ -493,6 +493,7 @@ class EngineGui(Thread, Generic[S]):
 
         return upd
 
+    # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         print(f"on_new_engine: {state}")
         if state:
