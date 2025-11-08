@@ -442,24 +442,35 @@ class EngineGui(Thread, Generic[S]):
         throttle.tk.config(troughcolor="dim gray", activebackground="gray60", bg="gray20")
         throttle.tk.config(width=60, sliderlength=80)
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
-        # throttle.tk.bind("<ButtonRelease-1>", lambda e: app.tk.after(100, self.clear_focus))
-        # throttle.tk.bind("<ButtonRelease>", lambda e: app.tk.after(100, self.clear_focus))
-        app.tk.bind_all("<ButtonRelease>", self.clear_focus, add="+")
-        app.tk.bind_all("<ButtonRelease-1>", self.clear_focus, add="+")
+        throttle.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
+        throttle.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
+        # app.tk.bind_all("<ButtonRelease>", self.clear_focus, add="+")
+        # app.tk.bind_all("<ButtonRelease-1>", self.clear_focus, add="+")
         print(keypad_keys)
 
     # noinspection PyUnusedLocal
-    def clear_focus(self, e=None) -> None:
-        # run after Tk finishes internal release handling
-        # only steal focus if the slider still has it
-        current = self.app.tk.focus_get()
+    def clear_focus(self, e=None):
         if self.app.tk.focus_get() == self.throttle.tk:
-            print(f"Clear focus... {current}")
-            # send focus somewhere safe
-            self.app.tk.after(100, lambda: self.focus_widget.focus_set())
-            self.app.tk.after(120, lambda: self.throttle.tk.event_generate("<Leave>"))
-            self.app.tk.after(150, self.throttle.tk.update_idletasks)
-            self.app.tk.after(200, lambda: print("After:", self.app.tk.focus_get()))
+            # Move focus and reset visuals in one go
+            def do_clear():
+                self.focus_widget.focus_set()
+                self.throttle.tk.event_generate("<Leave>")
+                self.throttle.tk.update_idletasks()
+
+            self.app.tk.after(100, do_clear)
+
+    # # noinspection PyUnusedLocal
+    # def clear_focus(self, e=None) -> None:
+    #     # run after Tk finishes internal release handling
+    #     # only steal focus if the slider still has it
+    #     current = self.app.tk.focus_get()
+    #     if self.app.tk.focus_get() == self.throttle.tk:
+    #         print(f"Clear focus... {current}")
+    #         # send focus somewhere safe
+    #         self.app.tk.after(100, lambda: self.focus_widget.focus_set())
+    #         self.app.tk.after(120, lambda: self.throttle.tk.event_generate("<Leave>"))
+    #         self.app.tk.after(150, self.throttle.tk.update_idletasks)
+    #         self.app.tk.after(200, lambda: print("After:", self.app.tk.focus_get()))
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
