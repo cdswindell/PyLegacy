@@ -27,6 +27,7 @@ from ..db.accessory_state import AccessoryState
 from ..db.base_state import BaseState
 from ..db.component_state import ComponentState, RouteState, SwitchState
 from ..db.component_state_store import ComponentStateStore
+from ..db.engine_state import EngineState
 from ..db.irda_state import IrdaState
 from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
@@ -59,6 +60,8 @@ FIRE_ROUTE_KEY = "⚡"
 CLEAR_KEY = "⌫"
 ENTER_KEY = "↵"
 SET_KEY = "Set"
+ENGINE_ON_KEY = "ENGINE ON"
+ENGINE_OFF_KEY = "ENGINE OFF"
 AC_ON_KEY = "AC ON"
 AC_OFF_KEY = "AC OFF"
 AUX1_KEY = "Aux1"
@@ -243,6 +246,8 @@ class EngineGui(Thread, Generic[S]):
             CommandScope.ROUTE: self.on_new_route,
             CommandScope.SWITCH: self.on_new_switch,
             CommandScope.ACC: self.on_new_accessory,
+            CommandScope.ENGINE: self.on_new_engine,
+            CommandScope.TRAIN: self.on_new_engine,
         }
 
         # Thread-aware shutdown signaling
@@ -488,6 +493,9 @@ class EngineGui(Thread, Generic[S]):
 
         return upd
 
+    def on_new_engine(self, state: EngineState = None) -> None:
+        print(f"on_new_engine: {state}")
+
     def on_new_route(self, state: RouteState = None):
         # must be called from app thread!!
         if state is None:
@@ -675,38 +683,31 @@ class EngineGui(Thread, Generic[S]):
             row += 1
 
         # fill in last row; contents depends on scope
-        self.on_key_cell = cell = Box(keypad_keys, layout="auto", grid=[0, row])
-        self.entry_cells.add(cell)
-        self.on_btn = nb = PushButton(
-            cell,
+        self.on_key_cell, self.on_btn = self.make_keypad_button(
+            keypad_keys,
+            ENGINE_ON_KEY,
+            row,
+            0,
+            visible=True,
+            bolded=True,
+            command=self.on_keypress,
+            args=[ENGINE_ON_KEY],
+            is_entry=True,
             image=self.turn_on_image,
-            align="top",
-            height=self.button_size,
-            width=self.button_size,
-            text="on",
-            command=self.on_keypress,
-            args=["on"],
         )
-        nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-        # spacing between buttons (in pixels)
-        nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
-        # off button
-        self.off_key_cell = cell = Box(keypad_keys, layout="auto", grid=[1, row])
-        self.entry_cells.add(cell)
-        self.off_btn = nb = PushButton(
-            cell,
-            image=self.turn_off_image,
-            align="top",
-            height=self.button_size,
-            width=self.button_size,
-            text="off",
+        self.off_key_cell, self.off_btn = self.make_keypad_button(
+            keypad_keys,
+            ENGINE_OFF_KEY,
+            row,
+            1,
+            visible=True,
+            bolded=True,
             command=self.on_keypress,
-            args=["off"],
+            args=[ENGINE_OFF_KEY],
+            is_entry=True,
+            image=self.turn_off_image,
         )
-        nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-        # spacing between buttons (in pixels)
-        nb.tk.grid_configure(padx=self.grid_pad_by, pady=self.grid_pad_by)
 
         # set button
         self.set_key_cell, self.set_btn = self.make_keypad_button(
@@ -933,12 +934,12 @@ class EngineGui(Thread, Generic[S]):
             cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
             button_size = self.button_size
             grid_pad_by = self.grid_pad_by
+
         if is_ops:
             self.ops_cells.add(cell)
         if is_entry:
             self.entry_cells.add(cell)
-        img = tk.PhotoImage(width=button_size, height=button_size)
-        self._btn_images.append(img)
+
         nb = PushButton(
             cell,
             align="top",
@@ -948,14 +949,16 @@ class EngineGui(Thread, Generic[S]):
             command=command,
             args=args,
         )
-        nb.text_color = "black"
-        nb.tk.config(image=img, compound="center")
-        nb.tk.config(width=button_size, height=button_size)
         if image:
             nb.image = image
         else:
             nb.text_size = size
             nb.text_bold = bolded
+            img = tk.PhotoImage(width=button_size, height=button_size)
+            self._btn_images.append(img)
+            nb.tk.config(image=img, compound="center")
+        nb.text_color = "black"
+        nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # spacing between buttons (in pixels)
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
@@ -974,7 +977,7 @@ class EngineGui(Thread, Generic[S]):
         elif key == "↵":
             # if a valid (existing) entry was entered, go to ops mode, otherwise,
             # stay in entry mode
-            if self.push_current(self.scope, int(tmcc_id)):
+            if self.make_recent(self.scope, int(tmcc_id)):
                 self.ops_mode()
             else:
                 self.entry_mode()
@@ -987,7 +990,7 @@ class EngineGui(Thread, Generic[S]):
             print("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
 
-    def push_current(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
+    def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         self._scope_tmcc_ids[self.scope] = tmcc_id
         if tmcc_id > 0:
@@ -1049,6 +1052,8 @@ class EngineGui(Thread, Generic[S]):
             if cell.visible:
                 cell.hide()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            state = self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
+            self.on_new_engine(state)
             if not self.controller_box.visible:
                 self.controller_box.show()
             if self.keypad_box.visible:
@@ -1114,7 +1119,7 @@ class EngineGui(Thread, Generic[S]):
                 name = name if name and name != "NA" else not_found_value
                 update_button_state = False
                 # noinspection PyTypeChecker
-                self.push_current(self.scope, tmcc_id, state)
+                self.make_recent(self.scope, tmcc_id, state)
                 print(f"update_component_info: in_ops_mode: {in_ops_mode} in_entry_mode: {self._in_entry_mode}")
                 if not in_ops_mode:
                     print(f"Calling ops_mode: {self.scope} {name}")
