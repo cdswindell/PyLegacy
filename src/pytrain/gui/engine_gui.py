@@ -355,6 +355,7 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             command=self.on_recents,
         )
+        cb.tk.config(takefocus=1)
         cb.text_size = self.s_24
         cb.text_bold = True
 
