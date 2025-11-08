@@ -239,7 +239,7 @@ class EngineGui(Thread, Generic[S]):
 
         # controller
         self.controller_box = self.controller_keypad_box = self.controller_throttle_box = None
-        self.throttle = self.speed = None
+        self.throttle = self.speed = self.focus_widget = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -355,7 +355,6 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             command=self.on_recents,
         )
-        cb.tk.config(takefocus=1)
         cb.text_size = self.s_24
         cb.text_bold = True
 
@@ -427,6 +426,9 @@ class EngineGui(Thread, Generic[S]):
         speed.bg = "black"
         speed.text_color = "white"
 
+        self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
+        focus_sink.place(x=-9999, y=-9999, width=1, height=1)
+
         self.throttle = throttle = Slider(
             throttle_box,
             align="top",
@@ -452,10 +454,8 @@ class EngineGui(Thread, Generic[S]):
         print("Clear focus...")
         # only steal focus if the slider still has it
         if self.app.tk.focus_get() == self.throttle.tk:
-            # send focus somewhere safe (header must be focusable)
-            header_target = self.header.tk  # or a hidden focus_sink frame (see below)
-            self.app.tk.after_idle(header_target.focus_set)
-        # self.app.tk.after_idle(lambda: self.header.tk.focus_set())
+            # send focus somewhere safe
+            self.app.tk.after_idle(self.focus_widget.focus_set)
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
