@@ -452,10 +452,12 @@ class EngineGui(Thread, Generic[S]):
     def clear_focus(self, e=None) -> None:
         # run after Tk finishes internal release handling
         # only steal focus if the slider still has it
+        current = self.app.tk.focus_get()
         if self.app.tk.focus_get() == self.throttle.tk:
-            print("Clear focus...")
+            print(f"Clear focus... {current}")
             # send focus somewhere safe
-            self.app.tk.after(200, lambda: self.focus_widget.focus_set())
+            self.app.tk.after(100, lambda: self.focus_widget.focus_set())
+            self.app.tk.after(200, lambda: print("After:", self.app.tk.focus_get()))
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
