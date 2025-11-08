@@ -495,9 +495,10 @@ class EngineGui(Thread, Generic[S]):
 
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         print(f"on_new_engine: {state}")
-        if ops_mode_setup:
-            if state:
-                self.speed = state.speed
+        if state:
+            self.speed.value = state.speed
+            if ops_mode_setup:
+                self.throttle.value = state.speed
         if state is None or state.is_legacy:
             self.throttle.tk.config(from_=195, to=0)
         else:
