@@ -403,14 +403,20 @@ class EngineGui(Thread, Generic[S]):
 
         self.controller_throttle_box = throttle_box = Box(
             controller_box,
-            layout="grid",
             border=1,
             align="right",
         )
 
         cell = TitleBox(throttle_box, "Speed", align="top", border=1)
         cell.text_size = self.s_12
-        self.speed = Text(cell, text="000", color="black", align="top", bold=True)
+        self.speed = Text(
+            cell,
+            text="000",
+            color="black",
+            align="top",
+            bold=True,
+            font="DigitalDream",
+        )
         self.throttle = throttle = Slider(
             throttle_box,
             align="top",
