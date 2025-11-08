@@ -429,8 +429,9 @@ class EngineGui(Thread, Generic[S]):
             width=int(self.button_size / 2),
             height=self.button_size * 4,
         )
+        throttle.text_color = "white"
         throttle.tk.config(from_=195, to=0)
-        throttle.tk.config(troughcolor="dim gray", activebackground="gray40", bg="gray20")
+        throttle.tk.config(troughcolor="dim gray", activebackground="gray60", bg="gray20")
         throttle.tk.config(width=60, sliderlength=80)
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
         print(keypad_keys, throttle)
