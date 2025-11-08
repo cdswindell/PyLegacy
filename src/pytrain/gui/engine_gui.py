@@ -439,9 +439,13 @@ class EngineGui(Thread, Generic[S]):
         throttle.tk.config(troughcolor="dim gray", activebackground="gray60", bg="gray20")
         throttle.tk.config(width=60, sliderlength=80)
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
-        throttle.tk.bind("<ButtonRelease-1>", lambda e: throttle.tk.after(100, lambda: speed.tk.focus_set()))
-        throttle.tk.bind("<ButtonRelease>", lambda e: throttle.tk.after(100, lambda: speed.tk.focus_set()))
-        print(keypad_keys, throttle)
+        throttle.tk.bind("<ButtonRelease-1>", lambda e: app.tk.after(100, self.clear_focus))
+        throttle.tk.bind("<ButtonRelease>", lambda e: app.tk.after(100, self.clear_focus))
+        print(keypad_keys)
+
+    def clear_focus(self) -> None:
+        # run after Tk finishes internal release handling
+        self.app.tk.after_idle(lambda: self.app.tk.call("focus", "none"))
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
