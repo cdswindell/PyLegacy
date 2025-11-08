@@ -501,6 +501,7 @@ class EngineGui(Thread, Generic[S]):
             # only set throttle value if we are not in the middle of setting it
             if self.throttle.tk.focus_displayof() != self.throttle.tk:
                 self.throttle.value = state.speed
+            self.throttle.value = state.speed
         if state is None or state.is_legacy:
             self.throttle.tk.config(from_=195, to=0)
         else:
