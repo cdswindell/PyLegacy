@@ -442,9 +442,11 @@ class EngineGui(Thread, Generic[S]):
             from_=195,
             to=0,
             takefocus=0,
-            troughcolor="dim gray",
-            activebackground="gray60",
-            bg="gray20",
+            troughcolor="#003366",  # deep Lionel blue for the track,
+            activebackground="#FF6600",  # bright Lionel orange for the handle
+            bg="#001F33",  # darker navy background
+            highlightthickness=1,
+            highlightbackground="#FF6600",  # subtle orange outline
             width=60,
             sliderlength=80,
         )
