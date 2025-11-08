@@ -493,8 +493,14 @@ class EngineGui(Thread, Generic[S]):
 
         return upd
 
-    def on_new_engine(self, state: EngineState = None) -> None:
+    def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         print(f"on_new_engine: {state}")
+        if ops_mode_setup:
+            self.speed = state.speed
+        if state.is_legacy:
+            self.throttle.tk.config(from_=195, to=0)
+        else:
+            self.throttle.tk.config(from_=31, to=0)
 
     def on_new_route(self, state: RouteState = None):
         # must be called from app thread!!
@@ -1053,7 +1059,7 @@ class EngineGui(Thread, Generic[S]):
                 cell.hide()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             state = self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
-            self.on_new_engine(state)
+            self.on_new_engine(state, ops_mode_setup=True)
             if not self.controller_box.visible:
                 self.controller_box.show()
             if self.keypad_box.visible:
