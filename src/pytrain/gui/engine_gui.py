@@ -439,6 +439,7 @@ class EngineGui(Thread, Generic[S]):
         throttle.tk.config(troughcolor="dim gray", activebackground="gray60", bg="gray20")
         throttle.tk.config(width=60, sliderlength=80)
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
+        throttle.tk.bind("<ButtonRelease-1>", lambda e: throttle.tk.focus_release())
         print(keypad_keys, throttle)
 
     def on_recents(self, value: str):
@@ -501,7 +502,6 @@ class EngineGui(Thread, Generic[S]):
             # only set throttle value if we are not in the middle of setting it
             if self.throttle.tk.focus_displayof() != self.throttle.tk:
                 self.throttle.value = state.speed
-            self.throttle.value = state.speed
         if state is None or state.is_legacy:
             self.throttle.tk.config(from_=195, to=0)
         else:
