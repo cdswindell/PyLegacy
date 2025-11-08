@@ -426,11 +426,12 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             horizontal=False,
             step=1,
-            width=self.button_size,
+            width=int(self.button_size / 2),
             height=self.button_size * 4,
         )
         throttle.tk.config(from_=195, to=0)
-        throttle.tk.config(troughcolor="blue", activebackground="red", bg="white")
+        throttle.tk.config(troughcolor="blue", activebackground="black", bg="white")
+        throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
         print(keypad_keys, throttle)
 
     def on_recents(self, value: str):
