@@ -444,7 +444,7 @@ class EngineGui(Thread, Generic[S]):
             takefocus=0,
             troughcolor="#003366",  # deep Lionel blue for the track,
             activebackground="#FF6600",  # bright Lionel orange for the handle
-            bg="#001F33",  # darker navy background
+            bg="#001A33",  # darker navy background
             highlightthickness=1,
             highlightbackground="#FF6600",  # subtle orange outline
             width=60,
