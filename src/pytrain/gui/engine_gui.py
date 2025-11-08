@@ -439,14 +439,21 @@ class EngineGui(Thread, Generic[S]):
         throttle.tk.config(troughcolor="dim gray", activebackground="gray60", bg="gray20")
         throttle.tk.config(width=60, sliderlength=80)
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
-        throttle.tk.bind("<ButtonRelease-1>", lambda e: app.tk.after(100, self.clear_focus))
-        throttle.tk.bind("<ButtonRelease>", lambda e: app.tk.after(100, self.clear_focus))
+        # throttle.tk.bind("<ButtonRelease-1>", lambda e: app.tk.after(100, self.clear_focus))
+        # throttle.tk.bind("<ButtonRelease>", lambda e: app.tk.after(100, self.clear_focus))
+        app.tk.bind_all("<ButtonRelease>", self.clear_focus, add="+")
+        app.tk.bind_all("<ButtonRelease-1>", self.clear_focus, add="+")
         print(keypad_keys)
 
     def clear_focus(self) -> None:
         # run after Tk finishes internal release handling
         print("Clear focus...")
-        self.app.tk.after_idle(lambda: self.header.tk.focus_set())
+        # only steal focus if the slider still has it
+        if self.app.tk.focus_get() == self.throttle.tk:
+            # send focus somewhere safe (header must be focusable)
+            header_target = self.header.tk  # or a hidden focus_sink frame (see below)
+            self.app.tk.after_idle(header_target.focus_set)
+        # self.app.tk.after_idle(lambda: self.header.tk.focus_set())
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
