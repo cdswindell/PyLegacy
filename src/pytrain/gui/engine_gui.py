@@ -415,16 +415,18 @@ class EngineGui(Thread, Generic[S]):
             color="black",
             align="top",
             bold=True,
+            size=self.s_12,
             font="DigitalDream",
         )
         self.throttle = throttle = Slider(
             throttle_box,
             align="top",
-            start=0,
-            end=195,
             horizontal=False,
             step=1,
+            width=self.button_size,
+            height=self.button_size * 4,
         )
+        throttle.tk.config(from_=195, to=0)
         print(keypad_keys, throttle)
 
     def on_recents(self, value: str):
