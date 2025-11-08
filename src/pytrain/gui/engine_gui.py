@@ -497,7 +497,8 @@ class EngineGui(Thread, Generic[S]):
         print(f"on_new_engine: {state}")
         if state:
             self.speed.value = f"{state.speed:03d}"
-            if ops_mode_setup:
+            # only set throttle value if we are not in the middle of setting it
+            if self.throttle.tk.focus_displayof() != self.throttle.tk:
                 self.throttle.value = state.speed
         if state is None or state.is_legacy:
             self.throttle.tk.config(from_=195, to=0)
