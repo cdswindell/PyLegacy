@@ -455,7 +455,7 @@ class EngineGui(Thread, Generic[S]):
         if self.app.tk.focus_get() == self.throttle.tk:
             print("Clear focus...")
             # send focus somewhere safe
-            self.app.tk.after_idle(lambda: self.focus_widget.focus_set())
+            self.app.tk.after(100, lambda: self.focus_widget.focus_set())
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
