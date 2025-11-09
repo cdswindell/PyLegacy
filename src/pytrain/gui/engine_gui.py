@@ -953,8 +953,10 @@ class EngineGui(Thread, Generic[S]):
             command = args = None
         elif command is None or (isinstance(command, bool) and command):
             command = self.on_keypress
+
         if size is None and label:
             size = self.s_22 if label.isdigit() else self.s_24
+
         if titlebox_text:
             cell = TitleBox(
                 keypad_box,
@@ -978,6 +980,11 @@ class EngineGui(Thread, Generic[S]):
         if is_entry:
             self.entry_cells.add(cell)
 
+        # --- pin the cell to a fixed pixel size and stop propagation ---
+        cell.tk.configure(width=button_size + 2 * self.grid_pad_by, height=button_size + 2 * grid_pad_by)
+        # Inside 'cell' we use pack; prevent it from resizing the frame:
+        cell.tk.pack_propagate(False)
+
         nb = PushButton(
             cell,
             align="top",
@@ -985,6 +992,10 @@ class EngineGui(Thread, Generic[S]):
             command=command,
             args=args,
         )
+        # let the button fill the pixel-sized cell
+        nb.width = "fill"
+        nb.height = "fill"
+
         if image:
             nb.image = image
         else:
@@ -993,13 +1004,18 @@ class EngineGui(Thread, Generic[S]):
             # img = tk.PhotoImage(width=button_size, height=button_size)
             # self._btn_images.append(img)
             # nb.tk.config(image=img, compound="center")
-            nb.tk.config(width=button_size, height=button_size, compound="center")
+            nb.tk.config(compound="center")
             self.make_color_changeable(nb, "orange")
         nb.text_color = "black"
-        nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+        # nb.tk.config(width=button_size, height=button_size)
+
         # spacing between buttons (in pixels)
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
+
+        # (optional) keep grid columns/rows uniform
+        keypad_box.tk.grid_columnconfigure(col, minsize=button_size + 2 * self.grid_pad_by)
+        keypad_box.tk.grid_rowconfigure(row, minsize=button_size + 2 * grid_pad_by)
         return cell, nb
 
     def on_keypress(self, key: str) -> None:
