@@ -1074,7 +1074,7 @@ class EngineGui(Thread, Generic[S]):
     @staticmethod
     def make_color_changeable(button, pressed_color="orange", flash_ms=150):
         """
-        Add a brief orange border outline when the button is pressed.
+        Add a brief orange border overlay when the button is pressed.
         Works on touchscreens and does not freeze the UI.
         """
         tkbtn = button.tk
@@ -1082,18 +1082,17 @@ class EngineGui(Thread, Generic[S]):
         def flash(_=None):
             # current button geometry
             w, h = tkbtn.winfo_width(), tkbtn.winfo_height()
-            parent_bg = tkbtn.master.cget("background")  # match parent so center is invisible
 
-            border = 20  # thickness in pixels
+            # create a transparent-ish frame just above the button
+            border = 3  # thickness in pixels
             overlay = tk.Frame(
                 tkbtn.master,
-                bg=parent_bg,  # hollow center
+                bg=pressed_color,
                 highlightthickness=border,
                 highlightbackground=pressed_color,
                 bd=0,
             )
-
-            # position just around the button
+            # draw as hollow rectangle (cover edges, leave center open)
             overlay.place(
                 in_=tkbtn,
                 x=-border,
@@ -1101,10 +1100,14 @@ class EngineGui(Thread, Generic[S]):
                 width=w + 2 * border,
                 height=h + 2 * border,
             )
+
+            # make sure overlay is above everything
             overlay.lift()
+
+            # remove overlay after short delay
             overlay.after(flash_ms, overlay.destroy)
 
-        # Touch + keyboard bindings
+        # touch & keyboard bindings
         tkbtn.bind("<ButtonRelease-1>", flash, add="+")
         tkbtn.bind("<ButtonRelease>", flash, add="+")
         tkbtn.bind("<KeyPress-space>", flash, add="+")
