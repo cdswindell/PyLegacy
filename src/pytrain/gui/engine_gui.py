@@ -992,13 +992,13 @@ class EngineGui(Thread, Generic[S]):
             command=command,
             args=args,
         )
-        # let the button fill the pixel-sized cell
-        nb.width = "fill"
-        nb.height = "fill"
 
         if image:
             nb.image = image
         else:
+            # let the button fill the pixel-sized cell
+            nb.width = "fill"
+            nb.height = "fill"
             nb.text_size = size
             nb.text_bold = bolded
             # img = tk.PhotoImage(width=button_size, height=button_size)
