@@ -992,9 +992,10 @@ class EngineGui(Thread, Generic[S]):
         else:
             nb.text_size = size
             nb.text_bold = bolded
-            img = tk.PhotoImage(width=button_size, height=button_size)
-            self._btn_images.append(img)
-            nb.tk.config(image=img, compound="center")
+            # img = tk.PhotoImage(width=button_size, height=button_size)
+            # self._btn_images.append(img)
+            # nb.tk.config(image=img, compound="center")
+            nb.tk.config(width=button_size, height=button_size, compound="center")
             self.make_color_changeable(nb, "orange")
         nb.text_color = "black"
         nb.tk.config(width=button_size, height=button_size)
