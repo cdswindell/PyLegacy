@@ -888,6 +888,19 @@ class EngineGui(Thread, Generic[S]):
         )
         self.ac_aux1_btn.when_left_button_pressed = self.when_pressed
         self.ac_aux1_btn.when_left_button_released = self.when_released
+
+        # ensure keypad fills vertical space down to scope buttons
+        keypad_box.tk.grid_propagate(False)
+        keypad_box.tk.update_idletasks()
+        available_height = (
+            self.height
+            - self.header.tk.winfo_reqheight()
+            - self.emergency_box.tk.winfo_reqheight()
+            - self.info_box.tk.winfo_reqheight()
+            - self.scope_box.tk.winfo_reqheight()
+            - 20
+        )
+        keypad_box.tk.configure(height=available_height)
         app.update()
 
     def make_info_box(self, app: App):
@@ -1001,11 +1014,21 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Fix cell size and prevent auto-shrinking
         # ------------------------------------------------------------
+        # cell.tk.configure(
+        #     width=button_size + 2 * self.grid_pad_by,
+        #     height=button_size + 2 * grid_pad_by,
+        # )
+        # cell.tk.pack_propagate(False)
+        extra_pad = max(2, self.grid_pad_by)
         cell.tk.configure(
-            width=button_size + 2 * self.grid_pad_by,
-            height=button_size + 2 * grid_pad_by,
+            width=button_size + 2 * extra_pad,
+            height=button_size + 4 * extra_pad,  # add a bit more vertical space
         )
         cell.tk.pack_propagate(False)
+
+        # ensure the keypad grid expands uniformly and fills the box height
+        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=button_size + 4 * extra_pad)
+        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=button_size + 2 * extra_pad)
 
         # ------------------------------------------------------------
         #  Create PushButton
