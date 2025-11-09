@@ -1150,16 +1150,22 @@ class EngineGui(Thread, Generic[S]):
                         overlay.destroy()
                         return
 
-                    # Linear blend from pressed_color to parent background
-                    def hex_to_rgb(hexcolor):
-                        hexcolor = hexcolor.lstrip("#")
-                        return tuple(int(hexcolor[i : i + 2], 16) for i in (0, 2, 4))
+                    # --- Utility: robust color parsing ---
+                    def tk_color_to_rgb(widget, color):
+                        """Convert any Tk color (name or hex) to (r,g,b) in 0–255."""
+                        try:
+                            r, g, b = widget.winfo_rgb(color)
+                            return r // 256, g // 256, b // 256
+                        except tk.TclError:
+                            # fallback: unknown color → black
+                            return 0, 0, 0
 
                     def rgb_to_hex(rgb):
                         return "#{:02x}{:02x}{:02x}".format(*rgb)
 
-                    c1 = hex_to_rgb(pressed_color)
-                    c2 = hex_to_rgb(parent.cget("background"))
+                    c1 = tk_color_to_rgb(overlay, pressed_color)
+                    c2 = tk_color_to_rgb(overlay, parent.cget("background"))
+
                     ratio = step / steps
                     blended = tuple(int(c1[i] * (1 - ratio) + c2[i] * ratio) for i in range(3))
                     overlay.config(bg=rgb_to_hex(blended))
