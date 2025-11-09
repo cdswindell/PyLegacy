@@ -65,6 +65,8 @@ ENGINE_OFF_KEY = "ENGINE OFF"
 AC_ON_KEY = "AC ON"
 AC_OFF_KEY = "AC OFF"
 AUX1_KEY = "Aux1"
+AUX2_KEY = "Aux2"
+AUX3_KEY = "Aux3"
 
 SENSOR_TRACK_OPTS = [
     ["No Action", 0],
@@ -78,9 +80,6 @@ SENSOR_TRACK_OPTS = [
     ["Go Normal R➟L/Go Slow L➟R", 8],
     ["Recorded Sequence", 9],
 ]
-
-ARROWS = "⇨⊳⇾►➜➞➟⟶"
-MAX_SENSOR_TRACK_OPT_LEN = max(len(option[0]) for option in SENSOR_TRACK_OPTS)
 
 
 def send_lcs_command(state: AccessoryState, value) -> None:
@@ -996,6 +995,7 @@ class EngineGui(Thread, Generic[S]):
             img = tk.PhotoImage(width=button_size, height=button_size)
             self._btn_images.append(img)
             nb.tk.config(image=img, compound="center")
+            nb.tk.bind("<ButtonPress-1>", lambda e, b=nb: b.tk.config(bg="orange"))
         nb.text_color = "black"
         nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
