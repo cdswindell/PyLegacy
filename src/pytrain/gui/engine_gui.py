@@ -223,7 +223,7 @@ class EngineGui(Thread, Generic[S]):
 
         # various buttons
         self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = self.set_btn = None
-        self.fire_route_btn = self.switch_thru_btn = self.switch_out_btn = None
+        self.fire_route_btn = self.switch_thru_btn = self.switch_out_btn = self.keypad_keys = None
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
@@ -380,17 +380,12 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Deterministic keypad sizing (5 rows tall)
         # ------------------------------------------------------------
+        # after you finish building the keypad (all rows/cells/buttons created)
         self.keypad_box.tk.grid_propagate(False)
         self.keypad_box.tk.update_idletasks()
 
-        # Total number of keypad rows (LAYOUT has 4 + 1 = 5)
-        num_rows = len(LAYOUT) + 1
-
-        # Derive full cell height (including internal pad)
-        cell_height = self.button_size + 4 * max(2, self.grid_pad_by)
-
-        # Compute total keypad height explicitly
-        expected_height = num_rows * cell_height + (num_rows + 1) * self.grid_pad_by
+        # Let Tk tell us the exact required height for 5 rows as laid out
+        required_h = self.keypad_keys.tk.winfo_reqheight()
 
         # Clamp to available screen height if needed
         max_height = (
@@ -401,9 +396,9 @@ class EngineGui(Thread, Generic[S]):
             - self.scope_box.tk.winfo_reqheight()
             - 10
         )
-        print(f"Expected keypad height: {expected_height}, Max allowed height: {max_height}")
+        print(f"Expected keypad height: {required_h}, Max allowed height: {max_height}")
         # self.keypad_box.tk.configure(height=min(expected_height, max_height))
-        self.keypad_box.tk.configure(height=expected_height)
+        self.keypad_box.tk.configure(height=required_h)
 
         app.tk.update_idletasks()
 
@@ -722,7 +717,7 @@ class EngineGui(Thread, Generic[S]):
             border=2,
             align="top",
         )
-        keypad_keys = Box(
+        self.keypad_keys = keypad_keys = Box(
             keypad_box,
             layout="grid",
             border=0,
