@@ -399,8 +399,7 @@ class EngineGui(Thread, Generic[S]):
         print(f"Expected keypad height: {required_h}, Max allowed height: {max_height}")
         # self.keypad_box.tk.configure(height=min(expected_height, max_height))
         self.keypad_box.tk.configure(height=required_h)
-
-        app.tk.update_idletasks()
+        app.update()
 
         # Finally, resize image box
         available_height, available_width = self.calc_image_box_size()
