@@ -199,7 +199,7 @@ class EngineGui(Thread, Generic[S]):
         self._app_counter = 0
         self._in_entry_mode = True
         self._btn_images = []
-        self._dim_cache = []
+        self._dim_cache = {}
         self._scope_buttons = {}
         self._scope_tmcc_ids = {}
         self._scope_watchers = {}
@@ -668,7 +668,7 @@ class EngineGui(Thread, Generic[S]):
     def scope_keypad(self, force_entry_mode: bool = False):
         print(f"Scope Keypad: force={force_entry_mode}")
         # if tmcc_id associated with scope is 0, then we are in entry mode;
-        # show keypad with appropriate button
+        # show keypad with appropriate buttons
         tmcc_id = self._scope_tmcc_ids[self.scope]
         if tmcc_id == 0 or force_entry_mode:
             self.entry_mode()
@@ -1073,32 +1073,48 @@ class EngineGui(Thread, Generic[S]):
     # noinspection PyProtectedMember
     def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
         tkbtn = button.tk
-
         normal_bg = tkbtn.cget("background")
         normal_relief = tkbtn.cget("relief")
         has_image = bool(tkbtn.cget("image"))
 
-        # prepare optional dimmed image with orange border
-        dimmed_img = None
         img_name = None
         if has_image:
-            try:
-                img_name = str(tkbtn.cget("image"))
-                pil_img = ImageTk.getimage(tkbtn._nametowidget(img_name)).convert("RGBA")
+            img_name = str(tkbtn.cget("image"))
+            # only preprocess once per image name
+            if img_name not in self._dim_cache:
+                try:
+                    pil_img = ImageTk.getimage(tkbtn._nametowidget(img_name)).convert("RGBA")
+                    dimmed = ImageEnhance.Brightness(pil_img).enhance(0.6)
+                    bordered = ImageOps.expand(dimmed, border=2, fill=pressed_color)
+                    self._dim_cache[img_name] = ImageTk.PhotoImage(bordered)
+                except Exception as ex:
+                    print(f"[make_color_changeable] image prep failed: {ex}")
+                    self._dim_cache[img_name] = None
+            dimmed_img = self._dim_cache[img_name]
+        else:
+            dimmed_img = None
 
-                # 1️⃣ dim the image
-                dimmed = ImageEnhance.Brightness(pil_img).enhance(0.6)
+        # lightweight flash (only config changes, no image processing)
+        def apply_flash(_=None):
+            if has_image and dimmed_img:
+                tkbtn.configure(image=dimmed_img, relief="sunken")
+            else:
+                tkbtn.configure(bg=pressed_color, relief="sunken")
 
-                # 2️⃣ add a thin orange border (2 px all around)
-                bordered = ImageOps.expand(dimmed, border=2, fill=pressed_color)
+            # schedule restore outside the touch handler
+            def restore():
+                if has_image and img_name:
+                    tkbtn.configure(image=img_name, relief=normal_relief)
+                else:
+                    tkbtn.configure(bg=normal_bg, relief=normal_relief)
 
-                dimmed_img = ImageTk.PhotoImage(bordered)
+            tkbtn.after(flash_ms, restore)
 
-                # cache so it doesn't get garbage-collected
-                self._dim_cache.append(dimmed_img)
-            except Exception as ex:
-                print(f"[make_color_changeable] image prep failed: {ex}")
-                dimmed_img = None
+        # Bind release only (touch-friendly)
+        tkbtn.bind("<ButtonRelease-1>", apply_flash, add="+")
+        tkbtn.bind("<ButtonRelease>", apply_flash, add="+")
+        tkbtn.bind("<KeyPress-space>", apply_flash, add="+")
+        tkbtn.bind("<KeyPress-Return>", apply_flash, add="+")
 
         def apply_flash():
             # text button → flash orange background
