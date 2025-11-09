@@ -1072,24 +1072,31 @@ class EngineGui(Thread, Generic[S]):
     def make_color_changeable(self, button, pressed_color, flash_ms=150):
         normal = button.tk.cget("background")
 
+        # On press (mouse down / touch down)
         def press(_=None):
+            print("on press...")
             self.app.tk.after_idle(lambda: button.tk.config(bg=pressed_color))
 
-            def release(_=None):
-                self.app.tk.after_idle(lambda: button.tk.config(bg=normal))
+        # On release (mouse up / touch lift)
+        def release(_=None):
+            print("on release...")
+            self.app.tk.after_idle(lambda: button.tk.config(bg=normal))
 
-                # Mouse / touch
-                button.tk.bind("<Button-1>", press)
-                button.tk.bind("<ButtonRelease-1>", release)
-                button.tk.bind("<ButtonRelease>", release)
+        # Touch-only fallback: flash color when only release is seen
+        def flash_color(_=None):
+            print("flashing color...")
+            button.tk.config(bg=pressed_color)
+            self.app.tk.after(flash_ms, lambda: button.tk.config(bg=normal))
 
-            # Touch-only fallback: flash on release if press never seen
-
-            def flash_color(_=None):
-                button.tk.config(bg=pressed_color)
-                self.app.tk.after(flash_ms, lambda: button.tk.config(bg=normal))
-
-            button.tk.bind("<ButtonRelease-1>", flash_color, add="+")
+        # --- Bind events ---
+        button.tk.bind("<Button-1>", press)  # mouse/touch press
+        button.tk.bind("<ButtonRelease-1>", release)  # mouse/touch release
+        button.tk.bind("<ButtonRelease>", release)  # generic release
+        button.tk.bind("<ButtonRelease-1>", flash_color, add="+")  # fallback flash
+        button.tk.bind("<KeyPress-space>", press)  # space key press
+        button.tk.bind("<KeyRelease-space>", release)  # space key release
+        button.tk.bind("<KeyPress-Return>", press)  # enter key press
+        button.tk.bind("<KeyRelease-Return>", release)  # enter key release
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
