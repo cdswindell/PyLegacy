@@ -11,6 +11,7 @@ import atexit
 import io
 import logging
 import tkinter as tk
+from colorsys import hls_to_rgb, rgb_to_hls
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
@@ -1036,7 +1037,7 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-            self.make_color_changeable(nb, LIONEL_ORANGE)
+            self.make_color_changeable(nb)
 
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
@@ -1073,59 +1074,45 @@ class EngineGui(Thread, Generic[S]):
             print("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
 
-    # noinspection PyProtectedMember
-    # @staticmethod
-    # def make_color_changeable(button, pressed_color="orange", flash_ms=150):
-    #     """
-    #     Add a brief orange border overlay when the button is pressed.
-    #     Works on touchscreens and does not freeze the UI.
-    #     """
-    #     tkbtn = button.tk
-    #
-    #     def flash(_=None):
-    #         # current button geometry
-    #         w, h = tkbtn.winfo_width(), tkbtn.winfo_height()
-    #
-    #         # create a transparent-ish frame just above the button
-    #         border = 3  # thickness in pixels
-    #         overlay = tk.Frame(
-    #             tkbtn.master,
-    #             bg=pressed_color,
-    #             highlightthickness=border,
-    #             highlightbackground=pressed_color,
-    #             bd=0,
-    #         )
-    #         # draw as hollow rectangle (cover edges, leave center open)
-    #         overlay.place(
-    #             in_=tkbtn,
-    #             x=-border,
-    #             y=-border,
-    #             width=w + 2 * border,
-    #             height=h + 2 * border,
-    #         )
-    #
-    #         # make sure overlay is above everything
-    #         overlay.lift()
-    #
-    #         # remove overlay after short delay
-    #         overlay.after(flash_ms, overlay.destroy)
-    #
-    #     # touch & keyboard bindings
-    #     tkbtn.bind("<ButtonRelease-1>", flash, add="+")
-    #     tkbtn.bind("<ButtonRelease>", flash, add="+")
-    #     tkbtn.bind("<KeyPress-space>", flash, add="+")
-    #     tkbtn.bind("<KeyPress-Return>", flash, add="+")
-
-    def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
+    def make_color_changeable(
+        self,
+        button,
+        pressed_color=LIONEL_ORANGE,
+        flash_ms=150,
+        fade=False,
+        border=False,
+        soft=False,
+    ):
         """
         Flash a brief overlay frame with the same label text and font
         above a guizero PushButton. Works on touchscreens.
+
+        Args:
+            button: guizero PushButton
+            pressed_color: flash color (string or hex)
+            flash_ms: total duration of the flash
+            fade: if True, gradually fade the overlay out
+            border: if True, draw a thin contrasting border
+            soft: if True, lighten or darken the pressed color slightly
         """
         tkbtn = button.tk
-        parent = tkbtn.master  # this is the cell Box's .tk widget
+        parent = tkbtn.master  # the cell Box widget
+
+        def adjust_color(color):
+            """Lighten or darken a color slightly (for 'soft' mode)."""
+            if not color.startswith("#") or len(color) != 7:
+                return color
+            r, g, b = (int(color[i : i + 2], 16) / 255.0 for i in (1, 3, 5))
+            h, l, s = rgb_to_hls(r, g, b)  # noqa: E741
+            l = min(1.0, l * 1.15)  # brighten a bit  # noqa: E741
+            r, g, b = hls_to_rgb(h, l, s)
+            return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+
+        if soft:
+            pressed_color = adjust_color(pressed_color)
 
         def flash(_=None):
-            # Ensure button geometry is up-to-date
+            # ensure geometry is valid
             tkbtn.update_idletasks()
 
             w = tkbtn.winfo_width()
@@ -1133,33 +1120,56 @@ class EngineGui(Thread, Generic[S]):
             x = tkbtn.winfo_x()
             y = tkbtn.winfo_y()
 
-            # Create overlay frame in the same parent
+            # create overlay
             overlay = tk.Frame(
                 parent,
                 bg=pressed_color,
                 bd=0,
-                highlightthickness=1,
-                highlightbackground="black",
+                highlightthickness=1 if border else 0,
+                highlightbackground="white" if border else pressed_color,
             )
             overlay.place(x=x, y=y, width=w, height=h)
+            overlay.lift(tkbtn)
 
-            # Create a Label on the overlay that mimics the button text
-            lbl = tk.Label(
+            # label to mirror the button text
+            tk.Label(
                 overlay,
                 text=button.text,
                 font=(button.font, button.text_size, "bold" if button.text_bold else "normal"),
                 fg=button.text_color,
                 bg=pressed_color,
-            )
-            lbl.place(relx=0.5, rely=0.5, anchor="center")
+            ).place(relx=0.5, rely=0.5, anchor="center")
 
-            # Raise overlay above the button so it’s visible
-            overlay.lift(tkbtn)
+            # fade-out or timed removal
+            if fade:
+                steps = 10
+                interval = int(flash_ms / steps)
 
-            # Schedule removal
-            self.app.after(flash_ms, overlay.destroy)
+                def fade_step(step=0):
+                    if step >= steps:
+                        overlay.destroy()
+                        return
 
-        # Bind for touchscreen / keyboard triggers
+                    # Linear blend from pressed_color to parent background
+                    def hex_to_rgb(hexcolor):
+                        hexcolor = hexcolor.lstrip("#")
+                        return tuple(int(hexcolor[i : i + 2], 16) for i in (0, 2, 4))
+
+                    def rgb_to_hex(rgb):
+                        return "#{:02x}{:02x}{:02x}".format(*rgb)
+
+                    c1 = hex_to_rgb(pressed_color)
+                    c2 = hex_to_rgb(parent.cget("background"))
+                    ratio = step / steps
+                    blended = tuple(int(c1[i] * (1 - ratio) + c2[i] * ratio) for i in range(3))
+                    overlay.config(bg=rgb_to_hex(blended))
+                    overlay.after(interval, fade_step, step + 1)
+
+                fade_step()
+            else:
+                self.app.after(flash_ms, overlay.destroy)
+
+        # Bindings for touch and keyboard
         tkbtn.bind("<ButtonRelease-1>", flash, add="+")
         tkbtn.bind("<ButtonRelease>", flash, add="+")
         tkbtn.bind("<KeyPress-space>", flash, add="+")
