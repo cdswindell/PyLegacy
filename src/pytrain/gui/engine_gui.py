@@ -1121,28 +1121,20 @@ class EngineGui(Thread, Generic[S]):
         tkbtn = button.tk
 
         def flash(_=None):
+            # ensure geometry is valid
+            tkbtn.update_idletasks()
+
             w, h = tkbtn.winfo_width(), tkbtn.winfo_height()
+            x, y = tkbtn.winfo_x(), tkbtn.winfo_y()
+            parent = tkbtn.master
             border = 3
 
-            overlay = tk.Frame(
-                tkbtn.master,
-                bg=pressed_color,
-                highlightthickness=0,
-                bd=0,
-            )
-            overlay.place(
-                in_=tkbtn,
-                x=-border,
-                y=-border,
-                width=w + 2 * border,
-                height=h + 2 * border,
-            )
+            overlay = tk.Frame(parent, bg=pressed_color, bd=0, highlightthickness=0)
+            overlay.place(in_=parent, x=x - border, y=y - border, width=w + 2 * border, height=h + 2 * border)
 
-            # send it behind the key instead of in front
+            # put it just under the button so the key stays visible
             overlay.lower(tkbtn)
 
-            # auto-remove
-            # noinspection PyTypeChecker
             overlay.after(flash_ms, overlay.destroy)
 
         tkbtn.bind("<ButtonRelease-1>", flash, add="+")
