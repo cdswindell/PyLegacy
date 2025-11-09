@@ -1072,6 +1072,7 @@ class EngineGui(Thread, Generic[S]):
     def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
         tkbtn = button.tk
         widget_class = tkbtn.winfo_class()
+        print("Widget class:", tkbtn.winfo_class(), "| Tk widget path:", tkbtn)
 
         # classic tk.Button → use bg flash
         if widget_class == "Button":
