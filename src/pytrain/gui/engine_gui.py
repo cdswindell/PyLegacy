@@ -377,32 +377,9 @@ class EngineGui(Thread, Generic[S]):
         # make scope buttons
         self.make_scope(app)
 
-        # ------------------------------------------------------------
-        #  Deterministic keypad sizing (5 rows tall)
-        # ------------------------------------------------------------
-        # after you finish building the keypad (all rows/cells/buttons created)
-        # self.keypad_box.tk.grid_propagate(True)
-        # self.keypad_box.tk.update_idletasks()
-        #
-        # # Optional: check total height and warn if truncated
-        # required_h = self.keypad_keys.tk.winfo_reqheight()
-        # max_h = (
-        #     self.height
-        #     - self.header.tk.winfo_reqheight()
-        #     - self.emergency_box.tk.winfo_reqheight()
-        #     - self.info_box.tk.winfo_reqheight()
-        #     - self.scope_box.tk.winfo_reqheight()
-        #     - 10
-        # )
-        # print(f"[DEBUG] Keypad required={required_h}, available={max_h}")
-        #
-        # # Only clamp if we’re overflowing
-        # if required_h > max_h:
-        #     self.keypad_box.tk.configure(height=max_h)
-        # else:
-        #     self.keypad_box.tk.configure(height=required_h)
-        #
-        # app.tk.update_idletasks()
+        # Finally, resize image box
+        available_height, available_width = self.calc_image_box_size()
+        self.image_box.tk.config(height=available_height, width=available_width)
 
         # Display GUI and start event loop; call blocks
         try:
