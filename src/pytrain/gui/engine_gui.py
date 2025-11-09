@@ -1069,62 +1069,41 @@ class EngineGui(Thread, Generic[S]):
             print("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
 
-    def make_color_changeable(self, button, pressed_color, flash_ms=150):
+    def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
         tkbtn = button.tk
 
-        # snapshot current look
         normal_bg = tkbtn.cget("background")
-        normal_rel = tkbtn.cget("relief")
-        normal_hlt = int(tkbtn.cget("highlightthickness") or 0)
-        normal_hlc = tkbtn.cget("highlightbackground")
         has_image = bool(tkbtn.cget("image"))
-        is_classic = tkbtn.winfo_class() == "Button"  # classic tk, not ttk
+        is_classic = tkbtn.winfo_class() == "Button"
 
-        # ensure border is visible at rest
-        if normal_hlt < 1:
-            tkbtn.configure(highlightthickness=1, highlightbackground=normal_hlc or normal_bg)
-
-        def _apply_pressed():
-            # always-visible cues (work for image + text)
+        def flash(_=None):
+            # Apply orange backgrounds (and border)
             tkbtn.configure(
                 relief="sunken",
-                highlightthickness=max(3, normal_hlt + 2),
+                highlightthickness=5,
                 highlightbackground=pressed_color,
                 activebackground=pressed_color,
             )
-            # bg only helps for classic text buttons (no image)
             if is_classic and not has_image:
                 tkbtn.configure(bg=pressed_color)
             tkbtn.update_idletasks()
 
-        def _restore_normal():
-            tkbtn.configure(relief=normal_rel, highlightthickness=normal_hlt, highlightbackground=normal_hlc)
-            if is_classic and not has_image:
-                tkbtn.configure(bg=normal_bg)
-            tkbtn.update_idletasks()
+            # Schedule restoration after short delay
+            self.app.tk.after(
+                flash_ms,
+                lambda: tkbtn.configure(
+                    relief="raised",
+                    highlightthickness=1,
+                    highlightbackground=normal_bg,
+                    bg=normal_bg,
+                ),
+            )
 
-        # press/release handlers
-        def press(_=None):
-            # defer to run after guizero's internal redraw
-            self.app.tk.after_idle(_apply_pressed)
-
-        def release(_=None):
-            self.app.tk.after_idle(_restore_normal)
-
-        # some touch panels only emit release -> flash fallback
-        def flash_color(_=None):
-            _apply_pressed()
-            self.app.tk.after(flash_ms, _restore_normal)
-
-        # bindings
-        tkbtn.bind("<Button-1>", press)
-        tkbtn.bind("<ButtonRelease-1>", release)
-        tkbtn.bind("<ButtonRelease>", release)
-        tkbtn.bind("<ButtonRelease-1>", flash_color, add="+")  # touch fallback
-        tkbtn.bind("<KeyPress-space>", press)
-        tkbtn.bind("<KeyRelease-space>", release)
-        tkbtn.bind("<KeyPress-Return>", press)
-        tkbtn.bind("<KeyRelease-Return>", release)
+        # Bind both mouse and touch
+        tkbtn.bind("<ButtonRelease-1>", flash)
+        tkbtn.bind("<ButtonRelease>", flash)
+        tkbtn.bind("<KeyPress-space>", flash)
+        tkbtn.bind("<KeyPress-Return>", flash)
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
