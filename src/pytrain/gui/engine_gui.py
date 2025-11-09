@@ -376,18 +376,34 @@ class EngineGui(Thread, Generic[S]):
 
         # make scope buttons
         self.make_scope(app)
-        # ensure keypad fills vertical space down to scope buttons
+
+        # ------------------------------------------------------------
+        #  Deterministic keypad sizing (5 rows tall)
+        # ------------------------------------------------------------
         self.keypad_box.tk.grid_propagate(False)
         self.keypad_box.tk.update_idletasks()
-        available_height = (
+
+        # Total number of keypad rows (LAYOUT has 4 + 1 = 5)
+        num_rows = len(LAYOUT) + 1
+
+        # Derive full cell height (including internal pad)
+        cell_height = self.button_size + 4 * max(2, self.grid_pad_by)
+
+        # Compute total keypad height explicitly
+        expected_height = num_rows * cell_height + (num_rows + 1) * self.grid_pad_by
+
+        # Clamp to available screen height if needed
+        max_height = (
             self.height
             - self.header.tk.winfo_reqheight()
             - self.emergency_box.tk.winfo_reqheight()
             - self.info_box.tk.winfo_reqheight()
             - self.scope_box.tk.winfo_reqheight()
-            - 20
+            - 10
         )
-        self.keypad_box.tk.configure(height=available_height)
+        self.keypad_box.tk.configure(height=min(expected_height, max_height))
+
+        app.tk.update_idletasks()
 
         # Finally, resize image box
         available_height, available_width = self.calc_image_box_size()
