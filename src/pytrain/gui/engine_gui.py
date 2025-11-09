@@ -1070,33 +1070,61 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_info(int(tmcc_id), "")
 
     def make_color_changeable(self, button, pressed_color, flash_ms=150):
-        normal = button.tk.cget("background")
+        tkbtn = button.tk
 
-        # On press (mouse down / touch down)
+        # snapshot current look
+        normal_bg = tkbtn.cget("background")
+        normal_rel = tkbtn.cget("relief")
+        normal_hlt = int(tkbtn.cget("highlightthickness") or 0)
+        normal_hlc = tkbtn.cget("highlightbackground")
+        has_image = bool(tkbtn.cget("image"))
+        is_classic = tkbtn.winfo_class() == "Button"  # classic tk, not ttk
+
+        # ensure border is visible at rest
+        if normal_hlt < 1:
+            tkbtn.configure(highlightthickness=1, highlightbackground=normal_hlc or normal_bg)
+
+        def _apply_pressed():
+            # always-visible cues (work for image + text)
+            tkbtn.configure(
+                relief="sunken",
+                highlightthickness=max(3, normal_hlt + 2),
+                highlightbackground=pressed_color,
+                activebackground=pressed_color,
+            )
+            # bg only helps for classic text buttons (no image)
+            if is_classic and not has_image:
+                tkbtn.configure(bg=pressed_color)
+            tkbtn.update_idletasks()
+
+        def _restore_normal():
+            tkbtn.configure(relief=normal_rel, highlightthickness=normal_hlt, highlightbackground=normal_hlc)
+            if is_classic and not has_image:
+                tkbtn.configure(bg=normal_bg)
+            tkbtn.update_idletasks()
+
+        # press/release handlers
         def press(_=None):
-            print("on press...")
-            self.app.tk.after_idle(lambda: button.tk.config(bg=pressed_color))
+            # defer to run after guizero's internal redraw
+            self.app.tk.after_idle(_apply_pressed)
 
-        # On release (mouse up / touch lift)
         def release(_=None):
-            print("on release...")
-            self.app.tk.after_idle(lambda: button.tk.config(bg=normal))
+            self.app.tk.after_idle(_restore_normal)
 
-        # Touch-only fallback: flash color when only release is seen
+        # some touch panels only emit release -> flash fallback
         def flash_color(_=None):
-            print("flashing color...")
-            button.tk.config(bg=pressed_color)
-            self.app.tk.after(flash_ms, lambda: button.tk.config(bg=normal))
+            _apply_pressed()
+            self.app.tk.after(flash_ms, _restore_normal)
 
-        # --- Bind events ---
-        button.tk.bind("<Button-1>", press)  # mouse/touch press
-        button.tk.bind("<ButtonRelease-1>", release)  # mouse/touch release
-        button.tk.bind("<ButtonRelease>", release)  # generic release
-        button.tk.bind("<ButtonRelease-1>", flash_color, add="+")  # fallback flash
-        button.tk.bind("<KeyPress-space>", press)  # space key press
-        button.tk.bind("<KeyRelease-space>", release)  # space key release
-        button.tk.bind("<KeyPress-Return>", press)  # enter key press
-        button.tk.bind("<KeyRelease-Return>", release)  # enter key release
+        # bindings
+        tkbtn.bind("<Button-1>", press)
+        tkbtn.bind("<ButtonRelease-1>", release)
+        tkbtn.bind("<ButtonRelease>", release)
+        tkbtn.bind("<ButtonRelease-1>", flash_color, add="+")  # touch fallback
+        tkbtn.bind("<KeyPress-space>", press)
+        tkbtn.bind("<KeyRelease-space>", release)
+        tkbtn.bind("<KeyPress-Return>", press)
+        tkbtn.bind("<KeyRelease-Return>", release)
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
