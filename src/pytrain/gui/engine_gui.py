@@ -1078,19 +1078,28 @@ class EngineGui(Thread, Generic[S]):
         normal_hlbg = tkbtn.cget("highlightbackground")
 
         def flash(_=None):
-            # apply pressed look
-            tkbtn.configure(relief="sunken", highlightthickness=3, highlightbackground=pressed_color, bg=pressed_color)
+            # show the press immediately
+            tkbtn.configure(
+                relief="sunken",
+                highlightthickness=3,
+                highlightbackground=pressed_color,
+                bg=pressed_color,
+            )
 
-            # restore later
+            # schedule restore even if Tk never sees a release
             def restore():
                 tkbtn.configure(
-                    relief=normal_relief, highlightthickness=normal_hl, highlightbackground=normal_hlbg, bg=normal_bg
+                    relief=normal_relief,
+                    highlightthickness=normal_hl,
+                    highlightbackground=normal_hlbg,
+                    bg=normal_bg,
                 )
 
-            # run restore asynchronously so the UI stays fluid
-            self.app.tk.after(flash_ms, restore)
+            # guarantee the timer starts right away
+            self.app.tk.after_idle(lambda: self.app.tk.after(flash_ms, restore))
 
-        # simple, reliable bindings (touch panels usually emit release only)
+        # Bind release OR press, depending on which comes through first
+        tkbtn.bind("<Button-1>", flash)
         tkbtn.bind("<ButtonRelease-1>", flash)
         tkbtn.bind("<ButtonRelease>", flash)
         tkbtn.bind("<KeyPress-space>", flash)
