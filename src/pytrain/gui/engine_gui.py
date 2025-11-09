@@ -995,6 +995,7 @@ class EngineGui(Thread, Generic[S]):
 
         if image:
             nb.image = image
+            nb.tk.config(width=button_size, height=button_size)
         else:
             # let the button fill the pixel-sized cell
             nb.width = "fill"
