@@ -980,9 +980,8 @@ class EngineGui(Thread, Generic[S]):
         if is_entry:
             self.entry_cells.add(cell)
 
-        # --- pin the cell to a fixed pixel size and stop propagation ---
+        # lock cell size
         cell.tk.configure(width=button_size + 2 * self.grid_pad_by, height=button_size + 2 * grid_pad_by)
-        # Inside 'cell' we use pack; prevent it from resizing the frame:
         cell.tk.pack_propagate(False)
 
         nb = PushButton(
@@ -994,8 +993,10 @@ class EngineGui(Thread, Generic[S]):
         )
 
         if image:
-            nb.image = image
-            nb.tk.config(width=button_size, height=button_size)
+            # load & cache to prevent GC
+            img = ImageTk.PhotoImage(Image.open(image).resize((button_size, button_size)))
+            self._btn_images.append(img)
+            nb.tk.config(image=img, compound="center", width=button_size, height=button_size)
         else:
             # let the button fill the pixel-sized cell
             nb.width = "fill"
@@ -1006,17 +1007,16 @@ class EngineGui(Thread, Generic[S]):
             # self._btn_images.append(img)
             # nb.tk.config(image=img, compound="center")
             nb.tk.config(compound="center")
+            nb.text_color = "black"
             self.make_color_changeable(nb, "orange")
-        nb.text_color = "black"
-        nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-        # nb.tk.config(width=button_size, height=button_size)
 
-        # spacing between buttons (in pixels)
+        # ensure the clickable area fills the cell
+        nb.tk.pack(expand=True, fill="both")
+
         nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
-
-        # (optional) keep grid columns/rows uniform
         keypad_box.tk.grid_columnconfigure(col, minsize=button_size + 2 * self.grid_pad_by)
         keypad_box.tk.grid_rowconfigure(row, minsize=button_size + 2 * grid_pad_by)
+
         return cell, nb
 
     def on_keypress(self, key: str) -> None:
