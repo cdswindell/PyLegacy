@@ -1117,25 +1117,49 @@ class EngineGui(Thread, Generic[S]):
     #     tkbtn.bind("<KeyPress-Return>", flash, add="+")
 
     def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
+        """
+        Flash a brief overlay frame with the same label text and font
+        above a guizero PushButton. Works on touchscreens.
+        """
         tkbtn = button.tk
+        parent = tkbtn.master  # this is the cell Box's .tk widget
 
         def flash(_=None):
-            # ensure geometry is valid
+            # Ensure button geometry is up-to-date
             tkbtn.update_idletasks()
 
-            w, h = tkbtn.winfo_width(), tkbtn.winfo_height()
-            x, y = tkbtn.winfo_x(), tkbtn.winfo_y()
-            parent = tkbtn.master
-            border = 3
+            w = tkbtn.winfo_width()
+            h = tkbtn.winfo_height()
+            x = tkbtn.winfo_x()
+            y = tkbtn.winfo_y()
 
-            overlay = tk.Frame(parent, bg=pressed_color, bd=0, highlightthickness=0)
-            overlay.place(in_=parent, x=x - border, y=y - border, width=w + 2 * border, height=h + 2 * border)
+            # Create overlay frame in the same parent
+            overlay = tk.Frame(
+                parent,
+                bg=pressed_color,
+                bd=0,
+                highlightthickness=1,
+                highlightbackground="black",
+            )
+            overlay.place(x=x, y=y, width=w, height=h)
 
-            # put it just under the button so the key stays visible
-            overlay.lower(tkbtn)
+            # Create a Label on the overlay that mimics the button text
+            lbl = tk.Label(
+                overlay,
+                text=button.text,
+                font=(button.font, button.text_size, "bold" if button.text_bold else "normal"),
+                fg=button.text_color,
+                bg=pressed_color,
+            )
+            lbl.place(relx=0.5, rely=0.5, anchor="center")
 
+            # Raise overlay above the button so it’s visible
+            overlay.lift(tkbtn)
+
+            # Schedule removal
             self.app.after(flash_ms, overlay.destroy)
 
+        # Bind for touchscreen / keyboard triggers
         tkbtn.bind("<ButtonRelease-1>", flash, add="+")
         tkbtn.bind("<ButtonRelease>", flash, add="+")
         tkbtn.bind("<KeyPress-space>", flash, add="+")
