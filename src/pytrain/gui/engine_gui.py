@@ -1029,10 +1029,27 @@ class EngineGui(Thread, Generic[S]):
             print("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
 
-    def make_color_changeable(self, button: PushButton, pressed_color: str):
+    def make_color_changeable(self, button, pressed_color, flash_ms=150):
         normal = button.tk.cget("background")
-        button.tk.bind("<ButtonPress-1>", lambda e: self.app.tk.after_idle(lambda: button.tk.config(bg=pressed_color)))
-        button.tk.bind("<ButtonRelease-1>", lambda e: self.app.tk.after_idle(lambda: button.tk.config(bg=normal)))
+
+        def press(_=None):
+            self.app.tk.after_idle(lambda: button.tk.config(bg=pressed_color))
+
+            def release(_=None):
+                self.app.tk.after_idle(lambda: button.tk.config(bg=normal))
+
+                # Mouse / touch
+                button.tk.bind("<Button-1>", press)
+                button.tk.bind("<ButtonRelease-1>", release)
+                button.tk.bind("<ButtonRelease>", release)
+
+            # Touch-only fallback: flash on release if press never seen
+
+            def flash_color(_=None):
+                button.tk.config(bg=pressed_color)
+                self.app.tk.after(flash_ms, lambda: button.tk.config(bg=normal))
+
+            button.tk.bind("<ButtonRelease-1>", flash_color, add="+")
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
