@@ -1084,7 +1084,7 @@ class EngineGui(Thread, Generic[S]):
             w, h = tkbtn.winfo_width(), tkbtn.winfo_height()
             parent_bg = tkbtn.master.cget("background")  # match parent so center is invisible
 
-            border = 6  # thickness in pixels
+            border = 20  # thickness in pixels
             overlay = tk.Frame(
                 tkbtn.master,
                 bg=parent_bg,  # hollow center
