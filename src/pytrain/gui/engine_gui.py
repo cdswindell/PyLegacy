@@ -995,7 +995,7 @@ class EngineGui(Thread, Generic[S]):
             img = tk.PhotoImage(width=button_size, height=button_size)
             self._btn_images.append(img)
             nb.tk.config(image=img, compound="center")
-            nb.tk.bind("<ButtonPress-1>", lambda e, b=nb: b.tk.config(bg="orange"))
+            self.make_color_changeable(nb, "orange")
         nb.text_color = "black"
         nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
@@ -1028,6 +1028,11 @@ class EngineGui(Thread, Generic[S]):
         if not self._in_entry_mode and key.isdigit():
             print("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
+
+    def make_color_changeable(self, button: PushButton, pressed_color: str):
+        normal = button.tk.cget("background")
+        button.tk.bind("<ButtonPress-1>", lambda e: self.app.tk.after_idle(lambda: button.tk.config(bg=pressed_color)))
+        button.tk.bind("<ButtonRelease-1>", lambda e: self.app.tk.after_idle(lambda: button.tk.config(bg=normal)))
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
