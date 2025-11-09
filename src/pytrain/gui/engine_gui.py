@@ -20,7 +20,7 @@ from typing import Any, Callable, Generic, TypeVar, cast
 from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
-from PIL import Image, ImageTk
+from PIL import Image, ImageEnhance, ImageOps, ImageTk
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
@@ -199,6 +199,7 @@ class EngineGui(Thread, Generic[S]):
         self._app_counter = 0
         self._in_entry_mode = True
         self._btn_images = []
+        self._dim_cache = []
         self._scope_buttons = {}
         self._scope_tmcc_ids = {}
         self._scope_watchers = {}
@@ -1069,22 +1070,58 @@ class EngineGui(Thread, Generic[S]):
             print("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
 
+    # noinspection PyProtectedMember
     def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
         tkbtn = button.tk
+
         normal_bg = tkbtn.cget("background")
-        normal_active = tkbtn.cget("activebackground")
         normal_relief = tkbtn.cget("relief")
+        has_image = bool(tkbtn.cget("image"))
 
-        def flash(_=None):
-            tkbtn.configure(bg=pressed_color, activebackground=pressed_color, relief="sunken")
-            self.app.tk.after(
-                flash_ms, lambda: tkbtn.configure(bg=normal_bg, activebackground=normal_active, relief=normal_relief)
-            )
+        # prepare optional dimmed image with orange border
+        dimmed_img = None
+        img_name = None
+        if has_image:
+            try:
+                img_name = str(tkbtn.cget("image"))
+                pil_img = ImageTk.getimage(tkbtn._nametowidget(img_name)).convert("RGBA")
 
-        tkbtn.bind("<ButtonRelease-1>", flash)
-        tkbtn.bind("<ButtonRelease>", flash)
-        tkbtn.bind("<KeyPress-space>", flash)
-        tkbtn.bind("<KeyPress-Return>", flash)
+                # 1️⃣ dim the image
+                dimmed = ImageEnhance.Brightness(pil_img).enhance(0.6)
+
+                # 2️⃣ add a thin orange border (2 px all around)
+                bordered = ImageOps.expand(dimmed, border=2, fill=pressed_color)
+
+                dimmed_img = ImageTk.PhotoImage(bordered)
+
+                # cache so it doesn't get garbage-collected
+                self._dim_cache.append(dimmed_img)
+            except Exception as ex:
+                print(f"[make_color_changeable] image prep failed: {ex}")
+                dimmed_img = None
+
+        def apply_flash():
+            # text button → flash orange background
+            if not has_image:
+                tkbtn.after_idle(lambda: tkbtn.config(bg=pressed_color, relief="sunken"))
+            # image button → show dimmed image + border
+            elif dimmed_img:
+                tkbtn.after_idle(lambda: tkbtn.config(image=dimmed_img, relief="sunken"))
+
+            # always schedule restoration safely
+            def restore():
+                if not has_image:
+                    tkbtn.config(bg=normal_bg, relief=normal_relief)
+                elif dimmed_img and img_name:
+                    tkbtn.config(image=img_name, relief=normal_relief)
+
+            tkbtn.after(flash_ms, lambda: tkbtn.after_idle(restore))
+
+        # touch-safe bindings
+        tkbtn.bind("<ButtonRelease-1>", lambda e: apply_flash(), add="+")
+        tkbtn.bind("<ButtonRelease>", lambda e: apply_flash(), add="+")
+        tkbtn.bind("<KeyPress-space>", lambda e: apply_flash(), add="+")
+        tkbtn.bind("<KeyPress-Return>", lambda e: apply_flash(), add="+")
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
