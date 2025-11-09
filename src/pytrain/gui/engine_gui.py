@@ -957,6 +957,9 @@ class EngineGui(Thread, Generic[S]):
         if size is None and label:
             size = self.s_22 if label.isdigit() else self.s_24
 
+        # ------------------------------------------------------------
+        #  Create cell container (either TitleBox or Box)
+        # ------------------------------------------------------------
         if titlebox_text:
             cell = TitleBox(
                 keypad_box,
@@ -970,6 +973,16 @@ class EngineGui(Thread, Generic[S]):
             cell.text_size = self.s_12
             button_size = self.titled_button_size
             grid_pad_by = 0
+
+            # Force TitleBox label to top-left
+            try:
+                t_children = cell.tk.winfo_children()
+                if t_children and isinstance(t_children[0], tk.Label):
+                    title_lbl = t_children[0]
+                    title_lbl.config(anchor="w", justify="left")
+                    title_lbl.pack_configure(side="top", anchor="w", fill="x")
+            except (AttributeError, tk.TclError, IndexError):
+                pass
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
             button_size = self.button_size
@@ -980,10 +993,18 @@ class EngineGui(Thread, Generic[S]):
         if is_entry:
             self.entry_cells.add(cell)
 
-        # lock cell size
-        cell.tk.configure(width=button_size + 2 * self.grid_pad_by, height=button_size + 2 * grid_pad_by)
+        # ------------------------------------------------------------
+        #  Fix cell size and prevent auto-shrinking
+        # ------------------------------------------------------------
+        cell.tk.configure(
+            width=button_size + 2 * self.grid_pad_by,
+            height=button_size + 2 * grid_pad_by,
+        )
         cell.tk.pack_propagate(False)
 
+        # ------------------------------------------------------------
+        #  Create PushButton
+        # ------------------------------------------------------------
         nb = PushButton(
             cell,
             align="top",
@@ -992,28 +1013,31 @@ class EngineGui(Thread, Generic[S]):
             args=args,
         )
 
+        # Make tk.Button fill the entire cell and draw full border
+        nb.tk.pack_forget()
+        nb.tk.place(x=0, y=0, relwidth=1, relheight=1)
+        nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
+
+        # ------------------------------------------------------------
+        #  Image vs text button behavior
+        # ------------------------------------------------------------
         if image:
-            # load & cache to prevent GC
-            img = ImageTk.PhotoImage(Image.open(image).resize((button_size, button_size)))
-            self._btn_images.append(img)
-            nb.tk.config(image=img, compound="center", width=button_size, height=button_size)
+            # load and cache the image to prevent garbage collection
+            img = Image.open(image).resize((button_size - 4, button_size - 4))
+            tkimg = ImageTk.PhotoImage(img)
+            self._btn_images.append(tkimg)
+            nb.tk.config(image=tkimg, compound="center")
+            nb.text = ""
         else:
-            # let the button fill the pixel-sized cell
-            nb.width = "fill"
-            nb.height = "fill"
             nb.text_size = size
             nb.text_bold = bolded
-            # img = tk.PhotoImage(width=button_size, height=button_size)
-            # self._btn_images.append(img)
-            # nb.tk.config(image=img, compound="center")
-            nb.tk.config(compound="center")
             nb.text_color = "black"
             self.make_color_changeable(nb, "orange")
 
-        # ensure the clickable area fills the cell
-        nb.tk.pack(expand=True, fill="both")
-
-        nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
+        # ------------------------------------------------------------
+        #  Grid spacing & uniform sizing
+        # ------------------------------------------------------------
+        cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
         keypad_box.tk.grid_columnconfigure(col, minsize=button_size + 2 * self.grid_pad_by)
         keypad_box.tk.grid_rowconfigure(row, minsize=button_size + 2 * grid_pad_by)
 
