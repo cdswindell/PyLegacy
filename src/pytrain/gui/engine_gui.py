@@ -381,14 +381,12 @@ class EngineGui(Thread, Generic[S]):
         #  Deterministic keypad sizing (5 rows tall)
         # ------------------------------------------------------------
         # after you finish building the keypad (all rows/cells/buttons created)
-        self.keypad_box.tk.grid_propagate(False)
+        self.keypad_box.tk.grid_propagate(True)
         self.keypad_box.tk.update_idletasks()
 
-        # Let Tk tell us the exact required height for 5 rows as laid out
+        # Optional: check total height and warn if truncated
         required_h = self.keypad_keys.tk.winfo_reqheight()
-
-        # Clamp to available screen height if needed
-        max_height = (
+        max_h = (
             self.height
             - self.header.tk.winfo_reqheight()
             - self.emergency_box.tk.winfo_reqheight()
@@ -396,14 +394,15 @@ class EngineGui(Thread, Generic[S]):
             - self.scope_box.tk.winfo_reqheight()
             - 10
         )
-        print(f"Expected keypad height: {required_h}, Max allowed height: {max_height}")
-        # self.keypad_box.tk.configure(height=min(expected_height, max_height))
-        self.keypad_box.tk.configure(height=required_h)
-        app.update()
+        print(f"[DEBUG] Keypad required={required_h}, available={max_h}")
 
-        # Finally, resize image box
-        available_height, available_width = self.calc_image_box_size()
-        self.image_box.tk.config(height=available_height, width=available_width)
+        # Only clamp if we’re overflowing
+        if required_h > max_h:
+            self.keypad_box.tk.configure(height=max_h)
+        else:
+            self.keypad_box.tk.configure(height=required_h)
+
+        app.tk.update_idletasks()
 
         # Display GUI and start event loop; call blocks
         try:
