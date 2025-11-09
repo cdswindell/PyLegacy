@@ -1070,17 +1070,43 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_info(int(tmcc_id), "")
 
     def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
-        style = ttk.Style()
-        style.configure("Orange.TButton", background=pressed_color, foreground="white", borderwidth=1, focusthickness=3)
-        normal_style = button.tk.cget("style") or "TButton"
+        tkbtn = button.tk
+        widget_class = tkbtn.winfo_class()
 
-        def flash(_=None):
-            button.tk.configure(style="Orange.TButton")
-            self.app.tk.after(flash_ms, lambda: button.tk.configure(style=normal_style))
+        # classic tk.Button → use bg flash
+        if widget_class == "Button":
+            normal_bg = tkbtn.cget("background")
 
-        button.tk.bind("<ButtonRelease-1>", flash)
-        button.tk.bind("<KeyPress-space>", flash)
-        button.tk.bind("<KeyPress-Return>", flash)
+            def flash(_=None):
+                tkbtn.configure(bg=pressed_color)
+                self.app.tk.after(flash_ms, lambda: tkbtn.configure(bg=normal_bg))
+
+            tkbtn.bind("<ButtonRelease-1>", flash)
+            tkbtn.bind("<ButtonRelease>", flash)
+            tkbtn.bind("<KeyPress-space>", flash)
+            tkbtn.bind("<KeyPress-Return>", flash)
+            return
+
+        # ttk.Button → use style flash
+        if widget_class == "TButton":
+            style = ttk.Style()
+            normal_style = tkbtn.cget("style") or "TButton"
+            flash_style = f"{pressed_color}.TButton"
+
+            style.configure(flash_style, background=pressed_color, foreground="white", relief="raised")
+
+            def flash(_=None):
+                tkbtn.configure(style=flash_style)
+                self.app.tk.after(flash_ms, lambda: tkbtn.configure(style=normal_style))
+
+            tkbtn.bind("<ButtonRelease-1>", flash)
+            tkbtn.bind("<ButtonRelease>", flash)
+            tkbtn.bind("<KeyPress-space>", flash)
+            tkbtn.bind("<KeyPress-Return>", flash)
+            return
+
+        # fallback (unknown widget type)
+        print(f"[make_color_changeable] Unsupported widget class: {widget_class}")
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
