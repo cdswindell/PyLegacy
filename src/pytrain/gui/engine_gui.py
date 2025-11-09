@@ -401,7 +401,9 @@ class EngineGui(Thread, Generic[S]):
             - self.scope_box.tk.winfo_reqheight()
             - 10
         )
-        self.keypad_box.tk.configure(height=min(expected_height, max_height))
+        print(f"Expected keypad height: {expected_height}, Max allowed height: {max_height}")
+        # self.keypad_box.tk.configure(height=min(expected_height, max_height))
+        self.keypad_box.tk.configure(height=expected_height)
 
         app.tk.update_idletasks()
 
