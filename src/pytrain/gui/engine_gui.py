@@ -1071,35 +1071,41 @@ class EngineGui(Thread, Generic[S]):
 
     def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
         tkbtn = button.tk
+        parent = tkbtn.master  # the Box/TitleBox .tk widget
 
-        normal_bg = tkbtn.cget("background")
+        normal_btn_bg = tkbtn.cget("background")
+        normal_parent_bg = parent.cget("background")
+
         has_image = bool(tkbtn.cget("image"))
         is_classic = tkbtn.winfo_class() == "Button"
 
         def flash(_=None):
-            # Apply orange backgrounds (and border)
+            # flash the visible color
             tkbtn.configure(
                 relief="sunken",
                 highlightthickness=5,
                 highlightbackground=pressed_color,
                 activebackground=pressed_color,
             )
+            parent.configure(background=pressed_color)
             if is_classic and not has_image:
                 tkbtn.configure(bg=pressed_color)
             tkbtn.update_idletasks()
 
-            # Schedule restoration after short delay
-            self.app.tk.after(
-                flash_ms,
-                lambda: tkbtn.configure(
+            # restore after delay
+            def restore():
+                tkbtn.configure(
                     relief="raised",
                     highlightthickness=1,
-                    highlightbackground=normal_bg,
-                    bg=normal_bg,
-                ),
-            )
+                    highlightbackground=normal_btn_bg,
+                    bg=normal_btn_bg,
+                )
+                parent.configure(background=normal_parent_bg)
+                tkbtn.update_idletasks()
 
-        # Bind both mouse and touch
+            self.app.tk.after(flash_ms, restore)
+
+        # bind release/touch events
         tkbtn.bind("<ButtonRelease-1>", flash)
         tkbtn.bind("<ButtonRelease>", flash)
         tkbtn.bind("<KeyPress-space>", flash)
