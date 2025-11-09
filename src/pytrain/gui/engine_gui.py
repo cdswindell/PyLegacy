@@ -376,6 +376,18 @@ class EngineGui(Thread, Generic[S]):
 
         # make scope buttons
         self.make_scope(app)
+        # ensure keypad fills vertical space down to scope buttons
+        self.keypad_box.tk.grid_propagate(False)
+        self.keypad_box.tk.update_idletasks()
+        available_height = (
+            self.height
+            - self.header.tk.winfo_reqheight()
+            - self.emergency_box.tk.winfo_reqheight()
+            - self.info_box.tk.winfo_reqheight()
+            - self.scope_box.tk.winfo_reqheight()
+            - 20
+        )
+        self.keypad_box.tk.configure(height=available_height)
 
         # Finally, resize image box
         available_height, available_width = self.calc_image_box_size()
@@ -889,18 +901,6 @@ class EngineGui(Thread, Generic[S]):
         self.ac_aux1_btn.when_left_button_pressed = self.when_pressed
         self.ac_aux1_btn.when_left_button_released = self.when_released
 
-        # ensure keypad fills vertical space down to scope buttons
-        keypad_box.tk.grid_propagate(False)
-        keypad_box.tk.update_idletasks()
-        available_height = (
-            self.height
-            - self.header.tk.winfo_reqheight()
-            - self.emergency_box.tk.winfo_reqheight()
-            - self.info_box.tk.winfo_reqheight()
-            - self.scope_box.tk.winfo_reqheight()
-            - 20
-        )
-        keypad_box.tk.configure(height=available_height)
         app.update()
 
     def make_info_box(self, app: App):
