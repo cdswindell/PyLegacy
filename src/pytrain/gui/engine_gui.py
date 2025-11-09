@@ -1071,25 +1071,43 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_info(int(tmcc_id), "")
 
     # noinspection PyProtectedMember
-    def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
+    @staticmethod
+    def make_color_changeable(button, pressed_color="orange", flash_ms=150):
+        """
+        Add a brief orange border overlay when the button is pressed.
+        Works on touchscreens and does not freeze the UI.
+        """
         tkbtn = button.tk
-        normal_bg = tkbtn.cget("background")
-        normal_relief = tkbtn.cget("relief")
 
         def flash(_=None):
-            # apply orange immediately
-            tkbtn.configure(bg=pressed_color, relief="sunken")
-            # queue one repaint just for this widget
-            tkbtn.update_idletasks()
+            # current button geometry
+            w, h = tkbtn.winfo_width(), tkbtn.winfo_height()
 
-            # schedule automatic restore
-            def restore():
-                tkbtn.configure(bg=normal_bg, relief=normal_relief)
-                tkbtn.update_idletasks()
+            # create a transparent-ish frame just above the button
+            border = 3  # thickness in pixels
+            overlay = tk.Frame(
+                tkbtn.master,
+                bg=pressed_color,
+                highlightthickness=border,
+                highlightbackground=pressed_color,
+                bd=0,
+            )
+            # draw as hollow rectangle (cover edges, leave center open)
+            overlay.place(
+                in_=tkbtn,
+                x=-border,
+                y=-border,
+                width=w + 2 * border,
+                height=h + 2 * border,
+            )
 
-            self.app.tk.after(flash_ms, restore)
+            # make sure overlay is above everything
+            overlay.lift()
 
-        # bind to release (touchscreen usually fires only this)
+            # remove overlay after short delay
+            overlay.after(flash_ms, overlay.destroy)
+
+        # touch & keyboard bindings
         tkbtn.bind("<ButtonRelease-1>", flash, add="+")
         tkbtn.bind("<ButtonRelease>", flash, add="+")
         tkbtn.bind("<KeyPress-space>", flash, add="+")
