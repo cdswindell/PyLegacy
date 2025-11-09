@@ -1020,7 +1020,11 @@ class EngineGui(Thread, Generic[S]):
 
         # Make tk.Button fill the entire cell and draw full border
         nb.tk.pack_forget()
-        nb.tk.place(x=0, y=0, relwidth=1, relheight=1)
+        # nb.tk.place(x=0, y=0, relwidth=1, relheight=1)
+        # nb.tk.place(x=1, y=1, relwidth=0.98, relheight=0.98)
+        pad = 2
+        nb.tk.place(x=pad, y=pad, width=button_size - 2 * pad, height=button_size - 2 * pad)
+
         nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
 
         # ------------------------------------------------------------
