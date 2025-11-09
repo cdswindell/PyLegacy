@@ -14,7 +14,7 @@ import tkinter as tk
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
-from tkinter import TclError
+from tkinter import TclError, ttk
 from typing import Any, Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
@@ -1070,40 +1070,17 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_info(int(tmcc_id), "")
 
     def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
-        tkbtn = button.tk
-
-        normal_bg = tkbtn.cget("background")
-        normal_relief = tkbtn.cget("relief")
-        normal_hl = tkbtn.cget("highlightthickness")
-        normal_hlbg = tkbtn.cget("highlightbackground")
+        style = ttk.Style()
+        style.configure("Orange.TButton", background=pressed_color, foreground="white", borderwidth=1, focusthickness=3)
+        normal_style = button.tk.cget("style") or "TButton"
 
         def flash(_=None):
-            # show the press immediately
-            tkbtn.configure(
-                relief="sunken",
-                highlightthickness=3,
-                highlightbackground=pressed_color,
-                bg=pressed_color,
-            )
+            button.tk.configure(style="Orange.TButton")
+            self.app.tk.after(flash_ms, lambda: button.tk.configure(style=normal_style))
 
-            # schedule restore even if Tk never sees a release
-            def restore():
-                tkbtn.configure(
-                    relief=normal_relief,
-                    highlightthickness=normal_hl,
-                    highlightbackground=normal_hlbg,
-                    bg=normal_bg,
-                )
-
-            # guarantee the timer starts right away
-            self.app.tk.after_idle(lambda: self.app.tk.after(flash_ms, restore))
-
-        # Bind release OR press, depending on which comes through first
-        tkbtn.bind("<Button-1>", flash)
-        tkbtn.bind("<ButtonRelease-1>", flash)
-        tkbtn.bind("<ButtonRelease>", flash)
-        tkbtn.bind("<KeyPress-space>", flash)
-        tkbtn.bind("<KeyPress-Return>", flash)
+        button.tk.bind("<ButtonRelease-1>", flash)
+        button.tk.bind("<KeyPress-space>", flash)
+        button.tk.bind("<KeyPress-Return>", flash)
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
