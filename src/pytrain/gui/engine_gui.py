@@ -1116,8 +1116,7 @@ class EngineGui(Thread, Generic[S]):
     #     tkbtn.bind("<KeyPress-space>", flash, add="+")
     #     tkbtn.bind("<KeyPress-Return>", flash, add="+")
 
-    @staticmethod
-    def make_color_changeable(button, pressed_color="orange", flash_ms=150):
+    def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
         tkbtn = button.tk
 
         def flash(_=None):
@@ -1135,7 +1134,7 @@ class EngineGui(Thread, Generic[S]):
             # put it just under the button so the key stays visible
             overlay.lower(tkbtn)
 
-            overlay.after(flash_ms, overlay.destroy)
+            self.app.after(flash_ms, overlay.destroy)
 
         tkbtn.bind("<ButtonRelease-1>", flash, add="+")
         tkbtn.bind("<ButtonRelease>", flash, add="+")
