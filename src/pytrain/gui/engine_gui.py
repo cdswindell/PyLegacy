@@ -1072,7 +1072,7 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyProtectedMember
     @staticmethod
-    def make_color_changeable(self, button, pressed_color="orange", flash_ms=150):
+    def make_color_changeable(button, pressed_color="orange", flash_ms=150):
         """
         Add a brief orange border outline when the button is pressed.
         Works on touchscreens and does not freeze the UI.
