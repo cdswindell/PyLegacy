@@ -897,6 +897,7 @@ class EngineGui(Thread, Generic[S]):
         keypad_box.tk.pack_propagate(False)
 
         app.update()
+        self.inspect_titlebox_geometry(self.ac_on_cell, "On")
 
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, border=2, align="top")
