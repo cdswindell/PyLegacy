@@ -993,7 +993,7 @@ class EngineGui(Thread, Generic[S]):
                 if t_children:
                     if isinstance(t_children[0], tk.Label):
                         title_lbl = t_children[0]
-                        title_lbl.pack_configure(pady=(0, -10), ipady=0, anchor="w", fill="x")
+                        title_lbl.pack_configure(pady=(0, -30), ipady=0, anchor="w", fill="x")
                         title_lbl.config(anchor="w", justify="left")
                         title_lbl.update_idletasks()
                     if len(t_children) > 1 and isinstance(t_children[1], tk.Frame):
