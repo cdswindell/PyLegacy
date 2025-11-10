@@ -1033,33 +1033,23 @@ class EngineGui(Thread, Generic[S]):
 
             # Force TitleBox label to top-left
             try:
-                children = cell.tk.winfo_children()
-                if children:
-                    # --- Collapse title label padding ---
-                    title_lbl = children[0]
-                    if isinstance(title_lbl, tk.Label):
-                        # Remove outer and inner padding
-                        title_lbl.pack_configure(padx=0, pady=(0, -2), ipadx=0, ipady=0)
-                        # Left/top align tightly
-                        title_lbl.configure(anchor="w", justify="left")
+                lf = cell.tk  # The underlying tk.LabelFrame inside your TitleBox
 
-                    # --- Collapse inner frame spacing ---
-                    if len(children) > 1:
-                        inner_frame = children[1]
-                        inner_frame.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
-                        # Disable geometry propagation so the frame doesn’t expand based on button height
-                        inner_frame.pack_propagate(False)
-                        # Make sure it fills the area
-                        inner_frame.pack_configure(fill="both", expand=True)
+                # Move title to top-left and reduce reserved caption space
+                lf.configure(labelanchor="nw", padx=0, pady=0, ipady=0)
 
-                        # Also set the TitleBox container itself to not auto-expand
-                        cell.tk.pack_propagate(False)
+                # Force Tk to recompute geometry after the config change
+                lf.update_idletasks()
 
-                # Force geometry recalculation
-                cell.tk.update_idletasks()
-
-            except (AttributeError, tk.TclError, IndexError):
-                pass
+                # Also adjust the internal child frame (content area)
+                children = lf.winfo_children()
+                for child in children:
+                    if isinstance(child, tk.Frame):
+                        # This is the inner content frame that holds your PushButton
+                        child.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
+                        child.pack_propagate(False)
+            except (tk.TclError, AttributeError) as e:
+                print(f"Warning adjusting LabelFrame padding: {e}")
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], visible=True)
             button_size = self.button_size
