@@ -377,9 +377,31 @@ class EngineGui(Thread, Generic[S]):
         # make scope buttons
         self.make_scope(app)
 
-        # Finally, resize image box
+        # --------------------------------------------------------------------
+        # Deterministic keypad height: exactly 5 rows of buttons
+        # --------------------------------------------------------------------
+        app.tk.update_idletasks()
+
+        num_rows = 5  # keypad = 4 numeric + 1 command row
+        cell_height = self.button_size + 2 * self.grid_pad_by
+        keypad_height = num_rows * cell_height + (num_rows + 1) * self.grid_pad_by
+
+        # Explicitly size the keypad_box
+        self.keypad_box.tk.configure(height=keypad_height)
+        self.keypad_box.tk.pack_propagate(False)
+
+        # Also pin each row height so grid math matches
+        for r in range(num_rows):
+            self.keypad_keys.tk.grid_rowconfigure(r, minsize=cell_height, weight=1)
+
+        # Recompute available image space now that keypad height is fixed
         available_height, available_width = self.calc_image_box_size()
-        self.image_box.tk.config(height=available_height, width=available_width)
+        self.image_box.tk.configure(height=available_height, width=available_width)
+
+        app.tk.update_idletasks()
+        # # Finally, resize image box
+        # available_height, available_width = self.calc_image_box_size()
+        # self.image_box.tk.config(height=available_height, width=available_width)
 
         # Display GUI and start event loop; call blocks
         try:
@@ -890,29 +912,6 @@ class EngineGui(Thread, Generic[S]):
         self.ac_aux1_btn.when_left_button_released = self.when_released
 
         app.update()
-
-        # --------------------------------------------------------------------
-        # Deterministic keypad height: exactly 5 rows of buttons
-        # --------------------------------------------------------------------
-        app.tk.update_idletasks()
-
-        num_rows = 5  # keypad = 4 numeric + 1 command row
-        cell_height = self.button_size + 2 * self.grid_pad_by
-        keypad_height = num_rows * cell_height + (num_rows + 1) * self.grid_pad_by
-
-        # Explicitly size the keypad_box
-        self.keypad_box.tk.configure(height=keypad_height)
-        self.keypad_box.tk.pack_propagate(False)
-
-        # Also pin each row height so grid math matches
-        for r in range(num_rows):
-            self.keypad_keys.tk.grid_rowconfigure(r, minsize=cell_height, weight=1)
-
-        # Recompute available image space now that keypad height is fixed
-        available_height, available_width = self.calc_image_box_size()
-        self.image_box.tk.configure(height=available_height, width=available_width)
-
-        app.tk.update_idletasks()
 
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, border=2, align="top")
