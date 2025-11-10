@@ -379,27 +379,27 @@ class EngineGui(Thread, Generic[S]):
         # --------------------------------------------------------------------
         # Deterministic keypad sizing (uniform 5 rows even with TitleBoxes)
         # --------------------------------------------------------------------
-        app.tk.update_idletasks()
-
-        # --- Normalize all keypad row heights (fix TitleBox extra label gap) ---
-        for child in self.keypad_keys.tk.winfo_children():
-            if isinstance(child, tk.Frame):
-                try:
-                    # Tighten label padding inside any TitleBox
-                    for lbl in [w for w in child.winfo_children() if isinstance(w, tk.Label)]:
-                        lbl.pack_configure(pady=0, ipady=0)
-                    # Force uniform cell height and disable internal propagation
-                    child.configure(height=self.button_size + 2 * self.grid_pad_by)
-                    child.pack_propagate(False)
-                except tk.TclError:
-                    pass
-
-        # Enforce equal row minsize after flattening
-        num_rows = 5
-        for r in range(num_rows):
-            self.keypad_keys.tk.grid_rowconfigure(r, minsize=self.button_size + 2 * self.grid_pad_by, weight=1)
-
-        self.app.tk.update_idletasks()
+        # app.tk.update_idletasks()
+        #
+        # # --- Normalize all keypad row heights (fix TitleBox extra label gap) ---
+        # for child in self.keypad_keys.tk.winfo_children():
+        #     if isinstance(child, tk.Frame):
+        #         try:
+        #             # Tighten label padding inside any TitleBox
+        #             for lbl in [w for w in child.winfo_children() if isinstance(w, tk.Label)]:
+        #                 lbl.pack_configure(pady=0, ipady=0)
+        #             # Force uniform cell height and disable internal propagation
+        #             child.configure(height=self.button_size + 2 * self.grid_pad_by)
+        #             child.pack_propagate(False)
+        #         except tk.TclError:
+        #             pass
+        #
+        # # Enforce equal row minsize after flattening
+        # num_rows = 5
+        # for r in range(num_rows):
+        #     self.keypad_keys.tk.grid_rowconfigure(r, minsize=self.button_size + 2 * self.grid_pad_by, weight=1)
+        #
+        # self.app.tk.update_idletasks()
 
         # Resize image box to fill remaining vertical space
         available_height, available_width = self.calc_image_box_size()
