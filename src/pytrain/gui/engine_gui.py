@@ -1084,11 +1084,24 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Fix cell size and prevent auto-shrinking
         # ------------------------------------------------------------
-        cell.tk.configure(
-            width=self.button_size,
-            height=self.button_size,
-        )
-        cell.tk.pack_propagate(False)
+        # ------------------------------------------------------------
+        #  Fix cell size (allowing slight flex for TitleBoxes)
+        # ------------------------------------------------------------
+        if titlebox_text:
+            # Let the TitleBox grow a bit for its label text
+            label_extra = int(self.s_12 * 0.8)  # about one text line of space
+            cell.tk.configure(
+                width=self.button_size,
+                height=self.button_size + label_extra,
+            )
+            # still disable shrinking, but don’t clip internal content
+            cell.tk.pack_propagate(True)
+        else:
+            cell.tk.configure(
+                width=self.button_size,
+                height=self.button_size,
+            )
+            cell.tk.pack_propagate(False)
 
         # ensure the keypad grid expands uniformly and fills the box height
         extra_pad = max(2, grid_pad_by)
