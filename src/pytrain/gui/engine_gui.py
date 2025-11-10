@@ -1040,7 +1040,6 @@ class EngineGui(Thread, Generic[S]):
             # self._btn_images.append(tkimg)
             # nb.tk.config(image=tkimg, compound="center")
             nb.image = image
-            nb.tk.config(width=button_size, height=button_size)
         else:
             nb.text_size = size
             nb.text_bold = bolded
@@ -1053,7 +1052,7 @@ class EngineGui(Thread, Generic[S]):
         nb.text_color = "black"
         nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-        nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
+        # nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
         # # spacing between buttons (in pixels)
         # nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
         # cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
