@@ -1153,7 +1153,6 @@ class EngineGui(Thread, Generic[S]):
 
         def flash(_=None):
             try:
-                tkbtn.update_idletasks()
                 w, h = tkbtn.winfo_width(), tkbtn.winfo_height()
                 x, y = tkbtn.winfo_x(), tkbtn.winfo_y()
 
@@ -1184,7 +1183,6 @@ class EngineGui(Thread, Generic[S]):
                 else:
                     self.app.tk.after(flash_ms, overlay.place_forget)
             except (tk.TclError, RuntimeError):
-                # Don't let a bad geometry or destroyed widget break Tk
                 try:
                     overlay.place_forget()
                 except tk.TclError:
