@@ -577,14 +577,13 @@ class EngineGui(Thread, Generic[S]):
                 pass
 
     def update_ac_status(self, state: AccessoryState):
-        # img = self.power_on_image if state.is_aux_on else self.power_off_image
-        # self.ac_status_btn.tk.config(
-        #     image=img,
-        #     height=self.titled_button_size,
-        #     width=self.titled_button_size,
-        # )
-        # self.ac_status_btn.image = img
-        pass
+        img = self.power_on_image if state.is_aux_on else self.power_off_image
+        self.ac_status_btn.tk.config(
+            image=img,
+            height=self.titled_button_size,
+            width=self.titled_button_size,
+        )
+        self.ac_status_btn.image = img
 
     def make_scope(self, app: App):
         button_height = int(round(40 * self._scale_by))
@@ -855,13 +854,13 @@ class EngineGui(Thread, Generic[S]):
         )
         self.ac_status_cell, self.ac_status_btn = self.make_keypad_button(
             keypad_keys,
-            "Test",
+            None,
             row,
             1,
-            # image=self.power_off_path,
+            image=self.power_off_path,
             visible=False,
             is_ops=True,
-            # titlebox_text="Status",
+            titlebox_text="Status",
             command=False,
         )
         self.ac_on_cell, self.ac_on_btn = self.make_keypad_button(
@@ -994,7 +993,7 @@ class EngineGui(Thread, Generic[S]):
                 if t_children:
                     if isinstance(t_children[0], tk.Label):
                         title_lbl = t_children[0]
-                        title_lbl.pack_configure(pady=(0, -2), ipady=0, anchor="w", fill="x")
+                        title_lbl.pack_configure(pady=(0, -10), ipady=0, anchor="w", fill="x")
                         title_lbl.config(anchor="w", justify="left")
                         title_lbl.update_idletasks()
                     if len(t_children) > 1 and isinstance(t_children[1], tk.Frame):
