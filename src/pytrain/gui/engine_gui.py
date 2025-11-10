@@ -990,11 +990,21 @@ class EngineGui(Thread, Generic[S]):
             # Force TitleBox label to top-left
             try:
                 t_children = cell.tk.winfo_children()
-                if t_children and isinstance(t_children[0], tk.Label):
-                    title_lbl = t_children[0]
-                    title_lbl.pack_configure(pady=(0, -2), ipady=0, anchor="w", fill="x")
-                    title_lbl.config(anchor="w", justify="left")
-                    title_lbl.update_idletasks()
+                if t_children:
+                    if isinstance(t_children[0], tk.Label):
+                        title_lbl = t_children[0]
+                        title_lbl.pack_configure(pady=(0, -2), ipady=0, anchor="w", fill="x")
+                        title_lbl.config(anchor="w", justify="left")
+                        title_lbl.update_idletasks()
+                    if len(t_children) > 1 and isinstance(t_children[1], tk.Frame):
+                        inner_frame = t_children[1]
+
+                        # Remove pack padding on the inner frame
+                        inner_frame.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
+
+                        # Also force it to fill the remaining space cleanly
+                        inner_frame.pack_propagate(False)
+                        inner_frame.pack_configure(fill="both", expand=True)
             except (AttributeError, tk.TclError, IndexError):
                 pass
         else:
