@@ -343,7 +343,7 @@ class EngineGui(Thread, Generic[S]):
                             message[0](*message[1])
                         else:
                             message[0]()
-                        app.tk.update_idletasks()
+                        # app.tk.update_idletasks()
                 except Empty:
                     pass
             return None
@@ -1002,11 +1002,6 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Fix cell size and prevent auto-shrinking
         # ------------------------------------------------------------
-        # cell.tk.configure(
-        #     width=button_size + 2 * self.grid_pad_by,
-        #     height=button_size + 2 * grid_pad_by,
-        # )
-        # cell.tk.pack_propagate(False)
         extra_pad = max(2, self.grid_pad_by)
         cell.tk.configure(
             width=button_size + 2 * extra_pad,
