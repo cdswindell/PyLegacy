@@ -380,6 +380,9 @@ class EngineGui(Thread, Generic[S]):
         available_height, available_width = self.calc_image_box_size()
         self.image_box.tk.config(height=available_height, width=available_width)
 
+        # ONE geometry pass at the end
+        app.tk.update_idletasks()
+
         # Display GUI and start event loop; call blocks
         try:
             app.display()
@@ -616,7 +619,7 @@ class EngineGui(Thread, Generic[S]):
             self._scope_tmcc_ids[scope] = 0
         # highlight initial button
         self.on_scope(self.scope)
-        app.update()
+        # app.update()
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope) -> None:
@@ -911,8 +914,7 @@ class EngineGui(Thread, Generic[S]):
         min_total_width = num_cols * min_cell_width
         keypad_box.tk.configure(width=min_total_width, height=min_total_height)
 
-        app.update()
-        self.inspect_keypad_grid(keypad_box)
+        # app.update()
 
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, border=2, align="top")
@@ -925,7 +927,7 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id.text_bold = True
         tmcc_id.text_size = self.s_20
         tmcc_id.width = 5
-        app.update()  # we want to measure height of the title box
+        # app.update()  # we want to measure height of the title box
 
         self.name_box = name_box = TitleBox(
             info_box,
@@ -1561,7 +1563,7 @@ class EngineGui(Thread, Generic[S]):
         reset_btn.text_size = self.s_20
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
-        app.update()
+        # app.update()
         self.emergency_box_width = emergency_box.tk.winfo_reqwidth()
 
     def scale(self, value: int, factor: float = None) -> int:
