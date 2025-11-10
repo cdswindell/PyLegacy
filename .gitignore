@@ -6,6 +6,7 @@ src/pytrain/_version.py
 __pycache__
  *.pyc
  *.bak
+.env
 pytrain.log*
 .DS_Store
 replay.txt
