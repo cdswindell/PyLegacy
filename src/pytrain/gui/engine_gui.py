@@ -383,29 +383,47 @@ class EngineGui(Thread, Generic[S]):
         # --------------------------------------------------------------------
         # Deterministic keypad sizing (5 rows visible)
         # --------------------------------------------------------------------
+        # --------------------------------------------------------------------
+        # Deterministic keypad sizing (uniform 5 rows even with TitleBoxes)
+        # --------------------------------------------------------------------
         app.tk.update_idletasks()
 
-        num_rows = 5  # 4 numeric + 1 command row
-        cell_height = self.button_size + 2 * self.grid_pad_by
-        total_height = num_rows * cell_height + (num_rows + 1) * self.grid_pad_by
+        # total rows: 4 numeric + 1 ops
+        num_rows = 5
+        base_height = self.button_size + 2 * self.grid_pad_by
 
-        # 1️⃣ Let guizero handle overall layout (pack). Don’t constrain pack-managed box.
-        # Instead, make sure the internal grid has fixed row sizes and propagates normally.
-        self.keypad_box.tk.pack_propagate(True)
+        # Measure average titlebox overhead once (if any)
+        sample_extra = 0
+        for child in self.keypad_keys.tk.winfo_children():
+            if isinstance(child, tk.Label) or "title" in str(child).lower():
+                try:
+                    # find containing TitleBox frame
+                    parent = child.master
+                    extra = max(0, parent.winfo_reqheight() - base_height)
+                    if extra > sample_extra:
+                        sample_extra = extra
+                except tk.TclError:
+                    pass
 
-        # 2️⃣ Enforce fixed per-row geometry inside the grid
+        # Add a small buffer for title rows, but keep uniform height
+        per_row_height = base_height + int(sample_extra / 2)
+
+        # Enforce consistent geometry for each row
         for r in range(num_rows):
-            self.keypad_keys.tk.grid_rowconfigure(r, weight=0, minsize=cell_height)
+            self.keypad_keys.tk.grid_rowconfigure(r, weight=0, minsize=per_row_height)
 
-        # 3️⃣ Force recalculation of layout so Tk measures children properly
+        # Compute total keypad height deterministically
+        total_height = num_rows * per_row_height + (num_rows + 1) * self.grid_pad_by
+
+        # Let guizero pack naturally, but fix the box height
+        self.keypad_box.tk.pack_propagate(True)
+        self.keypad_box.tk.configure(height=total_height)
+
+        # Update layout before recalculating image area
         self.keypad_keys.tk.update_idletasks()
-        keypad_req_height = self.keypad_keys.tk.winfo_reqheight()
+        self.keypad_box.tk.update_idletasks()
 
-        # 4️⃣ Explicitly set the box height equal to total keypad height
-        # (this works because guizero uses pack, not grid)
-        self.keypad_box.tk.configure(height=keypad_req_height or total_height)
-
-        # 5️⃣ Recompute available image height for the area above keypad
+        # Resize image box to fill remaining vertical space
         available_height, available_width = self.calc_image_box_size()
         self.image_box.tk.configure(height=available_height, width=available_width)
 
