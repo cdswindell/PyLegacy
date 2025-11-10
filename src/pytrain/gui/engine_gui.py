@@ -619,7 +619,6 @@ class EngineGui(Thread, Generic[S]):
             self._scope_tmcc_ids[scope] = 0
         # highlight initial button
         self.on_scope(self.scope)
-        # app.update()
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope) -> None:
@@ -914,8 +913,6 @@ class EngineGui(Thread, Generic[S]):
         min_total_width = num_cols * min_cell_width
         keypad_box.tk.configure(width=min_total_width, height=min_total_height)
 
-        # app.update()
-
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, border=2, align="top")
 
@@ -927,16 +924,38 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id.text_bold = True
         tmcc_id.text_size = self.s_20
         tmcc_id.width = 5
-        # app.update()  # we want to measure height of the title box
 
+        # self.name_box = name_box = TitleBox(
+        #     info_box,
+        #     "Road Name",
+        #     align="right",
+        #     height=tmcc_id_box.tk.winfo_reqheight(),
+        #     width=self.emergency_box.tk.winfo_reqwidth() - tmcc_id_box.tk.winfo_reqwidth(),
+        # )
+        # name_box.text_size = self.s_12
+
+        # Create the Road Name box without forcing early geometry
         self.name_box = name_box = TitleBox(
             info_box,
             "Road Name",
             align="right",
-            height=tmcc_id_box.tk.winfo_reqheight(),
-            width=self.emergency_box.tk.winfo_reqwidth() - tmcc_id_box.tk.winfo_reqwidth(),
         )
         name_box.text_size = self.s_12
+
+        # Adjust height and width *after* Tk geometry settles
+        def adjust_name_box():
+            try:
+                h = self.tmcc_id_box.tk.winfo_reqheight()
+                w = self.emergency_box.tk.winfo_reqwidth() - self.tmcc_id_box.tk.winfo_reqwidth()
+                # Apply minimums to avoid zero/negative sizes
+                h = max(h, self.s_24)
+                w = max(w, 100)
+                self.name_box.tk.config(height=h, width=w)
+            except tk.TclError as e:
+                log.warning(f"Could not adjust name_box size: {e}")
+
+        # Defer until idle so all other widgets exist and have geometry
+        app.tk.after_idle(adjust_name_box)
 
         self.name_text = name_text = Text(
             name_box,
