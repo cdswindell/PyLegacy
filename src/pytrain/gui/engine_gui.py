@@ -1002,15 +1002,16 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Fix cell size and prevent auto-shrinking
         # ------------------------------------------------------------
+        extra_pad = max(2, grid_pad_by)
         cell.tk.configure(
-            width=button_size + 2 * grid_pad_by,
-            height=button_size + 2 * grid_pad_by,
+            width=button_size + 2 * extra_pad,
+            height=button_size + 2 * extra_pad,
         )
         cell.tk.pack_propagate(False)
 
         # ensure the keypad grid expands uniformly and fills the box height
-        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=self.button_size + 2 * grid_pad_by)
-        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=self.button_size + 2 * grid_pad_by)
+        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=self.button_size + 2 * extra_pad)
+        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=self.button_size + 2 * extra_pad)
 
         # ------------------------------------------------------------
         #  Create PushButton
