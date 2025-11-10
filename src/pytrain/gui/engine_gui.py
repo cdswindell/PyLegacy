@@ -1448,7 +1448,7 @@ class EngineGui(Thread, Generic[S]):
 
                 # Get the heights of fixed elements
                 header_height = self.header.tk.winfo_reqheight()
-                emergency_height = self.emergency_box.tk.winfo_reqheight()
+                emergency_height = self.emergency_box_height or self.emergency_box.tk.winfo_reqheight()
                 info_height = self.info_box.tk.winfo_reqheight()
                 keypad_height = self.keypad_box.tk.winfo_reqheight()
                 scope_height = self.scope_box.tk.winfo_reqheight()
@@ -1458,7 +1458,7 @@ class EngineGui(Thread, Generic[S]):
                     self.height - header_height - emergency_height - info_height - keypad_height - scope_height - 20
                 )
                 # use width of emergency height box as standard
-                self.avail_image_width = self.emergency_box.tk.winfo_reqwidth()
+                self.avail_image_width = self.emergency_box_width or self.emergency_box.tk.winfo_reqwidth()
         return self.avail_image_height, self.avail_image_width
 
     def make_emergency_buttons(self, app: App):
@@ -1499,7 +1499,8 @@ class EngineGui(Thread, Generic[S]):
         reset_btn.text_size = self.s_20
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
-        emergency_box.tk.update_idletasks()
+        # emergency_box.tk.update_idletasks()
+        self.app.tk.update_idletasks()
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
