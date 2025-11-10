@@ -992,8 +992,9 @@ class EngineGui(Thread, Generic[S]):
                 t_children = cell.tk.winfo_children()
                 if t_children and isinstance(t_children[0], tk.Label):
                     title_lbl = t_children[0]
-                    title_lbl.pack_configure(pady=0, ipady=0, anchor="w", fill="x")
+                    title_lbl.pack_configure(pady=(0, -2), ipady=0, anchor="w", fill="x")
                     title_lbl.config(anchor="w", justify="left")
+                    title_lbl.update_idletasks()
             except (AttributeError, tk.TclError, IndexError):
                 pass
         else:
