@@ -381,7 +381,7 @@ class EngineGui(Thread, Generic[S]):
         self.image_box.tk.config(height=available_height, width=available_width)
 
         # make keypad fill space
-        self.keypad_box.tk.config(fill="height")
+        self.keypad_box.height = "fill"
 
         # Display GUI and start event loop; call blocks
         try:
