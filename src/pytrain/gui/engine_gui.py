@@ -1041,6 +1041,7 @@ class EngineGui(Thread, Generic[S]):
             # self._btn_images.append(tkimg)
             # nb.tk.config(image=tkimg, compound="center")
             nb.image = image
+            nb.tk.config(width=button_size, height=button_size)
         else:
             nb.text_size = size
             nb.text_bold = bolded
