@@ -1011,8 +1011,10 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         extra_pad = max(2, grid_pad_by)
         cell.tk.configure(
-            width=button_size + (2 * extra_pad),
-            height=button_size + (2 * extra_pad),
+            # width=button_size + (2 * extra_pad),
+            # height=button_size + (2 * extra_pad),
+            width=self.button_size,
+            height=self.button_size,
         )
         cell.tk.pack_propagate(False)
 
