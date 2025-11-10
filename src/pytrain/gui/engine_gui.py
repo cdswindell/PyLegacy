@@ -1038,7 +1038,7 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-            self.make_color_changeable(nb, LIONEL_ORANGE)
+            self.make_color_changeable(nb, LIONEL_ORANGE, fade=True)
 
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
