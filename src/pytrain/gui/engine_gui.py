@@ -1376,7 +1376,7 @@ class EngineGui(Thread, Generic[S]):
                 prod_info = self._prod_info_cache.get(tmcc_id, None)
 
                 # If not cached or not a valid Future/ProdInfo, start a background fetch
-                if prod_info:
+                if prod_info is None:
                     if (scope, tmcc_id) not in self._pending_prod_infos:
                         # Submit fetch immediately and cache the Future itself
                         future = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
