@@ -891,8 +891,8 @@ class EngineGui(Thread, Generic[S]):
 
         # set keypad width & height
         keypad_box.tk.configure(
-            width=self.button_size * 3 + self.grid_pad_by * 2,
-            height=self.button_size * 5 + self.grid_pad_by * 4,
+            width=self.button_size * 3 + self.grid_pad_by * 4,
+            height=self.button_size * 5 + self.grid_pad_by * 6,
         )
         keypad_box.tk.pack_propagate(False)
 
