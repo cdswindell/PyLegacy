@@ -858,7 +858,7 @@ class EngineGui(Thread, Generic[S]):
             "Test",
             row,
             1,
-            image=self.power_off_path,
+            # image=self.power_off_path,
             visible=False,
             is_ops=True,
             # titlebox_text="Status",
