@@ -889,6 +889,12 @@ class EngineGui(Thread, Generic[S]):
         self.ac_aux1_btn.when_left_button_pressed = self.when_pressed
         self.ac_aux1_btn.when_left_button_released = self.when_released
 
+        # set keypad width & height
+        keypad_box.tk.configure(
+            width=self.button_size * 3 + self.grid_pad_by * 2,
+            height=self.button_size * 5 + self.grid_pad_by * 4,
+        )
+
         app.update()
 
     def make_info_box(self, app: App):
@@ -1024,11 +1030,7 @@ class EngineGui(Thread, Generic[S]):
             args=args,
         )
 
-        # Make tk.Button fill the entire cell and draw full border
-        # nb.tk.pack_forget()
-        # pad = 1
-        # nb.tk.place(x=pad, y=pad, width=self.button_size - 2 * pad, height=self.button_size - 2 * pad)
-        # nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
+        nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
 
         # ------------------------------------------------------------
         #  Image vs text button behavior
@@ -1051,7 +1053,6 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
         # ------------------------------------------------------------
-        nb.text_color = "black"
         nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # # spacing between buttons (in pixels)
