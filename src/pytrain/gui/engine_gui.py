@@ -978,7 +978,7 @@ class EngineGui(Thread, Generic[S]):
             )
             cell.text_size = self.s_12
             button_size = self.titled_button_size
-            grid_pad_by = 0
+            # grid_pad_by = 0
 
             # Force TitleBox label to top-left
             try:
@@ -992,7 +992,7 @@ class EngineGui(Thread, Generic[S]):
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
             button_size = self.button_size
-            grid_pad_by = self.grid_pad_by
+            # grid_pad_by = self.grid_pad_by
 
         if is_ops:
             self.ops_cells.add(cell)
@@ -1024,36 +1024,6 @@ class EngineGui(Thread, Generic[S]):
             args=args,
         )
 
-        # # Shrink inner area if this is a TitleBox
-        # if titlebox_text:
-        #     # Force the TitleBox to have same total height as other cells
-        #     target_h = self.button_size + 2 * self.grid_pad_by
-        #     cell.tk.configure(height=target_h)
-        #
-        #     try:
-        #         # Get the title label and the inner content frame created by TitleBox
-        #         t_children = cell.tk.winfo_children()
-        #         title_lbl = None
-        #         inner_frame = None
-        #         if len(t_children) >= 2:
-        #             title_lbl = t_children[0]
-        #             inner_frame = t_children[1]
-        #
-        #         # Reduce label font and collapse its height
-        #         if isinstance(title_lbl, tk.Label):
-        #             title_lbl.configure(font=("TkDefaultFont", int(self.s_12 * 0.6)))
-        #             title_lbl.pack_configure(ipady=0, pady=0, ipadx=0)
-        #
-        #         # Constrain the inner frame to fill the remainder
-        #         if inner_frame:
-        #             inner_frame.pack_configure(expand=True, fill="both")
-        #             inner_frame.configure(height=target_h)
-        #
-        #         # optional: visually nudge text label upward slightly (no extra space)
-        #         cell.tk.pack_propagate(False)
-        #     except tk.TclError:
-        #         pass
-
         # Make tk.Button fill the entire cell and draw full border
         nb.tk.pack_forget()
         pad = 1
@@ -1066,10 +1036,11 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         if image:
             # load and cache the image to prevent garbage collection
-            img = Image.open(image).resize((self.titled_button_size, self.titled_button_size))
-            tkimg = ImageTk.PhotoImage(img)
-            self._btn_images.append(tkimg)
-            nb.tk.config(image=tkimg, compound="center")
+            # img = Image.open(image).resize((self.titled_button_size, self.titled_button_size))
+            # tkimg = ImageTk.PhotoImage(img)
+            # self._btn_images.append(tkimg)
+            # nb.tk.config(image=tkimg, compound="center")
+            nb.image = image
         else:
             nb.text_size = size
             nb.text_bold = bolded
@@ -1079,9 +1050,14 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
         # ------------------------------------------------------------
-        cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
-        keypad_box.tk.grid_columnconfigure(col, minsize=self.button_size + 2 * self.grid_pad_by)
-        keypad_box.tk.grid_rowconfigure(row, minsize=self.button_size + 2 * grid_pad_by)
+        nb.text_color = "black"
+        nb.tk.config(width=button_size, height=button_size)
+        nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+        # # spacing between buttons (in pixels)
+        # nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
+        # cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
+        # keypad_box.tk.grid_columnconfigure(col, minsize=self.button_size + 2 * self.grid_pad_by)
+        # keypad_box.tk.grid_rowconfigure(row, minsize=self.button_size + 2 * grid_pad_by)
 
         return cell, nb
 
