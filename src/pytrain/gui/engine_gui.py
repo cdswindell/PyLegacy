@@ -934,25 +934,19 @@ class EngineGui(Thread, Generic[S]):
         # )
         # name_box.text_size = self.s_12
 
-        # Create the Road Name box without forcing early geometry
-        self.name_box = name_box = TitleBox(
-            info_box,
-            "Road Name",
-            align="right",
-        )
+        # after creating tmcc_id_box and BEFORE creating name_box:
+        app.tk.update_idletasks()
+        id_h = self.tmcc_id_box.tk.winfo_height()
+        id_w = self.tmcc_id_box.tk.winfo_width()
+
+        self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
         name_box.text_size = self.s_12
 
-        # Adjust height and width *after* Tk geometry settles
-        def adjust_name_box():
-            try:
-                h = self.tmcc_id_box.tk.winfo_reqheight()
-                w = self.emergency_box.tk.winfo_reqwidth() - self.tmcc_id_box.tk.winfo_reqwidth()
-                self.name_box.tk.config(height=h, width=w)
-            except tk.TclError as e:
-                log.warning(f"Could not adjust name_box size: {e}")
+        total_w = self.emergency_box_width or self.emergency_box.tk.winfo_reqwidth()
+        w = max(100, total_w - id_w)
 
-        # Defer until idle so all other widgets exist and have geometry
-        app.tk.after_idle(adjust_name_box)
+        self.name_box.tk.config(height=id_h, width=w)
+        self.name_box.tk.pack_propagate(False)
 
         self.name_text = name_text = Text(
             name_box,
