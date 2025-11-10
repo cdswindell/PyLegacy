@@ -343,7 +343,7 @@ class EngineGui(Thread, Generic[S]):
                             message[0](*message[1])
                         else:
                             message[0]()
-                        app.tk.update_idletasks()
+                        # app.tk.update_idletasks()
                 except Empty:
                     pass
             return None
@@ -501,7 +501,7 @@ class EngineGui(Thread, Generic[S]):
     def _do_clear_focus(self):
         self.focus_widget.focus_set()
         self.throttle.tk.event_generate("<Leave>")
-        self.throttle.tk.update_idletasks()
+        # self.throttle.tk.update_idletasks()
 
     def on_recents(self, value: str):
         print(f"on_select_component: {value}")
@@ -891,6 +891,7 @@ class EngineGui(Thread, Generic[S]):
             visible=False,
             is_ops=True,
             titlebox_text="Status",
+            command=False,
         )
         self.ac_on_cell, self.ac_on_btn = self.make_keypad_button(
             keypad_keys,
