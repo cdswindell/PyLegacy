@@ -1377,8 +1377,13 @@ class EngineGui(Thread, Generic[S]):
                 if prod_info is None:
                     # Start thread to fetch product info
                     if (scope, tmcc_id) not in self._pending_prod_infos:
-                        pending = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
-                        self._prod_info_cache[tmcc_id] = pending
+
+                        def _submit_fetch():
+                            future = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
+                            self._prod_info_cache[tmcc_id] = future
+
+                        # do submit when there is idle time
+                        self.app.tk.after_idle(_submit_fetch)
                     return
                 if isinstance(prod_info, ProdInfo):
                     # Resize image if needed
