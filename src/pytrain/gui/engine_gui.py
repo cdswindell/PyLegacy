@@ -1024,6 +1024,21 @@ class EngineGui(Thread, Generic[S]):
             args=args,
         )
 
+        # Shrink inner area if this is a TitleBox
+        if titlebox_text:
+            target_h = self.button_size + 2 * self.grid_pad_by
+            label_h = 0
+            try:
+                t_children = cell.tk.winfo_children()
+                if t_children and isinstance(t_children[0], tk.Label):
+                    label_h = t_children[0].winfo_reqheight()
+            except tk.TclError:
+                pass
+
+            inner_h = max(1, target_h - label_h)
+            nb.tk.configure(height=inner_h)
+            cell.tk.configure(height=target_h)
+
         # Make tk.Button fill the entire cell and draw full border
         nb.tk.pack_forget()
         # nb.tk.place(x=0, y=0, relwidth=1, relheight=1)
@@ -1260,20 +1275,6 @@ class EngineGui(Thread, Generic[S]):
             else:
                 if not self.keypad_box.visible:
                     self.keypad_box.show()
-        # --- normalize keypad row heights if TitleBoxes are visible ---
-        self.app.tk.update_idletasks()
-        max_child_height = 0
-        for child in self.keypad_keys.tk.winfo_children():
-            try:
-                h = child.winfo_reqheight()
-                if h > max_child_height:
-                    max_child_height = h
-            except tk.TclError:
-                pass
-
-        if max_child_height > 0:
-            for r in range(len(LAYOUT) + 1):
-                self.keypad_keys.tk.grid_rowconfigure(r, minsize=max_child_height + self.grid_pad_by)
 
         if update_info:
             print("ops_mode() calling update_component_info()...")
