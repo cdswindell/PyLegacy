@@ -1024,41 +1024,39 @@ class EngineGui(Thread, Generic[S]):
             args=args,
         )
 
-        # Shrink inner area if this is a TitleBox
-        if titlebox_text:
-            # Force the TitleBox to have same total height as other cells
-            target_h = self.button_size + 2 * self.grid_pad_by
-            cell.tk.configure(height=target_h)
-
-            try:
-                # Get the title label and the inner content frame created by TitleBox
-                t_children = cell.tk.winfo_children()
-                title_lbl = None
-                inner_frame = None
-                if len(t_children) >= 2:
-                    title_lbl = t_children[0]
-                    inner_frame = t_children[1]
-
-                # Reduce label font and collapse its height
-                if isinstance(title_lbl, tk.Label):
-                    title_lbl.configure(font=("TkDefaultFont", int(self.s_12 * 0.6)))
-                    title_lbl.pack_configure(ipady=0, pady=0, ipadx=0)
-
-                # Constrain the inner frame to fill the remainder
-                if inner_frame:
-                    inner_frame.pack_configure(expand=True, fill="both")
-                    inner_frame.configure(height=target_h)
-
-                # optional: visually nudge text label upward slightly (no extra space)
-                cell.tk.pack_propagate(False)
-            except tk.TclError:
-                pass
+        # # Shrink inner area if this is a TitleBox
+        # if titlebox_text:
+        #     # Force the TitleBox to have same total height as other cells
+        #     target_h = self.button_size + 2 * self.grid_pad_by
+        #     cell.tk.configure(height=target_h)
+        #
+        #     try:
+        #         # Get the title label and the inner content frame created by TitleBox
+        #         t_children = cell.tk.winfo_children()
+        #         title_lbl = None
+        #         inner_frame = None
+        #         if len(t_children) >= 2:
+        #             title_lbl = t_children[0]
+        #             inner_frame = t_children[1]
+        #
+        #         # Reduce label font and collapse its height
+        #         if isinstance(title_lbl, tk.Label):
+        #             title_lbl.configure(font=("TkDefaultFont", int(self.s_12 * 0.6)))
+        #             title_lbl.pack_configure(ipady=0, pady=0, ipadx=0)
+        #
+        #         # Constrain the inner frame to fill the remainder
+        #         if inner_frame:
+        #             inner_frame.pack_configure(expand=True, fill="both")
+        #             inner_frame.configure(height=target_h)
+        #
+        #         # optional: visually nudge text label upward slightly (no extra space)
+        #         cell.tk.pack_propagate(False)
+        #     except tk.TclError:
+        #         pass
 
         # Make tk.Button fill the entire cell and draw full border
         nb.tk.pack_forget()
-        # nb.tk.place(x=0, y=0, relwidth=1, relheight=1)
-        # nb.tk.place(x=1, y=1, relwidth=0.98, relheight=0.98)
-        pad = 2
+        pad = 1
         nb.tk.place(x=pad, y=pad, width=button_size - 2 * pad, height=button_size - 2 * pad)
 
         nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
