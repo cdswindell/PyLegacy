@@ -11,6 +11,7 @@ import atexit
 import io
 import logging
 import tkinter as tk
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
@@ -212,6 +213,7 @@ class EngineGui(Thread, Generic[S]):
         self.entry_cells = set()
         self.ops_cells = set()
         self._pending_prod_infos = set()
+        self._executor = ThreadPoolExecutor(max_workers=3)
         self._message_queue = Queue()
 
         # various boxes
@@ -380,7 +382,7 @@ class EngineGui(Thread, Generic[S]):
         self.image_box.tk.config(height=available_height, width=available_width)
 
         # ONE geometry pass at the end
-        app.tk.update_idletasks()
+        app.tk.after_idle(app.tk.update_idletasks)
 
         # Display GUI and start event loop; call blocks
         try:
@@ -1082,8 +1084,7 @@ class EngineGui(Thread, Generic[S]):
         if image:
             nb.image = image
             # load and cache the image to prevent garbage collection
-            img = self.get_titled_image(image)
-            nb.tk.config(image=img, compound="center")
+            nb.tk.config(image=self.get_titled_image(image), compound="center")
         else:
             # Make tk.Button fill the entire cell and draw full border
             # only do this for text buttons
@@ -1375,9 +1376,7 @@ class EngineGui(Thread, Generic[S]):
                 prod_info = self._prod_info_cache.get(tmcc_id, None)
                 if prod_info is None:
                     # Start thread to fetch product info
-                    fetch_thread = Thread(target=self._fetch_prod_info, args=(self.scope, tmcc_id), daemon=True)
-                    self._prod_info_cache[tmcc_id] = fetch_thread
-                    fetch_thread.start()
+                    self._prod_info_cache[tmcc_id] = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
                     return
                 if isinstance(prod_info, ProdInfo):
                     # Resize image if needed
