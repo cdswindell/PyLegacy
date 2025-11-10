@@ -1126,22 +1126,13 @@ class EngineGui(Thread, Generic[S]):
         fade=False,
         border=False,
     ):
-        """
-        Flash a brief overlay frame with the same label text and font
-        above a guizero PushButton. Works on touchscreens.
-
-        Args:
-            button: guizero PushButton
-            pressed_color: flash color (string or hex)
-            flash_ms: total duration of the flash
-            fade: if True, gradually fade the overlay out
-            border: if True, draw a thin contrasting border
-        """
+        """Add a simple flash overlay on button release without freezing the GUI."""
         tkbtn = button.tk
         parent = tkbtn.master
 
-        # store overlay reference on the button itself
-        if not hasattr(button, "_flash_overlay"):
+        # Create one reusable overlay per button
+        overlay = getattr(button, "_flash_overlay", None)
+        if overlay is None:
             overlay = tk.Frame(
                 parent,
                 bg=pressed_color,
@@ -1157,42 +1148,49 @@ class EngineGui(Thread, Generic[S]):
                 bg=pressed_color,
             )
             label.place(relx=0.5, rely=0.5, anchor="center")
-            overlay.place_forget()  # keep hidden until needed
+            overlay.place_forget()
             button._flash_overlay = overlay
-        else:
-            overlay = button._flash_overlay
 
         def flash(_=None):
-            tkbtn.update_idletasks()
-            w, h = tkbtn.winfo_width(), tkbtn.winfo_height()
-            x, y = tkbtn.winfo_x(), tkbtn.winfo_y()
+            try:
+                tkbtn.update_idletasks()
+                w, h = tkbtn.winfo_width(), tkbtn.winfo_height()
+                x, y = tkbtn.winfo_x(), tkbtn.winfo_y()
 
-            # move & show
-            overlay.place(x=x, y=y, width=w, height=h)
-            overlay.lift(tkbtn)
+                overlay.place(x=x, y=y, width=w, height=h)
+                overlay.lift(tkbtn)
 
-            if fade:
-                steps = 10
-                interval = int(flash_ms / steps)
+                if fade:
+                    steps = 10
+                    interval = max(1, flash_ms // steps)
 
-                def fade_step(step=0):
-                    if step >= steps:
-                        overlay.place_forget()
-                        return
-                    c1 = overlay.winfo_rgb(pressed_color)
-                    c2 = overlay.winfo_rgb(parent.cget("background"))
-                    ratio = step / steps
-                    r = int((c1[0] * (1 - ratio) + c2[0] * ratio) / 256)
-                    g = int((c1[1] * (1 - ratio) + c2[1] * ratio) / 256)
-                    b = int((c1[2] * (1 - ratio) + c2[2] * ratio) / 256)
-                    overlay.config(bg=f"#{r:02x}{g:02x}{b:02x}")
-                    overlay.after(interval, fade_step, step + 1)
+                    def fade_step(step=0):
+                        if step >= steps:
+                            overlay.place_forget()
+                            return
+                        try:
+                            c1 = overlay.winfo_rgb(pressed_color)
+                            c2 = overlay.winfo_rgb(parent.cget("background"))
+                            ratio = step / steps
+                            r = int((c1[0] * (1 - ratio) + c2[0] * ratio) / 256)
+                            g = int((c1[1] * (1 - ratio) + c2[1] * ratio) / 256)
+                            b = int((c1[2] * (1 - ratio) + c2[2] * ratio) / 256)
+                            overlay.config(bg=f"#{r:02x}{g:02x}{b:02x}")
+                            overlay.after(interval, fade_step, step + 1)
+                        except (tk.TclError, RuntimeError):
+                            overlay.place_forget()
 
-                fade_step()
-            else:
-                self.app.overlay.after(flash_ms, lambda: overlay.place_forget())
+                    fade_step()
+                else:
+                    self.app.tk.after(flash_ms, overlay.place_forget)
+            except (tk.TclError, RuntimeError):
+                # Don't let a bad geometry or destroyed widget break Tk
+                try:
+                    overlay.place_forget()
+                except tk.TclError:
+                    pass
 
-        # Bind (reuses existing overlay, no new frames)
+        # Bind flash to release/keypress events
         tkbtn.bind("<ButtonRelease-1>", flash, add="+")
         tkbtn.bind("<ButtonRelease>", flash, add="+")
         tkbtn.bind("<KeyPress-space>", flash, add="+")
