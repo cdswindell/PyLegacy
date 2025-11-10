@@ -947,9 +947,6 @@ class EngineGui(Thread, Generic[S]):
             try:
                 h = self.tmcc_id_box.tk.winfo_reqheight()
                 w = self.emergency_box.tk.winfo_reqwidth() - self.tmcc_id_box.tk.winfo_reqwidth()
-                # Apply minimums to avoid zero/negative sizes
-                h = max(h, self.s_24)
-                w = max(w, 100)
                 self.name_box.tk.config(height=h, width=w)
             except tk.TclError as e:
                 log.warning(f"Could not adjust name_box size: {e}")
