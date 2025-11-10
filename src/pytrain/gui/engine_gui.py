@@ -931,6 +931,7 @@ class EngineGui(Thread, Generic[S]):
         self.name_text.text_size = self.s_18
         self.name_text.tk.config(justify="left", anchor="w")
 
+        print(f"self.emergency_box_width: {self.emergency_box_width}")
         # Optional: match heights after layout
         app.tk.after_idle(
             lambda: name_box.tk.config(
