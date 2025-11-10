@@ -1055,8 +1055,8 @@ class EngineGui(Thread, Generic[S]):
         nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # # spacing between buttons (in pixels)
-        nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
-        cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
+        # nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
+        # cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
         # keypad_box.tk.grid_columnconfigure(col, minsize=self.button_size + 2 * self.grid_pad_by)
         # keypad_box.tk.grid_rowconfigure(row, minsize=self.button_size + 2 * grid_pad_by)
 
