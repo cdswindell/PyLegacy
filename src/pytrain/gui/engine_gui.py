@@ -944,6 +944,49 @@ class EngineGui(Thread, Generic[S]):
         print(f"Sensor Track: {tmcc_id} {self.sensor_track_buttons.value} {st_seq.title}")
         IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
 
+    @staticmethod
+    def inspect_titlebox_geometry(titlebox, label_name="TitleBox"):
+        """
+        Prints detailed geometry info for a guizero.TitleBox and its children.
+        Call this AFTER app.update() or update_idletasks().
+        """
+        try:
+            t = titlebox.tk
+            print(f"\n📦 Inspecting {label_name}: {t}")
+            print(f"  Requested size: {t.winfo_reqwidth()} × {t.winfo_reqheight()}")
+            print(f"  Actual size:    {t.winfo_width()} × {t.winfo_height()}")
+            print(f"  Propagate:      {t.pack_propagate()}")
+
+            children = t.winfo_children()
+            for i, child in enumerate(children):
+                cls = child.winfo_class()
+                geom = (
+                    f"  ↳ Child[{i}]: {cls:<10}"
+                    f" | req=({child.winfo_reqwidth()}×{child.winfo_reqheight()})"
+                    f" | actual=({child.winfo_width()}×{child.winfo_height()})"
+                )
+                # If it's a Label, include anchor/justify info
+                if isinstance(child, tk.Label):
+                    geom += f" | anchor={child.cget('anchor')} justify={child.cget('justify')}"
+                print(geom)
+
+                # For nested frames (the TitleBox's content frame)
+                if isinstance(child, tk.Frame):
+                    subchildren = child.winfo_children()
+                    for j, sub in enumerate(subchildren):
+                        sub_cls = sub.winfo_class()
+                        sub_geom = (
+                            f"      ↳ Sub[{j}]: {sub_cls:<10}"
+                            f" | req=({sub.winfo_reqwidth()}×{sub.winfo_reqheight()})"
+                            f" | actual=({sub.winfo_width()}×{sub.winfo_height()})"
+                        )
+                        print(sub_geom)
+
+            print("─────────────────────────────────────────────")
+
+        except Exception as e:
+            print(f"⚠️ Error inspecting {label_name}: {e}")
+
     def make_keypad_button(
         self,
         keypad_box: Box,
@@ -979,7 +1022,7 @@ class EngineGui(Thread, Generic[S]):
                 titlebox_text,
                 layout="auto",
                 grid=[col, row],
-                visible=visible,
+                visible=True,
                 width=self.button_size,
                 height=self.button_size,
             )
@@ -989,26 +1032,35 @@ class EngineGui(Thread, Generic[S]):
 
             # Force TitleBox label to top-left
             try:
-                t_children = cell.tk.winfo_children()
-                if t_children:
-                    if isinstance(t_children[0], tk.Label):
-                        title_lbl = t_children[0]
-                        title_lbl.pack_configure(pady=(0, -30), ipady=0, anchor="w", fill="x")
-                        title_lbl.config(anchor="w", justify="left")
-                        title_lbl.update_idletasks()
-                    if len(t_children) > 1 and isinstance(t_children[1], tk.Frame):
-                        inner_frame = t_children[1]
+                children = cell.tk.winfo_children()
+                if children:
+                    # --- Collapse title label padding ---
+                    title_lbl = children[0]
+                    if isinstance(title_lbl, tk.Label):
+                        # Remove outer and inner padding
+                        title_lbl.pack_configure(padx=0, pady=(0, -2), ipadx=0, ipady=0)
+                        # Left/top align tightly
+                        title_lbl.configure(anchor="w", justify="left")
 
-                        # Remove pack padding on the inner frame
+                    # --- Collapse inner frame spacing ---
+                    if len(children) > 1:
+                        inner_frame = children[1]
                         inner_frame.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
-
-                        # Also force it to fill the remaining space cleanly
+                        # Disable geometry propagation so the frame doesn’t expand based on button height
                         inner_frame.pack_propagate(False)
+                        # Make sure it fills the area
                         inner_frame.pack_configure(fill="both", expand=True)
+
+                        # Also set the TitleBox container itself to not auto-expand
+                        cell.tk.pack_propagate(False)
+
+                # Force geometry recalculation
+                cell.tk.update_idletasks()
+
             except (AttributeError, tk.TclError, IndexError):
                 pass
         else:
-            cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
+            cell = Box(keypad_box, layout="auto", grid=[col, row], visible=True)
             button_size = self.button_size
             grid_pad_by = self.grid_pad_by
 
@@ -1073,6 +1125,7 @@ class EngineGui(Thread, Generic[S]):
         # keypad_box.tk.grid_columnconfigure(col, minsize=self.button_size + 2 * self.grid_pad_by)
         # keypad_box.tk.grid_rowconfigure(row, minsize=self.button_size + 2 * grid_pad_by)
 
+        cell.visible = visible
         return cell, nb
 
     def on_keypress(self, key: str) -> None:
