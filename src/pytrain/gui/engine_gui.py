@@ -978,7 +978,7 @@ class EngineGui(Thread, Generic[S]):
             )
             cell.text_size = self.s_12
             button_size = self.titled_button_size
-            # grid_pad_by = 0
+            grid_pad_by = 0
 
             # Force TitleBox label to top-left
             try:
@@ -992,7 +992,7 @@ class EngineGui(Thread, Generic[S]):
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], visible=visible)
             button_size = self.button_size
-            # grid_pad_by = self.grid_pad_by
+            grid_pad_by = self.grid_pad_by
 
         if is_ops:
             self.ops_cells.add(cell)
@@ -1005,12 +1005,12 @@ class EngineGui(Thread, Generic[S]):
         extra_pad = max(2, self.grid_pad_by)
         cell.tk.configure(
             width=button_size + 2 * extra_pad,
-            height=button_size + 2 * extra_pad,  # add a bit more vertical space
+            height=button_size + 2 * extra_pad,
         )
         cell.tk.pack_propagate(False)
 
         # ensure the keypad grid expands uniformly and fills the box height
-        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=self.button_size + 4 * extra_pad)
+        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=self.button_size + 2 * extra_pad)
         keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=self.button_size + 2 * extra_pad)
 
         # ------------------------------------------------------------
@@ -1027,8 +1027,7 @@ class EngineGui(Thread, Generic[S]):
         # Make tk.Button fill the entire cell and draw full border
         nb.tk.pack_forget()
         pad = 1
-        nb.tk.place(x=pad, y=pad, width=self.button_size - 2 * pad, height=self.button_size - 2 * pad)
-
+        nb.tk.place(x=pad, y=pad, width=button_size - 2 * pad, height=button_size - 2 * pad)
         nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
 
         # ------------------------------------------------------------
@@ -1054,6 +1053,7 @@ class EngineGui(Thread, Generic[S]):
         nb.text_color = "black"
         nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+        nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
         # # spacing between buttons (in pixels)
         # nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
         # cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
