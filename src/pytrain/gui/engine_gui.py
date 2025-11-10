@@ -1036,7 +1036,7 @@ class EngineGui(Thread, Generic[S]):
                 lf = cell.tk  # The underlying tk.LabelFrame inside your TitleBox
 
                 # Move title to top-left and reduce reserved caption space
-                lf.configure(labelanchor="nw", padx=0, pady=0, ipady=0)
+                lf.configure(labelanchor="nw", padx=0, pady=0)
 
                 # Force Tk to recompute geometry after the config change
                 lf.update_idletasks()
@@ -1049,7 +1049,7 @@ class EngineGui(Thread, Generic[S]):
                         child.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
                         child.pack_propagate(False)
             except (tk.TclError, AttributeError) as e:
-                print(f"Warning adjusting LabelFrame padding: {e}")
+                log.exception(f"Warning adjusting LabelFrame padding: {e}", exc_info=e)
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], visible=True)
             button_size = self.button_size
