@@ -324,7 +324,6 @@ class EngineGui(Thread, Generic[S]):
         app.full_screen = True
         app.when_closed = self.close
         app.bg = "white"
-        self.app.tk.bind_all("<Button-1>", lambda e: print("CLICK:", e.widget), add="+")
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():
@@ -344,7 +343,7 @@ class EngineGui(Thread, Generic[S]):
                             message[0](*message[1])
                         else:
                             message[0]()
-                        # app.tk.update_idletasks()
+                        app.tk.update_idletasks()
                 except Empty:
                     pass
             return None
@@ -377,39 +376,9 @@ class EngineGui(Thread, Generic[S]):
         # make scope buttons
         self.make_scope(app)
 
-        # --------------------------------------------------------------------
-        # Deterministic keypad sizing (uniform 5 rows even with TitleBoxes)
-        # --------------------------------------------------------------------
-        # app.tk.update_idletasks()
-        #
-        # # --- Normalize all keypad row heights (fix TitleBox extra label gap) ---
-        # for child in self.keypad_keys.tk.winfo_children():
-        #     if isinstance(child, tk.Frame):
-        #         try:
-        #             # Tighten label padding inside any TitleBox
-        #             for lbl in [w for w in child.winfo_children() if isinstance(w, tk.Label)]:
-        #                 lbl.pack_configure(pady=0, ipady=0)
-        #             # Force uniform cell height and disable internal propagation
-        #             child.configure(height=self.button_size + 2 * self.grid_pad_by)
-        #             child.pack_propagate(False)
-        #         except tk.TclError:
-        #             pass
-        #
-        # # Enforce equal row minsize after flattening
-        # num_rows = 5
-        # for r in range(num_rows):
-        #     self.keypad_keys.tk.grid_rowconfigure(r, minsize=self.button_size + 2 * self.grid_pad_by, weight=1)
-        #
-        # self.app.tk.update_idletasks()
-
-        # Resize image box to fill remaining vertical space
+        # Finally, resize image box
         available_height, available_width = self.calc_image_box_size()
-        self.image_box.tk.configure(height=available_height, width=available_width)
-
-        app.tk.update_idletasks()
-        # # Finally, resize image box
-        # available_height, available_width = self.calc_image_box_size()
-        # self.image_box.tk.config(height=available_height, width=available_width)
+        self.image_box.tk.config(height=available_height, width=available_width)
 
         # Display GUI and start event loop; call blocks
         try:
@@ -1033,16 +1002,11 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Fix cell size and prevent auto-shrinking
         # ------------------------------------------------------------
-        extra_pad = max(2, self.grid_pad_by)
         cell.tk.configure(
-            width=button_size + 2 * extra_pad,
-            height=button_size + 4 * extra_pad,  # add a bit more vertical space
+            width=button_size + 2 * self.grid_pad_by,
+            height=button_size + 2 * grid_pad_by,
         )
         cell.tk.pack_propagate(False)
-
-        # ensure the keypad grid expands uniformly and fills the box height
-        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=button_size + 4 * extra_pad)
-        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=button_size + 2 * extra_pad)
 
         # ------------------------------------------------------------
         #  Create PushButton
@@ -1055,8 +1019,9 @@ class EngineGui(Thread, Generic[S]):
             args=args,
         )
 
-        # Let the button fill the cell via pack; no place()
-        nb.tk.pack(fill="both", expand=True)
+        # Make tk.Button fill the entire cell and draw full border
+        nb.tk.pack_forget()
+        nb.tk.place(x=0, y=0, relwidth=1, relheight=1)
         nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
 
         # ------------------------------------------------------------
@@ -1073,7 +1038,7 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-            # self.make_color_changeable(nb, fade=True)
+            self.make_color_changeable(nb, LIONEL_ORANGE)
 
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
@@ -1419,7 +1384,7 @@ class EngineGui(Thread, Generic[S]):
         with self._cv:
             if self.avail_image_height is None or self.avail_image_width is None:
                 # Calculate available space for the image
-                self.app.update()
+                self.app.tk.update_idletasks()
 
                 # Get the heights of fixed elements
                 header_height = self.header.tk.winfo_reqheight()
