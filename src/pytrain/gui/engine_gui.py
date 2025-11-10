@@ -1024,12 +1024,6 @@ class EngineGui(Thread, Generic[S]):
             args=args,
         )
 
-        # Make tk.Button fill the entire cell and draw full border
-        nb.tk.pack_forget()
-        pad = 1
-        nb.tk.place(x=pad, y=pad, width=button_size - 2 * pad, height=button_size - 2 * pad)
-        nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
-
         # ------------------------------------------------------------
         #  Image vs text button behavior
         # ------------------------------------------------------------
@@ -1041,11 +1035,17 @@ class EngineGui(Thread, Generic[S]):
             # nb.tk.config(image=tkimg, compound="center")
             nb.image = image
         else:
+            # Make tk.Button fill the entire cell and draw full border
+            # only do this for text buttons
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
+            nb.tk.pack_forget()
+            pad = 1
+            nb.tk.place(x=pad, y=pad, width=button_size - 2 * pad, height=button_size - 2 * pad)
             self.make_color_changeable(nb, fade=True)
 
+        nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
         # ------------------------------------------------------------
