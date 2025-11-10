@@ -992,8 +992,8 @@ class EngineGui(Thread, Generic[S]):
                 t_children = cell.tk.winfo_children()
                 if t_children and isinstance(t_children[0], tk.Label):
                     title_lbl = t_children[0]
+                    title_lbl.pack_configure(pady=0, ipady=0, anchor="w", fill="x")
                     title_lbl.config(anchor="w", justify="left")
-                    title_lbl.pack_configure(side="top", anchor="w", fill="x")
             except (AttributeError, tk.TclError, IndexError):
                 pass
         else:
@@ -1009,16 +1009,14 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Fix cell size and prevent auto-shrinking
         # ------------------------------------------------------------
-        extra_pad = max(2, grid_pad_by)
         cell.tk.configure(
-            # width=button_size + (2 * extra_pad),
-            # height=button_size + (2 * extra_pad),
             width=self.button_size,
             height=self.button_size,
         )
         cell.tk.pack_propagate(False)
 
         # ensure the keypad grid expands uniformly and fills the box height
+        extra_pad = max(2, grid_pad_by)
         keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=self.button_size + (2 * extra_pad))
         keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=self.button_size + (2 * extra_pad))
 
