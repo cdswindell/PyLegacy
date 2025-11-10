@@ -931,13 +931,18 @@ class EngineGui(Thread, Generic[S]):
         self.name_text.text_size = self.s_18
         self.name_text.tk.config(justify="left", anchor="w")
 
-        print(f"self.emergency_box_width: {self.emergency_box_width}")
-        # Optional: match heights after layout
-        app.tk.after_idle(
-            lambda: name_box.tk.config(
-                height=tmcc_id_box.tk.winfo_height(), width=self.emergency_box_width - tmcc_id_box.tk.winfo_width()
-            )
-        )
+        # Prevent pack from shrinking the TitleBox to its content
+        name_box.tk.pack_propagate(False)
+
+        def adjust_road_name_box():
+            id_h = tmcc_id_box.tk.winfo_height()
+            id_w = tmcc_id_box.tk.winfo_width()
+            total_w = self.emergency_box_width
+            print(f"adjust_road_name_box: id_h={id_h}, id_w={id_w}, total_w={total_w}, {total_w - id_w}")
+            name_box.tk.config(height=id_h, width=max(0, total_w - id_w))
+
+        # Schedule width/height fix after geometry update
+        app.tk.after_idle(adjust_road_name_box)
 
         # add a picture placeholder here, we may not use it
         self.image_box = image_box = Box(app, border=2, align="top")
