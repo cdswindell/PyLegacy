@@ -11,7 +11,7 @@ import atexit
 import io
 import logging
 import tkinter as tk
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
@@ -1374,17 +1374,19 @@ class EngineGui(Thread, Generic[S]):
             img = None
             if scope in {CommandScope.ENGINE} and tmcc_id != 0:
                 prod_info = self._prod_info_cache.get(tmcc_id, None)
-                if prod_info is None:
-                    # Start thread to fetch product info
+
+                # If not cached or not a valid Future/ProdInfo, start a background fetch
+                if prod_info:
                     if (scope, tmcc_id) not in self._pending_prod_infos:
-
-                        def _submit_fetch():
-                            future = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
-                            self._prod_info_cache[tmcc_id] = future
-
-                        # do submit when there is idle time
-                        self.app.tk.after_idle(_submit_fetch)
+                        # Submit fetch immediately and cache the Future itself
+                        future = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
+                        self._prod_info_cache[tmcc_id] = future
                     return
+
+                if isinstance(prod_info, Future) and prod_info.done() and isinstance(prod_info.result(), ProdInfo):
+                    prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
+                    self._pending_prod_infos.discard((scope, tmcc_id))
+
                 if isinstance(prod_info, ProdInfo):
                     # Resize image if needed
                     img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
@@ -1497,9 +1499,9 @@ class EngineGui(Thread, Generic[S]):
         reset_btn.text_size = self.s_20
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
-        app.tk.update_idletasks()
-        self.emergency_box_width = self.emergency_box.tk.winfo_width()
-        self.emergency_box_height = self.emergency_box.tk.winfo_height()
+        emergency_box.tk.update_idletasks()
+        self.emergency_box_width = emergency_box.tk.winfo_width()
+        self.emergency_box_height = emergency_box.tk.winfo_height()
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
