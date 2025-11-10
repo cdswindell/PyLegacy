@@ -860,7 +860,7 @@ class EngineGui(Thread, Generic[S]):
             image=self.power_off_path,
             visible=False,
             is_ops=True,
-            titlebox_text="Status",
+            # titlebox_text="Status",
             command=False,
         )
         self.ac_on_cell, self.ac_on_btn = self.make_keypad_button(
@@ -892,7 +892,7 @@ class EngineGui(Thread, Generic[S]):
         # set keypad width & height
         keypad_box.tk.configure(
             width=self.button_size * 3 + self.grid_pad_by * 2,
-            height=self.button_size * 5 + self.grid_pad_by * 20,
+            height=self.button_size * 5 + self.grid_pad_by * 4,
         )
         keypad_box.tk.pack_propagate(False)
 
