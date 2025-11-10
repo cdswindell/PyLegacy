@@ -324,6 +324,7 @@ class EngineGui(Thread, Generic[S]):
         app.full_screen = True
         app.when_closed = self.close
         app.bg = "white"
+        self.app.tk.bind_all("<Button-1>", lambda e: print("CLICK:", e.widget), add="+")
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():
@@ -1032,11 +1033,6 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Fix cell size and prevent auto-shrinking
         # ------------------------------------------------------------
-        # cell.tk.configure(
-        #     width=button_size + 2 * self.grid_pad_by,
-        #     height=button_size + 2 * grid_pad_by,
-        # )
-        # cell.tk.pack_propagate(False)
         extra_pad = max(2, self.grid_pad_by)
         cell.tk.configure(
             width=button_size + 2 * extra_pad,
@@ -1059,13 +1055,8 @@ class EngineGui(Thread, Generic[S]):
             args=args,
         )
 
-        # Make tk.Button fill the entire cell and draw full border
-        nb.tk.pack_forget()
-        # nb.tk.place(x=0, y=0, relwidth=1, relheight=1)
-        # nb.tk.place(x=1, y=1, relwidth=0.98, relheight=0.98)
-        pad = 2
-        nb.tk.place(x=pad, y=pad, width=button_size - 2 * pad, height=button_size - 2 * pad)
-
+        # Let the button fill the cell via pack; no place()
+        nb.tk.pack(fill="both", expand=True)
         nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
 
         # ------------------------------------------------------------
