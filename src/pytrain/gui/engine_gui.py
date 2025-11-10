@@ -380,9 +380,6 @@ class EngineGui(Thread, Generic[S]):
         available_height, available_width = self.calc_image_box_size()
         self.image_box.tk.config(height=available_height, width=available_width)
 
-        # make keypad fill space
-        self.keypad_box.height = "fill"
-
         # Display GUI and start event loop; call blocks
         try:
             app.display()
@@ -718,7 +715,7 @@ class EngineGui(Thread, Generic[S]):
 
                 if label == CLEAR_KEY:
                     nb.text_color = "red"
-                    nb.text_size = self.s_24
+                    nb.text_size = self.s_30
                     nb.text_bold = False
                     self.clear_key_cell = cell
                     self.entry_cells.add(cell)
@@ -1013,8 +1010,8 @@ class EngineGui(Thread, Generic[S]):
         cell.tk.pack_propagate(False)
 
         # ensure the keypad grid expands uniformly and fills the box height
-        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=button_size + 4 * extra_pad)
-        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=button_size + 2 * extra_pad)
+        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=self.button_size + 4 * extra_pad)
+        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=self.button_size + 2 * extra_pad)
 
         # ------------------------------------------------------------
         #  Create PushButton
@@ -1060,7 +1057,7 @@ class EngineGui(Thread, Generic[S]):
         # Make tk.Button fill the entire cell and draw full border
         nb.tk.pack_forget()
         pad = 1
-        nb.tk.place(x=pad, y=pad, width=button_size - 2 * pad, height=button_size - 2 * pad)
+        nb.tk.place(x=pad, y=pad, width=self.button_size - 2 * pad, height=self.button_size - 2 * pad)
 
         nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
 
@@ -1069,7 +1066,7 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         if image:
             # load and cache the image to prevent garbage collection
-            img = Image.open(image).resize((button_size - 4, button_size - 4))
+            img = Image.open(image).resize((self.titled_button_size, self.titled_button_size))
             tkimg = ImageTk.PhotoImage(img)
             self._btn_images.append(tkimg)
             nb.tk.config(image=tkimg, compound="center")
