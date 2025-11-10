@@ -1070,7 +1070,6 @@ class EngineGui(Thread, Generic[S]):
             tkimg = ImageTk.PhotoImage(img)
             self._btn_images.append(tkimg)
             nb.tk.config(image=tkimg, compound="center")
-            nb.text = ""
         else:
             nb.text_size = size
             nb.text_bold = bolded
@@ -1081,8 +1080,8 @@ class EngineGui(Thread, Generic[S]):
         #  Grid spacing & uniform sizing
         # ------------------------------------------------------------
         cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
-        keypad_box.tk.grid_columnconfigure(col, minsize=button_size + 2 * self.grid_pad_by)
-        keypad_box.tk.grid_rowconfigure(row, minsize=button_size + 2 * grid_pad_by)
+        keypad_box.tk.grid_columnconfigure(col, minsize=self.button_size + 2 * self.grid_pad_by)
+        keypad_box.tk.grid_rowconfigure(row, minsize=self.button_size + 2 * grid_pad_by)
 
         return cell, nb
 
