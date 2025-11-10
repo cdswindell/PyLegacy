@@ -932,7 +932,11 @@ class EngineGui(Thread, Generic[S]):
         self.name_text.tk.config(justify="left", anchor="w")
 
         # Optional: match heights after layout
-        app.tk.after_idle(lambda: name_box.tk.config(height=tmcc_id_box.tk.winfo_height()))
+        app.tk.after_idle(
+            lambda: name_box.tk.config(
+                height=tmcc_id_box.tk.winfo_height(), width=self.emergency_box_width - tmcc_id_box.tk.winfo_width()
+            )
+        )
 
         # add a picture placeholder here, we may not use it
         self.image_box = image_box = Box(app, border=2, align="top")
