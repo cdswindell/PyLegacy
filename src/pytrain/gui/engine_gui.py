@@ -889,12 +889,6 @@ class EngineGui(Thread, Generic[S]):
         self.ac_aux1_btn.when_left_button_pressed = self.when_pressed
         self.ac_aux1_btn.when_left_button_released = self.when_released
 
-        # set keypad width & height
-        # keypad_box.tk.configure(
-        #     width=(self.button_size * 3) + (2 * self.grid_pad_by * 4),
-        #     height=(self.button_size * 5) + (2 * self.grid_pad_by * 6),
-        # )
-        # keypad_box.tk.pack_propagate(True)
         # --- set minimum size but allow expansion ---
         # --- Enforce minimum keypad size, but allow expansion ---
         num_rows = 5
@@ -1018,22 +1012,22 @@ class EngineGui(Thread, Generic[S]):
         try:
             t = keypad_box.tk
             t.update_idletasks()
-            rows = t.grid_size()[1]
-            cols = t.grid_size()[0]
+            cols, rows = t.grid_size()  # grid_size() returns (cols, rows)
+
             print(f"\n🧮 Inspecting {label}: {rows} rows × {cols} columns")
             print("─────────────────────────────────────────────")
 
-            # Measure each row's total height
+            # Measure each row’s bounding box height
             for r in range(rows):
-                y1 = t.grid_bbox(0, r)[1] if t.grid_bbox(0, r) else None
-                h = t.grid_bbox(0, r)[3] if t.grid_bbox(0, r) else None
-                print(f"  Row {r}: height={h if h is not None else '?'}")
+                bbox = t.grid_bbox(0, r)
+                h = bbox[3] if bbox else "?"
+                print(f"  Row {r}: height={h}")
 
-            # Measure each column's total width
+            # Measure each column’s bounding box width
             for c in range(cols):
-                x1 = t.grid_bbox(c, 0)[0] if t.grid_bbox(c, 0) else None
-                w = t.grid_bbox(c, 0)[2] if t.grid_bbox(c, 0) else None
-                print(f"  Col {c}: width={w if w is not None else '?'}")
+                bbox = t.grid_bbox(c, 0)
+                w = bbox[2] if bbox else "?"
+                print(f"  Col {c}: width={w}")
 
             print("─────────────────────────────────────────────\n")
 
@@ -1113,9 +1107,6 @@ class EngineGui(Thread, Generic[S]):
             self.entry_cells.add(cell)
 
         # ------------------------------------------------------------
-        #  Fix cell size and prevent auto-shrinking
-        # ------------------------------------------------------------
-        # ------------------------------------------------------------
         #  Fix cell size (allowing slight flex for TitleBoxes)
         # ------------------------------------------------------------
         if titlebox_text:
@@ -1175,11 +1166,6 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-        # # spacing between buttons (in pixels)
-        # nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
-        # cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
-        # keypad_box.tk.grid_columnconfigure(col, minsize=self.button_size + 2 * self.grid_pad_by)
-        # keypad_box.tk.grid_rowconfigure(row, minsize=self.button_size + 2 * grid_pad_by)
 
         cell.visible = visible
         return cell, nb
@@ -1204,7 +1190,6 @@ class EngineGui(Thread, Generic[S]):
         else:
             self.do_command(key)
 
-        # self.tmcc_id_text.value = tmcc_id
         # update information immediately if not in entry mode
         if not self._in_entry_mode and key.isdigit():
             print("on_keypress calling update_component_info...")
