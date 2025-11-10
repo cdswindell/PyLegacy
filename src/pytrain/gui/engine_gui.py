@@ -11,7 +11,6 @@ import atexit
 import io
 import logging
 import tkinter as tk
-from colorsys import hls_to_rgb, rgb_to_hls
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
@@ -1126,7 +1125,6 @@ class EngineGui(Thread, Generic[S]):
         flash_ms=150,
         fade=False,
         border=False,
-        soft=False,
     ):
         """
         Flash a brief overlay frame with the same label text and font
@@ -1138,34 +1136,12 @@ class EngineGui(Thread, Generic[S]):
             flash_ms: total duration of the flash
             fade: if True, gradually fade the overlay out
             border: if True, draw a thin contrasting border
-            soft: if True, lighten or darken the pressed color slightly
         """
         tkbtn = button.tk
-        parent = tkbtn.master  # the cell Box widget
+        parent = tkbtn.master
 
-        def adjust_color(color):
-            """Lighten or darken a color slightly (for 'soft' mode)."""
-            if not color.startswith("#") or len(color) != 7:
-                return color
-            r, g, b = (int(color[i : i + 2], 16) / 255.0 for i in (1, 3, 5))
-            h, l, s = rgb_to_hls(r, g, b)  # noqa: E741
-            l = min(1.0, l * 1.15)  # brighten a bit  # noqa: E741
-            r, g, b = hls_to_rgb(h, l, s)
-            return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
-
-        if soft:
-            pressed_color = adjust_color(pressed_color)
-
-        def flash(_=None):
-            # ensure geometry is valid
-            tkbtn.update_idletasks()
-
-            w = tkbtn.winfo_width()
-            h = tkbtn.winfo_height()
-            x = tkbtn.winfo_x()
-            y = tkbtn.winfo_y()
-
-            # create overlay
+        # store overlay reference on the button itself
+        if not hasattr(button, "_flash_overlay"):
             overlay = tk.Frame(
                 parent,
                 bg=pressed_color,
@@ -1173,54 +1149,50 @@ class EngineGui(Thread, Generic[S]):
                 highlightthickness=1 if border else 0,
                 highlightbackground="white" if border else pressed_color,
             )
-            overlay.place(x=x, y=y, width=w, height=h)
-            overlay.lift(tkbtn)
-
-            # label to mirror the button text
-            tk.Label(
+            label = tk.Label(
                 overlay,
                 text=button.text,
                 font=(button.font, button.text_size, "bold" if button.text_bold else "normal"),
                 fg=button.text_color,
                 bg=pressed_color,
-            ).place(relx=0.5, rely=0.5, anchor="center")
+            )
+            label.place(relx=0.5, rely=0.5, anchor="center")
+            overlay.place_forget()  # keep hidden until needed
+            button._flash_overlay = overlay
+        else:
+            overlay = button._flash_overlay
 
-            # fade-out or timed removal
+        def flash(_=None):
+            tkbtn.update_idletasks()
+            w, h = tkbtn.winfo_width(), tkbtn.winfo_height()
+            x, y = tkbtn.winfo_x(), tkbtn.winfo_y()
+
+            # move & show
+            overlay.place(x=x, y=y, width=w, height=h)
+            overlay.lift(tkbtn)
+
             if fade:
                 steps = 10
                 interval = int(flash_ms / steps)
 
                 def fade_step(step=0):
                     if step >= steps:
-                        overlay.destroy()
+                        overlay.place_forget()
                         return
-
-                    # --- Utility: robust color parsing ---
-                    def tk_color_to_rgb(widget, color):
-                        """Convert any Tk color (name or hex) to (r,g,b) in 0–255."""
-                        try:
-                            r, g, b = widget.winfo_rgb(color)
-                            return r // 256, g // 256, b // 256
-                        except tk.TclError:
-                            # fallback: unknown color → black
-                            return 0, 0, 0
-
-                    def rgb_to_hex(rgb):
-                        return "#{:02x}{:02x}{:02x}".format(*rgb)
-
-                    c1 = tk_color_to_rgb(overlay, pressed_color)
-                    c2 = tk_color_to_rgb(overlay, parent.cget("background"))
-
+                    c1 = overlay.winfo_rgb(pressed_color)
+                    c2 = overlay.winfo_rgb(parent.cget("background"))
                     ratio = step / steps
-                    blended = tuple(int(c1[i] * (1 - ratio) + c2[i] * ratio) for i in range(3))
-                    overlay.config(bg=rgb_to_hex(blended))
+                    r = int((c1[0] * (1 - ratio) + c2[0] * ratio) / 256)
+                    g = int((c1[1] * (1 - ratio) + c2[1] * ratio) / 256)
+                    b = int((c1[2] * (1 - ratio) + c2[2] * ratio) / 256)
+                    overlay.config(bg=f"#{r:02x}{g:02x}{b:02x}")
                     overlay.after(interval, fade_step, step + 1)
 
                 fade_step()
             else:
-                self.app.after(flash_ms, overlay.destroy)
+                self.app.overlay.after(flash_ms, lambda: overlay.place_forget())
 
-        # Bindings for touch and keyboard
+        # Bind (reuses existing overlay, no new frames)
         tkbtn.bind("<ButtonRelease-1>", flash, add="+")
         tkbtn.bind("<ButtonRelease>", flash, add="+")
         tkbtn.bind("<KeyPress-space>", flash, add="+")
