@@ -890,11 +890,32 @@ class EngineGui(Thread, Generic[S]):
         self.ac_aux1_btn.when_left_button_released = self.when_released
 
         # set keypad width & height
-        keypad_box.tk.configure(
-            width=(self.button_size * 3) + (2 * self.grid_pad_by * 4),
-            height=(self.button_size * 5) + (2 * self.grid_pad_by * 6),
-        )
-        keypad_box.tk.pack_propagate(False)
+        # keypad_box.tk.configure(
+        #     width=(self.button_size * 3) + (2 * self.grid_pad_by * 4),
+        #     height=(self.button_size * 5) + (2 * self.grid_pad_by * 6),
+        # )
+        # keypad_box.tk.pack_propagate(True)
+        # --- set minimum size but allow expansion ---
+        # --- Enforce minimum keypad size, but allow expansion ---
+        num_rows = 5
+        num_cols = 3
+        min_cell_height = self.button_size + (2 * self.grid_pad_by)
+        min_cell_width = self.button_size + (2 * self.grid_pad_by)
+
+        # Allow dynamic expansion if children exceed minsize
+        keypad_box.tk.grid_propagate(True)
+
+        # Apply minsize for each row/column
+        for r in range(num_rows):
+            keypad_box.tk.grid_rowconfigure(r, weight=1, minsize=min_cell_height)
+
+        for c in range(num_cols):
+            keypad_box.tk.grid_columnconfigure(c, weight=1, minsize=min_cell_width)
+
+        # (Optional) overall bounding box minimum size
+        min_total_height = num_rows * min_cell_height
+        min_total_width = num_cols * min_cell_width
+        keypad_box.tk.configure(width=min_total_width, height=min_total_height)
 
         app.update()
         self.inspect_titlebox_geometry(self.ac_on_cell, "On")
