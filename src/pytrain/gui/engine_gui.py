@@ -380,32 +380,39 @@ class EngineGui(Thread, Generic[S]):
         # --------------------------------------------------------------------
         # Deterministic keypad height: exactly 5 rows of buttons
         # --------------------------------------------------------------------
+        # --------------------------------------------------------------------
+        # Deterministic keypad sizing (5 rows visible)
+        # --------------------------------------------------------------------
         app.tk.update_idletasks()
 
         num_rows = 5  # 4 numeric + 1 command row
         cell_height = self.button_size + 2 * self.grid_pad_by
         total_height = num_rows * cell_height + (num_rows + 1) * self.grid_pad_by
 
-        # Constrain the *inner* grid box, not the outer pack-managed box
-        self.keypad_keys.tk.configure(height=total_height)
-        self.keypad_keys.tk.grid_propagate(False)
+        # 1️⃣ Let guizero handle overall layout (pack). Don’t constrain pack-managed box.
+        # Instead, make sure the internal grid has fixed row sizes and propagates normally.
+        self.keypad_box.tk.pack_propagate(True)
 
-        # Make sure each row is explicitly tall enough
+        # 2️⃣ Enforce fixed per-row geometry inside the grid
         for r in range(num_rows):
-            self.keypad_keys.tk.grid_rowconfigure(r, minsize=cell_height, weight=1)
+            self.keypad_keys.tk.grid_rowconfigure(r, weight=0, minsize=cell_height)
 
-        # Force the outer keypad box to expand just enough to fit
-        self.keypad_box.tk.grid_propagate(True)
-        self.keypad_box.tk.update_idletasks()
+        # 3️⃣ Force recalculation of layout so Tk measures children properly
+        self.keypad_keys.tk.update_idletasks()
+        keypad_req_height = self.keypad_keys.tk.winfo_reqheight()
 
-        # Now recalc available space for the image above
+        # 4️⃣ Explicitly set the box height equal to total keypad height
+        # (this works because guizero uses pack, not grid)
+        self.keypad_box.tk.configure(height=keypad_req_height or total_height)
+
+        # 5️⃣ Recompute available image height for the area above keypad
         available_height, available_width = self.calc_image_box_size()
         self.image_box.tk.configure(height=available_height, width=available_width)
 
         app.tk.update_idletasks()
         # # Finally, resize image box
         # available_height, available_width = self.calc_image_box_size()
-        #self.image_box.tk.config(height=available_height, width=available_width)
+        # self.image_box.tk.config(height=available_height, width=available_width)
 
         # Display GUI and start event loop; call blocks
         try:
