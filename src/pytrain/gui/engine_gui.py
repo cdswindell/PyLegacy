@@ -382,19 +382,23 @@ class EngineGui(Thread, Generic[S]):
         # --------------------------------------------------------------------
         app.tk.update_idletasks()
 
-        num_rows = 5  # keypad = 4 numeric + 1 command row
+        num_rows = 5  # 4 numeric + 1 command row
         cell_height = self.button_size + 2 * self.grid_pad_by
-        keypad_height = num_rows * cell_height + (num_rows + 1) * self.grid_pad_by
+        total_height = num_rows * cell_height + (num_rows + 1) * self.grid_pad_by
 
-        # Explicitly size the keypad_box
-        self.keypad_box.tk.configure(height=keypad_height)
-        self.keypad_box.tk.pack_propagate(False)
+        # Constrain the *inner* grid box, not the outer pack-managed box
+        self.keypad_keys.tk.configure(height=total_height)
+        self.keypad_keys.tk.grid_propagate(False)
 
-        # Also pin each row height so grid math matches
+        # Make sure each row is explicitly tall enough
         for r in range(num_rows):
             self.keypad_keys.tk.grid_rowconfigure(r, minsize=cell_height, weight=1)
 
-        # Recompute available image space now that keypad height is fixed
+        # Force the outer keypad box to expand just enough to fit
+        self.keypad_box.tk.grid_propagate(True)
+        self.keypad_box.tk.update_idletasks()
+
+        # Now recalc available space for the image above
         available_height, available_width = self.calc_image_box_size()
         self.image_box.tk.configure(height=available_height, width=available_width)
 
