@@ -348,7 +348,7 @@ class EngineGui(Thread, Generic[S]):
                     pass
             return None
 
-        app.repeat(20, _poll_shutdown)
+        # app.repeat(20, _poll_shutdown)
 
         # customize label
         self.header = cb = Combo(
