@@ -943,7 +943,7 @@ class EngineGui(Thread, Generic[S]):
         name_box.text_size = self.s_12
 
         total_w = self.emergency_box_width or self.emergency_box.tk.winfo_reqwidth()
-        w = max(100, total_w - id_w)
+        w = total_w - id_w
 
         self.name_box.tk.config(height=id_h, width=w)
         self.name_box.tk.pack_propagate(False)
