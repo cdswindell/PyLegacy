@@ -218,7 +218,7 @@ class EngineGui(Thread, Generic[S]):
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
         self.controller_box = self.controller_keypad_box = self.controller_throttle_box = None
-        self.emergency_box_width = None
+        self.emergency_box_width = self.emergency_box_height = None
 
         # various buttons
         self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = self.set_btn = None
@@ -1547,10 +1547,8 @@ class EngineGui(Thread, Generic[S]):
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
         app.tk.update_idletasks()
-        print(f"emergency_box.tk.winfo_width()={emergency_box.tk.winfo_width()}")
-        print(f"emergency_box.tk.winfo_reqwidth()={emergency_box.tk.winfo_reqwidth()}")
         self.emergency_box_width = self.emergency_box.tk.winfo_width()
-        # self.emergency_box_width = emergency_box.tk.winfo_reqwidth()
+        self.emergency_box_height = self.emergency_box.tk.winfo_height()
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
