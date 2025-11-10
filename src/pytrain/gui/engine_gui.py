@@ -915,79 +915,24 @@ class EngineGui(Thread, Generic[S]):
 
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, border=2, align="top")
-        info_box.tk.grid_propagate(True)
-
-        # Turn the inner tk.Frame of info_box into a grid container
-        container = info_box.tk
-        container.grid_columnconfigure(0, weight=0)  # left column: natural size
-        container.grid_columnconfigure(1, weight=1)  # right column: takes remaining width
 
         # Left: ID box
-        self.tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="left")
-        self.tmcc_id_box.tk.grid(row=0, column=0, sticky="nsew")
-
-        self.tmcc_id_text = Text(self.tmcc_id_box, text="0000", align="left", bold=True)
+        self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="left")
+        tmcc_id_box.text_size = self.s_12
+        self.tmcc_id_text = Text(tmcc_id_box, text="0000", align="left", bold=True)
         self.tmcc_id_text.text_color = "blue"
-        self.tmcc_id_text.text_bold = True
         self.tmcc_id_text.text_size = self.s_20
-        self.tmcc_id_text.width = 5
 
-        # Right: Road Name box fills the rest
-        self.name_box = TitleBox(info_box, "Road Name", align="right")
-        self.name_box.tk.grid(row=0, column=1, sticky="nsew")  # expands horizontally
-        self.name_box.text_size = self.s_12
-
-        self.name_text = Text(self.name_box, text="", align="top", bold=True, width="fill")
+        # Right: Road Name box (pack aligns it right)
+        self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
+        name_box.text_size = self.s_12
+        self.name_text = Text(name_box, text="", align="top", bold=True, width="fill")
         self.name_text.text_color = "blue"
-        self.name_text.text_bold = True
         self.name_text.text_size = self.s_18
-        self.name_text.width = 20
         self.name_text.tk.config(justify="left", anchor="w")
-        # self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="left")
-        # tmcc_id_box.text_size = self.s_12
-        #
-        # self.tmcc_id_text = tmcc_id = Text(tmcc_id_box, text="0000", align="left", bold=True)
-        # tmcc_id.text_color = "blue"
-        # tmcc_id.text_bold = True
-        # tmcc_id.text_size = self.s_20
-        # tmcc_id.width = 5
-        #
-        # # self.name_box = name_box = TitleBox(
-        # #     info_box,
-        # #     "Road Name",
-        # #     align="right",
-        # #     height=tmcc_id_box.tk.winfo_reqheight(),
-        # #     width=self.emergency_box.tk.winfo_reqwidth() - tmcc_id_box.tk.winfo_reqwidth(),
-        # # )
-        # # name_box.text_size = self.s_12
-        #
-        # # after creating tmcc_id_box and BEFORE creating name_box:
-        # app.tk.update_idletasks()
-        # id_h = self.tmcc_id_box.tk.winfo_reqheight()
-        # id_w = self.tmcc_id_box.tk.winfo_reqwidth()
-        #
-        # self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
-        # name_box.text_size = self.s_12
-        #
-        # total_w = self.emergency_box_width or self.emergency_box.tk.winfo_reqwidth()
-        # w = total_w - id_w
-        #
-        # print(f"emergency_box_width={total_w} id width: {id_w} w={w}")
-        # self.name_box.tk.config(height=id_h, width=w)
-        # self.name_box.tk.pack_propagate(False)
-        #
-        # self.name_text = name_text = Text(
-        #     name_box,
-        #     text="",
-        #     align="top",
-        #     bold=True,
-        #     width="fill",
-        # )
-        # name_text.text_color = "blue"
-        # name_text.text_bold = True
-        # name_text.text_size = self.s_18
-        # name_text.width = 20
-        # name_text.tk.config(justify="left", anchor="w")  # ← this does the trick!
+
+        # Optional: match heights after layout
+        app.tk.after_idle(lambda: name_box.tk.config(height=tmcc_id_box.tk.winfo_height()))
 
         # add a picture placeholder here, we may not use it
         self.image_box = image_box = Box(app, border=2, align="top")
