@@ -1002,11 +1002,21 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Fix cell size and prevent auto-shrinking
         # ------------------------------------------------------------
+        # cell.tk.configure(
+        #     width=button_size + 2 * self.grid_pad_by,
+        #     height=button_size + 2 * grid_pad_by,
+        # )
+        # cell.tk.pack_propagate(False)
+        extra_pad = max(2, self.grid_pad_by)
         cell.tk.configure(
-            width=button_size + 2 * self.grid_pad_by,
-            height=button_size + 2 * grid_pad_by,
+            width=button_size + 2 * extra_pad,
+            height=button_size + 2 * extra_pad,  # add a bit more vertical space
         )
         cell.tk.pack_propagate(False)
+
+        # ensure the keypad grid expands uniformly and fills the box height
+        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=button_size + 4 * extra_pad)
+        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=button_size + 2 * extra_pad)
 
         # ------------------------------------------------------------
         #  Create PushButton
@@ -1021,7 +1031,11 @@ class EngineGui(Thread, Generic[S]):
 
         # Make tk.Button fill the entire cell and draw full border
         nb.tk.pack_forget()
-        nb.tk.place(x=0, y=0, relwidth=1, relheight=1)
+        # nb.tk.place(x=0, y=0, relwidth=1, relheight=1)
+        # nb.tk.place(x=1, y=1, relwidth=0.98, relheight=0.98)
+        pad = 2
+        nb.tk.place(x=pad, y=pad, width=button_size - 2 * pad, height=button_size - 2 * pad)
+
         nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
 
         # ------------------------------------------------------------
@@ -1038,7 +1052,7 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-            self.make_color_changeable(nb, LIONEL_ORANGE, fade=True)
+            self.make_color_changeable(nb, fade=True)
 
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
