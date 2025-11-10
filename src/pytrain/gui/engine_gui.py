@@ -1376,7 +1376,9 @@ class EngineGui(Thread, Generic[S]):
                 prod_info = self._prod_info_cache.get(tmcc_id, None)
                 if prod_info is None:
                     # Start thread to fetch product info
-                    self._prod_info_cache[tmcc_id] = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
+                    if (scope, tmcc_id) not in self._pending_prod_infos:
+                        pending = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
+                        self._prod_info_cache[tmcc_id] = pending
                     return
                 if isinstance(prod_info, ProdInfo):
                     # Resize image if needed
@@ -1531,18 +1533,17 @@ class EngineGui(Thread, Generic[S]):
             self._pending_prod_infos.discard((scope, tmcc_id))
         return prod_info
 
-    def _fetch_prod_info(self, scope: CommandScope, tmcc_id: int) -> None:
+    def _fetch_prod_info(self, scope: CommandScope, tmcc_id: int) -> ProdInfo | None:
         """Fetch product info in a background thread, then schedule UI update."""
         with self._cv:
+            prod_info = None
             key = (scope, tmcc_id)
-            if key in self._pending_prod_infos:
-                # ProdInfo has already been requested, exit
-                return
-            else:
+            if key not in self._pending_prod_infos:
                 self._pending_prod_infos.add(key)
-        self.request_prod_info(scope, tmcc_id)
+                prod_info = self.request_prod_info(scope, tmcc_id)
         # Schedule the UI update on the main thread
         self.queue_message(self.update_component_image, tmcc_id, key)
+        return prod_info
 
     # Example lazy loader pattern for images
     def get_image(self, path, size=None):
