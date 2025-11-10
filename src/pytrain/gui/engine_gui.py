@@ -198,7 +198,6 @@ class EngineGui(Thread, Generic[S]):
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
         self.power_off_path = find_file("bulb-power-off.png")
         self.power_on_path = find_file("bulb-power-on.png")
-        self.power_off_image = self.power_on_image = None
         self._app_counter = 0
         self._in_entry_mode = True
         self._btn_images = []
@@ -580,7 +579,9 @@ class EngineGui(Thread, Generic[S]):
                 pass
 
     def update_ac_status(self, state: AccessoryState):
-        img = self.power_on_image if state.is_aux_on else self.power_off_image
+        power_on_image = self.get_titled_image(self.power_on_path)
+        power_off_image = self.get_titled_image(self.power_off_path)
+        img = power_on_image if state.is_aux_on else power_off_image
         self.ac_status_btn.tk.config(
             image=img,
             height=self.titled_button_size,
@@ -837,12 +838,6 @@ class EngineGui(Thread, Generic[S]):
             )
 
         # BPC2/ASC2 Buttons
-        self.power_off_image = ImageTk.PhotoImage(
-            Image.open(self.power_off_path).resize((self.titled_button_size, self.titled_button_size))
-        )
-        self.power_on_image = ImageTk.PhotoImage(
-            Image.open(self.power_on_path).resize((self.titled_button_size, self.titled_button_size))
-        )
         self.ac_off_cell, self.ac_off_btn = self.make_keypad_button(
             keypad_keys,
             AC_OFF_KEY,
@@ -955,9 +950,6 @@ class EngineGui(Thread, Generic[S]):
                 total_w = self.emergency_box_width or self.emergency_box.tk.winfo_width()
                 new_w = max(0, total_w - id_w)
                 name_box.tk.config(height=id_h, width=new_w)
-
-                print(f"✅ ID box measured: id_h={id_h}, id_w={id_w}, total_w={total_w}, new_w={new_w}")
-
             except tk.TclError as e:
                 print(f"[adjust_road_name_box] failed: {e}")
 
@@ -974,80 +966,6 @@ class EngineGui(Thread, Generic[S]):
         st_seq = IrdaSequence.by_value(int(self.sensor_track_buttons.value))
         print(f"Sensor Track: {tmcc_id} {self.sensor_track_buttons.value} {st_seq.title}")
         IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
-
-    @staticmethod
-    def inspect_titlebox_geometry(titlebox, label_name="TitleBox"):
-        """
-        Prints detailed geometry info for a guizero.TitleBox and its children.
-        Call this AFTER app.update() or update_idletasks().
-        """
-        try:
-            t = titlebox.tk
-            print(f"\n📦 Inspecting {label_name}: {t}")
-            print(f"  Requested size: {t.winfo_reqwidth()} × {t.winfo_reqheight()}")
-            print(f"  Actual size:    {t.winfo_width()} × {t.winfo_height()}")
-            print(f"  Propagate:      {t.pack_propagate()}")
-
-            children = t.winfo_children()
-            for i, child in enumerate(children):
-                cls = child.winfo_class()
-                geom = (
-                    f"  ↳ Child[{i}]: {cls:<10}"
-                    f" | req=({child.winfo_reqwidth()}×{child.winfo_reqheight()})"
-                    f" | actual=({child.winfo_width()}×{child.winfo_height()})"
-                )
-                # If it's a Label, include anchor/justify info
-                if isinstance(child, tk.Label):
-                    geom += f" | anchor={child.cget('anchor')} justify={child.cget('justify')}"
-                print(geom)
-
-                # For nested frames (the TitleBox's content frame)
-                if isinstance(child, tk.Frame):
-                    subchildren = child.winfo_children()
-                    for j, sub in enumerate(subchildren):
-                        sub_cls = sub.winfo_class()
-                        sub_geom = (
-                            f"      ↳ Sub[{j}]: {sub_cls:<10}"
-                            f" | req=({sub.winfo_reqwidth()}×{sub.winfo_reqheight()})"
-                            f" | actual=({sub.winfo_width()}×{sub.winfo_height()})"
-                        )
-                        print(sub_geom)
-
-            print("─────────────────────────────────────────────")
-
-        except Exception as e:
-            print(f"⚠️ Error inspecting {label_name}: {e}")
-
-    @staticmethod
-    def inspect_keypad_grid(keypad_box, label="Keypad Grid"):
-        """
-        Print actual pixel sizes of each grid row and column
-        to help diagnose layout spacing or clipping issues.
-        """
-        try:
-            t = keypad_box.tk
-            t.update_idletasks()
-            cols, rows = t.grid_size()  # grid_size() returns (cols, rows)
-
-            print(f"\n🧮 Inspecting {label}: {rows} rows × {cols} columns")
-            print("─────────────────────────────────────────────")
-
-            # Measure each row’s bounding box height
-            for r in range(rows):
-                bbox = t.grid_bbox(0, r)
-                h = bbox[3] if bbox else "?"
-                print(f"  Row {r}: height={h}")
-
-            # Measure each column’s bounding box width
-            for c in range(cols):
-                bbox = t.grid_bbox(c, 0)
-                w = bbox[2] if bbox else "?"
-                print(f"  Col {c}: width={w}")
-
-            print("─────────────────────────────────────────────\n")
-
-        except tk.TclError as e:
-            print(f"⚠️ Error inspecting {label}: {e}")
 
     def make_keypad_button(
         self,
@@ -1164,10 +1082,8 @@ class EngineGui(Thread, Generic[S]):
         if image:
             nb.image = image
             # load and cache the image to prevent garbage collection
-            img = Image.open(image).resize((self.titled_button_size, self.titled_button_size))
-            tkimg = ImageTk.PhotoImage(img)
-            self._btn_images.append(tkimg)
-            nb.tk.config(image=tkimg, compound="center")
+            img = self.get_titled_image(image)
+            nb.tk.config(image=img, compound="center")
         else:
             # Make tk.Button fill the entire cell and draw full border
             # only do this for text buttons
@@ -1380,7 +1296,6 @@ class EngineGui(Thread, Generic[S]):
                         self.ac_aux1_cell.show()
                     if not self.keypad_box.visible:
                         self.keypad_box.show()
-                    self.inspect_keypad_grid(self.keypad_box, "Acc Keypad")
                 else:
                     if not self.keypad_box.visible:
                         self.keypad_box.show()
@@ -1629,3 +1544,15 @@ class EngineGui(Thread, Generic[S]):
         self.request_prod_info(scope, tmcc_id)
         # Schedule the UI update on the main thread
         self.queue_message(self.update_component_image, tmcc_id, key)
+
+    # Example lazy loader pattern for images
+    def get_image(self, path, size=None):
+        if path not in self._image_cache:
+            img = Image.open(path)
+            if size:
+                img = img.resize(size)
+            self._image_cache[path] = ImageTk.PhotoImage(img)
+        return self._image_cache[path]
+
+    def get_titled_image(self, path):
+        return self.get_image(path, size=(self.titled_button_size, self.titled_button_size))
