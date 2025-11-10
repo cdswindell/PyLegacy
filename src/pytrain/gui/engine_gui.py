@@ -916,33 +916,53 @@ class EngineGui(Thread, Generic[S]):
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, border=2, align="top")
 
+        # ───────────────────────────────
         # Left: ID box
+        # ───────────────────────────────
         self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="left")
         tmcc_id_box.text_size = self.s_12
         self.tmcc_id_text = Text(tmcc_id_box, text="0000", align="left", bold=True)
         self.tmcc_id_text.text_color = "blue"
         self.tmcc_id_text.text_size = self.s_20
 
-        # Right: Road Name box (pack aligns it right)
+        # ───────────────────────────────
+        # Right: Road Name box
+        # ───────────────────────────────
         self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
         name_box.text_size = self.s_12
         self.name_text = Text(name_box, text="", align="top", bold=True, width="fill")
         self.name_text.text_color = "blue"
         self.name_text.text_size = self.s_18
         self.name_text.tk.config(justify="left", anchor="w")
+        name_box.tk.pack_propagate(False)  # prevent pack from shrinking
 
-        # Prevent pack from shrinking the TitleBox to its content
-        name_box.tk.pack_propagate(False)
-
+        # ───────────────────────────────
+        # Wait until the ID box is actually realized
+        # ───────────────────────────────
         def adjust_road_name_box():
-            id_h = tmcc_id_box.tk.winfo_height()
-            id_w = tmcc_id_box.tk.winfo_width()
-            total_w = self.emergency_box_width
-            print(f"adjust_road_name_box: id_h={id_h}, id_w={id_w}, total_w={total_w}, {total_w - id_w}")
-            name_box.tk.config(height=id_h, width=max(0, total_w - id_w))
+            try:
+                # Force the ID box to compute geometry first
+                tmcc_id_box.tk.update_idletasks()
+
+                id_h = tmcc_id_box.tk.winfo_height()
+                id_w = tmcc_id_box.tk.winfo_width()
+
+                if id_w <= 1:
+                    # still not realized? try again shortly
+                    app.tk.after(50, adjust_road_name_box)
+                    return
+
+                total_w = self.emergency_box_width or self.emergency_box.tk.winfo_width()
+                new_w = max(0, total_w - id_w)
+                name_box.tk.config(height=id_h, width=new_w)
+
+                print(f"✅ ID box measured: id_h={id_h}, id_w={id_w}, total_w={total_w}, new_w={new_w}")
+
+            except tk.TclError as e:
+                print(f"[adjust_road_name_box] failed: {e}")
 
         # Schedule width/height fix after geometry update
-        app.tk.after_idle(adjust_road_name_box)
+        app.tk.after(10, adjust_road_name_box)
 
         # add a picture placeholder here, we may not use it
         self.image_box = image_box = Box(app, border=2, align="top")
