@@ -1028,12 +1028,12 @@ class EngineGui(Thread, Generic[S]):
         #  Image vs text button behavior
         # ------------------------------------------------------------
         if image:
-            # load and cache the image to prevent garbage collection
-            # img = Image.open(image).resize((self.titled_button_size, self.titled_button_size))
-            # tkimg = ImageTk.PhotoImage(img)
-            # self._btn_images.append(tkimg)
-            # nb.tk.config(image=tkimg, compound="center")
             nb.image = image
+            # load and cache the image to prevent garbage collection
+            img = Image.open(image).resize((self.titled_button_size, self.titled_button_size))
+            tkimg = ImageTk.PhotoImage(img)
+            self._btn_images.append(tkimg)
+            nb.tk.config(image=tkimg, compound="center")
         else:
             # Make tk.Button fill the entire cell and draw full border
             # only do this for text buttons
@@ -1056,8 +1056,8 @@ class EngineGui(Thread, Generic[S]):
         # # spacing between buttons (in pixels)
         # nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
         # cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
-        # keypad_box.tk.grid_columnconfigure(col, minsize=self.button_size + 2 * self.grid_pad_by)
-        # keypad_box.tk.grid_rowconfigure(row, minsize=self.button_size + 2 * grid_pad_by)
+        keypad_box.tk.grid_columnconfigure(col, minsize=self.button_size + 2 * self.grid_pad_by)
+        keypad_box.tk.grid_rowconfigure(row, minsize=self.button_size + 2 * grid_pad_by)
 
         return cell, nb
 
