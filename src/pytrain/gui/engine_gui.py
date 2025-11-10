@@ -577,13 +577,14 @@ class EngineGui(Thread, Generic[S]):
                 pass
 
     def update_ac_status(self, state: AccessoryState):
-        img = self.power_on_image if state.is_aux_on else self.power_off_image
-        self.ac_status_btn.tk.config(
-            image=img,
-            height=self.titled_button_size,
-            width=self.titled_button_size,
-        )
-        self.ac_status_btn.image = img
+        # img = self.power_on_image if state.is_aux_on else self.power_off_image
+        # self.ac_status_btn.tk.config(
+        #     image=img,
+        #     height=self.titled_button_size,
+        #     width=self.titled_button_size,
+        # )
+        # self.ac_status_btn.image = img
+        pass
 
     def make_scope(self, app: App):
         button_height = int(round(40 * self._scale_by))
@@ -854,7 +855,7 @@ class EngineGui(Thread, Generic[S]):
         )
         self.ac_status_cell, self.ac_status_btn = self.make_keypad_button(
             keypad_keys,
-            None,
+            "Test",
             row,
             1,
             image=self.power_off_path,
