@@ -1004,14 +1004,14 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         extra_pad = max(2, grid_pad_by)
         cell.tk.configure(
-            width=button_size + 2 * extra_pad,
-            height=button_size + 2 * extra_pad,
+            width=button_size + (2 * extra_pad),
+            height=button_size + (2 * extra_pad),
         )
         cell.tk.pack_propagate(False)
 
         # ensure the keypad grid expands uniformly and fills the box height
-        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=self.button_size + 2 * extra_pad)
-        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=self.button_size + 2 * extra_pad)
+        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=self.button_size + (2 * extra_pad))
+        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=self.button_size + (2 * extra_pad))
 
         # ------------------------------------------------------------
         #  Create PushButton
@@ -1023,7 +1023,8 @@ class EngineGui(Thread, Generic[S]):
             command=command,
             args=args,
         )
-
+        nb.tk.pack_forget()
+        nb.tk.place(x=1, y=1, width=button_size - 2, height=button_size - 2)
         # ------------------------------------------------------------
         #  Image vs text button behavior
         # ------------------------------------------------------------
@@ -1040,9 +1041,6 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-            nb.tk.pack_forget()
-            pad = 1
-            nb.tk.place(x=pad, y=pad, width=button_size - 2 * pad, height=button_size - 2 * pad)
             self.make_color_changeable(nb, fade=True)
 
         nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
@@ -1052,12 +1050,11 @@ class EngineGui(Thread, Generic[S]):
         nb.text_color = "black"
         nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-        # nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
         # # spacing between buttons (in pixels)
-        # nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
-        # cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
-        keypad_box.tk.grid_columnconfigure(col, minsize=self.button_size + 2 * self.grid_pad_by)
-        keypad_box.tk.grid_rowconfigure(row, minsize=self.button_size + 2 * grid_pad_by)
+        nb.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
+        cell.tk.grid_configure(padx=self.grid_pad_by, pady=grid_pad_by)
+        # keypad_box.tk.grid_columnconfigure(col, minsize=self.button_size + 2 * self.grid_pad_by)
+        # keypad_box.tk.grid_rowconfigure(row, minsize=self.button_size + 2 * grid_pad_by)
 
         return cell, nb
 
