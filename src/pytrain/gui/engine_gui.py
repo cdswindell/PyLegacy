@@ -1026,18 +1026,21 @@ class EngineGui(Thread, Generic[S]):
 
         # Shrink inner area if this is a TitleBox
         if titlebox_text:
+            # Force the TitleBox overall height to match a normal button cell
             target_h = self.button_size + 2 * self.grid_pad_by
-            label_h = 0
+            cell.tk.configure(height=target_h)
+
+            # Shrink its label area to zero height (visually keeps border spacing even)
             try:
                 t_children = cell.tk.winfo_children()
                 if t_children and isinstance(t_children[0], tk.Label):
-                    label_h = t_children[0].winfo_reqheight()
+                    title_lbl = t_children[0]
+                    title_lbl.pack_configure(pady=0, ipady=0)
+                    title_lbl.configure(height=1)
+                    # collapse its padding so it doesn't inflate the box
+                    title_lbl.pack_configure(ipady=0, pady=0, ipadx=0)
             except tk.TclError:
                 pass
-
-            inner_h = max(1, target_h - label_h)
-            nb.tk.configure(height=inner_h)
-            cell.tk.configure(height=target_h)
 
         # Make tk.Button fill the entire cell and draw full border
         nb.tk.pack_forget()
