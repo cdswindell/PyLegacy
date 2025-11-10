@@ -918,7 +918,7 @@ class EngineGui(Thread, Generic[S]):
         keypad_box.tk.configure(width=min_total_width, height=min_total_height)
 
         app.update()
-        self.inspect_titlebox_geometry(self.ac_on_cell, "On")
+        self.inspect_keypad_grid(keypad_box)
 
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, border=2, align="top")
@@ -1008,6 +1008,37 @@ class EngineGui(Thread, Generic[S]):
 
         except Exception as e:
             print(f"⚠️ Error inspecting {label_name}: {e}")
+
+    @staticmethod
+    def inspect_keypad_grid(keypad_box, label="Keypad Grid"):
+        """
+        Print actual pixel sizes of each grid row and column
+        to help diagnose layout spacing or clipping issues.
+        """
+        try:
+            t = keypad_box.tk
+            t.update_idletasks()
+            rows = t.grid_size()[1]
+            cols = t.grid_size()[0]
+            print(f"\n🧮 Inspecting {label}: {rows} rows × {cols} columns")
+            print("─────────────────────────────────────────────")
+
+            # Measure each row's total height
+            for r in range(rows):
+                y1 = t.grid_bbox(0, r)[1] if t.grid_bbox(0, r) else None
+                h = t.grid_bbox(0, r)[3] if t.grid_bbox(0, r) else None
+                print(f"  Row {r}: height={h if h is not None else '?'}")
+
+            # Measure each column's total width
+            for c in range(cols):
+                x1 = t.grid_bbox(c, 0)[0] if t.grid_bbox(c, 0) else None
+                w = t.grid_bbox(c, 0)[2] if t.grid_bbox(c, 0) else None
+                print(f"  Col {c}: width={w if w is not None else '?'}")
+
+            print("─────────────────────────────────────────────\n")
+
+        except tk.TclError as e:
+            print(f"⚠️ Error inspecting {label}: {e}")
 
     def make_keypad_button(
         self,
@@ -1349,6 +1380,7 @@ class EngineGui(Thread, Generic[S]):
                         self.ac_aux1_cell.show()
                     if not self.keypad_box.visible:
                         self.keypad_box.show()
+                    self.inspect_keypad_grid(self.keypad_box, "Acc Keypad")
                 else:
                     if not self.keypad_box.visible:
                         self.keypad_box.show()
