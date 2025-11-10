@@ -348,7 +348,7 @@ class EngineGui(Thread, Generic[S]):
                     pass
             return None
 
-        # app.repeat(20, _poll_shutdown)
+        app.repeat(20, _poll_shutdown)
 
         # customize label
         self.header = cb = Combo(
@@ -1082,7 +1082,7 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-            self.make_color_changeable(nb, fade=True)
+            # self.make_color_changeable(nb, fade=True)
 
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
