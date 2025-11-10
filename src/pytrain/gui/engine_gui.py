@@ -478,10 +478,8 @@ class EngineGui(Thread, Generic[S]):
         # self.throttle.tk.update_idletasks()
 
     def on_recents(self, value: str):
-        print(f"on_select_component: {value}")
         if value != self.title:
             state = self._options_to_state[value]
-            print(state)
             self.update_component_info(tmcc_id=state.tmcc_id)
             self.header.select_default()
 
@@ -658,7 +656,6 @@ class EngineGui(Thread, Generic[S]):
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
         self.scope_box.show()
-        print(f"On Scope: {scope} calling scope_keypad({force_entry_mode})")
         self.scope_keypad(force_entry_mode)
 
     def display_most_recent(self, scope: CommandScope):
@@ -953,7 +950,7 @@ class EngineGui(Thread, Generic[S]):
                 new_w = max(0, total_w - id_w)
                 name_box.tk.config(height=id_h, width=new_w)
             except tk.TclError as e:
-                print(f"[adjust_road_name_box] failed: {e}")
+                log.exception(f"[adjust_road_name_box] failed: {e}", exc_info=e)
 
         # Schedule width/height fix after geometry update
         app.tk.after(10, adjust_road_name_box)
@@ -966,7 +963,6 @@ class EngineGui(Thread, Generic[S]):
     def on_sensor_track_change(self) -> None:
         tmcc_id = self._scope_tmcc_ids[self.scope]
         st_seq = IrdaSequence.by_value(int(self.sensor_track_buttons.value))
-        print(f"Sensor Track: {tmcc_id} {self.sensor_track_buttons.value} {st_seq.title}")
         IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
 
     def make_keypad_button(
@@ -1124,7 +1120,7 @@ class EngineGui(Thread, Generic[S]):
 
         # update information immediately if not in entry mode
         if not self._in_entry_mode and key.isdigit():
-            print("on_keypress calling update_component_info...")
+            log.debug("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
 
     def make_color_changeable(
@@ -1204,7 +1200,7 @@ class EngineGui(Thread, Generic[S]):
         tkbtn.bind("<KeyPress-Return>", flash, add="+")
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
-        print(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
+        log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         self._scope_tmcc_ids[self.scope] = tmcc_id
         if tmcc_id > 0:
             if state is None:
@@ -1216,7 +1212,6 @@ class EngineGui(Thread, Generic[S]):
                     queue = UniqueDeque[S](maxlen=self.num_recents)
                     self._recents_queue[self.scope] = queue
                 queue.appendleft(state)
-                print(queue)
                 self.rebuild_options()
                 return True
         return False
@@ -1305,7 +1300,6 @@ class EngineGui(Thread, Generic[S]):
                     self.keypad_box.show()
 
         if update_info:
-            print("ops_mode() calling update_component_info()...")
             self.update_component_info(in_ops_mode=True)
 
     def update_component_info(
@@ -1334,9 +1328,7 @@ class EngineGui(Thread, Generic[S]):
                 update_button_state = False
                 # noinspection PyTypeChecker
                 self.make_recent(self.scope, tmcc_id, state)
-                print(f"update_component_info: in_ops_mode: {in_ops_mode} in_entry_mode: {self._in_entry_mode}")
                 if not in_ops_mode:
-                    print(f"Calling ops_mode: {self.scope} {name}")
                     self.ops_mode(update_info=False)
             else:
                 name = not_found_value
