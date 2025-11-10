@@ -936,8 +936,8 @@ class EngineGui(Thread, Generic[S]):
 
         # after creating tmcc_id_box and BEFORE creating name_box:
         app.tk.update_idletasks()
-        id_h = self.tmcc_id_box.tk.winfo_height()
-        id_w = self.tmcc_id_box.tk.winfo_width()
+        id_h = self.tmcc_id_box.tk.winfo_reqheight()
+        id_w = self.tmcc_id_box.tk.winfo_reqwidth()
 
         self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
         name_box.text_size = self.s_12
@@ -945,6 +945,7 @@ class EngineGui(Thread, Generic[S]):
         total_w = self.emergency_box_width or self.emergency_box.tk.winfo_reqwidth()
         w = total_w - id_w
 
+        print(f"emergency_box_width={total_w} id width: {id_w} w={w}")
         self.name_box.tk.config(height=id_h, width=w)
         self.name_box.tk.pack_propagate(False)
 
