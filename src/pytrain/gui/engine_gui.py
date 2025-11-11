@@ -1159,24 +1159,34 @@ class EngineGui(Thread, Generic[S]):
         return cell, nb
 
     @staticmethod
-    def tighten_titlebox_padding(titlebox):
+    def tighten_titlebox_padding(titlebox, y_offset: int = -6):
         """
-        Reduce the internal top padding of a guizero.TitleBox (tk.LabelFrame)
-        so its children align vertically with Box-based widgets.
+        Reduce the vertical offset of widgets inside a guizero.TitleBox
+        by moving the *inner* content frame upward a few pixels.
+
+        Works with Tk 8.6 (Raspberry Pi, Linux, macOS) where LabelFrame has
+        an internal content frame holding user children.
         """
         try:
-            lf = titlebox.tk  # the underlying tk.LabelFrame
+            lf = titlebox.tk  # this is the tk.LabelFrame
 
-            # force the title to top-left
-            lf.configure(labelanchor="nw")
+            # LabelFrame auto-creates an internal content frame as its first child
+            inner_children = lf.winfo_children()
+            if not inner_children:
+                return
 
-            # adjust the label's internal margin; these options are undocumented
-            # but recognized by the Tk core
-            lf.tk.call(lf._w, "configure", "-labelmargintop", 0)
-            lf.tk.call(lf._w, "configure", "-labelmargin", 0)
-            lf.tk.call(lf._w, "configure", "-labeloutside", 0)
+            content_frame = inner_children[0]
 
-            # ensure it recomputes geometry
+            # Set tighter geometry on the LabelFrame itself
+            lf.configure(labelanchor="nw", padx=0, pady=0)
+            lf.update_idletasks()
+
+            # Move the content frame upward slightly
+            try:
+                content_frame.place_configure(rely=0, y=y_offset)
+            except tk.TclError:
+                # Fallback if it's packed/grid-managed
+                content_frame.pack_configure(pady=(y_offset, 0))
             lf.update_idletasks()
         except tk.TclError as e:
             log.exception(f"Warning adjusting TitleBox padding: {e}", exc_info=e)
