@@ -431,12 +431,13 @@ class EngineGui(Thread, Generic[S]):
             for c, op in enumerate(kr):
                 image = None
                 label = None
-                if isinstance(op, tuple) and op:
-                    op = op[0]
+                if isinstance(op, tuple):
+                    print(op)
                     if len(op) > 1 and op[1]:
                         image = find_file(op[1])
                     if len(op) > 2 and op[2]:
                         label = str(op[2])
+                    op = op[0]
                 print(f"{r}:{c} - op: {op}, image: {image}, label: {label}")
                 cell, nb = self.make_keypad_button(
                     keypad_keys,
