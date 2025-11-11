@@ -184,7 +184,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_12: int = int(round(12 * scale_by))
         self.s_10: int = int(round(10 * scale_by))
         self.button_size = int(round(self.width / 5.5))
-        self.titled_button_size = int(round((self.width / 5.5) * 0.9))
+        self.titled_button_size = int(round((self.width / 5.5) * 0.8))
         self.scope_size = int(round(self.width / 5))
         self._text_pad_x = 20
         self._text_pad_y = 20
@@ -469,7 +469,7 @@ class EngineGui(Thread, Generic[S]):
         throttle_box.tk.pack_configure(anchor="ne")
 
         cell = TitleBox(throttle_box, "Speed", align="top", border=1)
-        cell.text_size = self.s_12
+        cell.text_size = self.s_10
         self.speed = speed = Text(
             cell,
             text="000",
@@ -855,7 +855,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Sensor Track Buttons
         self.sensor_track_box = cell = TitleBox(app, "Sequence", layout="auto", align="top", visible=False)
-        cell.text_size = self.s_12
+        cell.text_size = self.s_10
         self.ops_cells.add(cell)
         self.sensor_track_buttons = bg = ButtonGroup(
             cell,
