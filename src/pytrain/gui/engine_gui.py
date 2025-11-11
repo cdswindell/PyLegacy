@@ -1092,7 +1092,7 @@ class EngineGui(Thread, Generic[S]):
             if image:
                 label_extra = int(self.s_12 * 0.8)  # about one text line of space
             else:
-                label_extra = int(self.s_12 * 0.8)
+                label_extra = int(self.s_12 * 0.4)
             cell.tk.configure(
                 width=self.button_size,
                 height=self.button_size + label_extra,
