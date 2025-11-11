@@ -1069,7 +1069,6 @@ class EngineGui(Thread, Generic[S]):
                 lf = cell.tk  # The underlying tk.LabelFrame inside your TitleBox
                 # Move title to top-left and reduce reserved caption space
                 lf.configure(labelanchor="nw", padx=0, pady=0)
-
                 # Force Tk to recompute geometry after the config change
                 lf.update_idletasks()
             except (tk.TclError, AttributeError) as e:
@@ -1089,19 +1088,13 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         if titlebox_text:
             # Let the TitleBox grow a bit for its label text
-            label_extra = int(self.s_12 * 0.8)  # about one text line of space
-            if label == AUX2_KEY:
-                print(f"Aux2: width: {self.button_size} height: {self.button_size + label_extra}")
+            label_extra = int(self.s_12 * 1.2)  # about one text line of space
             cell.tk.configure(
                 width=self.button_size,
-                height=self.button_size + label_extra,
+                height=self.titled_button_size + label_extra,
             )
             # still disable shrinking, but don’t clip internal content
-            cell.tk.pack_propagate(True)
-            # if image:
-            #     cell.tk.pack_propagate(True)
-            # elif label:
-            #     cell.tk.pack_propagate(False)
+            cell.tk.pack_propagate(False)
         else:
             cell.tk.configure(
                 width=self.button_size,
@@ -1140,22 +1133,14 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-            # center text content like images
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
             self.make_color_changeable(nb, fade=True)
 
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
         # ------------------------------------------------------------
-        nb.tk.config(width=button_size, height=button_size)
+        nb.tk.config(width=self.titled_button_size, height=self.titled_button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
-        # For TitleBox children, ensure the button sits at the top-left content area (not below caption)
-        # if titlebox_text:
-        #     try:
-        #         # Use place to pin inside the LabelFrame client area consistently
-        #         nb.tk.place(relx=0.5, rely=0.5, anchor="center", width=button_size, height=button_size)
-        #     except tk.TclError:
-        #         pass
 
         cell.visible = visible
         return cell, nb
