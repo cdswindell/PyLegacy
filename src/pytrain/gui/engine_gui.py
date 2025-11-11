@@ -473,7 +473,7 @@ class EngineGui(Thread, Generic[S]):
             color="black",
             align="top",
             bold=True,
-            size=self.s_22,
+            size=self.s_18,
             width=3,
             font="DigitalDream",
         )
