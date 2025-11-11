@@ -40,6 +40,28 @@ SERVICE_TYPE = f"_{PROGRAM_NAME.lower()}._tcp.local."
 SERVICE_NAME = f"{PROGRAM_NAME}-Server.{SERVICE_TYPE}"
 
 
+def all_descendants(cls):
+    """
+    Recursively retrieves all descendant classes for a given class.
+
+    This function explores the inheritance hierarchy of a class and identifies
+    all the subclasses derived from it, including nested subclasses at all
+    levels of inheritance.
+
+    Args:
+        cls: The class whose descendants are to be retrieved.
+
+    Returns:
+        A list of all descendant classes including direct and indirect subclasses
+        of the input class.
+    """
+    descendants = []
+    for subclass in cls.__subclasses__():
+        descendants.append(subclass)
+        descendants.extend(all_descendants(subclass))
+    return descendants
+
+
 class Mixins(Enum):
     """
     Common mixins we want all PyLegacy enums to support

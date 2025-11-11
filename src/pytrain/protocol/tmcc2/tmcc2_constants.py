@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 from enum import unique
-from typing import Dict, Tuple
+from typing import Dict, Tuple, cast
 
 from range_key_dict import RangeKeyDict
 
@@ -15,6 +15,7 @@ from ..constants import (
     CommandScope,
     CommandSyntax,
     OfficialRRSpeeds,
+    all_descendants,
 )
 
 LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: int = 0xFA
@@ -33,6 +34,36 @@ class TMCC2Enum(CommandDefEnum):
     """
 
     pass
+
+
+class TMCC2EngineOpsEnum(CommandDefEnum):
+    """
+    Marker Interface for all TMCC2 Engine/Train operation enums
+    """
+
+    @classmethod
+    def descendants(cls):
+        """
+        Recursively retrieves all descendant classes for a given class.
+
+        This function explores the inheritance hierarchy of a class and identifies
+        all the subclasses derived from it, including nested subclasses at all
+        levels of inheritance.
+        """
+        return all_descendants(cls)
+
+    @classmethod
+    def look_up(cls, name: str, raise_exception: bool = False) -> "TMCC2EngineOpsEnum  | None":
+        name = name.strip().upper()
+        for descendant in cls.descendants():
+            print(descendant, type(descendant), hasattr(descendant, "by_name"))
+            if hasattr(descendant, "by_name"):
+                result = cast(CommandDefEnum, descendant).by_name(name, False)
+                if isinstance(result, TMCC2EngineOpsEnum):
+                    return result
+        if raise_exception:
+            raise ValueError(f"TMCC2EngineOpsEnum: {name} not found")
+        return None
 
 
 """
@@ -275,7 +306,7 @@ class TMCC2RRSpeedsEnum(OfficialRRSpeeds):
 
 
 @unique
-class TMCC2EngineCommandEnum(TMCC2Enum):
+class TMCC2EngineCommandEnum(TMCC2Enum, TMCC2EngineOpsEnum):
     ABSOLUTE_SPEED = TMCC2CommandDef(TMCC2_SET_ABSOLUTE_SPEED_COMMAND, d_max=199, filtered=True, d4_broadcast=True)
     AUGER = TMCC2CommandDef(TMCC2_ENG_AUGER_SOUND_COMMAND)
     AUX1_OFF = TMCC2CommandDef(TMCC2_AUX1_OFF_COMMAND)

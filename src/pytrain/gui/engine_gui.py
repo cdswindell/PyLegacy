@@ -40,7 +40,7 @@ from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
-from ..protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandEnum
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineOpsEnum, TMCC2RouteCommandEnum
 from ..utils.path_utils import find_file
 from ..utils.unique_deque import UniqueDeque
 
@@ -1516,9 +1516,8 @@ class EngineGui(Thread, Generic[S]):
         if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
             state = self._state_store.get_state(scope, tmcc_id, False)
             if state:
-                cmd_enum = None
                 if state.is_legacy:
-                    pass
+                    cmd_enum = TMCC2EngineOpsEnum.look_up(cmd)
                 else:
                     cmd_enum = TMCC1EngineCommandEnum.by_name(cmd)
                 if cmd_enum:

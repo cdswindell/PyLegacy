@@ -103,6 +103,7 @@ from .protocol.tmcc1.tmcc1_constants import (
 )
 from .protocol.tmcc2.tmcc2_constants import (
     TMCC2EngineCommandEnum,  # noqa: F401
+    TMCC2EngineOpsEnum,  # noqa: F401
     TMCC2HaltCommandEnum,  # noqa: F401
     TMCC2RouteCommandEnum,  # noqa: F401
     TMCC2RRSpeedsEnum,  # noqa: F401

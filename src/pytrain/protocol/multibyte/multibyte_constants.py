@@ -10,6 +10,7 @@ from ..tmcc2.tmcc2_constants import (
     TMCC2_SOUND_ON_COMMAND,
     TMCC2CommandDef,
     TMCC2CommandPrefix,
+    TMCC2EngineOpsEnum,
     TMCC2Enum,
 )
 
@@ -18,7 +19,7 @@ from ..tmcc2.tmcc2_constants import (
 """
 
 
-class TMCC2MultiByteEnum(TMCC2Enum):
+class TMCC2MultiByteEnum(TMCC2Enum, TMCC2EngineOpsEnum):
     """
     Marker Interface for all TMCC2 enums
     """
