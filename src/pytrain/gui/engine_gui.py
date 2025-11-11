@@ -39,6 +39,7 @@ from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
+from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum, TMCC2RouteCommandEnum
 from ..utils.path_utils import find_file
@@ -62,6 +63,8 @@ AC_OFF_KEY = "AC OFF"
 AUX1_KEY = "Aux1"
 AUX2_KEY = "Aux2"
 AUX3_KEY = "Aux3"
+SMOKE_ON = "SMOKE ON"
+SMOKE_OFF = "SMOKE OFF"
 
 ENTRY_LAYOUT = [
     ["1", "2", "3"],
@@ -73,8 +76,8 @@ ENTRY_LAYOUT = [
 ENGINE_OPS_LAYOUT = [
     [("VOLUME_UP", "vol-up.jpg"), ("ENGINEER_CHATTER", "walkie_talkie.png")],
     [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png")],
-    [("FRONT_COUPLER", "front-coupler.jpg"), ("SMOKE_ON", "smoke-up.jpg")],
-    [("REAR_COUPLER", "rear-coupler.jpg"), ("SMOKE_OFF", "smoke-down.jpg")],
+    [("FRONT_COUPLER", "front-coupler.jpg"), (SMOKE_ON, "smoke-up.jpg")],
+    [("REAR_COUPLER", "rear-coupler.jpg"), (SMOKE_OFF, "smoke-down.jpg")],
     [("AUX1_OPTION_ONE", "", AUX1_KEY), ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"), ("AUX3_OPTION_ONE", "", AUX3_KEY)],
 ]
 
@@ -1566,13 +1569,36 @@ class EngineGui(Thread, Generic[S]):
             state = self._state_store.get_state(scope, tmcc_id, False)
             if state:
                 if state.is_legacy:
-                    cmd_enum = TMCC2EngineOpsEnum.look_up(cmd)
+                    # there are a few special cases
+                    if cmd in {SMOKE_ON, SMOKE_OFF}:
+                        cmd_enum = self.get_tmcc2_smoke_cmd(cmd, state)
+                    else:
+                        cmd_enum = TMCC2EngineOpsEnum.look_up(cmd)
                 else:
                     cmd_enum = TMCC1EngineCommandEnum.by_name(cmd)
                 if cmd_enum:
                     cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
                     repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
                     cmd.send(repeat=repeat)
+
+    @staticmethod
+    def get_tmcc2_smoke_cmd(cmd: str, state: EngineState) -> TMCC2EngineOpsEnum | None:
+        cur_smoke = state.smoke_level
+        if cmd == SMOKE_ON:  # increase smoke
+            if cur_smoke == TMCC2EffectsControl.SMOKE_OFF:
+                return TMCC2EffectsControl.SMOKE_OFF
+            elif cur_smoke == TMCC2EffectsControl.SMOKE_LOW:
+                return TMCC2EffectsControl.SMOKE_MEDIUM
+            elif cur_smoke == TMCC2EffectsControl.SMOKE_MEDIUM:
+                return TMCC2EffectsControl.SMOKE_HIGH
+        elif cmd == SMOKE_OFF:  # decrease smoke
+            if cur_smoke == TMCC2EffectsControl.SMOKE_LOW:
+                return TMCC2EffectsControl.SMOKE_OFF
+            elif cur_smoke == TMCC2EffectsControl.SMOKE_MEDIUM:
+                return TMCC2EffectsControl.SMOKE_LOW
+            elif cur_smoke == TMCC2EffectsControl.SMOKE_HIGH:
+                return TMCC2EffectsControl.SMOKE_MEDIUM
+        return None
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
