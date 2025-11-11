@@ -184,7 +184,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_12: int = int(round(12 * scale_by))
         self.s_10: int = int(round(10 * scale_by))
         self.button_size = int(round(self.width / 5.5))
-        self.titled_button_size = int(round((self.width / 5.5) * 0.8))
+        self.titled_button_size = int(round((self.width / 5.5) * 0.85))
         self.scope_size = int(round(self.width / 5))
         self._text_pad_x = 20
         self._text_pad_y = 20
@@ -1086,27 +1086,18 @@ class EngineGui(Thread, Generic[S]):
         #  Fix cell size (allowing slight flex for TitleBoxes)
         # ------------------------------------------------------------
         if titlebox_text:
-            # Let the TitleBox grow a bit for its label text
-            if image:
-                label_extra = int(self.s_12 * 0.8)  # about one text line of space
-            else:
-                label_extra = 0
-            label_extra = 0
+            # Force the cell to standard button size
             cell.tk.configure(
                 width=self.button_size,
-                height=self.button_size + label_extra,
+                height=self.button_size,
             )
-            # still disable shrinking, but don’t clip internal content
-            if image:
-                cell.tk.pack_propagate(False)
-            else:
-                cell.tk.pack_propagate(False)
         else:
             cell.tk.configure(
                 width=self.button_size,
                 height=self.button_size,
             )
-            cell.tk.pack_propagate(False)
+        # don't let push button grow cell size
+        cell.tk.pack_propagate(False)
 
         # ensure the keypad grid expands uniformly and fills the box height
         extra_pad = max(2, grid_pad_by)
