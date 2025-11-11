@@ -1141,16 +1141,15 @@ class EngineGui(Thread, Generic[S]):
             nb.text_bold = bolded
             nb.text_color = "black"
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
-            if titlebox_text:
-                nb.tk.configure(bd=0, relief="flat", highlightthickness=0)
-                nb.tk.place(x=0, y=-12, relwidth=1, relheight=1)
             self.make_color_changeable(nb, fade=True)
-
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
         # ------------------------------------------------------------
         nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+
+        if titlebox_text and image is None and label:
+            nb.tk.config(pady=20)
 
         cell.visible = visible
         return cell, nb
