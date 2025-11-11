@@ -23,6 +23,7 @@ from guizero.base import Widget
 from guizero.event import EventData
 from PIL import Image, ImageTk
 
+from .. import TMCC2EngineCommandEnum
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
 from ..db.base_state import BaseState
@@ -73,10 +74,14 @@ ENTRY_LAYOUT = [
 ENGINE_OPS_LAYOUT = [
     [("VOLUME_UP", "vol-up.jpg"), ("ENGINEER_CHATTER", "walkie_talkie.png")],
     [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png")],
-    [("FRONT_COUPLER", "front-coupler.jpg")],
-    [("REAR_COUPLER", "rear-coupler.jpg")],
+    [("FRONT_COUPLER", "front-coupler.jpg"), ("SMOKE_ON", "smoke-up.jpg")],
+    [("REAR_COUPLER", "rear-coupler.jpg"), ("SMOKE_OFF", "smoke-down.jpg")],
     [("AUX1_OPTION_ONE", "", AUX1_KEY), ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"), ("AUX3_OPTION_ONE", "", AUX3_KEY)],
 ]
+
+REPEAT_EXCEPTIONS = {
+    TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,
+}
 
 SENSOR_TRACK_OPTS = [
     ["No Action", 0],
@@ -1554,7 +1559,8 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
-    def on_engine_command(self, cmd: str, data: int = 0) -> None:
+    def on_engine_command(self, cmd: str, data: int = 0, repeat: int = None) -> None:
+        repeat = repeat if repeat else self.repeat
         scope = self.scope
         tmcc_id = self._scope_tmcc_ids[scope]
         if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
@@ -1566,7 +1572,8 @@ class EngineGui(Thread, Generic[S]):
                     cmd_enum = TMCC1EngineCommandEnum.by_name(cmd)
                 if cmd_enum:
                     cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
-                    cmd.send(repeat=self.repeat)
+                    repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
+                    cmd.send(repeat=repeat)
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
