@@ -910,13 +910,12 @@ class EngineGui(Thread, Generic[S]):
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, border=2, align="top")
 
-
         # ───────────────────────────────
         # Left: ID box
         # ───────────────────────────────
         self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="left")
         tmcc_id_box.text_size = self.s_12
-        self.tmcc_id_text = Text(tmcc_id_box, text="0000", align="left", bold=True)
+        self.tmcc_id_text = Text(tmcc_id_box, text="0000", align="left", bold=True, width=4)
         self.tmcc_id_text.text_color = "blue"
         self.tmcc_id_text.text_size = self.s_20
 
