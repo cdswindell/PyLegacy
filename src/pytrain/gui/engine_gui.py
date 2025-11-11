@@ -75,7 +75,7 @@ ENGINE_OPS_LAYOUT = [
     [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png")],
     [("FRONT_COUPLER", "front-coupler.jpg")],
     [("REAR_COUPLER", "rear-coupler.jpg")],
-    [("AUX1_OPTION_ONE", '', AUX1_KEY), ("AUX2_OPTION_ONE", '', AUX2_KEY), ("AUX3_OPTION_ONE", '', AUX3_KEY)],
+    [("AUX1_OPTION_ONE", '', AUX1_KEY), ("AUX2_OPTION_ONE", '', AUX2_KEY, 'Lights'), ("AUX3_OPTION_ONE", '', AUX3_KEY)],
 ]
 
 SENSOR_TRACK_OPTS = [
@@ -1078,7 +1078,9 @@ class EngineGui(Thread, Generic[S]):
                 # Also adjust the internal child frame (content area)
                 children = lf.winfo_children()
                 for child in children:
-                    if isinstance(child, tk.Frame):
+                    if label == AUX2_KEY:
+                        print(f"Aux 2: {child}")
+                    if isinstance(child, tk.LabelFrame):
                         # This is the inner content frame that holds your PushButton
                         child.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
                         child.pack_propagate(False)
