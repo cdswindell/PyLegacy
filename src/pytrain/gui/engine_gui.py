@@ -1159,34 +1159,25 @@ class EngineGui(Thread, Generic[S]):
         return cell, nb
 
     @staticmethod
-    def tighten_titlebox_padding(titlebox, y_offset: int = -6):
+    def tighten_titlebox_padding(titlebox, adjust_caption_space_px=6):
         """
-        Reduce the vertical offset of widgets inside a guizero.TitleBox
-        by moving the *inner* content frame upward a few pixels.
+        Reduce the extra vertical padding inside a guizero.TitleBox
+        so its contents (like PushButtons) align with those in plain Box cells.
 
-        Works with Tk 8.6 (Raspberry Pi, Linux, macOS) where LabelFrame has
-        an internal content frame holding user children.
+        Works with Tk 8.6 (used on Raspberry Pi OS).
         """
         try:
-            lf = titlebox.tk  # this is the tk.LabelFrame
-
-            # LabelFrame auto-creates an internal content frame as its first child
-            inner_children = lf.winfo_children()
-            if not inner_children:
-                return
-
-            content_frame = inner_children[0]
-
-            # Set tighter geometry on the LabelFrame itself
+            lf = titlebox.tk  # underlying tk.LabelFrame
+            # 1️⃣ Force caption to top-left corner and remove label padding
             lf.configure(labelanchor="nw", padx=0, pady=0)
-            lf.update_idletasks()
 
-            # Move the content frame upward slightly
-            try:
-                content_frame.place_configure(rely=0, y=y_offset)
-            except tk.TclError:
-                # Fallback if it's packed/grid-managed
-                content_frame.pack_configure(pady=(y_offset, 0))
+            # 2️⃣ Measure requested height and trim a few pixels off
+            lf.update_idletasks()
+            h = lf.winfo_reqheight()
+            if h > 0:
+                new_h = max(0, h - adjust_caption_space_px)
+                lf.configure(height=new_h)
+
             lf.update_idletasks()
         except tk.TclError as e:
             log.exception(f"Warning adjusting TitleBox padding: {e}", exc_info=e)
