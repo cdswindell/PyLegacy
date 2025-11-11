@@ -184,7 +184,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_12: int = int(round(12 * scale_by))
         self.s_10: int = int(round(10 * scale_by))
         self.button_size = int(round(self.width / 6))
-        self.titled_button_size = int(round((self.width / 6) * 0.83))
+        self.titled_button_size = int(round((self.width / 6) * 0.80))
         self.scope_size = int(round(self.width / 5))
         self._text_pad_x = 20
         self._text_pad_y = 20
@@ -1140,7 +1140,7 @@ class EngineGui(Thread, Generic[S]):
 
         if titlebox_text and image is None and label:
             nb.tk.config(bd=0, borderwidth=0, highlightthickness=0)
-            nb.tk.place_configure(x=0, y=0, relwidth=1, relheight=0.77)
+            nb.tk.place_configure(x=0, y=0, relwidth=1, relheight=0.8)
 
         cell.visible = visible
         return cell, nb
