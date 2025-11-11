@@ -23,7 +23,6 @@ from guizero.base import Widget
 from guizero.event import EventData
 from PIL import Image, ImageTk
 
-from .. import TMCC2EngineCommandEnum
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
 from ..db.base_state import BaseState
@@ -41,7 +40,7 @@ from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineOpsEnum, TMCC2RouteCommandEnum
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum, TMCC2RouteCommandEnum
 from ..utils.path_utils import find_file
 from ..utils.unique_deque import UniqueDeque
 
