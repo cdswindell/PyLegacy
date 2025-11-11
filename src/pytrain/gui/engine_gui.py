@@ -462,6 +462,9 @@ class EngineGui(Thread, Generic[S]):
             border=1,
             align="right",
         )
+        # ensure it pins to the top-right and doesn't stretch vertically
+        throttle_box.tk.pack_propagate(False)
+        throttle_box.tk.pack_configure(anchor="ne")
 
         cell = TitleBox(throttle_box, "Speed", align="top", border=1)
         cell.text_size = self.s_12
