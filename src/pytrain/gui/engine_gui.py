@@ -1142,11 +1142,7 @@ class EngineGui(Thread, Generic[S]):
             nb.text_color = "black"
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
             if titlebox_text:
-                try:
-                    self.tighten_titlebox_padding(cell)
-                except tk.TclError:
-                    pass
-
+                nb.tk.place(x=0, y=-5, relwidth=1, relheight=1)
             self.make_color_changeable(nb, fade=True)
 
         # ------------------------------------------------------------
@@ -1157,30 +1153,6 @@ class EngineGui(Thread, Generic[S]):
 
         cell.visible = visible
         return cell, nb
-
-    @staticmethod
-    def tighten_titlebox_padding(titlebox, adjust_caption_space_px=6):
-        """
-        Reduce the extra vertical padding inside a guizero.TitleBox
-        so its contents (like PushButtons) align with those in plain Box cells.
-
-        Works with Tk 8.6 (used on Raspberry Pi OS).
-        """
-        try:
-            lf = titlebox.tk  # underlying tk.LabelFrame
-            # 1️⃣ Force caption to top-left corner and remove label padding
-            lf.configure(labelanchor="nw", padx=0, pady=0)
-
-            # 2️⃣ Measure requested height and trim a few pixels off
-            lf.update_idletasks()
-            h = lf.winfo_reqheight()
-            if h > 0:
-                new_h = max(0, h - adjust_caption_space_px)
-                lf.configure(height=new_h)
-
-            lf.update_idletasks()
-        except tk.TclError as e:
-            log.exception(f"Warning adjusting TitleBox padding: {e}", exc_info=e)
 
     def on_keypress(self, key: str) -> None:
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
