@@ -47,18 +47,18 @@ from ..utils.unique_deque import UniqueDeque
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
 
-LAYOUT = [
+ENTRY_LAYOUT = [
     ["1", "2", "3"],
     ["4", "5", "6"],
     ["7", "8", "9"],
-    ["⌫", "0", "↵"],
+    [("clr", "delete-key.jpg"), "0", "↵"],
 ]
 
 HALT_KEY = ">> Halt <<"
 SWITCH_THRU_KEY = "↑"
 SWITCH_OUT_KEY = "↖↗"
 FIRE_ROUTE_KEY = "⚡"
-CLEAR_KEY = "⌫"
+CLEAR_KEY = "clr"
 ENTER_KEY = "↵"
 SET_KEY = "Set"
 ENGINE_ON_KEY = "ENGINE ON"
@@ -441,7 +441,7 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             horizontal=False,
             step=1,
-            width=int(self.button_size / 2),
+            width=int(self.button_size / 3),
             height=self.button_size * 4,
         )
         throttle.text_color = "white"
@@ -450,12 +450,12 @@ class EngineGui(Thread, Generic[S]):
             to=0,
             takefocus=0,
             troughcolor="#003366",  # deep Lionel blue for the track,
-            activebackground="#FF6600",  # bright Lionel orange for the handle
-            bg="#001A33",  # darker navy background
+            activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
+            bg="lightgrey",  # darker navy background
             highlightthickness=1,
-            highlightbackground="#FF6600",  # subtle orange outline
-            width=60,
-            sliderlength=80,
+            highlightbackground=LIONEL_ORANGE,  # subtle orange outline
+            width=int(self.button_size / 3),
+            sliderlength=self.button_size * 4,
         )
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
         throttle.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
@@ -701,8 +701,14 @@ class EngineGui(Thread, Generic[S]):
         )
 
         row = 0
-        for r, kr in enumerate(LAYOUT):
+        for r, kr in enumerate(ENTRY_LAYOUT):
             for c, label in enumerate(kr):
+                if isinstance(label, tuple):
+                    image = find_file(label[1])
+                    label = label[0]
+                else:
+                    image = None
+
                 cell, nb = self.make_keypad_button(
                     keypad_keys,
                     label,
@@ -713,12 +719,10 @@ class EngineGui(Thread, Generic[S]):
                     bolded=True,
                     command=self.on_keypress,
                     args=[label],
+                    image=image,
                 )
 
                 if label == CLEAR_KEY:
-                    nb.text_color = "red"
-                    nb.text_size = self.s_30
-                    nb.text_bold = False
                     self.clear_key_cell = cell
                     self.entry_cells.add(cell)
                 elif label == ENTER_KEY:
