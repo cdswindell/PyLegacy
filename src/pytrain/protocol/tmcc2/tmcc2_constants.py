@@ -56,7 +56,6 @@ class TMCC2EngineOpsEnum(CommandDefEnum):
     def look_up(cls, name: str, raise_exception: bool = False) -> "TMCC2EngineOpsEnum  | None":
         name = name.strip().upper()
         for descendant in cls.descendants():
-            print(descendant, type(descendant), hasattr(descendant, "by_name"))
             if hasattr(descendant, "by_name"):
                 result = cast(CommandDefEnum, descendant).by_name(name, False)
                 if isinstance(result, TMCC2EngineOpsEnum):
