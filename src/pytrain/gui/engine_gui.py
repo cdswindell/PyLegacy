@@ -462,7 +462,6 @@ class EngineGui(Thread, Generic[S]):
                     label,
                     row,
                     c,
-                    size=self.s_18,
                     visible=True,
                     bolded=True,
                     command=self.on_engine_command,
