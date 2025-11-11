@@ -1063,7 +1063,8 @@ class EngineGui(Thread, Generic[S]):
             command = self.on_keypress
 
         if size is None and label:
-            size = self.s_24 if label in FONT_SIZE_EXCEPTIONS else self.s_18
+            size = self.s_30 if label in FONT_SIZE_EXCEPTIONS else self.s_18
+        print(size, self.s_18, self.s_30)
 
         # ------------------------------------------------------------
         #  Create cell container (either TitleBox or Box)
