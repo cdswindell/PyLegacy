@@ -1118,7 +1118,7 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         nb = PushButton(
             cell,
-            align="top",
+            align="bottom",
             command=command,
             args=args,
         )
