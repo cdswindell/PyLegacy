@@ -947,7 +947,7 @@ class EngineGui(Thread, Generic[S]):
 
                 # Fix the overall info_box width permanently
                 id_h = tmcc_id_box.tk.winfo_height()
-                info_box.tk.config(width=total_w, height=id_h + 4)
+                info_box.tk.config(width=total_w, height=id_h + 2)
                 info_box.tk.pack_propagate(False)  # <- prevent any child resizing
 
                 # Compute sub-box dimensions but don’t change the overall width later
