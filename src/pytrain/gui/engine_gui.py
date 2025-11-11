@@ -1254,6 +1254,10 @@ class EngineGui(Thread, Generic[S]):
                 cell.hide()
         if not self.keypad_box.visible:
             self.keypad_box.show()
+        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and self._scope_tmcc_ids[self.scope]:
+            self.reset_btn.enable()
+        else:
+            self.reset_btn.disable()
 
     def ops_mode(self, update_info: bool = True) -> None:
         print(f"ops_mode: {self.scope}")
