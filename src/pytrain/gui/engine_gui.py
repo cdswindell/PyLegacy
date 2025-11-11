@@ -1094,7 +1094,10 @@ class EngineGui(Thread, Generic[S]):
                 height=self.titled_button_size + label_extra,
             )
             # still disable shrinking, but don’t clip internal content
-            cell.tk.pack_propagate(False)
+            if image:
+                cell.tk.pack_propagate(True)
+            else:
+                cell.tk.pack_propagate(False)
         else:
             cell.tk.configure(
                 width=self.button_size,
@@ -1139,7 +1142,7 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
         # ------------------------------------------------------------
-        nb.tk.config(width=self.titled_button_size, height=self.titled_button_size)
+        nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
 
         cell.visible = visible
