@@ -1139,6 +1139,8 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
+            # center text content like images
+            nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
             self.make_color_changeable(nb, fade=True)
 
         # ------------------------------------------------------------
@@ -1146,6 +1148,13 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+        # For TitleBox children, ensure the button sits at the top-left content area (not below caption)
+        if titlebox_text:
+            try:
+                # Use place to pin inside the LabelFrame client area consistently
+                nb.tk.place(relx=0.5, rely=0.5, anchor="center", width=button_size, height=button_size)
+            except tk.TclError:
+                pass
 
         cell.visible = visible
         return cell, nb
