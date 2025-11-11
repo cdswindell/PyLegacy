@@ -1142,7 +1142,7 @@ class EngineGui(Thread, Generic[S]):
             nb.text_color = "black"
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
             if titlebox_text:
-                nb.tk.place(x=0, y=-5, relwidth=1, relheight=1)
+                nb.tk.place(x=0, y=-10, relwidth=1, relheight=1)
             self.make_color_changeable(nb, fade=True)
 
         # ------------------------------------------------------------
