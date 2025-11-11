@@ -1143,7 +1143,7 @@ class EngineGui(Thread, Generic[S]):
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
             try:
                 # Move the tk.Button upward by 5–8 pixels to align with Box-based buttons
-                nb.tk.pack_configure(pady=(-int(6 * self._scale_by), 0))
+                nb.tk.pack_configure(pady=(-int(20 * self._scale_by), 0))
             except tk.TclError:
                 pass
 
