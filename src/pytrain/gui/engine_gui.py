@@ -1142,7 +1142,9 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
+            print(nb.text_font)
             nb.text_font = fonts
+            print(nb.text_font)
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
             self.make_color_changeable(nb, fade=True)
         # ------------------------------------------------------------
