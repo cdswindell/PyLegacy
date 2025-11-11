@@ -11,12 +11,12 @@ import atexit
 import io
 import logging
 import tkinter as tk
-from tkinter.font import Font
 from concurrent.futures import Future, ThreadPoolExecutor
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
+from tkinter.font import Font
 from typing import Any, Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
