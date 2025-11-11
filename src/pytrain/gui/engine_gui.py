@@ -75,6 +75,7 @@ ENGINE_OPS_LAYOUT = [
     [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png")],
     [("FRONT_COUPLER", "front-coupler.jpg")],
     [("REAR_COUPLER", "rear-coupler.jpg")],
+    [("AUX1_OPTION_ONE", None, AUX1_KEY), ("AUX2_OPTION_ONE", None, AUX2_KEY), ("AUX3_OPTION_ONE", None, AUX3_KEY)],
 ]
 
 SENSOR_TRACK_OPTS = [
@@ -428,15 +429,17 @@ class EngineGui(Thread, Generic[S]):
         row = 0
         for r, kr in enumerate(ENGINE_OPS_LAYOUT):
             for c, op in enumerate(kr):
-                if isinstance(op, tuple):
-                    image = find_file(op[1])
+                image = None
+                label = op
+                if isinstance(op, tuple) and op:
                     op = op[0]
-                else:
-                    image = None
-
+                    if len(op) > 1 and op[1]:
+                        image = find_file(op[1])
+                    if len(op) > 2 and op[2]:
+                        label = str(op[2])
                 cell, nb = self.make_keypad_button(
                     keypad_keys,
-                    op,
+                    label,
                     row,
                     c,
                     size=self.s_22 if op.isdigit() else self.s_24,
