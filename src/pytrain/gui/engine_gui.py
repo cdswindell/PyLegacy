@@ -409,6 +409,7 @@ class EngineGui(Thread, Generic[S]):
             self.app = None
             self._ev.set()
 
+    # noinspection PyTypeChecker
     def make_controller(self, app):
         self.controller_box = controller_box = Box(
             app,
@@ -432,7 +433,6 @@ class EngineGui(Thread, Generic[S]):
                 image = None
                 label = None
                 if isinstance(op, tuple):
-                    print(op)
                     if len(op) > 1 and op[1]:
                         image = find_file(op[1])
                     if len(op) > 2 and op[2]:
@@ -444,7 +444,7 @@ class EngineGui(Thread, Generic[S]):
                     label,
                     row,
                     c,
-                    size=self.s_22,
+                    size=self.s_18,
                     visible=True,
                     bolded=True,
                     command=self.on_engine_command,
