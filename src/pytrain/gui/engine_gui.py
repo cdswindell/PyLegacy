@@ -1056,6 +1056,7 @@ class EngineGui(Thread, Generic[S]):
                 keypad_box,
                 titlebox_text,
                 layout="auto",
+                align="bottom",
                 grid=[col, row],
                 visible=True,
             )
@@ -1074,7 +1075,7 @@ class EngineGui(Thread, Generic[S]):
             except (tk.TclError, AttributeError) as e:
                 log.exception(f"Warning adjusting LabelFrame padding: {e}", exc_info=e)
         else:
-            cell = Box(keypad_box, layout="auto", grid=[col, row], visible=True)
+            cell = Box(keypad_box, layout="auto", grid=[col, row], align="bottom", visible=True)
             button_size = self.button_size
             grid_pad_by = self.grid_pad_by
 
