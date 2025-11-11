@@ -1141,11 +1141,14 @@ class EngineGui(Thread, Generic[S]):
             nb.text_bold = bolded
             nb.text_color = "black"
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
-            try:
-                # Move the tk.Button upward by 5–8 pixels to align with Box-based buttons
-                nb.tk.pack_configure(pady=(-int(20 * self._scale_by), 0))
-            except tk.TclError:
-                pass
+            if titlebox_text:
+                try:
+                    print(f"titlebox: {titlebox_text} {nb.tk.config()}")
+                    nb.tk.config(font=("TkDefaultFont", size))
+                    # Move the tk.Button upward by 5–8 pixels to align with Box-based buttons
+                    nb.tk.pack_configure(pady=(-int(20 * self._scale_by), 0))
+                except tk.TclError:
+                    pass
 
             self.make_color_changeable(nb, fade=True)
 
