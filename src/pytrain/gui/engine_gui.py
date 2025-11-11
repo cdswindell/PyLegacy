@@ -75,7 +75,7 @@ ENGINE_OPS_LAYOUT = [
     [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png")],
     [("FRONT_COUPLER", "front-coupler.jpg")],
     [("REAR_COUPLER", "rear-coupler.jpg")],
-    [("AUX1_OPTION_ONE", '', AUX1_KEY), ("AUX2_OPTION_ONE", '', AUX2_KEY, 'Lights'), ("AUX3_OPTION_ONE", '', AUX3_KEY)],
+    [("AUX1_OPTION_ONE", "", AUX1_KEY), ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"), ("AUX3_OPTION_ONE", "", AUX3_KEY)],
 ]
 
 SENSOR_TRACK_OPTS = [
@@ -1058,9 +1058,8 @@ class EngineGui(Thread, Generic[S]):
                 layout="auto",
                 grid=[col, row],
                 visible=True,
-                width=self.button_size,
-                height=self.button_size,
             )
+            # cell.tk.configure(width=self.button_size, height=self.button_size)
             cell.text_size = self.s_12
             button_size = self.titled_button_size
             grid_pad_by = 0
