@@ -71,9 +71,10 @@ ENTRY_LAYOUT = [
 ]
 
 ENGINE_OPS_LAYOUT = [
-    [("ENGINEER_CHATTER", "walkie_talkie.png"), ("TOWER_CHATTER", "tower.png")],
-    [("VOLUME_UP", "vol-up.jpg")],
-    [("VOLUME_DOWN", "vol-down.jpg")],
+    [("VOLUME_UP", "vol-up.jpg"), ("ENGINEER_CHATTER", "walkie_talkie.png")],
+    [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png")],
+    [("FRONT_COUPLER", "front-coupler.jpg")],
+    [("REAR_COUPLER", "rear-coupler.jpg")],
 ]
 
 SENSOR_TRACK_OPTS = [
@@ -261,6 +262,8 @@ class EngineGui(Thread, Generic[S]):
             CommandScope.TRAIN: self.on_new_engine,
         }
 
+        self.engine_ops_cells = {}
+
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
         self._is_closed = False
@@ -431,7 +434,7 @@ class EngineGui(Thread, Generic[S]):
                 else:
                     image = None
 
-                self.make_keypad_button(
+                cell, nb = self.make_keypad_button(
                     keypad_keys,
                     op,
                     row,
@@ -443,6 +446,9 @@ class EngineGui(Thread, Generic[S]):
                     args=[op],
                     image=image,
                 )
+                if op in self.engine_ops_cells:
+                    print(f"Duplicate engine op: {op}")
+                self.engine_ops_cells[op] = (cell, nb)
             row += 1
 
         # throttle
