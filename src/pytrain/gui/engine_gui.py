@@ -11,7 +11,7 @@ import atexit
 import io
 import logging
 import tkinter as tk
-import tkinter.font as tkFont
+from tkinter.font import Font
 from concurrent.futures import Future, ThreadPoolExecutor
 from io import BytesIO
 from queue import Empty, Queue
@@ -66,7 +66,7 @@ AUX2_KEY = "Aux2"
 AUX3_KEY = "Aux3"
 SMOKE_ON = "SMOKE ON"
 SMOKE_OFF = "SMOKE OFF"
-BELL_KEY = "\U0001f514\U0001f515\U0001f56d"
+BELL_KEY = "\U0001f514"
 BELL_MUTE_KEY = "🔕"
 
 FONT_STACK = "DejaVu Sans, Noto Color Emoji"
@@ -88,6 +88,10 @@ ENGINE_OPS_LAYOUT = [
 
 REPEAT_EXCEPTIONS = {
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,
+}
+
+FONT_SIZE_EXCEPTIONS = {
+    BELL_KEY,
 }
 
 SENSOR_TRACK_OPTS = [
@@ -1059,7 +1063,7 @@ class EngineGui(Thread, Generic[S]):
             command = self.on_keypress
 
         if size is None and label:
-            size = self.s_18
+            size = self.s_24 if label in FONT_SIZE_EXCEPTIONS else self.s_18
 
         # ------------------------------------------------------------
         #  Create cell container (either TitleBox or Box)
@@ -1144,9 +1148,8 @@ class EngineGui(Thread, Generic[S]):
             nb.text_color = "black"
 
             style = "bold" if nb.text_bold else "normal"
-
             # noinspection PyTypeChecker
-            font_stack = tkFont.Font(
+            font_stack = Font(
                 family="DejaVu Sans",  # primary
                 size=nb.text_size,
                 weight=style,
