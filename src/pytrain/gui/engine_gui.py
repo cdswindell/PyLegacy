@@ -1059,7 +1059,7 @@ class EngineGui(Thread, Generic[S]):
                 grid=[col, row],
                 visible=True,
             )
-            # cell.tk.configure(width=self.button_size, height=self.button_size)
+            cell.tk.configure(width=self.button_size, height=self.button_size)
             cell.text_size = self.s_12
             button_size = self.titled_button_size
             grid_pad_by = 0
@@ -1076,6 +1076,8 @@ class EngineGui(Thread, Generic[S]):
 
                 # Also adjust the internal child frame (content area)
                 children = lf.winfo_children()
+                if label == AUX2_KEY:
+                    print(f"Aux 2: {lf} {children}")
                 for child in children:
                     if label == AUX2_KEY:
                         print(f"Aux 2: {child}")
@@ -1106,7 +1108,8 @@ class EngineGui(Thread, Generic[S]):
                 height=self.button_size + label_extra,
             )
             # still disable shrinking, but don’t clip internal content
-            cell.tk.pack_propagate(True)
+            #cell.tk.pack_propagate(True)
+            cell.tk.pack_propagate(False)
         else:
             cell.tk.configure(
                 width=self.button_size,
