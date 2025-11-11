@@ -11,6 +11,7 @@ import atexit
 import io
 import logging
 import tkinter as tk
+import tkinter.font as tkFont
 from concurrent.futures import Future, ThreadPoolExecutor
 from io import BytesIO
 from queue import Empty, Queue
@@ -1049,7 +1050,6 @@ class EngineGui(Thread, Generic[S]):
         titlebox_text: str = None,
         command: Callable | None = None,
         args: list = None,
-        fonts=FONT_STACK,
     ):
         if args is None:
             args = [label]
@@ -1142,7 +1142,15 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-            nb.tk.config(compound="center", anchor="center", padx=0, pady=0, font=(fonts, nb.text_size))
+
+            style = "bold" if nb.text_bold else "normal"
+
+            font_stack = tkFont.Font(
+                family="DejaVu Sans",  # primary
+                size=nb.text_size,
+                weight=style,
+            )
+            nb.tk.config(compound="center", anchor="center", padx=0, pady=0, font=font_stack)
             self.make_color_changeable(nb, fade=True)
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
