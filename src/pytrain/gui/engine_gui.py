@@ -1140,17 +1140,17 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-            nb.tk.config(compound="center", padx=0)
+            nb.tk.config(compound="center", anchor="center", padx=0)
             if titlebox_text:
                 # Adjust padding to visually align text baseline with Box-contained PushButtons
                 # TitleBox reserves a few extra pixels for the frame caption, so bias downward
                 nb.tk.config(
-                    pady=6,  # slightly larger bottom pad to drop text lower
+                    pady=15,  # slightly larger bottom pad to drop text lower
                     anchor="center",  # center vertically instead of top-align
                 )
             else:
                 # Standard Box buttons stay centered by default
-                nb.tk.config(pady=0, anchor="center")
+                nb.tk.config(pady=0)
 
             self.make_color_changeable(nb, fade=True)
 
