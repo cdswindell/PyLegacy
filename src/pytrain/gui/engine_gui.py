@@ -182,6 +182,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_18: int = int(round(18 * scale_by))
         self.s_16: int = int(round(16 * scale_by))
         self.s_12: int = int(round(12 * scale_by))
+        self.s_10: int = int(round(10 * scale_by))
         self.button_size = int(round(self.width / 5.5))
         self.titled_button_size = int(round((self.width / 5.5) * 0.9))
         self.scope_size = int(round(self.width / 5))
@@ -1046,7 +1047,7 @@ class EngineGui(Thread, Generic[S]):
             command = self.on_keypress
 
         if size is None and label:
-            size = self.s_22 if label.isdigit() else self.s_24
+            size = self.s_18
 
         # ------------------------------------------------------------
         #  Create cell container (either TitleBox or Box)
@@ -1061,16 +1062,13 @@ class EngineGui(Thread, Generic[S]):
                 visible=True,
             )
             cell.tk.configure(width=self.button_size, height=self.button_size)
-            cell.text_size = self.s_12
+            cell.text_size = self.s_10
             button_size = self.titled_button_size
             grid_pad_by = 0
-
             # Force TitleBox label to top-left
             try:
                 lf = cell.tk  # The underlying tk.LabelFrame inside your TitleBox
-                # Move title to top-left and reduce reserved caption space
                 lf.configure(labelanchor="nw", padx=0, pady=0)
-                # Force Tk to recompute geometry after the config change
                 lf.update_idletasks()
             except (tk.TclError, AttributeError) as e:
                 log.exception(f"Warning adjusting LabelFrame padding: {e}", exc_info=e)
@@ -1093,13 +1091,14 @@ class EngineGui(Thread, Generic[S]):
                 label_extra = int(self.s_12 * 0.8)  # about one text line of space
             else:
                 label_extra = 0
+            label_extra = 0
             cell.tk.configure(
                 width=self.button_size,
                 height=self.button_size + label_extra,
             )
             # still disable shrinking, but don’t clip internal content
             if image:
-                cell.tk.pack_propagate(True)
+                cell.tk.pack_propagate(False)
             else:
                 cell.tk.pack_propagate(False)
         else:
@@ -1150,7 +1149,7 @@ class EngineGui(Thread, Generic[S]):
 
         if titlebox_text and image is None and label:
             nb.tk.config(bd=0, borderwidth=0, highlightthickness=0)
-            nb.tk.place_configure(x=0, y=0, relwidth=1, relheight=0.75)
+            nb.tk.place_configure(x=0, y=0, relwidth=1, relheight=0.77)
 
         cell.visible = visible
         return cell, nb
