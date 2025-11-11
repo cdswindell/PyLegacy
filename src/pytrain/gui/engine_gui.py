@@ -1145,7 +1145,7 @@ class EngineGui(Thread, Generic[S]):
                 # Adjust padding to visually align text baseline with Box-contained PushButtons
                 # TitleBox reserves a few extra pixels for the frame caption, so bias downward
                 nb.tk.config(
-                    pady=15,  # slightly larger bottom pad to drop text lower
+                    pady=35,  # slightly larger bottom pad to drop text lower
                     anchor="center",  # center vertically instead of top-align
                 )
             else:
