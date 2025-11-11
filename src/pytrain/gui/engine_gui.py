@@ -461,10 +461,8 @@ class EngineGui(Thread, Generic[S]):
             controller_box,
             border=1,
             align="right",
-            width=int(self.button_size / 3),
         )
         # ensure it pins to the top-right and doesn't stretch vertically
-        throttle_box.tk.pack_propagate(False)
         throttle_box.tk.pack_configure(anchor="ne")
 
         cell = TitleBox(throttle_box, "Speed", align="top", border=1)
