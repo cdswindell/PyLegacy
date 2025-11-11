@@ -1145,6 +1145,7 @@ class EngineGui(Thread, Generic[S]):
 
             style = "bold" if nb.text_bold else "normal"
 
+            # noinspection PyTypeChecker
             font_stack = tkFont.Font(
                 family="DejaVu Sans",  # primary
                 size=nb.text_size,
