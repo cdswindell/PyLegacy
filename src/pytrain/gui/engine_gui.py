@@ -910,6 +910,7 @@ class EngineGui(Thread, Generic[S]):
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, border=2, align="top")
 
+
         # ───────────────────────────────
         # Left: ID box
         # ───────────────────────────────
@@ -947,6 +948,7 @@ class EngineGui(Thread, Generic[S]):
                     return
 
                 total_w = self.emergency_box_width or self.emergency_box.tk.winfo_width()
+                info_box.tk.config(width=total_w)
                 new_w = max(0, total_w - id_w)
                 name_box.tk.config(height=id_h, width=new_w)
             except tk.TclError as e:
