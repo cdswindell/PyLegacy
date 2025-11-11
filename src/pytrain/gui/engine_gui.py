@@ -1140,20 +1140,12 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-            nb.tk.config(compound="center", anchor="center", padx=0)
-            if titlebox_text:
-                # Compensate for LabelFrame caption by pulling text down slightly
-                # so that it visually aligns with Box-based buttons.
-                # (Anchor stays centered; pady adds balanced breathing room.)
-                offset = int(2 * self._scale_by)  # tweak this between 2–5 for perfect match
-                nb.tk.config(pady=offset)
-                nb.tk.update_idletasks()
-                # Then shrink the widget height slightly so the extra caption space doesn’t lift it
-                h = nb.tk.winfo_reqheight()
-                nb.tk.configure(height=h - offset)
-            else:
-                # Standard Box buttons stay centered by default
-                nb.tk.config(pady=0)
+            nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
+            try:
+                # Move the tk.Button upward by 5–8 pixels to align with Box-based buttons
+                nb.tk.pack_configure(pady=(-int(6 * self._scale_by), 0))
+            except tk.TclError:
+                pass
 
             self.make_color_changeable(nb, fade=True)
 
