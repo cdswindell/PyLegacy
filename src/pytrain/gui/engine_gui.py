@@ -183,8 +183,8 @@ class EngineGui(Thread, Generic[S]):
         self.s_16: int = int(round(16 * scale_by))
         self.s_12: int = int(round(12 * scale_by))
         self.s_10: int = int(round(10 * scale_by))
-        self.button_size = int(round(self.width / 5.5))
-        self.titled_button_size = int(round((self.width / 5.5) * 0.85))
+        self.button_size = int(round(self.width / 6))
+        self.titled_button_size = int(round((self.width / 6) * 0.83))
         self.scope_size = int(round(self.width / 5))
         self._text_pad_x = 20
         self._text_pad_y = 20
