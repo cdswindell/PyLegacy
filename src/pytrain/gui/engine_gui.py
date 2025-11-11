@@ -65,6 +65,8 @@ AUX2_KEY = "Aux2"
 AUX3_KEY = "Aux3"
 SMOKE_ON = "SMOKE ON"
 SMOKE_OFF = "SMOKE OFF"
+BELL_KEY = "🔔"
+BELL_MUTE_KEY = "🔕"
 
 ENTRY_LAYOUT = [
     ["1", "2", "3"],
@@ -75,7 +77,7 @@ ENTRY_LAYOUT = [
 
 ENGINE_OPS_LAYOUT = [
     [("VOLUME_UP", "vol-up.jpg"), ("ENGINEER_CHATTER", "walkie_talkie.png")],
-    [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png")],
+    [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png"), ("RING_BELL", "", BELL_KEY)],
     [("FRONT_COUPLER", "front-coupler.jpg"), (SMOKE_ON, "smoke-up.jpg")],
     [("REAR_COUPLER", "rear-coupler.jpg"), (SMOKE_OFF, "smoke-down.jpg")],
     [("AUX1_OPTION_ONE", "", AUX1_KEY), ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"), ("AUX3_OPTION_ONE", "", AUX3_KEY)],
