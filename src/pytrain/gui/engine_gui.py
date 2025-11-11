@@ -75,7 +75,7 @@ ENGINE_OPS_LAYOUT = [
     [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png")],
     [("FRONT_COUPLER", "front-coupler.jpg")],
     [("REAR_COUPLER", "rear-coupler.jpg")],
-    [("AUX1_OPTION_ONE", None, AUX1_KEY), ("AUX2_OPTION_ONE", None, AUX2_KEY), ("AUX3_OPTION_ONE", None, AUX3_KEY)],
+    [("AUX1_OPTION_ONE", '', AUX1_KEY), ("AUX2_OPTION_ONE", '', AUX2_KEY, 'Lights'), ("AUX3_OPTION_ONE", '', AUX3_KEY)],
 ]
 
 SENSOR_TRACK_OPTS = [
@@ -430,13 +430,14 @@ class EngineGui(Thread, Generic[S]):
         row = 0
         for r, kr in enumerate(ENGINE_OPS_LAYOUT):
             for c, op in enumerate(kr):
-                image = None
-                label = None
+                image = label = title_text = None
                 if isinstance(op, tuple):
                     if len(op) > 1 and op[1]:
                         image = find_file(op[1])
                     if len(op) > 2 and op[2]:
                         label = str(op[2])
+                    if len(op) > 3 and op[3]:
+                        title_text = str(op[3])
                     op = op[0]
                 print(f"{r}:{c} - op: {op}, image: {image}, label: {label}")
                 cell, nb = self.make_keypad_button(
@@ -450,6 +451,7 @@ class EngineGui(Thread, Generic[S]):
                     command=self.on_engine_command,
                     args=[op],
                     image=image,
+                    titlebox_text=title_text,
                 )
                 if op in self.engine_ops_cells:
                     print(f"Duplicate engine op: {op}")
