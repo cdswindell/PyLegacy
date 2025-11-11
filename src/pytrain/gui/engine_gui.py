@@ -1264,6 +1264,7 @@ class EngineGui(Thread, Generic[S]):
         for cell in self.ops_cells:
             if cell.visible:
                 cell.hide()
+        self.reset_btn.disable()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             state = self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
             self.on_new_engine(state, ops_mode_setup=True)
@@ -1271,6 +1272,8 @@ class EngineGui(Thread, Generic[S]):
                 self.controller_box.show()
             if self.keypad_box.visible:
                 self.keypad_box.hide()
+            if state:
+                self.reset_btn.enable()
         elif self.scope == CommandScope.ROUTE:
             self.on_new_route()
             self.fire_route_cell.show()
