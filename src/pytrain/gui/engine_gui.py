@@ -39,7 +39,7 @@ from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandEnum
 from ..utils.path_utils import find_file
 from ..utils.unique_deque import UniqueDeque
@@ -1496,6 +1496,8 @@ class EngineGui(Thread, Generic[S]):
             padx=self._text_pad_x,
             pady=self._text_pad_y,
             enabled=False,
+            command=self.on_engine_command,
+            args=["RESET"],
         )
         reset_btn.bg = "gray"
         reset_btn.text_color = "black"
@@ -1507,6 +1509,21 @@ class EngineGui(Thread, Generic[S]):
         self.app.tk.update_idletasks()
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
+
+    def on_engine_command(self, cmd: str, data: int = 0) -> None:
+        scope = self.scope
+        tmcc_id = self._scope_tmcc_ids[scope]
+        if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
+            state = self._state_store.get_state(scope, tmcc_id, False)
+            if state:
+                cmd_enum = None
+                if state.is_legacy:
+                    pass
+                else:
+                    cmd_enum = TMCC1EngineCommandEnum.by_name(cmd)
+                if cmd_enum:
+                    cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
+                    cmd.send(repeat=self.repeat)
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
