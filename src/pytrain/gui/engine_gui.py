@@ -1142,12 +1142,15 @@ class EngineGui(Thread, Generic[S]):
             nb.text_color = "black"
             nb.tk.config(compound="center", anchor="center", padx=0)
             if titlebox_text:
-                # Adjust padding to visually align text baseline with Box-contained PushButtons
-                # TitleBox reserves a few extra pixels for the frame caption, so bias downward
-                nb.tk.config(
-                    pady=35,  # slightly larger bottom pad to drop text lower
-                    anchor="center",  # center vertically instead of top-align
-                )
+                # Compensate for LabelFrame caption by pulling text down slightly
+                # so that it visually aligns with Box-based buttons.
+                # (Anchor stays centered; pady adds balanced breathing room.)
+                offset = int(3 * self._scale_by)  # tweak this between 2–5 for perfect match
+                nb.tk.config(pady=offset)
+                nb.tk.update_idletasks()
+                # Then shrink the widget height slightly so the extra caption space doesn’t lift it
+                h = nb.tk.winfo_reqheight()
+                nb.tk.configure(height=h - offset)
             else:
                 # Standard Box buttons stay centered by default
                 nb.tk.config(pady=0)
