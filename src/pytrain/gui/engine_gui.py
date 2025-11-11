@@ -1140,7 +1140,12 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-            nb.tk.config(compound="center", padx=0, pady=0)
+            if titlebox_text:
+                nb.tk.config(
+                    pady=10,  # adds internal vertical padding
+                    anchor="n",  # anchor text toward top (n = north)
+                )
+            # nb.tk.config(compound="center", padx=0, pady=0)
             self.make_color_changeable(nb, fade=True)
 
         # ------------------------------------------------------------
