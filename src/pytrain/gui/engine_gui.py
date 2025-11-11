@@ -47,12 +47,6 @@ from ..utils.unique_deque import UniqueDeque
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
 
-ENTRY_LAYOUT = [
-    ["1", "2", "3"],
-    ["4", "5", "6"],
-    ["7", "8", "9"],
-    [("clr", "delete-key.jpg"), "0", "↵"],
-]
 
 HALT_KEY = ">> Halt <<"
 SWITCH_THRU_KEY = "↑"
@@ -68,6 +62,19 @@ AC_OFF_KEY = "AC OFF"
 AUX1_KEY = "Aux1"
 AUX2_KEY = "Aux2"
 AUX3_KEY = "Aux3"
+
+ENTRY_LAYOUT = [
+    ["1", "2", "3"],
+    ["4", "5", "6"],
+    ["7", "8", "9"],
+    [(CLEAR_KEY, "delete-key.jpg"), "0", ENTER_KEY],
+]
+
+ENGINE_OPS_LAYOUT = [
+    [("ENGINEER_CHATTER", "walkie_talkie.png"), ("TOWER_CHATTER", "tower.png")],
+    [("VOLUME_UP", "vol-up.jpg")],
+    [("VOLUME_DOWN", "vol-down.jpg")],
+]
 
 SENSOR_TRACK_OPTS = [
     ["No Action", 0],
@@ -406,13 +413,38 @@ class EngineGui(Thread, Generic[S]):
             visible=False,
         )
         self.ops_cells.add(controller_box)
+
+        # different engine types have different features
+        # define the common keys first
         self.controller_keypad_box = keypad_keys = Box(
             controller_box,
             layout="grid",
             border=0,
             align="left",
         )
+        row = 0
+        for r, kr in enumerate(ENGINE_OPS_LAYOUT):
+            for c, op in enumerate(kr):
+                if isinstance(op, tuple):
+                    image = find_file(op[1])
+                    op = op[0]
+                else:
+                    image = None
 
+                self.make_keypad_button(
+                    keypad_keys,
+                    op,
+                    row,
+                    c,
+                    size=self.s_22 if op.isdigit() else self.s_24,
+                    visible=True,
+                    bolded=True,
+                    command=self.on_engine_command,
+                    args=[op],
+                    image=image,
+                )
+
+        # throttle
         self.controller_throttle_box = throttle_box = Box(
             controller_box,
             border=1,
@@ -460,7 +492,6 @@ class EngineGui(Thread, Generic[S]):
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
         throttle.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
         throttle.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
-        print(keypad_keys)
 
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):
@@ -1278,6 +1309,8 @@ class EngineGui(Thread, Generic[S]):
             self.on_new_engine(state, ops_mode_setup=True)
             if not self.controller_box.visible:
                 self.controller_box.show()
+            if not self.controller_keypad_box.visible:
+                self.controller_keypad_box.show()
             if self.keypad_box.visible:
                 self.keypad_box.hide()
             if state:
