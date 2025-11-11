@@ -474,7 +474,7 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             bold=True,
             size=self.s_22,
-            width=4,
+            width=3,
             font="DigitalDream",
         )
         speed.bg = "black"
