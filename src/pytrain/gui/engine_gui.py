@@ -442,7 +442,7 @@ class EngineGui(Thread, Generic[S]):
                     label,
                     row,
                     c,
-                    size=self.s_22 if op.isdigit() else self.s_24,
+                    size=self.s_22,
                     visible=True,
                     bolded=True,
                     command=self.on_engine_command,
@@ -1117,7 +1117,6 @@ class EngineGui(Thread, Generic[S]):
         nb = PushButton(
             cell,
             align="top",
-            text=label,
             command=command,
             args=args,
         )
@@ -1134,6 +1133,7 @@ class EngineGui(Thread, Generic[S]):
         else:
             # Make tk.Button fill the entire cell and draw full border
             # only do this for text buttons
+            nb.text = label
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
