@@ -443,6 +443,7 @@ class EngineGui(Thread, Generic[S]):
                     args=[op],
                     image=image,
                 )
+            row += 1
 
         # throttle
         self.controller_throttle_box = throttle_box = Box(
