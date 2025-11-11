@@ -444,7 +444,7 @@ class EngineGui(Thread, Generic[S]):
             width=int(self.button_size / 3),
             height=self.button_size * 4,
         )
-        throttle.text_color = "white"
+        throttle.text_color = "text"
         throttle.tk.config(
             from_=195,
             to=0,
@@ -455,7 +455,7 @@ class EngineGui(Thread, Generic[S]):
             highlightthickness=1,
             highlightbackground=LIONEL_ORANGE,  # subtle orange outline
             width=int(self.button_size / 3),
-            sliderlength=self.button_size * 4,
+            sliderlength=int((self.button_size * 4) / 6),
         )
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
         throttle.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
