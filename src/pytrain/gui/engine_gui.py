@@ -75,7 +75,7 @@ ENGINE_OPS_LAYOUT = [
     [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png")],
     [("FRONT_COUPLER", "front-coupler.jpg")],
     [("REAR_COUPLER", "rear-coupler.jpg")],
-    [("AUX1_OPTION_ONE", '', AUX1_KEY), ("AUX2_OPTION_ONE", '', AUX2_KEY, 'Lights'), ("AUX3_OPTION_ONE", '', AUX3_KEY)],
+    [("AUX1_OPTION_ONE", '', AUX1_KEY), ("AUX2_OPTION_ONE", '', AUX2_KEY), ("AUX3_OPTION_ONE", '', AUX3_KEY)],
 ]
 
 SENSOR_TRACK_OPTS = [
