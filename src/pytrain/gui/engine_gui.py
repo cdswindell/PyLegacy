@@ -444,7 +444,7 @@ class EngineGui(Thread, Generic[S]):
             width=int(self.button_size / 3),
             height=self.button_size * 4,
         )
-        throttle.text_color = "text"
+        throttle.text_color = "black"
         throttle.tk.config(
             from_=195,
             to=0,
