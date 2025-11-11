@@ -908,7 +908,8 @@ class EngineGui(Thread, Generic[S]):
         keypad_box.tk.configure(width=min_total_width, height=min_total_height)
 
     def make_info_box(self, app: App):
-        self.info_box = info_box = Box(app, border=2, align="top")
+        # self.info_box = info_box = Box(app, border=2, align="top")
+        self.info_box = info_box = Box(app, layout="left", border=2, align="top")
 
         # ───────────────────────────────
         # Left: ID box
