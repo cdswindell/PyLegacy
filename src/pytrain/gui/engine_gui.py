@@ -1073,18 +1073,8 @@ class EngineGui(Thread, Generic[S]):
 
                 # Force Tk to recompute geometry after the config change
                 lf.update_idletasks()
-
-                # Also adjust the internal child frame (content area)
-                children = lf.winfo_children()
-                if label == AUX2_KEY:
-                    print(f"Aux 2: {lf} {children}")
-                for child in children:
-                    if label == AUX2_KEY:
-                        print(f"Aux 2: {child}")
-                    if isinstance(child, tk.LabelFrame):
-                        # This is the inner content frame that holds your PushButton
-                        child.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
-                        child.pack_propagate(False)
+                lf.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
+                lf.pack_propagate(False)
             except (tk.TclError, AttributeError) as e:
                 log.exception(f"Warning adjusting LabelFrame padding: {e}", exc_info=e)
         else:
@@ -1108,8 +1098,7 @@ class EngineGui(Thread, Generic[S]):
                 height=self.button_size + label_extra,
             )
             # still disable shrinking, but don’t clip internal content
-            #cell.tk.pack_propagate(True)
-            cell.tk.pack_propagate(False)
+            cell.tk.pack_propagate(True)
         else:
             cell.tk.configure(
                 width=self.button_size,
