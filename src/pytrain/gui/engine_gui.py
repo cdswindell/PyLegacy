@@ -1143,10 +1143,7 @@ class EngineGui(Thread, Generic[S]):
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
             if titlebox_text:
                 try:
-                    print(f"titlebox: {titlebox_text} {nb.tk.config()}")
-                    nb.tk.config(font=("TkDefaultFont", size))
-                    # Move the tk.Button upward by 5–8 pixels to align with Box-based buttons
-                    nb.tk.pack_configure(pady=(-int(20 * self._scale_by), 0))
+                    self.tighten_titlebox_padding(cell)
                 except tk.TclError:
                     pass
 
@@ -1160,6 +1157,29 @@ class EngineGui(Thread, Generic[S]):
 
         cell.visible = visible
         return cell, nb
+
+    @staticmethod
+    def tighten_titlebox_padding(titlebox):
+        """
+        Reduce the internal top padding of a guizero.TitleBox (tk.LabelFrame)
+        so its children align vertically with Box-based widgets.
+        """
+        try:
+            lf = titlebox.tk  # the underlying tk.LabelFrame
+
+            # force the title to top-left
+            lf.configure(labelanchor="nw")
+
+            # adjust the label's internal margin; these options are undocumented
+            # but recognized by the Tk core
+            lf.tk.call(lf._w, "configure", "-labelmargintop", 0)
+            lf.tk.call(lf._w, "configure", "-labelmargin", 0)
+            lf.tk.call(lf._w, "configure", "-labeloutside", 0)
+
+            # ensure it recomputes geometry
+            lf.update_idletasks()
+        except tk.TclError as e:
+            log.exception(f"Warning adjusting TitleBox padding: {e}", exc_info=e)
 
     def on_keypress(self, key: str) -> None:
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
