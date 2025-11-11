@@ -1088,10 +1088,13 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         if titlebox_text:
             # Let the TitleBox grow a bit for its label text
-            label_extra = int(self.s_12 * 0.8)  # about one text line of space
+            if image:
+                label_extra = int(self.s_12 * 0.8)  # about one text line of space
+            else:
+                label_extra = int(self.s_12)
             cell.tk.configure(
                 width=self.button_size,
-                height=self.titled_button_size + label_extra,
+                height=self.button_size + label_extra,
             )
             # still disable shrinking, but don’t clip internal content
             if image:
