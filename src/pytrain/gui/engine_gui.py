@@ -1140,7 +1140,7 @@ class EngineGui(Thread, Generic[S]):
 
         if titlebox_text and image is None and label:
             nb.tk.config(bd=0, borderwidth=0, highlightthickness=0)
-            nb.tk.place_configure(x=0, y=0, relwidth=1, relheight=0.85)
+            nb.tk.place_configure(x=0, y=0, relwidth=1, relheight=0.70)
 
         cell.visible = visible
         return cell, nb
