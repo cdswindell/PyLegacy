@@ -1067,14 +1067,11 @@ class EngineGui(Thread, Generic[S]):
             # Force TitleBox label to top-left
             try:
                 lf = cell.tk  # The underlying tk.LabelFrame inside your TitleBox
-
                 # Move title to top-left and reduce reserved caption space
                 lf.configure(labelanchor="nw", padx=0, pady=0)
 
                 # Force Tk to recompute geometry after the config change
-                lf.update_idletasks()
-                lf.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
-                lf.pack_propagate(False)
+                # lf.update_idletasks()
             except (tk.TclError, AttributeError) as e:
                 log.exception(f"Warning adjusting LabelFrame padding: {e}", exc_info=e)
         else:
@@ -1098,7 +1095,8 @@ class EngineGui(Thread, Generic[S]):
                 height=self.button_size + label_extra,
             )
             # still disable shrinking, but don’t clip internal content
-            cell.tk.pack_propagate(True)
+            if image:
+                cell.tk.pack_propagate(True)
         else:
             cell.tk.configure(
                 width=self.button_size,
