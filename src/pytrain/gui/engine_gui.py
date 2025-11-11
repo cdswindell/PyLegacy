@@ -1071,7 +1071,7 @@ class EngineGui(Thread, Generic[S]):
                 lf.configure(labelanchor="nw", padx=0, pady=0)
 
                 # Force Tk to recompute geometry after the config change
-                # lf.update_idletasks()
+                lf.update_idletasks()
             except (tk.TclError, AttributeError) as e:
                 log.exception(f"Warning adjusting LabelFrame padding: {e}", exc_info=e)
         else:
@@ -1097,10 +1097,11 @@ class EngineGui(Thread, Generic[S]):
                 height=self.button_size + label_extra,
             )
             # still disable shrinking, but don’t clip internal content
-            if image:
-                cell.tk.pack_propagate(True)
-            elif label:
-                cell.tk.pack_propagate(False)
+            cell.tk.pack_propagate(True)
+            # if image:
+            #     cell.tk.pack_propagate(True)
+            # elif label:
+            #     cell.tk.pack_propagate(False)
         else:
             cell.tk.configure(
                 width=self.button_size,
@@ -1149,12 +1150,12 @@ class EngineGui(Thread, Generic[S]):
         nb.tk.config(width=button_size, height=button_size)
         nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
         # For TitleBox children, ensure the button sits at the top-left content area (not below caption)
-        if titlebox_text:
-            try:
-                # Use place to pin inside the LabelFrame client area consistently
-                nb.tk.place(relx=0.5, rely=0.5, anchor="center", width=button_size, height=button_size)
-            except tk.TclError:
-                pass
+        # if titlebox_text:
+        #     try:
+        #         # Use place to pin inside the LabelFrame client area consistently
+        #         nb.tk.place(relx=0.5, rely=0.5, anchor="center", width=button_size, height=button_size)
+        #     except tk.TclError:
+        #         pass
 
         cell.visible = visible
         return cell, nb
