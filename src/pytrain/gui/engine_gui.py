@@ -938,18 +938,20 @@ class EngineGui(Thread, Generic[S]):
                 # Force the ID box to compute geometry first
                 tmcc_id_box.tk.update_idletasks()
 
-                id_h = tmcc_id_box.tk.winfo_height()
-                id_w = tmcc_id_box.tk.winfo_width()
-
-                if id_w <= 1:
-                    # still not realized? try again shortly
+                # Determine target width from the emergency box
+                total_w = self.emergency_box_width or self.emergency_box.tk.winfo_width()
+                if total_w is None or total_w <= 1:
                     app.tk.after(50, adjust_road_name_box)
                     return
 
-                total_w = self.emergency_box_width or self.emergency_box.tk.winfo_width()
+                # Fix the overall info_box width permanently
                 info_box.tk.config(width=total_w)
-                new_w = max(0, total_w - id_w)
-                name_box.tk.config(height=id_h, width=new_w)
+                info_box.tk.pack_propagate(False)  # <- prevent any child resizing
+
+                # Compute sub-box dimensions but don’t change the overall width later
+                id_w = self.tmcc_id_box.tk.winfo_width()
+                id_h = self.tmcc_id_box.tk.winfo_height()
+                name_box.tk.config(height=id_h, width=max(0, total_w - id_w))
             except tk.TclError as e:
                 log.exception(f"[adjust_road_name_box] failed: {e}", exc_info=e)
 
