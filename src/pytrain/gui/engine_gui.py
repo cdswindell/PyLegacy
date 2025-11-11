@@ -1088,7 +1088,7 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         if titlebox_text:
             # Let the TitleBox grow a bit for its label text
-            label_extra = int(self.s_12 * 1.2)  # about one text line of space
+            label_extra = int(self.s_12 * 0.8)  # about one text line of space
             cell.tk.configure(
                 width=self.button_size,
                 height=self.titled_button_size + label_extra,
