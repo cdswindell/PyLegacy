@@ -1090,6 +1090,8 @@ class EngineGui(Thread, Generic[S]):
         if titlebox_text:
             # Let the TitleBox grow a bit for its label text
             label_extra = int(self.s_12 * 0.8)  # about one text line of space
+            if label == AUX2_KEY:
+                print(f"Aux2: width: {self.button_size} height: {self.button_size + label_extra}")
             cell.tk.configure(
                 width=self.button_size,
                 height=self.button_size + label_extra,
@@ -1097,6 +1099,8 @@ class EngineGui(Thread, Generic[S]):
             # still disable shrinking, but don’t clip internal content
             if image:
                 cell.tk.pack_propagate(True)
+            elif label:
+                cell.tk.pack_propagate(False)
         else:
             cell.tk.configure(
                 width=self.button_size,
