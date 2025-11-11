@@ -65,8 +65,10 @@ AUX2_KEY = "Aux2"
 AUX3_KEY = "Aux3"
 SMOKE_ON = "SMOKE ON"
 SMOKE_OFF = "SMOKE OFF"
-BELL_KEY = "\U0001F514\U0001F515\U0001F56D"
+BELL_KEY = "\U0001f514\U0001f515\U0001f56d"
 BELL_MUTE_KEY = "🔕"
+
+FONT_STACK = "DejaVu Sans, Noto Color Emoji"
 
 ENTRY_LAYOUT = [
     ["1", "2", "3"],
@@ -1047,6 +1049,7 @@ class EngineGui(Thread, Generic[S]):
         titlebox_text: str = None,
         command: Callable | None = None,
         args: list = None,
+        fonts=FONT_STACK,
     ):
         if args is None:
             args = [label]
@@ -1139,6 +1142,7 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
+            nb.font = fonts
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
             self.make_color_changeable(nb, fade=True)
         # ------------------------------------------------------------
