@@ -461,6 +461,7 @@ class EngineGui(Thread, Generic[S]):
             controller_box,
             border=1,
             align="right",
+            width=int(self.button_size / 3),
         )
         # ensure it pins to the top-right and doesn't stretch vertically
         throttle_box.tk.pack_propagate(False)
@@ -475,6 +476,7 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             bold=True,
             size=self.s_22,
+            width=4,
             font="DigitalDream",
         )
         speed.bg = "black"
