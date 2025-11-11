@@ -456,7 +456,7 @@ class EngineGui(Thread, Generic[S]):
                     if len(op) > 3 and op[3]:
                         title_text = str(op[3])
                     op = op[0]
-                print(f"{r}:{c} - op: {op}, image: {image}, label: {label}")
+
                 cell, nb = self.make_keypad_button(
                     keypad_keys,
                     label,
@@ -1063,7 +1063,6 @@ class EngineGui(Thread, Generic[S]):
 
         if size is None and label:
             size = self.s_30 if label in FONT_SIZE_EXCEPTIONS else self.s_18
-        print(size, self.s_18, self.s_30)
 
         # ------------------------------------------------------------
         #  Create cell container (either TitleBox or Box)
