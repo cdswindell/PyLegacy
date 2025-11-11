@@ -1145,7 +1145,7 @@ class EngineGui(Thread, Generic[S]):
                 # Compensate for LabelFrame caption by pulling text down slightly
                 # so that it visually aligns with Box-based buttons.
                 # (Anchor stays centered; pady adds balanced breathing room.)
-                offset = int(5 * self._scale_by)  # tweak this between 2–5 for perfect match
+                offset = int(2 * self._scale_by)  # tweak this between 2–5 for perfect match
                 nb.tk.config(pady=offset)
                 nb.tk.update_idletasks()
                 # Then shrink the widget height slightly so the extra caption space doesn’t lift it
