@@ -1586,7 +1586,7 @@ class EngineGui(Thread, Generic[S]):
         data: int = 0,
         repeat: int = None,
         do_ops: bool = True,
-        set_entry_mode: bool = True,
+        do_entry: bool = True,
     ) -> None:
         repeat = repeat if repeat else self.repeat
         scope = self.scope
@@ -1612,12 +1612,11 @@ class EngineGui(Thread, Generic[S]):
                         cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
                         repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
                         cmd.send(repeat=repeat)
-                        print(cmd)
-                        if do_ops and self._in_entry_mode is True:
+                        print(cmd, do_ops, self._in_entry_mode)
+                        if do_ops is True and self._in_entry_mode is True:
                             self.ops_mode()
-                        if set_entry_mode and self._in_entry_mode is False:
+                        if do_entry and self._in_entry_mode is False:
                             self.entry_mode()
-
                         return
 
     @staticmethod
