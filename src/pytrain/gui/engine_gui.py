@@ -614,7 +614,7 @@ class EngineGui(Thread, Generic[S]):
         brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
         self._rr_speed_btn = btn = HoldButton(sliders, "RR Speed", grid=[0, 1, 2, 1])
-        btn.text_size = self.s_20
+        btn.text_size = self.s_18
         btn.text_bold = True
 
     # noinspection PyUnusedLocal
