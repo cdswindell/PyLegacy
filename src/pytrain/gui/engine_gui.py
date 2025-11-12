@@ -484,14 +484,20 @@ class EngineGui(Thread, Generic[S]):
         self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
         focus_sink.place(x=-9999, y=-9999, width=1, height=1)
 
-        # throttle
-        self.controller_throttle_box = throttle_box = Box(
+        sliders = Box(
             controller_box,
             border=1,
             align="right",
         )
         # ensure it pins to the top-right and doesn't stretch vertically
-        throttle_box.tk.pack_configure(anchor="n")
+        sliders.tk.pack_configure(anchor="n")
+
+        # throttle
+        self.controller_throttle_box = throttle_box = Box(
+            sliders,
+            border=1,
+            align="right",
+        )
 
         cell = TitleBox(throttle_box, "Speed", align="top", border=1)
         cell.text_size = self.s_10
@@ -535,12 +541,10 @@ class EngineGui(Thread, Generic[S]):
 
         # brake
         self.controller_brake_box = brake_box = Box(
-            controller_box,
+            sliders,
             border=1,
             align="right",
         )
-        # ensure it pins to the top-right and doesn't stretch vertically
-        brake_box.tk.pack_configure(anchor="ne")
 
         cell = TitleBox(brake_box, "Brake", align="top", border=1)
         cell.text_size = self.s_10
