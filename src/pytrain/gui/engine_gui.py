@@ -67,6 +67,8 @@ AUX3_KEY = "Aux3"
 SMOKE_ON = "SMOKE ON"
 SMOKE_OFF = "SMOKE OFF"
 BELL_KEY = "\U0001f514"
+FWD_KEY = " Fwd>"
+REV_KEY = "<Rev "
 
 ENTRY_LAYOUT = [
     ["1", "2", "3"],
@@ -88,9 +90,23 @@ ENGINE_OPS_LAYOUT = [
         ("RPM_DOWN", "rpm-down.jpg"),
         ("RING_BELL", "bell.jpg"),
     ],
-    [("FRONT_COUPLER", "front-coupler.jpg"), (SMOKE_ON, "smoke-up.jpg")],
-    [("REAR_COUPLER", "rear-coupler.jpg"), (SMOKE_OFF, "smoke-down.jpg")],
-    [("AUX1_OPTION_ONE", "", AUX1_KEY), ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"), ("AUX3_OPTION_ONE", "", AUX3_KEY)],
+    [
+        ("FRONT_COUPLER", "front-coupler.jpg"),
+        (SMOKE_ON, "smoke-up.jpg"),
+        None,
+        ("FORWARD_DIRECTION", "", "", FWD_KEY),
+    ],
+    [
+        ("REAR_COUPLER", "rear-coupler.jpg"),
+        (SMOKE_OFF, "smoke-down.jpg"),
+        None,
+        ("REVERSE_DIRECTION", "", "", REV_KEY),
+    ],
+    [
+        ("AUX1_OPTION_ONE", "", AUX1_KEY),
+        ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"),
+        ("AUX3_OPTION_ONE", "", AUX3_KEY),
+    ],
 ]
 
 REPEAT_EXCEPTIONS = {
@@ -453,6 +469,8 @@ class EngineGui(Thread, Generic[S]):
         row = 0
         for r, kr in enumerate(ENGINE_OPS_LAYOUT):
             for c, op in enumerate(kr):
+                if op is None:
+                    continue
                 image = label = title_text = None
                 if isinstance(op, tuple):
                     if len(op) > 1 and op[1]:
