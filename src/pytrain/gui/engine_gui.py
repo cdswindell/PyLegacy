@@ -803,7 +803,7 @@ class EngineGui(Thread, Generic[S]):
         # fill in last row; contents depends on scope
         self.on_key_cell, self.on_btn = self.make_keypad_button(
             keypad_keys,
-            ENGINE_ON_KEY,
+            None,
             row,
             0,
             visible=True,

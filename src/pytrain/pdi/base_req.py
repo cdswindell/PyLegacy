@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from enum import IntEnum, unique
 from math import floor
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, cast
 
 from ..db.comp_data import (
     SCOPE_TO_COMP_MAP,
@@ -207,7 +207,7 @@ class BaseReq(PdiReq, CompDataMixin):
                             cmd.address,
                             pdi_command=PdiCommand.BASE_MEMORY,
                             flags=0xC2,
-                            scope=state.scope,
+                            scope=cast(CommandScope, cast(object, state.scope)),
                             start=pkg.offset,
                             data_length=pkg.length,
                             data_bytes=pkg.data_bytes,

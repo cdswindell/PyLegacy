@@ -11,7 +11,7 @@
 
 #
 import logging
-from argparse import ArgumentParser
+from argparse import ArgumentError, ArgumentParser
 from typing import List
 
 from ..protocol.multibyte.multibyte_constants import (
@@ -138,10 +138,22 @@ class EngineCli(CliBaseTMCC):
             help="Send numeric value",
         )
         ops.add_argument(
-            "-pm", "-prime_mover", choices=["on", "off"], nargs="?", type=str, help="Prime mover sound on/off"
+            "-pm",
+            "-prime_mover",
+            choices=["on", "off"],
+            nargs="?",
+            type=str,
+            dest="prime_mover",
+            const="on",
+            help="Prime mover sound on/off",
         )
         ops.add_argument(
-            "-pop", "-pop_off", action="store_const", const="POP_OFF", dest="option", help="Pop off sounds"
+            "-pop",
+            "-pop_off",
+            action="store_const",
+            const="POP_OFF",
+            dest="option",
+            help="Pop off sounds",
         )
         ops.add_argument("-r", "-ring_bell", action="store_const", const="RING_BELL", dest="option", help="Ring bell")
         ops.add_argument("-reset", action="store_const", const="RESET", dest="option", help="Reset engine/train")
@@ -188,9 +200,24 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             help="Shutdown Immediate",
         )
-        ops.add_argument("-sound", choices=["on", "off"], nargs="?", type=str, const="on", help="Sound on/off")
         ops.add_argument(
-            "-sq", "-sequence_control", choices=["on", "off"], nargs="?", type=str, help="Sequence control on/off"
+            "-sound",
+            choices=["on", "off"],
+            nargs="?",
+            type=str,
+            const="on",
+            dest="sound",
+            help="Sound on/off",
+        )
+        ops.add_argument(
+            "-sq",
+            "-sequence_control",
+            choices=["on", "off"],
+            nargs="?",
+            type=str,
+            const="on",
+            dest="sequence_control",
+            help="Sequence control on/off",
         )
         ops.add_argument(
             "-sud",
@@ -566,10 +593,13 @@ class EngineCli(CliBaseTMCC):
                 option = f"sound_{self._args.sound}".upper()
             elif "sequence_control" in self._args and self._args.sequence_control is not None:
                 option = f"sequence_control_{self._args.sequence_control}".upper()
-            elif "prime_mover" in self._args and self._args.prime_mover is not None:
-                option = f"prime_mover{self._args.prime_mover}".upper()
+            elif "prime_mover" in self._args:
+                if self._args.prime_mover is not None:
+                    option = f"prime_{self._args.prime_mover}".upper()
+                else:
+                    raise ArgumentError(None, "Must specify 'on' or 'off', for -prime_mover; use -h for help")
             else:
-                raise ValueError("Must specify an option, use -h for help")
+                raise ArgumentError(None, "Must specify an valid option, use -h for help")
         else:
             option = str(option).strip().upper()
 
@@ -591,4 +621,4 @@ class EngineCli(CliBaseTMCC):
         for enum_class in enum_classes:
             if option in dir(enum_class):
                 return enum_class[option]
-        raise ValueError(f"Invalid {self.command_format.name} option: {option}")
+        raise ArgumentError(None, f"Invalid {self.command_format.name} option: {option}")

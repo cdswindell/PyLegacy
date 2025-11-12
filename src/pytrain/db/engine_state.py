@@ -188,9 +188,9 @@ class EngineState(ComponentState):
             num = f" Released: {self.year}"
         if self.engine_type is not None:
             lt = f" {LOCO_TYPE.get(self.engine_type, 'NA')}"
-        if self._aux2 is not None:
+        if isinstance(self._aux2, CommandDefEnum):
             aux = f" Aux2: {self._aux2.name.split('_')[-1]}"
-        if self.smoke_level is not None:
+        if isinstance(self.smoke_level, CommandDefEnum):
             sm = f" Smoke: {self.smoke_level.name.split('_')[-1].lower():<4}"
         if self.bt_int:
             bt = f" BT: {self.bt_id}"
@@ -436,7 +436,7 @@ class EngineState(ComponentState):
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:
-            if self.direction is not None:
+            if isinstance(self.direction, CommandDefEnum):
                 if self.is_legacy is True and self.direction in {
                     TMCC2EngineCommandEnum.FORWARD_DIRECTION,
                     TMCC2EngineCommandEnum.REVERSE_DIRECTION,
@@ -470,14 +470,14 @@ class EngineState(ComponentState):
             pdi_cmd = PdiCommand.D4_ENGINE if self.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             pdi = D4Req(self.record_no, pdi_cmd, state=self)
         packets.append(pdi.as_bytes)
-        if self._start_stop is not None:
+        if isinstance(self._start_stop, CommandDefEnum):
             packets.append(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
-        if self.smoke_level is not None:
+        if isinstance(self.smoke_level, CommandDefEnum):
             packets.append(CommandReq.build(self.smoke_level, self.address, scope=self.scope).as_bytes)
-        if self._direction is not None:
+        if isinstance(self._direction, CommandDefEnum):
             # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
             packets.append(CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes)
-        if self._numeric is not None and self._numeric_cmd is not None:
+        if self._numeric is not None and isinstance(self._numeric_cmd, CommandDefEnum):
             if self.engine_type in {
                 LOCO_TRACK_CRANE,
             }:
@@ -489,11 +489,11 @@ class EngineState(ComponentState):
                         scope=self.scope,
                     ).as_bytes
                 )
-        if self._aux is not None:
+        if isinstance(self._aux, CommandDefEnum):
             packets.append(CommandReq.build(self._aux, self.address).as_bytes)
-        if self._aux1 is not None:
+        if isinstance(self._aux1, CommandDefEnum):
             packets.append(CommandReq.build(self.aux1, self.address).as_bytes)
-        if self._aux2 is not None:
+        if isinstance(self._aux2, CommandDefEnum):
             packets.append(CommandReq.build(self.aux2, self.address).as_bytes)
         return packets
 
