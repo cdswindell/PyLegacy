@@ -93,13 +93,13 @@ ENGINE_OPS_LAYOUT = [
     [
         ("FRONT_COUPLER", "front-coupler.jpg"),
         (SMOKE_ON, "smoke-up.jpg"),
-        None,
+        ("BOOST_SPEED", "boost.jpg"),
         ("FORWARD_DIRECTION", "", FWD_KEY),
     ],
     [
         ("REAR_COUPLER", "rear-coupler.jpg"),
         (SMOKE_OFF, "smoke-down.jpg"),
-        None,
+        ("BRAKE_SPEED", "brake.jpg"),
         ("REVERSE_DIRECTION", "", REV_KEY),
     ],
     [
@@ -497,6 +497,13 @@ class EngineGui(Thread, Generic[S]):
                     print(f"Duplicate engine op: {op}")
                 self.engine_ops_cells[op] = (cell, nb)
             row += 1
+
+        # set some repeating commands
+        for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
+            _, btn = self.engine_ops_cells[command]
+            btn.on_repeat = btn.on_press
+            btn.on_press = None
+            btn.hold_threshold = 0.2
 
         # used to make sure brake and throttle get focus when needed
         self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
