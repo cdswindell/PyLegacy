@@ -544,7 +544,7 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             horizontal=False,
             step=1,
-            width=int(self.button_size / 3),
+            width=int(self.button_size / 2.5),
             height=self.button_size * 4,
         )
         throttle.text_color = "black"
@@ -557,7 +557,7 @@ class EngineGui(Thread, Generic[S]):
             bg="lightgrey",  # darker navy background
             highlightthickness=1,
             highlightbackground=LIONEL_ORANGE,  # subtle orange outline
-            width=int(self.button_size / 3),
+            width=int(self.button_size / 2.5),
             sliderlength=int((self.button_size * 4) / 6),
         )
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
@@ -611,6 +611,9 @@ class EngineGui(Thread, Generic[S]):
         brake.tk.bind("<Button-1>", lambda e: brake.tk.focus_set())
         brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
         brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
+
+        btn = PushButton(sliders, "RR Speed")
+        btn.text_size = self.s_18
 
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):
