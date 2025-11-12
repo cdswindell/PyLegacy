@@ -16,7 +16,6 @@ from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
-from tkinter.font import Font
 from typing import Any, Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
@@ -68,9 +67,6 @@ SMOKE_ON = "SMOKE ON"
 SMOKE_OFF = "SMOKE OFF"
 BELL_KEY = "\U0001f514"
 
-
-FONT_STACK = "DejaVu Sans, Noto Color Emoji"
-
 ENTRY_LAYOUT = [
     ["1", "2", "3"],
     ["4", "5", "6"],
@@ -90,9 +86,7 @@ REPEAT_EXCEPTIONS = {
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,
 }
 
-FONT_SIZE_EXCEPTIONS = {
-    BELL_KEY,
-}
+FONT_SIZE_EXCEPTIONS = {}
 
 SENSOR_TRACK_OPTS = [
     ["No Action", 0],
@@ -709,8 +703,10 @@ class EngineGui(Thread, Generic[S]):
             if self._scope_tmcc_ids[scope] == 0:
                 self.display_most_recent(scope)
             else:
-                # pressing the same scope button again returns to entry mode
-                self._scope_tmcc_ids[scope] = 0
+                # pressing the same scope button again returns to entry mode with current
+                # component active
+                # self._scope_tmcc_ids[scope] = 0
+                pass
         # update display
         self.update_component_info()
         # force entry mode if scoped tmcc_id is 0
@@ -1145,15 +1141,7 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
-
-            style = "bold" if nb.text_bold else "normal"
-            # noinspection PyTypeChecker
-            font_stack = Font(
-                family="DejaVu Sans",  # primary
-                size=nb.text_size,
-                weight=style,
-            )
-            nb.tk.config(compound="center", anchor="center", padx=0, pady=0, font=font_stack)
+            nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
             self.make_color_changeable(nb, fade=True)
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
