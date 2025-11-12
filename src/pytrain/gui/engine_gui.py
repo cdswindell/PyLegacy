@@ -577,7 +577,6 @@ class EngineGui(Thread, Generic[S]):
             highlightbackground=LIONEL_ORANGE,  # subtle orange outline
             width=int(self.button_size / 3),
             sliderlength=int((self.button_size * 4) / 6),
-            height=self.button_size * 4,
         )
         brake.tk.bind("<Button-1>", lambda e: brake.tk.focus_set())
         brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
@@ -590,13 +589,13 @@ class EngineGui(Thread, Generic[S]):
         Ensures focus moves off the Scale after finger release
         and forces a redraw so the grab handle deactivates.
         """
-        if self.app.tk.focus_get() == self.throttle.tk:
+        if self.app.tk.focus_get() in {self.throttle.tk, self.brake.tk}:
             self.app.tk.after_idle(self._do_clear_focus)
 
     def _do_clear_focus(self):
         self.focus_widget.focus_set()
         self.throttle.tk.event_generate("<Leave>")
-        # self.throttle.tk.update_idletasks()
+        self.brake.tk.event_generate("<Leave>")
 
     def on_recents(self, value: str):
         if value != self.title:
