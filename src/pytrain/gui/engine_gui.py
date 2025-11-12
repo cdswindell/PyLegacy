@@ -94,13 +94,13 @@ ENGINE_OPS_LAYOUT = [
         ("FRONT_COUPLER", "front-coupler.jpg"),
         (SMOKE_ON, "smoke-up.jpg"),
         None,
-        ("FORWARD_DIRECTION", "", "", FWD_KEY),
+        ("FORWARD_DIRECTION", "", FWD_KEY),
     ],
     [
         ("REAR_COUPLER", "rear-coupler.jpg"),
         (SMOKE_OFF, "smoke-down.jpg"),
         None,
-        ("REVERSE_DIRECTION", "", "", REV_KEY),
+        ("REVERSE_DIRECTION", "", REV_KEY),
     ],
     [
         ("AUX1_OPTION_ONE", "", AUX1_KEY),
@@ -622,6 +622,7 @@ class EngineGui(Thread, Generic[S]):
 
     def on_train_brake(self, value):
         if self.app.tk.focus_get() == self.brake.tk:
+            value = int(value)
             self.brake_level.text = f"{value:02d}"
             self.on_engine_command("TRAIN_BRAKE", data=value)
         else:
