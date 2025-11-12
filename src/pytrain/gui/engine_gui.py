@@ -75,8 +75,18 @@ ENTRY_LAYOUT = [
 ]
 
 ENGINE_OPS_LAYOUT = [
-    [("VOLUME_UP", "vol-up.jpg"), ("ENGINEER_CHATTER", "walkie_talkie.png"), ("BLOW_HORN_ONE", "horn.jpg")],
-    [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png"), ("RING_BELL", "bell.jpg")],
+    [
+        ("VOLUME_UP", "vol-up.jpg"),
+        ("ENGINEER_CHATTER", "walkie_talkie.png"),
+        ("RPM_UP", "rpm-up.jpg"),
+        ("BLOW_HORN_ONE", "horn.jpg"),
+    ],
+    [
+        ("VOLUME_DOWN", "vol-down.jpg"),
+        ("TOWER_CHATTER", "tower.png"),
+        ("RPM_DOWN", "rpm-down.jpg"),
+        ("RING_BELL", "bell.jpg"),
+    ],
     [("FRONT_COUPLER", "front-coupler.jpg"), (SMOKE_ON, "smoke-up.jpg")],
     [("REAR_COUPLER", "rear-coupler.jpg"), (SMOKE_OFF, "smoke-down.jpg")],
     [("AUX1_OPTION_ONE", "", AUX1_KEY), ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"), ("AUX3_OPTION_ONE", "", AUX3_KEY)],
