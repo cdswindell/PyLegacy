@@ -291,7 +291,7 @@ class EngineGui(Thread, Generic[S]):
         # controller
         self.controller_box = self.controller_keypad_box = self.controller_throttle_box = None
         self.controller_brake_box = self.brake_level = self.focus_widget = None
-        self.throttle = self.speed = self.brake = None
+        self.throttle = self.speed = self.brake = self._rr_speed_btn = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -613,7 +613,8 @@ class EngineGui(Thread, Generic[S]):
         brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
         brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
-        btn = PushButton(sliders, "RR Speed", grid=[0, 1, 2, 1])
+        self._rr_speed_btn = HoldButton(sliders, "RR Speed", grid=[0, 1, 2, 1])
+        btn.text = "RR Speed"
         btn.text_size = self.s_18
 
     # noinspection PyUnusedLocal
