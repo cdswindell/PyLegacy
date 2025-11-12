@@ -689,6 +689,12 @@ class EngineGui(Thread, Generic[S]):
             self.brake_level.value = f"{state.train_brake:02d}"
             if self.brake.tk.focus_displayof() != self.brake.tk:
                 self.brake.value = state.train_brake
+
+            _, btn = self.engine_ops_cells[("FORWARD_DIRECTION", "", FWD_KEY)]
+            btn.bg = self._active_bg if state.is_forward else self._inactive_bg
+            _, btn = self.engine_ops_cells[("REVERSE_DIRECTION", "", REV_KEY)]
+            btn.bg = self._active_bg if state.is_reverse else self._inactive_bg
+
         if state is None or state.is_legacy:
             self.throttle.tk.config(from_=195, to=0)
         else:

@@ -655,6 +655,14 @@ class EngineState(ComponentState):
         return self._direction
 
     @property
+    def is_forward(self) -> bool:
+        return self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}
+
+    @property
+    def is_reverse(self) -> bool:
+        return self._direction in {TMCC1EngineCommandEnum.REVERSE_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION}
+
+    @property
     def direction_label(self) -> str:
         dr = "--"
         if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
