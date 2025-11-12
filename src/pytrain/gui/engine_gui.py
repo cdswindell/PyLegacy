@@ -67,7 +67,7 @@ AUX3_KEY = "Aux3"
 SMOKE_ON = "SMOKE ON"
 SMOKE_OFF = "SMOKE OFF"
 BELL_KEY = "\U0001f514"
-BELL_MUTE_KEY = "🔕"
+
 
 FONT_STACK = "DejaVu Sans, Noto Color Emoji"
 
@@ -79,7 +79,7 @@ ENTRY_LAYOUT = [
 ]
 
 ENGINE_OPS_LAYOUT = [
-    [("VOLUME_UP", "vol-up.jpg"), ("ENGINEER_CHATTER", "walkie_talkie.png")],
+    [("VOLUME_UP", "vol-up.jpg"), ("ENGINEER_CHATTER", "walkie_talkie.png"), ("BLOW_HORN_ONE", "horn.jpg")],
     [("VOLUME_DOWN", "vol-down.jpg"), ("TOWER_CHATTER", "tower.png"), ("RING_BELL", "", BELL_KEY)],
     [("FRONT_COUPLER", "front-coupler.jpg"), (SMOKE_ON, "smoke-up.jpg")],
     [("REAR_COUPLER", "rear-coupler.jpg"), (SMOKE_OFF, "smoke-down.jpg")],
