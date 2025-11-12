@@ -1583,6 +1583,7 @@ class EngineGui(Thread, Generic[S]):
         repeat = repeat if repeat else self.repeat
         scope = self.scope
         tmcc_id = self._scope_tmcc_ids[scope]
+        print(f"on_engine_command: {scope} {tmcc_id} {cmd}, {data}, {repeat}")
         if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
             state = self._state_store.get_state(scope, tmcc_id, False)
             if state:
