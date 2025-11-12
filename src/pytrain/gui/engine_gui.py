@@ -690,9 +690,9 @@ class EngineGui(Thread, Generic[S]):
             if self.brake.tk.focus_displayof() != self.brake.tk:
                 self.brake.value = state.train_brake
 
-            _, btn = self.engine_ops_cells[("FORWARD_DIRECTION", "", FWD_KEY)]
+            _, btn = self.engine_ops_cells["FORWARD_DIRECTION"]
             btn.bg = self._active_bg if state.is_forward else self._inactive_bg
-            _, btn = self.engine_ops_cells[("REVERSE_DIRECTION", "", REV_KEY)]
+            _, btn = self.engine_ops_cells["REVERSE_DIRECTION"]
             btn.bg = self._active_bg if state.is_reverse else self._inactive_bg
 
         if state is None or state.is_legacy:
