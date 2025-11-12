@@ -581,7 +581,7 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             bold=True,
             size=self.s_18,
-            width=2,
+            width=3,
             font="DigitalDream",
         )
         brake_level.bg = "black"
