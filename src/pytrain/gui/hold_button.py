@@ -11,53 +11,53 @@ import time
 from guizero import PushButton
 
 
-class HoldButton:
+class HoldButton(PushButton):
     """
-    A guizero PushButton with enhanced touch/mouse behavior:
-      - on_press: single short press
-      - on_hold: fires once after holding for hold_threshold seconds
-      - on_repeat: continuously fires while held down
-
-    Each callback may be:
+    A PushButton subclass that adds:
+      - on_press  → single short tap
+      - on_hold   → single fire after hold_threshold seconds
+      - on_repeat → continuous fire while held
+    Each callback can be:
         func
+        or (func, args)
         or (func, args, kwargs)
     """
 
     def __init__(
         self,
-        parent,
-        text,
+        master,
+        text="",
         on_press=None,
         on_hold=None,
         on_repeat=None,
-        hold_threshold=0.5,
+        hold_threshold=1.0,
         repeat_interval=0.2,
         debounce_ms=80,
         **kwargs,
     ):
-        # store callbacks (can be changed later)
+        # initialize the base PushButton normally (no command)
+        super().__init__(master, text=text, **kwargs)
+
+        # callback configuration
         self._on_press = on_press
         self._on_hold = on_hold
         self._on_repeat = on_repeat
 
+        # timing and state tracking
         self.hold_threshold = hold_threshold
         self.repeat_interval = repeat_interval
         self.debounce_ms = debounce_ms
-
         self._press_time = None
         self._held = False
         self._repeating = False
         self._after_id = None
 
-        # create the base guizero PushButton (no default command)
-        self.button = PushButton(parent, text=text, **kwargs)
-
-        # handle both mouse and touchscreen
-        self.button.tk.bind("<ButtonPress-1>", self._on_press_event, add="+")
-        self.button.tk.bind("<ButtonRelease-1>", self._on_release_event, add="+")
+        # bind events (touchscreen and mouse compatible)
+        self.tk.bind("<ButtonPress-1>", self._on_press_event, add="+")
+        self.tk.bind("<ButtonRelease-1>", self._on_release_event, add="+")
 
     # ───────────────────────────────
-    # Properties for dynamic assignment
+    # Properties for dynamic callbacks
     # ───────────────────────────────
     @property
     def on_press(self):
@@ -84,7 +84,7 @@ class HoldButton:
         self._on_repeat = func
 
     # ───────────────────────────────
-    # Event handlers
+    # Internal event handlers
     # ───────────────────────────────
     # noinspection PyUnusedLocal
     def _on_press_event(self, event=None):
@@ -93,13 +93,12 @@ class HoldButton:
         self._repeating = False
 
         # schedule hold trigger
-        self._after_id = self.button.tk.after(int(self.hold_threshold * 1000), self._trigger_hold_or_repeat)
+        self._after_id = self.tk.after(int(self.hold_threshold * 1000), self._trigger_hold_or_repeat)
 
     # noinspection PyUnusedLocal
     def _on_release_event(self, event=None):
-        # cancel any pending after() callback
         if self._after_id:
-            self.button.tk.after_cancel(self._after_id)
+            self.tk.after_cancel(self._after_id)
             self._after_id = None
 
         elapsed = (time.time() - self._press_time) if self._press_time else 0
@@ -123,19 +122,14 @@ class HoldButton:
         if not self._repeating:
             return
         self._invoke_callback(self._on_repeat)
-        self._after_id = self.button.tk.after(int(self.repeat_interval * 1000), self._repeat_fire)
+        self._after_id = self.tk.after(int(self.repeat_interval * 1000), self._repeat_fire)
 
     # ───────────────────────────────
-    # Helper: safe callback invocation
+    # Helper: invoke callback flexibly
     # ───────────────────────────────
     @staticmethod
     def _invoke_callback(cb):
-        """
-        Invoke callback allowing:
-            func
-            (func, args)
-            (func, args, kwargs)
-        """
+        """Invoke callback allowing func, (func,args), or (func,args,kwargs)."""
         if not cb:
             return
         if callable(cb):

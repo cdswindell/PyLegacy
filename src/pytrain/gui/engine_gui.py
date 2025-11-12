@@ -809,10 +809,10 @@ class EngineGui(Thread, Generic[S]):
             0,
             visible=True,
             bolded=True,
-            command=self.on_keypress,
-            args=[ENGINE_ON_KEY],
             is_entry=True,
             image=self.turn_on_image,
+            command=self.on_engine_command,
+            args=['START_UP_IMMEDIATE']
         )
 
         self.off_key_cell, self.off_btn = self.make_keypad_button(
@@ -822,10 +822,10 @@ class EngineGui(Thread, Generic[S]):
             1,
             visible=True,
             bolded=True,
-            command=self.on_keypress,
-            args=[ENGINE_OFF_KEY],
             is_entry=True,
             image=self.turn_off_image,
+            command=self.on_engine_command,
+            args=['SHUTDOWN_IMMEDIATE']
         )
 
         # set button
@@ -1066,7 +1066,9 @@ class EngineGui(Thread, Generic[S]):
         if isinstance(command, bool) and not command:
             command = args = None
         elif command is None or (isinstance(command, bool) and command):
-            command = self.on_keypress
+            command = (self.on_keypress, args)
+        else:  # custom command
+            command = (command, args)
 
         if size is None and label:
             size = self.s_30 if label in FONT_SIZE_EXCEPTIONS else self.s_18
@@ -1129,35 +1131,14 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Create PushButton
         # ------------------------------------------------------------
-        # nb = PushButton(
-        #     cell,
-        #     align="bottom",
-        #     command=command,
-        #     args=args,
-        # )
-        # Determine button command type
-        on_press = None
-        on_hold = None
-        on_repeat = None
-
-        # Existing `command` argument applies to normal short presses
-        if command:
-
-            def on_press():
-                return command(*args) if args else command()
-
-        # Create hold-aware PushButton
-        hb = HoldButton(
+        nb = HoldButton(
             cell,
-            text=label,
-            on_press=on_press,
-            on_hold=on_hold,
-            on_repeat=on_repeat,
-            hold_threshold=0.5,  # seconds before hold starts
-            repeat_interval=0.15,  # repeat speed
             align="bottom",
+            args=args,
+            hold_threshold=0.5,
+            repeat_interval=0.2,
         )
-        nb = hb.button  # expose underlying PushButton for styling
+        nb.on_press = command
         nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
 
         # ------------------------------------------------------------
