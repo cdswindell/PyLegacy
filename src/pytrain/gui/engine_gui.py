@@ -586,6 +586,7 @@ class EngineGui(Thread, Generic[S]):
             step=1,
             width=int(self.button_size / 3),
             height=self.button_size * 4,
+            command=self.on_train_brake,
         )
         brake.text_color = "black"
         brake.tk.config(
@@ -618,6 +619,13 @@ class EngineGui(Thread, Generic[S]):
         self.focus_widget.focus_set()
         self.throttle.tk.event_generate("<Leave>")
         self.brake.tk.event_generate("<Leave>")
+
+    def on_train_brake(self, value):
+        if self.app.tk.focus_get() == self.brake.tk:
+            self.brake_level.text = f"{value:02d}"
+            self.on_engine_command("TRAIN_BRAKE", data=value)
+        else:
+            print(f"Ignoring brake change without focus; Brake: {value}")
 
     def on_recents(self, value: str):
         if value != self.title:
