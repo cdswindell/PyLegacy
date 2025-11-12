@@ -566,7 +566,7 @@ class EngineGui(Thread, Generic[S]):
 
         cell = TitleBox(brake_box, "Brake", align="top", border=1)
         cell.text_size = self.s_10
-        self.brake = brake = Text(
+        self.brake_level = brake_level = Text(
             cell,
             text="00",
             color="black",
@@ -576,8 +576,8 @@ class EngineGui(Thread, Generic[S]):
             width=2,
             font="DigitalDream",
         )
-        brake.bg = "black"
-        brake.text_color = "white"
+        brake_level.bg = "black"
+        brake_level.text_color = "white"
 
         self.brake = brake = Slider(
             brake_box,
