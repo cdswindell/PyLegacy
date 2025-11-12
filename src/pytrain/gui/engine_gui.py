@@ -562,13 +562,13 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             horizontal=True,
             step=1,
-            start=0,
-            end=7,
             width=int(self.button_size / 3),
             height=self.button_size * 4,
         )
         brake.text_color = "black"
         brake.tk.config(
+            from_=0,
+            to=7,
             takefocus=0,
             troughcolor="#003366",  # deep Lionel blue for the track,
             activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
