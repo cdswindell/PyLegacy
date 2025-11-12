@@ -534,7 +534,7 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             bold=True,
             size=self.s_18,
-            width=3,
+            width=4,
             font="DigitalDream",
         )
         speed.bg = "black"
@@ -545,7 +545,7 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             horizontal=False,
             step=1,
-            width=int(self.button_size / 2.5),
+            width=int(self.button_size / 2),
             height=self.button_size * 4,
         )
         throttle.text_color = "black"
@@ -558,7 +558,7 @@ class EngineGui(Thread, Generic[S]):
             bg="lightgrey",  # darker navy background
             highlightthickness=1,
             highlightbackground=LIONEL_ORANGE,  # subtle orange outline
-            width=int(self.button_size / 2.5),
+            width=int(self.button_size / 2),
             sliderlength=int((self.button_size * 4) / 6),
         )
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
