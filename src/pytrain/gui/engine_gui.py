@@ -67,8 +67,8 @@ AUX3_KEY = "Aux3"
 SMOKE_ON = "SMOKE ON"
 SMOKE_OFF = "SMOKE OFF"
 BELL_KEY = "\U0001f514"
-FWD_KEY = " Fwd>"
-REV_KEY = "<Rev "
+FWD_KEY = "Fwd"
+REV_KEY = "Rev"
 
 ENTRY_LAYOUT = [
     ["1", "2", "3"],
@@ -623,7 +623,7 @@ class EngineGui(Thread, Generic[S]):
     def on_train_brake(self, value):
         if self.app.tk.focus_get() == self.brake.tk:
             value = int(value)
-            self.brake_level.text = f"{value:02d}"
+            self.brake_level.value = f"{value:02d}"
             self.on_engine_command("TRAIN_BRAKE", data=value)
         else:
             print(f"Ignoring brake change without focus; Brake: {value}")
