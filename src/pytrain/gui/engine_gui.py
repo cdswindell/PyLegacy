@@ -274,7 +274,8 @@ class EngineGui(Thread, Generic[S]):
 
         # controller
         self.controller_box = self.controller_keypad_box = self.controller_throttle_box = None
-        self.throttle = self.speed = self.focus_widget = None
+        self.controller_brake_box = self.brake_level = self.focus_widget = None
+        self.throttle = self.speed = self.brake = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -479,6 +480,59 @@ class EngineGui(Thread, Generic[S]):
                 self.engine_ops_cells[op] = (cell, nb)
             row += 1
 
+        # used to make sure brake and throttle get focus when needed
+        self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
+        focus_sink.place(x=-9999, y=-9999, width=1, height=1)
+
+        # brake
+        self.controller_brake_box = brake_box = Box(
+            controller_box,
+            border=1,
+            align="right",
+        )
+        # ensure it pins to the top-right and doesn't stretch vertically
+        brake_box.tk.pack_configure(anchor="ne")
+
+        cell = TitleBox(brake_box, "Brake", align="top", border=1)
+        cell.text_size = self.s_10
+        self.brake = brake = Text(
+            cell,
+            text="000",
+            color="black",
+            align="top",
+            bold=True,
+            size=self.s_18,
+            width=3,
+            font="DigitalDream",
+        )
+        brake.bg = "black"
+        brake.text_color = "white"
+
+        self.brake = brake = Slider(
+            brake_box,
+            align="top",
+            horizontal=True,
+            step=1,
+            start=0,
+            end=7,
+            width=int(self.button_size / 3),
+            height=self.button_size * 4,
+        )
+        brake.text_color = "black"
+        brake.tk.config(
+            takefocus=0,
+            troughcolor="#003366",  # deep Lionel blue for the track,
+            activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
+            bg="lightgrey",  # darker navy background
+            highlightthickness=1,
+            highlightbackground=LIONEL_ORANGE,  # subtle orange outline
+            width=int(self.button_size / 3),
+            sliderlength=int((self.button_size * 4) / 6),
+        )
+        brake.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
+        brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
+        brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
+
         # throttle
         self.controller_throttle_box = throttle_box = Box(
             controller_box,
@@ -502,9 +556,6 @@ class EngineGui(Thread, Generic[S]):
         )
         speed.bg = "black"
         speed.text_color = "white"
-
-        self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
-        focus_sink.place(x=-9999, y=-9999, width=1, height=1)
 
         self.throttle = throttle = Slider(
             throttle_box,
@@ -1138,7 +1189,7 @@ class EngineGui(Thread, Generic[S]):
             cell,
             align="bottom",
             args=args,
-            hold_threshold=0.5,
+            hold_threshold=1.0,
             repeat_interval=0.2,
         )
         nb.on_press = command
