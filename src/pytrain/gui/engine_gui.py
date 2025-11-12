@@ -484,55 +484,6 @@ class EngineGui(Thread, Generic[S]):
         self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
         focus_sink.place(x=-9999, y=-9999, width=1, height=1)
 
-        # brake
-        self.controller_brake_box = brake_box = Box(
-            controller_box,
-            border=1,
-            align="right",
-        )
-        # ensure it pins to the top-right and doesn't stretch vertically
-        brake_box.tk.pack_configure(anchor="ne")
-
-        cell = TitleBox(brake_box, "Brake", align="top", border=1)
-        cell.text_size = self.s_10
-        self.brake = brake = Text(
-            cell,
-            text="000",
-            color="black",
-            align="top",
-            bold=True,
-            size=self.s_18,
-            width=3,
-            font="DigitalDream",
-        )
-        brake.bg = "black"
-        brake.text_color = "white"
-
-        self.brake = brake = Slider(
-            brake_box,
-            align="top",
-            horizontal=True,
-            step=1,
-            start=0,
-            end=7,
-            width=int(self.button_size / 3),
-            height=self.button_size * 4,
-        )
-        brake.text_color = "black"
-        brake.tk.config(
-            takefocus=0,
-            troughcolor="#003366",  # deep Lionel blue for the track,
-            activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
-            bg="lightgrey",  # darker navy background
-            highlightthickness=1,
-            highlightbackground=LIONEL_ORANGE,  # subtle orange outline
-            width=int(self.button_size / 3),
-            sliderlength=int((self.button_size * 4) / 6),
-        )
-        brake.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
-        brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
-        brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
-
         # throttle
         self.controller_throttle_box = throttle_box = Box(
             controller_box,
@@ -581,6 +532,56 @@ class EngineGui(Thread, Generic[S]):
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
         throttle.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
         throttle.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
+
+        # brake
+        self.controller_brake_box = brake_box = Box(
+            controller_box,
+            border=1,
+            align="right",
+        )
+        # ensure it pins to the top-right and doesn't stretch vertically
+        brake_box.tk.pack_configure(anchor="ne")
+
+        cell = TitleBox(brake_box, "Brake", align="top", border=1)
+        cell.text_size = self.s_10
+        self.brake = brake = Text(
+            cell,
+            text="000",
+            color="black",
+            align="top",
+            bold=True,
+            size=self.s_18,
+            width=3,
+            font="DigitalDream",
+        )
+        brake.bg = "black"
+        brake.text_color = "white"
+
+        self.brake = brake = Slider(
+            brake_box,
+            align="top",
+            horizontal=True,
+            step=1,
+            start=0,
+            end=7,
+            width=int(self.button_size / 3),
+            height=self.button_size * 4,
+        )
+        brake.text_color = "black"
+        brake.tk.config(
+            takefocus=0,
+            troughcolor="#003366",  # deep Lionel blue for the track,
+            activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
+            bg="lightgrey",  # darker navy background
+            highlightthickness=1,
+            highlightbackground=LIONEL_ORANGE,  # subtle orange outline
+            width=int(self.button_size / 3),
+            sliderlength=int((self.button_size * 4) / 6),
+            height=self.button_size * 4,
+        )
+        brake.tk.bind("<Button-1>", lambda e: brake.tk.focus_set())
+        brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
+        brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):
