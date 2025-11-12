@@ -1593,6 +1593,7 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id = self._scope_tmcc_ids[scope]
         if tmcc_id == 0:
             tmcc_id = int(self.tmcc_id_text.value)
+            self._scope_tmcc_ids[scope] = tmcc_id
         print(f"on_engine_command: {scope} {tmcc_id} {targets}, {data}, {repeat}")
         if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
             state = self._state_store.get_state(scope, tmcc_id, False)
@@ -1614,7 +1615,8 @@ class EngineGui(Thread, Generic[S]):
                         cmd.send(repeat=repeat)
                         print(cmd, do_ops, self._in_entry_mode)
                         if do_ops is True and self._in_entry_mode is True:
-                            self.ops_mode()
+                            print("Switch to Ops Mode")
+                            self.ops_mode(update_info=True)
                         if do_entry and self._in_entry_mode is False:
                             self.entry_mode()
                         return
