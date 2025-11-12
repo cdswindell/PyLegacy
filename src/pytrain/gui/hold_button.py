@@ -105,18 +105,34 @@ class HoldButton(PushButton):
         if elapsed < self.debounce_ms / 1000:
             return
 
+        # Stop repeating if active
         if self._repeating:
             self._repeating = False
-        elif not self._held:
+            return
+
+        # Normal press logic
+        if self._held:
+            # If held long enough, but no hold/repeat callbacks defined,
+            # treat as a normal press release
+            if not self._on_hold and not self._on_repeat:
+                self._invoke_callback(self._on_press)
+        else:
+            # Simple tap
             self._invoke_callback(self._on_press)
 
     def _trigger_hold_or_repeat(self):
         self._held = True
+        handled = False
         if self._on_repeat:
             self._repeating = True
             self._repeat_fire()
+            handled = True
         elif self._on_hold:
             self._invoke_callback(self._on_hold)
+            handled = True
+
+        # mark whether anything special happened
+        self._handled_hold = handled
 
     def _repeat_fire(self):
         if not self._repeating:
