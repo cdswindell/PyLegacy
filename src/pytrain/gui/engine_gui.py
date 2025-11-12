@@ -513,6 +513,7 @@ class EngineGui(Thread, Generic[S]):
             controller_box,
             border=1,
             align="right",
+            layout="grid",
         )
         # ensure it pins to the top-right and doesn't stretch vertically
         sliders.tk.pack_configure(anchor="n")
@@ -521,7 +522,7 @@ class EngineGui(Thread, Generic[S]):
         self.controller_throttle_box = throttle_box = Box(
             sliders,
             border=1,
-            align="right",
+            grid=[1, 0],
         )
 
         cell = TitleBox(throttle_box, "Speed", align="top", border=1)
@@ -568,7 +569,7 @@ class EngineGui(Thread, Generic[S]):
         self.controller_brake_box = brake_box = Box(
             sliders,
             border=1,
-            align="right",
+            grid=[0, 0],
         )
 
         cell = TitleBox(brake_box, "Brake", align="top", border=1)
@@ -612,7 +613,7 @@ class EngineGui(Thread, Generic[S]):
         brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
         brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
-        btn = PushButton(sliders, "RR Speed", align="bottom")
+        btn = PushButton(sliders, "RR Speed", grid=[0, 1, 2, 1])
         btn.text_size = self.s_18
 
     # noinspection PyUnusedLocal
