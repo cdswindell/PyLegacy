@@ -695,6 +695,7 @@ class EngineGui(Thread, Generic[S]):
         print(f"On Scope: {scope}")
         self.scope_box.hide()
         force_entry_mode = False
+        clear_info = True
         for k, v in self._scope_buttons.items():
             if k == scope:
                 v.bg = self._enabled_bg
@@ -718,6 +719,7 @@ class EngineGui(Thread, Generic[S]):
                 # component active
                 # self._scope_tmcc_ids[scope] = 0
                 force_entry_mode = True
+                clear_info = False
         # update display
         self.update_component_info()
         # force entry mode if scoped tmcc_id is 0
@@ -727,7 +729,7 @@ class EngineGui(Thread, Generic[S]):
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
         self.scope_box.show()
-        self.scope_keypad(force_entry_mode)
+        self.scope_keypad(force_entry_mode, clear_info)
 
     def display_most_recent(self, scope: CommandScope):
         recents = self._recents_queue.get(scope, None)
@@ -741,13 +743,13 @@ class EngineGui(Thread, Generic[S]):
             self.header.append(option)
         self.header.select_default()
 
-    def scope_keypad(self, force_entry_mode: bool = False):
+    def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):
         print(f"Scope Keypad: force={force_entry_mode}")
         # if tmcc_id associated with scope is 0, then we are in entry mode;
         # show keypad with appropriate buttons
         tmcc_id = self._scope_tmcc_ids[self.scope]
         if tmcc_id == 0 or force_entry_mode:
-            self.entry_mode()
+            self.entry_mode(clear_info=clear_info)
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 self.on_key_cell.show()
                 self.off_key_cell.show()
@@ -1310,9 +1312,10 @@ class EngineGui(Thread, Generic[S]):
         else:
             print(f"Unknown key: {key}")
 
-    def entry_mode(self) -> None:
+    def entry_mode(self, clear_info: bool = True) -> None:
         print("entry_mode:")
-        self.update_component_info(0)
+        if clear_info:
+            self.update_component_info(0)
         self._in_entry_mode = True
         for cell in self.entry_cells:
             if not cell.visible:
@@ -1585,8 +1588,8 @@ class EngineGui(Thread, Generic[S]):
         targets: str | list[str],
         data: int = 0,
         repeat: int = None,
-        do_ops: bool = True,
-        do_entry: bool = True,
+        do_ops: bool = False,
+        do_entry: bool = False,
     ) -> None:
         repeat = repeat if repeat else self.repeat
         scope = self.scope
@@ -1618,7 +1621,7 @@ class EngineGui(Thread, Generic[S]):
                             print("Switch to Ops Mode")
                             self.ops_mode(update_info=True)
                         elif do_entry and self._in_entry_mode is False:
-                            self.entry_mode()
+                            self.entry_mode(clear_info=False)
                         return
 
     @staticmethod
