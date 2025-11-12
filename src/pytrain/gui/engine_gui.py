@@ -811,9 +811,10 @@ class EngineGui(Thread, Generic[S]):
             bolded=True,
             is_entry=True,
             image=self.turn_on_image,
-            command=self.on_engine_command,
-            args=['START_UP_IMMEDIATE']
+            command=False,
         )
+        self.on_btn.on_press = (self.on_engine_command, ["START_UP_IMMEDIATE"], {"do_ops": True})
+        self.on_btn.on_hold = (self.on_engine_command, [["START_UP_DELAYED", "START_UP_IMMEDIATE"]], {"do_ops": True})
 
         self.off_key_cell, self.off_btn = self.make_keypad_button(
             keypad_keys,
@@ -824,9 +825,9 @@ class EngineGui(Thread, Generic[S]):
             bolded=True,
             is_entry=True,
             image=self.turn_off_image,
-            command=self.on_engine_command,
-            args=['SHUTDOWN_IMMEDIATE']
         )
+        self.off_btn.on_press = (self.on_engine_command, ["SHUTDOWN_IMMEDIATE"])
+        self.off_btn.on_hold = (self.on_engine_command, [["SHUTDOWN_DELAYED", "SHUTDOWN_IMMEDIATE"]])
 
         # set button
         self.set_key_cell, self.set_btn = self.make_keypad_button(
@@ -1579,26 +1580,45 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
-    def on_engine_command(self, cmd: str | list[str], data: int = 0, repeat: int = None) -> None:
+    def on_engine_command(
+        self,
+        targets: str | list[str],
+        data: int = 0,
+        repeat: int = None,
+        do_ops: bool = True,
+        set_entry_mode: bool = True,
+    ) -> None:
         repeat = repeat if repeat else self.repeat
         scope = self.scope
         tmcc_id = self._scope_tmcc_ids[scope]
-        print(f"on_engine_command: {scope} {tmcc_id} {cmd}, {data}, {repeat}")
+        if tmcc_id == 0:
+            tmcc_id = int(self.tmcc_id_text.value)
+        print(f"on_engine_command: {scope} {tmcc_id} {targets}, {data}, {repeat}")
         if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
             state = self._state_store.get_state(scope, tmcc_id, False)
             if state:
-                if state.is_legacy:
-                    # there are a few special cases
-                    if cmd in {SMOKE_ON, SMOKE_OFF}:
-                        cmd_enum = self.get_tmcc2_smoke_cmd(cmd, state)
+                if isinstance(targets, str):
+                    targets = [targets]
+                for target in targets:
+                    if state.is_legacy:
+                        # there are a few special cases
+                        if target in {SMOKE_ON, SMOKE_OFF}:
+                            cmd_enum = self.get_tmcc2_smoke_cmd(target, state)
+                        else:
+                            cmd_enum = TMCC2EngineOpsEnum.look_up(target)
                     else:
-                        cmd_enum = TMCC2EngineOpsEnum.look_up(cmd)
-                else:
-                    cmd_enum = TMCC1EngineCommandEnum.by_name(cmd)
-                if cmd_enum:
-                    cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
-                    repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
-                    cmd.send(repeat=repeat)
+                        cmd_enum = TMCC1EngineCommandEnum.by_name(target)
+                    if cmd_enum:
+                        cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
+                        repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
+                        cmd.send(repeat=repeat)
+                        print(cmd)
+                        if do_ops and self._in_entry_mode is True:
+                            self.ops_mode()
+                        if set_entry_mode and self._in_entry_mode is False:
+                            self.entry_mode()
+
+                        return
 
     @staticmethod
     def get_tmcc2_smoke_cmd(cmd: str, state: EngineState) -> TMCC2EngineOpsEnum | None:
