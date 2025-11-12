@@ -706,7 +706,7 @@ class EngineGui(Thread, Generic[S]):
                 # pressing the same scope button again returns to entry mode with current
                 # component active
                 # self._scope_tmcc_ids[scope] = 0
-                pass
+                force_entry_mode = True
         # update display
         self.update_component_info()
         # force entry mode if scoped tmcc_id is 0
