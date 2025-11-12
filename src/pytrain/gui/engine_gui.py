@@ -550,12 +550,12 @@ class EngineGui(Thread, Generic[S]):
         cell.text_size = self.s_10
         self.brake = brake = Text(
             cell,
-            text="000",
+            text="00",
             color="black",
             align="top",
             bold=True,
             size=self.s_18,
-            width=3,
+            width=2,
             font="DigitalDream",
         )
         brake.bg = "black"
