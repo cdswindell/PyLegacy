@@ -1617,7 +1617,7 @@ class EngineGui(Thread, Generic[S]):
                         if do_ops is True and self._in_entry_mode is True:
                             print("Switch to Ops Mode")
                             self.ops_mode(update_info=True)
-                        if do_entry and self._in_entry_mode is False:
+                        elif do_entry and self._in_entry_mode is False:
                             self.entry_mode()
                         return
 
