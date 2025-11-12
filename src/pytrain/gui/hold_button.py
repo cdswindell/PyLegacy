@@ -14,7 +14,7 @@ from guizero import PushButton
 class HoldButton(PushButton):
     """
     A PushButton subclass that adds:
-      - on_press  → single short tap
+      - on_press  → single short tap, or fired when held if no hold/repeat defined
       - on_hold   → single fire after hold_threshold seconds
       - on_repeat → continuous fire while held
     Each callback can be:
@@ -35,7 +35,6 @@ class HoldButton(PushButton):
         debounce_ms=80,
         **kwargs,
     ):
-        # initialize the base PushButton normally (no command)
         super().__init__(master, text=text, **kwargs)
 
         # callback configuration
@@ -51,8 +50,9 @@ class HoldButton(PushButton):
         self._held = False
         self._repeating = False
         self._after_id = None
+        self._handled_hold = False
 
-        # bind events (touchscreen and mouse compatible)
+        # bind events (mouse and touchscreen compatible)
         self.tk.bind("<ButtonPress-1>", self._on_press_event, add="+")
         self.tk.bind("<ButtonRelease-1>", self._on_release_event, add="+")
 
@@ -91,6 +91,7 @@ class HoldButton(PushButton):
         self._press_time = time.time()
         self._held = False
         self._repeating = False
+        self._handled_hold = False
 
         # schedule hold trigger
         self._after_id = self.tk.after(int(self.hold_threshold * 1000), self._trigger_hold_or_repeat)
@@ -105,24 +106,25 @@ class HoldButton(PushButton):
         if elapsed < self.debounce_ms / 1000:
             return
 
-        # Stop repeating if active
+        # stop repeating
         if self._repeating:
             self._repeating = False
             return
 
-        # Normal press logic
-        if self._held:
-            # If held long enough, but no hold/repeat callbacks defined,
-            # treat as a normal press release
-            if not self._on_hold and not self._on_repeat:
-                self._invoke_callback(self._on_press)
-        else:
-            # Simple tap
+        # Case 1: standard short press
+        if not self._held:
+            self._invoke_callback(self._on_press)
+            return
+
+        # Case 2: held long enough, but no hold/repeat defined
+        # (we already fired on_press during hold trigger)
+        if self._held and not self._handled_hold:
             self._invoke_callback(self._on_press)
 
     def _trigger_hold_or_repeat(self):
         self._held = True
         handled = False
+
         if self._on_repeat:
             self._repeating = True
             self._repeat_fire()
@@ -130,8 +132,11 @@ class HoldButton(PushButton):
         elif self._on_hold:
             self._invoke_callback(self._on_hold)
             handled = True
+        elif self._on_press and not self._on_hold and not self._on_repeat:
+            # fire on_press here if no dedicated hold/repeat
+            self._invoke_callback(self._on_press)
+            handled = True
 
-        # mark whether anything special happened
         self._handled_hold = handled
 
     def _repeat_fire(self):
