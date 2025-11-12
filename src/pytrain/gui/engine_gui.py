@@ -44,6 +44,7 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCo
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum, TMCC2RouteCommandEnum
 from ..utils.path_utils import find_file
 from ..utils.unique_deque import UniqueDeque
+from .hold_button import HoldButton
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
@@ -1128,13 +1129,35 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Create PushButton
         # ------------------------------------------------------------
-        nb = PushButton(
-            cell,
-            align="bottom",
-            command=command,
-            args=args,
-        )
+        # nb = PushButton(
+        #     cell,
+        #     align="bottom",
+        #     command=command,
+        #     args=args,
+        # )
+        # Determine button command type
+        on_press = None
+        on_hold = None
+        on_repeat = None
 
+        # Existing `command` argument applies to normal short presses
+        if command:
+
+            def on_press():
+                return command(*args) if args else command()
+
+        # Create hold-aware PushButton
+        hb = HoldButton(
+            cell,
+            text=label,
+            on_press=on_press,
+            on_hold=on_hold,
+            on_repeat=on_repeat,
+            hold_threshold=0.5,  # seconds before hold starts
+            repeat_interval=0.15,  # repeat speed
+            align="bottom",
+        )
+        nb = hb.button  # expose underlying PushButton for styling
         nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
 
         # ------------------------------------------------------------
