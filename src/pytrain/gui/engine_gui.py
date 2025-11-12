@@ -560,7 +560,7 @@ class EngineGui(Thread, Generic[S]):
         self.brake = brake = Slider(
             brake_box,
             align="top",
-            horizontal=True,
+            horizontal=False,
             step=1,
             width=int(self.button_size / 3),
             height=self.button_size * 4,
