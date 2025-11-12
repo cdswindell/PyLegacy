@@ -1579,7 +1579,7 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
-    def on_engine_command(self, cmd: str, data: int = 0, repeat: int = None) -> None:
+    def on_engine_command(self, cmd: str | list[str], data: int = 0, repeat: int = None) -> None:
         repeat = repeat if repeat else self.repeat
         scope = self.scope
         tmcc_id = self._scope_tmcc_ids[scope]
