@@ -612,7 +612,7 @@ class EngineGui(Thread, Generic[S]):
         brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
         brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
-        btn = PushButton(sliders, "RR Speed")
+        btn = PushButton(sliders, "RR Speed", align="bottom")
         btn.text_size = self.s_18
 
     # noinspection PyUnusedLocal
