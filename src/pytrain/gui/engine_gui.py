@@ -688,7 +688,7 @@ class EngineGui(Thread, Generic[S]):
                 self.throttle.value = state.speed
             self.brake_level.value = f"{state.train_brake:02d}"
             if self.brake.tk.focus_displayof() != self.brake.tk:
-                self.throttle.value = state.train_brake
+                self.brake.value = state.train_brake
         if state is None or state.is_legacy:
             self.throttle.tk.config(from_=195, to=0)
         else:
