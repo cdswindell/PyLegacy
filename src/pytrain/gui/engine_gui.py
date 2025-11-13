@@ -634,7 +634,7 @@ class EngineGui(Thread, Generic[S]):
         rr_box.tk.grid_propagate(False)
 
         # Force geometry to compute before sizing image
-        self._rr_speed_btn = rr_btn = HoldButton(rr_box, "", align="top")
+        self._rr_speed_btn = rr_btn = HoldButton(rr_box, None, align="top")
         rr_btn.tk.pack(fill="both", expand=True)
         self.app.tk.update_idletasks()
 
@@ -642,11 +642,10 @@ class EngineGui(Thread, Generic[S]):
         w = rr_btn.tk.winfo_width()
         h = rr_btn.tk.winfo_height()
 
-        # Load properly scaled image using your helper
-        img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
+        print(f"RR Button {w}x{h}")
 
-        # Apply the image to the button
-        rr_btn.tk.config(image=img, compound="center")
+        # Load properly scaled image using your helper and apply to button
+        rr_btn.tk.config(image=self.get_image(find_file("RR-Speeds.jpg"), size=(w, h)), compound="center")
 
         # Optional: remove padding if you want full bleed
         rr_btn.tk.config(padx=0, pady=0, borderwidth=0, highlightthickness=0)
