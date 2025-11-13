@@ -462,7 +462,7 @@ class EngineGui(Thread, Generic[S]):
             app,
             border=2,
             align="top",
-            visible=False,
+            visible=True,
         )
         self.ops_cells.add(controller_box)
 
@@ -635,33 +635,32 @@ class EngineGui(Thread, Generic[S]):
 
         # Prevent collapse
         rr_box.tk.grid_propagate(False)
-        rr_box.tk.config(width=self.button_size * 2, height=self.button_size * 1)
 
         # RR Speeds button
         self._rr_speed_btn = rr_btn = HoldButton(rr_box, None)
         rr_btn.tk.pack(fill="both", expand=True)
+        # Allow Tk to compute geometry
+        self.app.tk.update_idletasks()
 
-        # Defer sizing until Tk finishes layout
-        def apply_rr_speed_image():
-            self.app.tk.update_idletasks()
-            w = rr_btn.tk.winfo_width()
-            h = rr_btn.tk.winfo_height()
-            print("RR Speeds area:", w, "x", h)
+        # Now get real size
+        w = rr_btn.tk.winfo_width()
+        h = rr_btn.tk.winfo_height()
+        print("RR Speeds area:", w, "x", h)
 
-            # Load scaled image
-            img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
-            rr_btn.tk.config(
-                image=img,
-                compound="center",
-                padx=0,
-                pady=0,
-                borderwidth=0,
-                highlightthickness=0,
-                width=w,
-                height=h,
-            )
+        img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
+        rr_btn.tk.config(
+            image=img,
+            compound="center",
+            padx=0,
+            pady=0,
+            borderwidth=0,
+            highlightthickness=0,
+            width=w,
+            height=h,
+        )
 
-        self.app.after(200, apply_rr_speed_image)
+        # --- HIDE IT AGAIN after sizing is complete ---
+        self.controller_box.visible = False
 
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):
