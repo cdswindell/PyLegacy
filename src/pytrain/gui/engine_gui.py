@@ -625,9 +625,9 @@ class EngineGui(Thread, Generic[S]):
         # Allow Tk to compute geometry
         self.app.tk.update_idletasks()
         w = sliders.tk.winfo_width()
-        h = self.controller_box.tk.winfo_height() - (brake.tk.winfo_height() + brake_level.tk.winfo_height())
+        h = keypad_keys.tk.winfo_height() - (brake.tk.winfo_height() + brake_level.tk.winfo_height())
         print(f"RR Speeds area:  {w}x{h} {sliders.tk.winfo_width()} {sliders.tk.winfo_height()}")
-        print(f"Controller height:  {self.controller_box.tk.winfo_height()}")
+        print(f"Keypad height:  {keypad_keys.tk.winfo_height()}")
         print(f"brake height:  {brake.tk.winfo_height() + brake_level.tk.winfo_height()}")
 
         # RR Speeds button
