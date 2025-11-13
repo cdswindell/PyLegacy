@@ -621,12 +621,21 @@ class EngineGui(Thread, Generic[S]):
         brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
         brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
+        # --- Configure slider grid so row 1 expands ---
+        sliders.tk.grid_rowconfigure(1, weight=1)
+        sliders.tk.grid_columnconfigure(0, weight=1)
+        sliders.tk.grid_columnconfigure(1, weight=1)
+
         # RR Speeds button
         rr_box = Box(
             sliders,
             grid=[0, 1, 2, 1],  # spans two columns under sliders
             align="top",
         )
+
+        # Prevent collapse
+        rr_box.tk.grid_propagate(False)
+        rr_box.tk.config(width=self.button_size * 2, height=self.button_size * 1)
 
         # RR Speeds button
         self._rr_speed_btn = rr_btn = HoldButton(rr_box, None)
