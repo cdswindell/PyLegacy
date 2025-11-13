@@ -622,9 +622,9 @@ class EngineGui(Thread, Generic[S]):
         brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
         # --- Configure slider grid so row 1 expands ---
-        sliders.tk.grid_rowconfigure(1, weight=1)
-        sliders.tk.grid_columnconfigure(0, weight=1)
-        sliders.tk.grid_columnconfigure(1, weight=1)
+        # sliders.tk.grid_rowconfigure(1, weight=1)
+        # sliders.tk.grid_columnconfigure(0, weight=1)
+        # sliders.tk.grid_columnconfigure(1, weight=1)
 
         # RR Speeds button
         rr_box = Box(
@@ -639,6 +639,7 @@ class EngineGui(Thread, Generic[S]):
         # RR Speeds button
         self._rr_speed_btn = rr_btn = HoldButton(rr_box, None)
         rr_btn.tk.pack(fill="both", expand=True)
+
         # Allow Tk to compute geometry
         self.app.tk.update_idletasks()
 
