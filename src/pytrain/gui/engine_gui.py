@@ -525,6 +525,7 @@ class EngineGui(Thread, Generic[S]):
         )
         # ensure it pins to the top-right and doesn't stretch vertically
         # sliders.tk.pack_configure(anchor="n")
+        sliders.tk.pack(fill="y", expand=True)
 
         # throttle
         self.controller_throttle_box = throttle_box = Box(
