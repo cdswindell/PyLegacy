@@ -635,7 +635,7 @@ class EngineGui(Thread, Generic[S]):
         h = rr_btn.tk.winfo_height()
 
         # Load properly scaled image using your helper
-        img = self.get_image(find_file("rr_speeds.png"), size=(w, h))
+        img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
 
         # Apply the image to the button
         rr_btn.tk.config(image=img, compound="center")
