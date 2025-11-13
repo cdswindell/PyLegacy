@@ -613,9 +613,35 @@ class EngineGui(Thread, Generic[S]):
         brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
         brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
-        self._rr_speed_btn = btn = HoldButton(sliders, "RR Speed", grid=[0, 1, 2, 1])
-        btn.text_size = self.s_18
-        btn.text_bold = True
+        # RR Speeds button
+        rr_box = Box(
+            sliders,
+            grid=[0, 1, 2, 1],  # spans two columns under sliders
+            align="top",
+        )
+        rr_box.tk.grid_rowconfigure(0, weight=1)
+        rr_box.tk.grid_columnconfigure(0, weight=1)
+
+        # Optional: set a minimum size so it doesn't collapse
+        rr_box.tk.grid_propagate(False)
+
+        # Force geometry to compute before sizing image
+        self._rr_speed_btn = rr_btn = HoldButton(rr_box, "", align="top")
+        rr_btn.tk.pack(fill="both", expand=True)
+        self.app.tk.update_idletasks()
+
+        # Get the space the button actually occupies
+        w = rr_btn.tk.winfo_width()
+        h = rr_btn.tk.winfo_height()
+
+        # Load properly scaled image using your helper
+        img = self.get_image(find_file("rr_speeds.png"), size=(w, h))
+
+        # Apply the image to the button
+        rr_btn.tk.config(image=img, compound="center")
+
+        # Optional: remove padding if you want full bleed
+        rr_btn.tk.config(padx=0, pady=0, borderwidth=0, highlightthickness=0)
 
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):
@@ -1681,7 +1707,6 @@ class EngineGui(Thread, Generic[S]):
         reset_btn.text_size = self.s_20
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
-        # emergency_box.tk.update_idletasks()
         self.app.tk.update_idletasks()
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
