@@ -523,20 +523,11 @@ class EngineGui(Thread, Generic[S]):
             align="right",
             layout="grid",
         )
-
-        # allow sliders to expand inside controller_box
         sliders.tk.pack(fill="both", expand=True)
-
-        # don't let contents shrink sliders
         sliders.tk.grid_propagate(False)
 
-        # configure grid expansion
-        sliders.tk.grid_rowconfigure(0, weight=0)  # throttle/brake row
-        sliders.tk.grid_rowconfigure(1, weight=1)  # RR Speeds row expands
-        sliders.tk.grid_columnconfigure(0, weight=1)
-
         # ensure it pins to the top-right and doesn't stretch vertically
-        # sliders.tk.pack_configure(anchor="n")
+        sliders.tk.pack_configure(anchor="n")
 
         # throttle
         self.controller_throttle_box = throttle_box = Box(
