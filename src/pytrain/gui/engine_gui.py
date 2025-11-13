@@ -186,6 +186,8 @@ class EngineGui(Thread, Generic[S]):
         scale_by: float = 1.0,
         repeat: int = 2,
         num_recents: int = 5,
+        initial_tmcc_id: int = None,
+        initial_scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
         Thread.__init__(self, daemon=True, name="Engine GUI")
         self._cv = Condition(RLock())
@@ -228,7 +230,6 @@ class EngineGui(Thread, Generic[S]):
         self.s_72 = self.scale(72, 0.7)
         self.grid_pad_by = 2
         self.avail_image_height = self.avail_image_width = None
-        self.scope = CommandScope.ENGINE
         self.options = [self.title]
 
         self._enabled_bg = enabled_bg
@@ -262,6 +263,9 @@ class EngineGui(Thread, Generic[S]):
         self._pending_prod_infos = set()
         self._executor = ThreadPoolExecutor(max_workers=3)
         self._message_queue = Queue()
+        self.scope = initial_scope
+        if initial_tmcc_id:
+            self._scope_tmcc_ids[self.scope] = initial_tmcc_id
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
@@ -433,6 +437,10 @@ class EngineGui(Thread, Generic[S]):
 
         # ONE geometry pass at the end
         app.tk.after_idle(app.tk.update_idletasks)
+
+        # if an initial tmcc id is specified, use it
+        if self._scope_tmcc_ids.get(self.scope, None):
+            self.update_component_info(self._scope_tmcc_ids.get(self.scope))
 
         # Display GUI and start event loop; call blocks
         try:
@@ -676,7 +684,7 @@ class EngineGui(Thread, Generic[S]):
         options = [self.title]
         self._options_to_state.clear()
         queue = self._recents_queue.get(self.scope, None)
-        if queue:
+        if isinstance(queue, UniqueDeque):
             num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
             for state in queue:
                 name = f"{state.tmcc_id:0{num_chars}d}: {state.road_name}"
