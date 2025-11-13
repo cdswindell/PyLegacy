@@ -627,28 +627,24 @@ class EngineGui(Thread, Generic[S]):
             grid=[0, 1, 2, 1],  # spans two columns under sliders
             align="top",
         )
-        rr_box.tk.grid_rowconfigure(0, weight=1)
-        rr_box.tk.grid_columnconfigure(0, weight=1)
 
-        # Optional: set a minimum size so it doesn't collapse
-        rr_box.tk.grid_propagate(False)
-
-        # Force geometry to compute before sizing image
-        self._rr_speed_btn = rr_btn = HoldButton(rr_box, None, align="top")
+        # RR Speeds button
+        self._rr_speed_btn = rr_btn = HoldButton(rr_box, None)
         rr_btn.tk.pack(fill="both", expand=True)
-        self.app.tk.update_idletasks()
 
-        # Get the space the button actually occupies
-        w = rr_btn.tk.winfo_width()
-        h = rr_btn.tk.winfo_height()
+        # Defer sizing until Tk finishes layout
+        def apply_rr_speed_image():
+            self.app.tk.update_idletasks()
 
-        print(f"RR Button {w}x{h}")
+            w = rr_btn.tk.winfo_width()
+            h = rr_btn.tk.winfo_height()
+            print("RR Speeds area:", w, "x", h)
 
-        # Load properly scaled image using your helper and apply to button
-        rr_btn.tk.config(image=self.get_image(find_file("RR-Speeds.jpg"), size=(w, h)), compound="center")
+            # Load scaled image
+            img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
+            rr_btn.tk.config(image=img, compound="center", padx=0, pady=0, borderwidth=0, highlightthickness=0)
 
-        # Optional: remove padding if you want full bleed
-        rr_btn.tk.config(padx=0, pady=0, borderwidth=0, highlightthickness=0)
+        self.app.after(50, apply_rr_speed_image)
 
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):
