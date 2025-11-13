@@ -647,7 +647,7 @@ class EngineGui(Thread, Generic[S]):
         # Now get real size
         w = rr_btn.tk.winfo_width()
         h = rr_btn.tk.winfo_height()
-        print("RR Speeds area:", w, "x", h)
+        print(f"RR Speeds area:  {w}x{h} {sliders.tk.winfo_width()}")
 
         img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
         rr_btn.tk.config(
