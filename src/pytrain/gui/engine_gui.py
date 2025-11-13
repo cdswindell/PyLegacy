@@ -523,11 +523,8 @@ class EngineGui(Thread, Generic[S]):
             align="right",
             layout="grid",
         )
-        sliders.tk.pack(fill="both", expand=True)
-        sliders.tk.grid_propagate(False)
-
         # ensure it pins to the top-right and doesn't stretch vertically
-        sliders.tk.pack_configure(anchor="n")
+        # sliders.tk.pack_configure(anchor="n")
 
         # throttle
         self.controller_throttle_box = throttle_box = Box(
