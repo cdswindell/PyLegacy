@@ -631,11 +631,10 @@ class EngineGui(Thread, Generic[S]):
         # RR Speeds button
         self._rr_speed_btn = rr_btn = HoldButton(rr_box, None)
         rr_btn.tk.pack(fill="both", expand=True)
+        self.app.tk.update_idletasks()
 
         # Defer sizing until Tk finishes layout
         def apply_rr_speed_image():
-            self.app.tk.update_idletasks()
-
             w = rr_btn.tk.winfo_width()
             h = rr_btn.tk.winfo_height()
             print("RR Speeds area:", w, "x", h)
