@@ -766,6 +766,7 @@ class EngineGui(Thread, Generic[S]):
                     else:
                         value = 7
                         self.on_engine_command("MOMENTUM_HIGH")
+                    self.momentum.value = value
                 self.momentum_level.value = f"{value:02d}"
 
     def on_recents(self, value: str):
