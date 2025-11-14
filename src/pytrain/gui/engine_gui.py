@@ -636,8 +636,8 @@ class EngineGui(Thread, Generic[S]):
             visible=False,
         )
 
-        cell = TitleBox(momentum_box, "Momentum", align="top", border=1)
-        cell.text_size = self.s_8
+        cell = TitleBox(momentum_box, "Moment", align="top", border=1)
+        cell.text_size = self.s_10
         self.momentum_level = momentum_level = Text(
             cell,
             text="00",
