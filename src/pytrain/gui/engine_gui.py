@@ -676,8 +676,6 @@ class EngineGui(Thread, Generic[S]):
             value = int(value)
             self.brake_level.value = f"{value:02d}"
             self.on_engine_command("TRAIN_BRAKE", data=value)
-        else:
-            print(f"Ignoring brake change without focus; Brake: {value}")
 
     def on_recents(self, value: str):
         if value != self.title:
@@ -853,7 +851,6 @@ class EngineGui(Thread, Generic[S]):
             if self._scope_tmcc_ids[scope] == 0:
                 self.display_most_recent(scope)
         else:
-            print(f"In On Scope: {scope} == {self.scope} {self._scope_tmcc_ids[scope]}")
             # if the pressed scope button is the same as the current scope,
             # return to entry mode or pop an element from the recents queue,
             # based on whether the current scope TMCC_ID is 0 or not
@@ -1497,7 +1494,6 @@ class EngineGui(Thread, Generic[S]):
                 self.keypad_box.hide()
             if state:
                 self.reset_btn.enable()
-            print("Completed ops_mode widget visibility setup")
         elif self.scope == CommandScope.ROUTE:
             self.on_new_route()
             self.fire_route_cell.show()
@@ -1562,7 +1558,6 @@ class EngineGui(Thread, Generic[S]):
                 update_button_state = False
                 # noinspection PyTypeChecker
                 self.make_recent(self.scope, tmcc_id, state)
-                print(f"update_component_info: {self.scope} {tmcc_id} {name} requesting ops mode")
                 if not in_ops_mode:
                     self.ops_mode(update_info=False)
             else:
@@ -1601,17 +1596,13 @@ class EngineGui(Thread, Generic[S]):
                     tmcc_id = self._scope_tmcc_ids[self.scope]
             img = None
             if scope in {CommandScope.ENGINE} and tmcc_id != 0:
-                print(f"Looking for {scope} {tmcc_id} prod info in cache...")
                 prod_info = self._prod_info_cache.get(tmcc_id, None)
 
                 # If not cached or not a valid Future/ProdInfo, start a background fetch
                 if prod_info is None:
-                    print(f"prod_info is None for {scope} {tmcc_id}, checking pendings")
                     if (scope, tmcc_id) not in self._pending_prod_infos:
                         # Submit fetch immediately and cache the Future itself
-                        print(f"Submitting prod_info fetch for {scope} {tmcc_id}")
                         future = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
-                        print("Submitted...")
                         self._prod_info_cache[tmcc_id] = future
                     return
 
@@ -1770,9 +1761,7 @@ class EngineGui(Thread, Generic[S]):
                         cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
                         repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
                         cmd.send(repeat=repeat)
-                        print(cmd, do_ops, self._in_entry_mode)
                         if do_ops is True and self._in_entry_mode is True:
-                            print("Switch to Ops Mode")
                             self.ops_mode(update_info=True)
                         elif do_entry and self._in_entry_mode is False:
                             self.entry_mode(clear_info=False)
