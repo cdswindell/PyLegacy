@@ -1473,8 +1473,8 @@ class EngineGui(Thread, Generic[S]):
         else:
             self.reset_btn.disable()
 
-    def ops_mode(self, update_info: bool = True) -> None:
-        print(f"ops_mode: {self.scope}")
+    def ops_mode(self, update_info: bool = True, state: S = None) -> None:
+        print(f"ops_mode: {self.scope} update_info: {update_info}")
         self._in_entry_mode = False
         for cell in self.entry_cells:
             if cell.visible:
@@ -1484,7 +1484,8 @@ class EngineGui(Thread, Generic[S]):
                 cell.hide()
         self.reset_btn.disable()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-            state = self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
+            if not isinstance(state, EngineState):
+                state = self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
             self.on_new_engine(state, ops_mode_setup=True)
             if not self.controller_box.visible:
                 self.controller_box.show()
@@ -1506,7 +1507,8 @@ class EngineGui(Thread, Generic[S]):
             if not self.keypad_box.visible:
                 self.keypad_box.show()
         elif self.scope == CommandScope.ACC:
-            state = self._state_store.get_state(CommandScope.ACC, self._scope_tmcc_ids[self.scope], False)
+            if not isinstance(state, AccessoryState):
+                state = self._state_store.get_state(CommandScope.ACC, self._scope_tmcc_ids[self.scope], False)
             self.on_new_accessory(state)
             if isinstance(state, AccessoryState):
                 if state.is_sensor_track:
@@ -1545,7 +1547,6 @@ class EngineGui(Thread, Generic[S]):
         if tmcc_id:
             state = self._state_store.get_state(self.scope, tmcc_id, False)
             if state:
-                print(state)
                 # Make sure ID field shows TMCC ID, not just road number
                 if tmcc_id != state.tmcc_id or tmcc_id != int(self.tmcc_id_text.value):
                     tmcc_id = state.tmcc_id
