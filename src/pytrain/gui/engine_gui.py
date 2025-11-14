@@ -113,6 +113,12 @@ ENGINE_OPS_LAYOUT = [
     ],
 ]
 
+RR_SPEED_LAYOUT = [
+    [("SPEED_RESTRICTED", "Restricted"), ("SPEED_SLOW", "Slow")],
+    [("SPEED_MEDIUM", "Medium"), ("SPEED_LIMITED", "Limited")],
+    [("SPEED_NORMAL", "Normal"), ("SPEED_HIGHBALL", "High Ball")],
+]
+
 REPEAT_EXCEPTIONS = {
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,
 }
@@ -718,30 +724,52 @@ class EngineGui(Thread, Generic[S]):
         self.controller_box.visible = False
 
         # Make popups, starting with rr_speed dialog
-        self.rr_speed_window = rr_speed_window = Window(
+        self.make_rr_speed_popup(app)
+
+    @staticmethod
+    def close_popup(popup) -> None:
+        popup.tk.grab_release()
+        popup.hide()
+
+    def make_rr_speed_popup(self, app):
+        self.rr_speed_window = popup = Window(
             app,
             width=self.emergency_box_width,
-            title="Rail Road Speeds",
+            title="Official Rail Road Speed",
         )
-        rr_speed_window.bg = "white"
-        rr_speed_window.hide()
+        popup.bg = "white"
+
+        btn = PushButton(
+            popup,
+            text="Close",
+            align="bottom",
+            command=self.close_popup,
+            args=[popup],
+        )
+        btn.text_bolded = False
+        btn.text_size = self.s_20
+
+        popup.hide()
 
     def on_rr_speed(self) -> None:
-        rrsw = self.rr_speed_window
+        popup = self.rr_speed_window
+        self.show_popup(popup)
+
+    def show_popup(self, popup):
         # Compute screen position directly under info_box
         info = self.info_box  # whatever your reference widget is
         x = info.tk.winfo_rootx()
         y = info.tk.winfo_rooty() + info.tk.winfo_reqheight()
 
         # Move popup BEFORE showing so geometry applies immediately
-        rrsw.tk.geometry(f"+{x}+{y}")
+        popup.tk.geometry(f"+{x}+{y}")
 
-        rrsw.show(wait=True)  # brings it above the main window
-        rrsw.tk.transient(self.app.tk)
-        rrsw.tk.lift()
-        rrsw.tk.grab_set()
-        rrsw.tk.focus_force()
-        rrsw.tk.attributes("-topmost", True)
+        popup.show(wait=True)  # brings it above the main window
+        popup.tk.transient(self.app.tk)
+        popup.tk.lift()
+        popup.tk.grab_set()
+        popup.tk.focus_force()
+        popup.tk.attributes("-topmost", True)
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         print(btn)
