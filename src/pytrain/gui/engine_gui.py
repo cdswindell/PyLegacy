@@ -283,7 +283,7 @@ class EngineGui(Thread, Generic[S]):
         self.active_engine_state = None
 
         # A semi-transparent overlay to dim the main UI
-        self.dim_bg = None
+        self.dim_canvas = self.dim_rect = None
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
@@ -424,8 +424,7 @@ class EngineGui(Thread, Generic[S]):
             return None
 
         # A semi-transparent overlay to dim the main UI
-        self.dim_bg = tk.Frame(self.app.tk, bg="white")
-        self.dim_bg.place_forget()  # hidden by default
+        self.dim_canvas = tk.Canvas(self.app.tk, highlightthickness=0, bd=0)
 
         # customize label
         self.header = cb = Combo(
@@ -483,18 +482,21 @@ class EngineGui(Thread, Generic[S]):
     def dim_background(self):
         self.app.tk.update_idletasks()
 
-        # Get size of the main window
         w = self.app.tk.winfo_width()
         h = self.app.tk.winfo_height()
 
-        # Place overlay across the entire window
-        self.dim_bg.place(x=0, y=0, width=w, height=h)
+        self.dim_canvas.place(x=0, y=0, width=w, height=h)
 
-        # Use a stipple pattern to simulate transparency
-        self.dim_bg.tk.call(self.dim_bg, "configure", "-background", "white", "-stipple", "gray50")  # 50% dim look
+        # Create the dimming rectangle
+        self.dim_canvas.delete("all")
+        self.dim_rect = self.dim_canvas.create_rectangle(0, 0, w, h, fill="gray", stipple="gray50", outline="")
+
+        # Bring canvas to top but under popup
+        self.dim_canvas.lift()
 
     def undim_background(self):
-        self.dim_bg.place_forget()
+        self.dim_canvas.delete("all")
+        self.dim_canvas.place_forget()
 
     # noinspection PyTypeChecker
     def make_controller(self, app):
