@@ -766,7 +766,6 @@ class EngineGui(Thread, Generic[S]):
                     else:
                         value = 7
                         self.on_engine_command("MOMENTUM_HIGH")
-                        self.momentum.value = 7
                 self.momentum_level.value = f"{value:02d}"
 
     def on_recents(self, value: str):
@@ -842,9 +841,10 @@ class EngineGui(Thread, Generic[S]):
                 self.momentum.value = state.momentum
 
             if state.is_legacy:
-                self.momentum.tk.config(resolution=1)
+                self.momentum.tk.config(resolution=1, showvalue=True)
+
             else:
-                self.momentum.tk.config(resolution=4)
+                self.momentum.tk.config(resolution=4, showvalue=False)
 
             _, btn = self.engine_ops_cells["FORWARD_DIRECTION"]
             btn.bg = self._active_bg if state.is_forward else self._inactive_bg
