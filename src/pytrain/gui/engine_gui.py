@@ -724,6 +724,7 @@ class EngineGui(Thread, Generic[S]):
     def on_rr_speed(self) -> None:
         rrsw = self.rr_speed_window
         rrsw.show(wait=True)  # brings it above the main window
+        rrsw.tk.transient(self.app.tk)
         rrsw.tk.lift()
         rrsw.tk.grab_set()
         rrsw.tk.focus_force()
