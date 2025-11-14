@@ -492,7 +492,7 @@ class EngineGui(Thread, Generic[S]):
         self.dim_rect = self.dim_canvas.create_rectangle(0, 0, w, h, fill="gray", stipple="gray50", outline="")
 
         # Bring canvas to top but under popup
-        self.dim_canvas.lift()
+        self.dim_canvas.tkraise()
 
     def undim_background(self):
         self.dim_canvas.delete("all")
