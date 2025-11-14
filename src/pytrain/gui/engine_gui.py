@@ -722,9 +722,11 @@ class EngineGui(Thread, Generic[S]):
         rr_speed_window.hide()
 
     def on_rr_speed(self) -> None:
-        self.rr_speed_window.show(wait=True)
-        self.rr_speed_window.tk.lift()  # brings it above the main window
-        self.rr_speed_window.tk.attributes("-topmost", True)
+        rrsw = self.rr_speed_window
+        rrsw.show(wait=True)  # brings it above the main window
+        rrsw.tk.attributes("-topmost", True)
+        rrsw.tk.grab_set()
+        rrsw.tk.focus_force()
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         print(btn)
