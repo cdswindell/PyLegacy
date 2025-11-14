@@ -736,17 +736,23 @@ class EngineGui(Thread, Generic[S]):
     def make_rr_speed_popup(self, app):
         self.rr_speed_window = popup = Window(
             app,
-            width=self.emergency_box_width,
             title="Official Rail Road Speed",
+            width=self.emergency_box_width,
+            height=int(5 * self.button_size),
+            visible=False,
         )
         popup.bg = "white"
         popup.when_closed = self.close_popup
 
         # create box for buttons; use grid layout
-        keypad_box = Box(popup, layout="grid", border=2)
+        keypad_box = Box(
+            popup,
+            layout="grid",
+            border=2,
+        )
 
         row = 0
-        width = int(2.5 * self.button_size)
+        width = int(3 * self.button_size)
         for r, kr in enumerate(RR_SPEED_LAYOUT):
             for c, op in enumerate(kr):
                 if isinstance(op, tuple):
@@ -766,7 +772,8 @@ class EngineGui(Thread, Generic[S]):
                 cell.tk.config(width=width)
                 nb.tk.config(width=width)
                 if label.startswith("Emergency"):
-                    nb.text_color = "red"
+                    nb.text_color = "white"
+                    nb.bg = "red"
             row += 1
 
         # close button
