@@ -229,6 +229,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_10: int = int(round(10 * scale_by))
         self.s_8: int = int(round(8 * scale_by))
         self.button_size = int(round(self.width / 6))
+        self.slider_height = (self.button_size * 4) - 10
         self.titled_button_size = int(round((self.width / 6) * 0.80))
         self.scope_size = int(round(self.width / 5))
         self._text_pad_x = 20
@@ -564,7 +565,7 @@ class EngineGui(Thread, Generic[S]):
             horizontal=False,
             step=1,
             width=int(self.button_size / 2),
-            height=self.button_size * 4,
+            height=self.slider_height,
         )
         throttle.text_color = "black"
         throttle.tk.config(
@@ -577,7 +578,7 @@ class EngineGui(Thread, Generic[S]):
             highlightthickness=1,
             highlightbackground=LIONEL_ORANGE,  # subtle orange outline
             width=int(self.button_size / 2),
-            sliderlength=int((self.button_size * 4) / 6),
+            sliderlength=int(self.slider_height / 6),
         )
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
         throttle.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
@@ -611,7 +612,7 @@ class EngineGui(Thread, Generic[S]):
             horizontal=False,
             step=1,
             width=int(self.button_size / 3),
-            height=self.button_size * 4,
+            height=self.slider_height,
             command=self.on_train_brake,
         )
         brake.text_color = "black"
@@ -625,7 +626,7 @@ class EngineGui(Thread, Generic[S]):
             highlightthickness=1,
             highlightbackground=LIONEL_ORANGE,  # subtle orange outline
             width=int(self.button_size / 3),
-            sliderlength=int((self.button_size * 4) / 6),
+            sliderlength=int(self.slider_height / 6),
         )
         brake.tk.bind("<Button-1>", lambda e: brake.tk.focus_set())
         brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
@@ -662,7 +663,7 @@ class EngineGui(Thread, Generic[S]):
             horizontal=False,
             step=1,
             width=int(self.button_size / 3),
-            height=self.button_size * 4,
+            height=self.slider_height,
             command=self.on_momentum,
         )
         momentum.text_color = "black"
@@ -676,7 +677,7 @@ class EngineGui(Thread, Generic[S]):
             highlightthickness=1,
             highlightbackground=LIONEL_ORANGE,  # subtle orange outline
             width=int(self.button_size / 3),
-            sliderlength=int((self.button_size * 4) / 6),
+            sliderlength=int(self.slider_height / 6),
         )
         momentum.tk.bind("<Button-1>", lambda e: momentum.tk.focus_set())
         momentum.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
