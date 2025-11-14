@@ -1495,6 +1495,7 @@ class EngineGui(Thread, Generic[S]):
                 self.keypad_box.hide()
             if state:
                 self.reset_btn.enable()
+            print("Completed ops_mode widget visibility setup")
         elif self.scope == CommandScope.ROUTE:
             self.on_new_route()
             self.fire_route_cell.show()
@@ -1531,6 +1532,7 @@ class EngineGui(Thread, Generic[S]):
 
         if update_info:
             self.update_component_info(in_ops_mode=True)
+        print("Exiting self.ops_mode...")
 
     def update_component_info(
         self,
@@ -1576,6 +1578,7 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_image(tmcc_id)
         else:
             self.image_box.hide()
+        print("Exiting update_component_info...")
 
     def clear_image(self):
         self.image.image = None
