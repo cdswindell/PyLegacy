@@ -751,7 +751,7 @@ class EngineGui(Thread, Generic[S]):
         for r, kr in enumerate(RR_SPEED_LAYOUT):
             for c, op in enumerate(kr):
                 if isinstance(op, tuple):
-                    label = op[1] + " Speed"
+                    label = op[1] + "\nSpeed"
                 else:
                     label = ""
 
@@ -760,8 +760,8 @@ class EngineGui(Thread, Generic[S]):
                     label,
                     row,
                     c,
+                    bolded=False,
                     size=self.s_18,
-                    bolded=True,
                     command=False,
                 )
                 cell.tk.config(width=width)
