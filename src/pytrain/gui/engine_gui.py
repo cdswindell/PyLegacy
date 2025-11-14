@@ -264,8 +264,7 @@ class EngineGui(Thread, Generic[S]):
         self._executor = ThreadPoolExecutor(max_workers=3)
         self._message_queue = Queue()
         self.scope = initial_scope
-        if initial_tmcc_id:
-            self._scope_tmcc_ids[self.scope] = initial_tmcc_id
+        self.initial_tmcc_id = initial_tmcc_id
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
@@ -437,6 +436,9 @@ class EngineGui(Thread, Generic[S]):
 
         # ONE geometry pass at the end
         app.tk.after_idle(app.tk.update_idletasks)
+
+        if self.initial_tmcc_id:
+            app.after(50, self.update_component_info, [self.initial_tmcc_id])
 
         # Display GUI and start event loop; call blocks
         try:
