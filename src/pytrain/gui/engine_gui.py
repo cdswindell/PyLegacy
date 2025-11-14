@@ -748,6 +748,16 @@ class EngineGui(Thread, Generic[S]):
         )
         btn.text_bolded = False
         btn.text_size = self.s_20
+        btn.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            padx=6,
+            pady=4,
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
+        )
 
         popup.hide()
 
