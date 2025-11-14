@@ -69,6 +69,7 @@ SMOKE_OFF = "SMOKE OFF"
 BELL_KEY = "\U0001f514"
 FWD_KEY = "Fwd"
 REV_KEY = "Rev"
+MOM_TB = "MOM_TB"
 
 ENTRY_LAYOUT = [
     ["1", "2", "3"],
@@ -106,6 +107,7 @@ ENGINE_OPS_LAYOUT = [
         ("AUX1_OPTION_ONE", "", AUX1_KEY),
         ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"),
         ("AUX3_OPTION_ONE", "", AUX3_KEY),
+        (MOM_TB, "", "Momentum"),
     ],
 ]
 
@@ -503,6 +505,10 @@ class EngineGui(Thread, Generic[S]):
                     print(f"Duplicate engine op: {op}")
                 self.engine_ops_cells[op] = (cell, nb)
             row += 1
+
+        # Postprocess some buttons
+        _, btn = self.engine_ops_cells[MOM_TB]
+        btn.text_size = self.s_16
 
         # set some repeating commands
         for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
