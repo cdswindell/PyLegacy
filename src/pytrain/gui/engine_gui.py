@@ -1451,7 +1451,7 @@ class EngineGui(Thread, Generic[S]):
             print(f"Unknown key: {key}")
 
     def entry_mode(self, clear_info: bool = True) -> None:
-        print("entry_mode:")
+        print(f"entry_mode  clear_info={clear_info}:")
         if clear_info:
             self.update_component_info(0)
         self._in_entry_mode = True
@@ -1467,6 +1467,7 @@ class EngineGui(Thread, Generic[S]):
             self.reset_btn.enable()
         else:
             self.reset_btn.disable()
+        print("Exiting self.entry_mode...")
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
         print(f"ops_mode: {self.scope} update_info: {update_info}")
