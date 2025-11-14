@@ -70,6 +70,8 @@ BELL_KEY = "\U0001f514"
 FWD_KEY = "Fwd"
 REV_KEY = "Rev"
 MOM_TB = "MOM_TB"
+MOMENTUM = "Mom-\nentum"
+TRAIN_BRAKE = "Train\nBrake"
 
 ENTRY_LAYOUT = [
     ["1", "2", "3"],
@@ -107,7 +109,7 @@ ENGINE_OPS_LAYOUT = [
         ("AUX1_OPTION_ONE", "", AUX1_KEY),
         ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"),
         ("AUX3_OPTION_ONE", "", AUX3_KEY),
-        (MOM_TB, "", "Momen\n-tum"),
+        (MOM_TB, "", MOMENTUM),
     ],
 ]
 
@@ -713,13 +715,13 @@ class EngineGui(Thread, Generic[S]):
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         print(btn)
-        if btn.text == "Momen\n-tum":
-            btn.text = "Train\nBrake"
+        if btn.text == MOMENTUM:
+            btn.text = TRAIN_BRAKE
             self.brake_box.visible = False
             self.momentum_box.visible = True
 
         else:
-            btn.text = "Momen\n-tum"
+            btn.text = MOMENTUM
             self.momentum_box.visible = False
             self.brake_box.visible = True
 
