@@ -282,6 +282,9 @@ class EngineGui(Thread, Generic[S]):
         self.initial_tmcc_id = initial_tmcc_id
         self.active_engine_state = None
 
+        # A semi-transparent overlay to dim the main UI
+        self.dim_bg = None
+
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
         self.controller_box = self.controller_keypad_box = self.controller_throttle_box = None
@@ -420,7 +423,9 @@ class EngineGui(Thread, Generic[S]):
                     pass
             return None
 
-        app.repeat(20, _poll_shutdown)
+        # A semi-transparent overlay to dim the main UI
+        self.dim_bg = tk.Frame(self.app.tk, bg="white")
+        self.dim_bg.place_forget()  # hidden by default
 
         # customize label
         self.header = cb = Combo(
@@ -455,6 +460,9 @@ class EngineGui(Thread, Generic[S]):
         # ONE geometry pass at the end
         app.tk.after_idle(app.tk.update_idletasks)
 
+        # start the event watcher
+        app.repeat(20, _poll_shutdown)
+
         if self.initial_tmcc_id:
             app.after(50, self.update_component_info, [self.initial_tmcc_id])
 
@@ -471,6 +479,22 @@ class EngineGui(Thread, Generic[S]):
             self._image = None
             self.app = None
             self._ev.set()
+
+    def dim_background(self):
+        self.app.tk.update_idletasks()
+
+        # Get size of the main window
+        w = self.app.tk.winfo_width()
+        h = self.app.tk.winfo_height()
+
+        # Place overlay across the entire window
+        self.dim_bg.place(x=0, y=0, width=w, height=h)
+
+        # Use a stipple pattern to simulate transparency
+        self.dim_bg.tk.call(self.dim_bg, "configure", "-background", "white", "-stipple", "gray50")  # 50% dim look
+
+    def undim_background(self):
+        self.dim_bg.place_forget()
 
     # noinspection PyTypeChecker
     def make_controller(self, app):
@@ -738,6 +762,7 @@ class EngineGui(Thread, Generic[S]):
             title="Official Rail Road Speed",
         )
         popup.bg = "white"
+        popup.when_closed = self.undim_background
 
         # close button
         self.make_popup_close_button(popup)
@@ -770,6 +795,9 @@ class EngineGui(Thread, Generic[S]):
         self.show_popup(popup)
 
     def show_popup(self, popup):
+        # dim main UI
+        self.dim_background()
+
         # Compute screen position directly under info_box
         info = self.info_box  # whatever your reference widget is
         x = info.tk.winfo_rootx()
