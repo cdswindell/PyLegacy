@@ -628,23 +628,21 @@ class EngineGui(Thread, Generic[S]):
             align="top",
         )
 
-        # Prevent collapse
-        # rr_box.tk.grid_propagate(False)
-
         # RR Speeds button
-        self._rr_speed_btn = rr_btn = HoldButton(rr_box, None)
+        self._rr_speed_btn = rr_btn = HoldButton(rr_box, "")
         rr_btn.tk.pack(fill="both", expand=True)
 
         img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
         rr_btn.tk.config(
             image=img,
             compound="center",
-            padx=0,
-            pady=0,
-            borderwidth=0,
-            highlightthickness=0,
             width=w,
             height=h,
+            padx=3,  # small padding
+            pady=3,
+            borderwidth=2,  # light border
+            relief="ridge",  # gives pressable button feel
+            highlightthickness=0,
         )
 
         # --- HIDE IT AGAIN after sizing is complete ---
