@@ -719,12 +719,12 @@ class EngineGui(Thread, Generic[S]):
 
         # Make popups, starting with rr_speed dialog
         self.rr_speed_window = rr_speed_window = Window(app)
-        rr_speed_window.tk.attributes("-topmost", True)
         rr_speed_window.hide()
 
     def on_rr_speed(self) -> None:
         self.rr_speed_window.show(wait=True)
-        self.rr_speed_window.warn("Warning", "This is a warning message!")
+        self.rr_speed_window.tk.lift()  # brings it above the main window
+        self.rr_speed_window.tk.attributes("-topmost", True)
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         print(btn)
