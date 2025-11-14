@@ -107,7 +107,7 @@ ENGINE_OPS_LAYOUT = [
         ("AUX1_OPTION_ONE", "", AUX1_KEY),
         ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"),
         ("AUX3_OPTION_ONE", "", AUX3_KEY),
-        (MOM_TB, "", "Momentum"),
+        (MOM_TB, "", "Mo"),
     ],
 ]
 
@@ -294,9 +294,10 @@ class EngineGui(Thread, Generic[S]):
         self.ac_aux1_cell = self.ac_aux1_btn = None
 
         # controller
-        self.controller_box = self.controller_keypad_box = self.controller_throttle_box = None
-        self.controller_brake_box = self.brake_level = self.focus_widget = None
+        self.controller_box = self.controller_keypad_box = self.throttle_box = None
+        self.brake_box = self.brake_level = self.focus_widget = None
         self.throttle = self.speed = self.brake = self._rr_speed_btn = None
+        self.momentum_box = self.momentum_level = self.momentum = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -508,9 +509,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Postprocess some buttons
         _, btn = self.engine_ops_cells[MOM_TB]
-        btn.text_size = self.s_10
-        btn.text_bold = False
-        print(btn)
+        btn.update_command(self.toggle_momentum_train_brake, [btn])
 
         # set some repeating commands
         for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
@@ -532,7 +531,7 @@ class EngineGui(Thread, Generic[S]):
         sliders.tk.pack(fill="y", expand=True)
 
         # throttle
-        self.controller_throttle_box = throttle_box = Box(
+        self.throttle_box = throttle_box = Box(
             sliders,
             border=1,
             grid=[1, 0],
@@ -579,7 +578,7 @@ class EngineGui(Thread, Generic[S]):
         throttle.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
         # brake
-        self.controller_brake_box = brake_box = Box(
+        self.brake_box = brake_box = Box(
             sliders,
             border=1,
             grid=[0, 0],
@@ -628,6 +627,55 @@ class EngineGui(Thread, Generic[S]):
 
         # Allow Tk to compute geometry
         self.app.tk.update_idletasks()
+
+        self.momentum_box = momentum_box = Box(
+            sliders,
+            border=1,
+            grid=[0, 0],
+        )
+
+        cell = TitleBox(momentum_box, "Momentum>", align="top", border=1)
+        cell.text_size = self.s_10
+        self.momentum_level = momentum_level = Text(
+            cell,
+            text="00",
+            color="black",
+            align="top",
+            bold=True,
+            size=self.s_18,
+            width=3,
+            font="DigitalDream",
+        )
+        momentum_level.bg = "black"
+        momentum_level.text_color = "white"
+
+        self.momentum = momentum = Slider(
+            momentum_box,
+            align="top",
+            horizontal=False,
+            step=1,
+            width=int(self.button_size / 3),
+            height=self.button_size * 4,
+            command=self.on_momentum,
+        )
+        momentum.text_color = "black"
+        momentum.tk.config(
+            from_=0,
+            to=7,
+            takefocus=0,
+            troughcolor="#003366",  # deep Lionel blue for the track,
+            activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
+            bg="lightgrey",  # darker navy background
+            highlightthickness=1,
+            highlightbackground=LIONEL_ORANGE,  # subtle orange outline
+            width=int(self.button_size / 3),
+            sliderlength=int((self.button_size * 4) / 6),
+        )
+        momentum.tk.bind("<Button-1>", lambda e: momentum.tk.focus_set())
+        momentum.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
+        momentum.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
+
+        # compute rr speed button size
         w = sliders.tk.winfo_width()
         h = (5 * self.button_size) - (brake.tk.winfo_height() + brake_level.tk.winfo_height())
 
@@ -658,6 +706,13 @@ class EngineGui(Thread, Generic[S]):
         # --- HIDE IT AGAIN after sizing is complete ---
         self.controller_box.visible = False
 
+    def toggle_momentum_train_brake(self, btn: PushButton) -> None:
+        print(btn)
+        if btn.text == "Mo":
+            btn.text = "Train\nBrake"
+        else:
+            btn.text = "Mo"
+
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):
         """
@@ -665,19 +720,26 @@ class EngineGui(Thread, Generic[S]):
         Ensures focus moves off the Scale after finger release
         and forces a redraw so the grab handle deactivates.
         """
-        if self.app.tk.focus_get() in {self.throttle.tk, self.brake.tk}:
+        if self.app.tk.focus_get() in {self.throttle.tk, self.brake.tk, self.momentum.tk}:
             self.app.tk.after_idle(self._do_clear_focus)
 
     def _do_clear_focus(self):
         self.focus_widget.focus_set()
         self.throttle.tk.event_generate("<Leave>")
         self.brake.tk.event_generate("<Leave>")
+        self.momentum.tk.event_generate("<Leave>")
 
     def on_train_brake(self, value):
         if self.app.tk.focus_get() == self.brake.tk:
             value = int(value)
             self.brake_level.value = f"{value:02d}"
             self.on_engine_command("TRAIN_BRAKE", data=value)
+
+    def on_momentum(self, value):
+        if self.app.tk.focus_get() == self.momentum.tk:
+            value = int(value)
+            self.momentum_level.value = f"{value:02d}"
+            self.on_engine_command("MOMENTUM", data=value)
 
     def on_recents(self, value: str):
         if value != self.title:
