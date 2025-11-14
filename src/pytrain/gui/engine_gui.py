@@ -827,7 +827,9 @@ class EngineGui(Thread, Generic[S]):
             scope_box.tk.grid_columnconfigure(i, weight=1)
             # associate the button with its scope
             self._scope_buttons[scope] = pb
-            self._scope_tmcc_ids[scope] = 0
+            # don't overwrite initial tmcc id, if one specified
+            if scope not in self._scope_tmcc_ids:
+                self._scope_tmcc_ids[scope] = 0
         # highlight initial button
         self.on_scope(self.scope)
 
