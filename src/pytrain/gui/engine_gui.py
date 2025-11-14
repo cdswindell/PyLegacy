@@ -440,6 +440,7 @@ class EngineGui(Thread, Generic[S]):
 
         # if an initial tmcc id is specified, use it
         if self._scope_tmcc_ids.get(self.scope, None):
+            print(f"Using initial TMCC ID: {self._scope_tmcc_ids[self.scope]}")
             self.update_component_info(self._scope_tmcc_ids.get(self.scope))
 
         # Display GUI and start event loop; call blocks
@@ -1542,6 +1543,7 @@ class EngineGui(Thread, Generic[S]):
         if tmcc_id:
             state = self._state_store.get_state(self.scope, tmcc_id, False)
             if state:
+                print(state)
                 # Make sure ID field shows TMCC ID, not just road number
                 if tmcc_id != state.tmcc_id or tmcc_id != int(self.tmcc_id_text.value):
                     tmcc_id = state.tmcc_id
@@ -1553,6 +1555,7 @@ class EngineGui(Thread, Generic[S]):
                 update_button_state = False
                 # noinspection PyTypeChecker
                 self.make_recent(self.scope, tmcc_id, state)
+                print(f"update_component_info: {self.scope} {tmcc_id} {name} requesting ops mode")
                 if not in_ops_mode:
                     self.ops_mode(update_info=False)
             else:
