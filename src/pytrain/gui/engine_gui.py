@@ -222,6 +222,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_20: int = int(round(20 * scale_by))
         self.s_18: int = int(round(18 * scale_by))
         self.s_16: int = int(round(16 * scale_by))
+        self.s_14: int = int(round(14 * scale_by))
         self.s_12: int = int(round(12 * scale_by))
         self.s_10: int = int(round(10 * scale_by))
         self.s_8: int = int(round(8 * scale_by))
@@ -511,7 +512,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Postprocess some buttons
         _, btn = self.engine_ops_cells[MOM_TB]
-        btn.text_size = self.s_16
+        btn.text_size = self.s_14
         btn.update_command(self.toggle_momentum_train_brake, [btn])
 
         # set some repeating commands
@@ -836,7 +837,7 @@ class EngineGui(Thread, Generic[S]):
                 self.brake.value = state.train_brake
 
             self.momentum_level.value = f"{state.momentum:02d}"
-            if self.momentum.tk.focus_displayof() != self.momentum.tk:
+            if self.app.tk.focus_get() != self.momentum.tk:
                 self.momentum.value = state.momentum
 
             if state.is_legacy:
