@@ -114,7 +114,7 @@ ENGINE_OPS_LAYOUT = [
 ]
 
 RR_SPEED_LAYOUT = [
-    [("STOP_IMMEDIATE", "Emergency Stop"), ("SPEED_ROLL", "Roll")],
+    [("STOP_IMMEDIATE", "Emergency\nStop"), ("SPEED_ROLL", "Roll")],
     [("SPEED_RESTRICTED", "Restricted"), ("SPEED_SLOW", "Slow")],
     [("SPEED_MEDIUM", "Medium"), ("SPEED_LIMITED", "Limited")],
     [("SPEED_NORMAL", "Normal"), ("SPEED_HIGHBALL", "High Ball")],
@@ -759,12 +759,14 @@ class EngineGui(Thread, Generic[S]):
                     label,
                     r,
                     c,
-                    bolded=False,
+                    bolded=True,
                     size=self.s_18,
                     command=False,
                 )
                 cell.tk.config(width=width)
                 nb.tk.config(width=width)
+                if label.startswith("Emergency"):
+                    nb.text_color = "red"
             row += 1
 
         # close button
