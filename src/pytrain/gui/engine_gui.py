@@ -731,7 +731,7 @@ class EngineGui(Thread, Generic[S]):
         # Compute screen position directly under info_box
         info = self.info_box  # whatever your reference widget is
         x = info.tk.winfo_rootx()
-        y = info.tk.winfo_rooty() + info.tk.winfo_height()
+        y = info.tk.winfo_rooty() + info.tk.winfo_reqheight()
 
         # Move popup BEFORE showing so geometry applies immediately
         rrsw.tk.geometry(f"+{x}+{y}")
