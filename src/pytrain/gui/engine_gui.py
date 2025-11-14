@@ -747,6 +747,7 @@ class EngineGui(Thread, Generic[S]):
         keypad_box = Box(popup, layout="grid", border=2)
 
         row = 0
+        width = int(2.5 * self.button_size)
         for r, kr in enumerate(RR_SPEED_LAYOUT):
             for c, op in enumerate(kr):
                 if isinstance(op, tuple):
@@ -759,12 +760,12 @@ class EngineGui(Thread, Generic[S]):
                     label,
                     row,
                     c,
-                    size=self.s_20,
+                    size=self.s_18,
                     bolded=True,
                     command=False,
                 )
-                cell.tk.config(width=2 * self.button_size)
-                nb.tk.config(width=2 * self.button_size)
+                cell.tk.config(width=width)
+                nb.tk.config(width=width)
             row += 1
 
         # close button
