@@ -523,8 +523,6 @@ class EngineGui(Thread, Generic[S]):
             align="right",
             layout="grid",
         )
-        # ensure it pins to the top-right and doesn't stretch vertically
-        # sliders.tk.pack_configure(anchor="n")
         sliders.tk.pack(fill="y", expand=True)
 
         # throttle
@@ -626,9 +624,6 @@ class EngineGui(Thread, Generic[S]):
         self.app.tk.update_idletasks()
         w = sliders.tk.winfo_width()
         h = (5 * self.button_size) - (brake.tk.winfo_height() + brake_level.tk.winfo_height())
-        print(f"RR Speeds area:  {w}x{h} {sliders.tk.winfo_width()} {sliders.tk.winfo_height()}")
-        print(f"Keypad height:  {keypad_keys.tk.winfo_height()}")
-        print(f"brake height:  {brake.tk.winfo_height() + brake_level.tk.winfo_height()}")
 
         # RR Speeds button
         rr_box = Box(
@@ -638,7 +633,7 @@ class EngineGui(Thread, Generic[S]):
         )
 
         # Prevent collapse
-        rr_box.tk.grid_propagate(False)
+        # rr_box.tk.grid_propagate(False)
 
         # RR Speeds button
         self._rr_speed_btn = rr_btn = HoldButton(rr_box, None)
