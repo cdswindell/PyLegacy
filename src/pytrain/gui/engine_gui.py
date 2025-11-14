@@ -438,11 +438,6 @@ class EngineGui(Thread, Generic[S]):
         # ONE geometry pass at the end
         app.tk.after_idle(app.tk.update_idletasks)
 
-        # if an initial tmcc id is specified, use it
-        if self._scope_tmcc_ids.get(self.scope, None):
-            print(f"Using initial TMCC ID: {self._scope_tmcc_ids[self.scope]}")
-            self.update_component_info(self._scope_tmcc_ids.get(self.scope))
-
         # Display GUI and start event loop; call blocks
         try:
             app.display()
