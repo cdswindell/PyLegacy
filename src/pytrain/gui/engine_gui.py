@@ -850,6 +850,7 @@ class EngineGui(Thread, Generic[S]):
             if self._scope_tmcc_ids[scope] == 0:
                 self.display_most_recent(scope)
         else:
+            print(f"In On Scope: {scope} == {self.scope} {self._scope_tmcc_ids[scope]}")
             # if the pressed scope button is the same as the current scope,
             # return to entry mode or pop an element from the recents queue,
             # based on whether the current scope TMCC_ID is 0 or not
@@ -858,7 +859,6 @@ class EngineGui(Thread, Generic[S]):
             else:
                 # pressing the same scope button again returns to entry mode with current
                 # component active
-                # self._scope_tmcc_ids[scope] = 0
                 force_entry_mode = True
                 clear_info = False
         # update display
