@@ -268,6 +268,7 @@ class EngineGui(Thread, Generic[S]):
         self._message_queue = Queue()
         self.scope = initial_scope
         self.initial_tmcc_id = initial_tmcc_id
+        self.active_engine_state = None
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
@@ -746,15 +747,36 @@ class EngineGui(Thread, Generic[S]):
 
     def on_momentum(self, value):
         if self.app.tk.focus_get() == self.momentum.tk:
-            value = int(value)
-            self.momentum_level.value = f"{value:02d}"
-            self.on_engine_command("MOMENTUM", data=value)
+            # we need state info for this
+            if self.active_engine_state:
+                state = self.active_engine_state
+            else:
+                state = self.active_state
+            if isinstance(state, EngineState):
+                value = int(value)
+                if state.is_legacy:
+                    self.on_engine_command("MOMENTUM", data=value)
+                else:
+                    if value in {0, 1}:
+                        value = 0
+                        self.on_engine_command("MOMENTUM_LOW", data=value)
+                    elif value in {2, 3, 4}:
+                        value = 3
+                        self.on_engine_command("MOMENTUM_MEDIUM")
+                    else:
+                        value = 7
+                        self.on_engine_command("MOMENTUM_HIGH")
+                self.momentum_level.value = f"{value:02d}"
 
     def on_recents(self, value: str):
         if value != self.title:
             state = self._options_to_state[value]
             self.update_component_info(tmcc_id=state.tmcc_id)
             self.header.select_default()
+
+    @property
+    def active_state(self) -> S:
+        return self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
 
     def get_options(self) -> list[str]:
         options = [self.title]
@@ -803,6 +825,7 @@ class EngineGui(Thread, Generic[S]):
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         print(f"on_new_engine: {state}")
+        self.active_engine_state = state
         if state:
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             self.speed.value = f"{state.speed:03d}"
