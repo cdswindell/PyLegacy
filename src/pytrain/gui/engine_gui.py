@@ -713,13 +713,14 @@ class EngineGui(Thread, Generic[S]):
         if btn.text == "Mo":
             btn.text = "Train\nBrake"
             btn.text_size = self.s_16
-            self.momentum_box.visible = False
-            self.brake_box.visible = True
+            self.brake_box.visible = False
+            self.momentum_box.visible = True
+
         else:
             btn.text = "Mo"
             btn.text_size = self.s_18
-            self.brake_box.visible = False
-            self.momentum_box.visible = True
+            self.momentum_box.visible = False
+            self.brake_box.visible = True
 
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):
