@@ -224,6 +224,7 @@ class EngineGui(Thread, Generic[S]):
         self.s_16: int = int(round(16 * scale_by))
         self.s_12: int = int(round(12 * scale_by))
         self.s_10: int = int(round(10 * scale_by))
+        self.s_8: int = int(round(8 * scale_by))
         self.button_size = int(round(self.width / 6))
         self.titled_button_size = int(round((self.width / 6) * 0.80))
         self.scope_size = int(round(self.width / 5))
@@ -635,8 +636,8 @@ class EngineGui(Thread, Generic[S]):
             visible=False,
         )
 
-        cell = TitleBox(momentum_box, "Momentum>", align="top", border=1)
-        cell.text_size = self.s_10
+        cell = TitleBox(momentum_box, "Momentum", align="top", border=1)
+        cell.text_size = self.s_8
         self.momentum_level = momentum_level = Text(
             cell,
             text="00",
