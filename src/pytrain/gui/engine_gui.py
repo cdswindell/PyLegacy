@@ -489,10 +489,11 @@ class EngineGui(Thread, Generic[S]):
 
         # Create the dimming rectangle
         self.dim_canvas.delete("all")
-        self.dim_rect = self.dim_canvas.create_rectangle(0, 0, w, h, fill="gray", stipple="gray50", outline="")
+        self.dim_canvas.create_rectangle(0, 0, w, h, fill="gray", stipple="gray50", outline="")
 
-        # Bring canvas to top but under popup
-        self.dim_canvas.tkraise()
+        # Correct way to raise the canvas widget
+        # noinspection PyProtectedMember
+        self.dim_canvas.tk.call("raise", self.dim_canvas._w)
 
     def undim_background(self):
         self.dim_canvas.delete("all")
