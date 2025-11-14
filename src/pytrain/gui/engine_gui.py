@@ -718,15 +718,16 @@ class EngineGui(Thread, Generic[S]):
         self.controller_box.visible = False
 
         # Make popups, starting with rr_speed dialog
-        self.rr_speed_window = rr_speed_window = Window(app)
+        self.rr_speed_window = rr_speed_window = Window(app, title="Rail Road Speeds")
         rr_speed_window.hide()
 
     def on_rr_speed(self) -> None:
         rrsw = self.rr_speed_window
         rrsw.show(wait=True)  # brings it above the main window
-        rrsw.tk.attributes("-topmost", True)
+        rrsw.tk.lift()
         rrsw.tk.grab_set()
         rrsw.tk.focus_force()
+        rrsw.tk.attributes("-topmost", True)
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         print(btn)
