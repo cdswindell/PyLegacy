@@ -114,6 +114,8 @@ ENGINE_OPS_LAYOUT = [
 ]
 
 RR_SPEED_LAYOUT = [
+    [("STOP_IMMEDIATE", "Emergency Stop"), ("SPEED_ROLL", "Roll")],
+    [("SPEED_NORMAL", "Normal"), ("SPEED_HIGHBALL", "High Ball")],
     [("SPEED_RESTRICTED", "Restricted"), ("SPEED_SLOW", "Slow")],
     [("SPEED_MEDIUM", "Medium"), ("SPEED_LIMITED", "Limited")],
     [("SPEED_NORMAL", "Normal"), ("SPEED_HIGHBALL", "High Ball")],
@@ -282,9 +284,6 @@ class EngineGui(Thread, Generic[S]):
         self.initial_tmcc_id = initial_tmcc_id
         self.active_engine_state = None
 
-        # A semi-transparent overlay to dim the main UI
-        self.dim_frame = self.dim_canvas = None
-
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
         self.controller_box = self.controller_keypad_box = self.controller_throttle_box = None
@@ -423,9 +422,6 @@ class EngineGui(Thread, Generic[S]):
                     pass
             return None
 
-        # A semi-transparent overlay to dim the main UI
-        self.create_dim_overlay()
-
         # customize label
         self.header = cb = Combo(
             app,
@@ -478,44 +474,6 @@ class EngineGui(Thread, Generic[S]):
             self._image = None
             self.app = None
             self._ev.set()
-
-    def dim_background(self):
-        self.app.tk.update_idletasks()
-
-        w = self.app.tk.winfo_width()
-        h = self.app.tk.winfo_height()
-
-        # Show canvas full size
-        self.dim_canvas.place(x=0, y=0, width=w, height=h)
-
-        self.dim_canvas.delete("all")
-
-        # Gray rectangle with stipple mask = fake transparency
-        self.dim_canvas.create_rectangle(
-            0,
-            0,
-            w,
-            h,
-            fill="gray25",  # dark gray
-            stipple="gray50",  # 50% transparency effect
-            outline="",
-        )
-
-        # Put dimmer below popup but above main window
-        self.dim_canvas.lift()
-
-    def undim_background(self):
-        self.dim_canvas.delete("all")
-        self.dim_canvas.place_forget()
-
-    def create_dim_overlay(self):
-        self.dim_canvas = tk.Canvas(
-            self.app.tk,
-            highlightthickness=0,
-            bd=0,
-            background="",
-        )
-        self.dim_canvas.place_forget()
 
     # noinspection PyTypeChecker
     def make_controller(self, app):
@@ -771,10 +729,10 @@ class EngineGui(Thread, Generic[S]):
         # Make popups, starting with rr_speed dialog
         self.make_rr_speed_popup(app)
 
-    def close_popup(self, popup) -> None:
+    @staticmethod
+    def close_popup(popup) -> None:
         popup.hide()
         popup.tk.grab_release()
-        self.undim_background()
 
     def make_rr_speed_popup(self, app):
         self.rr_speed_window = popup = Window(
@@ -783,7 +741,29 @@ class EngineGui(Thread, Generic[S]):
             title="Official Rail Road Speed",
         )
         popup.bg = "white"
-        popup.when_closed = self.undim_background
+        popup.when_closed = self.close_popup
+
+        # create box for buttons; use grid layout
+        keypad_box = Box(popup, layout="grid", border=2)
+
+        row = 0
+        for r, kr in enumerate(RR_SPEED_LAYOUT):
+            for c, op in enumerate(kr):
+                if isinstance(op, tuple):
+                    label = op[1] + " Speed"
+                else:
+                    label = ""
+
+                cell, nb = self.make_keypad_button(
+                    keypad_box,
+                    label,
+                    row,
+                    c,
+                    size=self.s_20,
+                    width=2 * self.button_size,
+                    bolded=True,
+                    command=False,
+                )
 
         # close button
         self.make_popup_close_button(popup)
@@ -816,9 +796,6 @@ class EngineGui(Thread, Generic[S]):
         self.show_popup(popup)
 
     def show_popup(self, popup):
-        # dim main UI
-        self.dim_background()
-
         # Compute screen position directly under info_box
         info = self.info_box  # whatever your reference widget is
         x = info.tk.winfo_rootx()
@@ -833,10 +810,6 @@ class EngineGui(Thread, Generic[S]):
         popup.tk.grab_set()
         popup.tk.focus_force()
         popup.tk.attributes("-topmost", True)
-
-        # ensure dim layer sits between root and popup
-        self.dim_canvas.lift()
-        popup.tk.lift()
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         print(btn)
@@ -1430,13 +1403,15 @@ class EngineGui(Thread, Generic[S]):
         row: int,
         col: int,
         size: int | None = None,
+        width: int = None,
+        height: int = None,
         image: str = None,
         visible: bool = True,
         bolded: bool = True,
         is_ops: bool = False,
         is_entry: bool = False,
         titlebox_text: str = None,
-        command: Callable | None = None,
+        command: Callable | bool | None = None,
         args: list = None,
     ):
         if args is None:
@@ -1451,6 +1426,12 @@ class EngineGui(Thread, Generic[S]):
         if size is None and label:
             size = self.s_30 if label in FONT_SIZE_EXCEPTIONS else self.s_18
 
+        if width is None:
+            width = self.button_size
+
+        if height is None:
+            height = self.button_size
+
         # ------------------------------------------------------------
         #  Create cell container (either TitleBox or Box)
         # ------------------------------------------------------------
@@ -1463,7 +1444,7 @@ class EngineGui(Thread, Generic[S]):
                 grid=[col, row],
                 visible=True,
             )
-            cell.tk.configure(width=self.button_size, height=self.button_size)
+            cell.tk.configure(width=width, height=height)
             cell.text_size = self.s_10
             button_size = self.titled_button_size
             grid_pad_by = 0
@@ -1476,7 +1457,7 @@ class EngineGui(Thread, Generic[S]):
                 log.exception(f"Warning adjusting LabelFrame padding: {e}", exc_info=e)
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], align="bottom", visible=True)
-            button_size = self.button_size
+            button_size = width
             grid_pad_by = self.grid_pad_by
 
         if is_ops:
@@ -1487,24 +1468,17 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Fix cell size (allowing slight flex for TitleBoxes)
         # ------------------------------------------------------------
-        if titlebox_text:
-            # Force the cell to standard button size
-            cell.tk.configure(
-                width=self.button_size,
-                height=self.button_size,
-            )
-        else:
-            cell.tk.configure(
-                width=self.button_size,
-                height=self.button_size,
-            )
+        cell.tk.configure(
+            width=self.width,
+            height=self.width,
+        )
         # don't let push button grow cell size
         cell.tk.pack_propagate(False)
 
         # ensure the keypad grid expands uniformly and fills the box height
         extra_pad = max(2, grid_pad_by)
-        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=self.button_size + (2 * extra_pad))
-        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=self.button_size + (2 * extra_pad))
+        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=width + (2 * extra_pad))
+        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=width + (2 * extra_pad))
 
         # ------------------------------------------------------------
         #  Create PushButton
