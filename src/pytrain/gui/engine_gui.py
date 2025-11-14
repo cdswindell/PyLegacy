@@ -760,7 +760,6 @@ class EngineGui(Thread, Generic[S]):
                     row,
                     c,
                     size=self.s_20,
-                    width=2 * self.button_size,
                     bolded=True,
                     command=False,
                 )
@@ -1403,8 +1402,6 @@ class EngineGui(Thread, Generic[S]):
         row: int,
         col: int,
         size: int | None = None,
-        width: int = None,
-        height: int = None,
         image: str = None,
         visible: bool = True,
         bolded: bool = True,
@@ -1426,12 +1423,6 @@ class EngineGui(Thread, Generic[S]):
         if size is None and label:
             size = self.s_30 if label in FONT_SIZE_EXCEPTIONS else self.s_18
 
-        if width is None:
-            width = self.button_size
-
-        if height is None:
-            height = self.button_size
-
         # ------------------------------------------------------------
         #  Create cell container (either TitleBox or Box)
         # ------------------------------------------------------------
@@ -1444,7 +1435,7 @@ class EngineGui(Thread, Generic[S]):
                 grid=[col, row],
                 visible=True,
             )
-            cell.tk.configure(width=width, height=height)
+            cell.tk.configure(width=self.button_size, height=self.button_size)
             cell.text_size = self.s_10
             button_size = self.titled_button_size
             grid_pad_by = 0
@@ -1457,7 +1448,7 @@ class EngineGui(Thread, Generic[S]):
                 log.exception(f"Warning adjusting LabelFrame padding: {e}", exc_info=e)
         else:
             cell = Box(keypad_box, layout="auto", grid=[col, row], align="bottom", visible=True)
-            button_size = width
+            button_size = self.button_size
             grid_pad_by = self.grid_pad_by
 
         if is_ops:
@@ -1468,17 +1459,24 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         #  Fix cell size (allowing slight flex for TitleBoxes)
         # ------------------------------------------------------------
-        cell.tk.configure(
-            width=self.width,
-            height=self.height,
-        )
+        if titlebox_text:
+            # Force the cell to standard button size
+            cell.tk.configure(
+                width=self.button_size,
+                height=self.button_size,
+            )
+        else:
+            cell.tk.configure(
+                width=self.button_size,
+                height=self.button_size,
+            )
         # don't let push button grow cell size
         cell.tk.pack_propagate(False)
 
         # ensure the keypad grid expands uniformly and fills the box height
         extra_pad = max(2, grid_pad_by)
-        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=width + (2 * extra_pad))
-        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=height + (2 * extra_pad))
+        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=self.button_size + (2 * extra_pad))
+        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=self.button_size + (2 * extra_pad))
 
         # ------------------------------------------------------------
         #  Create PushButton
