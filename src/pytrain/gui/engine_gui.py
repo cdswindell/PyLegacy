@@ -718,7 +718,12 @@ class EngineGui(Thread, Generic[S]):
         self.controller_box.visible = False
 
         # Make popups, starting with rr_speed dialog
-        self.rr_speed_window = rr_speed_window = Window(app, title="Rail Road Speeds")
+        self.rr_speed_window = rr_speed_window = Window(
+            app,
+            width=self.emergency_box_width,
+            title="Rail Road Speeds",
+        )
+        rr_speed_window.bg = "white"
         rr_speed_window.hide()
 
     def on_rr_speed(self) -> None:
