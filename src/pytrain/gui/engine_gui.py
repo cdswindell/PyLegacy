@@ -115,7 +115,6 @@ ENGINE_OPS_LAYOUT = [
 
 RR_SPEED_LAYOUT = [
     [("STOP_IMMEDIATE", "Emergency Stop"), ("SPEED_ROLL", "Roll")],
-    [("SPEED_NORMAL", "Normal"), ("SPEED_HIGHBALL", "High Ball")],
     [("SPEED_RESTRICTED", "Restricted"), ("SPEED_SLOW", "Slow")],
     [("SPEED_MEDIUM", "Medium"), ("SPEED_LIMITED", "Limited")],
     [("SPEED_NORMAL", "Normal"), ("SPEED_HIGHBALL", "High Ball")],
@@ -758,7 +757,7 @@ class EngineGui(Thread, Generic[S]):
                 cell, nb = self.make_keypad_button(
                     keypad_box,
                     label,
-                    row,
+                    r,
                     c,
                     bolded=False,
                     size=self.s_18,
