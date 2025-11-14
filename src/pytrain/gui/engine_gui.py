@@ -763,6 +763,7 @@ class EngineGui(Thread, Generic[S]):
                     bolded=True,
                     command=False,
                 )
+            row += 1
 
         # close button
         self.make_popup_close_button(popup)
