@@ -512,7 +512,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Postprocess some buttons
         _, btn = self.engine_ops_cells[MOM_TB]
-        btn.text_size = self.s_14
+        btn.text_size = self.s_12
         btn.update_command(self.toggle_momentum_train_brake, [btn])
 
         # set some repeating commands
