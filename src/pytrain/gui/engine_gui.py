@@ -508,7 +508,9 @@ class EngineGui(Thread, Generic[S]):
 
         # Postprocess some buttons
         _, btn = self.engine_ops_cells[MOM_TB]
-        btn.text_size = self.s_16
+        btn.text_size = self.s_10
+        btn.text_bold = False
+        print(btn)
 
         # set some repeating commands
         for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
