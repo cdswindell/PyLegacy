@@ -739,6 +739,12 @@ class EngineGui(Thread, Generic[S]):
         )
         popup.bg = "white"
 
+        # close button
+        self.make_popup_close_button(popup)
+
+        popup.hide()
+
+    def make_popup_close_button(self, popup: Window):
         btn = PushButton(
             popup,
             text="Close",
@@ -758,8 +764,6 @@ class EngineGui(Thread, Generic[S]):
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
-
-        popup.hide()
 
     def on_rr_speed(self) -> None:
         popup = self.rr_speed_window
