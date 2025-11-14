@@ -1595,13 +1595,17 @@ class EngineGui(Thread, Generic[S]):
                     tmcc_id = self._scope_tmcc_ids[self.scope]
             img = None
             if scope in {CommandScope.ENGINE} and tmcc_id != 0:
+                print(f"Looking for {scope} {tmcc_id} prod info in cache...")
                 prod_info = self._prod_info_cache.get(tmcc_id, None)
 
                 # If not cached or not a valid Future/ProdInfo, start a background fetch
                 if prod_info is None:
+                    print(f"prod_info is None for {scope} {tmcc_id}, checking pendings")
                     if (scope, tmcc_id) not in self._pending_prod_infos:
                         # Submit fetch immediately and cache the Future itself
+                        print(f"Submitting prod_info fetch for {scope} {tmcc_id}")
                         future = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
+                        print("Submitted...")
                         self._prod_info_cache[tmcc_id] = future
                     return
 
