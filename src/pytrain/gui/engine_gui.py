@@ -107,7 +107,7 @@ ENGINE_OPS_LAYOUT = [
         ("AUX1_OPTION_ONE", "", AUX1_KEY),
         ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"),
         ("AUX3_OPTION_ONE", "", AUX3_KEY),
-        (MOM_TB, "", "Momen\ntum"),
+        (MOM_TB, "", "Momen\n-tum"),
     ],
 ]
 
@@ -713,13 +713,13 @@ class EngineGui(Thread, Generic[S]):
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         print(btn)
-        if btn.text == "Momen\ntum":
+        if btn.text == "Momen\n-tum":
             btn.text = "Train\nBrake"
             self.brake_box.visible = False
             self.momentum_box.visible = True
 
         else:
-            btn.text = "Momen\ntum"
+            btn.text = "Momen\n-tum"
             self.momentum_box.visible = False
             self.brake_box.visible = True
 
