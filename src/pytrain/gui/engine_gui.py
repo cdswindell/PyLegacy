@@ -719,7 +719,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Make popups, starting with rr_speed dialog
         self.rr_speed_window = rr_speed_window = Window(app)
-
+        rr_speed_window.tk.attributes("-topmost", True)
         rr_speed_window.hide()
 
     def on_rr_speed(self) -> None:
