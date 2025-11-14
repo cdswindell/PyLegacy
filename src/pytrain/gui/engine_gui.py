@@ -107,7 +107,7 @@ ENGINE_OPS_LAYOUT = [
         ("AUX1_OPTION_ONE", "", AUX1_KEY),
         ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"),
         ("AUX3_OPTION_ONE", "", AUX3_KEY),
-        (MOM_TB, "", "Mo"),
+        (MOM_TB, "", "Momen\ntum"),
     ],
 ]
 
@@ -511,6 +511,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Postprocess some buttons
         _, btn = self.engine_ops_cells[MOM_TB]
+        btn.text_size = self.s_16
         btn.update_command(self.toggle_momentum_train_brake, [btn])
 
         # set some repeating commands
@@ -711,15 +712,13 @@ class EngineGui(Thread, Generic[S]):
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         print(btn)
-        if btn.text == "Mo":
+        if btn.text == "Momen\ntum":
             btn.text = "Train\nBrake"
-            btn.text_size = self.s_16
             self.brake_box.visible = False
             self.momentum_box.visible = True
 
         else:
-            btn.text = "Mo"
-            btn.text_size = self.s_18
+            btn.text = "Momen\ntum"
             self.momentum_box.visible = False
             self.brake_box.visible = True
 
