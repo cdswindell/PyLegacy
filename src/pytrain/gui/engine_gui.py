@@ -763,6 +763,8 @@ class EngineGui(Thread, Generic[S]):
                     bolded=True,
                     command=False,
                 )
+                cell.tk.config(width=2 * self.button_size)
+                nb.tk.config(width=2 * self.button_size)
             row += 1
 
         # close button
