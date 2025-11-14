@@ -728,6 +728,14 @@ class EngineGui(Thread, Generic[S]):
 
     def on_rr_speed(self) -> None:
         rrsw = self.rr_speed_window
+        # Compute screen position directly under info_box
+        info = self.info_box  # whatever your reference widget is
+        x = info.tk.winfo_rootx()
+        y = info.tk.winfo_rooty() + info.tk.winfo_height()
+
+        # Move popup BEFORE showing so geometry applies immediately
+        rrsw.tk.geometry(f"+{x}+{y}")
+
         rrsw.show(wait=True)  # brings it above the main window
         rrsw.tk.transient(self.app.tk)
         rrsw.tk.lift()
