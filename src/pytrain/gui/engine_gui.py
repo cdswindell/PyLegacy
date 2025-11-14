@@ -750,7 +750,7 @@ class EngineGui(Thread, Generic[S]):
         for r, kr in enumerate(RR_SPEED_LAYOUT):
             for c, op in enumerate(kr):
                 if isinstance(op, tuple):
-                    label = op[1] + "\nSpeed"
+                    label = op[1] if op[1].startswith("Emergency") else op[1] + "\nSpeed"
                 else:
                     label = ""
 
