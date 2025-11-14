@@ -283,7 +283,7 @@ class EngineGui(Thread, Generic[S]):
         self.active_engine_state = None
 
         # A semi-transparent overlay to dim the main UI
-        self.dim_canvas = self.dim_rect = None
+        self.dim_frame = None
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
@@ -424,7 +424,7 @@ class EngineGui(Thread, Generic[S]):
             return None
 
         # A semi-transparent overlay to dim the main UI
-        self.dim_canvas = tk.Canvas(self.app.tk, highlightthickness=0, bd=0)
+        self.create_dimmer()
 
         # customize label
         self.header = cb = Combo(
@@ -485,19 +485,35 @@ class EngineGui(Thread, Generic[S]):
         w = self.app.tk.winfo_width()
         h = self.app.tk.winfo_height()
 
-        self.dim_canvas.place(x=0, y=0, width=w, height=h)
+        # Place full-screen frame
+        self.dim_frame.place(x=0, y=0, width=w, height=h)
 
-        # Create the dimming rectangle
-        self.dim_canvas.delete("all")
-        self.dim_canvas.create_rectangle(0, 0, w, h, fill="gray", stipple="gray50", outline="")
-
-        # Correct way to raise the canvas widget
-        # noinspection PyProtectedMember
-        self.dim_canvas.tk.call("raise", self.dim_canvas._w)
+        # Set translucent look using "stipple"
+        try:
+            # noinspection PyProtectedMember
+            self.dim_frame.tk.call("tk", "unsupported", "stipple", self.dim_frame._w, "gray50")
+        except tk.TclError:
+            # Fallback if stipple unsupported: use a dark color
+            self.dim_frame.config(bg="#00000080")  # Tk 8.6 rarely supports RGBA
 
     def undim_background(self):
-        self.dim_canvas.delete("all")
-        self.dim_canvas.place_forget()
+        # Remove stipple if applied
+        try:
+            # noinspection PyProtectedMember
+            self.dim_frame.tk.call("tk", "unsupported", "stipple", self.dim_frame._w, "")
+        except tk.TclError:
+            pass
+
+        self.dim_frame.place_forget()
+
+    def create_dimmer(self):
+        # Create a Frame overlay (hidden by default)
+        self.dim_frame = tk.Frame(self.app.tk, bg="black")
+        self.dim_frame.place_forget()
+
+        # Optional: block clicks so main UI is disabled
+        self.dim_frame.bind("<Button-1>", lambda e: None)
+        self.dim_frame.bind("<ButtonRelease-1>", lambda e: None)
 
     # noinspection PyTypeChecker
     def make_controller(self, app):
@@ -753,10 +769,10 @@ class EngineGui(Thread, Generic[S]):
         # Make popups, starting with rr_speed dialog
         self.make_rr_speed_popup(app)
 
-    @staticmethod
-    def close_popup(popup) -> None:
-        popup.tk.grab_release()
+    def close_popup(self, popup) -> None:
         popup.hide()
+        popup.tk.grab_release()
+        self.undim_background()
 
     def make_rr_speed_popup(self, app):
         self.rr_speed_window = popup = Window(
@@ -815,6 +831,10 @@ class EngineGui(Thread, Generic[S]):
         popup.tk.grab_set()
         popup.tk.focus_force()
         popup.tk.attributes("-topmost", True)
+
+        # Make sure dim stays under popup ONLY
+        self.dim_frame.lift(self.app.tk)  # above main window
+        popup.tk.lift()
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         print(btn)
