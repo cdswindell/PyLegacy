@@ -3,12 +3,13 @@ from __future__ import annotations
 import logging
 from abc import ABC, ABCMeta
 
-from .sequence_constants import SequenceCommandEnum
-from .sequence_req import SequenceReq, T
+from ...db.component_state_store import ComponentStateStore
+from ...db.engine_state import EngineState
 from ..constants import CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
-from ...db.component_state_store import ComponentStateStore
+from .sequence_constants import SequenceCommandEnum
+from .sequence_req import SequenceReq, T
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
         # get current state record
         cur_state = ComponentStateStore.get_state(scope, address, create=False)
         # if there is no state information, treat this as an ABSOLUTE_SPEED req
-        if cur_state is None or cur_state.speed is None:
+        if not isinstance(cur_state, EngineState) or cur_state.speed is None:
             if tower and engr and dialog is True:
                 from .speed_req import SpeedReq
 
@@ -54,7 +55,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             else:
                 speed_enum = TMCC1EngineCommandEnum.ABSOLUTE_SPEED if is_tmcc else TMCC2EngineCommandEnum.ABSOLUTE_SPEED
                 self.add(speed_enum, address, speed_req, scope)
-                if is_tmcc is False:
+                if not is_tmcc:
                     rpm = tmcc2_speed_to_rpm(speed_req)
                     self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=4)
         else:

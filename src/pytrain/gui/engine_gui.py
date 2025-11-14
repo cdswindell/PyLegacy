@@ -18,7 +18,7 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar, cast
 
-from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
+from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox, Window
 from guizero.base import Widget
 from guizero.event import EventData
 from PIL import Image, ImageTk
@@ -70,7 +70,7 @@ BELL_KEY = "\U0001f514"
 FWD_KEY = "Fwd"
 REV_KEY = "Rev"
 MOM_TB = "MOM_TB"
-MOMENTUM = "Mom-\nentum"
+MOMENTUM = "Mome-\nntum"
 TRAIN_BRAKE = "Train\nBrake"
 
 ENTRY_LAYOUT = [
@@ -306,6 +306,7 @@ class EngineGui(Thread, Generic[S]):
         self.brake_box = self.brake_level = self.focus_widget = None
         self.throttle = self.speed = self.brake = self._rr_speed_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
+        self.rr_speed_window = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -687,7 +688,7 @@ class EngineGui(Thread, Generic[S]):
 
         # compute rr speed button size
         w = sliders.tk.winfo_width()
-        h = (5 * self.button_size) - (brake.tk.winfo_height() + brake_level.tk.winfo_height()) - self.offset
+        h = (5 * self.button_size) - (brake.tk.winfo_height() + brake_level.tk.winfo_height()) - 5
 
         # RR Speeds button
         rr_box = Box(
@@ -697,7 +698,7 @@ class EngineGui(Thread, Generic[S]):
         )
 
         # RR Speeds button
-        self._rr_speed_btn = rr_btn = HoldButton(rr_box, "")
+        self._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=self.on_rr_speed)
         rr_btn.tk.pack(fill="both", expand=True)
 
         img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
@@ -715,6 +716,15 @@ class EngineGui(Thread, Generic[S]):
 
         # --- HIDE IT AGAIN after sizing is complete ---
         self.controller_box.visible = False
+
+        # Make popups, starting with rr_speed dialog
+        self.rr_speed_window = rr_speed_window = Window(app)
+
+        rr_speed_window.hide()
+
+    def on_rr_speed(self) -> None:
+        self.rr_speed_window.show(wait=True)
+        self.rr_speed_window.warn("Warning", "This is a warning message!")
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         print(btn)
