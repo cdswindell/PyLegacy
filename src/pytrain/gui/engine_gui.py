@@ -804,13 +804,18 @@ class EngineGui(Thread, Generic[S]):
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         print(f"on_new_engine: {state}")
         if state:
+            # only set throttle/brake/momentum value if we are not in the middle of setting it
             self.speed.value = f"{state.speed:03d}"
-            # only set throttle value if we are not in the middle of setting it
             if self.throttle.tk.focus_displayof() != self.throttle.tk:
                 self.throttle.value = state.speed
+
             self.brake_level.value = f"{state.train_brake:02d}"
             if self.brake.tk.focus_displayof() != self.brake.tk:
                 self.brake.value = state.train_brake
+
+            self.momentum_level.value = f"{state.momentum:02d}"
+            if self.momentum.tk.focus_displayof() != self.momentum.tk:
+                self.momentum.value = state.momentum
 
             _, btn = self.engine_ops_cells["FORWARD_DIRECTION"]
             btn.bg = self._active_bg if state.is_forward else self._inactive_bg
