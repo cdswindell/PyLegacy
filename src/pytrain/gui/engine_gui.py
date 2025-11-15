@@ -783,7 +783,8 @@ class EngineGui(Thread, Generic[S]):
                     nb.text_color = "white"
                     nb.bg = "red"
                 if dialog:
-                    nb.on_hold = (self.on_engine_command, [dialog, op[0],])
+                    dialog = f"{dialog}, {op[0]}"
+                    nb.on_hold = (self.on_engine_command, [dialog])
             row += 1
 
         # close button
@@ -1957,7 +1958,7 @@ class EngineGui(Thread, Generic[S]):
 
     def on_engine_command(
         self,
-        targets: str | list[str] | tuple[str],
+        targets: str | list[str],
         data: int = 0,
         repeat: int = None,
         do_ops: bool = False,
@@ -1973,13 +1974,12 @@ class EngineGui(Thread, Generic[S]):
         if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
             state = self._state_store.get_state(scope, tmcc_id, False)
             if state:
-                if isinstance(targets, tuple):
-                    pass
+                if isinstance(targets, str):
+                    for target in targets.split(","):
+                        target = target.strip()
+                        self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state)
                 else:
-                    targets = (targets, )
-                for target in targets:
-                    print(f"on_engine_command: {target}")
-                    self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state)
+                    self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state)
 
     def do_engine_command(
         self,
