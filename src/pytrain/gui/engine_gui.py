@@ -457,7 +457,7 @@ class EngineGui(Thread, Generic[S]):
 
         # calculate offset for popups
         x = self.info_box.tk.winfo_rootx()
-        y = self.info_box.tk.winfo_rooty() + self.info_box.tk.winfo_reqheight() + 28  # account for title bar
+        y = self.info_box.tk.winfo_rooty() + self.info_box.tk.winfo_reqheight()
         self.popup_position = (x, y)
 
         # start the event watcher
@@ -754,7 +754,10 @@ class EngineGui(Thread, Generic[S]):
             border=2,
         )
 
-        row = 0
+        title = Text(keypad_box, text="RR Speeds", grid=[0, 0, 2, 1], bold=True, size=self.s_18)
+        title.bg = "lightgrey"
+
+        row = 1
         width = int(3 * self.button_size)
         for r, kr in enumerate(RR_SPEED_LAYOUT):
             for c, op in enumerate(kr):
