@@ -738,7 +738,6 @@ class EngineGui(Thread, Generic[S]):
     def make_rr_speed_popup(self, app):
         self.rr_speed_window = popup = Window(
             app,
-            title="Official Rail Road Speeds",
             width=self.emergency_box_width,
             height=int(5 * self.button_size),
             visible=False,
@@ -762,6 +761,9 @@ class EngineGui(Thread, Generic[S]):
             size=self.s_18,
         )
         title.bg = "lightgrey"
+        # ensure row 0 (the title row) gets height
+        keypad_box.tk.grid_rowconfigure(0, weight=0, minsize=self.button_size // 1.5)
+        keypad_box.tk.grid_columnconfigure(0, weight=1)
 
         row = 1
         width = int(3 * self.button_size)
