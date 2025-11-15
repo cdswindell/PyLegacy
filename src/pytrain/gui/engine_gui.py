@@ -783,7 +783,7 @@ class EngineGui(Thread, Generic[S]):
                     nb.text_color = "white"
                     nb.bg = "red"
                 if dialog:
-                    dialog = f"{dialog}, {op[0]}"
+                    dialog = f"{op[0]}, {dialog}"
                     nb.on_hold = (self.on_engine_command, [dialog])
             row += 1
 
@@ -1977,6 +1977,7 @@ class EngineGui(Thread, Generic[S]):
                 if isinstance(targets, str):
                     for target in targets.split(","):
                         target = target.strip()
+                        print(f"Now Executing on_engine_command: {target}")
                         self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state)
                 else:
                     self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state)
