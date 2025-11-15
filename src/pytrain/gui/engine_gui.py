@@ -754,7 +754,13 @@ class EngineGui(Thread, Generic[S]):
             border=2,
         )
 
-        title = Text(keypad_box, text="RR Speeds", grid=[0, 0, 2, 1], bold=True, size=self.s_18)
+        title = Text(
+            keypad_box,
+            text="Official Rail Road Speeds",
+            grid=[0, 0, 2, 1],
+            bold=True,
+            size=self.s_18,
+        )
         title.bg = "lightgrey"
 
         row = 1
