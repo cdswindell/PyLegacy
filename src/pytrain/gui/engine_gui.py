@@ -758,6 +758,7 @@ class EngineGui(Thread, Generic[S]):
 
         title_row = Box(
             keypad_box,
+            grid=[0, 0],  # Guizero is satisfied
         )
         # Make this Box stretch across the row
         title_row.tk.grid(column=0, row=0, columnspan=2, sticky="nsew")
