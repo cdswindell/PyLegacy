@@ -753,12 +753,13 @@ class EngineGui(Thread, Generic[S]):
             border=2,
         )
 
+        w, h = self.sizeof(self.scope_box)
         title_row = Box(
             keypad_box,
             grid=[0, 0, 2, 1],  # same span as before
             align="top",
-            width=self.emergency_box_width,
-            height="fill",
+            width=w,
+            height=h,
         )
         # Make this Box stretch across the row
         title_row.bg = "lightgrey"
@@ -769,9 +770,10 @@ class EngineGui(Thread, Generic[S]):
             text="Official Rail Road Speeds",
             bold=True,
             size=self.s_18,
+            width=w,
+            height=h,
         )
         title.bg = "lightgrey"
-        title.tk.config(pady=4)
 
         width = int(3 * self.button_size)
         for r, kr in enumerate(RR_SPEED_LAYOUT):
