@@ -783,13 +783,7 @@ class EngineGui(Thread, Generic[S]):
                     nb.text_color = "white"
                     nb.bg = "red"
                 if dialog:
-                    nb.on_hold = (
-                        self.on_engine_command,
-                        [
-                            dialog,
-                            op[0],
-                        ],
-                    )
+                    nb.on_hold = (self.on_engine_command, [dialog, op[0],])
             row += 1
 
         # close button
@@ -1982,7 +1976,7 @@ class EngineGui(Thread, Generic[S]):
                 if isinstance(targets, tuple):
                     pass
                 else:
-                    targets = (targets,)
+                    targets = (targets, )
                 for target in targets:
                     print(f"on_engine_command: {target}")
                     self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state)
