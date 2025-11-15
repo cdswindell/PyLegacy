@@ -752,16 +752,15 @@ class EngineGui(Thread, Generic[S]):
             layout="grid",
             border=2,
         )
-        # let the single grid column expand
-        keypad_box.tk.grid_columnconfigure(0, weight=1)
-        keypad_box.tk.grid_columnconfigure(1, weight=1)
 
         title_row = Box(
             keypad_box,
-            grid=[0, 0],  # Guizero is satisfied
+            grid=[0, 0, 2, 1],  # same span as before
+            align="top",
+            height="fill",
+            width="fill",
         )
         # Make this Box stretch across the row
-        title_row.tk.grid(column=0, row=0, columnspan=2, sticky="nsew")
         title_row.bg = "lightgrey"
         title_row.tk.grid_propagate(False)  # optional: prevents shrinking
         title_row.tk.config(highlightthickness=1, highlightbackground="black")
