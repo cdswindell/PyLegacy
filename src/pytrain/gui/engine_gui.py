@@ -295,7 +295,7 @@ class EngineGui(Thread, Generic[S]):
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
-        self.name_text = self.titlebar_height = None
+        self.name_text = self.titlebar_height = self.popup_position = None
         self.on_key_cell = self.off_key_cell = None
         self.image = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
@@ -454,6 +454,11 @@ class EngineGui(Thread, Generic[S]):
 
         # ONE geometry pass at the end
         app.tk.after_idle(app.tk.update_idletasks)
+
+        # calculate offset for popups
+        x = self.info_box.tk.winfo_rootx()
+        y = self.info_box.tk.winfo_rooty() + self.info_box.tk.winfo_reqheight() + 28  # account for title bar
+        self.popup_position = (x, y)
 
         # start the event watcher
         app.repeat(20, _poll_shutdown)
@@ -732,7 +737,7 @@ class EngineGui(Thread, Generic[S]):
     def make_rr_speed_popup(self, app):
         self.rr_speed_window = popup = Window(
             app,
-            title="Official Rail Road Speed",
+            title="Official Rail Road Speeds",
             width=self.emergency_box_width,
             height=int(5 * self.button_size),
             visible=False,
@@ -815,10 +820,7 @@ class EngineGui(Thread, Generic[S]):
     def show_popup(self, popup):
         # Compute screen position directly under info_box
         self.controller_box.disable()
-        info = self.info_box  # whatever your reference widget is
-        x = info.tk.winfo_rootx()
-        y = info.tk.winfo_rooty() + info.tk.winfo_reqheight() + 28
-        print(f"info_box x={x}, y={y} ({info.tk.winfo_rooty()} {info.tk.winfo_reqheight()})")
+        x, y = self.popup_position
 
         # Move popup BEFORE showing so geometry applies immediately
         popup.tk.geometry(f"+{x}+{y}")
