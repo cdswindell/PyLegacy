@@ -278,6 +278,7 @@ class EngineGui(Thread, Generic[S]):
         self.ops_cells = set()
         self._pending_prod_infos = set()
         self._executor = ThreadPoolExecutor(max_workers=3)
+        self.size_cache = {}
         self._message_queue = Queue()
         self.scope = initial_scope
         self.initial_tmcc_id = initial_tmcc_id
@@ -764,7 +765,6 @@ class EngineGui(Thread, Generic[S]):
                     else:
                         label = op[1] + "\nSpeed"
                         dialog = "TOWER_" + op[0]
-                print(f"Button {op[0]}: Label={label}, Dialog={dialog}")
 
                 cell, nb = self.make_keypad_button(
                     keypad_box,
@@ -822,6 +822,7 @@ class EngineGui(Thread, Generic[S]):
         info = self.info_box  # whatever your reference widget is
         x = info.tk.winfo_rootx()
         y = info.tk.winfo_rooty() + info.tk.winfo_reqheight()
+        print(f"info_box x={x}, y={y} ({info.tk.winfo_rooty()} {info.tk.winfo_reqheight()})")
 
         # Move popup BEFORE showing so geometry applies immediately
         popup.tk.geometry(f"+{x}+{y}")
@@ -1894,23 +1895,45 @@ class EngineGui(Thread, Generic[S]):
     def calc_image_box_size(self) -> tuple[int, int | Any]:
         with self._cv:
             if self.avail_image_height is None or self.avail_image_width is None:
-                # Calculate available space for the image
+                # force geometry layout
                 self.app.tk.update_idletasks()
 
                 # Get the heights of fixed elements
-                header_height = self.header.tk.winfo_reqheight()
-                emergency_height = self.emergency_box_height or self.emergency_box.tk.winfo_reqheight()
-                info_height = self.info_box.tk.winfo_reqheight()
-                keypad_height = self.keypad_box.tk.winfo_reqheight()
-                scope_height = self.scope_box.tk.winfo_reqheight()
+                _, header_height = self.size_cache[self.header] = (
+                    self.header.tk.winfo_reqwidth(),
+                    self.header.tk.winfo_reqheight(),
+                )
+                emergency_width, emergency_height = self.size_cache[self.emergency_box] = (
+                    self.emergency_box.tk.winfo_reqwidth(),
+                    self.emergency_box_height or self.emergency_box.tk.winfo_reqheight(),
+                )
+                _, info_height = self.size_cache[self.info_box] = (
+                    self.info_box.tk.winfo_reqwidth(),
+                    self.info_box.tk.winfo_reqheight(),
+                )
+                _, keypad_height = self.size_cache[self.keypad_box] = (
+                    self.keypad_box.tk.winfo_reqwidth(),
+                    self.keypad_box.tk.winfo_reqheight(),
+                )
+                _, scope_height = self.size_cache[self.scope_box] = (
+                    self.scope_box.tk.winfo_reqwidth(),
+                    self.scope_box.tk.winfo_reqheight(),
+                )
 
                 # Calculate remaining vertical space
                 self.avail_image_height = (
                     self.height - header_height - emergency_height - info_height - keypad_height - scope_height - 20
                 )
                 # use width of emergency height box as standard
-                self.avail_image_width = self.emergency_box_width or self.emergency_box.tk.winfo_reqwidth()
+                self.avail_image_width = emergency_width
+                self.size_cache[self.image_box] = (
+                    self.avail_image_width,
+                    self.avail_image_height,
+                )
         return self.avail_image_height, self.avail_image_width
+
+    def sizeof(self, widget: Widget) -> tuple[int, int]:
+        return self.size_cache.get(widget, None) or (widget.tk.winfo_reqwidth(), widget.tk.winfo_reqheight())
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
@@ -1970,15 +1993,14 @@ class EngineGui(Thread, Generic[S]):
         if tmcc_id == 0:
             tmcc_id = int(self.tmcc_id_text.value)
             self._scope_tmcc_ids[scope] = tmcc_id
-        print(f"on_engine_command: {scope} {tmcc_id} {targets}, {data}, {repeat} {type(targets)}")
         if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
             state = self._state_store.get_state(scope, tmcc_id, False)
             if state:
                 if isinstance(targets, str):
                     for ix, target in enumerate(targets.split(",")):
                         target = target.strip()
-                        print(f"Now Executing on_engine_command: {ix} {target}")
-                        self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state)
+                        delay = 0.100 if ix else 0.0
+                        self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state, delay)
                 else:
                     self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state)
 
@@ -1992,6 +2014,7 @@ class EngineGui(Thread, Generic[S]):
         do_ops: bool,
         repeat: int,
         state: S,
+        delay: float = 0.0,
     ):
         if isinstance(targets, str):
             targets = [targets]
@@ -2007,7 +2030,7 @@ class EngineGui(Thread, Generic[S]):
             if cmd_enum:
                 cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
                 repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
-                cmd.send(repeat=repeat)
+                cmd.send(repeat=repeat, delay=delay)
                 if do_ops is True and self._in_entry_mode is True:
                     self.ops_mode(update_info=True)
                 elif do_entry and self._in_entry_mode is False:
