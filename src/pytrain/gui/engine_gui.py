@@ -462,10 +462,8 @@ class EngineGui(Thread, Generic[S]):
             app.after(50, self.update_component_info, [self.initial_tmcc_id])
 
         # calculate window title bar height
-        root = self.app.tk
-        window_y = root.winfo_rooty()  # includes title bar
-        frame_y = root.winfo_y()
-        self.titlebar_height = window_y - frame_y
+        # Let the WM finish showing the window
+        app.after(300, self.compute_titlebar_height)
 
         # Display GUI and start event loop; call blocks
         try:
@@ -480,6 +478,16 @@ class EngineGui(Thread, Generic[S]):
             self._image = None
             self.app = None
             self._ev.set()
+
+    def compute_titlebar_height(self):
+        root = self.app.tk
+        root.update_idletasks()
+
+        window_y = root.winfo_rooty()  # includes title bar
+        frame_y = root.winfo_y()  # interior
+
+        self.titlebar_height = window_y - frame_y
+        print("TITLEBAR =", self.titlebar_height)
 
     # noinspection PyTypeChecker
     def make_controller(self, app):
