@@ -749,6 +749,7 @@ class EngineGui(Thread, Generic[S]):
         popup.bg = "white"
         popup.when_closed = lambda: self.close_popup(popup)
         popup.tk.overrideredirect(True)
+        popup.tk.config(highlightthickness=2, highlightbackground="black")
 
         # create box for buttons; use grid layout
         keypad_box = Box(
