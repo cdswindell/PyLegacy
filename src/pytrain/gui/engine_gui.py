@@ -765,7 +765,6 @@ class EngineGui(Thread, Generic[S]):
         keypad_box.tk.grid_rowconfigure(0, weight=0, minsize=self.button_size // 1.5)
         keypad_box.tk.grid_columnconfigure(0, weight=1)
 
-        row = 1
         width = int(3 * self.button_size)
         for r, kr in enumerate(RR_SPEED_LAYOUT):
             for c, op in enumerate(kr):
@@ -782,7 +781,7 @@ class EngineGui(Thread, Generic[S]):
                 cell, nb = self.make_keypad_button(
                     keypad_box,
                     label,
-                    r,
+                    r + 1,
                     c,
                     bolded=True,
                     size=self.s_18,
@@ -798,7 +797,6 @@ class EngineGui(Thread, Generic[S]):
                 if dialog:
                     dialog = f"{dialog}, {op[0]}"
                     nb.on_hold = (self.on_engine_command, [dialog])
-            row += 1
 
         # close button
         self.make_popup_close_button(popup)
