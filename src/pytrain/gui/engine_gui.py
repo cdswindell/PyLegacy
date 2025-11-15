@@ -729,11 +729,6 @@ class EngineGui(Thread, Generic[S]):
         # Make popups, starting with rr_speed dialog
         self.make_rr_speed_popup(app)
 
-    @staticmethod
-    def close_popup(popup) -> None:
-        popup.hide()
-        popup.tk.grab_release()
-
     def make_rr_speed_popup(self, app):
         self.rr_speed_window = popup = Window(
             app,
@@ -819,6 +814,7 @@ class EngineGui(Thread, Generic[S]):
 
     def show_popup(self, popup):
         # Compute screen position directly under info_box
+        self.controller_box.disable()
         info = self.info_box  # whatever your reference widget is
         x = info.tk.winfo_rootx()
         y = info.tk.winfo_rooty() + info.tk.winfo_reqheight() + 32
@@ -833,6 +829,11 @@ class EngineGui(Thread, Generic[S]):
         popup.tk.grab_set()
         popup.tk.focus_force()
         popup.tk.attributes("-topmost", True)
+
+    def close_popup(self, popup) -> None:
+        self.controller_box.enable()
+        popup.hide()
+        popup.tk.grab_release()
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         if btn.text == MOMENTUM:
