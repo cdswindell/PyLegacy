@@ -757,12 +757,11 @@ class EngineGui(Thread, Generic[S]):
             keypad_box,
             grid=[0, 0, 2, 1],  # same span as before
             align="top",
+            width=self.emergency_box_width,
             height="fill",
-            width="fill",
         )
         # Make this Box stretch across the row
         title_row.bg = "lightgrey"
-        title_row.tk.grid_propagate(False)  # optional: prevents shrinking
         title_row.tk.config(highlightthickness=1, highlightbackground="black")
 
         title = Text(
