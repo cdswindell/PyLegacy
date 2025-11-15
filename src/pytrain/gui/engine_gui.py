@@ -114,7 +114,7 @@ ENGINE_OPS_LAYOUT = [
 ]
 
 RR_SPEED_LAYOUT = [
-    [("STOP_IMMEDIATE", "Emergency\nStop"), ("SPEED_ROLL", "Roll")],
+    [("SPEED_STOP_HOLD", "Emergency\nStop"), ("SPEED_ROLL", "Roll")],
     [("SPEED_RESTRICTED", "Restricted"), ("SPEED_SLOW", "Slow")],
     [("SPEED_MEDIUM", "Medium"), ("SPEED_LIMITED", "Limited")],
     [("SPEED_NORMAL", "Normal"), ("SPEED_HIGHBALL", "High Ball")],
@@ -755,10 +755,16 @@ class EngineGui(Thread, Generic[S]):
         width = int(3 * self.button_size)
         for r, kr in enumerate(RR_SPEED_LAYOUT):
             for c, op in enumerate(kr):
+                label = ""
+                dialog = None
                 if isinstance(op, tuple):
-                    label = op[1] if op[1].startswith("Emergency") else op[1] + "\nSpeed"
-                else:
-                    label = ""
+                    if op[1].startswith("Emergency"):
+                        label = op[1]
+                        dialog = "EMERGENCY_CONTEXT_DEPENDENT"
+                    else:
+                        label = op[1] + "\nSpeed"
+                        dialog = "TOWER_" + op[0]
+                print(f"Button {op[0]}: Label={label}, Dialog={dialog}")
 
                 cell, nb = self.make_keypad_button(
                     keypad_box,
@@ -767,8 +773,10 @@ class EngineGui(Thread, Generic[S]):
                     c,
                     bolded=True,
                     size=self.s_18,
-                    command=False,
+                    command=self.on_engine_command,
+                    args=[op[0]],
                 )
+
                 cell.tk.config(width=width)
                 nb.tk.config(width=width)
                 if label.startswith("Emergency"):
@@ -823,7 +831,6 @@ class EngineGui(Thread, Generic[S]):
         popup.tk.attributes("-topmost", True)
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
-        print(btn)
         if btn.text == MOMENTUM:
             btn.text = TRAIN_BRAKE
             self.brake_box.visible = False
