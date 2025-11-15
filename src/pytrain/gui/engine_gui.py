@@ -782,6 +782,14 @@ class EngineGui(Thread, Generic[S]):
                 if label.startswith("Emergency"):
                     nb.text_color = "white"
                     nb.bg = "red"
+                if dialog:
+                    nb.on_hold = (
+                        self.on_engine_command,
+                        (
+                            dialog,
+                            op[0],
+                        ),
+                    )
             row += 1
 
         # close button
@@ -1955,7 +1963,7 @@ class EngineGui(Thread, Generic[S]):
 
     def on_engine_command(
         self,
-        targets: str | list[str],
+        targets: str | list[str] | tuple[str],
         data: int = 0,
         repeat: int = None,
         do_ops: bool = False,
@@ -1971,26 +1979,44 @@ class EngineGui(Thread, Generic[S]):
         if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
             state = self._state_store.get_state(scope, tmcc_id, False)
             if state:
-                if isinstance(targets, str):
-                    targets = [targets]
+                if isinstance(targets, tuple):
+                    pass
+                else:
+                    targets = (targets,)
                 for target in targets:
-                    if state.is_legacy:
-                        # there are a few special cases
-                        if target in {SMOKE_ON, SMOKE_OFF}:
-                            cmd_enum = self.get_tmcc2_smoke_cmd(target, state)
-                        else:
-                            cmd_enum = TMCC2EngineOpsEnum.look_up(target)
-                    else:
-                        cmd_enum = TMCC1EngineCommandEnum.by_name(target)
-                    if cmd_enum:
-                        cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
-                        repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
-                        cmd.send(repeat=repeat)
-                        if do_ops is True and self._in_entry_mode is True:
-                            self.ops_mode(update_info=True)
-                        elif do_entry and self._in_entry_mode is False:
-                            self.entry_mode(clear_info=False)
-                        return
+                    self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state)
+
+    def do_engine_command(
+        self,
+        tmcc_id: int | Any,
+        targets: str | list[str] | tuple[str],
+        data: int,
+        scope: CommandScope,
+        do_entry: bool,
+        do_ops: bool,
+        repeat: int,
+        state: S,
+    ):
+        if isinstance(targets, str):
+            targets = [targets]
+        for target in targets:
+            if state.is_legacy:
+                # there are a few special cases
+                if target in {SMOKE_ON, SMOKE_OFF}:
+                    cmd_enum = self.get_tmcc2_smoke_cmd(target, state)
+                else:
+                    cmd_enum = TMCC2EngineOpsEnum.look_up(target)
+            else:
+                cmd_enum = TMCC1EngineCommandEnum.by_name(target)
+            if cmd_enum:
+                cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
+                repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
+                cmd.send(repeat=repeat)
+                if do_ops is True and self._in_entry_mode is True:
+                    self.ops_mode(update_info=True)
+                elif do_entry and self._in_entry_mode is False:
+                    self.entry_mode(clear_info=False)
+                break
 
     @staticmethod
     def get_tmcc2_smoke_cmd(cmd: str, state: EngineState) -> TMCC2EngineOpsEnum | None:
