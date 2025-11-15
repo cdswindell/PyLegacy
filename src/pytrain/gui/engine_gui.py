@@ -759,10 +759,12 @@ class EngineGui(Thread, Generic[S]):
             grid=[0, 0, 2, 1],
             bold=True,
             size=self.s_18,
+            width="fill",
+            height="fill",
         )
         title.bg = "lightgrey"
         # ensure row 0 (the title row) gets height
-        keypad_box.tk.grid_rowconfigure(0, weight=0, minsize=self.button_size // 1.5)
+        keypad_box.tk.grid_rowconfigure(0, weight=0, minsize=self.button_size // 2)
         keypad_box.tk.grid_columnconfigure(0, weight=1)
 
         width = int(3 * self.button_size)
