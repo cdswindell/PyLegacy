@@ -465,7 +465,7 @@ class EngineGui(Thread, Generic[S]):
         root = self.app.tk
         window_y = root.winfo_rooty()  # includes title bar
         frame_y = root.winfo_y()
-        self.titlebar_height = window_y + frame_y
+        self.titlebar_height = window_y - frame_y
 
         # Display GUI and start event loop; call blocks
         try:
