@@ -462,7 +462,7 @@ class EngineGui(Thread, Generic[S]):
         self.popup_position = (x, y)
 
         # Make popups, starting with rr_speed dialog; must be done after scope_box
-        self.make_rr_speed_popup(app)
+        # self.make_rr_speed_popup(app)
 
         # start the event watcher
         app.repeat(20, _poll_shutdown)
@@ -735,6 +735,9 @@ class EngineGui(Thread, Generic[S]):
         # --- HIDE IT AGAIN after sizing is complete ---
         self.controller_box.visible = False
 
+        # Make popups, starting with rr_speed dialog; must be done after scope_box
+        self.make_rr_speed_popup(app)
+
     # noinspection PyProtectedMember
     def make_rr_speed_popup(self, app):
         self.rr_speed_window = popup = Window(
@@ -754,9 +757,10 @@ class EngineGui(Thread, Generic[S]):
             border=2,
         )
 
-        w, h = self.sizeof(self.scope_box)
-        print(f"Scope Box: {self.scope_box}, {w} {h} {self.scope_box in self.size_cache}")
+        # w, h = self.sizeof(self.scope_box)
+        # print(f"Scope Box: {self.scope_box}, {w} {h} {self.scope_box in self.size_cache}")
         w = self.emergency_box_width
+        h = self.button_size // 3
         title_row = Box(
             keypad_box,
             grid=[0, 0, 2, 1],  # same span as before
