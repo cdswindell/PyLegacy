@@ -295,7 +295,7 @@ class EngineGui(Thread, Generic[S]):
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
-        self.name_text = None
+        self.name_text = self.titlebar_height = None
         self.on_key_cell = self.off_key_cell = None
         self.image = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
@@ -460,6 +460,12 @@ class EngineGui(Thread, Generic[S]):
 
         if self.initial_tmcc_id:
             app.after(50, self.update_component_info, [self.initial_tmcc_id])
+
+        # calculate window title bar height
+        root = self.app.tk
+        window_y = root.winfo_rooty()  # includes title bar
+        frame_y = root.winfo_y()
+        self.titlebar_height = window_y + frame_y
 
         # Display GUI and start event loop; call blocks
         try:
@@ -821,7 +827,7 @@ class EngineGui(Thread, Generic[S]):
         # Compute screen position directly under info_box
         info = self.info_box  # whatever your reference widget is
         x = info.tk.winfo_rootx()
-        y = info.tk.winfo_rooty() + info.tk.winfo_reqheight()
+        y = info.tk.winfo_rooty() + info.tk.winfo_reqheight() + self.titlebar_height
         print(f"info_box x={x}, y={y} ({info.tk.winfo_rooty()} {info.tk.winfo_reqheight()})")
 
         # Move popup BEFORE showing so geometry applies immediately
