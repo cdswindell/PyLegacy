@@ -1975,7 +1975,7 @@ class EngineGui(Thread, Generic[S]):
         if tmcc_id == 0:
             tmcc_id = int(self.tmcc_id_text.value)
             self._scope_tmcc_ids[scope] = tmcc_id
-        print(f"on_engine_command: {scope} {tmcc_id} {targets}, {data}, {repeat}")
+        print(f"on_engine_command: {scope} {tmcc_id} {targets}, {data}, {repeat} {type(targets)}")
         if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
             state = self._state_store.get_state(scope, tmcc_id, False)
             if state:
