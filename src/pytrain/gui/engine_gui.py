@@ -734,6 +734,7 @@ class EngineGui(Thread, Generic[S]):
         # Make popups, starting with rr_speed dialog
         self.make_rr_speed_popup(app)
 
+    # noinspection PyProtectedMember
     def make_rr_speed_popup(self, app):
         self.rr_speed_window = popup = Window(
             app,
@@ -745,7 +746,7 @@ class EngineGui(Thread, Generic[S]):
         popup.bg = "white"
         popup.when_closed = lambda: self.close_popup(popup)
         popup.tk.resizable(False, False)
-        popup.tk.call("wm", "attributes", popup.tk, "-toolwindow", True)  # removes min/max buttons
+        popup.tk._root().call("wm", "attributes", popup.tk, "-toolwindow", True)  # removes min/max buttons
 
         # create box for buttons; use grid layout
         keypad_box = Box(
