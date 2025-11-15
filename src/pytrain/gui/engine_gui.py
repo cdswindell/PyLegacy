@@ -743,7 +743,7 @@ class EngineGui(Thread, Generic[S]):
         self.rr_speed_window = popup = Window(
             app,
             width=self.emergency_box_width,
-            height=int(5 * self.button_size),
+            height=int(6 * self.button_size),
             visible=False,
         )
         popup.bg = "white"
