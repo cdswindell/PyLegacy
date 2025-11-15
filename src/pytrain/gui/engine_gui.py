@@ -745,8 +745,7 @@ class EngineGui(Thread, Generic[S]):
         )
         popup.bg = "white"
         popup.when_closed = lambda: self.close_popup(popup)
-        popup.tk.resizable(False, False)
-        popup.tk._root().call("wm", "attributes", popup.tk, "-toolwindow", True)  # removes min/max buttons
+        popup.tk.overrideredirect(True)
 
         # create box for buttons; use grid layout
         keypad_box = Box(
