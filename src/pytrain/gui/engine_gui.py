@@ -458,6 +458,7 @@ class EngineGui(Thread, Generic[S]):
         # calculate offset for popups
         x = self.info_box.tk.winfo_rootx()
         y = self.info_box.tk.winfo_rooty() + self.info_box.tk.winfo_reqheight()
+        print(f"Popup Position: ({x}, {y})")
         self.popup_position = (x, y)
 
         # Make popups, starting with rr_speed dialog; must be done after scope_box
@@ -753,8 +754,9 @@ class EngineGui(Thread, Generic[S]):
             border=2,
         )
 
-        print(f"Scope Box: {self.scope_box}, {self.scope_box in self.size_cache}")
         w, h = self.sizeof(self.scope_box)
+        print(f"Scope Box: {self.scope_box}, {w} {h} {self.scope_box in self.size_cache}")
+        w = self.emergency_box_width
         title_row = Box(
             keypad_box,
             grid=[0, 0, 2, 1],  # same span as before
