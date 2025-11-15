@@ -753,19 +753,24 @@ class EngineGui(Thread, Generic[S]):
             border=2,
         )
 
-        title = Text(
+        title_row = Box(
             keypad_box,
+            grid=[0, 0, 2, 1],  # same span as before
+            align="top",
+        )
+        title_row.bg = "lightgrey"
+        title_row.tk.grid_propagate(False)  # optional: prevents shrinking
+        title_row.tk.config(highlightthickness=1, highlightbackground="black")
+
+        title = Text(
+            title_row,
             text="Official Rail Road Speeds",
-            grid=[0, 0, 2, 1],
             bold=True,
             size=self.s_18,
             width="fill",
             height="fill",
         )
         title.bg = "lightgrey"
-        # ensure row 0 (the title row) gets height
-        keypad_box.tk.grid_rowconfigure(0, weight=0, minsize=self.button_size // 2)
-        keypad_box.tk.grid_columnconfigure(0, weight=1)
 
         width = int(3 * self.button_size)
         for r, kr in enumerate(RR_SPEED_LAYOUT):
