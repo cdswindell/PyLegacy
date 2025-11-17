@@ -860,14 +860,7 @@ class EngineGui(Thread, Generic[S]):
 
     def close_popup(self, popup) -> None:
         # --- SWALLOW THE CURRENT TOUCH EVENT ---
-        try:
-            popup.tk.grab_set()  # grab input so underlying widgets can't receive it
-            popup.tk.update_idletasks()
-        except (TclError, AttributeError):
-            pass
-
-        # --- REMOVE POPUP AFTER RELEASE HAS CLEARED ---
-        popup.tk.after(50, lambda: self._finish_close_popup(popup))
+        popup.tk.bind("<ButtonRelease-1>", lambda e: self._finish_close_popup(popup), add="+")
 
     def _finish_close_popup(self, popup):
         try:
