@@ -816,6 +816,7 @@ class EngineGui(Thread, Generic[S]):
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
+        btn.tk.grid_configure(padx=20, pady=20)
 
     def on_rr_speed(self) -> None:
         self.show_popup(self.rr_speed_overlay)
