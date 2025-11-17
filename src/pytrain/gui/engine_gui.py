@@ -284,6 +284,7 @@ class EngineGui(Thread, Generic[S]):
         self.initial_tmcc_id = initial_tmcc_id
         self.active_engine_state = None
         self.reset_on_keystroke = False
+        self._popup_closing = {}
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
@@ -795,7 +796,7 @@ class EngineGui(Thread, Generic[S]):
             visible=False,
         )
         popup.bg = "white"
-        popup.is_closing = False
+        self._popup_closing[popup] = False
         popup.when_closed = lambda: self.close_popup(popup)
         popup.tk.overrideredirect(True)
         popup.tk.config(highlightthickness=2, highlightbackground="black")
@@ -854,8 +855,8 @@ class EngineGui(Thread, Generic[S]):
         # Move popup BEFORE showing so geometry applies immediately
         popup.tk.geometry(f"+{x}+{y}")
 
-        # popup.enable()
-        popup.is_closing = False
+        with self._cv:
+            self._popup_closing[popup] = False
         popup.show(wait=True)  # brings it above the main window
         popup.tk.transient(self.app.tk)
         popup.tk.lift()
@@ -867,9 +868,9 @@ class EngineGui(Thread, Generic[S]):
         # Disable the popup immediately so release events
         # cannot trigger any child buttons.
         print("************ Close Popup **********")
-        popup.is_closing = True
+        with self._cv:
+            self._popup_closing[popup] = True
         popup.tk.grab_release()
-        # popup.disable()
         popup.hide()
         self.controller_box.enable()
 
@@ -2033,7 +2034,8 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
     def on_popup_command(self, popup: Window, targets: str | list[str], *args, **kwargs):
-        popup_closing = popup.is_closing if hasattr(popup, "is_closing") else False
+        with self._cv:
+            popup_closing = self._popup_closing.get(popup, False)
         print(f"on_popup_command: Closing: {popup_closing}, targets: {targets}, args: {args}, kwargs: {kwargs}")
         if not popup_closing:
             self.on_engine_command(targets, *args, **kwargs)
