@@ -847,26 +847,60 @@ class EngineGui(Thread, Generic[S]):
         popup = self.rr_speed_window
         self.show_popup(popup)
 
+    # def show_popup(self, popup):
+    #     # Compute screen position directly under info_box
+    #     self.controller_box.disable()
+    #     x, y = self.popup_position
+    #
+    #     # 1. Set geometry
+    #     popup.tk.geometry(f"+{x}+{y}")
+    #
+    #     # 2. FORCE Tk to finalize placement BEFORE showing
+    #     popup.tk.update_idletasks()
+    #
+    #     # 3. Now show safely
+    #     with self._cv:
+    #         self._popup_closing[popup] = False
+    #     popup.show()  # brings it above the main window
+    #     popup.tk.transient(self.app.tk)
+    #     popup.tk.lift()
+    #     popup.tk.grab_set()
+    #     popup.tk.focus_force()
+    #     popup.tk.attributes("-topmost", True)
+
     def show_popup(self, popup):
-        # Compute screen position directly under info_box
+        # Disable the controller UI immediately
         self.controller_box.disable()
+
         x, y = self.popup_position
 
-        # 1. Set geometry
+        # Place and layout the popup before showing it
         popup.tk.geometry(f"+{x}+{y}")
-
-        # 2. FORCE Tk to finalize placement BEFORE showing
         popup.tk.update_idletasks()
 
-        # 3. Now show safely
         with self._cv:
             self._popup_closing[popup] = False
-        popup.show(wait=True)  # brings it above the main window
+
+        # DO NOT USE wait=True (breaks touchscreens)
+        popup.show()
+
+        # --- IMPORTANT 1: Swallow the opening touch-up event ---
+        # Touchscreens deliver "release" events 1–5 ms late.
+        # If we don't swallow it, it lands on the first speed key.
+        popup.tk.after(1, lambda: popup.tk.bind("<ButtonRelease-1>", lambda e: None))
+
+        # --- IMPORTANT 2: Delay grab_set very slightly ---
+        # The touchscreen firmware posts touch events async.
+        # If grab_set happens too early, the lingering event hits underlying window.
+        popup.tk.after(20, popup.tk.grab_set)
+
         popup.tk.transient(self.app.tk)
         popup.tk.lift()
-        popup.tk.grab_set()
         popup.tk.focus_force()
         popup.tk.attributes("-topmost", True)
+
+        # Allow popup widgets to receive events again after ~50ms
+        popup.tk.after(50, lambda: popup.tk.unbind("<ButtonRelease-1>"))
 
     def close_popup(self, popup) -> None:
         # Disable the popup immediately so release events
