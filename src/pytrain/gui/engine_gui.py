@@ -1844,7 +1844,10 @@ class EngineGui(Thread, Generic[S]):
                 name = not_found_value
             self.name_text.value = name
         else:
-            self.reset_on_keystroke = False
+            print("In update_component_info; resetting tmcc_id...")
+            if self.reset_on_keystroke:
+                self._scope_tmcc_ids[self.scope] = 0
+                self.reset_on_keystroke = False
             self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
             self.name_text.value = ""
             state = None
