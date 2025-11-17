@@ -752,7 +752,7 @@ class EngineGui(Thread, Generic[S]):
         keypad_box = Box(
             popup,
             layout="grid",
-            border=2,
+            border=1,
         )
 
         w = self.emergency_box_width
