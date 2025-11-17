@@ -784,7 +784,7 @@ class EngineGui(Thread, Generic[S]):
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
-        btn.tk.grid_configure(padx=20, pady=20)
+        btn.tk.pack_configure(padx=20, pady=20)
 
         return overlay
 
