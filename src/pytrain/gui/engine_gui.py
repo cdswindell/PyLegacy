@@ -874,33 +874,62 @@ class EngineGui(Thread, Generic[S]):
 
         x, y = self.popup_position
 
-        # Place and layout the popup before showing it
+        # --- Position the popup BEFORE showing ---
         popup.tk.geometry(f"+{x}+{y}")
         popup.tk.update_idletasks()
 
         with self._cv:
             self._popup_closing[popup] = False
 
-        # DO NOT USE wait=True (breaks touchscreens)
+        # Show the popup (never use wait=True on touchscreens)
         popup.show()
 
-        # --- IMPORTANT 1: Swallow the opening touch-up event ---
-        # Touchscreens deliver "release" events 1–5 ms late.
-        # If we don't swallow it, it lands on the first speed key.
-        popup.tk.after(1, lambda: popup.tk.bind("<ButtonRelease-1>", lambda e: None))
+        # Optional light debug:
+        print("\n=== SHOW POPUP ===")
+        print("Popup at:", x, y)
+        print("Popup widget:", popup.tk)
+        print("Geometry now:", popup.tk.winfo_rootx(), popup.tk.winfo_rooty())
 
-        # --- IMPORTANT 2: Delay grab_set very slightly ---
-        # The touchscreen firmware posts touch events async.
-        # If grab_set happens too early, the lingering event hits underlying window.
+        # ----------------------------------------------------------
+        #           RECURSIVE SWALLOW OF TOUCH RELEASE
+        # ----------------------------------------------------------
+
+        def swallow_all(e):
+            # Debug:
+            print("SWALLOWED <ButtonRelease-1> from:", e.widget)
+            return "break"
+
+        def bind_recursive(widget):
+            widget.bind("<ButtonRelease-1>", swallow_all, add="+")
+            for child in widget.winfo_children():
+                bind_recursive(child)
+
+        def unbind_recursive(widget):
+            widget.unbind("<ButtonRelease-1>")
+            for child in widget.winfo_children():
+                unbind_recursive(child)
+
+        # Bind after a few ms so popup is fully mapped
+        popup.tk.after(1, lambda: bind_recursive(popup.tk))
+
+        # Unbind after release has certainly been swallowed
+        popup.tk.after(50, lambda: unbind_recursive(popup.tk))
+
+        # ----------------------------------------------------------
+        #                DELAYED GRAB SET
+        # ----------------------------------------------------------
         popup.tk.after(20, popup.tk.grab_set)
 
+        # ----------------------------------------------------------
+        #           Standard modal popup window setup
+        # ----------------------------------------------------------
         popup.tk.transient(self.app.tk)
         popup.tk.lift()
         popup.tk.focus_force()
         popup.tk.attributes("-topmost", True)
 
-        # Allow popup widgets to receive events again after ~50ms
-        popup.tk.after(50, lambda: popup.tk.unbind("<ButtonRelease-1>"))
+        # More optional debug
+        popup.tk.after(20, lambda: print("After 20ms geometry:", popup.tk.winfo_rootx(), popup.tk.winfo_rooty()))
 
     def close_popup(self, popup) -> None:
         # Disable the popup immediately so release events
