@@ -816,7 +816,7 @@ class EngineGui(Thread, Generic[S]):
         self.show_popup(self.rr_speed_overlay)
 
     def show_popup(self, overlay):
-        self.controller_box.disable()
+        self.controller_box.hide()
         x, y = self.popup_position
         overlay.tk.place(x=x, y=y)
         overlay.show()
@@ -824,7 +824,7 @@ class EngineGui(Thread, Generic[S]):
     def close_popup(self, overlay):
         overlay.hide()
         overlay.tk.place_forget()
-        self.controller_box.enable()
+        self.controller_box.show()
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         if btn.text == MOMENTUM:
