@@ -818,7 +818,7 @@ class EngineGui(Thread, Generic[S]):
         return popup, keypad_box
 
     def make_popup_close_button(self, popup: Window):
-        _ = Text(popup, text="", size=self.s_24, align="bottom")
+        _ = Text(popup, text="", size=self.s_10, align="bottom")
         btn = PushButton(
             popup,
             text="Close",
