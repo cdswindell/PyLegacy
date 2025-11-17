@@ -859,9 +859,14 @@ class EngineGui(Thread, Generic[S]):
         popup.tk.focus_force()
         popup.tk.attributes("-topmost", True)
 
-    def close_popup(self, popup) -> None:
-        # --- SWALLOW THE CURRENT TOUCH EVENT ---
-        popup.tk.bind("<ButtonRelease-1>", lambda e: self._finish_close_popup(popup), add="+")
+    def close_popup(self, popup):
+        # Install a ONE-TIME release handler that runs only once
+        # noinspection PyUnusedLocal
+        def on_release(event):
+            popup.tk.unbind("<ButtonRelease-1>", on_release_id)
+            self._finish_close_popup(popup)
+
+        on_release_id = popup.tk.bind("<ButtonRelease-1>", on_release)
 
     def _finish_close_popup(self, popup):
         try:
