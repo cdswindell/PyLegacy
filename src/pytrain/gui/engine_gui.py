@@ -786,6 +786,7 @@ class EngineGui(Thread, Generic[S]):
 
         popup.hide()
 
+    # noinspection PyTypeChecker
     def make_popup_window(self, app: App, title_text: str) -> tuple[Window, Box]:
         popup = Window(
             app,
@@ -794,6 +795,7 @@ class EngineGui(Thread, Generic[S]):
             visible=False,
         )
         popup.bg = "white"
+        popup.is_closing = False
         popup.when_closed = lambda: self.close_popup(popup)
         popup.tk.overrideredirect(True)
         popup.tk.config(highlightthickness=2, highlightbackground="black")
@@ -852,7 +854,8 @@ class EngineGui(Thread, Generic[S]):
         # Move popup BEFORE showing so geometry applies immediately
         popup.tk.geometry(f"+{x}+{y}")
 
-        popup.enable()
+        # popup.enable()
+        popup.is_closing = False
         popup.show(wait=True)  # brings it above the main window
         popup.tk.transient(self.app.tk)
         popup.tk.lift()
@@ -864,26 +867,11 @@ class EngineGui(Thread, Generic[S]):
         # Disable the popup immediately so release events
         # cannot trigger any child buttons.
         print("************ Close Popup **********")
-        popup.disable()
+        popup.is_closing = True
         popup.tk.grab_release()
+        # popup.disable()
         popup.hide()
         self.controller_box.enable()
-        # Allow Tk to finish the current touch-release event
-        # popup.tk.after(30, lambda: self._finish_close_popup(popup))
-
-    def _finish_close_popup(self, popup):
-        try:
-            popup.tk.grab_release()
-        except (TclError, AttributeError):
-            pass
-
-        popup.hide()
-        self.controller_box.enable()
-
-    # def close_popup(self, popup) -> None:
-    #     self.controller_box.enable()
-    #     popup.hide()
-    #     popup.tk.grab_release()
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         if btn.text == MOMENTUM:
@@ -2045,8 +2033,9 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
     def on_popup_command(self, popup: Window, targets: str | list[str], *args, **kwargs):
-        print(f"on_popup_command: Enabled: {popup.enabled}, targets: {targets}, args: {args}, kwargs: {kwargs}")
-        if popup.enabled:
+        popup_closing = popup.is_closing if hasattr(popup, "is_closing") else False
+        print(f"on_popup_command: Closing: {popup_closing}, targets: {targets}, args: {args}, kwargs: {kwargs}")
+        if not popup_closing:
             self.on_engine_command(targets, *args, **kwargs)
 
     def on_engine_command(
