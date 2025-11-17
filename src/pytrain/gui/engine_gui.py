@@ -760,7 +760,6 @@ class EngineGui(Thread, Generic[S]):
         title_row = Box(
             keypad_box,
             grid=[0, 0, 2, 1],  # same span as before
-            align="top",
             width=w,
             height=h,
         )
@@ -772,12 +771,11 @@ class EngineGui(Thread, Generic[S]):
             text="Official Rail Road Speeds",
             bold=True,
             size=self.s_18,
-            align="bottom",
-            width=w,
-            height=h,
         )
-        title.tk.config(pady=8)  # add 8px vertical padding
         title.bg = "lightgrey"
+
+        # Vertically center inside title_row
+        title.tk.pack(expand=True)
 
         width = int(3 * self.button_size)
         for r, kr in enumerate(RR_SPEED_LAYOUT):
