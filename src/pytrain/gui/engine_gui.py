@@ -757,28 +757,21 @@ class EngineGui(Thread, Generic[S]):
 
         w = self.emergency_box_width
         h = self.button_size // 3
-        # title_row = Box(
-        #     keypad_box,
-        #     grid=[0, 0, 2, 1],  # same span as before
-        #     width=w,
-        #     height=h,
-        #     align="auto",
-        # )
-        # # Make this Box stretch across the row
-        # title_row.tk.pack_forget()
-        # title_row.tk.pack(fill="x")
-        # title_row.bg = "lightgrey"
+        # Title row container (guizero)
+        title_row = Box(keypad_box, grid=[0, 0, 2, 1], width=w, height=h)
+        title_row.bg = "lightgrey"
+        title_row.tk.pack_propagate(False)
 
-        title_row = tk.Frame(keypad_box.tk, width=w, height=h, bg="lightgrey")
-        title_row.grid(row=0, column=0, columnspan=2, sticky="nsew")
+        # Tk background frame (same size)
+        title_bg = tk.Frame(title_row.tk, bg="lightgrey")
+        title_bg.place(x=0, y=0, relwidth=1, relheight=1)
 
-        title = Text(
-            title_row,
-            text="Official Rail Road Speeds",
-            bold=True,
-            size=self.s_18,
-        )
+        # guizero Text – IMPORTANT: parent is title_row, NOT the Tk frame
+        title = Text(title_row, text="Official Rail Road Speeds", bold=True, size=self.s_18)
         title.bg = "lightgrey"
+
+        # Vertically center the text
+        title.tk.pack(expand=True)
 
         # Vertically center inside title_row
         title.tk.pack(expand=True)
