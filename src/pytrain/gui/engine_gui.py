@@ -284,7 +284,6 @@ class EngineGui(Thread, Generic[S]):
         self.initial_tmcc_id = initial_tmcc_id
         self.active_engine_state = None
         self.reset_on_keystroke = False
-        self._popup_bind_id = None
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
@@ -853,6 +852,7 @@ class EngineGui(Thread, Generic[S]):
         # Move popup BEFORE showing so geometry applies immediately
         popup.tk.geometry(f"+{x}+{y}")
 
+        popup.enable()
         popup.show(wait=True)  # brings it above the main window
         popup.tk.transient(self.app.tk)
         popup.tk.lift()
@@ -861,16 +861,15 @@ class EngineGui(Thread, Generic[S]):
         popup.tk.attributes("-topmost", True)
 
     def close_popup(self, popup) -> None:
-        # --- SWALLOW THE CURRENT TOUCH EVENT ---
-        with self._cv:
-            self._popup_bind_id = popup.tk.bind("<ButtonRelease-1>", lambda e: self._finish_close_popup(popup), add="+")
+        # Disable the popup immediately so release events
+        # cannot trigger any child buttons.
+        popup.disable()
+
+        # Allow Tk to finish the current touch-release event
+        popup.tk.after(30, lambda: self._finish_close_popup(popup))
 
     def _finish_close_popup(self, popup):
         try:
-            with self._cv:
-                if self._popup_bind_id:
-                    popup.tk.unbind("<ButtonRelease-1>", self._popup_bind_id)
-                    self._popup_bind_id = None
             popup.tk.grab_release()
         except (TclError, AttributeError):
             pass
