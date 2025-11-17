@@ -1590,8 +1590,9 @@ class EngineGui(Thread, Generic[S]):
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         tmcc_id = self.tmcc_id_text.value
         if key.isdigit():
-            print(f"Key: {key} tmcc_id: {tmcc_id} reset: {self.reset_on_keystroke}")
-            if tmcc_id and self.reset_on_keystroke:
+            print(f"Key: {key} tmcc_id: {int(tmcc_id)} reset: {self.reset_on_keystroke}")
+            if int(tmcc_id) and self.reset_on_keystroke:
+                print(f"Resetting tmcc_id: {int(tmcc_id)}")
                 self.update_component_info(0)
             tmcc_id = tmcc_id[1:] + key
             self.tmcc_id_text.value = tmcc_id
