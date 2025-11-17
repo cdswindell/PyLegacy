@@ -283,6 +283,7 @@ class EngineGui(Thread, Generic[S]):
         self.scope = initial_scope
         self.initial_tmcc_id = initial_tmcc_id
         self.active_engine_state = None
+        self.reset_on_keystroke = False
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
@@ -1589,6 +1590,8 @@ class EngineGui(Thread, Generic[S]):
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         tmcc_id = self.tmcc_id_text.value
         if key.isdigit():
+            if tmcc_id and self.reset_on_keystroke:
+                self.update_component_info(0)
             tmcc_id = tmcc_id[1:] + key
             self.tmcc_id_text.value = tmcc_id
         elif key == CLEAR_KEY:
@@ -1728,6 +1731,8 @@ class EngineGui(Thread, Generic[S]):
         print(f"entry_mode  clear_info={clear_info}:")
         if clear_info:
             self.update_component_info(0)
+        else:
+            self.reset_on_keystroke = True
         self._in_entry_mode = True
         for cell in self.entry_cells:
             if not cell.visible:
@@ -1815,6 +1820,7 @@ class EngineGui(Thread, Generic[S]):
         # update the tmcc_id associated with current scope
         self._scope_tmcc_ids[self.scope] = tmcc_id
         update_button_state = True
+        num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         if tmcc_id:
             state = self._state_store.get_state(self.scope, tmcc_id, False)
             if state:
@@ -1822,7 +1828,6 @@ class EngineGui(Thread, Generic[S]):
                 if tmcc_id != state.tmcc_id or tmcc_id != int(self.tmcc_id_text.value):
                     tmcc_id = state.tmcc_id
                     self._scope_tmcc_ids[self.scope] = tmcc_id
-                    num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
                     self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
                 name = state.name
                 name = name if name and name != "NA" else not_found_value
@@ -1835,6 +1840,8 @@ class EngineGui(Thread, Generic[S]):
                 name = not_found_value
             self.name_text.value = name
         else:
+            self.reset_on_keystroke = False
+            self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
             self.name_text.value = ""
             state = None
             self.clear_image()
