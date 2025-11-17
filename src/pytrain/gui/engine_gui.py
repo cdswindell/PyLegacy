@@ -772,9 +772,11 @@ class EngineGui(Thread, Generic[S]):
             text="Official Rail Road Speeds",
             bold=True,
             size=self.s_18,
+            align="bottom",
             width=w,
             height=h,
         )
+        title.tk.config(pady=8)  # add 8px vertical padding
         title.bg = "lightgrey"
 
         width = int(3 * self.button_size)
@@ -787,7 +789,10 @@ class EngineGui(Thread, Generic[S]):
                         label = op[1]
                         dialog = "EMERGENCY_CONTEXT_DEPENDENT"
                     else:
-                        label = op[1] + "\nSpeed"
+                        if op[0] == "SPEED_STOP_HOLD":
+                            label = op[1]
+                        else:
+                            label = op[1] + "\nSpeed"
                         dialog = "TOWER_" + op[0]
 
                 cell, nb = self.make_keypad_button(
@@ -806,6 +811,9 @@ class EngineGui(Thread, Generic[S]):
                 if label.startswith("Emergency"):
                     nb.text_color = "white"
                     nb.bg = "red"
+                elif label.startswith("Normal\nStop"):
+                    nb.text_color = "white"
+                    nb.bg = "green"
                 if dialog:
                     dialog = f"{dialog}, {op[0]}"
                     nb.on_hold = (self.on_engine_command, [dialog])
