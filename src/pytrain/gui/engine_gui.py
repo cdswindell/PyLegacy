@@ -317,6 +317,7 @@ class EngineGui(Thread, Generic[S]):
         self.throttle = self.speed = self.brake = self._rr_speed_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
         self.rr_speed_window = None
+        self.rr_speed_overlay = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -737,11 +738,28 @@ class EngineGui(Thread, Generic[S]):
         # Make popups, starting with rr_speed dialog; must be done after scope_box
         self.make_rr_speed_popup(app)
 
-    # noinspection PyProtectedMember
     def make_rr_speed_popup(self, app):
-        ## self.rr_speed_window =
-        popup, keypad_box = self.make_popup_window(app, "Official Rail Road Speeds")
-        self.rr_speed_window = popup
+        # Create an overlay Box that sits on top of everything
+        self.rr_speed_overlay = overlay = Box(
+            app,
+            width=self.emergency_box_width,
+            height=int(6 * self.button_size),
+            align="top",
+            visible=False,
+            border=2,
+        )
+        overlay.bg = "white"
+
+        keypad_box = Box(overlay, layout="grid", border=1)
+
+        # Title row
+        w = self.emergency_box_width
+        h = self.button_size // 3
+        title_row = Box(keypad_box, grid=[0, 0, 2, 1], width=w, height=h)
+        title_row.bg = "lightgrey"
+        _ = Text(title_row, text="", size=1, align="top")
+        title = Text(title_row, text="Official Rail Road Speeds", bold=True, size=self.s_18, align="top")
+        title.bg = "lightgrey"
 
         width = int(3 * self.button_size)
         for r, kr in enumerate(RR_SPEED_LAYOUT):
@@ -753,10 +771,7 @@ class EngineGui(Thread, Generic[S]):
                         label = op[1]
                         dialog = "EMERGENCY_CONTEXT_DEPENDENT"
                     else:
-                        if op[0] == "SPEED_STOP_HOLD":
-                            label = op[1]
-                        else:
-                            label = op[1] + "\nSpeed"
+                        label = op[1] + ("\nSpeed" if op[0] != "SPEED_STOP_HOLD" else "")
                         dialog = "TOWER_" + op[0]
 
                 cell, nb = self.make_keypad_button(
@@ -767,7 +782,7 @@ class EngineGui(Thread, Generic[S]):
                     bolded=True,
                     size=self.s_18,
                     command=self.on_popup_command,
-                    args=[popup, op[0]],
+                    args=[overlay, op[0]],
                 )
 
                 cell.tk.config(width=width)
@@ -779,57 +794,11 @@ class EngineGui(Thread, Generic[S]):
                     nb.text_color = "white"
                     nb.bg = "green"
                 if dialog:
-                    dialog = f"{dialog}, {op[0]}"
-                    nb.on_hold = (self.on_popup_command, [popup, dialog])
+                    nb.on_hold = (self.on_popup_command, [overlay, f"{dialog}, {op[0]}"])
 
-        # close button
-        self.make_popup_close_button(popup)
-
-        popup.hide()
-
-    # noinspection PyTypeChecker
-    def make_popup_window(self, app: App, title_text: str) -> tuple[Window, Box]:
-        popup = Window(
-            app,
-            width=self.emergency_box_width,
-            height=int(6 * self.button_size),
-            visible=False,
-        )
-        popup.bg = "white"
-        self._popup_closing[popup] = False
-        popup.when_closed = lambda: self.close_popup(popup)
-        popup.tk.overrideredirect(True)
-        popup.tk.config(highlightthickness=2, highlightbackground="black")
-
-        # create box for buttons; use grid layout
-        keypad_box = Box(
-            popup,
-            layout="grid",
-            border=1,
-        )
-
-        w = self.emergency_box_width
-        h = self.button_size // 3
-        # Title row container (guizero)
-        title_row = Box(keypad_box, grid=[0, 0, 2, 1], width=w, height=h)
-        title_row.bg = "lightgrey"
-
-        # guizero Text – IMPORTANT: parent is title_row, NOT the Tk frame
-        _ = Text(title_row, text="", size=1, align="top")
-        title = Text(title_row, text=title_text, bold=True, size=self.s_18, align="top")
-        title.bg = "lightgrey"
-
-        return popup, keypad_box
-
-    def make_popup_close_button(self, popup: Window):
-        _ = Text(popup, text="", size=self.s_10, align="bottom")
-        btn = PushButton(
-            popup,
-            text="Close",
-            align="bottom",
-            command=self.close_popup,
-            args=[popup],
-        )
+        # Close button
+        _ = Text(overlay, text="", size=self.s_10, align="bottom")
+        btn = PushButton(overlay, text="Close", align="bottom", command=self.close_popup, args=[overlay])
         btn.text_bolded = False
         btn.text_size = self.s_20
         btn.tk.config(
@@ -844,38 +813,17 @@ class EngineGui(Thread, Generic[S]):
         )
 
     def on_rr_speed(self) -> None:
-        popup = self.rr_speed_window
-        self.show_popup(popup)
+        self.show_popup(self.rr_speed_overlay)
 
-    def show_popup(self, popup):
-        # Compute screen position directly under info_box
+    def show_popup(self, overlay):
         self.controller_box.disable()
         x, y = self.popup_position
+        overlay.tk.place(x=x, y=y)
+        overlay.show()
 
-        # 1. Set geometry
-        popup.tk.geometry(f"+{x}+{y}")
-
-        # 2. FORCE Tk to finalize placement BEFORE showing
-        popup.tk.update_idletasks()
-
-        # 3. Now show safely
-        with self._cv:
-            self._popup_closing[popup] = False
-        popup.show()  # brings it above the main window
-        popup.tk.transient(self.app.tk)
-        popup.tk.lift()
-        popup.tk.grab_set()
-        popup.tk.focus_force()
-        popup.tk.attributes("-topmost", True)
-
-    def close_popup(self, popup) -> None:
-        # Disable the popup immediately so release events
-        # cannot trigger any child buttons.
-        print("************ Close Popup **********")
-        with self._cv:
-            self._popup_closing[popup] = True
-        popup.tk.grab_release()
-        popup.hide()
+    def close_popup(self, overlay):
+        overlay.hide()
+        overlay.tk.place_forget()
         self.controller_box.enable()
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
