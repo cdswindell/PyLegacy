@@ -859,9 +859,29 @@ class EngineGui(Thread, Generic[S]):
         popup.tk.attributes("-topmost", True)
 
     def close_popup(self, popup) -> None:
-        self.controller_box.enable()
+        # --- SWALLOW THE CURRENT TOUCH EVENT ---
+        try:
+            popup.tk.grab_set()  # grab input so underlying widgets can't receive it
+            popup.tk.update_idletasks()
+        except (TclError, AttributeError):
+            pass
+
+        # --- REMOVE POPUP AFTER RELEASE HAS CLEARED ---
+        popup.tk.after(50, lambda: self._finish_close_popup(popup))
+
+    def _finish_close_popup(self, popup):
+        try:
+            popup.tk.grab_release()
+        except (TclError, AttributeError):
+            pass
+
         popup.hide()
-        popup.tk.grab_release()
+        self.controller_box.enable()
+
+    # def close_popup(self, popup) -> None:
+    #     self.controller_box.enable()
+    #     popup.hide()
+    #     popup.tk.grab_release()
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         if btn.text == MOMENTUM:
