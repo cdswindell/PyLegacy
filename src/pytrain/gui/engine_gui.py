@@ -852,9 +852,13 @@ class EngineGui(Thread, Generic[S]):
         self.controller_box.disable()
         x, y = self.popup_position
 
-        # Move popup BEFORE showing so geometry applies immediately
+        # 1. Set geometry
         popup.tk.geometry(f"+{x}+{y}")
 
+        # 2. FORCE Tk to finalize placement BEFORE showing
+        popup.tk.update_idletasks()
+
+        # 3. Now show safely
         with self._cv:
             self._popup_closing[popup] = False
         popup.show(wait=True)  # brings it above the main window
