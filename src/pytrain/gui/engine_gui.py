@@ -762,7 +762,7 @@ class EngineGui(Thread, Generic[S]):
         title_row.bg = "lightgrey"
 
         # guizero Text – IMPORTANT: parent is title_row, NOT the Tk frame
-        _ = Text(title_row, text="", size=4, align="top")
+        _ = Text(title_row, text="", size=2, align="top")
         title = Text(title_row, text="Official Rail Road Speeds", bold=True, size=self.s_18, align="top")
         title.bg = "lightgrey"
 
