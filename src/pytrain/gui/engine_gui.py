@@ -742,7 +742,7 @@ class EngineGui(Thread, Generic[S]):
         self.rr_speed_overlay = overlay = Box(
             app,
             width=self.emergency_box_width,
-            height=int(5 * self.button_size),
+            height=int(6 * self.button_size),
             align="top",
             visible=False,
             border=2,
@@ -796,7 +796,6 @@ class EngineGui(Thread, Generic[S]):
                     nb.on_hold = (self.on_popup_command, [overlay, f"{dialog}, {op[0]}"])
 
         # Close button
-        _ = Text(overlay, text="", size=self.s_10, align="bottom")
         btn = PushButton(overlay, text="Close", align="bottom", command=self.close_popup, args=[overlay])
         btn.text_bolded = False
         btn.text_size = self.s_20
