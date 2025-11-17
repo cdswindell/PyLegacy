@@ -760,21 +760,10 @@ class EngineGui(Thread, Generic[S]):
         # Title row container (guizero)
         title_row = Box(keypad_box, grid=[0, 0, 2, 1], width=w, height=h)
         title_row.bg = "lightgrey"
-        title_row.tk.pack_propagate(False)
-
-        # Tk background frame (same size)
-        title_bg = tk.Frame(title_row.tk, bg="lightgrey")
-        title_bg.place(x=0, y=0, relwidth=1, relheight=1)
 
         # guizero Text – IMPORTANT: parent is title_row, NOT the Tk frame
         title = Text(title_row, text="Official Rail Road Speeds", bold=True, size=self.s_18)
         title.bg = "lightgrey"
-
-        # Vertically center the text
-        title.tk.pack(expand=True)
-
-        # Vertically center inside title_row
-        title.tk.pack(expand=True)
 
         width = int(3 * self.button_size)
         for r, kr in enumerate(RR_SPEED_LAYOUT):
