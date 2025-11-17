@@ -2036,9 +2036,9 @@ class EngineGui(Thread, Generic[S]):
     def on_popup_command(self, popup: Window, targets: str | list[str], *args, **kwargs):
         with self._cv:
             popup_closing = self._popup_closing.get(popup, False)
-        print(f"on_popup_command: Closing: {popup_closing}, targets: {targets}, args: {args}, kwargs: {kwargs}")
-        if not popup_closing:
-            self.on_engine_command(targets, *args, **kwargs)
+            print(f"on_popup_command: Closing: {popup_closing}, targets: {targets}, args: {args}, kwargs: {kwargs}")
+            if not popup_closing:
+                self.on_engine_command(targets, *args, **kwargs)
 
     def on_engine_command(
         self,
