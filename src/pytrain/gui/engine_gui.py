@@ -316,7 +316,6 @@ class EngineGui(Thread, Generic[S]):
         self.brake_box = self.brake_level = self.focus_widget = None
         self.throttle = self.speed = self.brake = self._rr_speed_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
-        self.rr_speed_window = None
         self.rr_speed_overlay = None
 
         # callbacks
@@ -743,7 +742,7 @@ class EngineGui(Thread, Generic[S]):
         self.rr_speed_overlay = overlay = Box(
             app,
             width=self.emergency_box_width,
-            height=int(6 * self.button_size),
+            height=int(5 * self.button_size),
             align="top",
             visible=False,
             border=2,
