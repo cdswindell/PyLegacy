@@ -1590,17 +1590,20 @@ class EngineGui(Thread, Generic[S]):
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         tmcc_id = self.tmcc_id_text.value
         if key.isdigit():
+            print(f"Key: {key} tmcc_id: {tmcc_id} reset: {self.reset_on_keystroke}")
             if tmcc_id and self.reset_on_keystroke:
                 self.update_component_info(0)
             tmcc_id = tmcc_id[1:] + key
             self.tmcc_id_text.value = tmcc_id
         elif key == CLEAR_KEY:
+            self.reset_on_keystroke = False
             tmcc_id = "0" * num_chars
             self.tmcc_id_text.value = tmcc_id
             self.entry_mode()
         elif key == "↵":
             # if a valid (existing) entry was entered, go to ops mode, otherwise,
             # stay in entry mode
+            self.reset_on_keystroke = False
             if self.make_recent(self.scope, int(tmcc_id)):
                 self.ops_mode()
             else:
