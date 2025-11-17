@@ -734,73 +734,41 @@ class EngineGui(Thread, Generic[S]):
         self.controller_box.visible = False
 
         # Make popups, starting with rr_speed dialog; must be done after scope_box
-        self.make_rr_speed_popup(app)
+        self.rr_speed_overlay = self.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
 
-    def make_rr_speed_popup(self, app):
-        # Create an overlay Box that sits on top of everything
-        self.rr_speed_overlay = overlay = Box(
-            app,
-            # width=self.emergency_box_width,
-            # height=int(5.5 * self.button_size),
+    def create_popup(self, title_text: str, build_body: Callable[[Box], None]):
+        """
+        Create a top-level overlay popup with a title, custom body, and close button.
+        `build_body` receives a Box to populate with popup-specific content.
+        Returns the overlay Box.
+        """
+        overlay = Box(
+            self.app,
             align="top",
             visible=False,
             border=2,
         )
         overlay.bg = "white"
 
-        keypad_box = Box(overlay, layout="grid", border=1)
-
         # Title row
         w = self.emergency_box_width
         h = self.button_size // 3
-        title_row = Box(keypad_box, grid=[0, 0, 2, 1], width=w, height=h)
+        title_row = Box(overlay, width=w, height=h)
         title_row.bg = "lightgrey"
-        _ = Text(title_row, text="", size=1, align="top")
-        title = Text(title_row, text="Official Rail Road Speeds", bold=True, size=self.s_18, align="top")
+
+        # _ = Text(title_row, text="", size=1, align="top")  # spacing stub
+        title = Text(title_row, text=title_text, bold=True, size=self.s_18)
         title.bg = "lightgrey"
 
-        width = int(3 * self.button_size)
-        row = 0
-        for r, kr in enumerate(RR_SPEED_LAYOUT):
-            for c, op in enumerate(kr):
-                label = ""
-                dialog = None
-                if isinstance(op, tuple):
-                    if op[1].startswith("Emergency"):
-                        label = op[1]
-                        dialog = "EMERGENCY_CONTEXT_DEPENDENT"
-                    else:
-                        label = op[1] + ("\nSpeed" if op[0] != "SPEED_STOP_HOLD" else "")
-                        dialog = "TOWER_" + op[0]
-
-                cell, nb = self.make_keypad_button(
-                    keypad_box,
-                    label,
-                    r + 1,
-                    c,
-                    bolded=True,
-                    size=self.s_18,
-                    command=self.on_engine_command,
-                    args=[op[0]],
-                )
-
-                cell.tk.config(width=width)
-                nb.tk.config(width=width)
-                if label.startswith("Emergency"):
-                    nb.text_color = "white"
-                    nb.bg = "red"
-                elif label.startswith("Normal\nStop"):
-                    nb.text_color = "white"
-                    nb.bg = "green"
-                if dialog:
-                    nb.on_hold = (self.on_engine_command, [f"{dialog}, {op[0]}"])
-            row = r + 1
+        # Body container (the caller populates this)
+        body = Box(overlay, layout="auto")
+        build_body(body)
 
         # Close button
         btn = PushButton(
-            keypad_box,
+            overlay,
             text="Close",
-            grid=[0, row + 1, 2, 1],
+            align="bottom",
             command=self.close_popup,
             args=[overlay],
         )
@@ -817,6 +785,49 @@ class EngineGui(Thread, Generic[S]):
             background="#f7f7f7",
         )
         btn.tk.grid_configure(padx=20, pady=20)
+
+        return overlay
+
+    def build_rr_speed_body(self, body: Box):
+        keypad_box = Box(body, layout="grid", border=1)
+        width = int(3 * self.button_size)
+
+        for r, kr in enumerate(RR_SPEED_LAYOUT):
+            for c, op in enumerate(kr):
+                label = ""
+                dialog = None
+
+                if isinstance(op, tuple):
+                    if op[1].startswith("Emergency"):
+                        label = op[1]
+                        dialog = "EMERGENCY_CONTEXT_DEPENDENT"
+                    else:
+                        label = op[1] + ("\nSpeed" if op[0] != "SPEED_STOP_HOLD" else "")
+                        dialog = "TOWER_" + op[0]
+
+                cell, nb = self.make_keypad_button(
+                    keypad_box,
+                    label,
+                    r,
+                    c,
+                    bolded=True,
+                    size=self.s_18,
+                    command=self.on_engine_command,
+                    args=[op[0]],
+                )
+
+                cell.tk.config(width=width)
+                nb.tk.config(width=width)
+
+                if label.startswith("Emergency"):
+                    nb.text_color = "white"
+                    nb.bg = "red"
+                elif label.startswith("Normal\nStop"):
+                    nb.text_color = "white"
+                    nb.bg = "green"
+
+                if dialog:
+                    nb.on_hold = (self.on_engine_command, [f"{dialog}, {op[0]}"])
 
     def on_rr_speed(self) -> None:
         self.show_popup(self.rr_speed_overlay)
