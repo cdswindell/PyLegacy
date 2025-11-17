@@ -737,34 +737,9 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyProtectedMember
     def make_rr_speed_popup(self, app):
-        self.rr_speed_window = popup = Window(
-            app,
-            width=self.emergency_box_width,
-            height=int(6 * self.button_size),
-            visible=False,
-        )
-        popup.bg = "white"
-        popup.when_closed = lambda: self.close_popup(popup)
-        popup.tk.overrideredirect(True)
-        popup.tk.config(highlightthickness=2, highlightbackground="black")
-
-        # create box for buttons; use grid layout
-        keypad_box = Box(
-            popup,
-            layout="grid",
-            border=1,
-        )
-
-        w = self.emergency_box_width
-        h = self.button_size // 3
-        # Title row container (guizero)
-        title_row = Box(keypad_box, grid=[0, 0, 2, 1], width=w, height=h)
-        title_row.bg = "lightgrey"
-
-        # guizero Text – IMPORTANT: parent is title_row, NOT the Tk frame
-        _ = Text(title_row, text="", size=1, align="top")
-        title = Text(title_row, text="Official Rail Road Speeds", bold=True, size=self.s_18, align="top")
-        title.bg = "lightgrey"
+        ## self.rr_speed_window =
+        popup, keypad_box = self.make_popup_window(app, "Official Rail Road Speeds")
+        self.rr_speed_window = popup
 
         width = int(3 * self.button_size)
         for r, kr in enumerate(RR_SPEED_LAYOUT):
@@ -810,6 +785,38 @@ class EngineGui(Thread, Generic[S]):
 
         popup.hide()
 
+    def make_popup_window(self, app: App, title_text: str) -> tuple[Window, Box]:
+        popup = Window(
+            app,
+            width=self.emergency_box_width,
+            height=int(6 * self.button_size),
+            visible=False,
+        )
+        popup.bg = "white"
+        popup.when_closed = lambda: self.close_popup(popup)
+        popup.tk.overrideredirect(True)
+        popup.tk.config(highlightthickness=2, highlightbackground="black")
+
+        # create box for buttons; use grid layout
+        keypad_box = Box(
+            popup,
+            layout="grid",
+            border=1,
+        )
+
+        w = self.emergency_box_width
+        h = self.button_size // 3
+        # Title row container (guizero)
+        title_row = Box(keypad_box, grid=[0, 0, 2, 1], width=w, height=h)
+        title_row.bg = "lightgrey"
+
+        # guizero Text – IMPORTANT: parent is title_row, NOT the Tk frame
+        _ = Text(title_row, text="", size=1, align="top")
+        title = Text(title_row, text=title_text, bold=True, size=self.s_18, align="top")
+        title.bg = "lightgrey"
+
+        return popup, keypad_box
+
     def make_popup_close_button(self, popup: Window):
         btn = PushButton(
             popup,
@@ -830,6 +837,7 @@ class EngineGui(Thread, Generic[S]):
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
+        _ = Text(popup, text="", size=self.s_18, align="bottom")
 
     def on_rr_speed(self) -> None:
         popup = self.rr_speed_window
