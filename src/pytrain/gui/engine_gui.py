@@ -1599,6 +1599,7 @@ class EngineGui(Thread, Generic[S]):
             if int(tmcc_id) and self.reset_on_keystroke:
                 print(f"Resetting tmcc_id: {int(tmcc_id)}")
                 self.update_component_info(0)
+                tmcc_id = "0" * num_chars
             tmcc_id = tmcc_id[1:] + key
             self.tmcc_id_text.value = tmcc_id
         elif key == CLEAR_KEY:
