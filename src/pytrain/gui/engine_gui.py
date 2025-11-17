@@ -765,8 +765,8 @@ class EngineGui(Thread, Generic[S]):
                     c,
                     bolded=True,
                     size=self.s_18,
-                    command=self.on_engine_command,
-                    args=[op[0]],
+                    command=self.on_popup_command,
+                    args=[popup, op[0]],
                 )
 
                 cell.tk.config(width=width)
@@ -779,7 +779,7 @@ class EngineGui(Thread, Generic[S]):
                     nb.bg = "green"
                 if dialog:
                     dialog = f"{dialog}, {op[0]}"
-                    nb.on_hold = (self.on_engine_command, [dialog])
+                    nb.on_hold = (self.on_popup_command, [dialog])
 
         # close button
         self.make_popup_close_button(popup)
@@ -863,10 +863,13 @@ class EngineGui(Thread, Generic[S]):
     def close_popup(self, popup) -> None:
         # Disable the popup immediately so release events
         # cannot trigger any child buttons.
+        print("************ Close Popup **********")
         popup.disable()
-
+        popup.tk.grab_release()
+        popup.hide()
+        self.controller_box.enable()
         # Allow Tk to finish the current touch-release event
-        popup.tk.after(30, lambda: self._finish_close_popup(popup))
+        # popup.tk.after(30, lambda: self._finish_close_popup(popup))
 
     def _finish_close_popup(self, popup):
         try:
@@ -2040,6 +2043,11 @@ class EngineGui(Thread, Generic[S]):
         self.app.tk.update_idletasks()
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
+
+    def on_popup_command(self, popup: Window, args, kwargs):
+        print(f"on_popup_command: Enabled: {popup.enabled}, args: {args}, kwargs: {kwargs}")
+        if popup.enabled:
+            self.on_engine_command(*args, **kwargs)
 
     def on_engine_command(
         self,
