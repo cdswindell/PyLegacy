@@ -527,6 +527,12 @@ class TMCC1EngineCommandEnum(TMCC1Enum):
         data=0,
         filtered=True,
     )
+    EMERGENCY_STOP = TMCC1CommandDef(
+        TMCC1_ENG_ABSOLUTE_SPEED_COMMAND,
+        alias="ABSOLUTE_SPEED",
+        data=0,
+        filtered=True,
+    )
 
 
 TMCC1_COMMAND_TO_ALIAS_MAP = {}

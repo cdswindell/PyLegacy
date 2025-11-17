@@ -114,7 +114,7 @@ ENGINE_OPS_LAYOUT = [
 ]
 
 RR_SPEED_LAYOUT = [
-    [("SPEED_STOP_HOLD", "Emergency\nStop"), ("SPEED_ROLL", "Roll")],
+    [("SPEED_STOP_HOLD", "Normal\nStop"), ("EMERGENCY_STOP", "Emergency\nStop")],
     [("SPEED_RESTRICTED", "Restricted"), ("SPEED_SLOW", "Slow")],
     [("SPEED_MEDIUM", "Medium"), ("SPEED_LIMITED", "Limited")],
     [("SPEED_NORMAL", "Normal"), ("SPEED_HIGHBALL", "High Ball")],
