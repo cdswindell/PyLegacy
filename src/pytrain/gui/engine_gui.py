@@ -2044,10 +2044,10 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
-    def on_popup_command(self, popup: Window, args, kwargs):
-        print(f"on_popup_command: Enabled: {popup.enabled}, args: {args}, kwargs: {kwargs}")
+    def on_popup_command(self, popup: Window, targets: str | list[str], *args, **kwargs):
+        print(f"on_popup_command: Enabled: {popup.enabled}, targets: {targets}, args: {args}, kwargs: {kwargs}")
         if popup.enabled:
-            self.on_engine_command(*args, **kwargs)
+            self.on_engine_command(targets, *args, **kwargs)
 
     def on_engine_command(
         self,
