@@ -794,7 +794,7 @@ class EngineGui(Thread, Generic[S]):
                     nb.bg = "green"
                 if dialog:
                     nb.on_hold = (self.on_engine_command, [f"{dialog}, {op[0]}"])
-            row = r
+            row = r + 1
 
         # Close button
         btn = PushButton(
