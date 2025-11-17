@@ -762,8 +762,11 @@ class EngineGui(Thread, Generic[S]):
             grid=[0, 0, 2, 1],  # same span as before
             width=w,
             height=h,
+            align="auto",
         )
         # Make this Box stretch across the row
+        title_row.tk.pack_forget()
+        title_row.tk.pack(fill="x")
         title_row.bg = "lightgrey"
 
         title = Text(
