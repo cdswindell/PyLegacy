@@ -18,7 +18,7 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar, cast
 
-from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox, Window
+from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
 from PIL import Image, ImageTk
@@ -284,7 +284,6 @@ class EngineGui(Thread, Generic[S]):
         self.initial_tmcc_id = initial_tmcc_id
         self.active_engine_state = None
         self.reset_on_keystroke = False
-        self._popup_closing = {}
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
@@ -741,8 +740,8 @@ class EngineGui(Thread, Generic[S]):
         # Create an overlay Box that sits on top of everything
         self.rr_speed_overlay = overlay = Box(
             app,
-            width=self.emergency_box_width,
-            height=int(5.5 * self.button_size),
+            # width=self.emergency_box_width,
+            # height=int(5.5 * self.button_size),
             align="top",
             visible=False,
             border=2,
@@ -761,6 +760,7 @@ class EngineGui(Thread, Generic[S]):
         title.bg = "lightgrey"
 
         width = int(3 * self.button_size)
+        row = 0
         for r, kr in enumerate(RR_SPEED_LAYOUT):
             for c, op in enumerate(kr):
                 label = ""
@@ -780,8 +780,8 @@ class EngineGui(Thread, Generic[S]):
                     c,
                     bolded=True,
                     size=self.s_18,
-                    command=self.on_popup_command,
-                    args=[overlay, op[0]],
+                    command=self.on_engine_command,
+                    args=[op[0]],
                 )
 
                 cell.tk.config(width=width)
@@ -793,10 +793,17 @@ class EngineGui(Thread, Generic[S]):
                     nb.text_color = "white"
                     nb.bg = "green"
                 if dialog:
-                    nb.on_hold = (self.on_popup_command, [overlay, f"{dialog}, {op[0]}"])
+                    nb.on_hold = (self.on_engine_command, [f"{dialog}, {op[0]}"])
+            row = r
 
         # Close button
-        btn = PushButton(overlay, text="Close", align="bottom", command=self.close_popup, args=[overlay])
+        btn = PushButton(
+            keypad_box,
+            text="Close",
+            grid=[0, row + 1, 2, 1],
+            command=self.close_popup,
+            args=[overlay],
+        )
         btn.text_bolded = False
         btn.text_size = self.s_20
         btn.tk.config(
@@ -1982,13 +1989,6 @@ class EngineGui(Thread, Generic[S]):
         self.app.tk.update_idletasks()
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
-
-    def on_popup_command(self, popup: Window, targets: str | list[str], *args, **kwargs):
-        with self._cv:
-            popup_closing = self._popup_closing.get(popup, False)
-            print(f"on_popup_command: Closing: {popup_closing}, targets: {targets}, args: {args}, kwargs: {kwargs}")
-            if not popup_closing:
-                self.on_engine_command(targets, *args, **kwargs)
 
     def on_engine_command(
         self,
