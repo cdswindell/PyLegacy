@@ -779,7 +779,7 @@ class EngineGui(Thread, Generic[S]):
                     nb.bg = "green"
                 if dialog:
                     dialog = f"{dialog}, {op[0]}"
-                    nb.on_hold = (self.on_popup_command, [dialog])
+                    nb.on_hold = (self.on_popup_command, [popup, dialog])
 
         # close button
         self.make_popup_close_button(popup)
