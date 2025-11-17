@@ -461,9 +461,6 @@ class EngineGui(Thread, Generic[S]):
         print(f"Popup Position: ({x}, {y})")
         self.popup_position = (x, y)
 
-        # Make popups, starting with rr_speed dialog; must be done after scope_box
-        # self.make_rr_speed_popup(app)
-
         # start the event watcher
         app.repeat(20, _poll_shutdown)
 
@@ -758,8 +755,6 @@ class EngineGui(Thread, Generic[S]):
             border=2,
         )
 
-        # w, h = self.sizeof(self.scope_box)
-        # print(f"Scope Box: {self.scope_box}, {w} {h} {self.scope_box in self.size_cache}")
         w = self.emergency_box_width
         h = self.button_size // 3
         title_row = Box(
@@ -771,7 +766,6 @@ class EngineGui(Thread, Generic[S]):
         )
         # Make this Box stretch across the row
         title_row.bg = "lightgrey"
-        title_row.tk.config(highlightthickness=1, highlightbackground="black")
 
         title = Text(
             title_row,
