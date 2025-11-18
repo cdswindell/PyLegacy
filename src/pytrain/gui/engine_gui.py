@@ -815,16 +815,17 @@ class EngineGui(Thread, Generic[S]):
             options.extend([value[0] for value in values])
             od = {value[0]: value[1] for value in values}
 
+            slot = Box(diesel_box, grid=[col, row])
             cb = Combo(
-                diesel_box,
-                grid=[col, row],
+                slot,
                 options=options,
                 selected=option,
             )
             cb.tk.config(width=20)
             cb.text_size = self.s_24
+            slot.tk.grid(padx=20, pady=20)
             self._elements.add(cb)
-            cb.tk.grid(padx=20, pady=20)
+
             print(f"Row: {row}, Col: {col}, {cb} Option: {option}")
             row += 1
             if row == 4:
