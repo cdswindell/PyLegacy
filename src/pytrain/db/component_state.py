@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Set, TypeVar
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.base3_component import RouteComponent
 from ..pdi.constants import PdiCommand
+from ..pdi.d4_req import D4Req
 from ..pdi.irda_req import IrdaReq
 from ..pdi.pdi_req import PdiReq
 from ..pdi.stm2_req import Stm2Req
@@ -226,10 +227,12 @@ class ComponentState(ABC, CompDataMixin):
                 if 1 <= command.address < 99:
                     BaseReq(command.address, PdiCommand.BASE_MEMORY, scope=command.scope).send()
                 elif 100 <= command.address <= 9999:
-                    raise NotImplementedError(f"Cannot request 4-digit engine configuration: {command}")
-                self._config_requested = True
+                    if self.record_no is not None:
+                        cmd = PdiCommand.D4_TRAIN if self.scope == CommandScope.TRAIN else PdiCommand.D4_ENGINE
+                        D4Req(self.record_no, cmd).send()
+                        self._config_requested = True
             else:
-                print(f"Ignoring {command} as component is not yet synchronized")
+                log.info(f"Ignoring {command} as component hasn't completed synchronization")
                 requeue = False
         if requeue:
             self.schedule_call(2.5, CommandDispatcher.get().offer, command)
