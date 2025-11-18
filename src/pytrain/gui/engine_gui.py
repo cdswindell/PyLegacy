@@ -819,7 +819,7 @@ class EngineGui(Thread, Generic[S]):
 
     def build_lights_body(self, body: Box):
         # cab light
-        _, btn = PushButton(
+        btn = PushButton(
             body,
             text="",
             align="top",
