@@ -829,8 +829,6 @@ class EngineGui(Thread, Generic[S]):
             options = [title] + [v[0] for v in values]
             od = {v[0]: v[1] for v in values}
 
-            print(f"*** Key: {title} Values: {values}")
-
             slot = Box(diesel_box, grid=[col, row])
             cb = Combo(
                 slot,
@@ -843,8 +841,6 @@ class EngineGui(Thread, Generic[S]):
             cb.tk.pack_configure(padx=14, pady=20)
             self._elements.add(cb)
 
-            print(f"Row: {row}, Col: {col}, {cb} Title: {title}")
-
     def make_on_light_selected(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
         def func(selected: str):
             self.on_light_selected(cb, od, title, selected)
@@ -853,7 +849,6 @@ class EngineGui(Thread, Generic[S]):
 
     def on_light_selected(self, cb: Combo, od: dict, title: str, selected: str) -> None:
         cmd = od.get(selected, None)
-        print(f"*** Combo: {cb} Selected: {selected} {od} {title} {cmd}")
         if isinstance(cmd, str):
             self.on_engine_command(cmd)
         cb.clear()
