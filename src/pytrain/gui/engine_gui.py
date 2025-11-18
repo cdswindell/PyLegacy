@@ -828,7 +828,7 @@ class EngineGui(Thread, Generic[S]):
             height=self.button_size,
             args=[("CAB_AUTO", "AUX2_OPT_ONE")],
         )
-        btn.tk.config(img=self.get_image(self.power_on_path), width=self.button_size, height=self.button_size)
+        btn.tk.config(image=self.get_image(self.power_on_path), width=self.button_size, height=self.button_size)
         self._elements.add(btn)
 
         diesel_box = Box(body, layout="grid", border=1)
