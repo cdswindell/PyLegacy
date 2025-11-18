@@ -809,15 +809,23 @@ class EngineGui(Thread, Generic[S]):
 
         row = col = 0
         for option in DIESEL_LIGHTS.keys():
-            cb = Combo(diesel_box, grid=[col, row], options=[option])
+            values = DIESEL_LIGHTS[option]
+            options = [option]
+            options.extend([value[0] for value in values])
+            option_dict = {value[0]: value[1] for value in values}
+            cb = Combo(diesel_box, grid=[col, row], options=options, selected=option, command=self.on_lights)
             cb.tk.config(width=width)
             cb.text_size = self.s_20
+            cb.option_dict = option_dict
             self._elements.add(cb)
-            print(f"Row: {row}, Col: {col}, Option: {option}")
+            print(f"Row: {row}, Col: {col}, Option: {option} {option_dict}")
             row += 1
             if row % 4 == 0:
                 row = 0
                 col += 1
+
+    def on_lights(self, selected: str) -> None:
+        print(f"Selected: {selected}")
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
