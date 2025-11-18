@@ -805,7 +805,6 @@ class EngineGui(Thread, Generic[S]):
         return overlay
 
     def build_lights_body(self, body: Box):
-        width = int(3 * self.button_size)
         diesel_box = Box(body, layout="grid", border=1)
 
         row = col = 0
@@ -816,7 +815,7 @@ class EngineGui(Thread, Generic[S]):
             option_dict = {value[0]: value[1] for value in values}
 
             cb = Combo(diesel_box, grid=[col, row], options=options, selected=option, command=self.on_light_selected)
-            cb.tk.config(width=width)
+            cb.tk.config(width=20)
             cb.text_size = self.s_20
             cb.option_dict = option_dict
             self._elements.add(cb)
