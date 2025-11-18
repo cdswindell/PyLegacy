@@ -1976,9 +1976,9 @@ class EngineGui(Thread, Generic[S]):
                 self.clear_image()
             if img and scope == self.scope and tmcc_id == self._scope_tmcc_ids[self.scope]:
                 available_height, available_width = self.calc_image_box_size()
-                self.image.tk.config(image=img)
-                self.image.width = available_width
-                self.image.height = available_height
+                self.image.tk.config(image=img, width=available_width, height=available_height)
+                # self.image.width = available_width
+                # self.image.height = available_height
                 self.image_box.show()
 
     def get_scaled_image(self, source: str | io.BytesIO, preserve_height: bool = False) -> ImageTk.PhotoImage:
