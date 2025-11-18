@@ -821,9 +821,10 @@ class EngineGui(Thread, Generic[S]):
                 selected=option,
             )
             cb.update_command(command=lambda value: self.on_light_selected(cb, od, value))
-            cb.tk.config(width=24)
+            cb.tk.config(width=20)
             cb.text_size = self.s_24
             self._elements.add(cb)
+            cb.tk.grid(padx=20, pady=20)
             print(f"Row: {row}, Col: {col}, Option: {option} {od}")
             row += 1
             if row == 4:
@@ -831,11 +832,13 @@ class EngineGui(Thread, Generic[S]):
                 col += 1
 
     def on_light_selected(self, cb: Combo, od: dict, selected: str) -> None:
-        if od:
-            cmd = od.get(selected, None)
-            print(f"Combo: {cb} Selected: {selected} {od} {cmd}")
-            if isinstance(cmd, str):
-                self.on_engine_command(cmd)
+        cmd = od.get(selected, None)
+        print(f"Combo: {cb} Selected: {selected} {od} {cmd}")
+        if isinstance(cmd, str):
+            self.on_engine_command(cmd)
+        cb.clear()
+        for option in od.values():
+            cb.append(option)
         cb.select_default()
 
     def build_rr_speed_body(self, body: Box):
