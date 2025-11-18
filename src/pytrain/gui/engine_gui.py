@@ -817,6 +817,8 @@ class EngineGui(Thread, Generic[S]):
 
         # How many lights do we have; display them in 2 columns:
         lights_per_column = int(round(len(DIESEL_LIGHTS) / 2))
+        width = max(map(len, DIESEL_LIGHTS.keys()))
+
         print(f"lights_per_column: {lights_per_column} ({len(DIESEL_LIGHTS)})")
         for idx, (option, values) in enumerate(DIESEL_LIGHTS.items()):
             # place 4 per column
@@ -835,9 +837,9 @@ class EngineGui(Thread, Generic[S]):
                 options=options,
                 selected=option,
             )
-            cb.tk.config(width=15)
+            cb.tk.config(width=width)
             cb.text_size = self.s_18
-            cb.tk.pack_configure(padx=20, pady=20)
+            cb.tk.pack_configure(padx=10, pady=20)
             # slot.tk.grid_configure(padx=20, pady=20)
             self._elements.add(cb)
 
