@@ -39,7 +39,7 @@ from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum, TMCC2RouteCommandEnum
 from ..utils.path_utils import find_file
@@ -143,7 +143,9 @@ STEAM_LIGHTS = {
 }
 
 REPEAT_EXCEPTIONS = {
+    TMCC1EngineCommandEnum.AUX2_OPTION_ONE: 1,
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,
+    TMCC2LightingControl.CAB_AUTO: 1,
 }
 
 FONT_SIZE_EXCEPTIONS = {}
@@ -828,7 +830,11 @@ class EngineGui(Thread, Generic[S]):
             height=self.button_size,
             args=[("CAB_AUTO", "AUX2_OPT_ONE")],
         )
-        btn.tk.config(image=self.get_image(self.power_on_path), width=self.button_size, height=self.button_size)
+        btn.tk.config(
+            image=self.get_image(self.power_off_path),
+            width=self.button_size,
+            height=self.button_size,
+        )
         self._elements.add(btn)
 
         diesel_box = Box(body, layout="grid", border=1)
