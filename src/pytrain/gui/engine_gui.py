@@ -840,7 +840,7 @@ class EngineGui(Thread, Generic[S]):
             cb.update_command(self.make_on_light_selected(cb, od, title))
             cb.tk.config(width=width)
             cb.text_size = self.s_20
-            cb.tk.pack_configure(padx=10, pady=20)
+            cb.tk.pack_configure(padx=14, pady=20)
             self._elements.add(cb)
 
             print(f"Row: {row}, Col: {col}, {cb} Title: {title}")
