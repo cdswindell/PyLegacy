@@ -143,6 +143,7 @@ SMOKE_LABEL = {
 
 R = TypeVar("R", bound=OfficialRRSpeeds)
 
+
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
         if scope not in {CommandScope.ENGINE, CommandScope.TRAIN}:
