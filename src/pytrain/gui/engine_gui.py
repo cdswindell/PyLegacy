@@ -136,7 +136,10 @@ DIESEL_LIGHTS = {
 }
 
 STEAM_LIGHTS = {
+    "Doghouse Lights": [["On", "DOGHOUSE_ON"], ["Off", "DOGHOUSE_OFF"]],
+    "Marker Lights": [["On", "LOCO_MARKER_ON"], ["Off", "LOCO_MARKER_OFF"], ["Auto", "LOCO_MARKER_AUTO"]],
     "Rule 17": [["On", "RULE_17_ON"], ["Off", "RULE_17_OFF"], ["Auto", "RULE_17_AUTO"]],
+    "Tender Lights": [["On", "TENDER_MARKER_ON"], ["Off", "TENDER_MARKER_OFF"]],
 }
 
 REPEAT_EXCEPTIONS = {

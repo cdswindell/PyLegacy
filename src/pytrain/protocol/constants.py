@@ -264,6 +264,7 @@ TRACK_CRANE_STATE_NUMERICS: Set[int] = {1, 2, 3}
 
 RPM_TYPE = {0, 10, 13}
 STEAM_TYPE = {1, 11, 14}
+DIESEL_TYPE = {0, 10, 13}
 
 
 # Turn some of these into enums
