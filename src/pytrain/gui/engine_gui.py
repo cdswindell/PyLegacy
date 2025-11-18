@@ -548,7 +548,7 @@ class EngineGui(Thread, Generic[S]):
         btn.update_command(self.toggle_momentum_train_brake, [btn])
 
         _, btn = self.engine_ops_cells["AUX2_OPTION_ONE"]
-        btn.on_hold = (self.show_popup, [self.lights_overlay])
+        btn.on_hold = self.on_lights
 
         # set some repeating commands
         for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
@@ -858,6 +858,9 @@ class EngineGui(Thread, Generic[S]):
 
     def on_rr_speed(self) -> None:
         self.show_popup(self.rr_speed_overlay)
+
+    def on_lights(self) -> None:
+        self.show_popup(self.lights_overlay)
 
     def show_popup(self, overlay):
         self.controller_box.hide()
