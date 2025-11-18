@@ -821,12 +821,12 @@ class EngineGui(Thread, Generic[S]):
                 options=options,
                 selected=option,
             )
-            cb.update_command(lambda value: self.on_light_selected(cb, od, option, value))
+            cb.update_command(lambda value, cbv=cb, odv=od, tv=option: self.on_light_selected(cbv, odv, tv, value))
             cb.tk.config(width=20)
             cb.text_size = self.s_24
             self._elements.add(cb)
             cb.tk.grid(padx=20, pady=20)
-            print(f"Row: {row}, Col: {col}, {cb} Option: {option} {cb._command}")
+            print(f"Row: {row}, Col: {col}, {cb} Option: {option}")
             row += 1
             if row == 4:
                 row = 0
