@@ -835,8 +835,8 @@ class EngineGui(Thread, Generic[S]):
                 options=options,
                 selected=option,
             )
-            cb.tk.config(width=20)
-            cb.text_size = self.s_24
+            cb.tk.config(width=15)
+            cb.text_size = self.s_18
             cb.tk.pack_configure(padx=20, pady=20)
             # slot.tk.grid_configure(padx=20, pady=20)
             self._elements.add(cb)
