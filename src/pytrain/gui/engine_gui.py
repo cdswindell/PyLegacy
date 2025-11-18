@@ -109,7 +109,7 @@ ENGINE_OPS_LAYOUT = [
     ],
     [
         ("AUX1_OPTION_ONE", "", AUX1_KEY),
-        ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights"),
+        ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights..."),
         ("AUX3_OPTION_ONE", "", AUX3_KEY),
         (MOM_TB, "", MOMENTUM),
     ],
@@ -345,8 +345,9 @@ class EngineGui(Thread, Generic[S]):
         self.brake_box = self.brake_level = self.focus_widget = None
         self.throttle = self.speed = self.brake = self._rr_speed_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
-        self.rr_speed_overlay = self.lights_overlay = None
+        self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
+        self.rr_speed_btns = set()
 
         # callbacks
         self._scoped_callbacks = {
@@ -981,9 +982,9 @@ class EngineGui(Thread, Generic[S]):
                 if label.startswith("Emergency"):
                     nb.text_color = "white"
                     nb.bg = "red"
-                elif label.startswith("Normal\nStop"):
-                    nb.text_color = "white"
-                    nb.bg = "green"
+                else:
+                    self.rr_speed_btns.add(nb)
+                    nb.rr_speed = op[0]
 
                 if dialog:
                     nb.on_hold = (self.on_engine_command, [f"{dialog}, {op[0]}"])
@@ -1134,11 +1135,12 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
-        print(f"on_new_engine: {state}")
+        print("on_new_engine")
         self.active_engine_state = state
         if state:
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             self.speed.value = f"{state.speed:03d}"
+            self.update_rr_speed_buttons(state)
             if self.throttle.tk.focus_displayof() != self.throttle.tk:
                 self.throttle.value = state.speed
 
@@ -1165,6 +1167,14 @@ class EngineGui(Thread, Generic[S]):
             self.throttle.tk.config(from_=195, to=0)
         else:
             self.throttle.tk.config(from_=31, to=0)
+
+    def update_rr_speed_buttons(self, state: EngineState) -> None:
+        rr_speed = state.rr_speed
+        for btn in self.rr_speed_btns:
+            if rr_speed and btn.rr_speed.ends_with(rr_speed.name):
+                btn.bg = "green"
+            else:
+                btn.bg = "white"
 
     def on_new_route(self, state: RouteState = None):
         # must be called from app thread!!

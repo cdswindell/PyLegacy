@@ -148,6 +148,26 @@ class OfficialRRSpeeds(Mixins):
     Marker enum
     """
 
+    @classmethod
+    def to_rr_speed(cls, speed: int, exact: bool = True) -> Self | None:
+        if speed is None:
+            return None
+        for _, member in cls.__members__.items():
+            if exact:
+                if speed == member.speed:
+                    return member
+            elif speed in member.value:
+                return member
+        return None
+
+    @property
+    def speed(self) -> int:
+        return self.value[0]
+
+    @property
+    def range(self) -> int:
+        return self.value
+
 
 @unique
 class CommandSyntax(Mixins):

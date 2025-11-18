@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TypeVar
 
 from ..pdi.constants import D4Action, IrdaAction, PdiCommand
 from ..pdi.d4_req import D4Req
@@ -32,11 +32,17 @@ from ..protocol.constants import (
     SOUND_TYPE,
     STEAM_TYPE,
     CommandScope,
+    OfficialRRSpeeds,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ..protocol.tmcc1.tmcc1_constants import TMCC1_COMMAND_TO_ALIAS_MAP, TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import (
+    TMCC1_COMMAND_TO_ALIAS_MAP,
+    TMCC1EngineCommandEnum,
+    TMCC1HaltCommandEnum,
+    TMCC1RRSpeedsEnum,
+)
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
-from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum
+from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
 from .comp_data import CompDataHandler, CompDataMixin
 from .component_state import (
@@ -134,6 +140,8 @@ SMOKE_LABEL = {
     TMCC2EffectsControl.SMOKE_MEDIUM: "M",
     TMCC2EffectsControl.SMOKE_HIGH: "H",
 }
+
+R = TypeVar("R", bound=OfficialRRSpeeds)
 
 
 class EngineState(ComponentState):
@@ -536,7 +544,17 @@ class EngineState(ComponentState):
 
     @property
     def speed(self) -> int:
-        return self.comp_data.speed
+        if self.comp_data:
+            return self.comp_data.speed
+        else:
+            # noinspection PyTypeChecker
+            return None
+
+    @property
+    def rr_speed(self) -> R | None:
+        if self.is_legacy:
+            return TMCC2RRSpeedsEnum.to_rr_speed(self.speed)
+        return TMCC1RRSpeedsEnum.to_rr_speed(self.speed)
 
     @property
     def speed_limit(self) -> int:
