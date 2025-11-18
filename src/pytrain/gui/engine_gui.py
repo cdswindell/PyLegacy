@@ -818,6 +818,7 @@ class EngineGui(Thread, Generic[S]):
             slot = Box(diesel_box, grid=[col, row])
             cb = Combo(
                 slot,
+                grid=[0, 0],
                 options=options,
                 selected=option,
             )
