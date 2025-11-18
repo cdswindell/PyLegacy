@@ -810,6 +810,7 @@ class EngineGui(Thread, Generic[S]):
         row = col = 0
         for option in DIESEL_LIGHTS.keys():
             values = DIESEL_LIGHTS[option]
+            print(f"*** Key: {option} Values: {values}")
             options = [option]
             options.extend([value[0] for value in values])
             od = {value[0]: value[1] for value in values}
@@ -820,12 +821,12 @@ class EngineGui(Thread, Generic[S]):
                 options=options,
                 selected=option,
             )
-            cb.update_command(command=lambda value: self.on_light_selected(cb, od, option, value))
+            cb.update_command(lambda value: self.on_light_selected(cb, od, option, value))
             cb.tk.config(width=20)
             cb.text_size = self.s_24
             self._elements.add(cb)
             cb.tk.grid(padx=20, pady=20)
-            print(f"Row: {row}, Col: {col}, {cb} Option: {option}")
+            print(f"Row: {row}, Col: {col}, {cb} Option: {option} {cb._command}")
             row += 1
             if row == 4:
                 row = 0
