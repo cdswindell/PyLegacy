@@ -809,9 +809,9 @@ class EngineGui(Thread, Generic[S]):
 
         row = col = 0
         for option in DIESEL_LIGHTS.keys():
-            cb = Combo(diesel_box, grid=[row, col], options=[option])
+            cb = Combo(diesel_box, grid=[col, row], options=[option])
             cb.tk.config(width=width)
-            cb.text_size = self.s_18
+            cb.text_size = self.s_20
             self._elements.add(cb)
             print(f"Row: {row}, Col: {col}, Option: {option}")
             row += 1
