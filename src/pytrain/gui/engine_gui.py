@@ -547,7 +547,7 @@ class EngineGui(Thread, Generic[S]):
         btn.text_size = self.s_12
         btn.update_command(self.toggle_momentum_train_brake, [btn])
 
-        _, btn = self.engine_ops_cells[AUX2_KEY]
+        _, btn = self.engine_ops_cells["AUX2_OPTION_ONE"]
         btn.on_hold = (self.show_popup, [self.lights_overlay])
 
         # set some repeating commands
