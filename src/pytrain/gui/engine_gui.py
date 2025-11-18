@@ -121,6 +121,14 @@ RR_SPEED_LAYOUT = [
 ]
 
 DIESEL_LIGHTS = {
+    "Ditch Lights": [
+        ["On", "DITCH_ON"],
+        ["Pulse On With Horn", "DITCH_ON_PULSE_OFF_WITH_HORN"],
+        ["Pulse Off With Horn", "DITCH_OFF_PULSE_ON_WITH_HORN"],
+        ["Off", "DITCH_OFF"],
+    ],
+    "Ground Lights": [["ON", "GROUND_ON"], ["OFF", "GROUND_OFF"], ["Auto", "GROUND_AUTO"]],
+    "Marker Lights": [["On", "LOCO_MARKER_ON"], ["Off", "LOCO_MARKER_OFF"], ["Auto", "LOCO_MARKER_AUTO"]],
     "Mars Lights": [["On", "MARS_ON"], ["Off", "MARS_OFF"]],
     "Rule 17": [["On", "RULE_17_ON"], ["Off", "RULE_17_OFF"], ["Auto", "RULE_17_AUTO"]],
     "Strobe Lights": [["On", "STROBE_LIGHT_ON"], ["Double", "STROBE_LIGHT_ON_DOUBLE"], ["Off", "STROBE_LIGHT_OFF"]],
@@ -807,10 +815,13 @@ class EngineGui(Thread, Generic[S]):
     def build_lights_body(self, body: Box):
         diesel_box = Box(body, layout="grid", border=1)
 
+        # How many lights do we have; display them in 2 columns:
+        lights_per_column = int(round(len(DIESEL_LIGHTS) / 2))
+        print(f"lights_per_column: {lights_per_column} ({len(DIESEL_LIGHTS)})")
         for idx, (option, values) in enumerate(DIESEL_LIGHTS.items()):
             # place 4 per column
-            row = idx % 4
-            col = idx // 4
+            row = idx % lights_per_column
+            col = idx // lights_per_column
 
             # combo contents and mapping
             options = [option] + [v[0] for v in values]
