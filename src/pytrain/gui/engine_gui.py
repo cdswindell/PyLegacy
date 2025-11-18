@@ -812,7 +812,7 @@ class EngineGui(Thread, Generic[S]):
             values = DIESEL_LIGHTS[option]
             options = [option]
             options.extend([value[0] for value in values])
-            option_dict = {value[0]: value[1] for value in values}
+            od = {value[0]: value[1] for value in values}
 
             cb = Combo(
                 diesel_box,
@@ -820,23 +820,22 @@ class EngineGui(Thread, Generic[S]):
                 options=options,
                 selected=option,
             )
-            cb.update_command(command=lambda value: self.on_light_selected(cb, value))
+            cb.update_command(command=lambda value: self.on_light_selected(cb, od, value))
             cb.tk.config(width=24)
-            cb.text_size = self.s_20
-            cb.option_dict = option_dict
+            cb.text_size = self.s_24
             self._elements.add(cb)
-            print(f"Row: {row}, Col: {col}, Option: {option} {option_dict}")
+            print(f"Row: {row}, Col: {col}, Option: {option} {od}")
             row += 1
             if row == 4:
                 row = 0
                 col += 1
 
-    def on_light_selected(self, cb: Combo, selected: str) -> None:
-        if hasattr(cb, "option_dict"):
-            od = cb.option_dict
-            cmd = od.get(selected)
+    def on_light_selected(self, cb: Combo, od: dict, selected: str) -> None:
+        if od:
+            cmd = od.get(selected, None)
             print(f"Combo: {cb} Selected: {selected} {od} {cmd}")
-            self.on_engine_command(cmd)
+            if isinstance(cmd, str):
+                self.on_engine_command(cmd)
         cb.select_default()
 
     def build_rr_speed_body(self, body: Box):
