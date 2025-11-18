@@ -120,6 +120,16 @@ RR_SPEED_LAYOUT = [
     [("SPEED_NORMAL", "Normal"), ("SPEED_HIGHBALL", "High Ball")],
 ]
 
+DIESEL_LIGHTS = {
+    "Mars Lights": [["On", "MARS_ON"], ["Off", "MARS_OFF"]],
+    "Rule 17": [["On", "RULE_17_ON"], ["Off", "RULE_17_OFF"], ["Auto", "RULE_17_AUTO"]],
+    "Strobe Lights": [["On", "STROBE_LIGHT_ON"], ["Double", "STROBE_LIGHT_ON_DOUBLE"], ["Off", "STROBE_LIGHT_OFF"]],
+}
+
+STEAM_LIGHTS = {
+    "Rule 17": [["On", "RULE_17_ON"], ["Off", "RULE_17_OFF"], ["Auto", "RULE_17_AUTO"]],
+}
+
 REPEAT_EXCEPTIONS = {
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,
 }
@@ -315,7 +325,7 @@ class EngineGui(Thread, Generic[S]):
         self.brake_box = self.brake_level = self.focus_widget = None
         self.throttle = self.speed = self.brake = self._rr_speed_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
-        self.rr_speed_overlay = None
+        self.rr_speed_overlay = self.lights_overlay = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -537,6 +547,9 @@ class EngineGui(Thread, Generic[S]):
         btn.text_size = self.s_12
         btn.update_command(self.toggle_momentum_train_brake, [btn])
 
+        _, btn = self.engine_ops_cells[AUX2_KEY]
+        btn.on_hold = (self.show_popup, [self.lights_overlay])
+
         # set some repeating commands
         for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
             _, btn = self.engine_ops_cells[command]
@@ -735,6 +748,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Make popups, starting with rr_speed dialog; must be done after scope_box
         self.rr_speed_overlay = self.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
+        self.lights_overlay = self.create_popup("Lighting", self.build_lights_body)
 
     def create_popup(self, title_text: str, build_body: Callable[[Box], None]):
         """
@@ -787,6 +801,19 @@ class EngineGui(Thread, Generic[S]):
         btn.tk.pack_configure(padx=20, pady=20)
 
         return overlay
+
+    def build_lights_body(self, body: Box):
+        width = int(3 * self.button_size)
+        diesel_box = Box(body, layout="grid", border=1)
+
+        row = col = 0
+        for option in DIESEL_LIGHTS.keys():
+            cb = Combo(diesel_box, grid=[row, col], options=[option])
+            cb.tk.config(width=width)
+            row += 1
+            if row == 4:
+                row = 0
+                col += 1
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
