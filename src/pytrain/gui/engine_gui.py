@@ -821,7 +821,6 @@ class EngineGui(Thread, Generic[S]):
                 options=options,
                 selected=option,
             )
-            cb.update_command(lambda value, cbv=cb, odv=od, tv=option: self.on_light_selected(cbv, odv, tv, value))
             cb.tk.config(width=20)
             cb.text_size = self.s_24
             self._elements.add(cb)
