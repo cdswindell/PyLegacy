@@ -817,7 +817,7 @@ class EngineGui(Thread, Generic[S]):
 
         # How many lights do we have; display them in 2 columns:
         lights_per_column = int(round(len(DIESEL_LIGHTS) / 2))
-        width = max(map(len, DIESEL_LIGHTS.keys()))
+        width = max(map(len, DIESEL_LIGHTS.keys())) - 2
 
         print(f"lights_per_column: {lights_per_column} ({len(DIESEL_LIGHTS)})")
         for idx, (title, values) in enumerate(DIESEL_LIGHTS.items()):
