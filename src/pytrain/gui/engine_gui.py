@@ -342,6 +342,7 @@ class EngineGui(Thread, Generic[S]):
         self.throttle = self.speed = self.brake = self._rr_speed_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
         self.rr_speed_overlay = self.lights_overlay = None
+        self.diesel_lights_box = self.steam_lights_box = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -837,7 +838,7 @@ class EngineGui(Thread, Generic[S]):
             args=["AUX2_OPTION_ONE"],
         )
         btn.text_size = self.s_20
-        btn.text_bolded = True
+        btn.text_bold = True
         btn.tk.config(
             height=self.button_size,
             width=self.button_size,
@@ -881,26 +882,33 @@ class EngineGui(Thread, Generic[S]):
         )
         self._elements.add(btn)
 
+        # diesel options
+        self.diesel_lights_box = self.make_lights(body, DIESEL_LIGHTS)
+
+        # steam options
+        self.steam_lights_box = self.make_lights(body, STEAM_LIGHTS)
+        self.steam_lights_box.hide()
+
+    def make_lights(self, body: Box, options: dict) -> Box:
         diesel_box = Box(body, layout="grid", border=1)
 
         # How many lights do we have; display them in 2 columns:
-        lights_per_column = int(round(len(DIESEL_LIGHTS) / 2))
-        width = max(map(len, DIESEL_LIGHTS.keys())) - 2
+        lights_per_column = int(round(len(options) / 2))
+        width = max(map(len, options.keys())) - 2
 
-        print(f"lights_per_column: {lights_per_column} ({len(DIESEL_LIGHTS)})")
-        for idx, (title, values) in enumerate(DIESEL_LIGHTS.items()):
+        for idx, (title, values) in enumerate(options.items()):
             # place 4 per column
             row = idx % lights_per_column
             col = idx // lights_per_column
 
             # combo contents and mapping
-            options = [title] + [v[0] for v in values]
+            select_ops = [title] + [v[0] for v in values]
             od = {v[0]: v[1] for v in values}
 
             slot = Box(diesel_box, grid=[col, row])
             cb = Combo(
                 slot,
-                options=options,
+                options=select_ops,
                 selected=title,
             )
             cb.update_command(self.make_on_light_selected(cb, od, title))
@@ -908,6 +916,7 @@ class EngineGui(Thread, Generic[S]):
             cb.text_size = self.s_20
             cb.tk.pack_configure(padx=14, pady=20)
             self._elements.add(cb)
+        return diesel_box
 
     def make_on_light_selected(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
         def func(selected: str):
@@ -970,6 +979,16 @@ class EngineGui(Thread, Generic[S]):
         self.show_popup(self.rr_speed_overlay)
 
     def on_lights(self) -> None:
+        if self.active_engine_state:
+            state = self.active_engine_state
+        else:
+            state = self.active_state
+        if state.is_steam:
+            self.steam_lights_box.show()
+            self.diesel_lights_box.hide()
+        else:
+            self.steam_lights_box.hide()
+            self.diesel_lights_box.show()
         self.show_popup(self.lights_overlay)
 
     def show_popup(self, overlay):
