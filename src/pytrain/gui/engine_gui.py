@@ -820,30 +820,36 @@ class EngineGui(Thread, Generic[S]):
         width = max(map(len, DIESEL_LIGHTS.keys()))
 
         print(f"lights_per_column: {lights_per_column} ({len(DIESEL_LIGHTS)})")
-        for idx, (option, values) in enumerate(DIESEL_LIGHTS.items()):
+        for idx, (title, values) in enumerate(DIESEL_LIGHTS.items()):
             # place 4 per column
             row = idx % lights_per_column
             col = idx // lights_per_column
 
             # combo contents and mapping
-            options = [option] + [v[0] for v in values]
+            options = [title] + [v[0] for v in values]
             od = {v[0]: v[1] for v in values}
 
-            print(f"*** Key: {option} Values: {values}")
+            print(f"*** Key: {title} Values: {values}")
 
             slot = Box(diesel_box, grid=[col, row])
             cb = Combo(
                 slot,
                 options=options,
-                selected=option,
+                selected=title,
             )
+            cb.update_command(self.make_on_light_selected(cb, od, title))
             cb.tk.config(width=width)
-            cb.text_size = self.s_18
+            cb.text_size = self.s_20
             cb.tk.pack_configure(padx=10, pady=20)
-            # slot.tk.grid_configure(padx=20, pady=20)
             self._elements.add(cb)
 
-            print(f"Row: {row}, Col: {col}, {cb} Option: {option}")
+            print(f"Row: {row}, Col: {col}, {cb} Title: {title}")
+
+    def make_on_light_selected(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
+        def func(selected: str):
+            self.on_light_selected(cb, od, title, selected)
+
+        return func
 
     def on_light_selected(self, cb: Combo, od: dict, title: str, selected: str) -> None:
         cmd = od.get(selected, None)
