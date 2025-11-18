@@ -85,13 +85,13 @@ ENTRY_LAYOUT = [
 ENGINE_OPS_LAYOUT = [
     [
         ("VOLUME_UP", "vol-up.jpg"),
-        ("ENGINEER_CHATTER", "walkie_talkie.png", "", "Crew"),
+        ("ENGINEER_CHATTER", "walkie_talkie.png", "", "Crew..."),
         ("RPM_UP", "rpm-up.jpg"),
         ("BLOW_HORN_ONE", "horn.jpg"),
     ],
     [
         ("VOLUME_DOWN", "vol-down.jpg"),
-        ("TOWER_CHATTER", "tower.png", "", "Tower"),
+        ("TOWER_CHATTER", "tower.png", "", "Tower..."),
         ("RPM_DOWN", "rpm-down.jpg"),
         ("RING_BELL", "bell.jpg"),
     ],
@@ -138,9 +138,10 @@ DIESEL_LIGHTS = {
 }
 
 STEAM_LIGHTS = {
-    "Cab Lights": [["On", "CAB_ON"], ["Off", "CAB_OFF"], ["Auto", "CAB_AUTO"], ["Toggle", "CAB_TOGGLE"]],
     "Doghouse Lts": [["On", "DOGHOUSE_ON"], ["Off", "DOGHOUSE_OFF"]],
+    "Ground Lights": [["ON", "GROUND_ON"], ["OFF", "GROUND_OFF"], ["Auto", "GROUND_AUTO"]],
     "Marker Lights": [["On", "LOCO_MARKER_ON"], ["Off", "LOCO_MARKER_OFF"], ["Auto", "LOCO_MARKER_AUTO"]],
+    "Mars Lights": [["On", "MARS_ON"], ["Off", "MARS_OFF"]],
     "Rule 17": [["On", "RULE_17_ON"], ["Off", "RULE_17_OFF"], ["Auto", "RULE_17_AUTO"]],
     "Tender Lights": [["On", "TENDER_MARKER_ON"], ["Off", "TENDER_MARKER_OFF"]],
 }
@@ -224,7 +225,7 @@ class EngineGui(Thread, Generic[S]):
         scale_by: float = 1.0,
         repeat: int = 2,
         num_recents: int = 5,
-        initial_tmcc_id: int = None,
+        initial: int = None,
         initial_scope: CommandScope = CommandScope.ENGINE,
         offset: int = 10,
     ) -> None:
@@ -309,7 +310,7 @@ class EngineGui(Thread, Generic[S]):
         self.size_cache = {}
         self._message_queue = Queue()
         self.scope = initial_scope
-        self.initial_tmcc_id = initial_tmcc_id
+        self.initial = initial
         self.active_engine_state = None
         self.reset_on_keystroke = False
         self._current_popup = None
@@ -495,8 +496,8 @@ class EngineGui(Thread, Generic[S]):
         # start the event watcher
         app.repeat(20, _poll_shutdown)
 
-        if self.initial_tmcc_id:
-            app.after(50, self.update_component_info, [self.initial_tmcc_id])
+        if self.initial:
+            app.after(50, self.update_component_info, [self.initial])
 
         # Display GUI and start event loop; call blocks
         try:
