@@ -821,10 +821,26 @@ class EngineGui(Thread, Generic[S]):
 
     def build_lights_body(self, body: Box):
         # cab light
+        master_box = Box(body, layout="grid", border=1)
         btn = PushButton(
-            body,
+            master_box,
+            text=AUX2_KEY,
+            grid=[0, 0],
+            command=self.on_engine_command,
+            args=["AUX2_OPT_ONE"],
+        )
+        btn.text_size = self.s_20
+        btn.text_bolded = True
+        btn.tk.config(
+            width=self.button_size,
+            height=self.button_size,
+        )
+        self._elements.add(btn)
+
+        btn = PushButton(
+            master_box,
             text="",
-            align="top",
+            grid=[1, 0],
             command=self.on_engine_command,
             width=self.button_size,
             height=self.button_size,
