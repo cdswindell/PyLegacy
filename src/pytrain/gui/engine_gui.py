@@ -1171,7 +1171,7 @@ class EngineGui(Thread, Generic[S]):
     def update_rr_speed_buttons(self, state: EngineState) -> None:
         rr_speed = state.rr_speed
         for btn in self.rr_speed_btns:
-            if rr_speed and btn.rr_speed.ends_with(rr_speed.name):
+            if rr_speed and btn.rr_speed.endswith(rr_speed.name):
                 btn.bg = "green"
             else:
                 btn.bg = "white"
