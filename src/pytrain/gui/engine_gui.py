@@ -827,6 +827,9 @@ class EngineGui(Thread, Generic[S]):
             width=self.button_size,
             height=self.button_size,
         )
+        cell.tk.pack_propagate(False)
+        master_box.tk.grid_columnconfigure(0, weight=1, minsize=self.button_size + 20)
+
         btn = PushButton(
             cell,
             text=AUX2_KEY,
@@ -835,7 +838,18 @@ class EngineGui(Thread, Generic[S]):
         )
         btn.text_size = self.s_20
         btn.text_bolded = True
-        btn.tk.config(compound="center", anchor="center", padx=0, pady=0, bd=1, relief="solid", highlightthickness=1)
+        btn.tk.config(
+            height=self.button_size,
+            width=self.button_size,
+            borderwidth=1,
+            compound="center",
+            anchor="center",
+            padx=0,
+            pady=0,
+            bd=1,
+            relief="solid",
+            highlightthickness=1,
+        )
         self._elements.add(btn)
 
         btn = PushButton(
