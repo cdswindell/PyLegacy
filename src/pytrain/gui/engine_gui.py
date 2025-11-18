@@ -137,6 +137,7 @@ DIESEL_LIGHTS = {
 }
 
 STEAM_LIGHTS = {
+    "Cab Lights": [["On", "CAB_ON"], ["Off", "CAB_OFF"], ["Auto", "CAB_AUTO"], ["Toggle", "CAB_TOGGLE"]],
     "Doghouse Lts": [["On", "DOGHOUSE_ON"], ["Off", "DOGHOUSE_OFF"]],
     "Marker Lights": [["On", "LOCO_MARKER_ON"], ["Off", "LOCO_MARKER_OFF"], ["Auto", "LOCO_MARKER_AUTO"]],
     "Rule 17": [["On", "RULE_17_ON"], ["Off", "RULE_17_OFF"], ["Auto", "RULE_17_AUTO"]],
