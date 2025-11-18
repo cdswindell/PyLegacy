@@ -776,7 +776,7 @@ class EngineGui(Thread, Generic[S]):
         title.bg = "lightgrey"
 
         # Body container (the caller populates this)
-        body = Box(overlay, layout="grid")
+        body = Box(overlay, layout="auto")
         build_body(body)
 
         # Close button
@@ -818,13 +818,12 @@ class EngineGui(Thread, Generic[S]):
             slot = Box(diesel_box, grid=[col, row])
             cb = Combo(
                 slot,
-                grid=[0, 0],
                 options=options,
                 selected=option,
             )
             cb.tk.config(width=20)
             cb.text_size = self.s_24
-            slot.tk.grid(padx=20, pady=20)
+            slot.tk.grid_configure(padx=20, pady=20)
             self._elements.add(cb)
 
             print(f"Row: {row}, Col: {col}, {cb} Option: {option}")
