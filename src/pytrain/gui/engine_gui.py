@@ -813,7 +813,8 @@ class EngineGui(Thread, Generic[S]):
             options = [option]
             options.extend([value[0] for value in values])
             option_dict = {value[0]: value[1] for value in values}
-            cb = Combo(diesel_box, grid=[col, row], options=options, selected=option, command=self.on_lights)
+
+            cb = Combo(diesel_box, grid=[col, row], options=options, selected=option, command=self.on_light_selected)
             cb.tk.config(width=width)
             cb.text_size = self.s_20
             cb.option_dict = option_dict
@@ -824,7 +825,7 @@ class EngineGui(Thread, Generic[S]):
                 row = 0
                 col += 1
 
-    def on_lights(self, selected: str) -> None:
+    def on_light_selected(self, selected: str) -> None:
         print(f"Selected: {selected}")
 
     def build_rr_speed_body(self, body: Box):
