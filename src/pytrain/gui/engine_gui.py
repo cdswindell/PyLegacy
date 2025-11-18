@@ -10,6 +10,7 @@ from __future__ import annotations
 import atexit
 import io
 import logging
+import math
 import tkinter as tk
 from concurrent.futures import Future, ThreadPoolExecutor
 from io import BytesIO
@@ -904,7 +905,7 @@ class EngineGui(Thread, Generic[S]):
         diesel_box = Box(body, layout="grid", border=1)
 
         # How many lights do we have; display them in 2 columns:
-        lights_per_column = int(round(len(options) / 2))
+        lights_per_column = int(math.ceil(len(options) / 2))
         width = max(map(len, options.keys())) - 2
 
         for idx, (title, values) in enumerate(options.items()):
