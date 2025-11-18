@@ -18,11 +18,16 @@ from ..pdi.irda_req import IrdaReq
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import (
+    ACELA_TYPE,
     CONTROL_TYPE,
+    CRANE_TYPE,
+    DIESEL_TYPE,
+    ELECTRIC_TYPE,
     LEGACY_CONTROL_TYPE,
     LOCO_CLASS,
     LOCO_TRACK_CRANE,
     LOCO_TYPE,
+    PASSENGER_TYPE,
     RPM_TYPE,
     SOUND_TYPE,
     STEAM_TYPE,
@@ -503,7 +508,31 @@ class EngineState(ComponentState):
 
     @property
     def is_steam(self) -> bool:
-        return self.comp_data.engine_type in STEAM_TYPE
+        return self.comp_data and self.comp_data.engine_type in STEAM_TYPE
+
+    @property
+    def is_electric(self) -> bool:
+        return self.comp_data and self.comp_data.engine_type in ELECTRIC_TYPE
+
+    @property
+    def is_diesel(self) -> bool:
+        return self.comp_data and self.comp_data.engine_type in DIESEL_TYPE
+
+    @property
+    def is_crane(self) -> bool:
+        return self.comp_data and self.comp_data.engine_type in CRANE_TYPE
+
+    @property
+    def is_passenger(self) -> bool:
+        return self.comp_data and self.comp_data.engine_type in PASSENGER_TYPE
+
+    @property
+    def is_acela(self) -> bool:
+        return self.comp_data and self.comp_data.engine_type in ACELA_TYPE
+
+    @property
+    def has_lights(self) -> bool:
+        return self.is_diesel or self.is_electric or self.is_steam
 
     @property
     def speed(self) -> int:

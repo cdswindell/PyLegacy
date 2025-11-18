@@ -124,8 +124,8 @@ DIESEL_LIGHTS = {
     "Cab Lights": [["On", "CAB_ON"], ["Off", "CAB_OFF"], ["Auto", "CAB_AUTO"], ["Toggle", "CAB_TOGGLE"]],
     "Ditch Lights": [
         ["On", "DITCH_ON"],
-        ["Pulse On With Horn", "DITCH_ON_PULSE_OFF_WITH_HORN"],
-        ["Pulse Off With Horn", "DITCH_OFF_PULSE_ON_WITH_HORN"],
+        ["Pulse On With Horn", "DITCH_ON_PULSE_ON_WITH_HORN"],
+        ["Pulse Off With Horn", "DITCH_OFF_PULSE_OFF_WITH_HORN"],
         ["Off", "DITCH_OFF"],
     ],
     "Ground Lights": [["ON", "GROUND_ON"], ["OFF", "GROUND_OFF"], ["Auto", "GROUND_AUTO"]],
@@ -818,6 +818,19 @@ class EngineGui(Thread, Generic[S]):
         return overlay
 
     def build_lights_body(self, body: Box):
+        # cab light
+        _, btn = PushButton(
+            body,
+            text="",
+            align="top",
+            command=self.on_engine_command,
+            width=self.button_size,
+            height=self.button_size,
+            args=[("CAB_AUTO", "AUX2_OPT_ONE")],
+        )
+        btn.tk.config(img=self.get_image(self.power_on_path), width=self.button_size, height=self.button_size)
+        self._elements.add(btn)
+
         diesel_box = Box(body, layout="grid", border=1)
 
         # How many lights do we have; display them in 2 columns:
