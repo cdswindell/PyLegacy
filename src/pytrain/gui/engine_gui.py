@@ -831,10 +831,7 @@ class EngineGui(Thread, Generic[S]):
         )
         btn.text_size = self.s_20
         btn.text_bolded = True
-        btn.tk.config(
-            width=self.button_size,
-            height=self.button_size,
-        )
+        btn.tk.config(compound="center", anchor="center", padx=0, pady=0)
         self._elements.add(btn)
 
         btn = PushButton(
