@@ -760,7 +760,7 @@ class EngineGui(Thread, Generic[S]):
         overlay = Box(
             self.app,
             align="top",
-            visible=False,
+            visible=True,
             border=2,
         )
         overlay.bg = "white"
@@ -800,6 +800,7 @@ class EngineGui(Thread, Generic[S]):
             background="#f7f7f7",
         )
         btn.tk.pack_configure(padx=20, pady=20)
+        overlay.hide()
 
         return overlay
 
