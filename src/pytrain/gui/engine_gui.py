@@ -868,6 +868,7 @@ class EngineGui(Thread, Generic[S]):
             height=self.button_size,
         )
         cell.tk.pack_propagate(False)
+        master_box.tk.grid_columnconfigure(2, weight=1, minsize=self.button_size + 20)
 
         btn = PushButton(
             cell,
