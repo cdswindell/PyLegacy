@@ -821,7 +821,7 @@ class EngineGui(Thread, Generic[S]):
             self._elements.add(cb)
             print(f"Row: {row}, Col: {col}, Option: {option} {option_dict}")
             row += 1
-            if row % 4 == 0:
+            if row == 4:
                 row = 0
                 col += 1
 
