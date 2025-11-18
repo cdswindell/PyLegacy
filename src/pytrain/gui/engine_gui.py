@@ -776,7 +776,7 @@ class EngineGui(Thread, Generic[S]):
         title.bg = "lightgrey"
 
         # Body container (the caller populates this)
-        body = Box(overlay, layout="auto")
+        body = Box(overlay, layout="grid")
         build_body(body)
 
         # Close button
