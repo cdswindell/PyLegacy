@@ -286,6 +286,7 @@ class EngineGui(Thread, Generic[S]):
         self._image_cache = {}
         self.entry_cells = set()
         self.ops_cells = set()
+        self._elements = set()
         self._pending_prod_infos = set()
         self._executor = ThreadPoolExecutor(max_workers=3)
         self.size_cache = {}
@@ -810,8 +811,11 @@ class EngineGui(Thread, Generic[S]):
         for option in DIESEL_LIGHTS.keys():
             cb = Combo(diesel_box, grid=[row, col], options=[option])
             cb.tk.config(width=width)
+            cb.text_size = self.s_18
+            self._elements.add(cb)
+            print(f"Row: {row}, Col: {col}, Option: {option}")
             row += 1
-            if row == 4:
+            if row % 4 == 0:
                 row = 0
                 col += 1
 
