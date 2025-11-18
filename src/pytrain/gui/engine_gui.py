@@ -814,8 +814,14 @@ class EngineGui(Thread, Generic[S]):
             options.extend([value[0] for value in values])
             option_dict = {value[0]: value[1] for value in values}
 
-            cb = Combo(diesel_box, grid=[col, row], options=options, selected=option, command=self.on_light_selected)
-            cb.tk.config(width=20)
+            cb = Combo(
+                diesel_box,
+                grid=[col, row],
+                options=options,
+                selected=option,
+            )
+            cb.update_command(command=lambda value, c=cb: self.on_light_selected(c, value))
+            cb.tk.config(width=24)
             cb.text_size = self.s_20
             cb.option_dict = option_dict
             self._elements.add(cb)
@@ -825,8 +831,13 @@ class EngineGui(Thread, Generic[S]):
                 row = 0
                 col += 1
 
-    def on_light_selected(self, selected: str) -> None:
-        print(f"Selected: {selected}")
+    def on_light_selected(self, cb: Combo, selected: str) -> None:
+        if hasattr(cb, "option_dict"):
+            od = cb.option_dict
+            cmd = od.get(selected)
+            print(f"Combo: {cb} Selected: {selected} {od} {cmd}")
+            self.on_engine_command(cmd)
+        cb.select_default()
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
