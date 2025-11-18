@@ -826,7 +826,8 @@ class EngineGui(Thread, Generic[S]):
             )
             cb.tk.config(width=20)
             cb.text_size = self.s_24
-            slot.tk.grid_configure(padx=20, pady=20)
+            cb.tk.pack_configure(padx=20, pady=20)
+            # slot.tk.grid_configure(padx=20, pady=20)
             self._elements.add(cb)
 
             print(f"Row: {row}, Col: {col}, {cb} Option: {option}")
