@@ -807,13 +807,16 @@ class EngineGui(Thread, Generic[S]):
     def build_lights_body(self, body: Box):
         diesel_box = Box(body, layout="grid", border=1)
 
-        row = col = 0
-        for option in DIESEL_LIGHTS.keys():
-            values = DIESEL_LIGHTS[option]
+        for idx, (option, values) in enumerate(DIESEL_LIGHTS.items()):
+            # place 4 per column
+            row = idx % 4
+            col = idx // 4
+
+            # combo contents and mapping
+            options = [option] + [v[0] for v in values]
+            od = {v[0]: v[1] for v in values}
+
             print(f"*** Key: {option} Values: {values}")
-            options = [option]
-            options.extend([value[0] for value in values])
-            od = {value[0]: value[1] for value in values}
 
             slot = Box(diesel_box, grid=[col, row])
             cb = Combo(
@@ -827,10 +830,6 @@ class EngineGui(Thread, Generic[S]):
             self._elements.add(cb)
 
             print(f"Row: {row}, Col: {col}, {cb} Option: {option}")
-            row += 1
-            if row == 4:
-                row = 0
-                col += 1
 
     def on_light_selected(self, cb: Combo, od: dict, title: str, selected: str) -> None:
         cmd = od.get(selected, None)
