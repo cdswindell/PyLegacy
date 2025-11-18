@@ -64,6 +64,7 @@ AC_OFF_KEY = "AC OFF"
 AUX1_KEY = "Aux1"
 AUX2_KEY = "Aux2"
 AUX3_KEY = "Aux3"
+CAB_KEY = "Cab"
 SMOKE_ON = "SMOKE ON"
 SMOKE_OFF = "SMOKE OFF"
 BELL_KEY = "\U0001f514"
@@ -867,18 +868,26 @@ class EngineGui(Thread, Generic[S]):
             height=self.button_size,
         )
         cell.tk.pack_propagate(False)
+
         btn = PushButton(
             cell,
-            text="",
+            text=CAB_KEY,
             command=self.on_engine_command,
-            width=self.button_size,
-            height=self.button_size,
             args=[("CAB_AUTO", "AUX2_OPT_ONE")],
         )
+        btn.text_size = self.s_18
+        btn.text_bold = True
         btn.tk.config(
-            image=self.get_image(self.power_off_path),
-            width=self.button_size,
             height=self.button_size,
+            width=self.button_size,
+            borderwidth=1,
+            compound="center",
+            anchor="center",
+            padx=0,
+            pady=0,
+            bd=1,
+            relief="solid",
+            highlightthickness=1,
         )
         self._elements.add(btn)
 
