@@ -820,7 +820,7 @@ class EngineGui(Thread, Generic[S]):
                 options=options,
                 selected=option,
             )
-            cb.update_command(command=lambda value: self.on_light_selected(cb, od, value))
+            cb.update_command(command=lambda value: self.on_light_selected(cb, od, option, value))
             cb.tk.config(width=20)
             cb.text_size = self.s_24
             self._elements.add(cb)
@@ -831,13 +831,14 @@ class EngineGui(Thread, Generic[S]):
                 row = 0
                 col += 1
 
-    def on_light_selected(self, cb: Combo, od: dict, selected: str) -> None:
+    def on_light_selected(self, cb: Combo, od: dict, title: str, selected: str) -> None:
         cmd = od.get(selected, None)
         print(f"Combo: {cb} Selected: {selected} {od} {cmd}")
         if isinstance(cmd, str):
             self.on_engine_command(cmd)
         cb.clear()
-        for option in od.values():
+        cb.append(title)
+        for option in od.keys():
             cb.append(option)
         cb.select_default()
 
