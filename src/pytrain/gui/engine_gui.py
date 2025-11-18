@@ -825,7 +825,7 @@ class EngineGui(Thread, Generic[S]):
             cb.text_size = self.s_24
             self._elements.add(cb)
             cb.tk.grid(padx=20, pady=20)
-            print(f"Row: {row}, Col: {col}, Option: {option} {od}")
+            print(f"Row: {row}, Col: {col}, {cb} Option: {option}")
             row += 1
             if row == 4:
                 row = 0
@@ -833,7 +833,7 @@ class EngineGui(Thread, Generic[S]):
 
     def on_light_selected(self, cb: Combo, od: dict, title: str, selected: str) -> None:
         cmd = od.get(selected, None)
-        print(f"Combo: {cb} Selected: {selected} {od} {cmd}")
+        print(f"*** Combo: {cb} Selected: {selected} {od} {title} {cmd}")
         if isinstance(cmd, str):
             self.on_engine_command(cmd)
         cb.clear()
