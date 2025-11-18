@@ -307,6 +307,7 @@ class EngineGui(Thread, Generic[S]):
         self.initial_tmcc_id = initial_tmcc_id
         self.active_engine_state = None
         self.reset_on_keystroke = False
+        self._current_popup = None
 
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
@@ -909,15 +910,22 @@ class EngineGui(Thread, Generic[S]):
         self.show_popup(self.lights_overlay)
 
     def show_popup(self, overlay):
-        self.controller_box.hide()
-        x, y = self.popup_position
-        overlay.tk.place(x=x, y=y)
-        overlay.show()
+        with self._cv:
+            self.controller_box.hide()
+            x, y = self.popup_position
+            overlay.tk.place(x=x, y=y)
+            self._current_popup = overlay
+            overlay.show()
 
-    def close_popup(self, overlay):
-        overlay.hide()
-        overlay.tk.place_forget()
-        self.controller_box.show()
+    def close_popup(self, overlay: Widget = None):
+        with self._cv:
+            overlay = overlay or self._current_popup
+            self._current_popup = None
+            if overlay:
+                overlay.hide()
+                overlay.tk.place_forget()
+            if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                self.controller_box.show()
 
     def toggle_momentum_train_brake(self, btn: PushButton) -> None:
         if btn.text == MOMENTUM:
@@ -1176,6 +1184,7 @@ class EngineGui(Thread, Generic[S]):
                 force_entry_mode = True
                 clear_info = False
         # update display
+        self.close_popup()
         self.update_component_info()
         # force entry mode if scoped tmcc_id is 0
         if self._scope_tmcc_ids[scope] == 0:
