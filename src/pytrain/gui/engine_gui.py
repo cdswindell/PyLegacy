@@ -97,13 +97,13 @@ ENGINE_OPS_LAYOUT = [
     [
         ("FRONT_COUPLER", "front-coupler.jpg"),
         (SMOKE_ON, "smoke-up.jpg"),
-        ("BOOST_SPEED", "boost.jpg"),
+        ("BOOST_SPEED", "boost.jpg", "", "Boost"),
         ("FORWARD_DIRECTION", "", FWD_KEY),
     ],
     [
         ("REAR_COUPLER", "rear-coupler.jpg"),
         (SMOKE_OFF, "smoke-down.jpg"),
-        ("BRAKE_SPEED", "brake.jpg"),
+        ("BRAKE_SPEED", "brake.jpg", "", "Brake"),
         ("REVERSE_DIRECTION", "", REV_KEY),
     ],
     [
