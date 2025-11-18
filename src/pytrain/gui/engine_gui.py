@@ -852,10 +852,23 @@ class EngineGui(Thread, Generic[S]):
         )
         self._elements.add(btn)
 
+        cell = Box(master_box, layout="auto", grid=[1, 0], align="bottom", visible=True)
+        cell.tk.configure(
+            width=self.button_size,
+            height=self.button_size,
+        )
+        cell.tk.pack_propagate(False)
+        _ = Text(cell, text=" ")
+
+        cell = Box(master_box, layout="auto", grid=[2, 0], align="bottom", visible=True)
+        cell.tk.configure(
+            width=self.button_size,
+            height=self.button_size,
+        )
+        cell.tk.pack_propagate(False)
         btn = PushButton(
-            master_box,
+            cell,
             text="",
-            grid=[1, 0],
             command=self.on_engine_command,
             width=self.button_size,
             height=self.button_size,
