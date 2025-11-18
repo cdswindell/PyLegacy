@@ -121,6 +121,7 @@ RR_SPEED_LAYOUT = [
 ]
 
 DIESEL_LIGHTS = {
+    "Cab Lights": [["On", "CAB_ON"], ["Off", "CAB_OFF"], ["Auto", "CAB_AUTO"], ["Toggle", "CAB_TOGGLE"]],
     "Ditch Lights": [
         ["On", "DITCH_ON"],
         ["Pulse On With Horn", "DITCH_ON_PULSE_OFF_WITH_HORN"],
