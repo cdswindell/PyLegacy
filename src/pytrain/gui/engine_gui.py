@@ -2084,7 +2084,7 @@ class EngineGui(Thread, Generic[S]):
         if scope in {CommandScope.ENGINE} and tmcc_id != 0:
             with self._cv:
                 prod_info = self._prod_info_cache.get(tmcc_id, None)
-                print(f"update_component_image: {prod_info}")
+                print(f"prod_info?: {isinstance(prod_info, ProdInfo)}")
 
                 # If not cached or not a valid Future/ProdInfo, start a background fetch
                 if prod_info is None:
@@ -2096,13 +2096,16 @@ class EngineGui(Thread, Generic[S]):
                         print(f"Exiting update_component_image {scope} {tmcc_id}")
                     return
 
+                print(f"prod_info is Future?: {isinstance(prod_info, Future)}")
                 if isinstance(prod_info, Future) and prod_info.done() and isinstance(prod_info.result(), ProdInfo):
                     prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
                     self._pending_prod_infos.discard((scope, tmcc_id))
 
+                print(f"prod_info?: {isinstance(prod_info, ProdInfo)}")
                 if isinstance(prod_info, ProdInfo):
                     # Resize image if needed
                     img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+                    print(f"Image? {img is not None}")
                     if img is None:
                         img = self.get_scaled_image(BytesIO(prod_info.image_content))
                         self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
