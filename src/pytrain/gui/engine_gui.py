@@ -1024,6 +1024,7 @@ class EngineGui(Thread, Generic[S]):
             btn.on_hold = self.show_horn_control
             # restore what was there before; if swap button says "Momentum"
             # then show Train Brake, and visa versa
+            _, btn = self.engine_ops_cells[MOM_TB]
             if btn.text == MOMENTUM:
                 self.momentum_box.visible = False
                 self.brake_box.visible = True
