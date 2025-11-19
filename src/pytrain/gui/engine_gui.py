@@ -1358,8 +1358,12 @@ class EngineGui(Thread, Generic[S]):
             else:
                 # pressing the same scope button again returns to entry mode with current
                 # component active
-                force_entry_mode = True
-                clear_info = False
+                if self._in_entry_mode:
+                    self.ops_mode(update_info=False)
+                    return
+                else:
+                    force_entry_mode = True
+                    clear_info = False
         # update display
         self.close_popup()
         self.update_component_info()
