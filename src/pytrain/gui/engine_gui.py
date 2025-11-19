@@ -86,13 +86,13 @@ ENGINE_OPS_LAYOUT = [
     [
         ("VOLUME_UP", "vol-up.jpg"),
         ("ENGINEER_CHATTER", "walkie_talkie.png", "", "Crew..."),
-        ("RPM_UP", "rpm-up.jpg"),
+        [("RPM_UP", "rpm-up.jpg", None, None, "d"), ("LET_OFF_LONG, NUMBER_6", "let-off.jpg", None, None, "s")],
         ("BLOW_HORN_ONE", "horn.jpg", "", "Horn..."),
     ],
     [
         ("VOLUME_DOWN", "vol-down.jpg"),
         ("TOWER_CHATTER", "tower.png", "", "Tower..."),
-        ("RPM_DOWN", "rpm-down.jpg"),
+        ("RPM_DOWN", "rpm-down.jpg", "d"),
         ("RING_BELL", "bell.jpg"),
     ],
     [
@@ -349,6 +349,8 @@ class EngineGui(Thread, Generic[S]):
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
+        self.diesel_btns = set()
+        self.steam_btns = set()
         self._quill_after_id = None
 
         # callbacks
@@ -535,34 +537,49 @@ class EngineGui(Thread, Generic[S]):
         )
         row = 0
         for r, kr in enumerate(ENGINE_OPS_LAYOUT):
-            for c, op in enumerate(kr):
-                if op is None:
+            for c, button_info in enumerate(kr):
+                if button_info is None:
                     continue
-                image = label = title_text = None
-                if isinstance(op, tuple):
+                if isinstance(button_info, tuple):
+                    ops = [button_info]
+                elif isinstance(button_info, list):
+                    ops = button_info
+                else:
+                    raise AttributeError(f"Invalid engine op: {button_info}")
+                for op in ops:
+                    image = label = title_text = None
                     if len(op) > 1 and op[1]:
                         image = find_file(op[1])
                     if len(op) > 2 and op[2]:
                         label = str(op[2])
                     if len(op) > 3 and op[3]:
                         title_text = str(op[3])
-                    op = op[0]
+                    cmd = op[0]
 
-                cell, nb = self.make_keypad_button(
-                    keypad_keys,
-                    label,
-                    row,
-                    c,
-                    visible=True,
-                    bolded=True,
-                    command=self.on_engine_command,
-                    args=[op],
-                    image=image,
-                    titlebox_text=title_text,
-                )
-                if op in self.engine_ops_cells:
-                    print(f"Duplicate engine op: {op}")
-                self.engine_ops_cells[op] = (cell, nb)
+                    # make the key button and it's surrounding cell
+                    cell, nb = self.make_keypad_button(
+                        keypad_keys,
+                        label,
+                        row,
+                        c,
+                        visible=True,
+                        bolded=True,
+                        command=self.on_engine_command,
+                        args=[cmd],
+                        image=image,
+                        titlebox_text=title_text,
+                    )
+
+                    if cmd in self.engine_ops_cells:
+                        print(f"Duplicate engine op: {cmd}: {op}")
+                    self.engine_ops_cells[cmd] = (cell, nb)
+
+                    # if the key is marked as engine type-specific, save as appropriate
+                    if len(op) > 4 and op[4]:
+                        if op[4] == "d":
+                            self.diesel_btns.add(cell)
+                        elif op[4] == "s":
+                            self.steam_btns.add(cell)
             row += 1
 
         # Postprocess some buttons
@@ -1950,6 +1967,18 @@ class EngineGui(Thread, Generic[S]):
             self.reset_btn.disable()
         print("Exiting self.entry_mode...")
 
+    def show_diesel_keys(self) -> None:
+        for btn in self.steam_btns:
+            btn.hide()
+        for btn in self.diesel_btns:
+            btn.show()
+
+    def show_steam_keys(self) -> None:
+        for btn in self.diesel_btns:
+            btn.hide()
+        for btn in self.steam_btns:
+            btn.show()
+
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
         print(f"ops_mode: {self.scope} update_info: {update_info}")
         self._in_entry_mode = False
@@ -1962,7 +1991,11 @@ class EngineGui(Thread, Generic[S]):
         self.reset_btn.disable()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             if not isinstance(state, EngineState):
-                state = self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
+                self.active_engine_state = state = self._state_store.get_state(
+                    self.scope, self._scope_tmcc_ids[self.scope], False
+                )
+            # assume it's a diesel
+            self.show_diesel_keys()
             self.on_new_engine(state, ops_mode_setup=True)
             if not self.controller_box.visible:
                 self.controller_box.show()
@@ -1972,6 +2005,8 @@ class EngineGui(Thread, Generic[S]):
                 self.keypad_box.hide()
             if state:
                 self.reset_btn.enable()
+                if state.is_steam:
+                    self.show_steam_keys()
         elif self.scope == CommandScope.ROUTE:
             self.on_new_route()
             self.fire_route_cell.show()
