@@ -7,6 +7,7 @@
 #
 #
 import time
+from threading import Condition, RLock
 from typing import Any, Callable
 
 from guizero import PushButton
@@ -45,6 +46,9 @@ class HoldButton(PushButton):
     ):
         super().__init__(master, text=text, **kwargs)
 
+        # semaphore to protect critical code
+        self._cv = Condition(RLock())
+
         # base properties, new to HoldButton
         self._normal_bg = None
         self._normal_fg = None
@@ -53,9 +57,9 @@ class HoldButton(PushButton):
 
         # basic button properties
         if bg:
-            self.bg = bg
+            self._normal_bg = self.bg = bg
         if text_color:
-            self.text_color = text_color
+            self._normal_fg = self.text_color = text_color
         if text_size is not None:
             self.text_size = text_size
         if text_bold is not None:
@@ -64,7 +68,6 @@ class HoldButton(PushButton):
         if command and on_press:
             raise ValueError("Cannot specify both command and on_press")
         elif command:
-            print("Setting OnPress...")
             if args:
                 on_press = (command, args)
             else:
@@ -100,21 +103,24 @@ class HoldButton(PushButton):
     # ───────────────────────────────
     @PushButton.text.setter
     def text(self, value):
-        PushButton.text.fset(self, value)
-        if self._flash_requested and value:
-            self.do_flash()
+        with self._cv:
+            PushButton.text.fset(self, value)
+            if self._flash_requested and value:
+                self.do_flash()
 
     @PushButton.text_color.setter
     def text_color(self, value):
-        PushButton.text_color.fset(self, value)
-        print(f"Setting normal_fg color to {value}")
-        self._normal_fg = value
+        with self._cv:
+            PushButton.text_color.fset(self, value)
+            print(f"Setting normal_fg color to {value}")
+            self._normal_fg = value
 
     @PushButton.bg.setter
     def bg(self, value):
-        PushButton.bg.fset(self, value)
-        print(f"Setting normal_bg color to {value}")
-        self._normal_bg = value
+        with self._cv:
+            PushButton.bg.fset(self, value)
+            print(f"Setting normal_bg color to {value}")
+            self._normal_bg = value
 
     # ───────────────────────────────
     # Properties for dynamic callbacks
@@ -246,21 +252,23 @@ class HoldButton(PushButton):
 
         # noinspection PyUnusedLocal
         def on_press(event):
-            self._normal_bg = self.bg
-            self._normal_fg = self.text_color
-            print(f"Flashing {self.text} from {self.bg}, {self.text_color} to {pressed_bg}, {pressed_fg}")
-            self.bg = pressed_bg
-            self.text_color = pressed_fg
-            if self._inverted_img:
-                self.tk.config(image=self._inverted_img, compound="center")
+            with self._cv:
+                self._normal_bg = self.bg
+                self._normal_fg = self.text_color
+                print(f"Flashing {self.text} from {self.bg}, {self.text_color} to {pressed_bg}, {pressed_fg}")
+                self.bg = pressed_bg
+                self.text_color = pressed_fg
+                if self._inverted_img:
+                    self.tk.config(image=self._inverted_img, compound="center")
 
         # noinspection PyUnusedLocal
         def on_release(event):
-            print(f"Restoring {self.text} to {self._normal_bg}, {self._normal_fg}")
-            self.bg = self._normal_bg
-            self.text_color = self._normal_fg
-            if self._normal_img:
-                self.tk.config(image=self._normal_img, compound="center")
+            with self._cv:
+                print(f"Restoring {self.text} to {self._normal_bg}, {self._normal_fg}")
+                self.bg = self._normal_bg
+                self.text_color = self._normal_fg
+                if self._normal_img:
+                    self.tk.config(image=self._normal_img, compound="center")
 
         # bind both events
         self.tk.bind("<ButtonPress-1>", on_press, add="+")
