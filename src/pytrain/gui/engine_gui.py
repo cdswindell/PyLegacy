@@ -1818,9 +1818,9 @@ class EngineGui(Thread, Generic[S]):
             btn.text_color = pressed_fg
 
         def on_release(event):
-            print(dir(event))
-            btn.bg = normal_bg
-            btn.text_color = normal_fg
+            widget = event.widget
+            widget.bg = normal_bg
+            widget.text_color = normal_fg
 
         # bind both events
         btn.tk.bind("<ButtonPress-1>", on_press, add="+")
