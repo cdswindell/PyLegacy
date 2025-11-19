@@ -1083,14 +1083,13 @@ class EngineGui(Thread, Generic[S]):
         self.horn_level.value = f"{value:02d}"
         with self._cv:
             if self._quill_after_id is not None:
-                with self._cv:
-                    try:
-                        self.app.tk.after_cancel(self._quill_after_id)
-                    except (TclError, AttributeError):
-                        pass
-                    self._quill_after_id = None
-            if value > 0:
-                self.do_quilling_horn(value)
+                try:
+                    self.app.tk.after_cancel(self._quill_after_id)
+                except (TclError, AttributeError):
+                    pass
+                self._quill_after_id = None
+        if value > 0:
+            self.do_quilling_horn(value)
 
     def do_quilling_horn(self, value: int):
         self.on_engine_command(["QUILLING_HORN", "BLOW_HORN_ONE"], data=value)
@@ -2071,16 +2070,18 @@ class EngineGui(Thread, Generic[S]):
         if key is None and self.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             # routes and switches don't use images
             return
-        with self._cv:
-            if key:
-                scope = key[0]
-                tmcc_id = key[1]
-            else:
-                scope = self.scope
-                if tmcc_id is None:
-                    tmcc_id = self._scope_tmcc_ids[self.scope]
-            img = None
-            if scope in {CommandScope.ENGINE} and tmcc_id != 0:
+        if key:
+            scope = key[0]
+            tmcc_id = key[1]
+        else:
+            scope = self.scope
+            if tmcc_id is None:
+                tmcc_id = self._scope_tmcc_ids[self.scope]
+        img = None
+
+        # TODO: Handle Trains
+        if scope in {CommandScope.ENGINE} and tmcc_id != 0:
+            with self._cv:
                 prod_info = self._prod_info_cache.get(tmcc_id, None)
 
                 # If not cached or not a valid Future/ProdInfo, start a background fetch
@@ -2103,23 +2104,23 @@ class EngineGui(Thread, Generic[S]):
                         self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                 else:
                     self.clear_image()
-            elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
-                state = self._state_store.get_state(self.scope, tmcc_id, False)
-                if isinstance(state, AccessoryState):
-                    img = self._image_cache.get((CommandScope.ACC, tmcc_id), None)
-                    if img is None:
-                        if state.is_asc2:
-                            img = self.get_scaled_image(self.asc2_image, preserve_height=True)
-                        elif state.is_bpc2:
-                            img = self.get_scaled_image(self.bpc2_image, preserve_height=True)
-                        elif state.is_amc2:
-                            img = self.get_scaled_image(self.amc2_image, preserve_height=True)
-                        elif state.is_sensor_track:
-                            img = self.get_scaled_image(self.sensor_track_image, preserve_height=True)
-                        if img:
-                            self._image_cache[(CommandScope.ACC, tmcc_id)] = img
-                        else:
-                            self.clear_image()
+        elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
+            state = self._state_store.get_state(self.scope, tmcc_id, False)
+            if isinstance(state, AccessoryState):
+                img = self._image_cache.get((CommandScope.ACC, tmcc_id), None)
+                if img is None:
+                    if state.is_asc2:
+                        img = self.get_scaled_image(self.asc2_image, preserve_height=True)
+                    elif state.is_bpc2:
+                        img = self.get_scaled_image(self.bpc2_image, preserve_height=True)
+                    elif state.is_amc2:
+                        img = self.get_scaled_image(self.amc2_image, preserve_height=True)
+                    elif state.is_sensor_track:
+                        img = self.get_scaled_image(self.sensor_track_image, preserve_height=True)
+                    if img:
+                        self._image_cache[(CommandScope.ACC, tmcc_id)] = img
+                    else:
+                        self.clear_image()
             else:
                 self.clear_image()
             if img and scope == self.scope and tmcc_id == self._scope_tmcc_ids[self.scope]:
