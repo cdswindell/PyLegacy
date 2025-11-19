@@ -1826,14 +1826,14 @@ class EngineGui(Thread, Generic[S]):
             tmcc_id = "0" * num_chars
             self.tmcc_id_text.value = tmcc_id
             self.entry_mode()
-        elif key == "↵":
-            # if a valid (existing) entry was entered, go to ops mode, otherwise,
-            # stay in entry mode
+        elif key == ENTER_KEY:
+            # if a valid (existing) entry was entered, go to ops mode,
+            # otherwise, stay in entry mode
             self.reset_on_keystroke = False
             if self.make_recent(self.scope, int(tmcc_id)):
                 self.ops_mode()
             else:
-                self.entry_mode()
+                self.entry_mode(clear_info=False)
         else:
             self.do_command(key)
 
