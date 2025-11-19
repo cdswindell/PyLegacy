@@ -107,11 +107,13 @@ class HoldButton(PushButton):
     @PushButton.text_color.setter
     def text_color(self, value):
         PushButton.text_color.fset(self, value)
+        print(f"Setting normal_fg color to {value}")
         self._normal_fg = value
 
     @PushButton.bg.setter
     def bg(self, value):
         PushButton.bg.fset(self, value)
+        print(f"Setting normal_bg color to {value}")
         self._normal_bg = value
 
     # ───────────────────────────────
