@@ -55,8 +55,6 @@ class HoldButton(PushButton):
         # bind events (mouse and touchscreen compatible)
         self.when_left_button_pressed = self._on_press_event
         self.when_left_button_released = self._on_release_event
-        # self.tk.bind("<ButtonPress-1>", self._on_press_event, add="+")
-        # self.tk.bind("<ButtonRelease-1>", self._on_release_event, add="+")
 
     # ───────────────────────────────
     # Properties for dynamic callbacks

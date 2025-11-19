@@ -2259,15 +2259,12 @@ class EngineGui(Thread, Generic[S]):
             padx=self._text_pad_x,
             pady=self._text_pad_y,
             enabled=False,
-            command=self.on_engine_command,
-            args=["RESET"],
         )
         reset_btn.bg = "gray"
         reset_btn.text_color = "black"
         reset_btn.text_bold = True
         reset_btn.text_size = self.s_20
-        reset_btn.on_repeat = reset_btn.on_press
-        reset_btn.on_press = None
+        reset_btn.on_repeat = (self.on_engine_command, ["RESET"])
         reset_btn.repeat_interval = 0.2
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
