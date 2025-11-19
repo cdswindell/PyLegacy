@@ -44,8 +44,6 @@ class HoldButton(PushButton):
         args: list[Any] | None = None,
         **kwargs,
     ):
-        super().__init__(master, text=text, **kwargs)
-
         # semaphore to protect critical code
         self._cv = Condition(RLock())
 
@@ -54,6 +52,9 @@ class HoldButton(PushButton):
         self._normal_fg = None
         self._normal_img = None
         self._inverted_img = None
+
+        # now initialize parent class
+        super().__init__(master, text=text, **kwargs)
 
         # basic button properties
         if bg:
