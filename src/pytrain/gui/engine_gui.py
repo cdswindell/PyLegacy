@@ -87,7 +87,7 @@ ENGINE_OPS_LAYOUT = [
         ("VOLUME_UP", "vol-up.jpg"),
         ("ENGINEER_CHATTER", "walkie_talkie.png", "", "Crew..."),
         ("RPM_UP", "rpm-up.jpg"),
-        ("BLOW_HORN_ONE", "horn.jpg", "", "Horn"),
+        ("BLOW_HORN_ONE", "horn.jpg", "", "Horn..."),
     ],
     [
         ("VOLUME_DOWN", "vol-down.jpg"),
@@ -1016,9 +1016,10 @@ class EngineGui(Thread, Generic[S]):
         self.horn_box.show()
 
     def toggle_momentum_train_brake(self, btn: PushButton = None) -> None:
-        if self.horn_box.visible or btn is None:
+        if self.horn_box.visible:
             # hide the horn box
             self.horn_box.hide()
+        if btn is None:  # called from horn handler
             # restore the on_hold handler
             _, btn = self.engine_ops_cells["BLOW_HORN_ONE"]
             btn.on_hold = self.show_horn_control
