@@ -1359,7 +1359,8 @@ class EngineGui(Thread, Generic[S]):
                 # component active
                 if self._in_entry_mode:
                     self.ops_mode(update_info=False)
-                    return
+                    # self.scope_box.show()
+                    # return
                 else:
                     force_entry_mode = True
                     clear_info = False
