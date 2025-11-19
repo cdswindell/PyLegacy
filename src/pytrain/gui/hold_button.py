@@ -33,10 +33,22 @@ class HoldButton(PushButton):
         hold_threshold=1.0,
         repeat_interval=0.2,
         debounce_ms=80,
+        bg: str = None,
+        text_color: str = None,
         flash: bool = True,
         **kwargs,
     ):
         super().__init__(master, text=text, **kwargs)
+
+        # base properties, new to HoldButton
+        self._normal_bg = None
+        self._normal_fg = None
+
+        # basic button properties
+        if bg:
+            self.bg = bg
+        if text_color:
+            self.text_color = text_color
 
         # callback configuration
         self._on_press = on_press
@@ -53,16 +65,12 @@ class HoldButton(PushButton):
         self._after_id = None
         self._handled_hold = False
 
-        # properties
-        self.normal_bg = "white"
-        self.normal_fg = "black"
-
         # bind events (mouse and touchscreen compatible)
         self.when_left_button_pressed = self._on_press_event
         self.when_left_button_released = self._on_release_event
 
         # flash button on press, if requested
-        if flash:
+        if flash and text:
             self.do_flash()
 
     # ───────────────────────────────
@@ -70,12 +78,12 @@ class HoldButton(PushButton):
     # ───────────────────────────────
     @PushButton.bg.setter
     def bg(self, value):
-        self.normal_bg = value
+        self._normal_bg = value
         PushButton.bg.fset(self, value)
 
     @PushButton.text_color.setter
     def text_color(self, value):
-        self.normal_fg = value
+        self._normal_fg = value
         PushButton.text_color.fset(self, value)
 
     # ───────────────────────────────
@@ -187,31 +195,28 @@ class HoldButton(PushButton):
     # Helper: Flash button when pressed
     # ───────────────────────────────
     def do_flash(self) -> None:
-        # normal colors
-        self.normal_bg = self.bg
-        self.normal_fg = self.text_color
-        print(f"flash_on_press: text= {self.text}, bg={self.normal_bg}, fg={self.normal_fg}")
-
         # pressed colors
         pressed_bg = "darkgrey"
         pressed_fg = "white"
 
         # noinspection PyUnusedLocal
         def on_press(event):
+            self._normal_bg = self.bg
+            self._normal_fg = self.text_color
             self.bg = pressed_bg
             self.text_color = pressed_fg
 
         # noinspection PyUnusedLocal
         def on_release(event):
-            self.bg = self.normal_bg
-            self.text_color = self.normal_fg
+            self.bg = self._normal_bg
+            self.text_color = self._normal_fg
 
         # bind both events
         self.tk.bind("<ButtonPress-1>", on_press, add="+")
         self.tk.bind("<ButtonRelease-1>", on_release, add="+")
 
     def restore_color_state(self):
-        if self.bg != self.normal_bg:
-            self.bg = self.normal_bg
-        if self.text_color != self.normal_fg:
-            self.text_color = self.normal_fg
+        if self._normal_bg and self.bg != self._normal_bg:
+            self.bg = self._normal_bg
+        if self._normal_fg and self.text_color != self._normal_fg:
+            self.text_color = self._normal_fg
