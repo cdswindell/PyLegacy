@@ -1019,14 +1019,13 @@ class EngineGui(Thread, Generic[S]):
             overlay.show()
 
     def close_popup(self, overlay: Widget = None):
-        with self._cv:
-            overlay = overlay or self._current_popup
-            self._current_popup = None
-            if overlay:
-                overlay.hide()
-                overlay.tk.place_forget()
-            if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-                self.controller_box.show()
+        overlay = overlay or self._current_popup
+        self._current_popup = None
+        if overlay:
+            overlay.hide()
+            overlay.tk.place_forget()
+        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            self.controller_box.show()
 
     def show_horn_control(self) -> None:
         _, btn = self.engine_ops_cells["BLOW_HORN_ONE"]
