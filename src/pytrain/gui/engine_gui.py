@@ -87,7 +87,7 @@ ENGINE_OPS_LAYOUT = [
         ("VOLUME_UP", "vol-up.jpg"),
         ("ENGINEER_CHATTER", "walkie_talkie.png", "", "Crew..."),
         ("RPM_UP", "rpm-up.jpg"),
-        ("BLOW_HORN_ONE", "horn.jpg"),
+        ("BLOW_HORN_ONE", "horn.jpg", "", "Horn"),
     ],
     [
         ("VOLUME_DOWN", "vol-down.jpg"),
@@ -345,6 +345,7 @@ class EngineGui(Thread, Generic[S]):
         self.brake_box = self.brake_level = self.focus_widget = None
         self.throttle = self.speed = self.brake = self._rr_speed_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
+        self.horn_box = self.horn_level = self.horn = None
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
@@ -639,107 +640,20 @@ class EngineGui(Thread, Generic[S]):
         throttle.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
         # brake
-        self.brake_box = brake_box = Box(
-            sliders,
-            border=1,
-            grid=[0, 0],
+        self.brake_box, self.brake_level, self.brake = self.make_slider(
+            sliders, "Brake", self.on_train_brake, frm=7, to=0
         )
-
-        cell = TitleBox(brake_box, "Brake", align="top", border=1)
-        cell.text_size = self.s_10
-        self.brake_level = brake_level = Text(
-            cell,
-            text="00",
-            color="black",
-            align="top",
-            bold=True,
-            size=self.s_18,
-            width=3,
-            font="DigitalDream",
-        )
-        brake_level.bg = "black"
-        brake_level.text_color = "white"
-
-        self.brake = brake = Slider(
-            brake_box,
-            align="top",
-            horizontal=False,
-            step=1,
-            width=int(self.button_size / 3),
-            height=self.slider_height,
-            command=self.on_train_brake,
-        )
-        brake.text_color = "black"
-        brake.tk.config(
-            from_=0,
-            to=7,
-            takefocus=0,
-            troughcolor="#003366",  # deep Lionel blue for the track,
-            activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
-            bg="lightgrey",  # darker navy background
-            highlightthickness=1,
-            highlightbackground=LIONEL_ORANGE,  # subtle orange outline
-            width=int(self.button_size / 3),
-            sliderlength=int(self.slider_height / 6),
-        )
-        brake.tk.bind("<Button-1>", lambda e: brake.tk.focus_set())
-        brake.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
-        brake.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
         # Allow Tk to compute geometry
         self.app.tk.update_idletasks()
 
-        self.momentum_box = momentum_box = Box(
-            sliders,
-            border=1,
-            grid=[0, 0],
-            visible=False,
+        self.momentum_box, self.momentum_level, self.momentum = self.make_slider(
+            sliders, "Moment", self.on_momentum, frm=7, to=0, visible=False
         )
-
-        cell = TitleBox(momentum_box, "Moment", align="top", border=1)
-        cell.text_size = self.s_10
-        self.momentum_level = momentum_level = Text(
-            cell,
-            text="00",
-            color="black",
-            align="top",
-            bold=True,
-            size=self.s_18,
-            width=3,
-            font="DigitalDream",
-        )
-        momentum_level.bg = "black"
-        momentum_level.text_color = "white"
-
-        self.momentum = momentum = Slider(
-            momentum_box,
-            align="top",
-            horizontal=False,
-            step=1,
-            width=int(self.button_size / 3),
-            height=self.slider_height,
-            command=self.on_momentum,
-        )
-        momentum.text_color = "black"
-        momentum.tk.config(
-            from_=0,
-            to=7,
-            takefocus=0,
-            troughcolor="#003366",  # deep Lionel blue for the track,
-            activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
-            bg="lightgrey",  # darker navy background
-            highlightthickness=1,
-            highlightbackground=LIONEL_ORANGE,  # subtle orange outline
-            width=int(self.button_size / 3),
-            sliderlength=int(self.slider_height / 6),
-        )
-        momentum.tk.bind("<Button-1>", lambda e: momentum.tk.focus_set())
-        momentum.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
-        momentum.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
         # compute rr speed button size
         w = sliders.tk.winfo_width()
-        h = (5 * self.button_size) - (brake.tk.winfo_height() + brake_level.tk.winfo_height()) - 5
+        h = (5 * self.button_size) - (self.brake.tk.winfo_height() + self.brake_level.tk.winfo_height()) - 5
 
         # RR Speeds button
         rr_box = Box(
@@ -771,6 +685,66 @@ class EngineGui(Thread, Generic[S]):
         # Make popups, starting with rr_speed dialog; must be done after scope_box
         self.rr_speed_overlay = self.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
         self.lights_overlay = self.create_popup("Lighting", self.build_lights_body)
+
+    def make_slider(
+        self,
+        sliders: Box,
+        title: str,
+        command: Callable,
+        frm: int,
+        to: int,
+        step: int = 1,
+        visible: bool = True,
+    ):
+        momentum_box = Box(
+            sliders,
+            border=1,
+            grid=[0, 0],
+            visible=visible,
+        )
+
+        cell = TitleBox(momentum_box, title, align="top", border=1)
+        cell.text_size = self.s_10
+        momentum_level = Text(
+            cell,
+            text="00",
+            color="black",
+            align="top",
+            bold=True,
+            size=self.s_18,
+            width=3,
+            font="DigitalDream",
+        )
+        momentum_level.bg = "black"
+        momentum_level.text_color = "white"
+
+        momentum = Slider(
+            momentum_box,
+            align="top",
+            horizontal=False,
+            step=step,
+            width=int(self.button_size / 3),
+            height=self.slider_height,
+            command=command,
+        )
+        momentum.text_color = "black"
+        momentum.tk.config(
+            from_=frm,
+            to=to,
+            takefocus=0,
+            troughcolor="#003366",  # deep Lionel blue for the track,
+            activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
+            bg="lightgrey",  # darker navy background
+            highlightthickness=1,
+            highlightbackground=LIONEL_ORANGE,  # subtle orange outline
+            width=int(self.button_size / 3),
+            sliderlength=int(self.slider_height / 6),
+        )
+        momentum.tk.bind("<Button-1>", lambda e: momentum.tk.focus_set())
+        momentum.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
+        momentum.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
+
+        return momentum_box, momentum_level, momentum
 
     def create_popup(self, title_text: str, build_body: Callable[[Box], None]):
         """
