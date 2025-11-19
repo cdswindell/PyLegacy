@@ -33,8 +33,10 @@ class HoldButton(PushButton):
         hold_threshold=1.0,
         repeat_interval=0.2,
         debounce_ms=80,
-        bg: str = None,
-        text_color: str = None,
+        bg: str = "white",
+        text_color: str = "black",
+        text_size: int = None,
+        text_bold: bool = None,
         flash: bool = True,
         **kwargs,
     ):
@@ -49,6 +51,10 @@ class HoldButton(PushButton):
             self.bg = bg
         if text_color:
             self.text_color = text_color
+        if text_size is not None:
+            self.text_size = text_size
+        if text_bold is not None:
+            self.text_bold = text_bold
 
         # callback configuration
         self._on_press = on_press
@@ -71,12 +77,18 @@ class HoldButton(PushButton):
         self.when_left_button_released = self._on_release_event
 
         # flash button on press, if requested
+        self._flash_requested = flash
         if flash and text:
             self.do_flash()
 
     # ───────────────────────────────
     # Parent setter overrides
     # ───────────────────────────────
+    @PushButton.text.setter
+    def text(self, value):
+        PushButton.text.fset(self, value)
+        if self._flash_requested and value:
+            self.do_flash()
 
     # ───────────────────────────────
     # Properties for dynamic callbacks
@@ -197,7 +209,6 @@ class HoldButton(PushButton):
 
         # noinspection PyUnusedLocal
         def on_press(event):
-            print(f"on_press: text= {self.text}, bg={self.bg}, fg={self.text_color}")
             self._normal_bg = self.bg
             self._normal_fg = self.text_color
             self.bg = pressed_bg
@@ -205,7 +216,6 @@ class HoldButton(PushButton):
 
         # noinspection PyUnusedLocal
         def on_release(event):
-            print(f"on_release: text= {self.text}, bg={self._normal_bg}, fg={self._normal_fg}")
             self.bg = self._normal_bg
             self.text_color = self._normal_fg
 

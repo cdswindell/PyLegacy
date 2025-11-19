@@ -839,11 +839,11 @@ class EngineGui(Thread, Generic[S]):
         btn = HoldButton(
             cell,
             text=AUX2_KEY,
+            text_size=self.s_18,
+            text_bold=True,
             command=self.on_engine_command,
             args=["AUX2_OPTION_ONE"],
         )
-        btn.text_size = self.s_18
-        btn.text_bold = True
         btn.tk.config(
             height=self.button_size,
             width=self.button_size,
@@ -877,11 +877,12 @@ class EngineGui(Thread, Generic[S]):
         btn = HoldButton(
             cell,
             text=CAB_KEY,
+            text_size=self.s_18,
+            text_bold=True,
             command=self.on_engine_command,
             args=[("CAB_AUTO", "AUX2_OPT_ONE")],
         )
-        btn.text_size = self.s_18
-        btn.text_bold = True
+
         btn.tk.config(
             height=self.button_size,
             width=self.button_size,
@@ -1301,16 +1302,21 @@ class EngineGui(Thread, Generic[S]):
                 grid=[i, 1],
                 align="top",
                 height=1,
+                text_size=self.s_18,
+                text_bold=True,
                 command=self.on_scope,
                 args=[scope],
             )
             pb.scope = scope
-            pb.text_size = self.s_18
-            pb.text_bold = True
             # Configure the button with the image as background
-            pb.tk.config(image=img, compound="center")
-            pb.tk.config(width=self.scope_size, height=button_height)
-            pb.tk.config(padx=0, pady=0)
+            pb.tk.config(
+                image=img,
+                compound="center",
+                width=self.scope_size,
+                height=button_height,
+                padx=0,
+                pady=0,
+            )
             # Make the grid column expand to fill space
             scope_box.tk.grid_columnconfigure(i, weight=1)
             # associate the button with its scope
@@ -1771,8 +1777,8 @@ class EngineGui(Thread, Generic[S]):
             args=args,
             hold_threshold=1.0,
             repeat_interval=0.2,
+            on_press=command,
         )
-        nb.on_press = command
         nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
 
         # ------------------------------------------------------------
@@ -1788,9 +1794,6 @@ class EngineGui(Thread, Generic[S]):
             nb.text = label
             nb.text_size = size
             nb.text_bold = bolded
-            nb.text_color = "black"
-            nb.bg = "white"
-            nb.do_flash()
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
@@ -2195,7 +2198,7 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
         _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=2, height=1, bold=True)
 
-        self.halt_btn = halt_btn = HoldButton(
+        self.halt_btn = HoldButton(
             emergency_box,
             text=HALT_KEY,
             grid=[0, 1],
@@ -2204,16 +2207,15 @@ class EngineGui(Thread, Generic[S]):
             padx=self._text_pad_x,
             pady=self._text_pad_y,
             bg="red",
-            text_color="white",
+            text_bold=True,
+            text_size=self.s_20,
             command=self.on_keypress,
             args=[HALT_KEY],
         )
-        halt_btn.text_bold = True
-        halt_btn.text_size = self.s_20
 
         _ = Text(emergency_box, text=" ", grid=[1, 1], align="top", size=6, height=1, bold=True)
 
-        self.reset_btn = reset_btn = HoldButton(
+        self.reset_btn = HoldButton(
             emergency_box,
             text="Reset",
             grid=[2, 1],
@@ -2221,15 +2223,15 @@ class EngineGui(Thread, Generic[S]):
             width=11,
             padx=self._text_pad_x,
             pady=self._text_pad_y,
+            bg="gray",
+            text_size=self.s_20,
+            text_color="black",
+            text_bold=True,
             enabled=False,
+            on_press=(self.on_engine_command, ["RESET"]),
+            on_repeat=(self.on_engine_command, ["RESET"]),
+            repeat_interval=0.2,
         )
-        reset_btn.bg = "gray"
-        reset_btn.text_color = "black"
-        reset_btn.text_bold = True
-        reset_btn.text_size = self.s_20
-        reset_btn.on_press = (self.on_engine_command, ["RESET"])
-        reset_btn.on_repeat = (self.on_engine_command, ["RESET"])
-        reset_btn.repeat_interval = 0.2
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
         self.app.tk.update_idletasks()
