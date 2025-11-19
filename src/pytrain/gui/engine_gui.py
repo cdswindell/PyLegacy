@@ -2084,6 +2084,7 @@ class EngineGui(Thread, Generic[S]):
         if scope in {CommandScope.ENGINE} and tmcc_id != 0:
             with self._cv:
                 prod_info = self._prod_info_cache.get(tmcc_id, None)
+                print(f"update_component_image: {prod_info}")
 
                 # If not cached or not a valid Future/ProdInfo, start a background fetch
                 if prod_info is None:
