@@ -188,7 +188,7 @@ class HoldButton(PushButton):
 
         def on_release(event):
             widget = event.widget
-            print(f"Widget: {widget} bg: {widget.bg}  fg: {widget.text_color} text: {widget.text}")
+            print(f"Widget: {widget} config: {widget.config()}")
             self.bg = normal_bg
             self.text_color = normal_fg
 
