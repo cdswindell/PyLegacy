@@ -1089,7 +1089,7 @@ class EngineGui(Thread, Generic[S]):
                     pass
                 self._quill_after_id = None
         if value > 0:
-            self.on_engine_command("QUILLING_HORN, BLOW_HORN_ONE", data=value)
+            self.on_engine_command(["QUILLING_HORN", "BLOW_HORN_ONE"], data=value)
             # make sure we still have focus
             if self.app.tk.focus_get() == self.horn.tk:
                 self._quill_after_id = self.app.tk.after(
