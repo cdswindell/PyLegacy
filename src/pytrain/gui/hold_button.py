@@ -104,6 +104,16 @@ class HoldButton(PushButton):
         if self._flash_requested and value:
             self.do_flash()
 
+    @PushButton.text_color.setter
+    def text_color(self, value):
+        PushButton.text_color.fset(self, value)
+        self._normal_fg = value
+
+    @PushButton.bg.setter
+    def bg(self, value):
+        PushButton.bg.fset(self, value)
+        self._normal_bg = value
+
     # ───────────────────────────────
     # Properties for dynamic callbacks
     # ───────────────────────────────
