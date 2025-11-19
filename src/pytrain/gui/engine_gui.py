@@ -1061,7 +1061,6 @@ class EngineGui(Thread, Generic[S]):
                 self._quill_after_id = None
             # reset slider
             self.horn.value = 0
-            self.horn_level.value = "00"
 
     def _do_clear_focus(self):
         self.focus_widget.focus_set()
