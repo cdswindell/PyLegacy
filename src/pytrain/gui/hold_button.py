@@ -48,6 +48,8 @@ class HoldButton(PushButton):
         # base properties, new to HoldButton
         self._normal_bg = None
         self._normal_fg = None
+        self._normal_img = None
+        self._inverted_img = None
 
         # basic button properties
         if bg:
@@ -105,6 +107,17 @@ class HoldButton(PushButton):
     # ───────────────────────────────
     # Properties for dynamic callbacks
     # ───────────────────────────────
+    @property
+    def images(self) -> tuple:
+        return self._normal_img, self._inverted_img
+
+    @images.setter
+    def images(self, value: tuple) -> None:
+        self._normal_img, self._inverted_img = value
+        self.tk.config(image=self._normal_img, compound="center")
+        if self._flash_requested and self._normal_img and self._inverted_img:
+            self.do_flash()
+
     @property
     def on_press(self):
         return self._on_press
@@ -221,22 +234,31 @@ class HoldButton(PushButton):
 
         # noinspection PyUnusedLocal
         def on_press(event):
-            self._normal_bg = self.bg
-            self._normal_fg = self.text_color
-            self.bg = pressed_bg
-            self.text_color = pressed_fg
+            if self.text:
+                self._normal_bg = self.bg
+                self._normal_fg = self.text_color
+                self.bg = pressed_bg
+                self.text_color = pressed_fg
+            if self._inverted_img:
+                self.tk.config(image=self._inverted_img, compound="center")
 
         # noinspection PyUnusedLocal
         def on_release(event):
-            self.bg = self._normal_bg
-            self.text_color = self._normal_fg
+            if self.text:
+                self.bg = self._normal_bg
+                self.text_color = self._normal_fg
+            if self._normal_img:
+                self.tk.config(image=self._normal_img, compound="center")
 
         # bind both events
         self.tk.bind("<ButtonPress-1>", on_press, add="+")
         self.tk.bind("<ButtonRelease-1>", on_release, add="+")
 
     def restore_color_state(self):
-        if self._normal_bg and self.bg != self._normal_bg:
-            self.bg = self._normal_bg
-        if self._normal_fg and self.text_color != self._normal_fg:
-            self.text_color = self._normal_fg
+        if self.text:
+            if self._normal_bg and self.bg != self._normal_bg:
+                self.bg = self._normal_bg
+            if self._normal_fg and self.text_color != self._normal_fg:
+                self.text_color = self._normal_fg
+        if self._normal_img and self.tk.cget("image") != self._normal_img:
+            self.tk.config(image=self._normal_img, compound="center")

@@ -707,6 +707,7 @@ class EngineGui(Thread, Generic[S]):
             relief="ridge",  # gives pressable button feel
             highlightthickness=0,
         )
+        rr_btn.images = (img, inverted_img)
 
         # --- HIDE IT AGAIN after sizing is complete ---
         self.controller_box.visible = False
@@ -1797,9 +1798,7 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------
         if image:
             nb.image = image
-            # load and cache the image to prevent garbage collection
-            img, inv_img = self.get_titled_image(image)
-            nb.tk.config(image=img, compound="center")
+            nb.images = self.get_titled_image(image)
         else:
             # Make tk.Button fill the entire cell and draw full border
             # only do this for text buttons
