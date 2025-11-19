@@ -234,19 +234,17 @@ class HoldButton(PushButton):
 
         # noinspection PyUnusedLocal
         def on_press(event):
-            if self.text:
-                self._normal_bg = self.bg
-                self._normal_fg = self.text_color
-                self.bg = pressed_bg
-                self.text_color = pressed_fg
+            self._normal_bg = self.bg
+            self._normal_fg = self.text_color
+            self.bg = pressed_bg
+            self.text_color = pressed_fg
             if self._inverted_img:
                 self.tk.config(image=self._inverted_img, compound="center")
 
         # noinspection PyUnusedLocal
         def on_release(event):
-            if self.text:
-                self.bg = self._normal_bg
-                self.text_color = self._normal_fg
+            self.bg = self._normal_bg
+            self.text_color = self._normal_fg
             if self._normal_img:
                 self.tk.config(image=self._normal_img, compound="center")
 
@@ -255,10 +253,9 @@ class HoldButton(PushButton):
         self.tk.bind("<ButtonRelease-1>", on_release, add="+")
 
     def restore_color_state(self):
-        if self.text:
-            if self._normal_bg and self.bg != self._normal_bg:
-                self.bg = self._normal_bg
-            if self._normal_fg and self.text_color != self._normal_fg:
-                self.text_color = self._normal_fg
+        if self._normal_bg and self.bg != self._normal_bg:
+            self.bg = self._normal_bg
+        if self._normal_fg and self.text_color != self._normal_fg:
+            self.text_color = self._normal_fg
         if self._normal_img and self.tk.cget("image") != self._normal_img:
             self.tk.config(image=self._normal_img, compound="center")
