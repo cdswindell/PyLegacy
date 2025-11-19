@@ -1809,17 +1809,18 @@ class EngineGui(Thread, Generic[S]):
         normal_fg = btn.text_color
 
         # pressed colors
-        pressed_bg = "black"
+        pressed_bg = "darkgrey"
         pressed_fg = "white"
 
+        # noinspection PyUnusedLocal
         def on_press(event):
-            print(event)
             btn.bg = pressed_bg
             btn.text_color = pressed_fg
 
         def on_release(event):
-            print(event)
-            btn.tk.config(background=normal_bg, foreground=normal_fg)
+            print(dir(event))
+            btn.bg = normal_bg
+            btn.text_color = normal_fg
 
         # bind both events
         btn.tk.bind("<ButtonPress-1>", on_press, add="+")
