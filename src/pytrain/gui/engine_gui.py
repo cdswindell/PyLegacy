@@ -91,7 +91,7 @@ ENGINE_OPS_LAYOUT = [
     ],
     [
         ("VOLUME_DOWN", "vol-down.jpg"),
-        ("TOWER_CHATTER", "tower.png", "", "Tower..."),
+        ("TOWER_CHATTER", "tower.jpg", "", "Tower..."),
         [("RPM_DOWN", "rpm-down.jpg", "", "", "d"), ("WATER_INJECTOR, NUMBER_5", "water-inject.jpg", "", "", "s")],
         ("RING_BELL", "bell.jpg"),
     ],
