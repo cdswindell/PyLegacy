@@ -1789,6 +1789,8 @@ class EngineGui(Thread, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.text_color = "black"
+            nb.bg = "white"
+            nb.do_flash()
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing

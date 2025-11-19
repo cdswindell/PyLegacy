@@ -64,6 +64,7 @@ class HoldButton(PushButton):
         self._repeating = False
         self._after_id = None
         self._handled_hold = False
+        self._handled_flash = False
 
         # bind events (mouse and touchscreen compatible)
         self.when_left_button_pressed = self._on_press_event
@@ -76,15 +77,6 @@ class HoldButton(PushButton):
     # ───────────────────────────────
     # Parent setter overrides
     # ───────────────────────────────
-    # @PushButton.bg.setter
-    # def bg(self, value):
-    #     self._normal_bg = value
-    #     PushButton.bg.fset(self, value)
-    #
-    # @PushButton.text_color.setter
-    # def text_color(self, value):
-    #     self._normal_fg = value
-    #     PushButton.text_color.fset(self, value)
 
     # ───────────────────────────────
     # Properties for dynamic callbacks
@@ -195,6 +187,10 @@ class HoldButton(PushButton):
     # Helper: Flash button when pressed
     # ───────────────────────────────
     def do_flash(self) -> None:
+        if self._handled_flash:
+            return
+        self._handled_flash = True
+
         # pressed colors
         pressed_bg = "darkgrey"
         pressed_fg = "white"
