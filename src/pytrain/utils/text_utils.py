@@ -33,7 +33,13 @@ def title(text: str):
                             part = part.strip() + "MAC"
                             part = part.replace("SD-", "SD")
                             parts[i + 1] = ""
-                elif part.startswith("FA-") or part.startswith("RS-") or part.startswith("GP") or part.startswith("ET"):
+                elif (
+                    part.startswith("FA-")
+                    or part.startswith("RS-")
+                    or part.startswith("GP")
+                    or part.startswith("ET")
+                    or part.startswith("ES")
+                ):
                     pass
                 elif U33C_PATTERN.match(part):
                     pass
