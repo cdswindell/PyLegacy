@@ -76,15 +76,15 @@ class HoldButton(PushButton):
     # ───────────────────────────────
     # Parent setter overrides
     # ───────────────────────────────
-    @PushButton.bg.setter
-    def bg(self, value):
-        self._normal_bg = value
-        PushButton.bg.fset(self, value)
-
-    @PushButton.text_color.setter
-    def text_color(self, value):
-        self._normal_fg = value
-        PushButton.text_color.fset(self, value)
+    # @PushButton.bg.setter
+    # def bg(self, value):
+    #     self._normal_bg = value
+    #     PushButton.bg.fset(self, value)
+    #
+    # @PushButton.text_color.setter
+    # def text_color(self, value):
+    #     self._normal_fg = value
+    #     PushButton.text_color.fset(self, value)
 
     # ───────────────────────────────
     # Properties for dynamic callbacks
@@ -201,6 +201,7 @@ class HoldButton(PushButton):
 
         # noinspection PyUnusedLocal
         def on_press(event):
+            print(f"on_press: text= {self.text}, bg={self.bg}, fg={self.text_color}")
             self._normal_bg = self.bg
             self._normal_fg = self.text_color
             self.bg = pressed_bg
@@ -208,6 +209,7 @@ class HoldButton(PushButton):
 
         # noinspection PyUnusedLocal
         def on_release(event):
+            print(f"on_release: text= {self.text}, bg={self._normal_bg}, fg={self._normal_fg}")
             self.bg = self._normal_bg
             self.text_color = self._normal_fg
 

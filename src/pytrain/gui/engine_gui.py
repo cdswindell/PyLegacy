@@ -2201,11 +2201,11 @@ class EngineGui(Thread, Generic[S]):
             width=11,
             padx=self._text_pad_x,
             pady=self._text_pad_y,
+            bg="red",
+            text_color="white",
             command=self.on_keypress,
             args=[HALT_KEY],
         )
-        halt_btn.bg = "red"
-        halt_btn.text_color = "white"
         halt_btn.text_bold = True
         halt_btn.text_size = self.s_20
 
