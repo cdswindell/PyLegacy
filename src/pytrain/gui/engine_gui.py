@@ -1060,7 +1060,8 @@ class EngineGui(Thread, Generic[S]):
                 self.app.cancel(self._quill_after_id)
                 self._quill_after_id = None
             # reset slider
-            self.horn_level.value = 0
+            self.horn.value = 0
+            self.horn_level.value = "00"
 
     def _do_clear_focus(self):
         self.focus_widget.focus_set()
@@ -1076,7 +1077,8 @@ class EngineGui(Thread, Generic[S]):
             self.on_engine_command("TRAIN_BRAKE", data=value)
 
     def on_horn(self, value: int) -> None:
-        self.horn.value = value = int(value)
+        value = int(value)
+        self.horn_level.value = f"{value:02d}"
         print(f"Horn value: {value}")
         if value:
             pass
