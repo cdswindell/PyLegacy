@@ -573,6 +573,9 @@ class EngineGui(Thread, Generic[S]):
         _, btn = self.engine_ops_cells["AUX2_OPTION_ONE"]
         btn.on_hold = self.on_lights
 
+        _, btn = self.engine_ops_cells["BLOW_HORN_ONE"]
+        btn.on_hold = self.show_horn_control
+
         # set some repeating commands
         for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
             _, btn = self.engine_ops_cells[command]
@@ -647,8 +650,14 @@ class EngineGui(Thread, Generic[S]):
         # Allow Tk to compute geometry
         self.app.tk.update_idletasks()
 
+        # Momentum
         self.momentum_box, self.momentum_level, self.momentum = self.make_slider(
-            sliders, "Moment", self.on_momentum, frm=7, to=0, visible=False
+            sliders, "Moment", self.on_momentum, frm=0, to=7, visible=False
+        )
+
+        # Horn
+        self.horn_box, self.horn_level, self.horn = self.make_slider(
+            sliders, "Horn", self.on_horn, frm=0, to=15, visible=False
         )
 
         # compute rr speed button size
@@ -997,16 +1006,37 @@ class EngineGui(Thread, Generic[S]):
             if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 self.controller_box.show()
 
-    def toggle_momentum_train_brake(self, btn: PushButton) -> None:
-        if btn.text == MOMENTUM:
-            btn.text = TRAIN_BRAKE
-            self.brake_box.visible = False
-            self.momentum_box.visible = True
+    def show_horn_control(self) -> None:
+        _, btn = self.engine_ops_cells["BLOW_HORN_ONE"]
+        btn.on_hold = self.toggle_momentum_train_brake
+        self.momentum_box.hide()
+        self.brake_box.hide()
+        self.horn_box.show()
 
+    def toggle_momentum_train_brake(self, btn: PushButton = None) -> None:
+        if self.horn_box.visible or btn is None:
+            # hide the horn box
+            self.horn_box.hide()
+            # restore the on_hold handler
+            _, btn = self.engine_ops_cells["BLOW_HORN_ONE"]
+            btn.on_hold = self.show_horn_control
+            # restore what was there before; if swap button says "Momentum"
+            # then show Train Brake, and visa versa
+            if btn.text == MOMENTUM:
+                self.momentum_box.visible = False
+                self.brake_box.visible = True
+            else:
+                self.brake_box.visible = False
+                self.momentum_box.visible = True
         else:
-            btn.text = MOMENTUM
-            self.momentum_box.visible = False
-            self.brake_box.visible = True
+            if btn.text == MOMENTUM:
+                btn.text = TRAIN_BRAKE
+                self.brake_box.visible = False
+                self.momentum_box.visible = True
+            else:
+                btn.text = MOMENTUM
+                self.momentum_box.visible = False
+                self.brake_box.visible = True
 
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):
@@ -1015,7 +1045,7 @@ class EngineGui(Thread, Generic[S]):
         Ensures focus moves off the Scale after finger release
         and forces a redraw so the grab handle deactivates.
         """
-        if self.app.tk.focus_get() in {self.throttle.tk, self.brake.tk, self.momentum.tk}:
+        if self.app.tk.focus_get() in {self.throttle.tk, self.brake.tk, self.momentum.tk, self.horn.tk}:
             self.app.tk.after_idle(self._do_clear_focus)
 
     def _do_clear_focus(self):
@@ -1023,12 +1053,16 @@ class EngineGui(Thread, Generic[S]):
         self.throttle.tk.event_generate("<Leave>")
         self.brake.tk.event_generate("<Leave>")
         self.momentum.tk.event_generate("<Leave>")
+        self.horn.tk.event_generate("<Leave>")
 
     def on_train_brake(self, value):
         if self.app.tk.focus_get() == self.brake.tk:
             value = int(value)
             self.brake_level.value = f"{value:02d}"
             self.on_engine_command("TRAIN_BRAKE", data=value)
+
+    def on_horn(self, value: int) -> None:
+        print(f"Horn value: {value}")
 
     def on_momentum(self, value):
         if self.app.tk.focus_get() == self.momentum.tk:
