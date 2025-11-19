@@ -1099,7 +1099,7 @@ class EngineGui(Thread, Generic[S]):
         with self._cv:
             print(f"Quill horn value: {value} ID: {self._quill_after_id}")
             if self.app.tk.focus_get() == self.horn.tk:
-                self._quill_after_id = self.app.tk.after(200, self.do_quilling_horn, value)
+                self._quill_after_id = self.app.tk.after(500, self.do_quilling_horn, value)
             else:
                 self._stop_quill()
 
@@ -2313,11 +2313,9 @@ class EngineGui(Thread, Generic[S]):
         state: S,
         delay: float = 0.0,
     ):
-        print(f"do_engine_command: {tmcc_id}, {targets}, {data}, {scope}")
         if isinstance(targets, str):
             targets = [targets]
         for target in targets:
-            print(f"Doing target: {target} ({type(target)})")
             if state.is_legacy:
                 # there are a few special cases
                 if target in {SMOKE_ON, SMOKE_OFF}:
