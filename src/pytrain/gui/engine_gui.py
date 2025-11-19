@@ -2264,6 +2264,7 @@ class EngineGui(Thread, Generic[S]):
         reset_btn.text_color = "black"
         reset_btn.text_bold = True
         reset_btn.text_size = self.s_20
+        reset_btn.on_press = (self.on_engine_command, ["RESET"])
         reset_btn.on_repeat = (self.on_engine_command, ["RESET"])
         reset_btn.repeat_interval = 0.2
 
