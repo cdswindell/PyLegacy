@@ -349,6 +349,8 @@ class EngineGui(Thread, Generic[S]):
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
+        self._quill_active = False
+        self._quill_after_id = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -1046,7 +1048,19 @@ class EngineGui(Thread, Generic[S]):
         and forces a redraw so the grab handle deactivates.
         """
         if self.app.tk.focus_get() in {self.throttle.tk, self.brake.tk, self.momentum.tk, self.horn.tk}:
+            if self.app.tk.focus_get() == self.horn.tk:
+                self._stop_quill()
             self.app.tk.after_idle(self._do_clear_focus)
+
+    def _stop_quill(self):
+        with self._cv:
+            self._quill_active = False
+            # cancel pending after() call if exists
+            if self._quill_after_id is not None:
+                self.app.cancel(self._quill_after_id)
+                self._quill_after_id = None
+            # reset slider
+            self.horn_level.value = 0
 
     def _do_clear_focus(self):
         self.focus_widget.focus_set()
@@ -1062,7 +1076,10 @@ class EngineGui(Thread, Generic[S]):
             self.on_engine_command("TRAIN_BRAKE", data=value)
 
     def on_horn(self, value: int) -> None:
+        self.horn = value
         print(f"Horn value: {value}")
+        if value:
+            pass
 
     def on_momentum(self, value):
         if self.app.tk.focus_get() == self.momentum.tk:
