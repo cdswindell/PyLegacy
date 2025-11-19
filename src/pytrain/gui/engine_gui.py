@@ -1076,7 +1076,7 @@ class EngineGui(Thread, Generic[S]):
             self.on_engine_command("TRAIN_BRAKE", data=value)
 
     def on_horn(self, value: int) -> None:
-        self.horn = value
+        self.horn.value = value = int(value)
         print(f"Horn value: {value}")
         if value:
             pass
