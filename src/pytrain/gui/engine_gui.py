@@ -22,7 +22,7 @@ from typing import Any, Callable, Generic, TypeVar, cast
 from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
-from PIL import Image, ImageTk
+from PIL import Image, ImageOps, ImageTk
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
@@ -695,7 +695,7 @@ class EngineGui(Thread, Generic[S]):
         self._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=self.on_rr_speed)
         rr_btn.tk.pack(fill="both", expand=True)
 
-        img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
+        img, inverted_img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
         rr_btn.tk.config(
             image=img,
             compound="center",
@@ -1284,8 +1284,8 @@ class EngineGui(Thread, Generic[S]):
                 pass
 
     def update_ac_status(self, state: AccessoryState):
-        power_on_image = self.get_titled_image(self.power_on_path)
-        power_off_image = self.get_titled_image(self.power_off_path)
+        power_on_image, _ = self.get_titled_image(self.power_on_path)
+        power_off_image, _ = self.get_titled_image(self.power_off_path)
         img = power_on_image if state.is_aux_on else power_off_image
         self.ac_status_btn.tk.config(
             image=img,
@@ -1798,7 +1798,8 @@ class EngineGui(Thread, Generic[S]):
         if image:
             nb.image = image
             # load and cache the image to prevent garbage collection
-            nb.tk.config(image=self.get_titled_image(image), compound="center")
+            img, inv_img = self.get_titled_image(image)
+            nb.tk.config(image=img, compound="center")
         else:
             # Make tk.Button fill the entire cell and draw full border
             # only do this for text buttons
@@ -2385,7 +2386,12 @@ class EngineGui(Thread, Generic[S]):
             img = Image.open(path)
             if size:
                 img = img.resize(size)
-            self._image_cache[path] = ImageTk.PhotoImage(img)
+            inverted = ImageOps.invert(img.convert("RGB"))
+            inverted.putalpha(img.split()[-1])
+            normal_tk = ImageTk.PhotoImage(img)
+            inverted_tk = ImageTk.PhotoImage(inverted)
+            # restore transparency
+            self._image_cache[path] = (normal_tk, inverted_tk)
         return self._image_cache[path]
 
     def get_titled_image(self, path):
