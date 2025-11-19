@@ -1788,7 +1788,7 @@ class EngineGui(Thread, Generic[S]):
             nb.text_bold = bolded
             nb.text_color = "black"
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
-            self.make_color_changeable(nb, fade=True)
+            self.flash_on_press(nb)
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
         # ------------------------------------------------------------
@@ -1801,6 +1801,28 @@ class EngineGui(Thread, Generic[S]):
 
         cell.visible = visible
         return cell, nb
+
+    @staticmethod
+    def flash_on_press(btn: PushButton) -> None:
+        # normal colors
+        normal_bg = btn.bg
+        normal_fg = btn.text_color
+
+        # pressed colors
+        pressed_bg = "black"
+        pressed_fg = "white"
+
+        def on_press(event):
+            print(event)
+            btn.tk.config(background=pressed_bg, foreground=pressed_fg)
+
+        def on_release(event):
+            print(event)
+            btn.tk.config(background=normal_bg, foreground=normal_fg)
+
+        # bind both events
+        btn.tk.bind("<ButtonPress-1>", on_press, add="+")
+        btn.tk.bind("<ButtonRelease-1>", on_release, add="+")
 
     def on_keypress(self, key: str) -> None:
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
@@ -1831,82 +1853,6 @@ class EngineGui(Thread, Generic[S]):
         if not self._in_entry_mode and key.isdigit():
             log.debug("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
-
-    def make_color_changeable(
-        self,
-        button,
-        pressed_color=LIONEL_ORANGE,
-        flash_ms=150,
-        fade=False,
-        border=False,
-    ):
-        """Add a simple flash overlay on button release without freezing the GUI."""
-        tkbtn = button.tk
-        parent = tkbtn.master
-
-        # Create one reusable overlay per button
-        overlay = getattr(button, "_flash_overlay", None)
-        if overlay is None:
-            overlay = tk.Frame(
-                parent,
-                bg=pressed_color,
-                bd=0,
-                highlightthickness=1 if border else 0,
-                highlightbackground="white" if border else pressed_color,
-            )
-            label = tk.Label(
-                overlay,
-                text=button.text,
-                font=(button.font, button.text_size, "bold" if button.text_bold else "normal"),
-                fg=button.text_color,
-                bg=pressed_color,
-            )
-            label.place(relx=0.5, rely=0.5, anchor="center")
-            overlay.place_forget()
-            button._flash_overlay = overlay
-
-        def flash(_=None):
-            try:
-                w, h = tkbtn.winfo_width(), tkbtn.winfo_height()
-                x, y = tkbtn.winfo_x(), tkbtn.winfo_y()
-
-                overlay.place(x=x, y=y, width=w, height=h)
-                overlay.lift(tkbtn)
-
-                if fade:
-                    steps = 10
-                    interval = max(1, flash_ms // steps)
-
-                    def fade_step(step=0):
-                        if step >= steps:
-                            overlay.place_forget()
-                            return
-                        try:
-                            c1 = overlay.winfo_rgb(pressed_color)
-                            c2 = overlay.winfo_rgb(parent.cget("background"))
-                            ratio = step / steps
-                            r = int((c1[0] * (1 - ratio) + c2[0] * ratio) / 256)
-                            g = int((c1[1] * (1 - ratio) + c2[1] * ratio) / 256)
-                            b = int((c1[2] * (1 - ratio) + c2[2] * ratio) / 256)
-                            overlay.config(bg=f"#{r:02x}{g:02x}{b:02x}")
-                            overlay.after(interval, fade_step, step + 1)
-                        except (tk.TclError, RuntimeError):
-                            overlay.place_forget()
-
-                    fade_step()
-                else:
-                    self.app.tk.after(flash_ms, overlay.place_forget)
-            except (tk.TclError, RuntimeError):
-                try:
-                    overlay.place_forget()
-                except tk.TclError:
-                    pass
-
-        # Bind flash to release/keypress events
-        tkbtn.bind("<ButtonRelease-1>", flash, add="+")
-        tkbtn.bind("<ButtonRelease>", flash, add="+")
-        tkbtn.bind("<KeyPress-space>", flash, add="+")
-        tkbtn.bind("<KeyPress-Return>", flash, add="+")
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
