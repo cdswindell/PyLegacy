@@ -1093,7 +1093,7 @@ class EngineGui(Thread, Generic[S]):
             # make sure we still have focus
             if self.app.tk.focus_get() == self.horn.tk:
                 self._quill_after_id = self.app.tk.after(
-                    75, self.on_engine_command, ["QUILLING_HORN, BLOW_HORN_ONE", value]
+                    75, self.on_engine_command, [["QUILLING_HORN", "BLOW_HORN_ONE"], value]
                 )
             else:
                 self._stop_quill()
