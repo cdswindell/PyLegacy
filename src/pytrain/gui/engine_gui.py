@@ -2121,80 +2121,79 @@ class EngineGui(Thread, Generic[S]):
         return img
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
-        with self._cv:
-            # force geometry layout
-            self.app.tk.update_idletasks()
+        # force geometry layout
+        self.app.tk.update_idletasks()
 
-            # Get the heights of fixed elements
-            if self.header not in self.size_cache:
-                _, header_height = self.size_cache[self.header] = (
-                    self.header.tk.winfo_reqwidth(),
-                    self.header.tk.winfo_reqheight(),
-                )
-            else:
-                _, header_height = self.size_cache[self.header]
-
-            if self.emergency_box not in self.size_cache:
-                emergency_width, emergency_height = self.size_cache[self.emergency_box] = (
-                    self.emergency_box.tk.winfo_reqwidth(),
-                    self.emergency_box_height or self.emergency_box.tk.winfo_reqheight(),
-                )
-            else:
-                emergency_width, emergency_height = self.size_cache[self.emergency_box]
-
-            if self.info_box not in self.size_cache:
-                _, info_height = self.size_cache[self.info_box] = (
-                    self.info_box.tk.winfo_reqwidth(),
-                    self.info_box.tk.winfo_reqheight(),
-                )
-            else:
-                _, info_height = self.size_cache[self.info_box]
-
-            if self.scope_box not in self.size_cache:
-                _, scope_height = self.size_cache[self.scope_box] = (
-                    self.scope_box.tk.winfo_reqwidth(),
-                    self.scope_box.tk.winfo_reqheight(),
-                )
-            else:
-                _, scope_height = self.size_cache[self.scope_box]
-
-            if self.keypad_box.visible:
-                if self.keypad_box not in self.size_cache:
-                    _, keypad_height = self.size_cache[self.keypad_box] = (
-                        self.keypad_box.tk.winfo_reqwidth(),
-                        self.keypad_box.tk.winfo_reqheight(),
-                    )
-                else:
-                    _, keypad_height = self.size_cache[self.keypad_box]
-                variable_content = keypad_height
-            elif self.controller_box.visible:
-                if self.controller_box not in self.size_cache:
-                    _, controller_height = self.size_cache[self.controller_box] = (
-                        self.controller_box.tk.winfo_reqwidth(),
-                        self.controller_box.tk.winfo_reqheight(),
-                    )
-                else:
-                    _, controller_height = self.size_cache[self.controller_box]
-                variable_content = controller_height
-            elif self.sensor_track_box.visible:
-                if self.sensor_track_box not in self.size_cache:
-                    _, sensor_height = self.size_cache[self.sensor_track_box] = (
-                        self.sensor_track_box.tk.winfo_reqwidth(),
-                        self.sensor_track_box.tk.winfo_reqheight(),
-                    )
-                else:
-                    _, sensor_height = self.size_cache[self.sensor_track_box]
-                variable_content = sensor_height
-            else:
-                variable_content = 0
-                print("*********** No Variable Content *******")
-
-            # Calculate remaining vertical space
-            avail_image_height = (
-                self.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
+        # Get the heights of fixed elements
+        if self.header not in self.size_cache:
+            _, header_height = self.size_cache[self.header] = (
+                self.header.tk.winfo_reqwidth(),
+                self.header.tk.winfo_reqheight(),
             )
-            # use width of emergency height box as standard
-            avail_image_width = emergency_width
+        else:
+            _, header_height = self.size_cache[self.header]
+
+        if self.emergency_box not in self.size_cache:
+            emergency_width, emergency_height = self.size_cache[self.emergency_box] = (
+                self.emergency_box.tk.winfo_reqwidth(),
+                self.emergency_box_height or self.emergency_box.tk.winfo_reqheight(),
+            )
+        else:
+            emergency_width, emergency_height = self.size_cache[self.emergency_box]
+
+        if self.info_box not in self.size_cache:
+            _, info_height = self.size_cache[self.info_box] = (
+                self.info_box.tk.winfo_reqwidth(),
+                self.info_box.tk.winfo_reqheight(),
+            )
+        else:
+            _, info_height = self.size_cache[self.info_box]
+
+        if self.scope_box not in self.size_cache:
+            _, scope_height = self.size_cache[self.scope_box] = (
+                self.scope_box.tk.winfo_reqwidth(),
+                self.scope_box.tk.winfo_reqheight(),
+            )
+        else:
+            _, scope_height = self.size_cache[self.scope_box]
+
+        if self.keypad_box.visible:
+            if self.keypad_box not in self.size_cache:
+                _, keypad_height = self.size_cache[self.keypad_box] = (
+                    self.keypad_box.tk.winfo_reqwidth(),
+                    self.keypad_box.tk.winfo_reqheight(),
+                )
+            else:
+                _, keypad_height = self.size_cache[self.keypad_box]
+            variable_content = keypad_height
+        elif self.controller_box.visible:
+            if self.controller_box not in self.size_cache:
+                _, controller_height = self.size_cache[self.controller_box] = (
+                    self.controller_box.tk.winfo_reqwidth(),
+                    self.controller_box.tk.winfo_reqheight(),
+                )
+            else:
+                _, controller_height = self.size_cache[self.controller_box]
+            variable_content = controller_height
+        elif self.sensor_track_box.visible:
+            if self.sensor_track_box not in self.size_cache:
+                _, sensor_height = self.size_cache[self.sensor_track_box] = (
+                    self.sensor_track_box.tk.winfo_reqwidth(),
+                    self.sensor_track_box.tk.winfo_reqheight(),
+                )
+            else:
+                _, sensor_height = self.size_cache[self.sensor_track_box]
+            variable_content = sensor_height
+        else:
+            variable_content = 0
+            print("*********** No Variable Content *******")
+
+        # Calculate remaining vertical space
+        avail_image_height = (
+            self.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
+        )
+        # use width of emergency height box as standard
+        avail_image_width = emergency_width
 
         return avail_image_height, avail_image_width
 
@@ -2360,15 +2359,18 @@ class EngineGui(Thread, Generic[S]):
         """Fetch product info in a background thread, then schedule UI update."""
         prod_info = None
         key = (scope, tmcc_id)
+        do_request_prod_info = False
         with self._cv:
             if key not in self._pending_prod_infos:
                 self._pending_prod_infos.add(key)
-                prod_info = self.request_prod_info(scope, tmcc_id)
-                self._prod_info_cache[tmcc_id] = prod_info
-                self._pending_prod_infos.discard((scope, tmcc_id))
-                # now get image
-                img = self.get_scaled_image(BytesIO(prod_info.image_content))
-                self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+                do_request_prod_info = True
+        if do_request_prod_info:
+            prod_info = self.request_prod_info(scope, tmcc_id)
+            self._prod_info_cache[tmcc_id] = prod_info
+            self._pending_prod_infos.discard((scope, tmcc_id))
+            # now get image
+            img = self.get_scaled_image(BytesIO(prod_info.image_content))
+            self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
         # Schedule the UI update on the main thread
         self.queue_message(self.update_component_image, tmcc_id, key)
         return prod_info
