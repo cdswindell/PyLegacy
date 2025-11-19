@@ -1143,7 +1143,7 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
-        print("on_new_engine")
+        print(f"on_new_engine: {state.last_command if state else 'N/A'}")
         self.active_engine_state = state
         if state:
             # only set throttle/brake/momentum value if we are not in the middle of setting it
