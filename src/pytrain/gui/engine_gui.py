@@ -349,7 +349,6 @@ class EngineGui(Thread, Generic[S]):
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
-        self._quill_active = False
         self._quill_after_id = None
 
         # callbacks
@@ -1056,10 +1055,12 @@ class EngineGui(Thread, Generic[S]):
 
     def _stop_quill(self):
         with self._cv:
-            self._quill_active = False
             # cancel pending after() call if exists
             if self._quill_after_id is not None:
-                self.app.cancel(self._quill_after_id)
+                try:
+                    self.app.tk.after_cancel(self._quill_after_id)
+                except (TclError, AttributeError):
+                    pass
                 self._quill_after_id = None
             # reset slider
             self.horn.value = 0
@@ -1077,12 +1078,25 @@ class EngineGui(Thread, Generic[S]):
             self.brake_level.value = f"{value:02d}"
             self.on_engine_command("TRAIN_BRAKE", data=value)
 
-    def on_horn(self, value: int) -> None:
-        value = int(value)
+    def on_horn(self, value: int = None) -> None:
+        value = int(value) if value else self.horn.value
         self.horn_level.value = f"{value:02d}"
-        print(f"Horn value: {value}")
-        if value:
-            pass
+        if self._quill_after_id is not None:
+            with self._cv:
+                try:
+                    self.app.tk.after_cancel(self._quill_after_id)
+                except (TclError, AttributeError):
+                    pass
+                self._quill_after_id = None
+        if value > 0:
+            self.on_engine_command("QUILLING_HORN, BLOW_HORN_ONE", data=value)
+            # make sure we still have focus
+            if self.app.tk.focus_get() == self.horn.tk:
+                self._quill_after_id = self.app.tk.after(
+                    75, self.on_engine_command, ["QUILLING_HORN, BLOW_HORN_ONE", value]
+                )
+            else:
+                self._stop_quill()
 
     def on_momentum(self, value):
         if self.app.tk.focus_get() == self.momentum.tk:
