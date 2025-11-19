@@ -641,7 +641,7 @@ class EngineGui(Thread, Generic[S]):
 
         # brake
         self.brake_box, self.brake_level, self.brake = self.make_slider(
-            sliders, "Brake", self.on_train_brake, frm=7, to=0
+            sliders, "Brake", self.on_train_brake, frm=0, to=7
         )
 
         # Allow Tk to compute geometry
