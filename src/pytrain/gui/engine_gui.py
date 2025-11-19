@@ -1788,7 +1788,6 @@ class EngineGui(Thread, Generic[S]):
             nb.text_bold = bolded
             nb.text_color = "black"
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
-            self.flash_on_press(nb)
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
         # ------------------------------------------------------------
@@ -1801,31 +1800,6 @@ class EngineGui(Thread, Generic[S]):
 
         cell.visible = visible
         return cell, nb
-
-    @staticmethod
-    def flash_on_press(btn: PushButton) -> None:
-        # normal colors
-        normal_bg = btn.bg
-        normal_fg = btn.text_color
-
-        # pressed colors
-        pressed_bg = "darkgrey"
-        pressed_fg = "white"
-
-        # noinspection PyUnusedLocal
-        def on_press(event):
-            btn.bg = pressed_bg
-            btn.text_color = pressed_fg
-
-        def on_release(event):
-            widget = event.widget
-            print(widget)
-            btn.bg = normal_bg
-            btn.text_color = normal_fg
-
-        # bind both events
-        btn.tk.bind("<ButtonPress-1>", on_press, add="+")
-        btn.tk.bind("<ButtonRelease-1>", on_release, add="+")
 
     def on_keypress(self, key: str) -> None:
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2

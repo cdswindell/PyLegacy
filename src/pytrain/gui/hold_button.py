@@ -33,6 +33,7 @@ class HoldButton(PushButton):
         hold_threshold=1.0,
         repeat_interval=0.2,
         debounce_ms=80,
+        flash: bool = True,
         **kwargs,
     ):
         super().__init__(master, text=text, **kwargs)
@@ -55,6 +56,9 @@ class HoldButton(PushButton):
         # bind events (mouse and touchscreen compatible)
         self.when_left_button_pressed = self._on_press_event
         self.when_left_button_released = self._on_release_event
+
+        if flash:
+            self.flash_on_press()
 
     # ───────────────────────────────
     # Properties for dynamic callbacks
@@ -160,3 +164,30 @@ class HoldButton(PushButton):
             args = cb[1] if len(cb) > 1 else []
             kwargs = cb[2] if len(cb) > 2 else {}
             func(*args, **kwargs)
+
+    # ───────────────────────────────
+    # Helper: Flash button when pressed
+    # ───────────────────────────────
+    def flash_on_press(self) -> None:
+        # normal colors
+        normal_bg = self.bg
+        normal_fg = self.text_color
+
+        # pressed colors
+        pressed_bg = "darkgrey"
+        pressed_fg = "white"
+
+        # noinspection PyUnusedLocal
+        def on_press(event):
+            self.bg = pressed_bg
+            self.text_color = pressed_fg
+
+        def on_release(event):
+            widget = event.widget
+            print(widget)
+            self.bg = normal_bg
+            self.text_color = normal_fg
+
+        # bind both events
+        self.tk.bind("<ButtonPress-1>", on_press, add="+")
+        self.tk.bind("<ButtonRelease-1>", on_release, add="+")
