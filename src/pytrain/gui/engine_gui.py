@@ -582,7 +582,7 @@ class EngineGui(Thread, Generic[S]):
             _, btn = self.engine_ops_cells[command]
             btn.on_repeat = btn.on_press
             btn.on_press = None
-            btn.hold_threshold = 0.2
+            btn.repeat_interval = 0.3
 
         # used to make sure brake and throttle get focus when needed
         self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
