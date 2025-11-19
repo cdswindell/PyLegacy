@@ -1004,10 +1004,14 @@ class EngineGui(Thread, Generic[S]):
         else:
             self.steam_lights_box.hide()
             self.diesel_lights_box.show()
-        self.show_popup(self.lights_overlay)
+        # make sure button is reset, as popup prevents normal handling
+        self.show_popup(self.lights_overlay, "AUX2_OPTION_ONE")
 
-    def show_popup(self, overlay):
+    def show_popup(self, overlay, op: str = None):
         with self._cv:
+            if op:
+                _, btn = self.engine_ops_cells[op]
+                btn.restore_color_state()
             self.controller_box.hide()
             x, y = self.popup_position
             overlay.tk.place(x=x, y=y)
