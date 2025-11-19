@@ -236,6 +236,7 @@ class HoldButton(PushButton):
         def on_press(event):
             self._normal_bg = self.bg
             self._normal_fg = self.text_color
+            print(f"Flashing {self.text} from {self.bg}, {self.text_color} to {pressed_bg}, {pressed_fg}")
             self.bg = pressed_bg
             self.text_color = pressed_fg
             if self._inverted_img:
@@ -243,6 +244,7 @@ class HoldButton(PushButton):
 
         # noinspection PyUnusedLocal
         def on_release(event):
+            print(f"Restoring {self.text} to {self._normal_bg}, {self._normal_fg}")
             self.bg = self._normal_bg
             self.text_color = self._normal_fg
             if self._normal_img:
