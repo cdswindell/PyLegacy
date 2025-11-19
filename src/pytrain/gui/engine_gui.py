@@ -1814,7 +1814,8 @@ class EngineGui(Thread, Generic[S]):
 
         def on_press(event):
             print(event)
-            btn.tk.config(background=pressed_bg, foreground=pressed_fg)
+            btn.bg = pressed_bg
+            btn.text_color = pressed_fg
 
         def on_release(event):
             print(event)
