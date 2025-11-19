@@ -836,7 +836,7 @@ class EngineGui(Thread, Generic[S]):
         cell.tk.pack_propagate(False)
         master_box.tk.grid_columnconfigure(0, weight=1, minsize=self.button_size + 20)
 
-        btn = PushButton(
+        btn = HoldButton(
             cell,
             text=AUX2_KEY,
             command=self.on_engine_command,
@@ -874,7 +874,7 @@ class EngineGui(Thread, Generic[S]):
         cell.tk.pack_propagate(False)
         master_box.tk.grid_columnconfigure(2, weight=1, minsize=self.button_size + 20)
 
-        btn = PushButton(
+        btn = HoldButton(
             cell,
             text=CAB_KEY,
             command=self.on_engine_command,
@@ -1293,7 +1293,7 @@ class EngineGui(Thread, Generic[S]):
             # Create a PhotoImage to enforce button size
             img = tk.PhotoImage(width=self.scope_size, height=button_height)
             self._btn_images.append(img)
-            pb = PushButton(
+            pb = HoldButton(
                 scope_box,
                 text=scope_abbrev,
                 grid=[i, 1],
@@ -1819,8 +1819,9 @@ class EngineGui(Thread, Generic[S]):
 
         def on_release(event):
             widget = event.widget
-            widget.bg = normal_bg
-            widget.text_color = normal_fg
+            print(widget)
+            btn.bg = normal_bg
+            btn.text_color = normal_fg
 
         # bind both events
         btn.tk.bind("<ButtonPress-1>", on_press, add="+")
@@ -2216,7 +2217,7 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
         _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=2, height=1, bold=True)
 
-        self.halt_btn = halt_btn = PushButton(
+        self.halt_btn = halt_btn = HoldButton(
             emergency_box,
             text=HALT_KEY,
             grid=[0, 1],
