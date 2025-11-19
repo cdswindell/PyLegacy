@@ -2078,6 +2078,7 @@ class EngineGui(Thread, Generic[S]):
             if tmcc_id is None:
                 tmcc_id = self._scope_tmcc_ids[self.scope]
         img = None
+        print(f"update_component_image: {scope}, {tmcc_id}")
 
         # TODO: Handle Trains
         if scope in {CommandScope.ENGINE} and tmcc_id != 0:
@@ -2088,8 +2089,10 @@ class EngineGui(Thread, Generic[S]):
                 if prod_info is None:
                     if (scope, tmcc_id) not in self._pending_prod_infos:
                         # Submit fetch immediately and cache the Future itself
+                        print(f"submitting background fetch for {scope} {tmcc_id}")
                         future = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
                         self._prod_info_cache[tmcc_id] = future
+                        print(f"Exiting update_component_image {scope} {tmcc_id}")
                     return
 
                 if isinstance(prod_info, Future) and prod_info.done() and isinstance(prod_info.result(), ProdInfo):
@@ -2393,12 +2396,16 @@ class EngineGui(Thread, Generic[S]):
         with self._cv:
             if key not in self._pending_prod_infos:
                 self._pending_prod_infos.add(key)
+                print(f"Requesting prod info for {scope} {tmcc_id}")
                 prod_info = self.request_prod_info(scope, tmcc_id)
                 self._prod_info_cache[tmcc_id] = prod_info
                 self._pending_prod_infos.discard((scope, tmcc_id))
+                print(f"{prod_info}")
                 # now get image
+                print(f"Getting image for {scope} {tmcc_id}")
                 img = self.get_scaled_image(BytesIO(prod_info.image_content))
                 self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+                print(f"Got image for {key}")
         # Schedule the UI update on the main thread
         self.queue_message(self.update_component_image, tmcc_id, key)
         return prod_info
