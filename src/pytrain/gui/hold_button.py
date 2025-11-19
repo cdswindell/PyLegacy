@@ -254,6 +254,7 @@ class HoldButton(PushButton):
             with self._cv:
                 self._normal_bg = self.bg
                 self._normal_fg = self.text_color
+                print(f"flashing {self.text} from {self.bg}, {self.text_color} to {pressed_bg}, {pressed_fg}")
                 if self.text:
                     self.bg = pressed_bg
                     self.text_color = pressed_fg
@@ -263,11 +264,6 @@ class HoldButton(PushButton):
         # noinspection PyUnusedLocal
         def on_release(event):
             self.restore_color_state()
-            # with self._cv:
-            #     self.bg = self._normal_bg
-            #     self.text_color = self._normal_fg
-            #     if self._normal_img:
-            #         self.tk.config(image=self._normal_img, compound="center")
 
         # bind both events
         self.tk.bind("<ButtonPress-1>", on_press, add="+")
@@ -276,9 +272,8 @@ class HoldButton(PushButton):
     def restore_color_state(self):
         with self._cv:
             if self.text:
-                if self._normal_bg and self.bg != self._normal_bg:
-                    self.bg = self._normal_bg
-                if self._normal_fg and self.text_color != self._normal_fg:
-                    self.text_color = self._normal_fg
+                self.bg = self._normal_bg
+                self.text_color = self._normal_fg
+                print(f"restoring {self.text} to  {self._normal_bg}, {self._normal_fg}({self.bg}, {self.text_color})")
             if self._normal_img and self.tk.cget("image") != self._normal_img:
                 self.tk.config(image=self._normal_img, compound="center")
