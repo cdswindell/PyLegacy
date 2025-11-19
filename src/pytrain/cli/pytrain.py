@@ -1080,15 +1080,24 @@ class PyTrain:
             if len(param) >= 1:
                 scope = CommandScope.by_prefix(param[0])
                 if scope is not None:
+                    query = None
                     if len(param) > 1:
-                        address = int(param[1])
-                        state: ComponentState = self._state_store.query(scope, address)
-                        if state is not None:
-                            print(state)
-                            return
-                    elif scope in self._state_store:
+                        if param[1].isdigit():
+                            address = int(param[1])
+                            state: ComponentState = self._state_store.query(scope, address)
+                            if state is not None:
+                                print(state)
+                                return
+                        else:
+                            query = param[1].strip().lower()
+                    if scope in self._state_store:
+                        no_data = True
                         for state in self._state_store.get_all(scope):
-                            print(state)
+                            if query is None or query in state.name.lower():
+                                print(state)
+                                no_data = False
+                            if no_data:
+                                print("No data")
                         return
             else:
                 keys = self._state_store.keys()
