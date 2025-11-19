@@ -2088,13 +2088,13 @@ class EngineGui(Thread, Generic[S]):
                 img = self._image_cache.get((CommandScope.ACC, tmcc_id), None)
                 if img is None:
                     if state.is_asc2:
-                        img = self.get_scaled_image(self.asc2_image, preserve_height=True)
+                        img = self.get_image(self.asc2_image, inverse=False, scale=True, preserve_height=True)
                     elif state.is_bpc2:
-                        img = self.get_scaled_image(self.bpc2_image, preserve_height=True)
+                        img = self.get_image(self.bpc2_image, inverse=False, scale=True, preserve_height=True)
                     elif state.is_amc2:
-                        img = self.get_scaled_image(self.amc2_image, preserve_height=True)
+                        img = self.get_image(self.amc2_image, inverse=False, scale=True, preserve_height=True)
                     elif state.is_sensor_track:
-                        img = self.get_scaled_image(self.sensor_track_image, preserve_height=True)
+                        img = self.get_image(self.sensor_track_image, inverse=False, scale=True, preserve_height=True)
                     if img:
                         self._image_cache[(CommandScope.ACC, tmcc_id)] = img
                     else:
@@ -2382,17 +2382,30 @@ class EngineGui(Thread, Generic[S]):
         return prod_info
 
     # Example lazy loader pattern for images
-    def get_image(self, path, size=None):
+    def get_image(
+        self,
+        path,
+        size=None,
+        inverse: bool = True,
+        scale: bool = False,
+        preserve_height: bool = False,
+    ):
         if path not in self._image_cache:
-            img = Image.open(path)
-            if size:
-                img = img.resize(size)
-            inverted = ImageOps.invert(img.convert("RGB"))
-            inverted.putalpha(img.split()[-1])
-            normal_tk = ImageTk.PhotoImage(img)
-            inverted_tk = ImageTk.PhotoImage(inverted)
-            # restore transparency
-            self._image_cache[path] = (normal_tk, inverted_tk)
+            img = None
+            if scale:
+                normal_tk = self.get_scaled_image(path, preserve_height=preserve_height)
+            else:
+                img = Image.open(path)
+                if size:
+                    img = img.resize(size)
+                normal_tk = ImageTk.PhotoImage(img)
+            if inverse and img:
+                inverted = ImageOps.invert(img.convert("RGB"))
+                inverted.putalpha(img.split()[-1])
+                inverted_tk = ImageTk.PhotoImage(inverted)
+                self._image_cache[path] = (normal_tk, inverted_tk)
+            else:
+                self._image_cache[path] = normal_tk
         return self._image_cache[path]
 
     def get_titled_image(self, path):
