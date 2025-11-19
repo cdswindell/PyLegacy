@@ -53,6 +53,10 @@ class HoldButton(PushButton):
         self._after_id = None
         self._handled_hold = False
 
+        # properties
+        self.normal_bg = "white"
+        self.normal_fg = "black"
+
         # bind events (mouse and touchscreen compatible)
         self.when_left_button_pressed = self._on_press_event
         self.when_left_button_released = self._on_release_event
@@ -170,8 +174,8 @@ class HoldButton(PushButton):
     # ───────────────────────────────
     def flash_on_press(self) -> None:
         # normal colors
-        normal_bg = self.bg
-        normal_fg = self.text_color
+        self.normal_bg = normal_bg = self.bg
+        self.normal_fg = normal_fg = self.text_color
 
         # pressed colors
         pressed_bg = "darkgrey"
