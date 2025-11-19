@@ -1096,8 +1096,8 @@ class PyTrain:
                             if query is None or query in state.name.lower():
                                 print(state)
                                 no_data = False
-                            if no_data:
-                                print("No data")
+                        if no_data:
+                            print("No data")
                         return
             else:
                 keys = self._state_store.keys()
