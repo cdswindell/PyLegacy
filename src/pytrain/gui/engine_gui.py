@@ -2396,6 +2396,9 @@ class EngineGui(Thread, Generic[S]):
             if key not in self._pending_prod_infos:
                 self._pending_prod_infos.add(key)
                 prod_info = self.request_prod_info(scope, tmcc_id)
+                # now get image
+                img = self.get_scaled_image(BytesIO(prod_info.image_content))
+                self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
         # Schedule the UI update on the main thread
         self.queue_message(self.update_component_image, tmcc_id, key)
         return prod_info
