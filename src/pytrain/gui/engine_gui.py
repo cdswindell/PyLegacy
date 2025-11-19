@@ -1034,10 +1034,8 @@ class EngineGui(Thread, Generic[S]):
         if self.horn_box.visible:
             # hide the horn box
             self.horn_box.hide()
+
         if btn is None:  # called from horn handler
-            # restore the on_hold handler
-            _, btn = self.engine_ops_cells["BLOW_HORN_ONE"]
-            btn.on_hold = self.show_horn_control
             # restore what was there before; if swap button says "Momentum"
             # then show Train Brake, and visa versa
             _, btn = self.engine_ops_cells[MOM_TB]
@@ -1056,6 +1054,10 @@ class EngineGui(Thread, Generic[S]):
                 btn.text = MOMENTUM
                 self.momentum_box.visible = False
                 self.brake_box.visible = True
+
+        # restore the on_hold handler
+        _, horn = self.engine_ops_cells["BLOW_HORN_ONE"]
+        horn.on_hold = self.show_horn_control
 
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):

@@ -186,12 +186,17 @@ class HoldButton(PushButton):
             self.bg = pressed_bg
             self.text_color = pressed_fg
 
+        # noinspection PyUnusedLocal
         def on_release(event):
-            widget = event.widget
-            print(f"Widget: {widget} config: {widget.config()}")
             self.bg = normal_bg
             self.text_color = normal_fg
 
         # bind both events
         self.tk.bind("<ButtonPress-1>", on_press, add="+")
         self.tk.bind("<ButtonRelease-1>", on_release, add="+")
+
+    def restore_color_state(self):
+        if self.bg != self.normal_bg:
+            self.bg = self.normal_bg
+        if self.text_color != self.normal_fg:
+            self.text_color = self.normal_fg
