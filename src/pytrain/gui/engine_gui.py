@@ -85,7 +85,7 @@ ENTRY_LAYOUT = [
 ENGINE_OPS_LAYOUT = [
     [
         ("VOLUME_UP", "vol-up.jpg"),
-        ("ENGINEER_CHATTER", "walkie_talkie.png", "", "Crew..."),
+        ("ENGINEER_CHATTER", "walkie_talkie.jpg", "", "Crew..."),
         [("RPM_UP", "rpm-up.jpg", "", "", "d"), ("LET_OFF_LONG, NUMBER_6", "let-off.jpg", "", "", "s")],
         ("BLOW_HORN_ONE", "horn.jpg", "", "Horn..."),
     ],
