@@ -1089,14 +1089,15 @@ class EngineGui(Thread, Generic[S]):
                     pass
                 self._quill_after_id = None
         if value > 0:
-            self.on_engine_command(["QUILLING_HORN", "BLOW_HORN_ONE"], data=value)
-            # make sure we still have focus
-            if self.app.tk.focus_get() == self.horn.tk:
-                self._quill_after_id = self.app.tk.after(
-                    75, self.on_engine_command, ["QUILLING_HORN", "BLOW_HORN_ONE"], value
-                )
-            else:
-                self._stop_quill()
+            self.do_quilling_horn(value)
+
+    def do_quilling_horn(self, value: int):
+        self.on_engine_command(["QUILLING_HORN", "BLOW_HORN_ONE"], data=value)
+        # make sure we still have focus
+        if self.app.tk.focus_get() == self.horn.tk:
+            self._quill_after_id = self.app.tk.after(75, self.do_quilling_horn, value)
+        else:
+            self._stop_quill()
 
     def on_momentum(self, value):
         if self.app.tk.focus_get() == self.momentum.tk:
