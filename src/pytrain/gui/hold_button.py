@@ -61,8 +61,20 @@ class HoldButton(PushButton):
         self.when_left_button_pressed = self._on_press_event
         self.when_left_button_released = self._on_release_event
 
+        # flash button on press, if requested
         if flash:
-            self.flash_on_press()
+            self.do_flash()
+
+    # ───────────────────────────────
+    # Parent setter overrides
+    # ───────────────────────────────
+    @PushButton.bg.setter
+    def bg(self, value):
+        super().bg = self.normal_bg = value
+
+    @PushButton.text_color.setter
+    def text_color(self, value):
+        super().text_color = self.normal_fg = value
 
     # ───────────────────────────────
     # Properties for dynamic callbacks
@@ -172,10 +184,11 @@ class HoldButton(PushButton):
     # ───────────────────────────────
     # Helper: Flash button when pressed
     # ───────────────────────────────
-    def flash_on_press(self) -> None:
+    def do_flash(self) -> None:
         # normal colors
-        self.normal_bg = normal_bg = self.bg
-        self.normal_fg = normal_fg = self.text_color
+        self.normal_bg = self.bg
+        self.normal_fg = self.text_color
+        print(f"flash_on_press: text= {self.text}, bg={self.normal_bg}, fg={self.normal_fg}")
 
         # pressed colors
         pressed_bg = "darkgrey"
@@ -188,8 +201,8 @@ class HoldButton(PushButton):
 
         # noinspection PyUnusedLocal
         def on_release(event):
-            self.bg = normal_bg
-            self.text_color = normal_fg
+            self.bg = self.normal_bg
+            self.text_color = self.normal_fg
 
         # bind both events
         self.tk.bind("<ButtonPress-1>", on_press, add="+")
