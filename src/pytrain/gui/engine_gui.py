@@ -1085,7 +1085,6 @@ class EngineGui(Thread, Generic[S]):
             if self._quill_after_id is not None:
                 with self._cv:
                     try:
-                        print(f"Canceling quill after id: {self._quill_after_id}")
                         self.app.tk.after_cancel(self._quill_after_id)
                     except (TclError, AttributeError):
                         pass
@@ -1097,7 +1096,6 @@ class EngineGui(Thread, Generic[S]):
         self.on_engine_command(["QUILLING_HORN", "BLOW_HORN_ONE"], data=value)
         # make sure we still have focus
         with self._cv:
-            print(f"Quill horn value: {value} ID: {self._quill_after_id}")
             if self.app.tk.focus_get() == self.horn.tk:
                 self._quill_after_id = self.app.tk.after(500, self.do_quilling_horn, value)
             else:
@@ -1793,9 +1791,7 @@ class EngineGui(Thread, Generic[S]):
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         tmcc_id = self.tmcc_id_text.value
         if key.isdigit():
-            print(f"Key: {key} tmcc_id: {int(tmcc_id)} reset: {self.reset_on_keystroke}")
             if int(tmcc_id) and self.reset_on_keystroke:
-                print(f"Resetting tmcc_id: {int(tmcc_id)}")
                 self.update_component_info(0)
                 tmcc_id = "0" * num_chars
             tmcc_id = tmcc_id[1:] + key
@@ -2254,7 +2250,7 @@ class EngineGui(Thread, Generic[S]):
 
         _ = Text(emergency_box, text=" ", grid=[1, 1], align="top", size=6, height=1, bold=True)
 
-        self.reset_btn = reset_btn = PushButton(
+        self.reset_btn = reset_btn = HoldButton(
             emergency_box,
             text="Reset",
             grid=[2, 1],
@@ -2270,6 +2266,9 @@ class EngineGui(Thread, Generic[S]):
         reset_btn.text_color = "black"
         reset_btn.text_bold = True
         reset_btn.text_size = self.s_20
+        reset_btn.on_hold = reset_btn.on_press
+        reset_btn.on_press = None
+        reset_btn.hold_threshold = 0.2
 
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
         self.app.tk.update_idletasks()
