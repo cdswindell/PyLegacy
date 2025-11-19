@@ -2308,9 +2308,11 @@ class EngineGui(Thread, Generic[S]):
         state: S,
         delay: float = 0.0,
     ):
+        print(f"do_engine_command: {tmcc_id}, {targets}, {data}, {scope}")
         if isinstance(targets, str):
             targets = [targets]
         for target in targets:
+            print(f"Doing target: {target} ({type(target)})")
             if state.is_legacy:
                 # there are a few special cases
                 if target in {SMOKE_ON, SMOKE_OFF}:
