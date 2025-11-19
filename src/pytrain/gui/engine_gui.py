@@ -1081,23 +1081,27 @@ class EngineGui(Thread, Generic[S]):
     def on_horn(self, value: int = None) -> None:
         value = int(value) if value else self.horn.value
         self.horn_level.value = f"{value:02d}"
-        if self._quill_after_id is not None:
-            with self._cv:
-                try:
-                    self.app.tk.after_cancel(self._quill_after_id)
-                except (TclError, AttributeError):
-                    pass
-                self._quill_after_id = None
-        if value > 0:
-            self.do_quilling_horn(value)
+        with self._cv:
+            if self._quill_after_id is not None:
+                with self._cv:
+                    try:
+                        print(f"Canceling quill after id: {self._quill_after_id}")
+                        self.app.tk.after_cancel(self._quill_after_id)
+                    except (TclError, AttributeError):
+                        pass
+                    self._quill_after_id = None
+            if value > 0:
+                self.do_quilling_horn(value)
 
     def do_quilling_horn(self, value: int):
         self.on_engine_command(["QUILLING_HORN", "BLOW_HORN_ONE"], data=value)
         # make sure we still have focus
-        if self.app.tk.focus_get() == self.horn.tk:
-            self._quill_after_id = self.app.tk.after(150, self.do_quilling_horn, value)
-        else:
-            self._stop_quill()
+        with self._cv:
+            print(f"Quill horn value: {value} ID: {self._quill_after_id}")
+            if self.app.tk.focus_get() == self.horn.tk:
+                self._quill_after_id = self.app.tk.after(200, self.do_quilling_horn, value)
+            else:
+                self._stop_quill()
 
     def on_momentum(self, value):
         if self.app.tk.focus_get() == self.momentum.tk:
