@@ -2363,7 +2363,7 @@ class EngineGui(Thread, Generic[S]):
         with self._cv:
             if key not in self._pending_prod_infos:
                 self._pending_prod_infos.add(key)
-                do_request_prod_info = True
+                do_request_prod_info = True  # don't hold lock for long
         if do_request_prod_info:
             prod_info = self.request_prod_info(scope, tmcc_id)
             self._prod_info_cache[tmcc_id] = prod_info
