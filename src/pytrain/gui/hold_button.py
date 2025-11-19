@@ -7,6 +7,7 @@
 #
 #
 import time
+from typing import Any, Callable
 
 from guizero import PushButton
 
@@ -38,6 +39,8 @@ class HoldButton(PushButton):
         text_size: int = None,
         text_bold: bool = None,
         flash: bool = True,
+        command: Callable | None = None,
+        args: list[Any] | None = None,
         **kwargs,
     ):
         super().__init__(master, text=text, **kwargs)
@@ -55,6 +58,15 @@ class HoldButton(PushButton):
             self.text_size = text_size
         if text_bold is not None:
             self.text_bold = text_bold
+
+        if command and on_press:
+            raise ValueError("Cannot specify both command and on_press")
+        elif command:
+            print("Setting OnPress...")
+            if args:
+                on_press = (command, args)
+            else:
+                on_press = command
 
         # callback configuration
         self._on_press = on_press

@@ -108,7 +108,7 @@ ENGINE_OPS_LAYOUT = [
         ("REVERSE_DIRECTION", "", REV_KEY),
     ],
     [
-        ("AUX1_OPTION_ONE", "", AUX1_KEY),
+        ("AUX1_OPTION_ONE", "", AUX1_KEY, "Sequence"),
         ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights..."),
         ("AUX3_OPTION_ONE", "", AUX3_KEY),
         (MOM_TB, "", MOMENTUM),
@@ -586,6 +586,9 @@ class EngineGui(Thread, Generic[S]):
         _, btn = self.engine_ops_cells[MOM_TB]
         btn.text_size = self.s_12
         btn.update_command(self.toggle_momentum_train_brake, [btn])
+
+        _, btn = self.engine_ops_cells["AUX1_OPTION_ONE"]
+        btn.on_repeat = btn.on_press
 
         _, btn = self.engine_ops_cells["AUX2_OPTION_ONE"]
         btn.on_hold = self.on_lights
