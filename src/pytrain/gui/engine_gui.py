@@ -86,13 +86,13 @@ ENGINE_OPS_LAYOUT = [
     [
         ("VOLUME_UP", "vol-up.jpg"),
         ("ENGINEER_CHATTER", "walkie_talkie.png", "", "Crew..."),
-        [("RPM_UP", "rpm-up.jpg", None, None, "d"), ("LET_OFF_LONG, NUMBER_6", "let-off.jpg", None, None, "s")],
+        [("RPM_UP", "rpm-up.jpg", "", "", "d"), ("LET_OFF_LONG, NUMBER_6", "let-off.jpg", "", "", "s")],
         ("BLOW_HORN_ONE", "horn.jpg", "", "Horn..."),
     ],
     [
         ("VOLUME_DOWN", "vol-down.jpg"),
         ("TOWER_CHATTER", "tower.png", "", "Tower..."),
-        ("RPM_DOWN", "rpm-down.jpg", "d"),
+        [("RPM_DOWN", "rpm-down.jpg", "", "", "d"), ("WATER_INJECTOR, NUMBER_5", "water-inject.jpg", "", "", "s")],
         ("RING_BELL", "bell.jpg"),
     ],
     [
