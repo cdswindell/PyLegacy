@@ -965,7 +965,6 @@ class EngineGui(Thread, Generic[S]):
             cb.tk.config(width=width)
             cb.text_size = self.s_20
             cb.tk.pack_configure(padx=14, pady=20)
-            cb._selected.set("ABC")
             self._elements.add(cb)
         return combo_box
 
@@ -975,15 +974,17 @@ class EngineGui(Thread, Generic[S]):
 
         return func
 
+    # noinspection PyProtectedMember
     def on_combo_select(self, cb: Combo, od: dict, title: str, selected: str) -> None:
         cmd = od.get(selected, None)
         if isinstance(cmd, str):
             self.on_engine_command(cmd)
         cb.clear()
-        cb.append(title)
+        # cb.append(title)
         for option in od.keys():
             cb.append(option)
-        cb.select_default()
+        cb._selected.set(title)
+        # cb.select_default()
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
