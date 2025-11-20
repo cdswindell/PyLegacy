@@ -146,6 +146,24 @@ STEAM_LIGHTS = {
     "Tender Lights": [["On", "TENDER_MARKER_ON"], ["Off", "TENDER_MARKER_OFF"]],
 }
 
+TOWER_DIALOGS = {
+    "Tower General": [
+        ["Contextual", "TOWER_CONTEXT_DEPENDENT"],
+        ["Emergency", "EMERGENCY_CONTEXT_DEPENDENT"],
+        ["Shut Down", "TOWER_SHUTDOWN"],
+        ["Start Up", "TOWER_STARTUP"],
+    ],
+    "Tower Speed": [
+        ["Stop/Hold", "TOWER_SPEED_STOP_HOLD"],
+        ["Restricted", "TOWER_SPEED_RESTRICTED"],
+        ["Slow", "TOWER_SPEED_SLOW"],
+        ["Medium", "TOWER_SPEED_MEDIUM"],
+        ["Limited", "TOWER_SPEED_LIMITED"],
+        ["Normal", "TOWER_SPEED_NORMAL"],
+        ["Highball", "TOWER_SPEED_HIGHBALL"],
+    ],
+}
+
 REPEAT_EXCEPTIONS = {
     TMCC1EngineCommandEnum.AUX2_OPTION_ONE: 1,
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,
@@ -347,11 +365,13 @@ class EngineGui(Thread, Generic[S]):
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_level = self.horn = None
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = None
+        self.tower_dialog_overlay = self.crew_dialog_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
         self.diesel_btns = set()
         self.steam_btns = set()
         self._quill_after_id = None
+        self.tower_dialog_box = self.crew_dialog_box = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -593,6 +613,9 @@ class EngineGui(Thread, Generic[S]):
         _, btn = self.engine_ops_cells["AUX2_OPTION_ONE"]
         btn.on_hold = self.on_lights
 
+        _, btn = self.engine_ops_cells["TOWER_CHATTER"]
+        btn.on_hold = self.on_tower_dialog
+
         _, btn = self.engine_ops_cells["BLOW_HORN_ONE"]
         btn.on_hold = self.show_horn_control
 
@@ -715,6 +738,7 @@ class EngineGui(Thread, Generic[S]):
         # Make popups, starting with rr_speed dialog; must be done after scope_box
         self.rr_speed_overlay = self.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
         self.lights_overlay = self.create_popup("Lighting", self.build_lights_body)
+        self.tower_dialog_overlay = self.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
 
     def make_slider(
         self,
@@ -828,6 +852,9 @@ class EngineGui(Thread, Generic[S]):
         overlay.hide()
 
         return overlay
+
+    def build_tower_dialogs_body(self, body: Box):
+        self.tower_dialog_box = self.make_lights(body, TOWER_DIALOGS)
 
     def build_lights_body(self, body: Box):
         # cab light
@@ -1010,6 +1037,9 @@ class EngineGui(Thread, Generic[S]):
             self.diesel_lights_box.show()
         # make sure button is reset, as popup prevents normal handling
         self.show_popup(self.lights_overlay, "AUX2_OPTION_ONE")
+
+    def on_tower_dialog(self) -> None:
+        self.show_popup(self.tower_dialog_overlay)
 
     def show_popup(self, overlay, op: str = None):
         with self._cv:

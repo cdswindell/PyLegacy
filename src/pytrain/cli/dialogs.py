@@ -215,7 +215,7 @@ class DialogsCli(CliBaseTMCC):
         )
         eng_group.add_argument(
             "-sh",
-            "-stop_hold",
+            "-stop_ack",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_STOP_HOLD,
             dest="option",
@@ -223,7 +223,7 @@ class DialogsCli(CliBaseTMCC):
         )
         eng_group.add_argument(
             "-sr",
-            "-restricted_speed",
+            "-restricted_ack",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_RESTRICTED,
             dest="option",
@@ -231,7 +231,7 @@ class DialogsCli(CliBaseTMCC):
         )
         eng_group.add_argument(
             "-ss",
-            "-std_step_to_data",
+            "-slow_ack",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_SLOW,
             dest="option",
@@ -239,7 +239,7 @@ class DialogsCli(CliBaseTMCC):
         )
         eng_group.add_argument(
             "-sm",
-            "-medium_speed",
+            "-medium_ack",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_MEDIUM,
             dest="option",
@@ -247,7 +247,7 @@ class DialogsCli(CliBaseTMCC):
         )
         eng_group.add_argument(
             "-sl",
-            "-limited_speed",
+            "-limited_ack",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_LIMITED,
             dest="option",
@@ -255,7 +255,7 @@ class DialogsCli(CliBaseTMCC):
         )
         eng_group.add_argument(
             "-sn",
-            "-normal_speed",
+            "-normal_ack",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_NORMAL,
             dest="option",
@@ -263,7 +263,7 @@ class DialogsCli(CliBaseTMCC):
         )
         eng_group.add_argument(
             "-sx",
-            "-highball_speed",
+            "-highball_ack",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.ENGINEER_SPEED_HIGHBALL,
             dest="option",
@@ -288,6 +288,22 @@ class DialogsCli(CliBaseTMCC):
 
         tower = sp.add_parser("tower", aliases=["to"], help="Tower dialogs")
         tower_group = tower.add_mutually_exclusive_group()
+        tower_group.add_argument(
+            "-e",
+            "-emergency",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.EMERGENCY_CONTEXT_DEPENDENT,
+            dest="option",
+            help="Tower: emergency stop",
+        )
+        tower_group.add_argument(
+            "-cd",
+            "-context_dependent",
+            action="store_const",
+            const=TMCC2RailSoundsDialogControl.TOWER_CONTEXT_DEPENDENT,
+            dest="option",
+            help="Tower: context dependent dialog",
+        )
         tower_group.add_argument(
             "-su",
             "-start_up",
@@ -314,7 +330,7 @@ class DialogsCli(CliBaseTMCC):
         )
         tower_group.add_argument(
             "-ss",
-            "-std_step_to_data",
+            "-slow",
             action="store_const",
             const=TMCC2RailSoundsDialogControl.TOWER_SPEED_SLOW,
             dest="option",
