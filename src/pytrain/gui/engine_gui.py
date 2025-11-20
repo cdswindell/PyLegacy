@@ -1039,7 +1039,7 @@ class EngineGui(Thread, Generic[S]):
         self.show_popup(self.lights_overlay, "AUX2_OPTION_ONE")
 
     def on_tower_dialog(self) -> None:
-        self.show_popup(self.tower_dialog_overlay)
+        self.show_popup(self.tower_dialog_overlay, "TOWER_CHATTER")
 
     def show_popup(self, overlay, op: str = None):
         with self._cv:
