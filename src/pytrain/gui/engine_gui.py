@@ -964,7 +964,7 @@ class EngineGui(Thread, Generic[S]):
                 slot,
                 options=select_ops,
             )
-            cb._tk_var.set("Hidden choice")
+            cb._variable.set("Hidden choice")
             cb.update_command(self.make_combo_callback(cb, od, title))
             cb.tk.config(width=width)
             cb.text_size = self.s_20
@@ -985,7 +985,7 @@ class EngineGui(Thread, Generic[S]):
         cb.clear()
         for option in od.keys():
             cb.append(option)
-        cb._tk_var.set(title)
+        cb._variable.set(title)
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
