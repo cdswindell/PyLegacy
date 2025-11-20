@@ -166,6 +166,12 @@ CREW_DIALOGS = {
         ["Second Seating", "STEWARD_SECOND_SEATING"],
         ["Lounge Car Open", "STEWARD_LOUNGE_CAR_OPEN"],
     ],
+    "Etc": [
+        ["Passenger Car Startup", "PASSENGER_CAR_STARTUP"],
+        ["Passenger Car Shutdown", "PASSENGER_CAR_SHUTDOWN"],
+        ["Guest Enabled", "SPECIAL_GUEST_ENABLED"],
+        ["Guest Disabled", "SPECIAL_GUEST_DISABLED"],
+    ],
 }
 
 TOWER_DIALOGS = {
