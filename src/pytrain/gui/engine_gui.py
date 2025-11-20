@@ -956,7 +956,7 @@ class EngineGui(Thread, Generic[S]):
             col = idx // boxes_per_column
 
             # combo contents and mapping
-            select_ops = [title].append([v[0] for v in values])
+            select_ops = [title] + [v[0] for v in values]
             od = {v[0]: v[1] for v in values}
 
             slot = Box(combo_box, grid=[col, row])
