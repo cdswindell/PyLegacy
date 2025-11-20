@@ -960,7 +960,11 @@ class EngineGui(Thread, Generic[S]):
             od = {v[0]: v[1] for v in values}
 
             slot = Box(combo_box, grid=[col, row])
-            cb = Combo(slot, options=select_ops, selected=title)
+            cb = Combo(
+                slot,
+                options=select_ops,
+                selected=title
+            )
             cb.update_command(self.make_combo_callback(cb, od, title))
             cb.tk.config(width=width)
             cb.text_size = self.s_20
