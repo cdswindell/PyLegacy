@@ -177,9 +177,9 @@ CREW_DIALOGS = {
     ],
     "General": [
         ["Ack", "ENGINEER_ACK"],
+        ["Ack ID", "ENGINEER_ACK_ID"],
         ["Contextual", "ENGINEER_CONTEXT_DEPENDENT"],
         ["ID", "ENGINEER_ID"],
-        ["Ack ID", "ENGINEER_ACK_ID"],
         ["Shut Down", "ENGINEER_SHUTDOWN"],
         ["Welcome Back", "ENGINEER_ACK_WELCOME_BACK"],
     ],
