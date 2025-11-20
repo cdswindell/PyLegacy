@@ -956,19 +956,16 @@ class EngineGui(Thread, Generic[S]):
             col = idx // boxes_per_column
 
             # combo contents and mapping
-            select_ops = [v[0] for v in values]
+            select_ops = [title].append([v[0] for v in values])
             od = {v[0]: v[1] for v in values}
 
             slot = Box(combo_box, grid=[col, row])
-            cb = Combo(
-                slot,
-                options=select_ops,
-            )
-            cb._variable.set("Hidden choice")
+            cb = Combo(slot, options=select_ops, selected=title)
             cb.update_command(self.make_combo_callback(cb, od, title))
             cb.tk.config(width=width)
             cb.text_size = self.s_20
             cb.tk.pack_configure(padx=14, pady=20)
+            print(f"Title: {title} {cb.tk.config()}")
             self._elements.add(cb)
         return combo_box
 
@@ -983,9 +980,10 @@ class EngineGui(Thread, Generic[S]):
         if isinstance(cmd, str):
             self.on_engine_command(cmd)
         cb.clear()
+        cb.append(title)
         for option in od.keys():
             cb.append(option)
-        cb._variable.set(title)
+        cb.select_default()
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
