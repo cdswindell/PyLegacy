@@ -153,6 +153,8 @@ CREW_DIALOGS = {
         ["All Aboard", "CONDUCTOR_ALL_ABOARD"],
         ["Tickets Please", "CONDUCTOR_TICKETS_PLEASE"],
         ["Premature Stop", "CONDUCTOR_PREMATURE_STOP"],
+    ],
+    "Station": [
         ["Arriving", "STATION_ARRIVING"],
         ["Arrived", "STATION_ARRIVED"],
         ["Boarding", "STATION_BOARDING"],
@@ -980,7 +982,7 @@ class EngineGui(Thread, Generic[S]):
 
         # How many combo boxes do we have; display them in 2 columns:
         boxes_per_column = int(math.ceil(len(options) / 2))
-        width = max(map(len, options.keys())) - 2
+        width = max(map(len, options.keys()))
 
         for idx, (title, values) in enumerate(options.items()):
             # place 4 per column
