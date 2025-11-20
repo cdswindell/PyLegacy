@@ -380,6 +380,7 @@ class EngineGui(Thread, Generic[S]):
         self.steam_btns = set()
         self._quill_after_id = None
         self.tower_dialog_box = self.crew_dialog_box = None
+        self.can_hack_combo = False  # don't ask
 
         # callbacks
         self._scoped_callbacks = {
@@ -497,6 +498,10 @@ class EngineGui(Thread, Generic[S]):
         )
         cb.text_size = self.s_24
         cb.text_bold = True
+
+        # determine if we can set thew "selected" value directly;
+        # will be used for other combo boxes
+        self.can_hack_combo = hasattr(cb, "_selected")
 
         # Make the emergency buttons, including Halt and Reset
         self.make_emergency_buttons(app)
@@ -979,12 +984,16 @@ class EngineGui(Thread, Generic[S]):
         cmd = od.get(selected, None)
         if isinstance(cmd, str):
             self.on_engine_command(cmd)
+        # rebuild combo
         cb.clear()
-        # cb.append(title)
+        if not self.can_hack_combo:
+            cb.append(title)
         for option in od.keys():
             cb.append(option)
-        cb._selected.set(title)
-        # cb.select_default()
+        if self.can_hack_combo:
+            cb._selected.set(title)
+        else:
+            cb.select_default()
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
