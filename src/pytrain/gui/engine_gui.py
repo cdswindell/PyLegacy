@@ -147,6 +147,20 @@ STEAM_LIGHTS = {
 }
 
 TOWER_DIALOGS = {
+    "Arrive/Depart": [
+        ["All Clear", "TOWER_ALL_CLEAR"],
+        ["Arriving", "TOWER_ARRIVING"],
+        ["Arrived", "TOWER_ARRIVED"],
+        ["Depart Denied", "TOWER_DEPARTURE_DENIED"],
+        ["Depart Ok", "TOWER_DEPARTURE_GRANTED"],
+        ["Departed", "TOWER_DEPARTED"],
+    ],
+    "General": [
+        ["Emergency", "EMERGENCY_CONTEXT_DEPENDENT"],
+        ["Start Up", "TOWER_STARTUP"],
+        ["Shut Down", "TOWER_SHUTDOWN"],
+        ["Contextual", "TOWER_CONTEXT_DEPENDENT"],
+    ],
     "Speed": [
         ["Stop/Hold", "TOWER_SPEED_STOP_HOLD"],
         ["Restricted", "TOWER_SPEED_RESTRICTED"],
@@ -155,20 +169,6 @@ TOWER_DIALOGS = {
         ["Limited", "TOWER_SPEED_LIMITED"],
         ["Normal", "TOWER_SPEED_NORMAL"],
         ["Highball", "TOWER_SPEED_HIGHBALL"],
-    ],
-    "Commands": [
-        ["Contextual", "TOWER_CONTEXT_DEPENDENT"],
-        ["Emergency", "EMERGENCY_CONTEXT_DEPENDENT"],
-        ["Shut Down", "TOWER_SHUTDOWN"],
-        ["Start Up", "TOWER_STARTUP"],
-    ],
-    "Arrive/Depart": [
-        ["All Clear", "TOWER_ALL_CLEAR"],
-        ["Arriving", "TOWER_ARRIVING"],
-        ["Arrived", "TOWER_ARRIVED"],
-        ["Depart Ok", "TOWER_DEPARTURE_GRANTED"],
-        ["Depart Denied", "TOWER_DEPARTURE_DENIED"],
-        ["Departed", "TOWER_DEPARTED"],
     ],
 }
 
@@ -862,7 +862,7 @@ class EngineGui(Thread, Generic[S]):
         return overlay
 
     def build_tower_dialogs_body(self, body: Box):
-        self.tower_dialog_box = self.make_lights(body, TOWER_DIALOGS)
+        self.tower_dialog_box = self.make_combo_panel(body, TOWER_DIALOGS)
 
     def build_lights_body(self, body: Box):
         # cab light
@@ -937,56 +937,55 @@ class EngineGui(Thread, Generic[S]):
         self._elements.add(btn)
 
         # diesel options
-        self.diesel_lights_box = self.make_lights(body, DIESEL_LIGHTS)
+        self.diesel_lights_box = self.make_combo_panel(body, DIESEL_LIGHTS)
 
         # steam options
-        self.steam_lights_box = self.make_lights(body, STEAM_LIGHTS)
+        self.steam_lights_box = self.make_combo_panel(body, STEAM_LIGHTS)
         self.steam_lights_box.hide()
 
-    def make_lights(self, body: Box, options: dict) -> Box:
-        diesel_box = Box(body, layout="grid", border=1)
+    def make_combo_panel(self, body: Box, options: dict) -> Box:
+        combo_box = Box(body, layout="grid", border=1)
 
-        # How many lights do we have; display them in 2 columns:
-        lights_per_column = int(math.ceil(len(options) / 2))
+        # How many combo boxes do we have; display them in 2 columns:
+        boxes_per_column = int(math.ceil(len(options) / 2))
         width = max(map(len, options.keys())) - 2
 
         for idx, (title, values) in enumerate(options.items()):
             # place 4 per column
-            row = idx % lights_per_column
-            col = idx // lights_per_column
+            row = idx % boxes_per_column
+            col = idx // boxes_per_column
 
             # combo contents and mapping
-            select_ops = [title] + [v[0] for v in values]
+            select_ops = [v[0] for v in values]
             od = {v[0]: v[1] for v in values}
 
-            slot = Box(diesel_box, grid=[col, row])
+            slot = Box(combo_box, grid=[col, row])
             cb = Combo(
                 slot,
                 options=select_ops,
                 selected=title,
             )
-            cb.update_command(self.make_on_light_selected(cb, od, title))
+            cb.update_command(self.make_combo_callback(cb, od, title))
             cb.tk.config(width=width)
             cb.text_size = self.s_20
             cb.tk.pack_configure(padx=14, pady=20)
             self._elements.add(cb)
-        return diesel_box
+        return combo_box
 
-    def make_on_light_selected(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
+    def make_combo_callback(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
         def func(selected: str):
-            self.on_light_selected(cb, od, title, selected)
+            self.on_combo_select(cb, od, title, selected)
 
         return func
 
-    def on_light_selected(self, cb: Combo, od: dict, title: str, selected: str) -> None:
+    def on_combo_select(self, cb: Combo, od: dict, title: str, selected: str) -> None:
         cmd = od.get(selected, None)
         if isinstance(cmd, str):
             self.on_engine_command(cmd)
         cb.clear()
-        cb.append(title)
         for option in od.keys():
             cb.append(option)
-        cb.select_default()
+        cb.selected = title
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
