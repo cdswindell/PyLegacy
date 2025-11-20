@@ -169,8 +169,8 @@ CREW_DIALOGS = {
     "Etc": [
         ["Passenger Car Startup", "PASSENGER_CAR_STARTUP"],
         ["Passenger Car Shutdown", "PASSENGER_CAR_SHUTDOWN"],
-        ["Guest Enabled", "SPECIAL_GUEST_ENABLED"],
-        ["Guest Disabled", "SPECIAL_GUEST_DISABLED"],
+        ["Special Guest Enabled", "SPECIAL_GUEST_ENABLED"],
+        ["Special Guest Disabled", "SPECIAL_GUEST_DISABLED"],
     ],
 }
 
@@ -1456,11 +1456,10 @@ class EngineGui(Thread, Generic[S]):
                 # component active
                 if self._in_entry_mode:
                     self.ops_mode(update_info=False)
-                    # self.scope_box.show()
-                    # return
                 else:
                     force_entry_mode = True
                     clear_info = False
+                    self.image_box.hide()
         # update display
         self.close_popup()
         self.update_component_info()
@@ -2111,7 +2110,6 @@ class EngineGui(Thread, Generic[S]):
                 name = not_found_value
             self.name_text.value = name
         else:
-            print("In update_component_info; resetting tmcc_id...")
             if self.reset_on_keystroke:
                 self._scope_tmcc_ids[self.scope] = 0
                 self.reset_on_keystroke = False
