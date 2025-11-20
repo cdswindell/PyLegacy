@@ -147,19 +147,11 @@ STEAM_LIGHTS = {
 }
 
 CREW_DIALOGS = {
-    "Arrive/Depart": [
-        ["All Clear", "ENGINEER_ALL_CLEAR"],
-        ["Arriving", "ENGINEER_ARRIVING"],
-        ["Arrived", "ENGINEER_ARRIVED"],
-        ["Depart Denied", "ENGINEER_DEPARTURE_DENIED"],
-        ["Depart Ok", "ENGINEER_DEPARTURE_GRANTED"],
-        ["Departed", "ENGINEER_DEPARTED"],
-    ],
     "Acknowledge": [
-        ["Standby", "ENGINEER_ACK_STAND_BY"],
         ["Cleared", "ENGINEER_ACK_CLEARED"],
         ["Clear Ahead", "ENGINEER_ACK_CLEAR_AHEAD"],
         ["Clear Inbound", "ENGINEER_ACK_CLEAR_INBOUND"],
+        ["Standby", "ENGINEER_ACK_STAND_BY"],
         ["Stop/Hold", "ENGINEER_SPEED_STOP_HOLD"],
         ["Restricted", "ENGINEER_SPEED_RESTRICTED"],
         ["Slow", "ENGINEER_SPEED_SLOW"],
@@ -167,6 +159,14 @@ CREW_DIALOGS = {
         ["Limited", "ENGINEER_SPEED_LIMITED"],
         ["Normal", "ENGINEER_SPEED_NORMAL"],
         ["Highball", "ENGINEER_SPEED_HIGHBALL"],
+    ],
+    "Arrive/Depart": [
+        ["All Clear", "ENGINEER_ALL_CLEAR"],
+        ["Arriving", "ENGINEER_ARRIVING"],
+        ["Arrived", "ENGINEER_ARRIVED"],
+        ["Depart Denied", "ENGINEER_DEPARTURE_DENIED"],
+        ["Depart Ok", "ENGINEER_DEPARTURE_GRANTED"],
+        ["Departed", "ENGINEER_DEPARTED"],
     ],
     "Status": [
         ["Current Speed", "ENGINEER_SPEED"],
