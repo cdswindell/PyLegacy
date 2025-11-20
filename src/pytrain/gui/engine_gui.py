@@ -1003,7 +1003,7 @@ class EngineGui(Thread, Generic[S]):
             cb.update_command(self.make_combo_callback(cb, od, title))
             cb.tk.config(width=width)
             cb.text_size = self.s_20
-            cb.tk.pack_configure(padx=14, pady=20)
+            cb.tk.pack_configure(padx=6, pady=15)
             self._elements.add(cb)
         return combo_box
 
