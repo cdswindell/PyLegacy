@@ -1459,7 +1459,6 @@ class EngineGui(Thread, Generic[S]):
                 else:
                     force_entry_mode = True
                     clear_info = False
-                    self.image_box.hide()
         # update display
         self.close_popup()
         self.update_component_info()
@@ -1985,6 +1984,7 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_info(0)
         else:
             self.reset_on_keystroke = True
+            self.image_box.hide()
         self._in_entry_mode = True
         for cell in self.entry_cells:
             if not cell.visible:
