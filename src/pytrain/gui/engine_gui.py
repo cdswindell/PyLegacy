@@ -146,6 +146,26 @@ STEAM_LIGHTS = {
     "Tender Lights": [["On", "TENDER_MARKER_ON"], ["Off", "TENDER_MARKER_OFF"]],
 }
 
+CREW_DIALOGS = {
+    "Conductor": [
+        ["Next Stop", "CONDUCTOR_NEXT_STOP"],
+        ["Watch Your Step", "CONDUCTOR_WATCH_YOUR_STEP"],
+        ["All Aboard", "CONDUCTOR_ALL_ABOARD"],
+        ["Tickets Please", "CONDUCTOR_TICKETS_PLEASE"],
+        ["Premature Stop", "CONDUCTOR_PREMATURE_STOP"],
+        ["Arriving", "STATION_ARRIVING"],
+        ["Arrived", "STATION_ARRIVED"],
+        ["Boarding", "STATION_BOARDING"],
+        ["Departing", "STATION_DEPARTING"],
+    ],
+    "Steward": [
+        ["Welcome Aboard", "STEWARD_WELCOME_ABOARD"],
+        ["First Seating", "STEWARD_FIRST_SEATING"],
+        ["Second Seating", "STEWARD_SECOND_SEATING"],
+        ["Lounge Car Open", "STEWARD_LOUNGE_CAR_OPEN"],
+    ],
+}
+
 TOWER_DIALOGS = {
     "Arrive/Depart": [
         ["All Clear", "TOWER_ALL_CLEAR"],
@@ -629,6 +649,9 @@ class EngineGui(Thread, Generic[S]):
         _, btn = self.engine_ops_cells["TOWER_CHATTER"]
         btn.on_hold = self.on_tower_dialog
 
+        _, btn = self.engine_ops_cells["ENGINEER_CHATTER"]
+        btn.on_hold = self.on_crew_dialog
+
         _, btn = self.engine_ops_cells["BLOW_HORN_ONE"]
         btn.on_hold = self.show_horn_control
 
@@ -752,6 +775,7 @@ class EngineGui(Thread, Generic[S]):
         self.rr_speed_overlay = self.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
         self.lights_overlay = self.create_popup("Lighting", self.build_lights_body)
         self.tower_dialog_overlay = self.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
+        self.crew_dialog_overlay = self.create_popup("Crew Dialogs", self.build_crew_dialogs_body)
 
     def make_slider(
         self,
@@ -868,6 +892,9 @@ class EngineGui(Thread, Generic[S]):
 
     def build_tower_dialogs_body(self, body: Box):
         self.tower_dialog_box = self.make_combo_panel(body, TOWER_DIALOGS)
+
+    def build_crew_dialogs_body(self, body: Box):
+        self.crew_dialog_box = self.make_combo_panel(body, CREW_DIALOGS)
 
     def build_lights_body(self, body: Box):
         # cab light
@@ -1063,6 +1090,9 @@ class EngineGui(Thread, Generic[S]):
 
     def on_tower_dialog(self) -> None:
         self.show_popup(self.tower_dialog_overlay, "TOWER_CHATTER")
+
+    def on_crew_dialog(self) -> None:
+        self.show_popup(self.crew_dialog_overlay, "ENGINEER_CHATTER")
 
     def show_popup(self, overlay, op: str = None):
         with self._cv:
