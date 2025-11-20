@@ -173,10 +173,13 @@ class EngineState(ComponentState):
 
         if self.speed is not None:
             sp = f" Speed: {self.speed:03}"
+            if self.target_speed is not None:
+                speed_limit = self.decode_speed_info(self.target_speed)
+                sp += f"/{speed_limit:03}"
             if self.speed_limit is not None:
                 speed_limit = self.decode_speed_info(self.speed_limit)
                 sp += f"/{speed_limit:03}"
-            if self.max_speed is not None:
+            elif self.max_speed is not None:
                 max_speed = self.decode_speed_info(self.max_speed)
                 sp += f"/{max_speed:03}"
         if self._start_stop in STARTUP_SET:
@@ -555,6 +558,10 @@ class EngineState(ComponentState):
         if self.is_legacy:
             return TMCC2RRSpeedsEnum.to_rr_speed(self.speed)
         return TMCC1RRSpeedsEnum.to_rr_speed(self.speed)
+
+    @property
+    def target_speed(self) -> int:
+        return self.comp_data.target_speed
 
     @property
     def speed_limit(self) -> int:

@@ -431,9 +431,9 @@ class EngineGui(Thread, Generic[S]):
         self.ac_aux1_cell = self.ac_aux1_btn = None
 
         # controller
-        self.controller_box = self.controller_keypad_box = self.throttle_box = None
-        self.brake_box = self.brake_level = self.focus_widget = None
-        self.throttle = self.speed = self.brake = self._rr_speed_btn = None
+        self.controller_box = self.controller_keypad_box = None
+        self.brake_box = self.brake_level = self.brake = self.focus_widget = None
+        self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_level = self.horn = None
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = None
@@ -1339,7 +1339,7 @@ class EngineGui(Thread, Generic[S]):
             self.speed.value = f"{state.speed:03d}"
             self.update_rr_speed_buttons(state)
             if self.throttle.tk.focus_displayof() != self.throttle.tk:
-                self.throttle.value = state.speed
+                self.throttle.value = state.target_speed
 
             self.brake_level.value = f"{state.train_brake:02d}"
             if self.brake.tk.focus_displayof() != self.brake.tk:

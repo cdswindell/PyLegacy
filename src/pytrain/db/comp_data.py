@@ -240,6 +240,12 @@ REQUEST_TO_UPDATES_MAP = {
         ("speed",),
         ("target_speed",),
     ],
+    "SPEED": [
+        ("speed",),
+    ],
+    "TARGET_SPEED": [
+        ("target_speed",),
+    ],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
     "MOMENTUM": [("momentum",)],
