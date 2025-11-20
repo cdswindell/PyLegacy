@@ -147,6 +147,36 @@ STEAM_LIGHTS = {
 }
 
 CREW_DIALOGS = {
+    "Arrive/Depart": [
+        ["All Clear", "ENGINEER_ALL_CLEAR"],
+        ["Arriving", "ENGINEER_ARRIVING"],
+        ["Arrived", "ENGINEER_ARRIVED"],
+        ["Depart Denied", "ENGINEER_DEPARTURE_DENIED"],
+        ["Depart Ok", "ENGINEER_DEPARTURE_GRANTED"],
+        ["Departed", "ENGINEER_DEPARTED"],
+    ],
+    "Acknowledge": [
+        ["Standby", "ENGINEER_ACK_STAND_BY"],
+        ["Cleared", "ENGINEER_ACK_CLEARED"],
+        ["Clear Ahead", "ENGINEER_ACK_CLEAR_AHEAD"],
+        ["Clear Inbound", "ENGINEER_ACK_CLEAR_INBOUND"],
+        ["Welcome Back", "ENGINEER_ACK_WELCOME_BACK"],
+        ["Stop/Hold", "ENGINEER_SPEED_STOP_HOLD"],
+        ["Restricted", "ENGINEER_SPEED_RESTRICTED"],
+        ["Slow", "ENGINEER_SPEED_SLOW"],
+        ["Medium", "ENGINEER_SPEED_MEDIUM"],
+        ["Limited", "ENGINEER_SPEED_LIMITED"],
+        ["Normal", "ENGINEER_SPEED_NORMAL"],
+        ["Highball", "ENGINEER_SPEED_HIGHBALL"],
+    ],
+    "General": [
+        ["Emergency", "EMERGENCY_CONTEXT_DEPENDENT"],
+        ["Shut Down", "ENGINEER_SHUTDOWN"],
+        ["Contextual", "ENGINEER_CONTEXT_DEPENDENT"],
+        ["ID", "ENGINEER_ID"],
+        ["Ack", "ENGINEER_ACK"],
+        ["Ack ID", "ENGINEER_ACK_ID"],
+    ],
     "Conductor": [
         ["Next Stop", "CONDUCTOR_NEXT_STOP"],
         ["Watch Your Step", "CONDUCTOR_WATCH_YOUR_STEP"],
@@ -783,7 +813,7 @@ class EngineGui(Thread, Generic[S]):
         self.rr_speed_overlay = self.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
         self.lights_overlay = self.create_popup("Lighting", self.build_lights_body)
         self.tower_dialog_overlay = self.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
-        self.crew_dialog_overlay = self.create_popup("Crew Dialogs", self.build_crew_dialogs_body)
+        self.crew_dialog_overlay = self.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
 
     def make_slider(
         self,
