@@ -982,7 +982,7 @@ class EngineGui(Thread, Generic[S]):
 
         # How many combo boxes do we have; display them in 2 columns:
         boxes_per_column = int(math.ceil(len(options) / 2))
-        width = max(map(len, options.keys()))
+        width = max(map(len, options.keys())) - 1
 
         for idx, (title, values) in enumerate(options.items()):
             # place 4 per column
