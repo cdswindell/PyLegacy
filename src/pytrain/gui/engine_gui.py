@@ -147,13 +147,7 @@ STEAM_LIGHTS = {
 }
 
 TOWER_DIALOGS = {
-    "Tower General": [
-        ["Contextual", "TOWER_CONTEXT_DEPENDENT"],
-        ["Emergency", "EMERGENCY_CONTEXT_DEPENDENT"],
-        ["Shut Down", "TOWER_SHUTDOWN"],
-        ["Start Up", "TOWER_STARTUP"],
-    ],
-    "Tower Speed": [
+    "Speed": [
         ["Stop/Hold", "TOWER_SPEED_STOP_HOLD"],
         ["Restricted", "TOWER_SPEED_RESTRICTED"],
         ["Slow", "TOWER_SPEED_SLOW"],
@@ -161,6 +155,20 @@ TOWER_DIALOGS = {
         ["Limited", "TOWER_SPEED_LIMITED"],
         ["Normal", "TOWER_SPEED_NORMAL"],
         ["Highball", "TOWER_SPEED_HIGHBALL"],
+    ],
+    "Commands": [
+        ["Contextual", "TOWER_CONTEXT_DEPENDENT"],
+        ["Emergency", "EMERGENCY_CONTEXT_DEPENDENT"],
+        ["Shut Down", "TOWER_SHUTDOWN"],
+        ["Start Up", "TOWER_STARTUP"],
+    ],
+    "Arrive/Depart": [
+        ["All Clear", "TOWER_ALL_CLEAR"],
+        ["Arriving", "TOWER_ARRIVING"],
+        ["Arrived", "TOWER_ARRIVED"],
+        ["Depart Ok", "TOWER_DEPARTURE_GRANTED"],
+        ["Depart Denied", "TOWER_DEPARTURE_DENIED"],
+        ["Departed", "TOWER_DEPARTED"],
     ],
 }
 
