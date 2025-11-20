@@ -961,11 +961,16 @@ class EngineGui(Thread, Generic[S]):
             col = idx // boxes_per_column
 
             # combo contents and mapping
-            select_ops = [title] + [v[0] for v in values]
+            if self.can_hack_combo:
+                select_ops = [v[0] for v in values]
+            else:
+                select_ops = [title] + [v[0] for v in values]
             od = {v[0]: v[1] for v in values}
 
             slot = Box(combo_box, grid=[col, row])
             cb = Combo(slot, options=select_ops, selected=title)
+            self.rebuild_combo(cb, od, title)
+
             cb.update_command(self.make_combo_callback(cb, od, title))
             cb.tk.config(width=width)
             cb.text_size = self.s_20
@@ -979,12 +984,15 @@ class EngineGui(Thread, Generic[S]):
 
         return func
 
-    # noinspection PyProtectedMember
     def on_combo_select(self, cb: Combo, od: dict, title: str, selected: str) -> None:
         cmd = od.get(selected, None)
         if isinstance(cmd, str):
             self.on_engine_command(cmd)
         # rebuild combo
+        self.rebuild_combo(cb, od, title)
+
+    # noinspection PyProtectedMember
+    def rebuild_combo(self, cb: Combo, od: dict, title: str):
         cb.clear()
         if not self.can_hack_combo:
             cb.append(title)
