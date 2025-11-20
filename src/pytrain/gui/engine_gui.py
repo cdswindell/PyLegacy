@@ -966,6 +966,7 @@ class EngineGui(Thread, Generic[S]):
             cb.text_size = self.s_20
             cb.tk.pack_configure(padx=14, pady=20)
             print(f"Title: {title} {cb.tk.config()}")
+            cb.tk.config(text="ABC")
             self._elements.add(cb)
         return combo_box
 
