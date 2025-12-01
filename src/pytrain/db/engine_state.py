@@ -560,14 +560,11 @@ class EngineState(ComponentState):
             return None
 
     @property
-    def rr_speed(self) -> R | None:
-        if self.is_legacy:
-            return TMCC2RRSpeedsEnum.to_rr_speed(self.speed)
-        return TMCC1RRSpeedsEnum.to_rr_speed(self.speed)
-
-    @property
     def target_speed(self) -> int:
-        return self.comp_data.target_speed
+        if self.comp_data.is_legacy:
+            return self.comp_data.target_speed
+        else:
+            return self.comp_data.target_speed_tmcc
 
     @property
     def speed_limit(self) -> int:
@@ -594,6 +591,12 @@ class EngineState(ComponentState):
     @property
     def speed_label(self) -> str:
         return self._as_label(self.speed)
+
+    @property
+    def rr_speed(self) -> R | None:
+        if self.is_legacy:
+            return TMCC2RRSpeedsEnum.to_rr_speed(self.speed)
+        return TMCC1RRSpeedsEnum.to_rr_speed(self.speed)
 
     @property
     def bt_int(self) -> int:

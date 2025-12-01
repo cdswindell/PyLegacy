@@ -48,6 +48,18 @@ def default_to_func(t: int) -> bytes:
     return t.to_bytes(1, byteorder="little")
 
 
+def to_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
+    if not is_legacy:
+        speed = min(max(int(round(speed * 31 / 199)), 0), 31)
+    return speed
+
+
+def from_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
+    if not is_legacy:
+        speed = min(max(int(round(speed * 199 / 31)), 0), 199)
+    return speed
+
+
 class CompDataHandler:
     """
     Helper class to read and write configuration data from and to bytes.
@@ -288,6 +300,11 @@ REQUEST_TO_QUERIES_MAP = {
     "ABSOLUTE_SPEED": [
         ("target_speed",),
     ],
+    "TOGGLE_DIRECTION": [
+        ("speed",),
+        ("target_speed",),
+        ("rpm_labor",),
+    ],
     "TRAIN_BRAKE": [
         ("speed",),
         ("target_speed",),
@@ -309,6 +326,10 @@ CONVERSIONS: dict[str, tuple[Callable, Callable]] = {
     "rpm_labor": (
         lambda x: x,
         lambda rpm, labor: ((labor - 12 if labor >= 12 else 20 + labor) << 3) | rpm & 0b111,
+    ),
+    "target_speed": (
+        lambda speed, is_legacy: to_tmcc_speed(speed, is_legacy),
+        lambda speed, is_legacy: from_tmcc_speed(speed, is_legacy),
     ),
 }
 
@@ -422,6 +443,8 @@ class CompData(ABC, Generic[R]):
                                 base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, req.data)
                             else:
                                 base_value = conv_tpl[1](TMCC2_TO_BASE_SMOKE_MAP, req.data)
+                        elif sub_field in {"target_speed"}:
+                            base_value = conv_tpl[1](req.data, cmd.is_legacy)
                         else:
                             base_value = conv_tpl[1](req.data)
                     else:
@@ -515,6 +538,8 @@ class CompData(ABC, Generic[R]):
                     map_dict = BASE_TO_TMCC1_SMOKE_MAP
                     default = TMCC1EngineCommandEnum.SMOKE_OFF
                 return tpl[0](map_dict, value, default) if value is not None else value
+            elif name in {"target_speed"}:
+                return tpl[0](value, self.is_legacy) if value is not None else value
             else:
                 return tpl[0](value) if value is not None else value
         else:
@@ -522,8 +547,8 @@ class CompData(ABC, Generic[R]):
 
     def __setattr__(self, name: str, value: Any) -> None:
         # hack for target_speed; have to scale it if not legacy
-        if "target_speed" in name and not self.is_legacy:
-            value = int(round(value * 0.15577889))
+        # if value and not self.is_legacy and "target_speed" in name :
+        #     value = int(round(value * 0.15577889))  # scale by 31/199
         if name.startswith("_"):
             super().__setattr__(name, value)
             return
@@ -542,6 +567,8 @@ class CompData(ABC, Generic[R]):
             elif name == "smoke" and isinstance(self, EngineData):
                 map_dict = TMCC2_TO_BASE_SMOKE_MAP if self.is_legacy is True else TMCC1_TO_BASE_SMOKE_MAP
                 self.__dict__["_" + name] = tpl[1](map_dict, value) if value is not None else value
+            elif name in {"target_speed"}:
+                self.__dict__["_" + name] = tpl[1](value, self.is_legacy) if value is not None else value
             else:
                 # For RPM or Labor, we have to pass the 2 raw values to the conversion function
                 # as a tuple, thus requiring the isinstance check below.
