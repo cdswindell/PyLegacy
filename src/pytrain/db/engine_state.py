@@ -432,12 +432,18 @@ class EngineState(ComponentState):
 
                 if self.speed is None and command.is_valid(EngineBits.SPEED):
                     self.comp_data.speed = command.speed
-            elif isinstance(command, BaseReq) and command.pdi_command == PdiCommand.BASE_MEMORY and command.data_bytes:
+            elif (
+                isinstance(command, BaseReq)
+                and command.pdi_command == PdiCommand.BASE_MEMORY
+                and command.status == 0
+                and command.data_bytes is not None
+            ):
+                # process the field update sent by the Base 3
                 from .comp_data import BASE_MEMORY_ENGINE_READ_MAP
 
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(command.start, None)
                 if isinstance(tpl, CompDataHandler):
-                    setattr(self, tpl.field, tpl.from_bytes(command.data_bytes))
+                    setattr(self.comp_data, tpl.field, tpl.from_bytes(command.data_bytes))
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
             elif isinstance(command, D4Req):

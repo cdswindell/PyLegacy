@@ -497,14 +497,14 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                         command conflicts. For example, when sending speed change commands to the
                         Base 3 to go to speed 10, then 20, then 30, then 40, these directives
                         are echoed back almost instantly via the Base 3 and used to update the
-                        LCD display. But, when the Ser2 echos the same commands a few seconds later,
+                        LCD display. But when the Ser2 echos the same commands a few seconds later,
                         the display can look like 10, 20, 30, 10, 40, 30, 40, because the received
                         commands from the Ser2 arrive out of sync.
 
                         The fix is to filter out the propagation of the Ser2 commands if an equivalent
-                        command is broadcast from the Base 3, and if we are listening to both the
+                        command is broadcast from the Base 3 and if we are listening to both the
                         Base 3 and Ser2. Only a subset of the TMCC commands are sent out via the Base 3.
-                        These commands are all marked as "filtered", and are excluded here as well as
+                        These commands are all marked as "filtered" and are excluded here as well as
                         in ComponentStateStore.
                         """
                         if self._filter_updates is True and cmd.is_filtered is True:
@@ -790,3 +790,30 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             if state and action[0](state):
                 req = action[1](state, cmd)
                 req.send()
+                return
+
+        from src.pytrain.db.comp_data import CompData
+        from ..pdi.constants import PdiCommand
+
+        """
+        Engine/Train state is also impacted by states initiated and maintained by hand-held
+        controllers. For example, when the throttle is moved, a target speed is set on the
+        Base 3 that is not reflected in the command flow. This function queries the Base 3
+        for these states and updates the local state store accordingly.
+        """
+        pkgs = CompData.request_to_query(cmd)
+        if pkgs:
+            cmds = []
+            for pkg in pkgs:
+                cmds.append(
+                    BaseReq(
+                        cmd.address,
+                        pdi_command=PdiCommand.BASE_MEMORY,
+                        flags=0x02,
+                        scope=cmd.scope,
+                        start=pkg.offset,
+                        data_length=pkg.length,
+                    )
+                )
+            for query in cmds:
+                query.send()

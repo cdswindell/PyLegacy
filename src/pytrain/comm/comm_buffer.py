@@ -20,8 +20,6 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 if sys.version_info >= (3, 11):
     from typing import Dict, Self
-elif sys.version_info >= (3, 9):
-    from typing_extensions import Self
 
 import serial
 from serial.serialutil import SerialException

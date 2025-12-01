@@ -77,11 +77,19 @@ class CompDataHandler:
         return self._d4_only
 
 
-class UpdatePkg:
-    def __init__(self, field: str, offset: int, length: int, data_bytes: bytes) -> None:
+class QueryPkg:
+    def __init__(self, field: str, offset: int, length: int) -> None:
         self.field: str = field
         self.offset: int = offset
         self.length: int = length
+
+    def __repr__(self) -> str:
+        return f"{self.field}: Address: {hex(self.offset)} Length: {self.length}"
+
+
+class UpdatePkg(QueryPkg):
+    def __init__(self, field: str, offset: int, length: int, data_bytes: bytes) -> None:
+        super().__init__(field, offset, length)
         self.data_bytes: bytes = data_bytes
 
     def __repr__(self) -> str:
@@ -238,7 +246,6 @@ SCOPE_TO_COMP_MAP = {
 REQUEST_TO_UPDATES_MAP = {
     "ABSOLUTE_SPEED": [
         ("speed",),
-        ("target_speed",),
     ],
     "SPEED": [
         ("speed",),
@@ -270,6 +277,21 @@ REQUEST_TO_UPDATES_MAP = {
         ("rpm_labor", lambda x: 0),
     ],
     "TRAIN_BRAKE": [("train_brake",)],
+}
+
+#
+# Additionally, some requests require a query to the Base 3 to determine the
+# current state of the component. This map defines the fields that must be
+# queried, and the corresponding update fields that must be set.
+#
+REQUEST_TO_QUERIES_MAP = {
+    "ABSOLUTE_SPEED": [
+        ("target_speed",),
+    ],
+    "TRAIN_BRAKE": [
+        ("speed",),
+        ("target_speed",),
+    ],
 }
 
 CONVERSIONS: dict[str, tuple[Callable, Callable]] = {
@@ -411,6 +433,41 @@ class CompData(ABC, Generic[R]):
                     data_bytes += b"\xff" * (handler.length - len(data_bytes))
                 update_pkgs.append(UpdatePkg(field, addr, handler.length, data_bytes))
         return update_pkgs
+
+    # noinspection PyTypeChecker
+    @classmethod
+    def request_to_query(cls, req: R) -> list[QueryPkg] | None:
+        """
+        Queries Base 3 for the current value of an impacted field in response
+        to a CommandReq.
+        """
+        if not isinstance(req, CommandReq):
+            raise AttributeError(f"'Argument is not a CommandReq: {req}'")
+
+        query_pkgs: list[QueryPkg] = []
+        cmd = req.command
+        queries = REQUEST_TO_QUERIES_MAP.get(cmd.name, None)
+        if queries is None:
+            return None
+        for query in queries:
+            if isinstance(query, tuple) and len(query) >= 1:
+                field = query[0]
+                addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
+                # special case for rpm/labor
+                if addr is None and field in {"rpm", "labor"}:
+                    field = "rpm_labor"
+                    addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
+                if addr is None:
+                    log.warning(f"Field {field} not found in FIELD_TO_ADDR_ENGINE_MAP ({req})")
+                    continue
+                handler = BASE_MEMORY_ENGINE_READ_MAP.get(addr, None)
+                if handler is None:
+                    if addr is None:
+                        log.warning(f"Field {field} handler not found in BASE_MEMORY_ENGINE_READ_MAP ({req})")
+                    continue
+                query_pkgs.append(QueryPkg(field, addr, handler.length))
+                print(f"Added query for field: {field}, address: {addr}, length: {handler.length}")
+        return query_pkgs
 
     @abstractmethod
     def __init__(self, data: bytes | None, scope: CommandScope, tmcc_id: int = None) -> None:

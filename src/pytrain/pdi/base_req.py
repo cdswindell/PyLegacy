@@ -227,6 +227,7 @@ class BaseReq(PdiReq, CompDataMixin):
                         )
                     )
         elif state.name in ENGINE_WRITE_MAP and cmd.address <= 99:
+            log.warning(f"Using old-style {state.name} for updates from {cmd}")
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
             if log.isEnabledFor(logging.DEBUG):
                 log.debug(f"State: {state} {data} {bit_pos} {offset} {scaler(data) if scaler else data}")
