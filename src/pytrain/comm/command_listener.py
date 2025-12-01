@@ -20,6 +20,8 @@ from typing import Generic, List, Protocol, Tuple, TypeVar, cast, runtime_checka
 from ..db.component_state import ComponentState
 from ..pdi.amc2_req import Amc2Req
 from ..pdi.base_req import BaseReq
+from ..pdi.constants import D4Action, PdiCommand
+from ..pdi.d4_req import D4Req
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import (
@@ -792,8 +794,8 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 req.send()
                 return
 
-        from src.pytrain.db.comp_data import CompData
-        from ..pdi.constants import PdiCommand
+        from ..db.comp_data import CompData
+        from ..db.component_state_store import ComponentStateStore
 
         """
         Engine/Train state is also impacted by states initiated and maintained by hand-held
@@ -805,15 +807,29 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         if pkgs:
             cmds = []
             for pkg in pkgs:
-                cmds.append(
-                    BaseReq(
-                        cmd.address,
-                        pdi_command=PdiCommand.BASE_MEMORY,
-                        flags=0x02,
-                        scope=cmd.scope,
-                        start=pkg.offset,
-                        data_length=pkg.length,
+                if 1 <= cmd.address <= 99:
+                    cmds.append(
+                        BaseReq(
+                            cmd.address,
+                            pdi_command=PdiCommand.BASE_MEMORY,
+                            flags=0x02,
+                            scope=cmd.scope,
+                            start=pkg.offset,
+                            data_length=pkg.length,
+                        )
                     )
-                )
+                else:
+                    state = ComponentStateStore.get_state(cmd.scope, cmd.address, create=False)
+                    assert state.record_no != 0xFFFF
+                    pdi_cmd = PdiCommand.D4_ENGINE if cmd.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
+                    cmds.append(
+                        D4Req(
+                            state.record_no,
+                            pdi_cmd,
+                            D4Action.QUERY,
+                            start=pkg.offset,
+                            data_length=pkg.length,
+                        )
+                    )
             for query in cmds:
                 query.send()

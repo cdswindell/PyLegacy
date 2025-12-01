@@ -408,7 +408,7 @@ class CompData(ABC, Generic[R]):
                             state = ComponentStateStore.build().get_state(req.scope, req.address, False)
                             assert state is not None
                             with state.synchronizer:
-                                from src.pytrain.db.engine_state import EngineState
+                                from .engine_state import EngineState
 
                                 if sub_field == "rpm":
                                     rpm = req.data
