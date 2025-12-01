@@ -466,7 +466,6 @@ class CompData(ABC, Generic[R]):
                         log.warning(f"Field {field} handler not found in BASE_MEMORY_ENGINE_READ_MAP ({req})")
                     continue
                 query_pkgs.append(QueryPkg(field, addr, handler.length))
-                print(f"Added query for field: {field}, address: {addr}, length: {handler.length}")
         return query_pkgs
 
     @abstractmethod
