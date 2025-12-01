@@ -521,6 +521,9 @@ class CompData(ABC, Generic[R]):
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
     def __setattr__(self, name: str, value: Any) -> None:
+        # hack for target_speed; have to scale it if not legacy
+        if "target_speed" in name and not self.is_legacy:
+            value = int(round(value * 0.15577889))
         if name.startswith("_"):
             super().__setattr__(name, value)
             return
