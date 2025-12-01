@@ -23,9 +23,9 @@ from ..protocol.multibyte.multibyte_constants import (
 )
 from ..protocol.sequence.sequence_constants import SequenceCommandEnum
 from ..protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1RRSpeedsEnum
 from ..protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
 from ..utils.argument_parser import PyTrainArgumentParser
 from . import CliBase, CliBaseTMCC, DataAction
 
@@ -515,7 +515,7 @@ class EngineCli(CliBaseTMCC):
             action="store_const",
             const="RELATIVE_SPEED",
             dest="option",
-            help="Set relative speed speed (-5 to 5)",
+            help="Set relative speed (-5 to 5)",
         )
         speed_group.set_defaults(option="RAMPED_SPEED_SEQ")
 
@@ -534,11 +534,11 @@ class EngineCli(CliBaseTMCC):
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
         engine: int = self._args.engine
-        option_data: int = self._args.data if "data" in self._args else 0
         try:
             option = self._decode_engine_option()  # raise ValueError if you can't decode
             if option is None:
                 raise ValueError("Must specify an option, use -h for help")
+            option_data: int = self._args.data if "data" in self._args else 0
             scope = self._determine_scope()
             if self.is_tmcc2 or option.is_tmcc2:
                 cmd = EngineCmdTMCC2(
@@ -599,16 +599,24 @@ class EngineCli(CliBaseTMCC):
                 else:
                     raise ArgumentError(None, "Must specify 'on' or 'off', for -prime_mover; use -h for help")
             else:
-                raise ArgumentError(None, "Must specify an valid option, use -h for help")
+                raise ArgumentError(None, "Must specify a valid option, use -h for help")
         else:
             option = str(option).strip().upper()
 
         # reset option in args, for display purposes
         self._args.option = option
 
+        # vet data argument, if string
+        if "data" in self._args and isinstance(self._args.data, str):
+            rr_enums = TMCC2RRSpeedsEnum if self.is_tmcc2 else TMCC1RRSpeedsEnum
+            rr_value = rr_enums.by_name(self._args.data, False)
+            if rr_value is None:
+                raise ArgumentError(None, f"Invalid speed: {self._args.data}")
+            self._args.data = min(rr_value.value)
+
         # if scope is TMCC1, resolve via TMCC1EngineCommandDef
         if self.is_tmcc1:
-            enum_classes = [TMCC1EngineCommandEnum]
+            enum_classes = [TMCC1EngineCommandEnum, SequenceCommandEnum]
         else:
             enum_classes = [
                 TMCC2EngineCommandEnum,

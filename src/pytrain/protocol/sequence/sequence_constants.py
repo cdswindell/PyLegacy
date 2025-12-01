@@ -69,3 +69,4 @@ class SequenceCommandEnum(CommandDefEnum):
     LABOR_EFFECT_DOWN_SEQ = SequenceDef(5)
     LABOR_EFFECT_UP_SEQ = SequenceDef(6)
     ABSOLUTE_SPEED_RPM = SequenceDef(7, d_max=199)
+    SET_SPEED_RPM = SequenceDef(8, d_max=199)

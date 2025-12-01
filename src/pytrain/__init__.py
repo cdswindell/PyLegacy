@@ -86,6 +86,10 @@ from .protocol.multibyte.multibyte_constants import (
     TMCC2VariableEnum,  # noqa: F401
     UnitAssignment,  # noqa: F401
 )
+from .protocol.sequence.ramped_speed_req import (
+    RampedSpeedDialogReq,  # noqa: F401
+    RampedSpeedReq,  # noqa: F401
+)
 from .protocol.sequence.sequence_constants import (
     SequenceCommandEnum,  # noqa: F401
 )

@@ -13,10 +13,9 @@ import logging
 from gpiozero import Button
 
 from ..db.component_state import SwitchState
+from ..db.component_state_store import ComponentStateStore
 from ..db.engine_state import EngineState, TrainState
 from ..db.irda_state import IrdaState
-from ..db.block_state import BlockState
-from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler, P
 from ..protocol.command_def import CommandDefEnum
@@ -31,6 +30,8 @@ log = logging.getLogger(__name__)
 
 
 class Block:
+    from ..db.block_state import BlockState
+
     """
     This class represents a Block, a section of a railway network, and manages its state and status.
 
@@ -374,7 +375,7 @@ class Block:
 
     def next_block_clear(self, signaling_block: Block) -> None:
         log.info(f"Block {self.block_id} orig speed: {self._original_speed} Block {signaling_block.block_id} Clear")
-        if signaling_block.is_occupied is False:
+        if not signaling_block.is_occupied:
             self.resume_speed()
 
     def slow_down(self):
@@ -388,8 +389,7 @@ class Block:
                     self.do_dialog(TMCC2RailSoundsDialogControl.TOWER_SPEED_RESTRICTED)
                     scope = self._current_motive.scope
                     tmcc_id = self._current_motive.tmcc_id
-                    is_tmcc = self._current_motive.is_tmcc
-                    req = RampedSpeedReq(tmcc_id, "restricted", scope, is_tmcc)
+                    req = RampedSpeedReq(tmcc_id, "restricted", scope)
                     req.send()
 
     def stop_immediate(self):
@@ -400,11 +400,11 @@ class Block:
             self.do_dialog(TMCC2RailSoundsDialogControl.TOWER_SPEED_STOP_HOLD)
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
-            if self._current_motive.is_tmcc is True:
+            if self._current_motive.is_tmcc:
                 CommandReq(TMCC1EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope).send()
             else:
                 CommandReq(TMCC2EngineCommandEnum.STOP_IMMEDIATE, tmcc_id, scope=scope).send()
-        elif self.is_occupied is True:
+        elif self.is_occupied:
             # send a stop to all engines, as otherwise, we could have a crash
             if self.is_dialog:
                 self.do_dialog(5)
@@ -418,21 +418,22 @@ class Block:
         if self._current_motive and self._original_speed:
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
-            is_tmcc = self._current_motive.is_tmcc
             log.info(f"Resume Speed: {self._original_speed} for {scope.title} {tmcc_id}")
             self.do_dialog(TMCC2RailSoundsDialogControl.TOWER_DEPARTURE_GRANTED)
-            req = RampedSpeedReq(tmcc_id, self._original_speed, scope, is_tmcc)
+            req = RampedSpeedReq(tmcc_id, self._original_speed, scope)
             req.send()
 
     def do_dialog(self, dialog: CommandDefEnum | int) -> None:
         if self.is_dialog and self._current_motive:
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
-            if isinstance(dialog, int):
-                req = CommandReq.build(TMCC2EngineCommandEnum.NUMERIC, tmcc_id, data=dialog, scope=scope)
-            else:
+            if isinstance(dialog, CommandDefEnum):
                 log.info(f"Do dialog {dialog.title} for {scope.title} {tmcc_id}")
                 req = CommandReq.build(dialog, tmcc_id, scope=scope)
+            elif isinstance(dialog, int):
+                req = CommandReq.build(TMCC2EngineCommandEnum.NUMERIC, tmcc_id, data=dialog, scope=scope)
+            else:
+                raise AttributeError(f"Invalid dialog type: {type(dialog)} ({dialog})")
             req.send()
 
     def _cache_motive(self) -> None:
@@ -462,7 +463,7 @@ class Block:
             self._current_motive = None
             self._motive_direction = None
 
-        if self._current_motive:
+        if isinstance(self._current_motive, EngineState):
             self._original_speed = self._current_motive.speed
             self._motive_direction = self.sensor_track.last_direction
         else:
@@ -482,7 +483,7 @@ class Block:
                 self._thru_block.prev_block = None
             else:
                 return
-            if self.next_block.is_occupied is True:
+            if self.next_block.is_occupied:
                 if self._stop_btn.is_active:
                     self.signal_stop_enter()
                 elif self._slow_btn.is_active:

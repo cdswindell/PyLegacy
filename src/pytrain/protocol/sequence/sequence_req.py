@@ -6,14 +6,15 @@ from collections.abc import Sequence
 from time import sleep
 from typing import Callable, List, Tuple, TypeVar
 
+from ...pdi.pdi_req import PdiReq
 from ..multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
 
 if sys.version_info >= (3, 11):
     from typing import Self
-elif sys.version_info >= (3, 9):
-    from typing_extensions import Self
 
 from ...comm.comm_buffer import CommBuffer
+from ...db.component_state_store import ComponentStateStore
+from ...db.engine_state import EngineState, TrainState
 from ...utils.argument_parser import ArgumentParser
 from ..command_def import CommandDefEnum
 from ..command_req import CommandReq
@@ -88,6 +89,7 @@ class SequenceReq(CommandReq, Sequence):
             for request in requests:
                 self._requests.append(SequencedReq(request, repeat, delay))
         super().__init__(command, address, 0, scope)
+        self._state = ComponentStateStore.get_state(scope, address, create=False)
         self._repeat = repeat
         self._delay = delay
 
@@ -131,7 +133,7 @@ class SequenceReq(CommandReq, Sequence):
 
     def add(
         self,
-        request: CommandReq | CommandDefEnum,
+        request: CommandReq | CommandDefEnum | PdiReq,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
         scope: CommandScope = None,
@@ -140,6 +142,10 @@ class SequenceReq(CommandReq, Sequence):
     ) -> None:
         if isinstance(request, CommandDefEnum):
             request = CommandReq.build(request, address=address, data=data, scope=scope)
+        elif isinstance(request, CommandReq) or isinstance(request, PdiReq):
+            pass
+        else:
+            raise ValueError(f"Invalid request type: {type(request)}")
         self._requests.append(SequencedReq(request, repeat=repeat, delay=delay))
 
     def send(
@@ -265,7 +271,8 @@ class SequenceReq(CommandReq, Sequence):
             else:
                 speed_enum = TMCC2EngineCommandEnum.by_name(base)
             if speed_enum is None:
-                raise ValueError(f"Unknown speed type: {speed}")
+                raise ValueError(f"Unknown speed: {speed}")
+            speed_int = speed.value[0]
         elif isinstance(speed, int):
             if is_tmcc:
                 for rr_speed in TMCC1RRSpeedsEnum:
@@ -281,14 +288,25 @@ class SequenceReq(CommandReq, Sequence):
                         base = f"SPEED_{rr_speed.name}"
                         speed_enum = TMCC2EngineCommandEnum.by_name(base)
                         break
+            if speed_int is None:
+                speed_int = speed
         elif isinstance(speed, str):
             try:
-                args = self.speed_parser().parse_args(["-" + speed.strip()])
+                args = self.speed_parser(is_tmcc).parse_args(["-" + speed.strip()])
                 speed_enum = args.command
                 base = speed_enum.name
                 _, speed_int = speed_enum.value.alias
             except argparse.ArgumentError:
                 pass
+
+        # sanitize speed
+        if self.is_tmcc1 and speed_int > 31:
+            speed_int = 31
+        elif self.is_tmcc2 and speed_int > 199:
+            if isinstance(self.state, EngineState):
+                speed_int = self.state.speed_max
+            else:
+                speed_int = 199
 
         if base is not None:
             tower = TMCC2RailSoundsDialogControl.by_name(f"TOWER_{base}")
@@ -300,6 +318,22 @@ class SequenceReq(CommandReq, Sequence):
         Recalculate command state before sending bytes
         """
         pass
+
+    @property
+    def state(self) -> EngineState | TrainState:
+        return self._state
+
+    @property
+    def is_tmcc1(self) -> bool:
+        if isinstance(self._state, EngineState):
+            return not self._state.is_legacy
+        return True
+
+    @property
+    def is_tmcc2(self) -> bool:
+        if isinstance(self._state, EngineState):
+            return self._state.is_legacy
+        return False
 
 
 class SequencedReq:

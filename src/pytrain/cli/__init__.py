@@ -7,7 +7,6 @@
 #
 
 import logging
-import sys
 from abc import ABC, ABCMeta
 from argparse import Action, ArgumentParser, ArgumentTypeError, Namespace
 from typing import Any, List
@@ -23,8 +22,7 @@ from ..protocol.constants import (
     CommandScope,
     CommandSyntax,
 )
-from ..protocol.tmcc1.tmcc1_constants import TMCC1_SPEED_MAP
-from ..protocol.tmcc2.tmcc2_constants import TMCC2_SPEED_MAP
+from ..protocol.tmcc2.tmcc2_constants import TMCC2RRSpeedsEnum
 from ..utils.argument_parser import PyTrainArgumentParser
 
 log = logging.getLogger(__name__)
@@ -226,17 +224,15 @@ class CliBase(ABC):
         return self._is_server
 
     @staticmethod
-    def _validate_speed(arg: Any) -> int:
+    def _validate_speed(arg: Any) -> int | str:
         try:
             return int(arg)  # try convert to int
         except ValueError:
             pass
-        uc_arg = str(arg).upper()
-        if uc_arg in TMCC2_SPEED_MAP:
-            # feels a little hacky, but need a way to use a different map for TMCC commands
-            if "-tmcc" in sys.argv or "-tmcc1" in sys.argv:
-                return TMCC1_SPEED_MAP[uc_arg]
-            return TMCC2_SPEED_MAP[uc_arg]
+        if isinstance(arg, str):
+            value = TMCC2RRSpeedsEnum.by_prefix(arg, False)
+            if value:
+                return value.name
         raise ArgumentTypeError("Speed must be between 0 and 199 (0 and 31, for tmcc)")
 
     @staticmethod

@@ -403,59 +403,68 @@ class CompData(ABC, Generic[R]):
             return None
         for update in updates:
             if isinstance(update, tuple) and len(update) >= 1:
-                field = sub_field = update[0]
-                addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
-                # special case for rpm/labor
-                if addr is None and field in {"rpm", "labor"}:
-                    field = "rpm_labor"
-                    addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
-                if addr is None:
-                    log.warning(f"Field {field} not found in FIELD_TO_ADDR_ENGINE_MAP ({req})")
-                    continue
-                handler = BASE_MEMORY_ENGINE_READ_MAP.get(addr, None)
-                if handler is None:
-                    if addr is None:
-                        log.warning(f"Field {field} handler not found in BASE_MEMORY_ENGINE_READ_MAP ({req})")
-                    continue
-                if len(update) == 1:
-                    # have to convert data from command into Base 3 format
-                    # is there a converter?
-                    conv_tpl = CONVERSIONS.get(field, None)
-                    if conv_tpl:
-                        # more special case handling for rpm/labor
-                        if sub_field != field and field == "rpm_labor":
-                            from ..db.component_state_store import ComponentStateStore
-
-                            state = ComponentStateStore.build().get_state(req.scope, req.address, False)
-                            assert state is not None
-                            with state.synchronizer:
-                                from .engine_state import EngineState
-
-                                if sub_field == "rpm":
-                                    rpm = req.data
-                                    labor = cast(EngineState, state).labor
-                                else:
-                                    rpm = cast(EngineState, state).rpm
-                                    labor = req.data
-                            base_value = conv_tpl[1](rpm, labor)
-                        elif sub_field == "smoke":
-                            if cmd.is_tmcc1:
-                                base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, req.data)
-                            else:
-                                base_value = conv_tpl[1](TMCC2_TO_BASE_SMOKE_MAP, req.data)
-                        elif sub_field in {"target_speed"}:
-                            base_value = conv_tpl[1](req.data, cmd.is_legacy)
-                        else:
-                            base_value = conv_tpl[1](req.data)
-                    else:
-                        base_value = req.data
-                else:
-                    base_value = update[1](0)
-                data_bytes = handler.to_bytes(base_value)
-                if len(data_bytes) < handler.length:
-                    data_bytes += b"\xff" * (handler.length - len(data_bytes))
-                update_pkgs.append(UpdatePkg(field, addr, handler.length, data_bytes))
+                pkg = cls._create_package(req, update)
+                if pkg:
+                    update_pkgs.append(pkg)
         return update_pkgs
+
+    @classmethod
+    def _create_package(cls, req: R, update: tuple[str, Callable[[int], int] | None]) -> UpdatePkg | None:
+        cmd = req.command
+        field = sub_field = update[0]
+        addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
+        # special case for rpm/labor
+        if addr is None and field in {"rpm", "labor"}:
+            field = "rpm_labor"
+            addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
+        if addr is None:
+            log.warning(f"Field {field} not found in FIELD_TO_ADDR_ENGINE_MAP ({req})")
+            return None
+        handler = BASE_MEMORY_ENGINE_READ_MAP.get(addr, None)
+        if handler is None:
+            if addr is None:
+                log.warning(f"Field {field} handler not found in BASE_MEMORY_ENGINE_READ_MAP ({req})")
+            return None
+        if len(update) == 1:
+            # have to convert data from command into Base 3 format
+            # is there a converter?
+            conv_tpl = CONVERSIONS.get(field, None)
+            if conv_tpl:
+                # more special case handling for rpm/labor
+                if sub_field != field and field == "rpm_labor":
+                    from ..db.component_state_store import ComponentStateStore
+
+                    state = ComponentStateStore.build().get_state(
+                        cast(CommandScope, cast(object, req.scope)), cast(int, cast(object, req.address)), False
+                    )
+                    assert state is not None
+                    with state.synchronizer:
+                        from .engine_state import EngineState
+
+                        if sub_field == "rpm":
+                            rpm = req.data
+                            labor = cast(EngineState, state).labor
+                        else:
+                            rpm = cast(EngineState, state).rpm
+                            labor = req.data
+                    base_value = conv_tpl[1](rpm, labor)
+                elif sub_field == "smoke":
+                    if cmd.is_tmcc1:
+                        base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, req.data)
+                    else:
+                        base_value = conv_tpl[1](TMCC2_TO_BASE_SMOKE_MAP, req.data)
+                elif sub_field in {"target_speed"}:
+                    base_value = conv_tpl[1](req.data, cmd.is_legacy)
+                else:
+                    base_value = conv_tpl[1](req.data)
+            else:
+                base_value = req.data
+        else:
+            base_value = update[1](0)
+        data_bytes = handler.to_bytes(base_value)
+        if len(data_bytes) < handler.length:
+            data_bytes += b"\xff" * (handler.length - len(data_bytes))
+        return UpdatePkg(field, addr, handler.length, data_bytes)
 
     # noinspection PyTypeChecker
     @classmethod

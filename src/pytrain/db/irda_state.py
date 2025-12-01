@@ -10,13 +10,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
-
-from ..pdi.constants import PdiCommand, IrdaAction
-from ..pdi.irda_req import IrdaSequence, IrdaReq
-from ..protocol.constants import Direction, CommandScope
-from .component_state import LcsState, P, log, SCOPE_TO_STATE_MAP
+from ..pdi.constants import IrdaAction, PdiCommand
+from ..pdi.irda_req import IrdaReq, IrdaSequence
+from ..protocol.constants import CommandScope, Direction
+from .component_state import SCOPE_TO_STATE_MAP, LcsState, P, log
 
 
 class IrdaState(LcsState):
@@ -98,7 +97,7 @@ class IrdaState(LcsState):
                                     from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
                                     # noinspection PyTypeChecker
-                                    RampedSpeedReq(address, rr_speed, scope=scope, is_tmcc=state.is_tmcc).send()
+                                    RampedSpeedReq(address, rr_speed, scope=scope).send()
                             # send update to Train and component engines as well
                             orig_scope = command.scope
                             orig_tmcc_id = command.tmcc_id

@@ -3,11 +3,12 @@ from __future__ import annotations
 import abc
 from abc import ABC
 
+from ...db.component_state_store import ComponentStateStore
+from ...db.engine_state import EngineState
+from ..constants import DEFAULT_ADDRESS, CommandScope
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq
-from ..constants import CommandScope, DEFAULT_ADDRESS
-from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
-from ...db.component_state_store import ComponentStateStore
 
 
 class LaborEffectBase(SequenceReq, ABC):
@@ -45,7 +46,7 @@ class LaborEffectBase(SequenceReq, ABC):
 
     def _recalculate(self):
         self._state = ComponentStateStore.get_state(self.scope, self.address, False)
-        if self._state:
+        if isinstance(self._state, EngineState):
             labor = self._state.labor + self._inc
             labor = min(max(labor, 0), 31)
             for req_wrapper in self._requests:

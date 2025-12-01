@@ -9,8 +9,6 @@ from typing import Any, Dict, Tuple, TypeVar
 
 if sys.version_info >= (3, 11):
     from typing import Self
-elif sys.version_info >= (3, 9):
-    from typing_extensions import Self
 
 from .constants import CommandScope, CommandSyntax, Mixins
 
@@ -93,11 +91,11 @@ class CommandDef(ABC):
         as coming from a bytes value, and the values (not keys) in data_map are
         used to validate.
         """
-        if self.is_data is True:
+        if self.is_data:
             if self.data_map:
-                if from_bytes is True:
+                if from_bytes:
                     return candidate in [v for k, v in self.data_map.items()]
-                elif from_bytes is False:
+                elif not from_bytes:
                     return candidate in self.data_map
             else:
                 return self.data_min <= candidate <= self.data_max
@@ -205,7 +203,7 @@ class CommandDefMixins(Mixins):
                 return member
             if hasattr(member.value, "bits") and member.value.bits == value:
                 return member
-            if isinstance(member, CommandDef) and CommandDef(value).bits == value:
+            if isinstance(member, CommandDef) and member.bits == value:
                 return member
             if isinstance(member, CommandDefEnum) and isinstance(value, int) and not member.value.is_alias:
                 cd = member.value  # CommandDef
