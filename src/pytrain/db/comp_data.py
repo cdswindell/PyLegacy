@@ -14,6 +14,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from typing import Any, Callable, Generic, TypeVar, cast
 
 from ..pdi.base3_component import ConsistComponent, RouteComponent
+from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.pdi_req import PdiReq
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
@@ -95,8 +96,40 @@ class QueryPkg:
         self.offset: int = offset
         self.length: int = length
 
+    def __eq__(self, other):
+        if not isinstance(other, QueryPkg) or self.__class__ != other.__class__:
+            return False
+        return self.field == other.field and self.offset == other.offset and self.length == other.length
+
+    def __hash__(self):
+        return hash((self.field, self.offset, self.length))
+
     def __repr__(self) -> str:
         return f"{self.field}: Address: {hex(self.offset)} Length: {self.length}"
+
+    def as_request(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE, record_no: int = None) -> PdiReq:
+        from ..pdi.base_req import BaseReq
+        from ..pdi.d4_req import D4Req
+
+        if 1 <= tmcc_id <= 99:
+            return BaseReq(
+                tmcc_id,
+                pdi_command=PdiCommand.BASE_MEMORY,
+                flags=0x02,
+                scope=scope,
+                start=self.offset,
+                data_length=self.length,
+            )
+        else:
+            assert record_no != 0xFFFF
+            pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
+            return D4Req(
+                record_no,
+                pdi_cmd,
+                D4Action.QUERY,
+                start=self.offset,
+                data_length=self.length,
+            )
 
 
 class UpdatePkg(QueryPkg):
@@ -106,6 +139,32 @@ class UpdatePkg(QueryPkg):
 
     def __repr__(self) -> str:
         return f"{self.field}: Address: {hex(self.offset)} Length: {self.length} data: {self.data_bytes.hex()}"
+
+    def as_request(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE, record_no: int = None) -> PdiReq:
+        from ..pdi.base_req import BaseReq
+        from ..pdi.d4_req import D4Req
+
+        if 1 <= tmcc_id <= 99:
+            return BaseReq(
+                tmcc_id,
+                pdi_command=PdiCommand.BASE_MEMORY,
+                flags=0xC2,
+                scope=scope,
+                start=self.offset,
+                data_length=self.length,
+                data_bytes=self.data_bytes,
+            )
+        else:
+            assert record_no != 0xFFFF
+            pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
+            return D4Req(
+                record_no,
+                pdi_cmd,
+                D4Action.UPDATE,
+                start=self.offset,
+                data_length=self.length,
+                data_bytes=self.data_bytes,
+            )
 
 
 #
@@ -288,6 +347,11 @@ REQUEST_TO_UPDATES_MAP = {
         ("target_speed", lambda x: 0),
         ("rpm_labor", lambda x: 0),
     ],
+    "EMERGENCY_STOP": [
+        ("speed", lambda x: 0),
+        ("target_speed", lambda x: 0),
+        ("rpm_labor", lambda x: 0),
+    ],
     "TRAIN_BRAKE": [("train_brake",)],
 }
 
@@ -398,69 +462,78 @@ class CompData(ABC, Generic[R]):
 
         update_pkgs: list[UpdatePkg] = []
         cmd = req.command
-        updates = REQUEST_TO_UPDATES_MAP.get(cmd.name, None)
-        if updates is None:
-            return None
+        updates = REQUEST_TO_UPDATES_MAP.get(cmd.name, [])
+        if req.has_command_alias:
+            for update in REQUEST_TO_UPDATES_MAP.get(req.command_alias.name, []):
+                if update not in updates:
+                    updates.append(update)
         for update in updates:
             if isinstance(update, tuple) and len(update) >= 1:
-                pkg = cls._create_package(req, update)
+                transform = update[1] if len(update) >= 2 else None
+                pkg = cls._create_package(update[0], cmd.is_legacy, req.scope, req.address, req.data, transform)
                 if pkg:
                     update_pkgs.append(pkg)
         return update_pkgs
 
     @classmethod
-    def _create_package(cls, req: R, update: tuple[str, Callable[[int], int] | None]) -> UpdatePkg | None:
-        cmd = req.command
-        field = sub_field = update[0]
+    def _create_package(
+        cls,
+        field: str,
+        is_legacy: bool,
+        scope: CommandScope,
+        address: int,
+        data: Any,
+        transform: Callable | None = None,
+    ) -> UpdatePkg | None:
+        sub_field = field = field.lower()
         addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
+        if addr is None and not field.startswith("_"):
+            addr = FIELD_TO_ADDR_ENGINE_MAP.get("_" + field, None)
         # special case for rpm/labor
         if addr is None and field in {"rpm", "labor"}:
             field = "rpm_labor"
             addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
         if addr is None:
-            log.warning(f"Field {field} not found in FIELD_TO_ADDR_ENGINE_MAP ({req})")
+            log.warning(f"Field {field} not found in FIELD_TO_ADDR_ENGINE_MAP")
             return None
         handler = BASE_MEMORY_ENGINE_READ_MAP.get(addr, None)
         if handler is None:
             if addr is None:
-                log.warning(f"Field {field} handler not found in BASE_MEMORY_ENGINE_READ_MAP ({req})")
+                log.warning(f"Field {field} handler not found in BASE_MEMORY_ENGINE_READ_MAP")
             return None
-        if len(update) == 1:
+        if transform is None:
             # have to convert data from command into Base 3 format
-            # is there a converter?
             conv_tpl = CONVERSIONS.get(field, None)
             if conv_tpl:
                 # more special case handling for rpm/labor
                 if sub_field != field and field == "rpm_labor":
                     from ..db.component_state_store import ComponentStateStore
 
-                    state = ComponentStateStore.build().get_state(
-                        cast(CommandScope, cast(object, req.scope)), cast(int, cast(object, req.address)), False
-                    )
+                    state = ComponentStateStore.build().get_state(scope, address, False)
                     assert state is not None
                     with state.synchronizer:
                         from .engine_state import EngineState
 
                         if sub_field == "rpm":
-                            rpm = req.data
+                            rpm = data
                             labor = cast(EngineState, state).labor
                         else:
                             rpm = cast(EngineState, state).rpm
-                            labor = req.data
+                            labor = data
                     base_value = conv_tpl[1](rpm, labor)
                 elif sub_field == "smoke":
-                    if cmd.is_tmcc1:
-                        base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, req.data)
+                    if is_legacy:
+                        base_value = conv_tpl[1](TMCC2_TO_BASE_SMOKE_MAP, data)
                     else:
-                        base_value = conv_tpl[1](TMCC2_TO_BASE_SMOKE_MAP, req.data)
+                        base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, data)
                 elif sub_field in {"target_speed"}:
-                    base_value = conv_tpl[1](req.data, cmd.is_legacy)
+                    base_value = conv_tpl[1](data, is_legacy)
                 else:
-                    base_value = conv_tpl[1](req.data)
+                    base_value = conv_tpl[1](data)
             else:
-                base_value = req.data
+                base_value = data
         else:
-            base_value = update[1](0)
+            base_value = transform(0)
         data_bytes = handler.to_bytes(base_value)
         if len(data_bytes) < handler.length:
             data_bytes += b"\xff" * (handler.length - len(data_bytes))
@@ -499,6 +572,15 @@ class CompData(ABC, Generic[R]):
                     continue
                 query_pkgs.append(QueryPkg(field, addr, handler.length))
         return query_pkgs
+
+    @classmethod
+    def generate_update_req(cls, field: str, state, data) -> PdiReq | None:
+        from .engine_state import EngineState, TrainState
+
+        pkg = None
+        if isinstance(state, EngineState) or isinstance(state, TrainState):
+            pkg = cls._create_package(field, state.is_legacy, state.scope, state.address, data)
+        return pkg.as_request(state.address, state.scope, state.record_no) if pkg else None
 
     @abstractmethod
     def __init__(self, data: bytes | None, scope: CommandScope, tmcc_id: int = None) -> None:
@@ -624,8 +706,6 @@ class CompData(ABC, Generic[R]):
         return byte_str
 
     def _parse_bytes(self, data: bytes, pmap: dict) -> None:
-        if data is None:
-            print(f"TMCC_ID: {self.tmcc_id} Scope: {self.scope}")
         data_len = len(data)
         for k, v in pmap.items():
             if not isinstance(v, CompDataHandler):

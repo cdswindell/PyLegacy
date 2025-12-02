@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, ABCMeta
 
+from ...db.comp_data import CompData
 from ...db.engine_state import EngineState
 from ..constants import CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
@@ -45,6 +46,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 speed_req = speed
 
         # set the target speed value
+        self.add(CompData.generate_update_req("target_speed", self.state, speed_req))
 
         # if there is no state information, treat this as an ABSOLUTE_SPEED req
         if not isinstance(self.state, EngineState) or self.state.speed is None:
@@ -72,13 +74,14 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             # use current speed and momentum to build up or down speed
             cs = self.state.speed
             delay = 0.0
-            inc = 3
+            inc = 3 if self.is_tmcc2 else 1
             c_rpm = self.state.rpm
             init_labor = self.state.labor
             if self.state.momentum is not None:
-                delay_inc = 0.200 + (self.state.momentum * 0.010)
-                inc = 2 if self.state.momentum >= 6 else inc
-                inc = 1 if self.state.momentum >= 7 else inc
+                delay_inc = 0.200 + (self.state.momentum * (0.010 if self.is_tmcc2 else 0.1))
+                if self.is_tmcc2:
+                    inc = 2 if self.state.momentum >= 4 else inc
+                    inc = 1 if self.state.momentum >= 7 else inc
             else:
                 delay_inc = 0.200
             speed_req = min(speed_req, self.state.speed_max)

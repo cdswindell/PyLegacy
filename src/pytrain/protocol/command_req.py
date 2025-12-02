@@ -5,8 +5,6 @@ from typing import Callable, Set, TypeVar
 
 if sys.version_info >= (3, 11):
     from typing import Self
-elif sys.version_info >= (3, 9):
-    from typing_extensions import Self
 
 from ..utils.validations import Validations
 from .command_def import CommandDef, CommandDefEnum
@@ -21,6 +19,7 @@ from .constants import (
 )
 from .tmcc1.tmcc1_constants import (
     TMCC1_COMMAND_PREFIX,
+    TMCC1_COMMAND_TO_ALIAS_MAP,
     TMCC1_TRAIN_COMMAND_MODIFIER,
     TMCC1_TRAIN_COMMAND_PURIFIER,
     TMCC1AuxCommandEnum,
@@ -37,6 +36,7 @@ from .tmcc2.tmcc2_constants import (
     LEGACY_ENGINE_COMMAND_PREFIX,
     LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX,
     LEGACY_TRAIN_COMMAND_PREFIX,
+    TMCC2_COMMAND_TO_ALIAS_MAP,
     TMCC2CommandDef,
     TMCC2CommandPrefix,
     TMCC2EngineCommandEnum,
@@ -390,6 +390,24 @@ class CommandReq:
     @property
     def command_def(self) -> TMCC2CommandDef:
         return self._command_def
+
+    @property
+    def has_command_alias(self) -> bool:
+        if self.is_data:
+            if self.is_tmcc2:
+                return (self.command, self.data) in TMCC2_COMMAND_TO_ALIAS_MAP
+            else:
+                return (self.command, self.data) in TMCC1_COMMAND_TO_ALIAS_MAP
+        return False
+
+    @property
+    def command_alias(self) -> E | None:
+        if self.is_data:
+            if self.is_tmcc2:
+                return TMCC2_COMMAND_TO_ALIAS_MAP.get((self.command, self.data), None)
+            else:
+                return TMCC1_COMMAND_TO_ALIAS_MAP.get((self.command, self.data), None)
+        return None
 
     @property
     def native_scope(self) -> CommandScope:
