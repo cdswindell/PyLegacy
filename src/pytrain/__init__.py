@@ -86,16 +86,26 @@ from .protocol.multibyte.multibyte_constants import (
     TMCC2VariableEnum,  # noqa: F401
     UnitAssignment,  # noqa: F401
 )
+from .protocol.sequence.grade_crossing_req import (
+    GradeCrossingReq,  # noqa: F401
+)
+from .protocol.sequence.labor_effect import (
+    LaborEffectDownReq,  # noqa: F401
+    LaborEffectUpReq,  # noqa: F401
+)
 from .protocol.sequence.ramped_speed_req import (
     RampedSpeedDialogReq,  # noqa: F401
     RampedSpeedReq,  # noqa: F401
 )
 from .protocol.sequence.sequence_constants import (
-    SequenceCommandEnum,  # noqa: F401
+    SequenceCommandEnum,  # noqa: F401  # noqa: F401
 )
 from .protocol.sequence.sequence_req import (
     SequencedReq,  # noqa: F401
     SequenceReq,  # noqa: F401
+)
+from .protocol.sequence.set_speed_req import (
+    SetSpeedReq,  # noqa: F401
 )
 from .protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,  # noqa: F401

@@ -41,7 +41,7 @@ class SequenceReq(CommandReq, Sequence):
         command: SequenceCommandEnum,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
-        scope: CommandScope = None,
+        scope: CommandScope = CommandScope.ENGINE,
     ) -> Self:
         if command.value.cmd_class is None:
             raise ValueError(f"Sequence Command {command} does not have a command class registered")
@@ -51,7 +51,7 @@ class SequenceReq(CommandReq, Sequence):
         self,
         command: SequenceCommandEnum,
         address: int = DEFAULT_ADDRESS,
-        scope: CommandScope = None,
+        scope: CommandScope = CommandScope.ENGINE,
         repeat: int = 1,
         delay: float = 0,
         requests: List[CommandReq] = None,
@@ -60,8 +60,9 @@ class SequenceReq(CommandReq, Sequence):
         if requests:
             for request in requests:
                 self._requests.append(SequencedReq(request, repeat, delay))
-        super().__init__(command, address, 0, scope)
+        # have to get state before calling parent constructor
         self._state = ComponentStateStore.get_state(scope, address, create=False)
+        super().__init__(command, address, 0, scope)
         self._repeat = repeat
         self._delay = delay
 
@@ -111,14 +112,20 @@ class SequenceReq(CommandReq, Sequence):
         scope: CommandScope = None,
         repeat: int = 1,
         delay: float = 0,
+        index: int = None,
     ) -> None:
         if isinstance(request, CommandDefEnum):
             request = CommandReq.build(request, address=address, data=data, scope=scope)
         elif isinstance(request, CommandReq) or isinstance(request, PdiReq):
             pass
+        elif request is None:
+            return  # don't add a None request
         else:
-            raise ValueError(f"Invalid request type: {type(request)}")
-        self._requests.append(SequencedReq(request, repeat=repeat, delay=delay))
+            raise ValueError(f"Invalid request type: {type(request) if request else 'None'}")
+        if index is None:
+            self._requests.append(SequencedReq(request, repeat=repeat, delay=delay))
+        else:
+            self._requests.insert(index, SequencedReq(request, repeat=repeat, delay=delay))
 
     def send(
         self,

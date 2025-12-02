@@ -5,7 +5,7 @@ from abc import ABC, ABCMeta
 
 from ...db.comp_data import CompData
 from ...db.engine_state import EngineState
-from ..constants import CommandScope
+from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 from .sequence_constants import SequenceCommandEnum
@@ -49,7 +49,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
         self.add(CompData.generate_update_req("target_speed", self.state, speed_req))
 
         # if there is no state information, treat this as an ABSOLUTE_SPEED req
-        if not isinstance(self.state, EngineState) or self.state.speed is None:
+        if address == DEFAULT_ADDRESS or not isinstance(self.state, EngineState) or self.state.speed is None:
             if tower and engr and dialog is True:
                 from .speed_req import SpeedReq
 
@@ -57,11 +57,17 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 for request in sr.requests:
                     self.add(request.request, delay=request.delay, repeat=request.repeat)
             else:
-                speed_enum = (
-                    TMCC1EngineCommandEnum.ABSOLUTE_SPEED if self.is_tmcc1 else TMCC2EngineCommandEnum.ABSOLUTE_SPEED
-                )
-                self.add(speed_enum, address, speed_req, scope)
-                if self.is_tmcc2:
+                if address == DEFAULT_ADDRESS:
+                    self.add(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, address, speed_req, scope)
+                    self.add(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, address, speed_req, scope)
+                else:
+                    speed_enum = (
+                        TMCC1EngineCommandEnum.ABSOLUTE_SPEED
+                        if self.is_tmcc1
+                        else TMCC2EngineCommandEnum.ABSOLUTE_SPEED
+                    )
+                    self.add(speed_enum, address, speed_req, scope)
+                if address == DEFAULT_ADDRESS or self.is_tmcc2:
                     rpm = tmcc2_speed_to_rpm(speed_req)
                     self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=4)
         else:

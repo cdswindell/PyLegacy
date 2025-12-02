@@ -328,7 +328,7 @@ class EngineCli(CliBaseTMCC):
             action="store_const",
             const="GRADE_CROSSING_SEQ",
             dest="option",
-            help="Brade crossing sequence",
+            help="Grade crossing horn sequence",
         )
         horn_group.add_argument(
             "-i",
@@ -507,7 +507,7 @@ class EngineCli(CliBaseTMCC):
         speed_group.add_argument(
             "-immediate",
             action="store_const",
-            const="ABSOLUTE_SPEED",
+            const="SET_SPEED_RPM",
             dest="option",
             help="Set absolute speed (immediate)",
         )

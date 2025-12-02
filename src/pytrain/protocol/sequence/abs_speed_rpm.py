@@ -21,17 +21,14 @@ class AbsoluteSpeedRpm(SequenceReq):
         address: int = DEFAULT_ADDRESS,
         scope: CommandScope = CommandScope.ENGINE,
         data: int = 0,
-        command: SequenceCommandEnum = SequenceCommandEnum.ABSOLUTE_SPEED_RPM,
     ) -> None:
-        super().__init__(command, address, scope)
+        super().__init__(SequenceCommandEnum.ABSOLUTE_SPEED_RPM, address, scope)
         self._scope = scope
         self._data = data
-        if self.is_tmcc2:
-            self.add(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, data=data, scope=scope)
-            rpm = tmcc2_speed_to_rpm(data)
-            self.add(TMCC2EngineCommandEnum.DIESEL_RPM, data=rpm, scope=scope)
-        else:
-            self.add(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, data=data, scope=scope)
+        self._state = None
+        self.add(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, data=data, scope=scope)
+        rpm = tmcc2_speed_to_rpm(data)
+        self.add(TMCC2EngineCommandEnum.DIESEL_RPM, data=rpm, scope=scope)
 
     def _apply_data(self, new_data: int = None) -> int:
         if self.state:

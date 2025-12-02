@@ -7,21 +7,50 @@
 #
 from ...db.comp_data import CompData
 from ..constants import DEFAULT_ADDRESS, CommandScope
-from .abs_speed_rpm import AbsoluteSpeedRpm
+from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 from .sequence_constants import SequenceCommandEnum
+from .sequence_req import SequenceReq
 
 
-class SetSpeedReq(AbsoluteSpeedRpm):
+class SetSpeedReq(SequenceReq):
     """Request to set the speed of a Lionel Legacy engine or train."""
 
     def __init__(
         self,
         address: int = DEFAULT_ADDRESS,
-        scope: CommandScope = CommandScope.ENGINE,
         data: int = 0,
+        scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
-        super().__init__(address, scope, data, SequenceCommandEnum.SET_SPEED_RPM)
-        self.add(CompData.generate_update_req("target_speed", self.state, data))
+        super().__init__(SequenceCommandEnum.SET_SPEED_RPM, address, scope)
+        self.add(CompData.generate_update_req("target_speed", self.state, data), index=0)
+        if address == DEFAULT_ADDRESS:
+            self.add(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, address, data, scope)
+            self.add(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, address, data, scope)
+        else:
+            speed_enum = (
+                TMCC1EngineCommandEnum.ABSOLUTE_SPEED if self.is_tmcc1 else TMCC2EngineCommandEnum.ABSOLUTE_SPEED
+            )
+            self.add(speed_enum, address, data, scope)
+
+        if address == DEFAULT_ADDRESS or self.is_tmcc2:
+            rpm = tmcc2_speed_to_rpm(data)
+            self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=4)
+
+    def _apply_data(self, new_data: int = None) -> int:
+        if self.state:
+            new_speed = min(self.state.speed_max, self.data)
+            self._data = new_speed
+        else:
+            new_speed = self.data
+
+        for req_wrapper in self._requests:
+            req = req_wrapper.request
+            if req.command == TMCC2EngineCommandEnum.DIESEL_RPM:
+                req.data = tmcc2_speed_to_rpm(new_speed)
+            elif req.command in {TMCC1EngineCommandEnum.ABSOLUTE_SPEED, TMCC2EngineCommandEnum.ABSOLUTE_SPEED}:
+                req.data = new_speed
+        return 0
 
 
 SequenceCommandEnum.SET_SPEED_RPM.value.register_cmd_class(SetSpeedReq)
