@@ -62,11 +62,11 @@ class SequenceDef(TMCC2CommandDef):
 
 
 class SequenceCommandEnum(CommandDefEnum):
+    ABSOLUTE_SPEED_RPM = SequenceDef(7, d_max=199)
     ABSOLUTE_SPEED_SEQ = SequenceDef(1, d_max=199)
-    RAMPED_SPEED_SEQ = SequenceDef(2, d_max=199)
-    RAMPED_SPEED_DIALOG_SEQ = SequenceDef(3, d_max=199)
     GRADE_CROSSING_SEQ = SequenceDef(4)
     LABOR_EFFECT_DOWN_SEQ = SequenceDef(5)
     LABOR_EFFECT_UP_SEQ = SequenceDef(6)
-    ABSOLUTE_SPEED_RPM = SequenceDef(7, d_max=199)
+    RAMPED_SPEED_DIALOG_SEQ = SequenceDef(3, d_max=199)
+    RAMPED_SPEED_SEQ = SequenceDef(2, d_max=199)
     SET_SPEED_RPM = SequenceDef(8, d_max=199)

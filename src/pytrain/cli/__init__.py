@@ -105,7 +105,7 @@ class CliBase(ABC):
         return parser
 
     @staticmethod
-    def command_format_parser(default: CommandSyntax = CommandSyntax.LEGACY) -> ArgumentParser:
+    def command_format_parser(default: CommandSyntax = None) -> ArgumentParser:
         """
         Add command_def to run command using TMCC1 command syntax
         """
@@ -127,7 +127,8 @@ class CliBase(ABC):
             dest="format",
             help="Use TMCC2/Legacy command syntax.",
         )
-        group.set_defaults(format=default)
+        if default:
+            group.set_defaults(format=default)
         return parser
 
     @staticmethod

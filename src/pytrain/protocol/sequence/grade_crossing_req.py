@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from .sequence_req import SequenceReq
 from ..command_req import CommandReq
 from ..constants import CommandScope
 from ..sequence.sequence_constants import SequenceCommandEnum
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+from .sequence_req import SequenceReq
 
 
 class GradeCrossingReq(SequenceReq):
@@ -43,3 +43,6 @@ class GradeCrossingReq(SequenceReq):
         for _ in range(3):
             self.add(req4, delay=delay)
         self.add(req0, delay=delay)
+
+
+SequenceCommandEnum.GRADE_CROSSING_SEQ.value.register_cmd_class(GradeCrossingReq)

@@ -22,3 +22,6 @@ class SpeedReq(SequenceReq):
             rpm = tmcc2_speed_to_rpm(sp)
             self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=4)
         self.add(e, address, scope=scope, delay=6)
+
+
+SequenceCommandEnum.ABSOLUTE_SPEED_SEQ.value.register_cmd_class(SpeedReq)

@@ -14,6 +14,7 @@ import logging
 from argparse import ArgumentError, ArgumentParser
 from typing import List
 
+from ..protocol.constants import CommandScope, CommandSyntax
 from ..protocol.multibyte.multibyte_constants import (
     TMCC2EffectsControl,
     TMCC2LightingControl,
@@ -535,11 +536,13 @@ class EngineCli(CliBaseTMCC):
         super().__init__(arg_parser, cmd_line, do_fire)
         engine: int = self._args.engine
         try:
+            scope = self._determine_scope()
+            self._determine_command_format(scope, engine)
             option = self._decode_engine_option()  # raise ValueError if you can't decode
             if option is None:
                 raise ValueError("Must specify an option, use -h for help")
             option_data: int = self._args.data if "data" in self._args else 0
-            scope = self._determine_scope()
+
             if self.is_tmcc2 or option.is_tmcc2:
                 cmd = EngineCmdTMCC2(
                     engine, option, option_data, scope, baudrate=self._baudrate, port=self._port, server=self._server
@@ -565,6 +568,18 @@ class EngineCli(CliBaseTMCC):
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
+
+    def _determine_command_format(self, scope: CommandScope, tmcc_id: int) -> None:
+        if "format" in self._args and self._args.format:
+            pass  # use user-provided format
+        else:
+            from ..db.component_state_store import ComponentStateStore
+
+            state = ComponentStateStore.get_state(scope, tmcc_id, False)
+            if state and state.is_legacy:
+                self._command_format = CommandSyntax.LEGACY
+            else:
+                self._command_format = CommandSyntax.TMCC
 
     def _decode_engine_option(self) -> TMCC1EngineCommandEnum | TMCC2EngineCommandEnum | TMCC2MultiByteEnum | None:
         """
