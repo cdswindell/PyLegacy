@@ -398,6 +398,7 @@ class EngineState(ComponentState):
                         self.comp_data.speed = 0
                 if not self.is_ramping:
                     # if this PyTrain instance isn't ramping speed, set the target speed to match
+                    print(f"Not ramping; setting target speed to {self.comp_data.speed}")
                     self.comp_data.target_speed = self.speed
                 elif self.speed == self.target_speed:
                     self.is_ramping = False
@@ -456,6 +457,7 @@ class EngineState(ComponentState):
             ):
                 from ..pdi.base_req import EngineBits
 
+                print(f"Processing speed command: {command}")
                 if self.speed is None and command.is_valid(EngineBits.SPEED):
                     self.comp_data.speed = command.speed
             elif (
@@ -469,6 +471,7 @@ class EngineState(ComponentState):
 
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(command.start, None)
                 if isinstance(tpl, CompDataHandler):
+                    print(f"Received PDI Update for {tpl.field}: {tpl.from_bytes(command.data_bytes)}")
                     setattr(self.comp_data, tpl.field, tpl.from_bytes(command.data_bytes))
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
