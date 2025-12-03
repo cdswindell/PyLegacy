@@ -233,7 +233,6 @@ class EngineState(ComponentState):
 
     @is_ramping.setter
     def is_ramping(self, value: bool):
-        print(f"Setting ramping to {value} on {self.last_command}")
         self._ramping = value
 
     def decode_speed_info(self, speed_info):

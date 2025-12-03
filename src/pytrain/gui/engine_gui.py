@@ -2405,9 +2405,10 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
-    def on_speed_command(self, speed: str | list[str] | int) -> None:
+    def on_speed_command(self, speed: str | int) -> None:
         print(speed)
-        if isinstance(speed, str) or isinstance(speed, list):
+        if isinstance(speed, str):
+            speed = speed.split(", ")
             do_dialog = isinstance(speed, list) and len(speed) > 1
             speed = (speed[-1] if isinstance(speed, list) else speed).replace("SPEED_", "")
             state = self.active_engine_state

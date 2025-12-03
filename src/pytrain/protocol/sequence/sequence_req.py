@@ -164,6 +164,7 @@ class SequenceReq(CommandReq, Sequence):
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> None:
+        self._on_before_fire()
         self.send(
             repeat=repeat,
             delay=delay,
@@ -201,6 +202,7 @@ class SequenceReq(CommandReq, Sequence):
                     self.data = new_data
                 elif data is not None and data != self.data:
                     self.data = data
+            self._on_before_fire()
             for sq_request in self._requests:
                 request = sq_request.request
                 request._enqueue_command(
@@ -310,6 +312,12 @@ class SequenceReq(CommandReq, Sequence):
         if isinstance(self._state, EngineState):
             return self._state.is_legacy
         return False
+
+    def _on_before_fire(self) -> None:
+        """
+        Override in subclasses to perform actions before sending bytes
+        """
+        pass
 
 
 class SequencedReq:
