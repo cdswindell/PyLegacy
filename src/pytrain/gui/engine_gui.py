@@ -2405,28 +2405,32 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
-    def on_speed_command(self, speed: str | int) -> None:
-        print(speed)
-        if isinstance(speed, str):
-            speed = speed.split(", ")
+    def on_speed_command(self, speed_req: str | int) -> None:
+        state = self.active_engine_state
+        if isinstance(speed_req, str):
+            speed = speed_req.split(", ")
             do_dialog = isinstance(speed, list) and len(speed) > 1
             speed = (speed[-1] if isinstance(speed, list) else speed).replace("SPEED_", "")
-            state = self.active_engine_state
             if state.is_legacy:
                 rr_speed = TMCC2RRSpeedsEnum.by_name(speed)
             else:
                 rr_speed = TMCC1RRSpeedsEnum.by_name(speed)
-            print(speed, rr_speed)
+            if rr_speed is None and speed == "EMERGENCY_STOP":
+                # dispatch directly to on_engine_command for processing
+                state.is_ramping = False
+                self.on_engine_command(speed)
+                return
         else:
             do_dialog = False
-            rr_speed = speed
-        state = self.active_engine_state
+            rr_speed = speed_req
+
         if do_dialog:
             req = RampedSpeedDialogReq(state.tmcc_id, rr_speed, state.scope)
         else:
             req = RampedSpeedReq(state.tmcc_id, rr_speed, state.scope)
 
-        print(f"on_speed_command: {req}")
+        # dispatch command
+        req.send()
 
     def on_engine_command(
         self,
