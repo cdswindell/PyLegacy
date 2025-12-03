@@ -145,7 +145,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
         if self.state:
             if self.state.is_ramping:
                 print("Ramping already in progress")
-            self.state.target_speed = self._target_speed
+            self.state.comp_data.target_speed = self._target_speed
             print(f"**** Setting target speed to {self.state.target_speed} {self._target_speed}")
             self.state.is_ramping = True
 
