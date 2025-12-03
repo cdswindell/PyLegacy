@@ -180,6 +180,7 @@ class EngineState(ComponentState):
 
         if self.speed is not None:
             sp = f" Speed: {self.speed:03}"
+            print(f"sp: {sp}")
             if self.target_speed is not None:
                 speed_limit = self.decode_speed_info(self.target_speed)
                 sp += f"/{speed_limit:03}"
@@ -258,6 +259,10 @@ class EngineState(ComponentState):
             super().update(command)
             if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                 self._update_comp_data(command.comp_data)
+                if self.tmcc_id == 7:
+                    print(command)
+                    print(self)
+                    print(self.speed)
                 if isinstance(command, D4Req):
                     self._is_legacy = True
                     self._d4_rec_no = command.record_no
@@ -386,20 +391,24 @@ class EngineState(ComponentState):
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {labor} {type(labor)} {cmd_effects}")
+                        print("Setting speed to 0...")
                         self.comp_data.speed = 0
 
                 # handle speed
                 if command.command in SPEED_SET:
+                    print(f"Setting speed to {command.data} 1...")
                     self.comp_data.speed = command.data
                     self.update_target_speed()
                 elif cmd_effects & SPEED_SET:
                     speed = self._harvest_effect(cmd_effects & SPEED_SET)
                     if isinstance(speed, tuple) and len(speed) > 1:
                         self.comp_data.speed = speed[1]
+                        print(f"Setting speed to {self.speed} 2 {command} {cmd_effects} {speed}...")
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
                         self.comp_data.speed = 0
+                        print(f"Setting speed to {self.speed} 3...")
                     self.update_target_speed()
 
                 # handle momentum
@@ -459,6 +468,7 @@ class EngineState(ComponentState):
                 print(f"Processing speed command: {command}")
                 if self.speed is None and command.is_valid(EngineBits.SPEED):
                     self.comp_data.speed = command.speed
+                    print(f"Setting speed to {self.speed} 4...")
             elif (
                 isinstance(command, BaseReq)
                 and command.pdi_command == PdiCommand.BASE_MEMORY
@@ -522,13 +532,6 @@ class EngineState(ComponentState):
         from ..pdi.base_req import BaseReq
 
         packets = []
-        # encode name, number, momentum, speed, and rpm using PDI command
-        if self.tmcc_id <= 99:
-            pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
-        else:
-            pdi_cmd = PdiCommand.D4_ENGINE if self.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
-            pdi = D4Req(self.record_no, pdi_cmd, state=self)
-        packets.append(pdi.as_bytes)
         if isinstance(self._start_stop, CommandDefEnum):
             packets.append(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
         if isinstance(self.smoke_level, CommandDefEnum):
@@ -554,6 +557,15 @@ class EngineState(ComponentState):
             packets.append(CommandReq.build(self.aux1, self.address).as_bytes)
         if isinstance(self._aux2, CommandDefEnum):
             packets.append(CommandReq.build(self.aux2, self.address).as_bytes)
+
+        # Finally, encode the engine state as represented on the Base 3; we do this last as
+        # the states encoded above may locally override the engine state on the Base 3.
+        if self.tmcc_id <= 99:
+            pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
+        else:
+            pdi_cmd = PdiCommand.D4_ENGINE if self.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
+            pdi = D4Req(self.record_no, pdi_cmd, state=self)
+        packets.append(pdi.as_bytes)
         return packets
 
     @property
