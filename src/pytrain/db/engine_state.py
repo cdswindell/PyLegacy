@@ -260,6 +260,8 @@ class EngineState(ComponentState):
                 if isinstance(command, D4Req):
                     self._is_legacy = True
                     self._d4_rec_no = command.record_no
+                if self.speed and self.target_speed == 0:
+                    self.comp_data.target_speed = self.speed
             elif isinstance(command, CommandReq):
                 if command.is_tmcc2 is True or self.address > 99:
                     self._is_legacy = True
