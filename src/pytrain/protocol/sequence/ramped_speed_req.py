@@ -141,7 +141,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     delay = 2.50
                 self.add(engr, address, scope=scope, delay=delay)
 
-    def _on_before_fire(self) -> None:
+    def _on_before_send(self) -> None:
         if self.state:
             if self.state.is_ramping:
                 print("Ramping already in progress")

@@ -56,7 +56,7 @@ class SetSpeedReq(SequenceReq):
                 req.data = new_speed
         return 0
 
-    def _on_before_fire(self) -> None:
+    def _on_before_send(self) -> None:
         if self.state:
             if self.state.is_ramping:
                 print("Ramping already in progress")
