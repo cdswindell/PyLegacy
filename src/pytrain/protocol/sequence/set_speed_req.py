@@ -55,5 +55,11 @@ class SetSpeedReq(SequenceReq):
                 req.data = new_speed
         return 0
 
+    def _on_before_fire(self) -> None:
+        if self.state:
+            if self.state.is_ramping:
+                print("Ramping already in progress")
+            self.state.is_ramping = False
+
 
 SequenceCommandEnum.SET_SPEED_RPM.value.register_cmd_class(SetSpeedReq)

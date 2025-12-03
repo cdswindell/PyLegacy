@@ -233,7 +233,9 @@ class EngineState(ComponentState):
 
     @is_ramping.setter
     def is_ramping(self, value: bool):
-        self._ramping = value
+        with self._cv:
+            print(f"Setting is_ramping for {self.tmcc_id} to {value}")
+            self._ramping = value
 
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
