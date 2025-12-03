@@ -2406,6 +2406,7 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
     def on_speed_command(self, speed: str | list[str] | int) -> None:
+        print(speed)
         if isinstance(speed, str) or isinstance(speed, list):
             do_dialog = isinstance(speed, list) and len(speed) > 1
             speed = (speed[-1] if isinstance(speed, list) else speed).replace("SPEED_", "")
@@ -2414,6 +2415,7 @@ class EngineGui(Thread, Generic[S]):
                 rr_speed = TMCC2RRSpeedsEnum.by_name(speed)
             else:
                 rr_speed = TMCC1RRSpeedsEnum.by_name(speed)
+            print(speed, rr_speed)
         else:
             do_dialog = False
             rr_speed = speed
