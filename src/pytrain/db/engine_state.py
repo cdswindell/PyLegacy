@@ -234,7 +234,7 @@ class EngineState(ComponentState):
     @is_ramping.setter
     def is_ramping(self, value: bool):
         with self._cv:
-            print(f"***** Setting is_ramping for {self.tmcc_id} to {value}")
+            print(f"***** Setting is_ramping for {self.tmcc_id} to {value} {self.last_command}")
             self._ramping = value
 
     def decode_speed_info(self, speed_info):
@@ -403,6 +403,7 @@ class EngineState(ComponentState):
                     print(f"Not ramping; setting target speed of {self.tmcc_id} to {self.comp_data.speed}")
                     self.comp_data.target_speed = self.speed
                 elif self.speed == self.target_speed:
+                    print(f"Ramping; speed is {self.speed} and target speed is {self.target_speed}")
                     self.is_ramping = False
 
                 # handle momentum
