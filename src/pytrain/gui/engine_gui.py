@@ -41,8 +41,19 @@ from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum, TMCC2RouteCommandEnum
+from ..protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
+from ..protocol.tmcc1.tmcc1_constants import (
+    TMCC1EngineCommandEnum,
+    TMCC1HaltCommandEnum,
+    TMCC1RRSpeedsEnum,
+    TMCC1SwitchCommandEnum,
+)
+from ..protocol.tmcc2.tmcc2_constants import (
+    TMCC2EngineCommandEnum,
+    TMCC2EngineOpsEnum,
+    TMCC2RouteCommandEnum,
+    TMCC2RRSpeedsEnum,
+)
 from ..utils.path_utils import find_file
 from ..utils.unique_deque import UniqueDeque
 from .hold_button import HoldButton
@@ -401,7 +412,7 @@ class EngineGui(Thread, Generic[S]):
         self._message_queue = Queue()
         self.scope = initial_scope
         self.initial = initial
-        self.active_engine_state = None
+        self._active_engine_state = None
         self.reset_on_keystroke = False
         self._current_popup = None
 
@@ -488,6 +499,21 @@ class EngineGui(Thread, Generic[S]):
     @property
     def destroy_complete(self) -> Event:
         return self._ev
+
+    @property
+    def active_engine_state(self) -> EngineState | None:
+        if self.scope in (CommandScope.ENGINE, CommandScope.TRAIN):
+            if (
+                self._active_engine_state
+                and self._active_engine_state.scope == self.scope
+                and self._active_engine_state.tmcc_id == self._scope_tmcc_ids[self.scope]
+            ):
+                return self._active_engine_state
+            else:
+                self._active_engine_state = self.active_state
+                return self._active_engine_state
+        else:
+            return None
 
     # noinspection PyTypeChecker
     def on_sync(self) -> None:
@@ -1333,7 +1359,7 @@ class EngineGui(Thread, Generic[S]):
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         print(f"on_new_engine: {state.last_command if state else 'N/A'}")
-        self.active_engine_state = state
+        self._active_engine_state = state
         if state:
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             self.speed.value = f"{state.speed:03d}"
@@ -2064,7 +2090,7 @@ class EngineGui(Thread, Generic[S]):
         self.reset_btn.disable()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             if not isinstance(state, EngineState):
-                self.active_engine_state = state = self._state_store.get_state(
+                self._active_engine_state = state = self._state_store.get_state(
                     self.scope, self._scope_tmcc_ids[self.scope], False
                 )
             # assume it's a diesel
@@ -2379,15 +2405,29 @@ class EngineGui(Thread, Generic[S]):
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
-    def on_speed_command(
-        self,
-        targets: str | list[str],
-    ):
-        print(f"on_speed_command: {targets}")
+    def on_speed_command(self, speed: str | list[str] | int) -> None:
+        if isinstance(speed, str) or isinstance(speed, list):
+            do_dialog = isinstance(speed, list) and len(speed) > 1
+            speed = (speed[-1] if isinstance(speed, list) else speed).replace("SPEED_", "")
+            state = self.active_engine_state
+            if state.is_legacy:
+                rr_speed = TMCC2RRSpeedsEnum.by_name(speed)
+            else:
+                rr_speed = TMCC1RRSpeedsEnum.by_name(speed)
+        else:
+            do_dialog = False
+            rr_speed = speed
+        state = self.active_engine_state
+        if do_dialog:
+            req = RampedSpeedDialogReq(state.tmcc_id, rr_speed, state.scope)
+        else:
+            req = RampedSpeedReq(state.tmcc_id, rr_speed, state.scope)
+
+        print(f"on_speed_command: {req}")
 
     def on_engine_command(
         self,
-        targets: str | list[str],
+        targets: str | list[str] | CommandReq,
         data: int = 0,
         repeat: int = None,
         do_ops: bool = False,
