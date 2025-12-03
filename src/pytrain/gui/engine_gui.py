@@ -2418,7 +2418,7 @@ class EngineGui(Thread, Generic[S]):
             if rr_speed is None and speed == "EMERGENCY_STOP":
                 # dispatch directly to on_engine_command for processing
                 state.is_ramping = False
-                self.on_engine_command(speed)
+                self.on_engine_command(speed_req)
                 return
         else:
             do_dialog = False
