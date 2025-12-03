@@ -115,7 +115,7 @@ class QueryPkg:
             return BaseReq(
                 tmcc_id,
                 pdi_command=PdiCommand.BASE_MEMORY,
-                flags=0x02,
+                flags=0x43,
                 scope=scope,
                 start=self.offset,
                 data_length=self.length,
@@ -148,7 +148,7 @@ class UpdatePkg(QueryPkg):
             return BaseReq(
                 tmcc_id,
                 pdi_command=PdiCommand.BASE_MEMORY,
-                flags=0xC2,
+                flags=0xC3,
                 scope=scope,
                 start=self.offset,
                 data_length=self.length,
@@ -361,9 +361,9 @@ REQUEST_TO_UPDATES_MAP = {
 # queried, and the corresponding update fields that must be set.
 #
 REQUEST_TO_QUERIES_MAP = {
-    "ABSOLUTE_SPEED": [
-        ("target_speed",),
-    ],
+    # "ABSOLUTE_SPEED": [
+    #     ("target_speed",),
+    # ],
     "TOGGLE_DIRECTION": [
         ("speed",),
         ("target_speed",),
@@ -470,13 +470,13 @@ class CompData(ABC, Generic[R]):
         for update in updates:
             if isinstance(update, tuple) and len(update) >= 1:
                 transform = update[1] if len(update) >= 2 else None
-                pkg = cls._create_package(update[0], cmd.is_legacy, req.scope, req.address, req.data, transform)
+                pkg = cls._create_update_pkg(update[0], cmd.is_legacy, req.scope, req.address, req.data, transform)
                 if pkg:
                     update_pkgs.append(pkg)
         return update_pkgs
 
     @classmethod
-    def _create_package(
+    def _create_update_pkg(
         cls,
         field: str,
         is_legacy: bool,
@@ -556,31 +556,71 @@ class CompData(ABC, Generic[R]):
             return None
         for query in queries:
             if isinstance(query, tuple) and len(query) >= 1:
-                field = query[0]
-                addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
-                # special case for rpm/labor
-                if addr is None and field in {"rpm", "labor"}:
-                    field = "rpm_labor"
-                    addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
-                if addr is None:
-                    log.warning(f"Field {field} not found in FIELD_TO_ADDR_ENGINE_MAP ({req})")
-                    continue
-                handler = BASE_MEMORY_ENGINE_READ_MAP.get(addr, None)
-                if handler is None:
-                    if addr is None:
-                        log.warning(f"Field {field} handler not found in BASE_MEMORY_ENGINE_READ_MAP ({req})")
-                    continue
-                query_pkgs.append(QueryPkg(field, addr, handler.length))
+                pkg = cls._create_query_pkg(query[0])
+                if pkg:
+                    query_pkgs.append(pkg)
         return query_pkgs
 
     @classmethod
-    def generate_update_req(cls, field: str, state, data) -> PdiReq | None:
+    def _create_query_pkg(cls, field: str) -> QueryPkg | None:
+        addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
+        # special case for rpm/labor
+        if addr is None and field in {"rpm", "labor"}:
+            field = "rpm_labor"
+            addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
+        if addr is None:
+            log.warning(f"Field {field} not found in FIELD_TO_ADDR_ENGINE_MAP")
+            return None
+        handler = BASE_MEMORY_ENGINE_READ_MAP.get(addr, None)
+        if handler is None:
+            if addr is None:
+                log.warning(f"Field {field} handler not found in BASE_MEMORY_ENGINE_READ_MAP")
+            return None
+        return QueryPkg(field, addr, handler.length)
+
+    @classmethod
+    def generate_update_req(
+        cls,
+        field: str,
+        data: Any,
+        state=None,
+        scope: CommandScope = None,
+        address: int = None,
+        is_legacy: bool = False,
+    ) -> PdiReq | None:
         from .engine_state import EngineState, TrainState
 
         pkg = None
+        record_no = 0
         if isinstance(state, EngineState) or isinstance(state, TrainState):
-            pkg = cls._create_package(field, state.is_legacy, state.scope, state.address, data)
-        return pkg.as_request(state.address, state.scope, state.record_no) if pkg else None
+            pkg = cls._create_update_pkg(field, state.is_legacy, state.scope, state.address, data)
+            address = state.address
+            scope = state.scope
+            record_no = state.record_no
+        elif isinstance(scope, CommandScope) and isinstance(address, int):
+            pkg = cls._create_update_pkg(field, is_legacy, scope, address, data)
+        return pkg.as_request(address, scope, record_no) if pkg else None
+
+    @classmethod
+    def generate_query_req(
+        cls,
+        field: str,
+        state=None,
+        scope: CommandScope = None,
+        address: int = None,
+    ) -> PdiReq | None:
+        from .engine_state import EngineState, TrainState
+
+        pkg = None
+        record_no = 0
+        if isinstance(state, EngineState) or isinstance(state, TrainState):
+            pkg = cls._create_query_pkg(field)
+            address = state.address
+            scope = state.scope
+            record_no = state.record_no
+        elif isinstance(scope, CommandScope) and isinstance(address, int):
+            pkg = cls._create_query_pkg(field)
+        return pkg.as_request(address, scope, record_no) if pkg else None
 
     @abstractmethod
     def __init__(self, data: bytes | None, scope: CommandScope, tmcc_id: int = None) -> None:

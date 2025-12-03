@@ -46,7 +46,9 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 speed_req = speed
 
         # set the target speed value
-        self.add(CompData.generate_update_req("target_speed", self.state, speed_req))
+        self.add(CompData.generate_update_req("target_speed", speed_req, self.state))
+        # and query it for update of all clients
+        self.add(CompData.generate_query_req("target_speed", self.state), delay=0.2)
 
         # if there is no state information, treat this as an ABSOLUTE_SPEED req
         if address == DEFAULT_ADDRESS or not isinstance(self.state, EngineState) or self.state.speed is None:
@@ -69,7 +71,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     self.add(speed_enum, address, speed_req, scope)
                 if address == DEFAULT_ADDRESS or self.is_tmcc2:
                     rpm = tmcc2_speed_to_rpm(speed_req)
-                    self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=4)
+                    self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=0.2)
         else:
             speed_enum = (
                 TMCC2EngineCommandEnum.ABSOLUTE_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED

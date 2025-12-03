@@ -613,12 +613,69 @@ class DelayHandler(Thread):
 
     def schedule(self, delay: float, command: bytes) -> None:
         with self._cv:
+            # req = CommandReq.from_bytes(command)
+            evt = TrackedEvent(
+                self._scheduler,
+                delay=delay,
+                priority=1,
+                action=self._buffer.enqueue_command,
+                arguments=(command,),
+            )
+            print(evt)
             self._scheduler.enter(delay, 1, self._buffer.enqueue_command, (command,))
             # this interrupts the running scheduler
             self._ev.set()
             # and this notifies the main thread to restart, as there is a new
             # request in the sched queue
             self._cv.notify()
+
+
+class TrackedEvent:
+    def __init__(self, scheduler, delay, priority, action, arguments=(), kwargs=None):
+        self.scheduler = scheduler
+        self.delay = delay
+        self.priority = priority
+        self.action = action
+        self.arguments = arguments
+        self.kwargs = kwargs or {}
+
+        self._ran = False
+        self._canceled = False
+
+        # wrap action so we can track execution
+        def wrapper():
+            self._ran = True
+            return action(*arguments, **self.kwargs)
+
+        self._event = scheduler.enter(delay, priority, wrapper)
+
+    def __repr__(self):
+        status = "pending" if self.is_pending() else "ran" if self._ran else "canceled" if self._canceled else "unknown"
+        return (
+            f"<TrackedEvent status={status!r} "
+            f"delay={self.delay:.3f} priority={self.priority} "
+            f"action={self.action.__name__ if hasattr(self.action, '__name__') else self.action!r} "
+            f"at {hex(id(self))}>"
+        )
+
+    # ---- Status helpers ----
+    def is_pending(self):
+        return self._event in self.scheduler.queue
+
+    def has_run(self):
+        return self._ran
+
+    def was_canceled(self):
+        return self._canceled and not self._ran
+
+    # ---- Control helpers ----
+    def cancel(self):
+        if not self._ran:
+            try:
+                self.scheduler.cancel(self._event)
+                self._canceled = True
+            except ValueError:
+                pass  # already run or removed
 
 
 class ClientHeartBeat(Thread):

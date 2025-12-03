@@ -256,19 +256,16 @@ class SequenceReq(CommandReq, Sequence):
             if is_tmcc:
                 for rr_speed in TMCC1RRSpeedsEnum:
                     if speed in rr_speed.value:
-                        speed_int = rr_speed.value[0]
                         base = f"SPEED_{rr_speed.name}"
                         speed_enum = TMCC1EngineCommandEnum.by_name(base)
                         break
             else:
                 for rr_speed in TMCC2RRSpeedsEnum:
                     if speed in rr_speed.value:
-                        speed_int = rr_speed.value[0]
                         base = f"SPEED_{rr_speed.name}"
                         speed_enum = TMCC2EngineCommandEnum.by_name(base)
                         break
-            if speed_int is None:
-                speed_int = speed
+            speed_int = speed  # preserve requested speed, speed_int is normalized
         elif isinstance(speed, str):
             try:
                 args = self.speed_parser(is_tmcc).parse_args(["-" + speed.strip()])

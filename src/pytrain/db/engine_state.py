@@ -441,6 +441,7 @@ class EngineState(ComponentState):
                 # process the field update sent by the Base 3
                 from .comp_data import BASE_MEMORY_ENGINE_READ_MAP
 
+                print(command)
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(command.start, None)
                 if isinstance(tpl, CompDataHandler):
                     setattr(self.comp_data, tpl.field, tpl.from_bytes(command.data_bytes))

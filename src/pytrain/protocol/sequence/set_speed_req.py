@@ -23,7 +23,7 @@ class SetSpeedReq(SequenceReq):
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
         super().__init__(SequenceCommandEnum.SET_SPEED_RPM, address, scope)
-        self.add(CompData.generate_update_req("target_speed", self.state, data), index=0)
+        self.add(CompData.generate_update_req("target_speed", data, self.state))
         if address == DEFAULT_ADDRESS:
             self.add(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, address, data, scope)
             self.add(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, address, data, scope)
@@ -35,7 +35,10 @@ class SetSpeedReq(SequenceReq):
 
         if address == DEFAULT_ADDRESS or self.is_tmcc2:
             rpm = tmcc2_speed_to_rpm(data)
-            self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=4)
+            self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=0.2)
+
+        # query the new target speed
+        self.add(CompData.generate_query_req("target_speed", self.state), delay=0.2)
 
     def _apply_data(self, new_data: int = None) -> int:
         if self.state:
