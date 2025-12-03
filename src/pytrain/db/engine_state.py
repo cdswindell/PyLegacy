@@ -102,6 +102,12 @@ SHUTDOWN_SET = {
     (TMCC2EngineCommandEnum.NUMERIC, 5),
     TMCC2EngineCommandEnum.SHUTDOWN_IMMEDIATE,
 }
+RESET_SET = {
+    TMCC1EngineCommandEnum.RESET,
+    (TMCC1EngineCommandEnum.NUMERIC, 0),
+    TMCC2EngineCommandEnum.RESET,
+    (TMCC2EngineCommandEnum.NUMERIC, 0),
+}
 ENGINE_AUX1_SET = {
     TMCC1EngineCommandEnum.AUX1_ON,
     TMCC1EngineCommandEnum.AUX1_OFF,
@@ -161,6 +167,7 @@ class EngineState(ComponentState):
         self._prod_year: int | None = None
         self._start_stop: CommandDefEnum | None = None
         self._d4_rec_no: int | None = None
+        self._ramping: bool = False
 
     def __repr__(self) -> str:
         sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = ""
@@ -220,6 +227,15 @@ class EngineState(ComponentState):
             f"{name}{num}{lt}{ct}{yr}{bt}{ss}{nu}{aux}{c}"
         )
 
+    @property
+    def is_ramping(self) -> bool:
+        return self._ramping
+
+    @is_ramping.setter
+    def is_ramping(self, value: bool):
+        print(f"Setting ramping to {value} on {self.last_command}")
+        self._ramping = value
+
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
             if self.is_legacy:
@@ -260,8 +276,10 @@ class EngineState(ComponentState):
                         self._aux = TMCC1.AUX2_OPTION_ONE
                     if self.comp_data is not None:
                         self.comp_data.speed = 0
+                        self.comp_data.target_speed = 0
                         self.comp_data.rpm_tmcc = 0
                         self.comp_data.labor_tmcc = 12
+                    self.is_ramping = False
                     self._numeric = None
                     self._last_command = command
 
@@ -286,6 +304,10 @@ class EngineState(ComponentState):
                         return
                 elif cmd_effects & DIRECTIONS_SET:
                     self._direction = self._change_direction(self._harvest_effect(cmd_effects & DIRECTIONS_SET))
+
+                # handle reset
+                if command.command in RESET_SET or cmd_effects & RESET_SET:
+                    self.is_ramping = False
 
                 # handle train brake
                 if command.command in TRAIN_BRAKE_SET:
@@ -375,6 +397,11 @@ class EngineState(ComponentState):
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
                         self.comp_data.speed = 0
+                if not self.is_ramping:
+                    # if this PyTrain instance isn't ramping speed, set the target speed to match
+                    self.comp_data.target_speed = self.speed
+                elif self.speed == self.target_speed:
+                    self.is_ramping = False
 
                 # handle momentum
                 if command.command in MOMENTUM_SET:
