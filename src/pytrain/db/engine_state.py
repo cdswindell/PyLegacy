@@ -398,7 +398,7 @@ class EngineState(ComponentState):
                         self.comp_data.speed = 0
                 if not self.is_ramping:
                     # if this PyTrain instance isn't ramping speed, set the target speed to match
-                    print(f"Not ramping; setting target speed to {self.comp_data.speed}")
+                    print(f"Not ramping; setting target speed of {self.tmcc_id} to {self.comp_data.speed}")
                     self.comp_data.target_speed = self.speed
                 elif self.speed == self.target_speed:
                     self.is_ramping = False
