@@ -2041,12 +2041,16 @@ class EngineGui(Thread, Generic[S]):
             btn.hide()
         for btn in self.diesel_btns:
             btn.show()
+        cell, _ = self.engine_ops_cells["BLOW_HORN_ONE"]
+        cell.text = "Horn..."
 
     def show_steam_keys(self) -> None:
         for btn in self.diesel_btns:
             btn.hide()
         for btn in self.steam_btns:
             btn.show()
+        cell, _ = self.engine_ops_cells["BLOW_HORN_ONE"]
+        cell.text = "Whistle..."
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
         print(f"ops_mode: {self.scope} update_info: {update_info}")
