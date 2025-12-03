@@ -1098,7 +1098,7 @@ class EngineGui(Thread, Generic[S]):
                     c,
                     bolded=True,
                     size=self.s_18,
-                    command=self.on_engine_command,
+                    command=self.on_speed_command,
                     args=[op[0]],
                 )
 
@@ -1113,7 +1113,7 @@ class EngineGui(Thread, Generic[S]):
                     nb.rr_speed = op[0]
 
                 if dialog:
-                    nb.on_hold = (self.on_engine_command, [f"{dialog}, {op[0]}"])
+                    nb.on_hold = (self.on_speed_command, [f"{dialog}, {op[0]}"])
 
     def on_rr_speed(self) -> None:
         self.show_popup(self.rr_speed_overlay)
@@ -2378,6 +2378,12 @@ class EngineGui(Thread, Generic[S]):
         self.app.tk.update_idletasks()
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
+
+    def on_speed_command(
+        self,
+        targets: str | list[str],
+    ):
+        print(f"on_speed_command: {targets}")
 
     def on_engine_command(
         self,
