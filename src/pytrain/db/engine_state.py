@@ -391,6 +391,7 @@ class EngineState(ComponentState):
                 # handle speed
                 if command.command in SPEED_SET:
                     self.comp_data.speed = command.data
+                    self.update_target_speed()
                 elif cmd_effects & SPEED_SET:
                     speed = self._harvest_effect(cmd_effects & SPEED_SET)
                     if isinstance(speed, tuple) and len(speed) > 1:
@@ -399,13 +400,7 @@ class EngineState(ComponentState):
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
                         self.comp_data.speed = 0
-                if not self.is_ramping:
-                    # if this PyTrain instance isn't ramping speed, set the target speed to match
-                    print(f"Not ramping; setting target speed of {self.tmcc_id} to {self.comp_data.speed}")
-                    self.comp_data.target_speed = self.speed
-                elif self.speed == self.target_speed:
-                    print(f"Ramping; speed is {self.speed} and target speed is {self.target_speed}")
-                    self.is_ramping = False
+                    self.update_target_speed()
 
                 # handle momentum
                 if command.command in MOMENTUM_SET:
@@ -488,6 +483,15 @@ class EngineState(ComponentState):
                         self._d4_rec_no = command.record_no
             self.changed.set()
             self._cv.notify_all()
+
+    def update_target_speed(self):
+        if not self.is_ramping:
+            # if this PyTrain instance isn't ramping speed, set the target speed to match
+            print(f"Not ramping; setting target speed of {self.tmcc_id} to {self.comp_data.speed}")
+            self.comp_data.target_speed = self.speed
+        elif self.speed == self.target_speed:
+            print(f"Ramping; speed is {self.speed} and target speed is {self.target_speed}")
+            self.is_ramping = False
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:
