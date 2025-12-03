@@ -99,6 +99,15 @@ class ComponentStateStore:
             return False
         return cast(SyncState, sync_state).is_synchronized
 
+    @classmethod
+    def is_state_synchronizing(cls) -> bool:
+        if cls._instance is None:
+            return False
+        sync_state = cls._instance.get_state(CommandScope.SYNC, 99, False)
+        if sync_state is None:
+            return False
+        return cast(SyncState, sync_state).is_synchronizing
+
     def __new__(cls, *args, **kwargs):
         """
         Provides singleton functionality. We only want one instance

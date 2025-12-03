@@ -255,6 +255,8 @@ class EngineState(ComponentState):
             return
         with self._cv:
             super().update(command)
+            if self.tmcc_id == 7:
+                print(command, self.is_synchronized())
             if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                 self._update_comp_data(command.comp_data)
                 if isinstance(command, D4Req):
@@ -267,7 +269,7 @@ class EngineState(ComponentState):
                     self._is_legacy = True
 
                 # handle some aspects of the halt command
-                if command.command == TMCC1HaltCommandEnum.HALT:
+                if command.command in {TMCC2EngineCommandEnum.SYSTEM_HALT, TMCC1HaltCommandEnum.HALT}:
                     if self.is_legacy:
                         self._aux1 = TMCC2.AUX1_OFF
                         self._aux2 = TMCC2.AUX2_OFF
@@ -392,7 +394,9 @@ class EngineState(ComponentState):
                 if command.command in SPEED_SET:
                     self.comp_data.speed = command.data
                     self.update_target_speed()
-                elif cmd_effects & SPEED_SET:
+                elif self.is_synchronized() and cmd_effects & SPEED_SET:
+                    # ignore impact of direction command while synchronizing state
+                    # it is only in command stream to set initial state
                     speed = self._harvest_effect(cmd_effects & SPEED_SET)
                     if isinstance(speed, tuple) and len(speed) > 1:
                         self.comp_data.speed = speed[1]
@@ -518,6 +522,15 @@ class EngineState(ComponentState):
         from ..pdi.base_req import BaseReq
 
         packets = []
+        # Encode the engine state as represented on the Base 3;
+        if self.tmcc_id <= 99:
+            pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
+        else:
+            pdi_cmd = PdiCommand.D4_ENGINE if self.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
+            pdi = D4Req(self.record_no, pdi_cmd, state=self)
+        packets.append(pdi.as_bytes)
+
+        # now encode state that isn't managed by the Base 3, AFAIK
         if isinstance(self._start_stop, CommandDefEnum):
             packets.append(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
         if isinstance(self.smoke_level, CommandDefEnum):
@@ -543,15 +556,6 @@ class EngineState(ComponentState):
             packets.append(CommandReq.build(self.aux1, self.address).as_bytes)
         if isinstance(self._aux2, CommandDefEnum):
             packets.append(CommandReq.build(self.aux2, self.address).as_bytes)
-
-        # Finally, encode the engine state as represented on the Base 3; we do this last as
-        # the states encoded above may locally override the engine state on the Base 3.
-        if self.tmcc_id <= 99:
-            pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
-        else:
-            pdi_cmd = PdiCommand.D4_ENGINE if self.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
-            pdi = D4Req(self.record_no, pdi_cmd, state=self)
-        packets.append(pdi.as_bytes)
         return packets
 
     @property

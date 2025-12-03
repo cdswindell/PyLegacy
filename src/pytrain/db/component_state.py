@@ -151,6 +151,18 @@ class ComponentState(ABC, CompDataMixin):
     def spare_1(self) -> int:
         return self._spare_1
 
+    @staticmethod
+    def is_synchronized() -> bool:
+        from .component_state_store import ComponentStateStore
+
+        return ComponentStateStore.is_state_synchronized()
+
+    @staticmethod
+    def is_synchronizing() -> bool:
+        from .component_state_store import ComponentStateStore
+
+        return ComponentStateStore.is_state_synchronizing()
+
     @abstractmethod
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
