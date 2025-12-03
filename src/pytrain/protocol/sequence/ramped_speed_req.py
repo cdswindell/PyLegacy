@@ -47,7 +47,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
 
         # set the target speed value
         self._target_speed = speed_req
-        print(f"Saving Target Speed: {self._target_speed}")
         self.add(CompData.generate_update_req("target_speed", speed_req, self.state))
         # and query it for update of all clients
         self.add(CompData.generate_query_req("target_speed", self.state), delay=0.5)
@@ -146,7 +145,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             if self.state.is_ramping:
                 print("Ramping already in progress")
             self.state.comp_data.target_speed = self._target_speed
-            print(f"**** Setting target speed to {self.state.target_speed} {self._target_speed}")
             self.state.is_ramping = True
 
 

@@ -2407,7 +2407,6 @@ class EngineGui(Thread, Generic[S]):
                 rr_speed = TMCC1RRSpeedsEnum.by_name(speed)
             if rr_speed is None and speed == "EMERGENCY_STOP":
                 # dispatch directly to on_engine_command for processing
-                print("Setting on_ramp False")
                 state.is_ramping = False
                 self.on_engine_command(speed_req)
                 return

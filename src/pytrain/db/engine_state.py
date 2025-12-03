@@ -180,7 +180,6 @@ class EngineState(ComponentState):
 
         if self.speed is not None:
             sp = f" Speed: {self.speed:03}"
-            print(f"sp: {sp}")
             if self.target_speed is not None:
                 speed_limit = self.decode_speed_info(self.target_speed)
                 sp += f"/{speed_limit:03}"
@@ -235,7 +234,6 @@ class EngineState(ComponentState):
     @is_ramping.setter
     def is_ramping(self, value: bool):
         with self._cv:
-            print(f"***** Setting is_ramping for {self.tmcc_id} to {value} {self.target_speed}")
             self._ramping = value
 
     def decode_speed_info(self, speed_info):
@@ -259,10 +257,6 @@ class EngineState(ComponentState):
             super().update(command)
             if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                 self._update_comp_data(command.comp_data)
-                if self.tmcc_id == 7:
-                    print(command)
-                    print(self)
-                    print(self.speed)
                 if isinstance(command, D4Req):
                     self._is_legacy = True
                     self._d4_rec_no = command.record_no
@@ -313,7 +307,6 @@ class EngineState(ComponentState):
 
                 # handle reset
                 if command.command in RESET_SET or cmd_effects & RESET_SET:
-                    print(f"Resetting {self.tmcc_id}; setting is_ramping False")
                     self.is_ramping = False
 
                 # handle train brake
@@ -391,24 +384,20 @@ class EngineState(ComponentState):
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {labor} {type(labor)} {cmd_effects}")
-                        print("Setting speed to 0...")
                         self.comp_data.speed = 0
 
                 # handle speed
                 if command.command in SPEED_SET:
-                    print(f"Setting speed to {command.data} 1...")
                     self.comp_data.speed = command.data
                     self.update_target_speed()
                 elif cmd_effects & SPEED_SET:
                     speed = self._harvest_effect(cmd_effects & SPEED_SET)
                     if isinstance(speed, tuple) and len(speed) > 1:
                         self.comp_data.speed = speed[1]
-                        print(f"Setting speed to {self.speed} 2 {command} {cmd_effects} {speed}...")
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
                         self.comp_data.speed = 0
-                        print(f"Setting speed to {self.speed} 3...")
                     self.update_target_speed()
 
                 # handle momentum
@@ -465,10 +454,8 @@ class EngineState(ComponentState):
             ):
                 from ..pdi.base_req import EngineBits
 
-                print(f"Processing speed command: {command}")
                 if self.speed is None and command.is_valid(EngineBits.SPEED):
                     self.comp_data.speed = command.speed
-                    print(f"Setting speed to {self.speed} 4...")
             elif (
                 isinstance(command, BaseReq)
                 and command.pdi_command == PdiCommand.BASE_MEMORY
@@ -480,7 +467,6 @@ class EngineState(ComponentState):
 
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(command.start, None)
                 if isinstance(tpl, CompDataHandler):
-                    print(f"Received PDI Update for {tpl.field}: {tpl.from_bytes(command.data_bytes)}")
                     setattr(self.comp_data, tpl.field, tpl.from_bytes(command.data_bytes))
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
@@ -497,10 +483,8 @@ class EngineState(ComponentState):
     def update_target_speed(self):
         if not self.is_ramping:
             # if this PyTrain instance isn't ramping speed, set the target speed to match
-            print(f"Not ramping; setting target speed of {self.tmcc_id} to {self.comp_data.speed}")
             self.comp_data.target_speed = self.speed
         elif self.speed == self.target_speed:
-            print(f"Ramping; speed is {self.speed} and target speed is {self.target_speed}")
             self.is_ramping = False
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
