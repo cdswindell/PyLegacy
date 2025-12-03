@@ -299,7 +299,7 @@ class PdiReq(ABC):
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
         for rep_no in range(repeat):
             buffer.enqueue_command(self.as_bytes, delay=delay)
-            if duration > 0:
+            if duration and duration > 0:
                 interval = interval if interval else DEFAULT_DURATION_INTERVAL_MSEC
                 # convert duration into milliseconds, then queue a command to fire
                 # every 100 msec for the duration

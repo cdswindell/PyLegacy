@@ -129,9 +129,9 @@ class SequenceReq(CommandReq, Sequence):
 
     def send(
         self,
-        repeat: int = None,
-        delay: float = None,
-        duration: float = None,
+        repeat: int = 1,
+        delay: float = 0.0,
+        duration: float = 0.0,
         interval: int = None,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
@@ -139,10 +139,12 @@ class SequenceReq(CommandReq, Sequence):
     ) -> None:
         for sqr in self._requests:
             request = sqr.request
+
             req_repeat = sqr.repeat if sqr.repeat is not None else repeat
             req_delay = sqr.delay if sqr.delay is not None else delay
             req_duration = sqr.duration if sqr.duration is not None else duration
             req_interval = sqr.interval if sqr.interval is not None else interval
+            print(request, duration)
             request.send(
                 repeat=req_repeat,
                 delay=req_delay,
