@@ -255,8 +255,6 @@ class EngineState(ComponentState):
             return
         with self._cv:
             super().update(command)
-            if self.tmcc_id == 7:
-                print(command, self.is_synchronized())
             if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                 self._update_comp_data(command.comp_data)
                 if isinstance(command, D4Req):
