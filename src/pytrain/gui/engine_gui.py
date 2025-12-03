@@ -1358,7 +1358,6 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
-        print(f"on_new_engine: {state.last_command if state else 'N/A'}")
         self._active_engine_state = state
         if state:
             # only set throttle/brake/momentum value if we are not in the middle of setting it
@@ -1489,7 +1488,6 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope) -> None:
-        print(f"On Scope: {scope}")
         self.scope_box.hide()
         force_entry_mode = False
         clear_info = True
@@ -1546,7 +1544,6 @@ class EngineGui(Thread, Generic[S]):
         self.header.select_default()
 
     def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):
-        print(f"Scope Keypad: force={force_entry_mode}")
         # if tmcc_id associated with scope is 0, then we are in entry mode;
         # show keypad with appropriate buttons
         tmcc_id = self._scope_tmcc_ids[self.scope]
@@ -2041,7 +2038,6 @@ class EngineGui(Thread, Generic[S]):
             print(f"Unknown key: {key}")
 
     def entry_mode(self, clear_info: bool = True) -> None:
-        print(f"entry_mode  clear_info={clear_info}:")
         if clear_info:
             self.update_component_info(0)
         else:
@@ -2060,7 +2056,6 @@ class EngineGui(Thread, Generic[S]):
             self.reset_btn.enable()
         else:
             self.reset_btn.disable()
-        print("Exiting self.entry_mode...")
 
     def show_diesel_keys(self) -> None:
         for btn in self.steam_btns:
@@ -2079,7 +2074,6 @@ class EngineGui(Thread, Generic[S]):
         cell.text = "Whistle..."
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
-        print(f"ops_mode: {self.scope} update_info: {update_info}")
         self._in_entry_mode = False
         for cell in self.entry_cells:
             if cell.visible:
@@ -2142,7 +2136,6 @@ class EngineGui(Thread, Generic[S]):
 
         if update_info:
             self.update_component_info(in_ops_mode=True)
-        print("Exiting self.ops_mode...")
 
     def update_component_info(
         self,
@@ -2150,7 +2143,6 @@ class EngineGui(Thread, Generic[S]):
         not_found_value: str = "Not Configured",
         in_ops_mode: bool = False,
     ) -> None:
-        print(f"update_component_info: {tmcc_id}")
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
         # update the tmcc_id associated with current scope
@@ -2191,14 +2183,12 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_image(tmcc_id)
         else:
             self.image_box.hide()
-        print("Exiting update_component_info...")
 
     def clear_image(self):
         self.image.image = None
         self.image_box.hide()
 
     def update_component_image(self, tmcc_id: int = None, key: tuple[CommandScope, int] = None) -> None:
-        print(f"update_component_image: {tmcc_id}, {key}")
         if key is None and self.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             # routes and switches don't use images
             return
@@ -2417,6 +2407,7 @@ class EngineGui(Thread, Generic[S]):
                 rr_speed = TMCC1RRSpeedsEnum.by_name(speed)
             if rr_speed is None and speed == "EMERGENCY_STOP":
                 # dispatch directly to on_engine_command for processing
+                print("Setting on_ramp False")
                 state.is_ramping = False
                 self.on_engine_command(speed_req)
                 return

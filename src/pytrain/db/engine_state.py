@@ -308,6 +308,7 @@ class EngineState(ComponentState):
 
                 # handle reset
                 if command.command in RESET_SET or cmd_effects & RESET_SET:
+                    print(f"Resetting {self.tmcc_id}; setting is_ramping False")
                     self.is_ramping = False
 
                 # handle train brake

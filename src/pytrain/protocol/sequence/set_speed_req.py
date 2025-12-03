@@ -59,6 +59,7 @@ class SetSpeedReq(SequenceReq):
         if self.state:
             if self.state.is_ramping:
                 print("Ramping already in progress")
+            print(f"Setting speed to {self.data} Setting is_ramp to False")
             self.state.is_ramping = False
 
 
