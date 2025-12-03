@@ -614,14 +614,13 @@ class DelayHandler(Thread):
     def schedule(self, delay: float, command: bytes) -> None:
         with self._cv:
             # req = CommandReq.from_bytes(command)
-            evt = TrackedEvent(
+            TrackedEvent(
                 self._scheduler,
                 delay=delay,
                 priority=1,
                 action=self._buffer.enqueue_command,
                 arguments=(command,),
             )
-            print(evt)
             self._scheduler.enter(delay, 1, self._buffer.enqueue_command, (command,))
             # this interrupts the running scheduler
             self._ev.set()

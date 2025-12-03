@@ -23,6 +23,7 @@ class SetSpeedReq(SequenceReq):
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
         super().__init__(SequenceCommandEnum.SET_SPEED_RPM, address, scope)
+        self._target_speed = data
         self.add(CompData.generate_update_req("target_speed", data, self.state))
         if address == DEFAULT_ADDRESS:
             self.add(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, address, data, scope)
@@ -60,6 +61,7 @@ class SetSpeedReq(SequenceReq):
             if self.state.is_ramping:
                 print("Ramping already in progress")
             print(f"Setting speed to {self.data} Setting is_ramp to False")
+            self.state.target_speed = self._target_speed
             self.state.is_ramping = False
 
 
