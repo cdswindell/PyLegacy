@@ -485,9 +485,11 @@ class EngineState(ComponentState):
             self._cv.notify_all()
 
     def update_target_speed(self):
+        print(f"Updating target speed {self.speed}/{self.target_speed} ramping: {self._ramping}")
         if self._ramping:
             if self.speed == self.target_speed:
                 self._ramping = False
+                print("Set ramping False")
         else:
             # if this PyTrain instance isn't ramping speed, set the target speed to match
             self.comp_data.target_speed = self.speed

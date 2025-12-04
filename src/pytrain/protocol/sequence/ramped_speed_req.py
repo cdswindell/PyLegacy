@@ -141,6 +141,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
 
     def _on_before_send(self) -> None:
         if self.state:
+            print(f"Ramping to {self._target_speed}...")
             self.state.comp_data.target_speed = self._target_speed
             self.state.is_ramping = True
 
