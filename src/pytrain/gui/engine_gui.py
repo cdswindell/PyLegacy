@@ -775,6 +775,7 @@ class EngineGui(Thread, Generic[S]):
             height=self.slider_height,
             command=self.on_throttle,
         )
+        throttle.after_id = None  # used to debounce slider updates
         throttle.text_color = "black"
         throttle.tk.config(
             from_=195,
@@ -1253,9 +1254,15 @@ class EngineGui(Thread, Generic[S]):
         self.horn.tk.event_generate("<Leave>")
 
     def on_throttle(self, value):
-        if self.app.tk.focus_get() == self.throttle.tk:
-            value = int(value)
-            self.on_speed_command(value)
+        if self.throttle.after_id is not None:
+            self.throttle.tk.after_cancel(self.throttle.after_id)
+
+        # schedule new callback in 150ms
+        self.throttle.after_id = self.throttle.tk.after(150, self.on_throttle_released, int(value))
+
+    def on_throttle_released(self, value: int) -> None:
+        self.throttle.after_id = None
+        self.on_speed_command(value)
 
     def on_train_brake(self, value):
         if self.app.tk.focus_get() == self.brake.tk:
