@@ -88,7 +88,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 delay_inc = 0.200 + (self.state.momentum * (0.010 if self.is_tmcc2 else 0.1))
                 if self.is_tmcc2:
                     inc = 2 if self.state.momentum >= 4 else inc
-                    inc = 1 if self.state.momentum >= 7 else inc
+                    inc = 1 if self.state.momentum >= 6 else inc
             else:
                 delay_inc = 0.200
             speed_req = min(speed_req, self.state.speed_max)

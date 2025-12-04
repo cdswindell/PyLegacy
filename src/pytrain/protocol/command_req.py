@@ -3,6 +3,9 @@ from __future__ import annotations
 import sys
 from typing import Callable, Set, TypeVar
 
+from ..pdi.constants import PDI_EOP, PDI_SOP
+from ..pdi.pdi_req import PdiReq
+
 if sys.version_info >= (3, 11):
     from typing import Self
 
@@ -84,6 +87,9 @@ class CommandReq:
             raise ValueError("Command requires at least 3 bytes")
         if len(param) < 3:
             raise ValueError(f"Command requires at least 3 bytes {param.hex(':')}")
+        # If this is a PDI command, handle it here
+        if param[0] == PDI_SOP and param[-1] == PDI_EOP:
+            return PdiReq.from_bytes(param)
         first_byte = int(param[0])
         cmd_req = None
         if first_byte in TMCC4_FIRST_BYTE_TO_INTERPRETER:
@@ -183,7 +189,7 @@ class CommandReq:
     @classmethod
     def _enqueue_command(
         cls,
-        cmd: bytes,
+        cmd: bytes | CommandReq | PdiReq,
         repeat: int,
         delay: float,
         duration: float,
@@ -222,7 +228,11 @@ class CommandReq:
         for rep_no in range(repeat):
             if prefix_bytes:
                 buffer.enqueue_command(prefix_bytes, delay)
-            buffer.enqueue_command(cmd, delay)
+            # send the command to the Lionel Base 3 (or Ser 2)
+            if request:
+                buffer.enqueue_command(request, delay)
+            else:
+                buffer.enqueue_command(cmd, delay)
             # does this command cause any other state changes?
             if rep_no == 0 and request and trigger_effects is True:
                 for effect in cls.results_in(request):
@@ -345,6 +355,10 @@ class CommandReq:
         if self.command_def.is_addressable and new_address != self._address:
             self._address = new_address
             self._apply_address()
+
+    @property
+    def tmcc_id(self) -> int:
+        return self.address
 
     @property
     def data(self) -> int:
@@ -483,7 +497,7 @@ class CommandReq:
     ) -> None:
         interval = self.command_def.interval if self.command_def.interval else interval
         self._enqueue_command(
-            self.as_bytes,
+            self,
             repeat,
             delay,
             duration,

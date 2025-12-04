@@ -22,7 +22,7 @@ from ..pdi.amc2_req import Amc2Req
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.d4_req import D4Req
-from ..protocol.command_def import CommandDefEnum
+from ..protocol.command_def import CommandDef, CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import (
     BROADCAST_TOPIC,
@@ -39,6 +39,7 @@ from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1AuxCommandEnum, TMCC1SyncCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, TMCC2EngineCommandEnum
 from ..utils.ip_tools import get_ip_address
+from .comm_buffer import CommBuffer
 
 log = logging.getLogger(__name__)
 
@@ -466,12 +467,16 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 if isinstance(cmd, CommandReq):
                     # if command is a TMCC1 Halt, send to everyone
                     if cmd.is_halt:
+                        # force cancel of all delayed commands
+                        CommBuffer.cancel_delayed_requests()
                         if self._filter_updates is True and cmd.is_filtered is True:
                             log.debug(f"Filtering client update: {cmd}")
                         else:
                             self.publish_all(cmd)
                     # if command is a legacy-style halt, send to engines and trains
                     elif cmd.is_system_halt:
+                        CommBuffer.cancel_delayed_requests(scope=CommandScope.ENGINE)
+                        CommBuffer.cancel_delayed_requests(scope=CommandScope.TRAIN)
                         self.publish_all(cmd, [CommandScope.ENGINE, CommandScope.TRAIN])
                     # otherwise, send to the interested parties
                     else:
@@ -561,7 +566,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             option = CommandReq(option)
         for client_ip, port in EnqueueProxyRequests.clients():
             if client_ip == client:
-                node_scope = cast(SyncCommandDef, option.command_def).is_node_scope
+                node_scope = cast(SyncCommandDef, cast(CommandDef, option.command_def)).is_node_scope
                 self.update_client_state(option, client=client, port=port)
                 if node_scope:
                     return
@@ -696,6 +701,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             self._cv.notify_all()
         CommandDispatcher._instance = None
 
+    # noinspection PyUnresolvedReferences,PyUnreachableCode
     @staticmethod
     def _make_channel(
         channel: Topic,
