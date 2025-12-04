@@ -709,13 +709,12 @@ class DelayHandler(Thread):
                 for event in ce:
                     if requests and hasattr(event, "request"):
                         if isinstance(event.request, CommandReq) and event.request.command not in requests:
-                            print(f"Preserving delayed command: {event.request}")
                             continue
                     to_delete.add(event)
                     event.cancel()
                 deleted += len(to_delete)
                 ce.difference_update(to_delete)
-            print(f"Cancelled {deleted} delayed requests")
+                log.debug(f"Cancelled {deleted} delayed requests for TMCC {tmcc_id} in scope {scope}")
 
     def _cache_event(self, command: CommandReq | PdiReq, event: TrackedEvent):
         # method is called under the cv lock in schedule()
