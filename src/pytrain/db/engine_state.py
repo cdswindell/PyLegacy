@@ -472,7 +472,7 @@ class EngineState(ComponentState):
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(command.start, None)
                 if isinstance(tpl, CompDataHandler):
                     setattr(self.comp_data, tpl.field, tpl.from_bytes(command.data_bytes))
-                print(f"Updated field {tpl.field} from {command.data_bytes} Target: {self.target_speed}")
+                print(f"** Updated field {tpl.field} from {command.data_bytes} Target: {self.target_speed}")
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
             elif isinstance(command, D4Req):
@@ -486,11 +486,9 @@ class EngineState(ComponentState):
             self._cv.notify_all()
 
     def update_target_speed(self):
-        print(f"Updating target speed {self.speed}/{self.target_speed} ramping: {self._ramping}")
         if self._ramping:
             if self.speed == self.target_speed:
                 self._ramping = False
-                print("Set ramping False")
         else:
             # if this PyTrain instance isn't ramping speed, set the target speed to match
             self.comp_data.target_speed = self.speed

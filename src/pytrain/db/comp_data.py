@@ -115,7 +115,7 @@ class QueryPkg:
             return BaseReq(
                 tmcc_id,
                 pdi_command=PdiCommand.BASE_MEMORY,
-                flags=0x43,
+                flags=0x3,
                 scope=scope,
                 start=self.offset,
                 data_length=self.length,

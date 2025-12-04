@@ -48,8 +48,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
         # set the target speed value
         self._target_speed = speed_req
         self.add(CompData.generate_update_req("target_speed", speed_req, self.state))
-        # and query it for update of all clients
-        # self.add(CompData.generate_query_req("target_speed", self.state), delay=0.5)
 
         # if there is no state information, treat this as an ABSOLUTE_SPEED req
         if address == DEFAULT_ADDRESS or not isinstance(self.state, EngineState) or self.state.speed is None:
@@ -141,7 +139,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
 
     def _on_before_send(self) -> None:
         if self.state:
-            print(f"Ramping to {self._target_speed}...")
             self.state.comp_data.target_speed = self._target_speed
             self.state.is_ramping = True
 
