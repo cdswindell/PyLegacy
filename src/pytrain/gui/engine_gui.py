@@ -773,6 +773,7 @@ class EngineGui(Thread, Generic[S]):
             step=1,
             width=int(self.button_size / 2),
             height=self.slider_height,
+            command=self.on_throttle,
         )
         throttle.text_color = "black"
         throttle.tk.config(
@@ -1250,6 +1251,11 @@ class EngineGui(Thread, Generic[S]):
         self.brake.tk.event_generate("<Leave>")
         self.momentum.tk.event_generate("<Leave>")
         self.horn.tk.event_generate("<Leave>")
+
+    def on_throttle(self, value):
+        if self.app.tk.focus_get() == self.throttle.tk:
+            value = int(value)
+            self.on_speed_command(value)
 
     def on_train_brake(self, value):
         if self.app.tk.focus_get() == self.brake.tk:
