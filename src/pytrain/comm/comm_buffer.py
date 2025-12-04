@@ -756,9 +756,13 @@ class TrackedEvent:
         self._canceled = False
 
         # wrap action so we can track execution
-        def wrapper():
-            self._ran = True
-            return action(*arguments, **self.kwargs)
+        def wrapper() -> None:
+            if not self.was_canceled():
+                self._ran = True
+                return action(*arguments, **self.kwargs)
+            else:
+                print(f"Event {self} was canceled before it ran.")
+            return None
 
         self._event = scheduler.enter(delay, priority, wrapper)
 
