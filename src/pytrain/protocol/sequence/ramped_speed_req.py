@@ -74,7 +74,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     rpm = tmcc2_speed_to_rpm(speed_req)
                     self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=0.2)
         else:
-            self.state.is_ramping = True
             speed_enum = (
                 TMCC2EngineCommandEnum.ABSOLUTE_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
             )
@@ -142,8 +141,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
 
     def _on_before_send(self) -> None:
         if self.state:
-            if self.state.is_ramping:
-                print("Ramping already in progress")
             self.state.comp_data.target_speed = self._target_speed
             self.state.is_ramping = True
 

@@ -485,11 +485,12 @@ class EngineState(ComponentState):
             self._cv.notify_all()
 
     def update_target_speed(self):
-        if not self.is_ramping:
+        if self._ramping:
+            if self.speed == self.target_speed:
+                self._ramping = False
+        else:
             # if this PyTrain instance isn't ramping speed, set the target speed to match
             self.comp_data.target_speed = self.speed
-        elif self.speed == self.target_speed:
-            self.is_ramping = False
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:
