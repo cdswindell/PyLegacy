@@ -361,7 +361,11 @@ class CommBufferSingleton(CommBuffer, Thread):
         from ..pdi.constants import PDI_SOP
 
         if command:
-            log.debug(f"Enqueue command 0x{command.hex()}")
+            if log.isEnabledFor(logging.DEBUG):
+                if isinstance(command, bytes):
+                    log.debug(f"Enqueue command 0x{command.hex()}")
+                else:
+                    log.debug(f"Enqueue command {command}")
             if delay > 0:
                 self._scheduler.schedule(delay, command)
             else:

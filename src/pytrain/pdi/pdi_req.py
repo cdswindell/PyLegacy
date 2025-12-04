@@ -24,6 +24,7 @@ SCOPE_TO_RECORD_LENGTH = {
     CommandScope.ENGINE: LIONEL_ENGINE_RECORD_LENGTH,
     CommandScope.TRAIN: LIONEL_ENGINE_RECORD_LENGTH,
     CommandScope.ACC: LIONEL_ENGINE_RECORD_LENGTH,
+    CommandScope.SYSTEM: LIONEL_ENGINE_RECORD_LENGTH,
     CommandScope.SWITCH: 0x40,
     CommandScope.ROUTE: 0x80,
 }
@@ -49,7 +50,7 @@ class PdiReq(ABC):
 
     @classmethod
     def scope_record_length(cls, scope: CommandScope) -> int:
-        return SCOPE_TO_RECORD_LENGTH.get(scope, None)
+        return SCOPE_TO_RECORD_LENGTH.get(scope, LIONEL_ENGINE_RECORD_LENGTH)
 
     @abstractmethod
     def __init__(self, data: bytes | None, pdi_command: PdiCommand = None) -> None:

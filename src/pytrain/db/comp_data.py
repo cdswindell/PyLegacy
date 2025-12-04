@@ -326,6 +326,11 @@ REQUEST_TO_UPDATES_MAP = {
     ],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
+    "HALT": [
+        ("speed", lambda x: 0),
+        ("target_speed", lambda x: 0),
+        ("rpm_labor", lambda x: 0),
+    ],
     "MOMENTUM": [("momentum",)],
     "MOMENTUM_HIGH": [("momentum", lambda t: 127)],
     "MOMENTUM_LOW": [("momentum", lambda t: 0)],
@@ -343,6 +348,11 @@ REQUEST_TO_UPDATES_MAP = {
     "SMOKE_OFF": [("smoke", lambda t: 0)],
     "SMOKE_ON": [("smoke", lambda t: 1)],
     "STOP_IMMEDIATE": [
+        ("speed", lambda x: 0),
+        ("target_speed", lambda x: 0),
+        ("rpm_labor", lambda x: 0),
+    ],
+    "SYSTEM_HALT": [
         ("speed", lambda x: 0),
         ("target_speed", lambda x: 0),
         ("rpm_labor", lambda x: 0),
