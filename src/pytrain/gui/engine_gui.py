@@ -1256,13 +1256,16 @@ class EngineGui(Thread, Generic[S]):
     def on_throttle(self, value):
         if self.throttle.after_id is not None:
             self.throttle.tk.after_cancel(self.throttle.after_id)
-
         # schedule new callback in 150ms
-        self.throttle.after_id = self.throttle.tk.after(150, self.on_throttle_released, int(value))
+        self.throttle.after_id = self.throttle.tk.after(200, self.on_throttle_released, int(value))
 
     def on_throttle_released(self, value: int) -> None:
         self.throttle.after_id = None
-        self.on_speed_command(value)
+        if self.app.tk.focus_get() == self.throttle.tk:
+            # make sure we're still holding the throttle
+            self.throttle.after_id = self.throttle.tk.after(200, self.on_throttle_released, int(value))
+        else:
+            self.on_speed_command(value)
 
     def on_train_brake(self, value):
         if self.app.tk.focus_get() == self.brake.tk:
