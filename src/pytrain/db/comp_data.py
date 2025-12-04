@@ -360,20 +360,7 @@ REQUEST_TO_UPDATES_MAP = {
 # current state of the component. This map defines the fields that must be
 # queried, and the corresponding update fields that must be set.
 #
-REQUEST_TO_QUERIES_MAP = {
-    # "ABSOLUTE_SPEED": [
-    #     ("target_speed",),
-    # ],
-    "TOGGLE_DIRECTION": [
-        ("speed",),
-        ("target_speed",),
-        ("rpm_labor",),
-    ],
-    "TRAIN_BRAKE": [
-        ("speed",),
-        ("target_speed",),
-    ],
-}
+REQUEST_TO_QUERIES_MAP = {}
 
 CONVERSIONS: dict[str, tuple[Callable, Callable]] = {
     "train_brake": (lambda x: min(round(x * 0.4667), 7), lambda x: min(round(x * 2.143), 15)),
