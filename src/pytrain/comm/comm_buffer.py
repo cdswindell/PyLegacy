@@ -20,7 +20,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 if sys.version_info >= (3, 11):
-    from typing import Dict, Self, Set
+    from typing import Any, Dict, Self, Set
 
 import serial
 from serial.serialutil import SerialException
@@ -118,11 +118,21 @@ class CommBuffer(abc.ABC):
     @classmethod
     def cancel_delayed_requests(
         cls,
-        tmcc_id: int = DEFAULT_ADDRESS,
+        motive: Any = DEFAULT_ADDRESS,
         scope: CommandScope = None,
         requests: set[CommandDefEnum] = None,
     ) -> None:
         if cls.is_built():
+            from ..db.engine_state import EngineState
+
+            if isinstance(motive, EngineState):
+                scope = motive.scope
+                tmcc_id = motive.tmcc_id
+            elif isinstance(motive, int):
+                tmcc_id = motive
+            else:
+                raise ValueError(f"Invalid motive: {motive}")
+            # Cancel delayed requests for the given tmcc_id/scope/request set
             cls._instance._cancel_delayed_requests(tmcc_id, scope, requests)
 
     @classmethod
@@ -685,6 +695,7 @@ class DelayHandler(Thread):
         self, tmcc_id: int, scope: CommandScope = None, requests: set[CommandDefEnum] = None
     ) -> None:
         with self._cv:
+            deleted = 0
             if tmcc_id == 99 and scope is None:
                 ce = set().union(*self._event_cache.values())
             elif tmcc_id == 99 and scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
@@ -696,11 +707,15 @@ class DelayHandler(Thread):
             if ce:
                 to_delete = set()
                 for event in ce:
-                    if requests:
-                        pass
+                    if requests and hasattr(event, "request"):
+                        if isinstance(event.request, CommandReq) and event.request.command not in requests:
+                            print(f"Preserving delayed command: {event.request}")
+                            continue
                     to_delete.add(event)
                     event.cancel()
+                deleted += len(to_delete)
                 ce.difference_update(to_delete)
+            print(f"Cancelled {deleted} delayed requests")
 
     def _cache_event(self, command: CommandReq | PdiReq, event: TrackedEvent):
         # method is called under the cv lock in schedule()
@@ -710,6 +725,8 @@ class DelayHandler(Thread):
         if ce is None:
             ce = set()
             self._event_cache[(tmcc_id, scope)] = ce
+        # remember the request; we sometimes filter based on command enum
+        event.request = command
         ce.add(event)
 
     def purge_inactive_events(self, reschedule: bool = True):

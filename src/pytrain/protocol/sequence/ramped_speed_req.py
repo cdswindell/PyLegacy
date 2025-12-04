@@ -13,6 +13,15 @@ from .sequence_req import SequenceReq, T
 
 log = logging.getLogger(__name__)
 
+CANCELABLE_REQUESTS = {
+    TMCC1EngineCommandEnum.ABSOLUTE_SPEED,
+    TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+    TMCC2EngineCommandEnum.ENGINE_LABOR,
+    TMCC2EngineCommandEnum.DIESEL_RPM,
+    SequenceCommandEnum.RAMPED_SPEED_SEQ,
+    SequenceCommandEnum.SET_SPEED_RPM,
+}
+
 
 def labor_delta(cur_speed: int, new_speed: int, cur_labor: int) -> int:
     delta = new_speed - cur_speed
@@ -139,6 +148,9 @@ class RampedSpeedReqBase(SequenceReq, ABC):
 
     def _on_before_send(self) -> None:
         if self.state:
+            from ...comm.comm_buffer import CommBuffer
+
+            CommBuffer.cancel_delayed_requests(self.state, requests=CANCELABLE_REQUESTS)
             self.state.comp_data.target_speed = self._target_speed
             self.state.is_ramping = True
 

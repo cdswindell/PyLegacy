@@ -55,6 +55,10 @@ class SetSpeedReq(SequenceReq):
 
     def _on_before_send(self) -> None:
         if self.state:
+            from ...comm.comm_buffer import CommBuffer
+            from .ramped_speed_req import CANCELABLE_REQUESTS
+
+            CommBuffer.cancel_delayed_requests(self.state, requests=CANCELABLE_REQUESTS)
             self.state.comp_data.target_speed = self._target_speed
             self.state.is_ramping = False
 
