@@ -472,6 +472,7 @@ class EngineState(ComponentState):
                 tpl = BASE_MEMORY_ENGINE_READ_MAP.get(command.start, None)
                 if isinstance(tpl, CompDataHandler):
                     setattr(self.comp_data, tpl.field, tpl.from_bytes(command.data_bytes))
+                print(f"Updated field {tpl.field} from {command.data_bytes} Target: {self.target_speed}")
             elif isinstance(command, IrdaReq) and command.action == IrdaAction.DATA:
                 self._prod_year = command.year
             elif isinstance(command, D4Req):

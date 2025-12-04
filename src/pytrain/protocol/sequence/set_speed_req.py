@@ -39,7 +39,7 @@ class SetSpeedReq(SequenceReq):
             self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=0.2)
 
         # query the new target speed
-        self.add(CompData.generate_query_req("target_speed", self.state), delay=0.2)
+        # self.add(CompData.generate_query_req("target_speed", self.state), delay=0.2)
 
     def _apply_data(self, new_data: int = None) -> int:
         if self.state:

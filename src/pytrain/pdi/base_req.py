@@ -381,6 +381,8 @@ class BaseReq(PdiReq, CompDataMixin):
                     self._name = self._comp_data.road_name
                     self._number = self._comp_data.road_number
                     self._comp_data_record = True  # mark this req as containing a complete CompData record
+                else:
+                    print(f"Base Memory: {hex(self._flags)} {self}")
             elif self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
                 self._speed = self._data[2] if data_len > 2 else None
                 self._valid1 = (1 << EngineBits.SPEED) if data_len > 2 else 0
