@@ -1378,6 +1378,14 @@ class EngineGui(Thread, Generic[S]):
             self.update_rr_speed_buttons(state)
             if self.throttle.tk.focus_displayof() != self.throttle.tk:
                 self.throttle.value = state.target_speed
+            if state.speed != state.target_speed:
+                self.throttle.tk.config(
+                    troughcolor="lightblue",
+                )
+            else:
+                self.throttle.tk.config(
+                    troughcolor="#003366",  # deep Lionel blue for the track,
+                )
 
             self.brake_level.value = f"{state.train_brake:02d}"
             if self.brake.tk.focus_displayof() != self.brake.tk:
