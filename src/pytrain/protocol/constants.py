@@ -280,7 +280,7 @@ class EngineType(Mixins, IntEnum):
     STEAM = 1
     ELECTRIC = 2
     SUBWAY = 3
-    ACCESSORY_OPERATING_CAR = 4
+    ACCESSORY = 4
     PASSENGER = 5
     BREAKDOWN = 6
     RESERVED = 7
@@ -292,6 +292,9 @@ class EngineType(Mixins, IntEnum):
     DIESEL_PULLMOR = 13
     STEAM_PULLMOR = 14
     TRANSFORMER = 15
+
+    def label(self) -> str:
+        return self.name.replace("_", " ").title()
 
 
 LEGACY_CONTROL_TYPE = 2
