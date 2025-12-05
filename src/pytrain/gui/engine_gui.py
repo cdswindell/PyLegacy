@@ -2273,10 +2273,14 @@ class EngineGui(Thread, Generic[S]):
                         self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                 else:
                     if isinstance(state, EngineState):
-                        source = ENGINE_TYPE_TO_IMAGE.get(
-                            state.engine_type_enum, ENGINE_TYPE_TO_IMAGE[EngineType.DIESEL]
-                        )
-                        img = self.get_scaled_image(source)
+                        img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+                        if img is None:
+                            source = ENGINE_TYPE_TO_IMAGE.get(
+                                state.engine_type_enum, ENGINE_TYPE_TO_IMAGE[EngineType.DIESEL]
+                            )
+                            print(source, state.engine_type_enum)
+                            img = self.get_scaled_image(source)
+                            self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                     else:
                         self.clear_image()
         elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
