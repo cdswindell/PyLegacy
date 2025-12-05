@@ -38,8 +38,7 @@ def center_text_on_image(
     char_w_big = bbox_m[2] - bbox_m[0]
 
     # Rounded rectangle width
-    bg_chars = len(display_text) + 1
-    bg_w = char_w_big * bg_chars
+    bg_w = char_w_big * len(display_text)
 
     # ---- Vertical sizing from font metrics (avoids unused variables) ----
     ascent_big, descent_big = font_big.getmetrics()
