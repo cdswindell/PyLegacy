@@ -2604,7 +2604,8 @@ class EngineGui(Thread, Generic[S]):
         available_height, available_width = self.calc_image_box_size()
         pil_img = Image.open(source)
         orig_width, orig_height = pil_img.size
-        print(f"Original: {orig_width}x{orig_height} (WxH")
+        print(f"Available: {available_width}x{available_height} (WxH)")
+        print(f"Original: {orig_width}x{orig_height} (WxH)")
 
         # Calculate scaling to fit available space
         width_scale = available_width / orig_width
@@ -2617,7 +2618,7 @@ class EngineGui(Thread, Generic[S]):
         else:
             scaled_width = int(orig_width * width_scale)
             scaled_height = int(orig_height * scale)
-        print(f"Scaled: {scaled_width}x{scaled_height} (WxH")
+        print(f"Scaled: {scaled_width}x{scaled_height} (WxH)")
         img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
         return img
 
