@@ -54,6 +54,7 @@ from ..protocol.tmcc2.tmcc2_constants import (
     TMCC2RouteCommandEnum,
     TMCC2RRSpeedsEnum,
 )
+from ..utils.image_utils import center_text_on_image
 from ..utils.path_utils import find_file
 from ..utils.unique_deque import UniqueDeque
 from .hold_button import HoldButton
@@ -2280,8 +2281,9 @@ class EngineGui(Thread, Generic[S]):
                             )
                             img = self._image_cache.get(source, None)
                             if img is None:
-                                self._image_cache[source] = img = self.get_scaled_image(source, force_lionel=True)
-                            print(source, state.engine_type_enum)
+                                img = self.get_scaled_image(source, force_lionel=True)
+                                img = center_text_on_image(img, "Hello")
+                                self._image_cache[source] = img
                             self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                     else:
                         self.clear_image()
@@ -2622,9 +2624,6 @@ class EngineGui(Thread, Generic[S]):
         force_lionel: bool = False,
     ) -> tuple[int, int]:
         available_height, available_width = self.calc_image_box_size()
-        print(f"Available: {available_width}x{available_height} (WxH)")
-        print(f"Original: {orig_width}x{orig_height} (WxH)")
-
         if force_lionel:
             scaled_width, scaled_height = self._calc_scaled_image_size(300, 100)
         else:
@@ -2632,15 +2631,12 @@ class EngineGui(Thread, Generic[S]):
             width_scale = available_width / orig_width
             height_scale = available_height / orig_height
             scale = min(width_scale, height_scale)
-            print(f"Scale: {width_scale:.3f}x{height_scale:.3f} ({scale:.3f}) (WxH)")
             if preserve_height:
                 scaled_width = int(orig_width * scale)
                 scaled_height = int(orig_height * height_scale)
             else:
                 scaled_width = int(orig_width * width_scale)
                 scaled_height = int(orig_height * scale)
-
-        print(f"Scaled: {scaled_width}x{scaled_height} (WxH)")
         return scaled_width, scaled_height
 
     # Example lazy loader pattern for images
