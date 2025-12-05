@@ -274,6 +274,24 @@ LOCO_CLASS: Dict[int, str] = {
     255: "Universal",
 }
 
+class EngineType(Mixins, IntEnum):
+    DIESEL = 0
+    STEAM = 1
+    ELECTRIC = 2
+    SUBWAY = 3
+    ACCESSORY_OPERATING_CAR = 4
+    PASSENGER = 5
+    BREAKDOWN = 6
+    RESERVED = 7
+    ACELA = 8
+    TRACK_CRANE = 9
+    DIESEL_SWITCHER = 10
+    STEAM_SWITCHER = 11
+    FREIGHT = 12
+    DIESEL_PULLMOR = 13
+    STEAM_PULLMOR = 14
+    TRANSFORMER = 15
+
 LEGACY_CONTROL_TYPE = 2
 CAB1_CONTROL_TYPE = 0
 LOCO_ACCESSORY = 4

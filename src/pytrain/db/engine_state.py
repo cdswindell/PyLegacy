@@ -32,6 +32,7 @@ from ..protocol.constants import (
     SOUND_TYPE,
     STEAM_TYPE,
     CommandScope,
+    EngineType,
     OfficialRRSpeeds,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
@@ -755,6 +756,10 @@ class EngineState(ComponentState):
     @property
     def engine_type(self) -> int:
         return self.comp_data.engine_type
+
+    @property
+    def engine_type_enum(self) -> EngineType:
+        return EngineType.by_value(self.engine_type, False)
 
     @property
     def engine_type_label(self) -> str:

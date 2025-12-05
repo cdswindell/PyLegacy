@@ -39,7 +39,7 @@ from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
+from ..protocol.constants import CommandScope, EngineType
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
 from ..protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
 from ..protocol.tmcc1.tmcc1_constants import (
@@ -307,6 +307,14 @@ KEY_TO_COMMAND = {
     SWITCH_THRU_KEY: CommandReq(TMCC1SwitchCommandEnum.THRU),
 }
 
+ENGINE_TYPE_TO_IMAGE = {
+    EngineType.DIESEL: "generic_diesel.jpg",
+    EngineType.DIESEL_PULLMOR: "generic_diesel.jpg",
+    EngineType.DIESEL_SWITCHER: "generic_diesel_switcher.jpg",
+    EngineType.STEAM: "generic_steam_santa.jpg",
+    EngineType.STEAM_PULLMOR: "generic_steam_santa.jpg",
+}
+
 
 class EngineGui(Thread, Generic[S]):
     @classmethod
@@ -500,8 +508,9 @@ class EngineGui(Thread, Generic[S]):
     def destroy_complete(self) -> Event:
         return self._ev
 
+    # noinspection PyTypeChecker
     @property
-    def active_engine_state(self) -> EngineState | None:
+    def active_engine_state(self) -> EngineState:
         if self.scope in (CommandScope.ENGINE, CommandScope.TRAIN):
             if (
                 self._active_engine_state
@@ -1335,8 +1344,11 @@ class EngineGui(Thread, Generic[S]):
             self.header.select_default()
 
     @property
-    def active_state(self) -> S:
-        return self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
+    def active_state(self) -> S | None:
+        if self.scope and self._scope_tmcc_ids.get(self.scope):
+            return self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
+        else:
+            return None
 
     def get_options(self) -> list[str]:
         options = [self.title]
@@ -2182,7 +2194,7 @@ class EngineGui(Thread, Generic[S]):
         update_button_state = True
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         if tmcc_id:
-            state = self._state_store.get_state(self.scope, tmcc_id, False)
+            state = self.active_engine_state
             if state:
                 # Make sure ID field shows TMCC ID, not just road number
                 if tmcc_id != state.tmcc_id or tmcc_id != int(self.tmcc_id_text.value):
@@ -2211,6 +2223,7 @@ class EngineGui(Thread, Generic[S]):
         # use the callback to update ops button state
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
             if update_button_state:
+                # noinspection PyTypeChecker
                 self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
             self.update_component_image(tmcc_id)
         else:
@@ -2257,8 +2270,12 @@ class EngineGui(Thread, Generic[S]):
                         img = self.get_scaled_image(BytesIO(prod_info.image_content))
                         self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                 else:
-                    # TODO: Use templates for engine type, e.g., steam, diesel, etc.
-                    self.clear_image()
+                    state = self._state_store.get_state(scope, tmcc_id, False)
+                    if isinstance(state, EngineState):
+                        source = ENGINE_TYPE_TO_IMAGE.get(state.engine_type_enum, EngineType.DIESEL)
+                        img = self.get_image(source, inverse=False, scale=True, preserve_height=True)
+                    else:
+                        self.clear_image()
         elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
             state = self._state_store.get_state(self.scope, tmcc_id, False)
             if isinstance(state, AccessoryState):
@@ -2386,7 +2403,6 @@ class EngineGui(Thread, Generic[S]):
             self.avail_image_width = avail_image_width = emergency_width
         else:
             avail_image_width = self.avail_image_width
-        print(f"avail height: {avail_image_height}, avail width: {avail_image_width}")
         return avail_image_height, avail_image_width
 
     def sizeof(self, widget: Widget) -> tuple[int, int]:
