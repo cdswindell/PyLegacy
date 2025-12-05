@@ -2195,7 +2195,7 @@ class EngineGui(Thread, Generic[S]):
         update_button_state = True
         num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
         if tmcc_id:
-            state = self.active_engine_state
+            state = self.active_state
             if state:
                 # Make sure ID field shows TMCC ID, not just road number
                 if tmcc_id != state.tmcc_id or tmcc_id != int(self.tmcc_id_text.value):
@@ -2280,7 +2280,7 @@ class EngineGui(Thread, Generic[S]):
                             )
                             img = self._image_cache.get(source, None)
                             if img is None:
-                                self._image_cache[source] = img = self.get_scaled_image(source)
+                                self._image_cache[source] = img = self.get_scaled_image(source, force_lionel=True)
                             print(source, state.engine_type_enum)
                             self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                     else:
@@ -2600,27 +2600,48 @@ class EngineGui(Thread, Generic[S]):
         self.queue_message(self.update_component_image, tmcc_id, key)
         return prod_info
 
-    def get_scaled_image(self, source: str | io.BytesIO, preserve_height: bool = False) -> ImageTk.PhotoImage:
-        available_height, available_width = self.calc_image_box_size()
+    def get_scaled_image(
+        self,
+        source: str | io.BytesIO,
+        preserve_height: bool = False,
+        force_lionel: bool = False,
+    ) -> ImageTk.PhotoImage:
         pil_img = Image.open(source)
         orig_width, orig_height = pil_img.size
+        scaled_width, scaled_height = self._calc_scaled_image_size(
+            orig_width, orig_height, preserve_height, force_lionel
+        )
+        img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
+        return img
+
+    def _calc_scaled_image_size(
+        self,
+        orig_width: int,
+        orig_height: int,
+        preserve_height: bool = False,
+        force_lionel: bool = False,
+    ) -> tuple[int, int]:
+        available_height, available_width = self.calc_image_box_size()
         print(f"Available: {available_width}x{available_height} (WxH)")
         print(f"Original: {orig_width}x{orig_height} (WxH)")
 
-        # Calculate scaling to fit available space
-        width_scale = available_width / orig_width
-        height_scale = available_height / orig_height
-        scale = min(width_scale, height_scale)
-        print(f"Scale: {width_scale}x{height_scale} ({scale}) (WxH)")
-        if preserve_height:
-            scaled_width = int(orig_width * scale)
-            scaled_height = int(orig_height * height_scale)
+        if force_lionel:
+            scaled_width, scaled_height = self._calc_scaled_image_size(300, 100)
         else:
-            scaled_width = int(orig_width * width_scale)
-            scaled_height = min(240, int(orig_height * scale))
+            # Calculate scaling to fit available space
+            width_scale = available_width / orig_width
+            height_scale = available_height / orig_height
+            scale = min(width_scale, height_scale)
+            print(f"Scale: {width_scale:.3f}x{height_scale:.3f} ({scale:.3f}) (WxH)")
+            if preserve_height:
+                scaled_width = int(orig_width * scale)
+                scaled_height = int(orig_height * height_scale)
+            else:
+                scaled_width = int(orig_width * width_scale)
+                scaled_height = int(orig_height * scale)
+
         print(f"Scaled: {scaled_width}x{scaled_height} (WxH)")
-        img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
-        return img
+        return scaled_width, scaled_height
 
     # Example lazy loader pattern for images
     def get_image(

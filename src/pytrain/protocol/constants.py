@@ -274,6 +274,7 @@ LOCO_CLASS: Dict[int, str] = {
     255: "Universal",
 }
 
+
 class EngineType(Mixins, IntEnum):
     DIESEL = 0
     STEAM = 1
@@ -291,6 +292,7 @@ class EngineType(Mixins, IntEnum):
     DIESEL_PULLMOR = 13
     STEAM_PULLMOR = 14
     TRANSFORMER = 15
+
 
 LEGACY_CONTROL_TYPE = 2
 CAB1_CONTROL_TYPE = 0
