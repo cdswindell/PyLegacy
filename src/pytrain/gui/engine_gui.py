@@ -1083,6 +1083,9 @@ class EngineGui(Thread, Generic[S]):
         if "menu" in combo_box.tk.children:
             menu = combo_box.tk.children["menu"]
             menu.config(activebackground="lightgrey")
+            print("**")
+        else:
+            print(combo_box.tk.children.keys())
         return combo_box
 
     def make_combo_callback(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
