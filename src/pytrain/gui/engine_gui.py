@@ -2250,10 +2250,11 @@ class EngineGui(Thread, Generic[S]):
         # TODO: Handle Trains
         if scope in {CommandScope.ENGINE} and tmcc_id != 0:
             with self._cv:
+                state = self._state_store.get_state(scope, tmcc_id, False)
                 prod_info = self._prod_info_cache.get(tmcc_id, None)
 
                 # If not cached or not a valid Future/ProdInfo, start a background fetch
-                if prod_info is None:
+                if prod_info is None and state and state.bt_id:
                     if (scope, tmcc_id) not in self._pending_prod_infos:
                         # Submit fetch immediately and cache the Future itself
                         future = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
@@ -2271,10 +2272,11 @@ class EngineGui(Thread, Generic[S]):
                         img = self.get_scaled_image(BytesIO(prod_info.image_content))
                         self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                 else:
-                    state = self._state_store.get_state(scope, tmcc_id, False)
                     if isinstance(state, EngineState):
-                        source = ENGINE_TYPE_TO_IMAGE.get(state.engine_type_enum, EngineType.DIESEL)
-                        img = self.get_image(source, inverse=False, scale=True, preserve_height=True)
+                        source = ENGINE_TYPE_TO_IMAGE.get(
+                            state.engine_type_enum, ENGINE_TYPE_TO_IMAGE[EngineType.DIESEL]
+                        )
+                        img = self.get_scaled_image(source)
                     else:
                         self.clear_image()
         elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
