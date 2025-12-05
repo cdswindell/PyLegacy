@@ -725,8 +725,9 @@ class EngineGui(Thread, Generic[S]):
         _, btn = self.engine_ops_cells["ENGINEER_CHATTER"]
         btn.on_hold = self.on_crew_dialog
 
-        _, btn = self.engine_ops_cells["BLOW_HORN_ONE"]
-        btn.on_hold = self.show_horn_control
+        for loco_type in ["d", "s"]:
+            _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
+            btn.on_hold = self.show_horn_control
 
         # set some repeating commands
         for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
@@ -1190,8 +1191,9 @@ class EngineGui(Thread, Generic[S]):
             self.controller_box.show()
 
     def show_horn_control(self) -> None:
-        _, btn = self.engine_ops_cells["BLOW_HORN_ONE"]
-        btn.on_hold = self.toggle_momentum_train_brake
+        for loco_type in ["d", "s"]:
+            _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
+            btn.on_hold = self.toggle_momentum_train_brake
         self.momentum_box.hide()
         self.brake_box.hide()
         self.horn_box.show()
@@ -1222,8 +1224,9 @@ class EngineGui(Thread, Generic[S]):
                 self.brake_box.visible = True
 
         # restore the on_hold handler
-        _, horn = self.engine_ops_cells["BLOW_HORN_ONE"]
-        horn.on_hold = self.show_horn_control
+        for loco_type in ["d", "s"]:
+            _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
+            btn.on_hold = self.show_horn_control
 
     # noinspection PyUnusedLocal
     def clear_focus(self, e=None):
