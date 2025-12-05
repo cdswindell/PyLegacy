@@ -2617,7 +2617,7 @@ class EngineGui(Thread, Generic[S]):
             scaled_height = int(orig_height * height_scale)
         else:
             scaled_width = int(orig_width * width_scale)
-            scaled_height = int(orig_height * scale)
+            scaled_height = min(240, int(orig_height * scale))
         print(f"Scaled: {scaled_width}x{scaled_height} (WxH)")
         img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
         return img
