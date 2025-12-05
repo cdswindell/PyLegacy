@@ -147,6 +147,10 @@ SMOKE_LABEL = {
     TMCC2EffectsControl.SMOKE_HIGH: "H",
 }
 
+CANCEL_PENDINGS_ON_ENQUEUE = RESET_SET | {TMCC2EngineCommandEnum.STOP_IMMEDIATE}
+
+CANCEL_PENDINGS_SET = DIRECTIONS_SET | CANCEL_PENDINGS_ON_ENQUEUE | SHUTDOWN_SET
+
 R = TypeVar("R", bound=OfficialRRSpeeds)
 
 
@@ -288,6 +292,18 @@ class EngineState(ComponentState):
                 # get the downstream effects of this command, as they also impact state
                 cmd_effects = self.results_in(command)
                 log.debug(f"Update: {command}\nEffects: {cmd_effects}")
+
+                # Cancel any delayed requests, if impacted
+                if command.command in CANCEL_PENDINGS_SET:
+                    from ..comm.comm_buffer import CommBuffer
+
+                    # ignore direction commands if they are the same as the current direction
+                    if command.command in DIRECTIONS_SET and self.direction == command.command:
+                        pass
+                    else:
+                        log.debug(f"Cancelled pending commands TMCC ID: {self.tmcc_id} {command.command}")
+                        CommBuffer.cancel_delayed_requests(self)
+                        self._ramping = False
 
                 # handle last numeric
                 if command.command in NUMERIC_SET:

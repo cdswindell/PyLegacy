@@ -157,6 +157,19 @@ class CommBuffer(abc.ABC):
     def server_ip(cls) -> str | None:
         return None
 
+    def _cancel_delayed_requests_on_enqueue(self, request: CommandReq, delay_handler: DelayHandler) -> None:
+        from ..db.engine_state import CANCEL_PENDINGS_ON_ENQUEUE
+        from ..protocol.sequence.ramped_speed_req import CANCELABLE_REQUESTS
+
+        """
+        Cancel any pending requests if the command we're about to send/enqueue
+        would cause pending requests to be canceled when it was received.
+        """
+        if delay_handler.has_scheduled and request and request.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            if request.command in CANCEL_PENDINGS_ON_ENQUEUE:
+                log.debug(f"Canceling pending requests for {request.command} due to enqueue")
+                self._cancel_delayed_requests(request.tmcc_id, request.scope, CANCELABLE_REQUESTS)
+
     @abc.abstractmethod
     def _cancel_delayed_requests(
         self,
@@ -166,7 +179,12 @@ class CommBuffer(abc.ABC):
     ) -> None: ...
 
     @abc.abstractmethod
-    def enqueue_command(self, command: bytes | CommandReq | PdiReq, delay: float = 0) -> None:
+    def enqueue_command(
+        self,
+        command: bytes | CommandReq | PdiReq,
+        delay: float = 0,
+        was_delayed: bool = False,
+    ) -> None:
         """
         Enqueue the command to send to the Lionel LCS SER2
         """
@@ -357,19 +375,26 @@ class CommBufferSingleton(CommBuffer, Thread):
                 if self._tmcc_dispatcher is None:
                     self._tmcc_dispatcher = CommandDispatcher.get()
 
-    def enqueue_command(self, command: bytes | CommandReq | PdiReq, delay: float = 0) -> None:
+    def enqueue_command(
+        self,
+        command: bytes | CommandReq | PdiReq,
+        delay: float = 0,
+        was_delayed: bool = False,
+    ) -> None:
         from ..pdi.constants import PDI_SOP
 
         if command:
-            if log.isEnabledFor(logging.DEBUG):
-                if isinstance(command, bytes):
-                    log.debug(f"Enqueue command 0x{command.hex()}")
-                else:
-                    log.debug(f"Enqueue command {command}")
             if delay > 0:
                 self._scheduler.schedule(delay, command)
             else:
+                if log.isEnabledFor(logging.DEBUG):
+                    if isinstance(command, bytes):
+                        log.debug(f"Enqueue command 0x{command.hex()} (server, delayed: {was_delayed})")
+                    else:
+                        log.debug(f"Enqueue command {command} (server, delayed: {was_delayed})")
                 if isinstance(command, CommandReq) or isinstance(command, PdiReq):
+                    if isinstance(command, CommandReq):
+                        self._cancel_delayed_requests_on_enqueue(request=command, delay_handler=self._scheduler)
                     command = command.as_bytes
                 if command[0] == PDI_SOP:
                     # send to Base 3 if one is available
@@ -499,6 +524,7 @@ class CommBufferProxy(CommBuffer):
         self._server_version = None
         self._uuid: uuid.UUID = uuid.uuid4()
         self._server_version_available = Event()
+        self._heartbeat_bytes = None
         self._heart_beat_thread = None
 
     def _cancel_delayed_requests(
@@ -510,7 +536,10 @@ class CommBufferProxy(CommBuffer):
         self._scheduler.cancel_delayed_requests(tmcc_id, scope, requests)
 
     def start_heart_beat(self, port: int = DEFAULT_SERVER_PORT):
-        self._heart_beat_thread = ClientHeartBeat(self)
+        self._heartbeat_bytes = CommandReq(TMCC1SyncCommandEnum.KEEP_ALIVE).as_bytes
+        self._heartbeat_bytes += int(self.client_port & 0xFFFF).to_bytes(2, byteorder="big")
+        self._heartbeat_bytes += self.session_id.bytes
+        self._heart_beat_thread = ClientHeartBeat(self, self._heartbeat_bytes)
 
     @property
     def server_version(self) -> tuple[int, int, int]:
@@ -535,12 +564,25 @@ class CommBufferProxy(CommBuffer):
     def server_version_available(self) -> Event:
         return self._server_version_available
 
-    def enqueue_command(self, command: bytes | CommandReq | PdiReq, delay: float = 0) -> None:
+    def enqueue_command(
+        self,
+        command: bytes | CommandReq | PdiReq,
+        delay: float = 0,
+        was_delayed: bool = False,
+    ) -> None:
         if delay > 0:
             self._scheduler.schedule(delay, command)
         else:
+            if log.isEnabledFor(logging.DEBUG):
+                if isinstance(command, bytes):
+                    if command != self._heartbeat_bytes:
+                        log.debug(f"Enqueue command 0x{command.hex()} (client, delayed: {was_delayed})")
+                else:
+                    log.debug(f"Enqueue command {command} (client, delayed: {was_delayed})")
             retries = 0
             if isinstance(command, CommandReq) or isinstance(command, PdiReq):
+                if isinstance(command, CommandReq):
+                    self._cancel_delayed_requests_on_enqueue(request=command, delay_handler=self._scheduler)
                 command = command.as_bytes
             while True:
                 try:
@@ -649,7 +691,7 @@ class DelayHandler(Thread):
     appropriate time.
     """
 
-    def __init__(self, buffer: CommBuffer, purge_frequency: float = 60) -> None:
+    def __init__(self, buffer: CommBuffer, purge_frequency: float = 5 * 60) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Command Delay Handler")
         self._buffer = buffer
         self._cv = Condition()
@@ -659,6 +701,10 @@ class DelayHandler(Thread):
         self._have_scheduled_requests = False
         self._purge_frequency = purge_frequency
         self.start()
+
+    @property
+    def has_scheduled(self) -> bool:
+        return bool(self._scheduler.queue)
 
     def run(self) -> None:
         while True:
@@ -676,8 +722,10 @@ class DelayHandler(Thread):
                 self._scheduler,
                 delay=delay,
                 priority=1,
+                lock=self._cv,
                 action=self._buffer.enqueue_command,
                 arguments=(command,),
+                kwargs={"was_delayed": True},
             )
             # associate the event with the tmcc id and scope, so we can cancel it later if needed
             if isinstance(command, bytes):
@@ -694,6 +742,18 @@ class DelayHandler(Thread):
             # and this notifies the main thread to restart, as there is a new
             # request in the sched queue
             self._cv.notify()
+
+    def _cache_event(self, command: CommandReq | PdiReq, event: TrackedEvent):
+        # method is called under the cv lock in schedule()
+        tmcc_id = command.tmcc_id
+        scope = command.scope
+        ce = self._event_cache.get((tmcc_id, scope), None)
+        if ce is None:
+            ce = set()
+            self._event_cache[(tmcc_id, scope)] = ce
+        # remember the request; we sometimes filter based on command enum
+        event.request = command
+        ce.add(event)
 
     def cancel_delayed_requests(
         self, tmcc_id: int, scope: CommandScope = None, requests: set[CommandDefEnum] = None
@@ -718,19 +778,7 @@ class DelayHandler(Thread):
                     event.cancel()
                 deleted += len(to_delete)
                 ce.difference_update(to_delete)
-                log.debug(f"Cancelled {deleted} delayed requests for TMCC {tmcc_id} in scope {scope}")
-
-    def _cache_event(self, command: CommandReq | PdiReq, event: TrackedEvent):
-        # method is called under the cv lock in schedule()
-        tmcc_id = command.tmcc_id
-        scope = command.scope
-        ce = self._event_cache.get((tmcc_id, scope), None)
-        if ce is None:
-            ce = set()
-            self._event_cache[(tmcc_id, scope)] = ce
-        # remember the request; we sometimes filter based on command enum
-        event.request = command
-        ce.add(event)
+                log.debug(f"Cancelled {deleted} delayed requests for TMCC {tmcc_id} scope {scope}")
 
     def purge_inactive_events(self, reschedule: bool = True):
         with self._cv:
@@ -742,16 +790,18 @@ class DelayHandler(Thread):
                         to_delete.add(event)
                 deleted += len(to_delete)
                 ce.difference_update(to_delete)
+        log.debug(f"Purged {deleted} inactive events...")
         # reschedule, if delay is > 0
         if reschedule:
             self._scheduler.enter(self._purge_frequency, 2, self.purge_inactive_events)
 
 
 class TrackedEvent:
-    def __init__(self, scheduler, delay, priority, action, arguments=(), kwargs=None):
+    def __init__(self, scheduler, delay, priority, lock, action, arguments=(), kwargs=None):
         self.scheduler = scheduler
         self.delay = delay
         self.priority = priority
+        self._lock = lock if lock else threading.Lock()
         self.action = action
         self.arguments = arguments
         self.kwargs = kwargs or {}
@@ -761,12 +811,15 @@ class TrackedEvent:
 
         # wrap action so we can track execution
         def wrapper() -> None:
-            if not self.was_canceled():
-                self._ran = True
-                return action(*arguments, **self.kwargs)
-            else:
-                print(f"Event {self} was canceled before it ran.")
-            return None
+            with lock:
+                if self.was_canceled():
+                    log.debug(f"Event {self} was canceled before it ran.")
+                elif self.has_run():
+                    log.warning(f"Event {self} already ran, ignoring.")
+                else:
+                    self._ran = True
+                    return action(*arguments, **self.kwargs)
+                return None
 
         self._event = scheduler.enter(delay, priority, wrapper)
 
@@ -806,16 +859,18 @@ class TrackedEvent:
 
 
 class ClientHeartBeat(Thread):
-    def __init__(self, tmcc_buffer: CommBufferProxy) -> None:
+    def __init__(self, tmcc_buffer: CommBufferProxy, heartbeat: bytes = None) -> None:
         from .. import CommandReq
 
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Client Heart Beat")
         self._tmcc_buffer = tmcc_buffer
         self._client_port = tmcc_buffer.client_port
-        heartbeat = CommandReq(TMCC1SyncCommandEnum.KEEP_ALIVE).as_bytes
-        self._heartbeat_bytes = (
-            heartbeat + int(self._client_port & 0xFFFF).to_bytes(2, byteorder="big") + tmcc_buffer.session_id.bytes
-        )
+        if heartbeat:
+            self._heartbeat_bytes = heartbeat
+        else:
+            self._heartbeat_bytes = CommandReq(TMCC1SyncCommandEnum.KEEP_ALIVE).as_bytes
+            self._heartbeat_bytes += int(self._client_port & 0xFFFF).to_bytes(2, byteorder="big")
+            self._heartbeat_bytes += tmcc_buffer.session_id.bytes
         self._ev = threading.Event()
         self._is_running = True
         self.start()

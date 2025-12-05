@@ -62,7 +62,7 @@ log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
 
 
-HALT_KEY = ">> Halt <<"
+HALT_KEY = "Emergency"
 SWITCH_THRU_KEY = "↑"
 SWITCH_OUT_KEY = "↖↗"
 FIRE_ROUTE_KEY = "⚡"
