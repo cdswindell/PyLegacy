@@ -693,16 +693,19 @@ class EngineGui(Thread, Generic[S]):
                         titlebox_text=title_text,
                     )
 
-                    if cmd in self.engine_ops_cells:
-                        print(f"Duplicate engine op: {cmd}: {op}")
-                    self.engine_ops_cells[cmd] = (cell, nb)
-
                     # if the key is marked as engine type-specific, save as appropriate
                     if len(op) > 4 and op[4]:
                         if op[4] == "d":
                             self.diesel_btns.add(cell)
                         elif op[4] == "s":
                             self.steam_btns.add(cell)
+                        key = (cmd, op[4])
+                    else:
+                        key = cmd
+
+                    if key in self.engine_ops_cells:
+                        print(f"Duplicate engine op: {key}: {op}")
+                    self.engine_ops_cells[key] = (key, nb)
             row += 1
 
         # Postprocess some buttons
@@ -2086,7 +2089,6 @@ class EngineGui(Thread, Generic[S]):
             btn.hide()
         for btn in self.diesel_btns:
             btn.show()
-        cell, _ = self.engine_ops_cells["BLOW_HORN_ONE"]
         self.horn_level.text = "Horn"
 
     def show_steam_keys(self) -> None:
@@ -2094,7 +2096,6 @@ class EngineGui(Thread, Generic[S]):
             btn.hide()
         for btn in self.steam_btns:
             btn.show()
-        cell, _ = self.engine_ops_cells["BLOW_HORN_ONE"]
         self.horn_level.text = "Whistle"
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
