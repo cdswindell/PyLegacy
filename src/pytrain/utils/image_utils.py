@@ -9,7 +9,7 @@ from PIL import ImageDraw, ImageFont, ImageTk
 
 
 def center_text_on_image(
-    photo: ImageTk.PhotoImage, text: str, font_size: int, styled: bool = True
+    photo: ImageTk.PhotoImage, text: str, font_size: int = 24, styled: bool = True
 ) -> ImageTk.PhotoImage:
     """
     Draw centered black text over a light-gray rounded rectangle.
