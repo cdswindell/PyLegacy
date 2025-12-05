@@ -2284,7 +2284,7 @@ class EngineGui(Thread, Generic[S]):
                             img = self._image_cache.get(source, None)
                             if img is None:
                                 img = self.get_scaled_image(source, force_lionel=True)
-                                img = center_text_on_image(img, state.engine_type_enum.label(), styled=True)
+                                img = center_text_on_image(img, state.engine_type_enum.label(), styled=False)
                                 self._image_cache[source] = img
                                 self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                                 self._image_cache[source] = img
