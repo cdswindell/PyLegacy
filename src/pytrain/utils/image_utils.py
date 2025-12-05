@@ -39,7 +39,7 @@ def center_text_on_image(
     ascent_big, descent_big = font_big.getmetrics()
     text_height_big = ascent_big + descent_big
 
-    vpad = int(font_size * 0.4)
+    vpad = int(font_size * 0.25)
     bg_h = text_height_big + vpad * 2
 
     # ---- Measure total text width (style-aware) ----
