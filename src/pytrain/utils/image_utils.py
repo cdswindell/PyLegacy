@@ -7,7 +7,7 @@
 from PIL import ImageDraw, ImageFont, ImageTk
 
 
-def center_text_on_image(photo: ImageTk.PhotoImage, text: str, font_size: int = 24) -> ImageTk.PhotoImage:
+def center_text_on_image(photo: ImageTk.PhotoImage, text: str, font_size: int = 96) -> ImageTk.PhotoImage:
     """
     Draw centered text over a tkinter PhotoImage and return a new PhotoImage.
     """
