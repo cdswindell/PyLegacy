@@ -2278,8 +2278,10 @@ class EngineGui(Thread, Generic[S]):
                             source = ENGINE_TYPE_TO_IMAGE.get(
                                 state.engine_type_enum, ENGINE_TYPE_TO_IMAGE[EngineType.DIESEL]
                             )
+                            img = self._image_cache.get(source, None)
+                            if img is None:
+                                self._image_cache[source] = img = self.get_scaled_image(source)
                             print(source, state.engine_type_enum)
-                            img = self.get_scaled_image(source)
                             self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                     else:
                         self.clear_image()
@@ -2307,25 +2309,6 @@ class EngineGui(Thread, Generic[S]):
             self.image_box.tk.config(width=available_width, height=available_height)
             self.image.tk.config(image=img)
             self.image_box.show()
-
-    def get_scaled_image(self, source: str | io.BytesIO, preserve_height: bool = False) -> ImageTk.PhotoImage:
-        available_height, available_width = self.calc_image_box_size()
-        pil_img = Image.open(source)
-        orig_width, orig_height = pil_img.size
-
-        # Calculate scaling to fit available space
-        width_scale = available_width / orig_width
-        height_scale = available_height / orig_height
-        scale = min(width_scale, height_scale)
-
-        if preserve_height:
-            scaled_width = int(orig_width * scale)
-            scaled_height = int(orig_height * height_scale)
-        else:
-            scaled_width = int(orig_width * width_scale)
-            scaled_height = int(orig_height * scale)
-        img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
-        return img
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
         # force geometry layout
@@ -2616,6 +2599,27 @@ class EngineGui(Thread, Generic[S]):
         # Schedule the UI update on the main thread
         self.queue_message(self.update_component_image, tmcc_id, key)
         return prod_info
+
+    def get_scaled_image(self, source: str | io.BytesIO, preserve_height: bool = False) -> ImageTk.PhotoImage:
+        available_height, available_width = self.calc_image_box_size()
+        pil_img = Image.open(source)
+        orig_width, orig_height = pil_img.size
+        print(f"Original: {orig_width}x{orig_height} (WxH")
+
+        # Calculate scaling to fit available space
+        width_scale = available_width / orig_width
+        height_scale = available_height / orig_height
+        scale = min(width_scale, height_scale)
+
+        if preserve_height:
+            scaled_width = int(orig_width * scale)
+            scaled_height = int(orig_height * height_scale)
+        else:
+            scaled_width = int(orig_width * width_scale)
+            scaled_height = int(orig_height * scale)
+        print(f"Scaled: {scaled_width}x{scaled_height} (WxH")
+        img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
+        return img
 
     # Example lazy loader pattern for images
     def get_image(
