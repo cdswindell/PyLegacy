@@ -5,6 +5,7 @@
 #
 #  SPDX-License-Identifier: LPGL
 # noinspection PyPackageRequirements
+# noinspection PyPackageRequirements
 from PIL import ImageDraw, ImageFont, ImageTk
 
 
@@ -34,20 +35,18 @@ def center_text_on_image(
 
     img_w, img_h = pil_img.size
 
-    # ---- Vertical sizing from font metrics ----
+    # ---- Vertical sizing ----
     ascent_big, descent_big = font_big.getmetrics()
     text_height_big = ascent_big + descent_big
 
-    padding = int(font_size * 0.4)
-    bg_h = text_height_big + padding * 2
+    vpad = int(font_size * 0.4)
+    bg_h = text_height_big + vpad * 2
 
     # ---- Measure total text width (style-aware) ----
     if not styled:
-        # One-size text
         bbox = draw.textbbox((0, 0), display_text, font=font_big)
         total_text_w = bbox[2] - bbox[0]
     else:
-        # Drop-cap style: first letter of each word big, rest small
         total_text_w = 0
         new_word = True
         for ch in display_text:
@@ -56,8 +55,9 @@ def center_text_on_image(
             total_text_w += bbox[2] - bbox[0]
             new_word = ch == " "
 
-    # Rounded rectangle width now matches actual text width
-    bg_w = total_text_w
+    # ---- Horizontal padding (NEW) ----
+    hpad = int(font_size * 0.6)  # adjust if you want more/less
+    bg_w = total_text_w + (2 * hpad)
 
     # ---- Box location ----
     bg_x = (img_w - bg_w) // 2
@@ -72,8 +72,8 @@ def center_text_on_image(
         outline=None,
     )
 
-    # ---- Horizontal centering of the text inside the box ----
-    text_x = bg_x + (bg_w - total_text_w) // 2  # this will usually just be bg_x
+    # ---- Horizontal centering with padding ----
+    text_x = bg_x + hpad
 
     # ---- Baseline calculation ----
     rect_center_y = (bg_y + bg_y2) // 2
@@ -83,6 +83,7 @@ def center_text_on_image(
     if not styled:
         draw_y = baseline_y - ascent_big
         draw.text((text_x, draw_y), display_text, font=font_big, fill="black")
+
     else:
         ascent_small, descent_small = font_small.getmetrics()
         cursor_x = text_x
