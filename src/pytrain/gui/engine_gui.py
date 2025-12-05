@@ -446,7 +446,7 @@ class EngineGui(Thread, Generic[S]):
         self.brake_box = self.brake_level = self.brake = self.focus_widget = None
         self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
-        self.horn_box = self.horn_level = self.horn = None
+        self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = None
         self.tower_dialog_overlay = self.crew_dialog_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
@@ -798,7 +798,7 @@ class EngineGui(Thread, Generic[S]):
         throttle.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
         # brake
-        self.brake_box, self.brake_level, self.brake = self.make_slider(
+        self.brake_box, _, self.brake_level, self.brake = self.make_slider(
             sliders, "Brake", self.on_train_brake, frm=0, to=7
         )
 
@@ -806,12 +806,12 @@ class EngineGui(Thread, Generic[S]):
         self.app.tk.update_idletasks()
 
         # Momentum
-        self.momentum_box, self.momentum_level, self.momentum = self.make_slider(
+        self.momentum_box, _, self.momentum_level, self.momentum = self.make_slider(
             sliders, "Moment", self.on_momentum, frm=0, to=7, visible=False
         )
 
         # Horn
-        self.horn_box, self.horn_level, self.horn = self.make_slider(
+        self.horn_box, self.horn_title_box, self.horn_level, self.horn = self.make_slider(
             sliders, "Horn", self.on_horn, frm=0, to=15, visible=False
         )
 
@@ -862,7 +862,7 @@ class EngineGui(Thread, Generic[S]):
         to: int,
         step: int = 1,
         visible: bool = True,
-    ):
+    ) -> tuple[Box, TitleBox, Text, Slider]:
         momentum_box = Box(
             sliders,
             border=1,
@@ -911,7 +911,7 @@ class EngineGui(Thread, Generic[S]):
         momentum.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
         momentum.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
-        return momentum_box, momentum_level, momentum
+        return momentum_box, cell, momentum_level, momentum
 
     def create_popup(self, title_text: str, build_body: Callable[[Box], None]):
         """
@@ -2092,14 +2092,14 @@ class EngineGui(Thread, Generic[S]):
             btn.hide()
         for btn in self.diesel_btns:
             btn.show()
-        self.horn_level.text = "Horn"
+        self.horn_title_box.text = "Horn"
 
     def show_steam_keys(self) -> None:
         for btn in self.diesel_btns:
             btn.hide()
         for btn in self.steam_btns:
             btn.show()
-        self.horn_level.text = "Whistle"
+        self.horn_title_box.text = "Whistle"
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
         self._in_entry_mode = False
