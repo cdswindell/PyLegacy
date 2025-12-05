@@ -2611,7 +2611,7 @@ class EngineGui(Thread, Generic[S]):
         width_scale = available_width / orig_width
         height_scale = available_height / orig_height
         scale = min(width_scale, height_scale)
-
+        print(f"Scale: {width_scale}x{height_scale} ({scale}) (WxH)")
         if preserve_height:
             scaled_width = int(orig_width * scale)
             scaled_height = int(orig_height * height_scale)
