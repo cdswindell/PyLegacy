@@ -2369,14 +2369,23 @@ class EngineGui(Thread, Generic[S]):
             variable_content = sensor_height
         else:
             variable_content = 0
-            print("*********** No Variable Content *******")
+            if self.avail_image_height is None:
+                print("*********** No Variable Content *******")
 
         # Calculate remaining vertical space
-        avail_image_height = (
-            self.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
-        )
-        # use width of emergency height box as standard
-        avail_image_width = emergency_width
+        if self.avail_image_height is None:
+            avail_image_height = (
+                self.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
+            )
+            self.avail_image_height = avail_image_height
+        else:
+            avail_image_height = self.avail_image_height
+
+        if self.avail_image_width is None:
+            # use width of emergency height box as standard
+            self.avail_image_width = avail_image_width = emergency_width
+        else:
+            avail_image_width = self.avail_image_width
         print(f"avail height: {avail_image_height}, avail width: {avail_image_width}")
         return avail_image_height, avail_image_width
 
