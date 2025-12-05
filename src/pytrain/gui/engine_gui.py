@@ -22,6 +22,8 @@ from typing import Any, Callable, Generic, TypeVar, cast
 from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
+
+# noinspection PyPackageRequirements
 from PIL import Image, ImageOps, ImageTk
 
 from ..comm.command_listener import CommandDispatcher
