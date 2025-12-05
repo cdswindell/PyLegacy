@@ -1079,6 +1079,10 @@ class EngineGui(Thread, Generic[S]):
             cb.text_size = self.s_20
             cb.tk.pack_configure(padx=6, pady=15)
             self._elements.add(cb)
+        # set the hover color of the element the curser is over when selecting an item
+        if "menu" in combo_box.tk.children:
+            menu = combo_box.tk.children["menu"]
+            menu.config(activebackground="lightgrey")
         return combo_box
 
     def make_combo_callback(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
@@ -2373,7 +2377,7 @@ class EngineGui(Thread, Generic[S]):
         )
         # use width of emergency height box as standard
         avail_image_width = emergency_width
-
+        print(f"avail height: {avail_image_height}, avail width: {avail_image_width}")
         return avail_image_height, avail_image_width
 
     def sizeof(self, widget: Widget) -> tuple[int, int]:
