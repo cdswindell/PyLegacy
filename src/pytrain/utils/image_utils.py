@@ -14,11 +14,11 @@ def center_text_on_image(
     """
     Draw centered black text over a light-gray rounded rectangle.
 
-    styled=True  → drop-cap effect:
+    Styled=True → drop-cap effect:
         - first letter of each word = BIG (font_size)
-        - remaining letters = SMALL (font_size - 4)
+        - remaining letters = SMALL (font_size - 6)
 
-    styled=False → all text uses big font_size
+    Styled=False → all text uses big font_size
 
     The rounded rectangle width = len(display_text) × big-character-width.
     """
@@ -29,7 +29,7 @@ def center_text_on_image(
 
     # ----- Font sizes -----
     font_big = ImageFont.truetype("DejaVuSans.ttf", font_size)  # drop-cap big
-    font_small = ImageFont.truetype("DejaVuSans.ttf", max(font_size - 4, 1))
+    font_small = ImageFont.truetype("DejaVuSans.ttf", max(font_size - 6, 1))
 
     # Uppercase in styled mode
     display_text = text.upper() if styled else text
