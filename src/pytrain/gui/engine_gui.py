@@ -312,7 +312,7 @@ ENGINE_TYPE_TO_IMAGE = {
     EngineType.DIESEL: find_file("generic_diesel.jpg"),
     EngineType.DIESEL_PULLMOR: find_file("generic_diesel.jpg"),
     EngineType.DIESEL_SWITCHER: find_file("generic_diesel_switcher.jpg"),
-    EngineType.FREIGHT: find_file("generic_freight.jpg"),
+    EngineType.FREIGHT_SOUNDS: find_file("generic_freight.jpg"),
     EngineType.STEAM: find_file("generic_steam_santa.jpg"),
     EngineType.STEAM_PULLMOR: find_file("generic_steam_santa.jpg"),
 }
