@@ -98,7 +98,7 @@ ENGINE_OPS_LAYOUT = [
         ("VOLUME_UP", "vol-up.jpg"),
         ("ENGINEER_CHATTER", "walkie_talkie.jpg", "", "Crew..."),
         [("RPM_UP", "rpm-up.jpg", "", "", "d"), ("LET_OFF_LONG, NUMBER_6", "let-off.jpg", "", "", "s")],
-        ("BLOW_HORN_ONE", "horn.jpg", "", "Horn..."),
+        [("BLOW_HORN_ONE", "horn.jpg", "", "Horn...", "d"), ("BLOW_HORN_ONE", "whistle.jpg", "", "Whistle...", "d")],
     ],
     [
         ("VOLUME_DOWN", "vol-down.jpg"),
@@ -2087,7 +2087,7 @@ class EngineGui(Thread, Generic[S]):
         for btn in self.diesel_btns:
             btn.show()
         cell, _ = self.engine_ops_cells["BLOW_HORN_ONE"]
-        cell.text = "Horn..."
+        self.horn_level.text = "Horn"
 
     def show_steam_keys(self) -> None:
         for btn in self.diesel_btns:
@@ -2095,7 +2095,7 @@ class EngineGui(Thread, Generic[S]):
         for btn in self.steam_btns:
             btn.show()
         cell, _ = self.engine_ops_cells["BLOW_HORN_ONE"]
-        cell.text = "Whistle..."
+        self.horn_level.text = "Whistle"
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
         self._in_entry_mode = False
