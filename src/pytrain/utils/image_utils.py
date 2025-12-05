@@ -7,7 +7,7 @@
 from PIL import ImageDraw, ImageFont, ImageTk
 
 
-def center_text_on_image(photo: ImageTk.PhotoImage, text: str, font_size: int = 96) -> ImageTk.PhotoImage:
+def center_text_on_image(photo: ImageTk.PhotoImage, text: str, font_size: int = 48) -> ImageTk.PhotoImage:
     """
     Draw centered text over a tkinter PhotoImage and return a new PhotoImage.
     """
@@ -18,7 +18,7 @@ def center_text_on_image(photo: ImageTk.PhotoImage, text: str, font_size: int = 
 
     # Load font
     try:
-        font = ImageFont.truetype("arial.ttf", font_size)
+        font = ImageFont.truetype("DejaVuSans.ttf", font_size)
     except IOError:
         font = ImageFont.load_default()
 
