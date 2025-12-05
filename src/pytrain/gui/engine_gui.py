@@ -1079,11 +1079,9 @@ class EngineGui(Thread, Generic[S]):
             cb.text_size = self.s_20
             cb.tk.pack_configure(padx=6, pady=15)
             # set the hover color of the element the curser is over when selecting an item
-            if "menu" in combo_box.tk.children:
-                menu = combo_box.tk.children["menu"]
+            if "menu" in cb.tk.children:
+                menu = cb.tk.children["menu"]
                 menu.config(activebackground="lightgrey")
-            else:
-                print(combo_box.tk.children, type(combo_box.tk.children))
             self._elements.add(cb)
         return combo_box
 
