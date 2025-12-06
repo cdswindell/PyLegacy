@@ -311,6 +311,7 @@ KEY_TO_COMMAND = {
 }
 
 ENGINE_TYPE_TO_IMAGE = {
+    EngineType.CRANE: find_file("generic_crane_car.jpg"),
     EngineType.DIESEL: find_file("generic_diesel.jpg"),
     EngineType.DIESEL_PULLMOR: find_file("generic_diesel.jpg"),
     EngineType.DIESEL_SWITCHER: find_file("generic_diesel_switcher.jpg"),

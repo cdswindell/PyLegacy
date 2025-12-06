@@ -285,7 +285,7 @@ class EngineType(Mixins, IntEnum):
     BREAKDOWN = 6
     RESERVED = 7
     ACELA = 8
-    TRACK_CRANE = 9
+    CRANE = 9
     DIESEL_SWITCHER = 10
     STEAM_SWITCHER = 11
     FREIGHT_SOUNDS = 12
