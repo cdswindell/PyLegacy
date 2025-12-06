@@ -28,7 +28,7 @@ class TestConsistComponent:
         assert c.is_forward is True
         assert c.is_reverse is False
 
-        assert c.is_train_linked is False
+        assert c.is_train_link is False
         assert c.is_horn_masked is False
         assert c.is_dialog_masked is False
         assert c.is_tmcc2 is False
@@ -51,7 +51,7 @@ class TestConsistComponent:
         assert c.is_tail is True
         assert c.is_reverse is True
         assert c.is_forward is False
-        assert c.is_train_linked is True
+        assert c.is_train_link is True
         assert c.is_horn_masked is True
         assert c.is_dialog_masked is True
         assert c.is_tmcc2 is True

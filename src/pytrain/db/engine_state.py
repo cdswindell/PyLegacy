@@ -896,6 +896,32 @@ class TrainState(EngineState):
     def consist_components(self) -> List[ConsistComponent]:
         return self.comp_data.consist_comps
 
+    @property
+    def head_tmcc_id(self) -> int | None:
+        if self.consist_components:
+            for comp in self.consist_components:
+                if comp.is_head:
+                    return comp.tmcc_id
+        return None
+
+    @property
+    def link_tmcc_id(self) -> int | None:
+        if self.consist_components:
+            for comp in self.consist_components:
+                if comp.is_train_link:
+                    return comp.tmcc_id
+        return None
+
+    @property
+    def link_tmcc_ids(self) -> list[int] | None:
+        if self.consist_components:
+            ids = []
+            for comp in self.consist_components:
+                if comp.is_train_link:
+                    ids.append(comp.tmcc_id)
+            return ids
+        return None
+
 
 SCOPE_TO_STATE_MAP.update({CommandScope.ENGINE: EngineState})
 SCOPE_TO_STATE_MAP.update({CommandScope.TRAIN: TrainState})

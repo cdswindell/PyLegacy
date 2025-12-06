@@ -42,7 +42,7 @@ class ConsistComponent:
 
     def __repr__(self) -> str:
         d = "F" if self.is_forward else "R"
-        tl = " T" if self.is_train_linked else ""
+        tl = " T" if self.is_train_link else ""
         hm = " H" if self.is_horn_masked else ""
         dm = " D" if self.is_dialog_masked else ""
         a = " A" if self.is_accessory else ""
@@ -51,7 +51,7 @@ class ConsistComponent:
     @property
     def info(self) -> str:
         d = "F" if self.is_forward else "R"
-        tl = " T" if self.is_train_linked else ""
+        tl = " T" if self.is_train_link else ""
         hm = " H" if self.is_horn_masked else ""
         dm = " D" if self.is_dialog_masked else ""
         a = " A" if self.is_accessory else ""
@@ -86,7 +86,7 @@ class ConsistComponent:
         return 0b100 & self.flags == 0b100
 
     @property
-    def is_train_linked(self) -> bool:
+    def is_train_link(self) -> bool:
         return 0b1000 & self.flags == 0b1000
 
     @property

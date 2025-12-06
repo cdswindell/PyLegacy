@@ -2277,10 +2277,10 @@ class EngineGui(Thread, Generic[S]):
             if img is None:
                 train_state = self.active_state
                 train_id = tmcc_id
-                lead_id = train_state.consist_components[0].tmcc_id
-                img = self._image_cache.get((CommandScope.ENGINE, lead_id), None)
+                head_id = train_state.head_tmcc_id
+                img = self._image_cache.get((CommandScope.ENGINE, head_id), None)
                 if img is None:
-                    self.update_component_image(key=(CommandScope.ENGINE, lead_id, train_id))
+                    self.update_component_image(key=(CommandScope.ENGINE, head_id, train_id))
                     return
                 else:
                     self._image_cache[(CommandScope.TRAIN, train_id)] = img
