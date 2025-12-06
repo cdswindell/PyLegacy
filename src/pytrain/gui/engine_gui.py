@@ -659,11 +659,13 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyTypeChecker
     def make_controller(self, app):
+        if self.controller_box is not None:
+            return
         self.controller_box = controller_box = Box(
             app,
             border=2,
             align="top",
-            visible=True,
+            visible=False,
         )
         self.ops_cells.add(controller_box)
 
@@ -865,10 +867,10 @@ class EngineGui(Thread, Generic[S]):
         self.controller_box.visible = False
 
         # Make popups, starting with rr_speed dialog; must be done after scope_box
-        self.rr_speed_overlay = self.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
-        self.lights_overlay = self.create_popup("Lighting", self.build_lights_body)
-        self.tower_dialog_overlay = self.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
-        self.crew_dialog_overlay = self.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
+        # self.rr_speed_overlay = self.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
+        # self.lights_overlay = self.create_popup("Lighting", self.build_lights_body)
+        # self.tower_dialog_overlay = self.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
+        # self.crew_dialog_overlay = self.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
 
     def make_slider(
         self,
@@ -1169,9 +1171,13 @@ class EngineGui(Thread, Generic[S]):
                     nb.on_hold = (self.on_speed_command, [f"{dialog}, {op[0]}"])
 
     def on_rr_speed(self) -> None:
+        if self.rr_speed_overlay is None:
+            self.rr_speed_overlay = self.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
         self.show_popup(self.rr_speed_overlay)
 
     def on_lights(self) -> None:
+        if self.lights_overlay is None:
+            self.lights_overlay = self.create_popup("Lighting", self.build_lights_body)
         if self.active_engine_state:
             state = self.active_engine_state
         else:
@@ -1186,9 +1192,13 @@ class EngineGui(Thread, Generic[S]):
         self.show_popup(self.lights_overlay, "AUX2_OPTION_ONE")
 
     def on_tower_dialog(self) -> None:
+        if self.tower_dialog_overlay is None:
+            self.tower_dialog_overlay = self.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
         self.show_popup(self.tower_dialog_overlay, "TOWER_CHATTER")
 
     def on_crew_dialog(self) -> None:
+        if self.crew_dialog_overlay is None:
+            self.crew_dialog_overlay = self.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
         self.show_popup(self.crew_dialog_overlay, "ENGINEER_CHATTER")
 
     def show_popup(self, overlay, op: str = None):
