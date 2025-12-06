@@ -2267,7 +2267,6 @@ class EngineGui(Thread, Generic[S]):
             if img is None:
                 train_state = self.active_state
                 train_id = tmcc_id
-                print(train_state.consist_components)
                 lead_id = train_state.consist_components[0].tmcc_id
                 img = self._image_cache.get((CommandScope.ENGINE, lead_id), None)
                 if img is None:
@@ -2293,11 +2292,15 @@ class EngineGui(Thread, Generic[S]):
                     self._pending_prod_infos.discard((scope, tmcc_id))
 
                 if isinstance(prod_info, ProdInfo):
-                    # Resize image if needed
+                    # Image should have been cached by fetch_prod_indo
                     img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
                     if img is None:
                         img = self.get_scaled_image(BytesIO(prod_info.image_content))
                         self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+                    if train_id:
+                        self._image_cache[(CommandScope.TRAIN, train_id)] = img
+                        tmcc_id = train_id
+                        scope = CommandScope.TRAIN
                 else:
                     if isinstance(state, EngineState):
                         img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
@@ -2315,6 +2318,7 @@ class EngineGui(Thread, Generic[S]):
                             self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                             if train_id:
                                 self._image_cache[(CommandScope.ENGINE, train_id)] = img
+                                tmcc_id = train_id
                                 scope = CommandScope.TRAIN
                     else:
                         self.clear_image()
