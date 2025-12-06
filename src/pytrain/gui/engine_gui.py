@@ -752,7 +752,6 @@ class EngineGui(Thread, Generic[S]):
         for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
             _, btn = self.engine_ops_cells[command]
             btn.on_repeat = btn.on_press
-            btn.on_press = None
             btn.repeat_interval = 0.3
 
         # used to make sure brake and throttle get focus when needed
