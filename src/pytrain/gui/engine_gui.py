@@ -2262,7 +2262,7 @@ class EngineGui(Thread, Generic[S]):
         img = None
 
         # for Trains, use the image of the lead engine
-        if scope == CommandScope.TRAIN:
+        if scope == CommandScope.TRAIN and tmcc_id > 0:
             img = self._image_cache.get((CommandScope.TRAIN, tmcc_id), None)
             if img is None:
                 train_state = self.active_state
@@ -2275,8 +2275,7 @@ class EngineGui(Thread, Generic[S]):
                     return
                 else:
                     self._image_cache[(CommandScope.TRAIN, train_id)] = img
-
-        if scope in {CommandScope.ENGINE} and tmcc_id != 0:
+        elif scope in {CommandScope.ENGINE} and tmcc_id != 0:
             with self._cv:
                 state = self._state_store.get_state(scope, tmcc_id, False)
                 prod_info = self._prod_info_cache.get(tmcc_id, None)
