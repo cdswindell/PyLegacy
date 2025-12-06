@@ -2241,20 +2241,40 @@ class EngineGui(Thread, Generic[S]):
         self.image.image = None
         self.image_box.hide()
 
-    def update_component_image(self, tmcc_id: int = None, key: tuple[CommandScope, int] = None) -> None:
+    def update_component_image(
+        self,
+        tmcc_id: int = None,
+        key: tuple[CommandScope, int] | tuple[CommandScope, int, int] = None,
+    ) -> None:
         if key is None and self.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             # routes and switches don't use images
             return
         if key:
             scope = key[0]
             tmcc_id = key[1]
+            train_id = key[2] if len(key) > 2 else None
         else:
             scope = self.scope
             if tmcc_id is None:
                 tmcc_id = self._scope_tmcc_ids[self.scope]
+            train_id = None
         img = None
 
-        # TODO: Handle Trains
+        # for Trains, use the image of the lead engine
+        if scope == CommandScope.TRAIN:
+            img = self._image_cache.get((CommandScope.TRAIN, tmcc_id), None)
+            if img is None:
+                train_state = self.active_state
+                train_id = tmcc_id
+                print(train_state.consist_components)
+                lead_id = train_state.consist_components[0].tmcc_id
+                img = self._image_cache.get((CommandScope.ENGINE, lead_id), None)
+                if img is None:
+                    self.update_component_image(key=(CommandScope.ENGINE, lead_id, train_id))
+                    return
+                else:
+                    self._image_cache[(CommandScope.TRAIN, train_id)] = img
+
         if scope in {CommandScope.ENGINE} and tmcc_id != 0:
             with self._cv:
                 state = self._state_store.get_state(scope, tmcc_id, False)
@@ -2264,7 +2284,7 @@ class EngineGui(Thread, Generic[S]):
                 if prod_info is None and state and state.bt_id:
                     if (scope, tmcc_id) not in self._pending_prod_infos:
                         # Submit fetch immediately and cache the Future itself
-                        future = self._executor.submit(self._fetch_prod_info, scope, tmcc_id)
+                        future = self._executor.submit(self._fetch_prod_info, scope, tmcc_id, train_id)
                         self._prod_info_cache[tmcc_id] = future
                     return
 
@@ -2293,6 +2313,9 @@ class EngineGui(Thread, Generic[S]):
                                 self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                                 self._image_cache[source] = img
                             self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+                            if train_id:
+                                self._image_cache[(CommandScope.ENGINE, train_id)] = img
+                                scope = CommandScope.TRAIN
                     else:
                         self.clear_image()
         elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
@@ -2312,7 +2335,7 @@ class EngineGui(Thread, Generic[S]):
                         self._image_cache[(CommandScope.ACC, tmcc_id)] = img
                     else:
                         self.clear_image()
-        else:
+        if img is None:
             self.clear_image()
         if img and scope == self.scope and tmcc_id == self._scope_tmcc_ids[self.scope]:
             available_height, available_width = self.calc_image_box_size()
@@ -2590,10 +2613,10 @@ class EngineGui(Thread, Generic[S]):
             prod_info = "N/A"
         return prod_info
 
-    def _fetch_prod_info(self, scope: CommandScope, tmcc_id: int) -> ProdInfo | None:
+    def _fetch_prod_info(self, scope: CommandScope, tmcc_id: int, train_id: int = None) -> ProdInfo | None:
         """Fetch product info in a background thread, then schedule UI update."""
         prod_info = None
-        key = (scope, tmcc_id)
+        key = (scope, tmcc_id, train_id)
         do_request_prod_info = False
         with self._cv:
             if key not in self._pending_prod_infos:
@@ -2606,6 +2629,8 @@ class EngineGui(Thread, Generic[S]):
             # now get image
             img = self.get_scaled_image(BytesIO(prod_info.image_content))
             self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+            if train_id:
+                self._image_cache[(CommandScope.TRAIN, train_id)] = img
         # Schedule the UI update on the main thread
         self.queue_message(self.update_component_image, tmcc_id, key)
         return prod_info
