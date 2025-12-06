@@ -1608,14 +1608,14 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id = self._scope_tmcc_ids[self.scope]
         if tmcc_id == 0 or force_entry_mode:
             self.entry_mode(clear_info=clear_info)
-            if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-                self.on_key_cell.show()
-                self.off_key_cell.show()
-            else:
-                self.on_key_cell.hide()
-                self.off_key_cell.hide()
-            if not self.keypad_box.visible:
-                self.keypad_box.show()
+        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            self.on_key_cell.show()
+            self.off_key_cell.show()
+        else:
+            self.on_key_cell.hide()
+            self.off_key_cell.hide()
+        if not self.keypad_box.visible:
+            self.keypad_box.show()
 
     # noinspection PyTypeChecker
     def make_keypad(self, app: App):
