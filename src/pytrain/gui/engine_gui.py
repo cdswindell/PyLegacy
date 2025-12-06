@@ -1150,6 +1150,7 @@ class EngineGui(Thread, Generic[S]):
                     command=self.on_speed_command,
                     args=[op[0]],
                 )
+                nb.hold_threshold = 0.5
 
                 cell.tk.config(width=width)
                 nb.tk.config(width=width)
