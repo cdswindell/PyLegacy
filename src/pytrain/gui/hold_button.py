@@ -212,6 +212,7 @@ class HoldButton(PushButton):
             # fire on_press here if no dedicated hold/repeat
             self._invoke_callback(self._on_press)
             handled = True
+            self.restore_color_state()
 
         self._handled_hold = handled
 

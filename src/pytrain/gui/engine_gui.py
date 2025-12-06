@@ -867,12 +867,6 @@ class EngineGui(Thread, Generic[S]):
         # --- HIDE IT AGAIN after sizing is complete ---
         self.controller_box.visible = False
 
-        # Make popups, starting with rr_speed dialog; must be done after scope_box
-        # self.rr_speed_overlay = self.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
-        # self.lights_overlay = self.create_popup("Lighting", self.build_lights_body)
-        # self.tower_dialog_overlay = self.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
-        # self.crew_dialog_overlay = self.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
-
     def make_slider(
         self,
         sliders: Box,
