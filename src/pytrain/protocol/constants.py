@@ -243,9 +243,9 @@ CONTROL_TYPE: Dict[int, str] = {
 }
 SOUND_TYPE: Dict[int, str] = {
     0: "None",
-    1: "RainSounds",
+    1: "RailSounds",
     2: "RailSounds 5",
-    3: "Legacy",
+    3: "LegacySounds",
 }
 LOCO_TYPE: Dict[int, str] = {
     0: "Diesel",
