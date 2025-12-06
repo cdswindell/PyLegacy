@@ -756,6 +756,7 @@ class EngineGui(Thread, Generic[S]):
             btn.repeat_interval = 0.3
 
         # used to make sure brake and throttle get focus when needed
+        self.controller_box.visible = True
         self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
         focus_sink.place(x=-9999, y=-9999, width=1, height=1)
 
