@@ -1608,15 +1608,17 @@ class EngineGui(Thread, Generic[S]):
         tmcc_id = self._scope_tmcc_ids[self.scope]
         if tmcc_id == 0 or force_entry_mode:
             self.entry_mode(clear_info=clear_info)
-            if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-                self.on_key_cell.show()
-                self.off_key_cell.show()
-                print(f"Enabling power keys; scope: {self.scope}, tmcc_id: {tmcc_id}")
-            else:
-                self.on_key_cell.hide()
-                self.off_key_cell.hide()
+            self.scope_power_btns()
             if not self.keypad_box.visible:
                 self.keypad_box.show()
+
+    def scope_power_btns(self):
+        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            self.on_key_cell.show()
+            self.off_key_cell.show()
+        else:
+            self.on_key_cell.hide()
+            self.off_key_cell.hide()
 
     # noinspection PyTypeChecker
     def make_keypad(self, app: App):
@@ -1774,7 +1776,6 @@ class EngineGui(Thread, Generic[S]):
             )
 
         # BPC2/ASC2 Buttons
-
         self.ac_on_cell, self.ac_on_btn = self.make_keypad_button(
             keypad_keys,
             AC_ON_KEY,
@@ -1786,7 +1787,6 @@ class EngineGui(Thread, Generic[S]):
             is_ops=True,
             titlebox_text="On",
         )
-        self.ops_cells.add(self.ac_on_cell)
 
         self.ac_status_cell, self.ac_status_btn = self.make_keypad_button(
             keypad_keys,
@@ -1799,7 +1799,6 @@ class EngineGui(Thread, Generic[S]):
             titlebox_text="Status",
             command=False,
         )
-        self.ops_cells.add(self.ac_status_cell)
 
         self.ac_off_cell, self.ac_off_btn = self.make_keypad_button(
             keypad_keys,
@@ -1812,7 +1811,6 @@ class EngineGui(Thread, Generic[S]):
             is_ops=True,
             titlebox_text="Off",
         )
-        self.ops_cells.add(self.ac_off_cell)
 
         # Acs2 Momentary Action Button
         self.ac_aux1_cell, self.ac_aux1_btn = self.make_keypad_button(
@@ -1825,7 +1823,6 @@ class EngineGui(Thread, Generic[S]):
             is_ops=True,
             command=False,
         )
-        self.ops_cells.add(self.ac_aux1_cell)
         self.ac_aux1_btn.when_left_button_pressed = self.when_pressed
         self.ac_aux1_btn.when_left_button_released = self.when_released
 
@@ -2117,6 +2114,7 @@ class EngineGui(Thread, Generic[S]):
         for cell in self.ops_cells:
             if cell.visible:
                 cell.hide()
+        self.scope_power_btns()
         if not self.keypad_box.visible:
             self.keypad_box.show()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and self._scope_tmcc_ids[self.scope]:
