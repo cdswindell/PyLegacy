@@ -1611,6 +1611,7 @@ class EngineGui(Thread, Generic[S]):
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             self.on_key_cell.show()
             self.off_key_cell.show()
+            print(f"Enabling power keys; scope: {self.scope}, tmcc_id: {tmcc_id}")
         else:
             self.on_key_cell.hide()
             self.off_key_cell.hide()
