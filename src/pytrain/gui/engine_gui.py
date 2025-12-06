@@ -1767,16 +1767,17 @@ class EngineGui(Thread, Generic[S]):
             )
 
         # BPC2/ASC2 Buttons
-        self.ac_off_cell, self.ac_off_btn = self.make_keypad_button(
+
+        self.ac_on_cell, self.ac_on_btn = self.make_keypad_button(
             keypad_keys,
-            AC_OFF_KEY,
+            AC_ON_KEY,
             row,
             0,
             0,
-            image=self.turn_off_image,
+            image=self.turn_on_image,
             visible=False,
             is_ops=True,
-            titlebox_text="Off",
+            titlebox_text="On",
         )
         self.ac_status_cell, self.ac_status_btn = self.make_keypad_button(
             keypad_keys,
@@ -1789,16 +1790,16 @@ class EngineGui(Thread, Generic[S]):
             titlebox_text="Status",
             command=False,
         )
-        self.ac_on_cell, self.ac_on_btn = self.make_keypad_button(
+        self.ac_off_cell, self.ac_off_btn = self.make_keypad_button(
             keypad_keys,
-            AC_ON_KEY,
+            AC_OFF_KEY,
             row,
             2,
             0,
-            image=self.turn_on_image,
+            image=self.turn_off_image,
             visible=False,
             is_ops=True,
-            titlebox_text="On",
+            titlebox_text="Off",
         )
 
         # Acs2 Momentary Action Button
@@ -1806,7 +1807,7 @@ class EngineGui(Thread, Generic[S]):
             keypad_keys,
             AUX1_KEY,
             row - 1,
-            2,
+            0,
             self.s_18,
             visible=False,
             is_ops=True,
