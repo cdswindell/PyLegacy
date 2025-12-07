@@ -523,6 +523,55 @@ class EngineCli(CliBaseTMCC):
 
         volume = sp.add_parser("volume", aliases=["vo"], help="Volume Operations", parent=engine_parser)
         vg = volume.add_mutually_exclusive_group()
+
+        vg.add_argument(
+            "-bell",
+            action=DataAction,
+            dest="option",
+            choices=range(0, 8),
+            metavar="0 - 7",
+            type=ranged_int(0, 7),
+            nargs="?",
+            default=4,
+            const="BELL_DIRECT",
+            help="Set bell volume (0 - 7)",
+        )
+        vg.add_argument(
+            "-blend",
+            action=DataAction,
+            dest="option",
+            choices=range(0, 256),
+            metavar="0 - 255",
+            type=ranged_int(0, 255),
+            nargs="?",
+            default=128,
+            const="BLEND_VOLUME",
+            help="Set blend volume (0 - 255)",
+        )
+        vg.add_argument(
+            "-dialog",
+            action=DataAction,
+            dest="option",
+            choices=range(0, 8),
+            metavar="0 - 7",
+            type=ranged_int(0, 7),
+            nargs="?",
+            default=4,
+            const="DIALOG_DIRECT",
+            help="Set dialog volume (0 - 7)",
+        )
+        vg.add_argument(
+            "-horn",
+            action=DataAction,
+            dest="option",
+            choices=range(0, 8),
+            metavar="0 - 7",
+            type=ranged_int(0, 7),
+            nargs="?",
+            default=4,
+            const="HORN_DIRECT",
+            help="Set horn volume (0 - 7)",
+        )
         vg.add_argument(
             "-master",
             action=DataAction,
@@ -536,16 +585,18 @@ class EngineCli(CliBaseTMCC):
             help="Set master volume (0 - 255)",
         )
         vg.add_argument(
-            "-blend",
-            action=DataAction,
+            "-info",
+            action="store_const",
             dest="option",
-            choices=range(0, 256),
-            metavar="0 - 255",
-            type=ranged_int(0, 255),
-            nargs="?",
-            default=128,
-            const="BLEND_VOLUME",
-            help="Set blend volume (0 - 255)",
+            const="GET_INFO",
+            help="Get Info",
+        )
+        vg.add_argument(
+            "-status",
+            action="store_const",
+            dest="option",
+            const="GET_STATUS",
+            help="Get Status",
         )
 
         # construct final parser with all components in order

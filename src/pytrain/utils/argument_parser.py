@@ -39,7 +39,10 @@ class PyTrainArgumentParser(ArgumentParser):
     def error(self, message: str) -> None:
         self._error_message = message
         if self.is_exit_on_error:
-            super().error(message)
+            try:
+                super().error(message)
+            except AssertionError:
+                raise ArgumentError(None, message)
         else:
             raise ArgumentError(None, message)
 

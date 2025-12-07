@@ -595,12 +595,16 @@ class VariableCommandDef(MultiByteCommandDef):
         command_bits: int,
         num_data_bytes: int,
         data_bytes: List[int] = None,
+        code: VolumeCode = None,
         d_min: int = 0,
         d_max: int = 0,
+        is_abstract: bool = False,
     ) -> None:
         super().__init__(command_bits, d_min=d_min, d_max=d_max)
+        self._code = code
         self._num_data_bytes = num_data_bytes
         self._data_bytes = data_bytes
+        self._is_abstract = is_abstract
 
     @property
     def num_data_bytes(self) -> int:
@@ -614,12 +618,48 @@ class VariableCommandDef(MultiByteCommandDef):
     def msb(self) -> int:
         return (0xFF00 & self.bits) >> 8
 
+    @property
+    def is_abstract(self) -> bool:
+        return self._is_abstract
+
+    @property
+    def has_volume_code(self) -> bool:
+        return self.bits == TMCC2_SET_VOLUME_DIRECT
+
+    @property
+    def volume_code(self) -> VolumeCode:
+        return self._code
+
 
 TMCC2_VARIABLE_INDEX: int = 0x6F
+
+TMCC2_VOLUME_DIRECT_MASTER: int = 0xC8
+TMCC2_VOLUME_DIRECT_HORN: int = 0xC9
+TMCC2_VOLUME_DIRECT_BELL: int = 0xCB
+TMCC2_VOLUME_DIRECT_DIALOG: int = 0xCD
+TMCC2_VOLUME_DIRECT_BLEND: int = 0xCF
+
+
+class VolumeCode(Mixins, IntEnum):
+    MASTER = TMCC2_VOLUME_DIRECT_MASTER
+    HORN = TMCC2_VOLUME_DIRECT_HORN
+    BELL = TMCC2_VOLUME_DIRECT_BELL
+    DIALOG = TMCC2_VOLUME_DIRECT_DIALOG
+    BLEND = TMCC2_VOLUME_DIRECT_BLEND
+
+    def __repr__(self) -> str:
+        return f"[{self.name}: {self.value:02X}]"
+
+    @property
+    def as_bytes(self) -> bytes:
+        return bytes([self.value])
+
 
 TMCC2_SET_MASTER_VOLUME: int = 0xB000
 TMCC2_SET_BLEND_VOLUME: int = 0xB001
 TMCC2_SET_VOLUME_DIRECT: int = 0xB004
+TMCC2_BLE_GET_INFO: int = 0xC000
+TMCC2_BLE_GET_STATUS: int = 0xC001
 TMCC2_DCDS_FACTORY_DEFAULT = 0xF000
 TMCC2_DCDS_STORE = 0xF001
 
@@ -627,10 +667,38 @@ TMCC2_DCDS_STORE = 0xF001
 class TMCC2VariableEnum(TMCC2MultiByteEnum):
     MASTER_VOLUME = VariableCommandDef(TMCC2_SET_MASTER_VOLUME, 1, d_min=0, d_max=255)
     BLEND_VOLUME = VariableCommandDef(TMCC2_SET_BLEND_VOLUME, 1, d_min=0, d_max=255)
-    VOLUME_DIRECT = VariableCommandDef(TMCC2_SET_BLEND_VOLUME, 2)
+    VOLUME_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, is_abstract=True)
+    MASTER_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.MASTER, d_min=0, d_max=7)
+    HORN_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.HORN, d_min=0, d_max=7)
+    BELL_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.BELL, d_min=0, d_max=7)
+    DIALOG_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.DIALOG, d_min=0, d_max=7)
+    BLEND_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.BLEND, d_min=0, d_max=15)
     FACTORY_DEFAULT = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 2, [0xEF, 0xBF])
-    STORE = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 1)
+    STORE = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 2, [0xEF, 0xBF])
+    GET_INFO = VariableCommandDef(TMCC2_BLE_GET_INFO, 4, [0x0, 0x0, 0x0, 0x0])
+    GET_STATUS = VariableCommandDef(TMCC2_BLE_GET_STATUS, 5, [0x0, 0x0, 0x0, 0x0, 0x0])
+
+    # noinspection PyTypeChecker
+    def by_volume_code(self, volume_code: VolumeCode, raise_exception: bool = False) -> "TMCC2VariableEnum":
+        for cmd_enum in self.__class__.__members__.values():
+            if cmd_enum.volume_code == volume_code:
+                return cmd_enum
+        if raise_exception:
+            raise ValueError(f"No volume code {volume_code} found in {self.__class__.__name__}")
+        return None
 
     @property
     def num_data_bytes(self) -> int:
         return self.value.num_data_bytes
+
+    @property
+    def is_abstract(self) -> bool:
+        return self.value.is_abstract
+
+    @property
+    def has_volume_code(self) -> bool:
+        return self.value.bits == TMCC2_SET_VOLUME_DIRECT
+
+    @property
+    def volume_code(self) -> VolumeCode:
+        return self.value.volume_code

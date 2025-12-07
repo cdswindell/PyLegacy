@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 
 from .multibyte_command_req import MultiByteReq
-from .multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2VariableEnum, VariableCommandDef
+from .multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2VariableEnum, VolumeCode
 
 if sys.version_info >= (3, 11):
     from typing import List, Self
@@ -34,7 +34,6 @@ class VariableCommandReq(MultiByteReq):
     def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
         _, is_mvb, is_d4 = cls.vet_bytes(param, "Variable")
         if is_mvb:
-            # 0xf8 bb 6f | fb ba 01 | fb ba 01 | fb ba b0 | fb ba c8 | fb ba b9
             index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
             if index != TMCC2_VARIABLE_INDEX:
                 raise ValueError(f"Invalid Variable byte command: {param.hex(':')}")
@@ -54,6 +53,14 @@ class VariableCommandReq(MultiByteReq):
                 # data starts with word 5
                 for i in range(4 * pkt_len + 2, 5 * pkt_len + (num_data_words - 1) * pkt_len, pkt_len):
                     data_bytes.append(param[i])
+                # If a Volume Direct command, first data byte is volume code
+                if cmd_enum.is_abstract:
+                    # first byte of data bytes has to be a volume code
+                    volume_code = VolumeCode.by_value(data_bytes[0])
+                    if volume_code is None:
+                        raise ValueError(f"Invalid volume code: {data_bytes[0].hex()}")
+                    cmd_enum = cmd_enum.by_volume_code(volume_code)
+                    data_bytes = int(data_bytes[1])
                 # validate check checksum
                 chksum_byte_index = 2 - pkt_len
                 if cls.checksum(param[:chksum_byte_index], is_d4) != param[chksum_byte_index].to_bytes(
@@ -83,8 +90,17 @@ class VariableCommandReq(MultiByteReq):
             super().__init__(command_def_enum, address, data_bytes[0], scope)
         else:
             super().__init__(command_def_enum, address, 0, scope)
+
+        if command_def_enum == TMCC2VariableEnum.GET_STATUS:
+            data_bytes = bytes([0]) * 5
+        elif command_def_enum == TMCC2VariableEnum.GET_INFO:
+            data_bytes = bytes([0]) * 4
+
         if data_bytes is not None and isinstance(data_bytes, int):
-            self._data_bytes = [data_bytes]
+            if command_def_enum.has_volume_code:
+                self._data_bytes = [command_def_enum.volume_code.as_bytes, data_bytes]
+            else:
+                self._data_bytes = [data_bytes]
         else:
             self._data_bytes = data_bytes if data_bytes is not None else []
 
@@ -110,10 +126,13 @@ class VariableCommandReq(MultiByteReq):
         pkt_len = 7 if self.is_tmcc4 else 3
         return (5 + self.command.value.num_data_bytes) * pkt_len
 
-    # noinspection PyTypeChecker
+    # noinspection PyTypeChecker,PyUnresolvedReferences
     @property
     def as_bytes(self) -> bytes:
-        cd: VariableCommandDef = self.command_def
+        if isinstance(self.command, TMCC2VariableEnum):
+            cd = TMCC2VariableEnum.VOLUME_DIRECT.value if self.command.has_volume_code else self.command.value
+        else:
+            raise ValueError(f"Invalid command type: {type(self.command)}")
         byte_str = bytes()
         # first word is encoded address and 0x6F byte denoting variable byte packet
         byte_str += TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big") + self._word_1
@@ -124,7 +143,12 @@ class VariableCommandReq(MultiByteReq):
         byte_str += self.word_prefix + cd.msb.to_bytes(1, byteorder="big")
         # now add data words
         for data_byte in self.data_bytes:
-            byte_str += self.word_prefix + data_byte.to_bytes(1, byteorder="big")
+            if isinstance(data_byte, int):
+                byte_str += self.word_prefix + data_byte.to_bytes(1, byteorder="big")
+            elif isinstance(data_byte, bytes):
+                byte_str += self.word_prefix + data_byte
+            else:
+                raise ValueError(f"Invalid data byte type: {type(data_byte)}")
         # finally, add the checksum word
         byte_str += self.word_prefix
         byte_str += self.checksum(byte_str)

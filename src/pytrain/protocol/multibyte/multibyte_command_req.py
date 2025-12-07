@@ -37,47 +37,49 @@ class MultiByteReq(CommandReq, ABC):
 
     @classmethod
     def vet_bytes(cls, param: bytes, cmd_type: str = "", raise_exception: bool = True) -> tuple[bool, bool, bool]:
-        is_pf = False
-        is_vmb = False
-        is_d4 = False
-        p_len = len(param)
-
+        """
+        Return a tuple (is_pf, is_vmb, is_d4) describing the type of command
+        encoded in *param*.
+            is_pf – single packet format
+            is_vmb – variable/multibyte format
+            is_d4 – 4-digit addressing used
+        """
         if not param:
             if raise_exception:
                 raise ValueError("Command requires at least nine bytes")
-            else:
-                return is_pf, is_vmb, is_d4
+            return False, False, False
+
+        p_len = len(param)
         if p_len < 9:
             if raise_exception:
                 raise ValueError(f"{cmd_type} command requires at least 9 bytes {param.hex(':')}")
-            else:
-                return is_pf, is_vmb, is_d4
-        if p_len == 9 and param[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX and param[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX:
-            is_pf = True
-        if (
-            p_len >= 18
-            and p_len % 3 == 0
-            and param[3] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-            and param[6] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-            and param[9] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-            and param[12] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-            and param[15] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-        ):
-            is_vmb = True
-        elif (
-            p_len == 21 and param[7] == LEGACY_MULTIBYTE_COMMAND_PREFIX and param[14] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-        ):
-            is_pf = is_d4 = True
-        elif (
-            p_len >= 42
-            and param[7] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-            and param[14] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-            and param[21] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-            and param[28] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-            and param[35] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-        ):
-            is_vmb = is_d4 = True
-        return is_pf, is_vmb, is_d4
+            return False, False, False
+
+        def has_prefix_at(*indices: int) -> bool:
+            """Return True if all given indices hold LEGACY_MULTIBYTE_COMMAND_PREFIX."""
+            try:
+                return all(param[i] == LEGACY_MULTIBYTE_COMMAND_PREFIX for i in indices)
+            except IndexError:
+                return False
+
+        # Simple 9‑byte packet with two prefix markers
+        if p_len == 9 and has_prefix_at(3, 6):
+            return True, False, False  # is_pf, not vmb, not d4
+
+        # Multi‑byte (non‑D4) format: length ≥ 18, multiple of 3, and five prefix markers
+        if p_len >= 18 and p_len % 3 == 0 and has_prefix_at(3, 6, 9, 12, 15):
+            return False, True, False  # not pf, vmb, not d4
+
+        # 4‑digit single‑packet format
+        if p_len == 21 and p_len % 7 == 0 and has_prefix_at(7, 14):
+            return True, False, True  # pf and d4
+
+        # 4‑digit multi‑byte format
+        if p_len >= 42 and p_len % 7 == 0 and has_prefix_at(7, 14, 21, 28, 35):
+            return False, True, True  # vmb and d4
+
+        # No format matched
+        return False, False, False
 
     @classmethod
     def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
