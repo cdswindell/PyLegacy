@@ -13,10 +13,10 @@ import logging
 from argparse import ArgumentParser
 from typing import List
 
-from . import CliBaseTMCC
 from ..protocol.multibyte.effects_cmd import EffectsCmd
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..utils.argument_parser import PyTrainArgumentParser
+from . import CliBaseTMCC
 
 log = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ class EffectsCli(CliBaseTMCC):
             action="store_const",
             const=TMCC2EffectsControl.PANTO_BOTH_UP,
             dest="option",
-            help="Pantograph control -both up",
+            help="Pantograph control - both up",
         )
         panto_group.add_argument(
             "-bd",
@@ -133,7 +133,7 @@ class EffectsCli(CliBaseTMCC):
             action="store_const",
             const=TMCC2EffectsControl.SUBWAY_BOTH_DOOR_OPEN,
             dest="option",
-            help="Subway both door open",
+            help="Subway both doors open",
         )
         subway_group.add_argument(
             "-bc",
@@ -141,7 +141,7 @@ class EffectsCli(CliBaseTMCC):
             action="store_const",
             const=TMCC2EffectsControl.SUBWAY_BOTH_DOOR_CLOSE,
             dest="option",
-            help="Subway both door close",
+            help="Subway both doors close",
         )
         subway_group.add_argument(
             "-ro",
