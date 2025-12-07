@@ -9,8 +9,8 @@ import pytest
 
 from src.pytrain import TMCC2EffectsControl
 from src.pytrain.db.comp_data import LEGACY_CONTROL_TYPE, CompData
+from src.pytrain.db.components import ConsistComponent
 from src.pytrain.db.engine_state import EngineState, TrainState
-from src.pytrain.pdi.base3_component import ConsistComponent
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2

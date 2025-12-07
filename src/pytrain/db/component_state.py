@@ -18,7 +18,6 @@ from time import time
 from typing import Any, Dict, List, Set, TypeVar
 
 from ..pdi.asc2_req import Asc2Req
-from ..pdi.base3_component import RouteComponent
 from ..pdi.constants import PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.irda_req import IrdaReq
@@ -488,6 +487,8 @@ class SwitchState(TmccState):
 
 
 class RouteState(TmccState):
+    from .components import RouteComponent
+
     """
     Maintain Route State
     """

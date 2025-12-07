@@ -21,11 +21,11 @@ from ..db.comp_data import (
     CompDataMixin,
 )
 from ..db.component_state import ComponentState
+from ..db.components import ConsistComponent
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CONTROL_TYPE, LOCO_CLASS, LOCO_TYPE, SOUND_TYPE, CommandScope, Mixins
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
-from .base3_component import ConsistComponent
 from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
 from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
 

@@ -1,8 +1,15 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-License-Identifier: LPGL
+#
+
 from __future__ import annotations
 
 from enum import IntEnum, unique
 
-from ..protocol.command_req import CommandReq
 from ..protocol.constants import Mixins
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 
@@ -113,6 +120,8 @@ class ConsistComponent:
 
 
 class RouteComponent:
+    from ..protocol.command_req import CommandReq
+
     @classmethod
     def from_bytes(cls, data: bytes) -> list[RouteComponent]:
         route_comps: list[RouteComponent] = list()
@@ -163,6 +172,8 @@ class RouteComponent:
 
     @property
     def as_request(self) -> CommandReq:
+        from ..protocol.command_req import CommandReq
+
         cmd_enum = TMCC1SwitchCommandEnum.THRU if self.is_thru is True else TMCC1SwitchCommandEnum.OUT
         return CommandReq(cmd_enum, self.tmcc_id)
 

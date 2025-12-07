@@ -7,12 +7,8 @@ from typing import List, Tuple, TypeVar
 
 from ..utils.validations import Validations
 
-# noinspection PyUnreachableCode
 if sys.version_info >= (3, 11):
     from typing import Self
-elif sys.version_info >= (3, 9):
-    # noinspection PyPackageRequirements
-    from typing_extensions import Self
 
 from ..protocol.constants import DEFAULT_DURATION_INTERVAL_MSEC, MINIMUM_DURATION_INTERVAL_MSEC, CommandScope
 from .constants import PDI_EOP, PDI_SOP, PDI_STF, CommonAction, PdiAction, PdiCommand

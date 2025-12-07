@@ -4,7 +4,6 @@ import sys
 from typing import Callable, Set, TypeVar
 
 from ..pdi.constants import PDI_EOP, PDI_SOP
-from ..pdi.pdi_req import PdiReq
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -53,6 +52,8 @@ R = TypeVar("R", bound="CommandReq")
 
 
 class CommandReq:
+    from ..pdi.pdi_req import PdiReq
+
     @classmethod
     def build(
         cls,
@@ -83,6 +84,8 @@ class CommandReq:
 
     @classmethod
     def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
+        from ..pdi.pdi_req import PdiReq
+
         if not param:
             raise ValueError("Command requires at least 3 bytes")
         if len(param) < 3:

@@ -13,7 +13,6 @@ import logging
 from abc import ABC, ABCMeta, abstractmethod
 from typing import Any, Callable, Generic, TypeVar, cast
 
-from ..pdi.base3_component import ConsistComponent, RouteComponent
 from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.pdi_req import PdiReq
 from ..protocol.command_req import CommandReq
@@ -21,6 +20,7 @@ from ..protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..utils.text_utils import title
+from .components import ConsistComponent, RouteComponent
 
 log = logging.getLogger(__name__)
 

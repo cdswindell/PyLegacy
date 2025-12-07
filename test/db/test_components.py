@@ -6,7 +6,7 @@
 #  SPDX-License-Identifier: LPGL
 #
 
-from src.pytrain.pdi.base3_component import ConsistComponent, RouteComponent, UnitBits
+from src.pytrain.db.components import ConsistComponent, RouteComponent, UnitBits
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 
