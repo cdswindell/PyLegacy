@@ -13,10 +13,10 @@ import logging
 from argparse import ArgumentParser
 from typing import List
 
-from . import CliBaseTMCC
 from ..protocol.multibyte.lighting_cmd import LightingCmd
 from ..protocol.multibyte.multibyte_constants import TMCC2LightingControl
 from ..utils.argument_parser import PyTrainArgumentParser
+from . import CliBaseTMCC
 
 log = logging.getLogger(__name__)
 
