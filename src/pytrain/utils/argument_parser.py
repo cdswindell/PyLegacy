@@ -7,7 +7,7 @@
 #
 #
 import argparse
-from argparse import ArgumentError, ArgumentTypeError, ArgumentParser, HelpFormatter
+from argparse import ArgumentError, ArgumentParser, ArgumentTypeError, HelpFormatter
 from threading import Lock
 from typing import List, cast
 
@@ -186,3 +186,13 @@ class UniqueChoice:
         if not matches:
             raise ArgumentTypeError(f"invalid choice '{arg}'; choose from {', '.join(self.prefixes)}")
         raise ArgumentTypeError(f"ambiguous choice '{arg}': {', '.join(matches)}")
+
+
+def ranged_int(min_value, max_value):
+    def checker(value):
+        i_value = int(value)
+        if i_value < min_value or i_value > max_value:
+            raise argparse.ArgumentTypeError(f"{i_value} is out of range [{min_value}–{max_value}]")
+        return i_value
+
+    return checker

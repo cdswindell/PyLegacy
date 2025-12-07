@@ -112,11 +112,11 @@ class Base3Buffer(Thread):
             # it down into 3-7 byte packets; this needs to be done here so sync_state
             # in the calling layer gets a complete command
             cmd_bytes = data[2:-2]
-            is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
-            if data[1] in {TMCC_TX, TMCC4_TX} and is_mvb:
+            is_mfb, is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
+            if data[1] in {TMCC_TX, TMCC4_TX} and (is_mvb or is_mfb):
                 tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
                 # This is a legacy/tmcc2 multibyte parameter command. We have to send it
-                # as 3 3 byte packets, using PdiCommand.TMCC_RX
+                # as 3 byte packets, using PdiCommand.TMCC_RX
                 for packet in TmccReq.as_packets(tmcc_cmd):
                     self.send(packet)  # recursive call
                     time.sleep(0.001)

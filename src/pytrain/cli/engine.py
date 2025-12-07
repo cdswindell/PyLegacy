@@ -21,13 +21,14 @@ from ..protocol.multibyte.multibyte_constants import (
     TMCC2MultiByteEnum,
     TMCC2RailSoundsDialogControl,
     TMCC2RailSoundsEffectsControl,
+    TMCC2VariableEnum,
 )
 from ..protocol.sequence.sequence_constants import SequenceCommandEnum
 from ..protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1RRSpeedsEnum
 from ..protocol.tmcc2.engine_cmd import EngineCmd as EngineCmdTMCC2
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
-from ..utils.argument_parser import PyTrainArgumentParser
+from ..utils.argument_parser import PyTrainArgumentParser, ranged_int
 from . import CliBase, CliBaseTMCC, DataAction
 
 log = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             choices=range(0, 8),
             metavar="0 - 7",
-            type=int,
+            type=ranged_int(0, 7),
             nargs="?",
             default=3,
             const="BOOST_LEVEL",
@@ -106,12 +107,12 @@ class EngineCli(CliBaseTMCC):
             action=DataAction,
             dest="option",
             choices=range(0, 8),
-            metavar="0 - 7",
-            type=int,
+            metavar="",
+            type=ranged_int(0, 7),
             nargs="?",
             default=3,
             const="BRAKE_LEVEL",
-            help="Brake level",
+            help="Brake level (0-7)",
         )
         ops.add_argument(
             "-l",
@@ -119,12 +120,12 @@ class EngineCli(CliBaseTMCC):
             action=DataAction,
             dest="option",
             choices=range(0, 32),
-            metavar="0 - 31",
-            type=int,
+            metavar="",
+            type=ranged_int(0, 31),
             nargs="?",
             default=0,
             const="ENGINE_LABOR",
-            help="Engine labor",
+            help="Engine labor (0 - 31)",
         )
         ops.add_argument(
             "-n",
@@ -132,7 +133,7 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             choices=range(0, 10),
             metavar="0 - 9",
-            type=int,
+            type=ranged_int(0, 9),
             nargs="?",
             default=7,  # random radio chatter
             const="NUMERIC",
@@ -175,7 +176,7 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             choices=range(0, 8),
             metavar="0 - 7",
-            type=int,
+            type=ranged_int(0, 7),
             nargs="?",
             default=0,
             const="DIESEL_RPM",
@@ -251,7 +252,7 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             choices=range(0, 8),
             metavar="0 - 7",
-            type=int,
+            type=ranged_int(0, 7),
             nargs="?",
             default=1,
             const="TRAIN_BRAKE",
@@ -337,7 +338,7 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             choices=range(0, 16),
             metavar="0 - 15",
-            type=int,
+            type=ranged_int(0, 15),
             nargs="?",
             default=1,
             const="QUILLING_HORN",
@@ -379,7 +380,7 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             choices=range(0, 8),
             metavar="0 - 7",
-            type=int,
+            type=ranged_int(0, 7),
             nargs="?",
             default=0,
             const="MOMENTUM",
@@ -436,7 +437,7 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             choices=range(0, 8),
             metavar="0 - 7",
-            type=int,
+            type=ranged_int(0, 7),
             nargs="?",
             default=0,
             const="DIESEL_RPM",
@@ -519,6 +520,21 @@ class EngineCli(CliBaseTMCC):
             help="Set relative speed (-5 to 5)",
         )
         speed_group.set_defaults(option="RAMPED_SPEED_SEQ")
+
+        volume = sp.add_parser("volume", aliases=["vo"], help="Volume Operations", parent=engine_parser)
+        vg = volume.add_mutually_exclusive_group()
+        vg.add_argument(
+            "-master",
+            action=DataAction,
+            dest="option",
+            choices=range(0, 256),
+            metavar="",
+            type=ranged_int(0, 255),
+            nargs="?",
+            default=128,  # random radio chatter
+            const="MASTER_VOLUME",
+            help="Set master volume (0 - 255)",
+        )
 
         # construct final parser with all components in order
         return PyTrainArgumentParser(
@@ -639,6 +655,7 @@ class EngineCli(CliBaseTMCC):
                 TMCC2RailSoundsEffectsControl,
                 TMCC2EffectsControl,
                 TMCC2LightingControl,
+                TMCC2VariableEnum,
                 SequenceCommandEnum,
             ]
         for enum_class in enum_classes:

@@ -8,8 +8,6 @@ from .multibyte_constants import TMCC2MaskingControl, TMCC2ParameterEnum
 
 if sys.version_info >= (3, 11):
     from typing import Self
-elif sys.version_info >= (3, 9) or False:
-    from typing_extensions import Self
 
 from ..command_def import CommandDefEnum
 from ..constants import DEFAULT_ADDRESS, CommandScope
@@ -43,7 +41,7 @@ class ParameterCommandReq(MultiByteReq):
 
     @classmethod
     def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
-        is_pc, is_d4 = cls.vet_bytes(param, "Parameter")
+        is_pc, _, is_d4 = cls.vet_bytes(param, "Parameter")
         if is_pc:
             index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
             try:
@@ -69,7 +67,7 @@ class ParameterCommandReq(MultiByteReq):
                     if from_tmcc_rx:
                         cmd_req._is_tmcc_rx = True
                     return cmd_req
-        raise ValueError(f"Invalid parameter command: : {param.hex(':')}")
+        raise ValueError(f"Invalid parameter command:{param.hex(':')}")
 
     def __init__(
         self,

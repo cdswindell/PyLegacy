@@ -7,8 +7,6 @@ from .multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2VariableEnum, Variab
 
 if sys.version_info >= (3, 11):
     from typing import List, Self
-elif sys.version_info >= (3, 9):
-    from typing_extensions import Self
 
 from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc2.tmcc2_constants import (
@@ -35,6 +33,7 @@ class VariableCommandReq(MultiByteReq):
 
     @classmethod
     def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
+        _, is_vmb, is_d4 = cls.vet_bytes(param, "Variable")
         if not param or len(param) < 18:
             raise ValueError(f"Variable byte command requires at least 18 bytes {param.hex(':')}")
         if (
@@ -66,7 +65,7 @@ class VariableCommandReq(MultiByteReq):
                     )
                 # build_req the request and return
                 cmd_req = VariableCommandReq.build(cmd_enum, address, data_bytes, scope)
-                if from_tmcc_rx is True:
+                if from_tmcc_rx:
                     cmd_req._is_tmcc_rx = True
                 return cmd_req
         raise ValueError(f"Invalid Variable byte command: {param.hex(':')}")
@@ -78,7 +77,12 @@ class VariableCommandReq(MultiByteReq):
         data_bytes: int | List[int] = None,
         scope: CommandScope = None,
     ) -> None:
-        super().__init__(command_def_enum, address, 0, scope)
+        if isinstance(data_bytes, int):
+            super().__init__(command_def_enum, address, data_bytes, scope)
+        elif isinstance(data_bytes, list) and len(data_bytes) == 1 and isinstance(data_bytes[0], int):
+            super().__init__(command_def_enum, address, data_bytes[0], scope)
+        else:
+            super().__init__(command_def_enum, address, 0, scope)
         if data_bytes is not None and isinstance(data_bytes, int):
             self._data_bytes = [data_bytes]
         else:
@@ -94,7 +98,7 @@ class VariableCommandReq(MultiByteReq):
     @property
     def num_bytes(self) -> int:
         """
-        Returns the number of bytes in this command. Commands are comprised
+        Returns the number of bytes in this command. Commands consist
         of three-byte words where:
             Word 1: Command index
             Word 2: Number of data words (N)
@@ -108,6 +112,7 @@ class VariableCommandReq(MultiByteReq):
     # noinspection PyTypeChecker
     @property
     def as_bytes(self) -> bytes:
+        # TODO: handle 4 digit engines
         cd: VariableCommandDef = self.command_def
         byte_str = bytes()
         # first word is encoded address and 0x6F byte denoting variable byte packet

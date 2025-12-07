@@ -66,7 +66,7 @@ class _CapturingBuffer(Base3Buffer):
             from src.pytrain.protocol.multibyte.multibyte_command_req import MultiByteReq
 
             cmd_bytes = data[2:-2] if data and len(data) >= 4 and data[0] == PDI_SOP and data[-1] == PDI_EOP else data
-            is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
+            _, is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
             if data and len(data) > 1 and data[0] == PDI_SOP and data[1] in {TMCC_TX, TMCC4_TX} and is_mvb:
                 tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
                 for packet in TmccReq.as_packets(tmcc_cmd):
