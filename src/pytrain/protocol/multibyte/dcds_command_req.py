@@ -10,7 +10,6 @@ if sys.version_info >= (3, 11):
 
 from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc2.tmcc2_constants import (
-    LEGACY_MULTIBYTE_COMMAND_PREFIX,
     LEGACY_TRAIN_COMMAND_PREFIX,
     TMCC2_SCOPE_TO_FIRST_BYTE_MAP,
 )
@@ -33,42 +32,43 @@ class VariableCommandReq(MultiByteReq):
 
     @classmethod
     def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
-        _, is_vmb, is_d4 = cls.vet_bytes(param, "Variable")
-        if not param or len(param) < 18:
-            raise ValueError(f"Variable byte command requires at least 18 bytes {param.hex(':')}")
-        if (
-            len(param) >= 18
-            and param[3] == param[6] == param[9] == param[12] == param[15] == LEGACY_MULTIBYTE_COMMAND_PREFIX
-        ):
+        _, is_mvb, is_d4 = cls.vet_bytes(param, "Variable")
+        if is_mvb:
+            # 0xf8 bb 6f | fb ba 01 | fb ba 01 | fb ba b0 | fb ba c8 | fb ba b9
             index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
             if index != TMCC2_VARIABLE_INDEX:
                 raise ValueError(f"Invalid Variable byte command: {param.hex(':')}")
-            num_data_words = int(param[5])
-            if (5 + num_data_words) * 3 != len(param):
-                raise ValueError(f"Command requires {(5 + num_data_words) * 3} bytes: {param.hex(':')}")
-            pi = int(param[11]) << 8 | int(param[8])
+            pkt_len = 7 if is_d4 else 3
+            num_data_words = int(param[pkt_len + 2])
+            if (5 + num_data_words) * pkt_len != len(param):
+                raise ValueError(f"Command requires {(5 + num_data_words) * pkt_len} bytes: {param.hex(':')}")
+            # extract command
+            pi = int(param[3 * pkt_len + 2]) << 8 | int(param[2 * pkt_len + 2])
             cmd_enum = TMCC2VariableEnum.by_value(pi)
-            if cmd_enum:
-                address = cmd_enum.value.address_from_bytes(param[1:3])
+            if isinstance(cmd_enum, TMCC2VariableEnum):
                 scope = CommandScope.ENGINE
                 if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
                     scope = CommandScope.TRAIN
                 data_bytes = []
                 # harvest all the data bytes; they are the third byte of each data word
                 # data starts with word 5
-                for i in range(14, 15 + (num_data_words - 1) * 3, 3):
+                for i in range(4 * pkt_len + 2, 5 * pkt_len + (num_data_words - 1) * pkt_len, pkt_len):
                     data_bytes.append(param[i])
-                # check checksum
-                if cls.checksum(param[:-1]) != param[-1].to_bytes(1, byteorder="big"):
+                # validate check checksum
+                chksum_byte_index = 2 - pkt_len
+                if cls.checksum(param[:chksum_byte_index], is_d4) != param[chksum_byte_index].to_bytes(
+                    1, byteorder="big"
+                ):
                     raise ValueError(
                         f"Invalid Variable byte checksum: {param.hex(':')} != {cls.checksum(param[:-1]).hex()}"
                     )
                 # build_req the request and return
+                address = cmd_enum.value.address_from_bytes(param[1:7] if is_d4 else param[1:3])
                 cmd_req = VariableCommandReq.build(cmd_enum, address, data_bytes, scope)
-                if from_tmcc_rx:
-                    cmd_req._is_tmcc_rx = True
+                cmd_req._is_tmcc_rx = from_tmcc_rx
+                cmd_req._is_tmcc4 = is_d4
                 return cmd_req
-        raise ValueError(f"Invalid Variable byte command: {param.hex(':')}")
+        raise ValueError(f"Invalid variable byte command: {param.hex(':')}")
 
     def __init__(
         self,
@@ -107,12 +107,12 @@ class VariableCommandReq(MultiByteReq):
             Words 5 - N: Data words
             Word N + 1: Checksum
         """
-        return (5 + self.command.value.num_data_bytes) * 3
+        pkt_len = 7 if self.is_tmcc4 else 3
+        return (5 + self.command.value.num_data_bytes) * pkt_len
 
     # noinspection PyTypeChecker
     @property
     def as_bytes(self) -> bytes:
-        # TODO: handle 4 digit engines
         cd: VariableCommandDef = self.command_def
         byte_str = bytes()
         # first word is encoded address and 0x6F byte denoting variable byte packet
@@ -128,6 +128,13 @@ class VariableCommandReq(MultiByteReq):
         # finally, add the checksum word
         byte_str += self.word_prefix
         byte_str += self.checksum(byte_str)
+        if self.address > 99:
+            # handle 4-digit address
+            address_bytes = str(self.address).zfill(4).encode()
+            tmp = bytes()
+            for i in range(0, len(byte_str), 3):
+                tmp += byte_str[i : i + 3] + address_bytes
+            byte_str = tmp
         return byte_str
 
     @property

@@ -528,12 +528,24 @@ class EngineCli(CliBaseTMCC):
             action=DataAction,
             dest="option",
             choices=range(0, 256),
-            metavar="",
+            metavar="0 - 255",
             type=ranged_int(0, 255),
             nargs="?",
-            default=128,  # random radio chatter
+            default=128,
             const="MASTER_VOLUME",
             help="Set master volume (0 - 255)",
+        )
+        vg.add_argument(
+            "-blend",
+            action=DataAction,
+            dest="option",
+            choices=range(0, 256),
+            metavar="0 - 255",
+            type=ranged_int(0, 255),
+            nargs="?",
+            default=128,
+            const="BLEND_VOLUME",
+            help="Set blend volume (0 - 255)",
         )
 
         # construct final parser with all components in order

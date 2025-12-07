@@ -167,9 +167,8 @@ class MultiByteReq(CommandReq, ABC):
     def _word_2(self) -> bytes:
         return self.data_byte
 
-    # noinspection PyUnusedLocal
-    @staticmethod
-    def checksum(data: bytes = None) -> bytes:
+    @classmethod
+    def checksum(cls, data: bytes = None, is_d4: bool = False) -> bytes:
         """
         Calculate the checksum of a fixed-length lionel tmcc2 multibyte command.
         The checksum is calculated adding together the second 2 bytes of the
@@ -179,8 +178,15 @@ class MultiByteReq(CommandReq, ABC):
         We make use of self.command_scope to determine if the command directed at
         an engine or train.
         """
+        if is_d4:
+            # strip the engine number from the bytes; it's not used in the checksum
+            filtered = bytes()
+            for i in range(0, len(data), 7):
+                filtered += data[i : i + 3]
+        else:
+            filtered = data
         byte_sum = 0
-        for b in data:
+        for b in filtered:
             if b not in {0xF8, 0xF9, 0xFB}:
                 byte_sum += int(b)
         return (~(byte_sum % 256) & 0xFF).to_bytes(1, byteorder="big")  # return 1's complement of sum mod 256

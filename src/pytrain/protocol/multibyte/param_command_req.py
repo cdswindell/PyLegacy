@@ -50,10 +50,10 @@ class ParameterCommandReq(MultiByteReq):
                 raise ValueError(f"Invalid parameter command: : {param.hex(':')}")
             if pi in PARAMETER_INDEX_TO_ENUM_MAP:
                 param_enum = PARAMETER_INDEX_TO_ENUM_MAP[pi]
-                if not is_d4:
-                    command = int(param[5])
-                else:  # account for 4-digit address encoded after each 3 bytes
+                if is_d4:  # account for 4-digit address encoded after each 3 bytes
                     command = int(param[9])
+                else:
+                    command = int(param[5])
                 cmd_enum = param_enum.by_value(command)
                 if isinstance(cmd_enum, CommandDefEnum):
                     scope = cmd_enum.scope
@@ -61,11 +61,10 @@ class ParameterCommandReq(MultiByteReq):
                         scope = CommandScope.TRAIN
                     # build_req the request and return
                     data = 0
-                    p_arg = param[1:3] if is_d4 is False else param[1:7]
-                    address = cmd_enum.value.address_from_bytes(p_arg)
+                    address = cmd_enum.value.address_from_bytes(param[1:7] if is_d4 else param[1:3])
                     cmd_req = ParameterCommandReq.build(cmd_enum, address, data, scope)
-                    if from_tmcc_rx:
-                        cmd_req._is_tmcc_rx = True
+                    cmd_req._is_tmcc_rx = from_tmcc_rx
+                    cmd_req._is_tmcc4 = is_d4
                     return cmd_req
         raise ValueError(f"Invalid parameter command:{param.hex(':')}")
 

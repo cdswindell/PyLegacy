@@ -1,14 +1,13 @@
 import abc
 from abc import ABC
 
-from .tmcc2_constants import TMCC2CommandPrefix
 from ..command_base import CommandBase
 from ..command_def import CommandDefEnum
 from ..command_req import CommandReq
-from ..constants import CommandScope
-from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_ADDRESS
+from ..constants import DEFAULT_ADDRESS, DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from ..multibyte.multibyte_constants import TMCC2ParameterEnum
 from ..multibyte.param_command_req import ParameterCommandReq
+from .tmcc2_constants import TMCC2CommandPrefix
 
 
 class TMCC2Command(CommandBase, ABC):
@@ -27,6 +26,7 @@ class TMCC2Command(CommandBase, ABC):
     ) -> None:
         super().__init__(command, command_req, address, data, scope, baudrate, port, server)
 
+    # noinspection PyTypeChecker
     def _build_command(self) -> bytes:
         return self._command_req.as_bytes
 
