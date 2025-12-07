@@ -137,27 +137,32 @@ RR_SPEED_LAYOUT = [
 ]
 
 DIESEL_LIGHTS = {
-    "Cab Lights": [["On", "CAB_ON"], ["Off", "CAB_OFF"], ["Auto", "CAB_AUTO"], ["Toggle", "CAB_TOGGLE"]],
+    "Cab Lights": [["Auto", "CAB_AUTO"], ["On", "CAB_ON"], ["Off", "CAB_OFF"], ["Toggle", "CAB_TOGGLE"]],
     "Ditch Lights": [
         ["On", "DITCH_ON"],
         ["Pulse On With Horn", "DITCH_ON_PULSE_ON_WITH_HORN"],
         ["Pulse Off With Horn", "DITCH_OFF_PULSE_OFF_WITH_HORN"],
         ["Off", "DITCH_OFF"],
     ],
-    "Ground Lights": [["ON", "GROUND_ON"], ["OFF", "GROUND_OFF"], ["Auto", "GROUND_AUTO"]],
-    "Marker Lights": [["On", "LOCO_MARKER_ON"], ["Off", "LOCO_MARKER_OFF"], ["Auto", "LOCO_MARKER_AUTO"]],
+    "Ground Lights": [["Auto", "GROUND_AUTO"], ["ON", "GROUND_ON"], ["OFF", "GROUND_OFF"]],
+    "Marker Lights": [["Auto", "LOCO_MARKER_AUTO"], ["On", "LOCO_MARKER_ON"], ["Off", "LOCO_MARKER_OFF"]],
+    "Car Lights": [["Auto", "CAR_AUTO"], ["On", "CAR_ON"], ["Off", "CAR_OFF"]],
     "Mars Lights": [["On", "MARS_ON"], ["Off", "MARS_OFF"]],
-    "Rule 17": [["On", "RULE_17_ON"], ["Off", "RULE_17_OFF"], ["Auto", "RULE_17_AUTO"]],
+    "Rule 17": [["Auto", "RULE_17_AUTO"], ["On", "RULE_17_ON"], ["Off", "RULE_17_OFF"]],
     "Strobe Lights": [["On", "STROBE_LIGHT_ON"], ["Double", "STROBE_LIGHT_ON_DOUBLE"], ["Off", "STROBE_LIGHT_OFF"]],
 }
 
 STEAM_LIGHTS = {
     "Doghouse Lts": [["On", "DOGHOUSE_ON"], ["Off", "DOGHOUSE_OFF"]],
-    "Ground Lights": [["ON", "GROUND_ON"], ["OFF", "GROUND_OFF"], ["Auto", "GROUND_AUTO"]],
-    "Marker Lights": [["On", "LOCO_MARKER_ON"], ["Off", "LOCO_MARKER_OFF"], ["Auto", "LOCO_MARKER_AUTO"]],
-    "Mars Lights": [["On", "MARS_ON"], ["Off", "MARS_OFF"]],
-    "Rule 17": [["On", "RULE_17_ON"], ["Off", "RULE_17_OFF"], ["Auto", "RULE_17_AUTO"]],
+    "Ground Lights": [["Auto", "GROUND_AUTO"], ["ON", "GROUND_ON"], ["OFF", "GROUND_OFF"]],
+    "Marker Lights": [["Auto", "LOCO_MARKER_AUTO"], ["On", "LOCO_MARKER_ON"], ["Off", "LOCO_MARKER_OFF"]],
     "Tender Lights": [["On", "TENDER_MARKER_ON"], ["Off", "TENDER_MARKER_OFF"]],
+    "Mars Lights": [["On", "MARS_ON"], ["Off", "MARS_OFF"]],
+    "Rule 17": [["Auto", "RULE_17_AUTO"], ["On", "RULE_17_ON"], ["Off", "RULE_17_OFF"]],
+}
+
+PASSENGER_CAR_LIGHTS = {
+    "Car Lights": [["Auto", "CAR_AUTO"], ["On", "CAR_ON"], ["Off", "CAR_OFF"]],
 }
 
 CREW_DIALOGS = {
