@@ -1222,10 +1222,10 @@ class EngineGui(Thread, Generic[S]):
         aw, _ = self.calc_image_box_size()
         if len(grid) >= 4:
             col, row, colspan, rowspan = grid
-            aw *= colspan
         else:
             col, row = grid
             colspan, rowspan = 1, 1
+            aw = int(aw / 2)
 
         # TitleBox participates in the parent's grid
         tb = TitleBox(
