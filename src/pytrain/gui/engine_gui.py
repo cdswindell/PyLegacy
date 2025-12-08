@@ -13,6 +13,14 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
 from __future__ import annotations
 
 import atexit
@@ -1219,9 +1227,7 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------------
         # Row 1 – one control spanning both columns: "Road Name"
         # ------------------------------------------------------------------
-
-        # Box that actually spans both columns
-        tr = Box(details_box, layout="auto", grid=[0, 1, 2, 1])  # col=0, row=1, colspan=2
+        tr = Box(details_box, layout="auto", grid=[0, 1, 2, 1])  # col=0, row=1, col span=2
         # THIS is what makes it visually fill both columns
         tr.tk.grid(sticky="ew")
 
