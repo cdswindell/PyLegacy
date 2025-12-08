@@ -1100,6 +1100,7 @@ class PyTrain:
                                 or (isinstance(state, EngineState) and query in state.control_type_label.lower())
                                 or (isinstance(state, EngineState) and query in state.sound_type_label.lower())
                                 or (isinstance(state, EngineState) and query == "bt" and state.bt_id)
+                                or (isinstance(state, EngineState) and state.bt_id and query == state.bt_id.lower())
                             ):
                                 print(state)
                                 no_data = False
