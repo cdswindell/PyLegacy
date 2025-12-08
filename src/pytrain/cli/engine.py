@@ -585,6 +585,30 @@ class EngineCli(CliBaseTMCC):
             help="Set master volume (0 - 255)",
         )
         vg.add_argument(
+            "-md",
+            action=DataAction,
+            dest="option",
+            choices=range(0, 8),
+            metavar="0 - 7",
+            type=ranged_int(0, 7),
+            nargs="?",
+            default=4,
+            const="MASTER_DIRECT",
+            help="Set master volume direct (0 - 7)",
+        )
+        vg.add_argument(
+            "-bd",
+            action=DataAction,
+            dest="option",
+            choices=range(0, 8),
+            metavar="0 - 7",
+            type=ranged_int(0, 7),
+            nargs="?",
+            default=4,
+            const="BLEND_DIRECT",
+            help="Set blend volume direct (0 - 7)",
+        )
+        vg.add_argument(
             "-info",
             action="store_const",
             dest="option",
