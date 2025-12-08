@@ -1185,12 +1185,9 @@ class EngineGui(Thread, Generic[S]):
         details_box = Box(body, layout="grid", border=1)
 
         # Make both columns share the same width and stretch equally
-        # "uniform" makes them the same size, "weight" lets them expand
         details_box.tk.grid_columnconfigure(0, weight=1, uniform="stateinfo")
         details_box.tk.grid_columnconfigure(1, weight=1, uniform="stateinfo")
 
-        # If you still want to respect your calculated image width, you can
-        # keep this (it just controls the overall box, not individual cells)
         aw, _ = self.calc_image_box_size()
         details_box.tk.config(width=aw)
 
@@ -1199,40 +1196,42 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------------
 
         # Left column: Road Number (col 0, row 0)
-        tb_number = TitleBox(details_box, text="Road Number", grid=[0, 0], width="fill")
-        tb_number.text_size = self.s_10
+        tb = TitleBox(details_box, text="Road Number", grid=[0, 0])
+        tb.text_size = self.s_10
+        # make this TitleBox fill its grid cell horizontally
+        tb.tk.grid(sticky="ew")
 
-        number_tb = TextBox(tb_number, width="fill", height=1)
-        number_tb.text_size = self.s_18
-        self._info_details["number"] = number_tb
+        tf = TextBox(tb, width="fill", height=1)
+        tf.text_size = self.s_18
+        tf.tk.config(borderwidth=0)
+        self._info_details["number"] = tf
 
         # Right column: Type (col 1, row 0)
-        tb_type = TitleBox(details_box, text="Type", grid=[1, 0], width="fill")
-        tb_type.text_size = self.s_10
+        tb = TitleBox(details_box, text="Type", grid=[1, 0])
+        tb.text_size = self.s_10
+        tb.tk.grid(sticky="ew")
 
-        type_tb = TextBox(tb_type, width="fill", height=1)
-        type_tb.text_size = self.s_18
-        self._info_details["type"] = type_tb
+        tf = TextBox(tb, width="fill", height=1)
+        tf.text_size = self.s_18
+        tf.tk.config(borderwidth=0)
+        self._info_details["type"] = tf
 
         # ------------------------------------------------------------------
         # Row 1 – one control spanning both columns: "Road Name"
         # ------------------------------------------------------------------
-        # A Box that actually spans both columns and has a real width
-        name_row = Box(
-            details_box,
-            layout="auto",
-            grid=[0, 1, 2, 1],  # col=0, row=1, col span=2
-            width="fill",
-        )
 
-        # Now the TitleBox fills that full-width row
-        tb_name = TitleBox(name_row, text="Road Name", width="fill", align="left")
-        tb_name.text_size = self.s_10
+        # Box that actually spans both columns
+        tr = Box(details_box, layout="auto", grid=[0, 1, 2, 1])  # col=0, row=1, colspan=2
+        # THIS is what makes it visually fill both columns
+        tr.tk.grid(sticky="ew")
 
-        # And the TextBox fills the TitleBox’s content area
-        name_tb = TextBox(tb_name, width="fill", height=1)
-        name_tb.text_size = self.s_18
-        self._info_details["name"] = name_tb
+        tb = TitleBox(tr, text="Road Name", width="fill")
+        tb.text_size = self.s_10
+
+        tf = TextBox(tb, width="fill", height=1)
+        tf.text_size = self.s_18
+
+        self._info_details["name"] = tf
 
     def fill_in_state_info(self) -> None:
         state = self.active_state
