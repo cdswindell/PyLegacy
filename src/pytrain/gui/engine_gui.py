@@ -1262,12 +1262,14 @@ class EngineGui(Thread, Generic[S]):
             layout="grid",  # use grid INSIDE the TitleBox
             grid=grid,
             width="fill",
+            align="left",
         )
         tb.text_size = self.s_10
 
         # Now tell Tk this one actually spans columns/rows
         tb.tk.grid_configure(column=col, row=row, columnspan=colspan, rowspan=rowspan, sticky="ew")
-        tb.tk.config(width=aw, anchor="w")
+        tb.tk.config(width=aw)
+        tb.tk.pack_propagate(False)
 
         # Let the internal grid column stretch so the TextBox can fill
         tb.tk.grid_columnconfigure(0, weight=1)
