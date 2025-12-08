@@ -5,14 +5,6 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-#
-
-#
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
-#
-#
-#  SPDX-License-Identifier: LPGL
-#
 from __future__ import annotations
 
 import atexit
