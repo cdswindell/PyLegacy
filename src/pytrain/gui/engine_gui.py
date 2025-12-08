@@ -1258,7 +1258,7 @@ class EngineGui(Thread, Generic[S]):
             parent,
             text=title,
             layout="grid",  # use grid INSIDE the TitleBox
-            grid=[col, row],  # guizero only understands [x, y]
+            grid=grid,
             width="fill",
         )
         tb.text_size = self.s_10
