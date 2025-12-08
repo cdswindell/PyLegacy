@@ -1246,30 +1246,26 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyTypeChecker
     def make_info_field(self, parent: Box, title: str, grid: list[int]) -> TextBox:
-        # A container for one "field" (title + textbox)
-        # grid can be [col, row] or [col, row, colspan, rowspan]
-        field = Box(parent, layout="grid", grid=grid, border=1)
-        # Make this field fill its grid cell (or span)
-        field.tk.grid(sticky="ew")
-        field.tk.grid_columnconfigure(0, weight=1)
+        # TitleBox itself participates in the parent's grid and
+        # *internally* uses a grid layout for its content.
+        tb = TitleBox(
+            parent,
+            text=title,
+            layout="grid",  # IMPORTANT: use grid, not auto
+            grid=grid,
+            width="fill",
+        )
+        tb.text_size = self.s_10
 
-        # ---- Faux TitleBox "title bar" ----
-        title_bar = Box(field, layout="auto", grid=[0, 0], width="fill")
-        title_bar.tk.grid(sticky="ew")
-        # Style this like a TitleBox header (tweak colors as needed)
-        title_bar.bg = "#d9d9d9"
-        title_bar.tk.config(relief="ridge")
+        # Make the TitleBox fill its grid cell / span
+        tb.tk.grid(sticky="ew")
+        # Let its single internal column stretch
+        tb.tk.grid_columnconfigure(0, weight=1)
 
-        title_text = Text(title_bar, text=title, align="left")
-        title_text.text_size = self.s_10
-
-        # ---- Value box (the "content" area) ----
-        value_box = Box(field, layout="auto", grid=[0, 1], width="fill")
-        value_box.tk.grid(sticky="ew")
-
-        tf = TextBox(value_box, width="fill", height=1)
+        # Value field inside the TitleBox's internal grid
+        tf = TextBox(tb, grid=[0, 0], width="fill", height=1)
         tf.text_size = self.s_18
-        tf.tk.config(bd=0, highlightthickness=0)  # borderless textbox
+        tf.tk.config(bd=0, highlightthickness=0)  # borderless
 
         return tf
 
