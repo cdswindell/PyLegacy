@@ -5,12 +5,25 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
 #
 from __future__ import annotations
 
 from collections import deque
 from threading import RLock
-from typing import TypeVar, Generic, Iterable
+from typing import Generic, Iterable, TypeVar
 
 _T = TypeVar("_T")
 
@@ -75,13 +88,13 @@ class UniqueDeque(deque, Generic[_T]):
             self._seen.discard(val)
             return val
 
-    def pop(self):
+    def pop(self) -> _T:
         with self._lock:
             val = super().pop()
             self._seen.discard(val)
             return val
 
-    def extendleft(self, iterable: Iterable[_T], /):
+    def extendleft(self, iterable: Iterable[_T], /) -> None:
         with self._lock:
             for x in iterable:
                 self.appendleft(x)
@@ -108,7 +121,7 @@ class UniqueDeque(deque, Generic[_T]):
                 self._seen.add(x)
                 super().appendleft(x)
 
-    def push(self, x: _T, /):
+    def push(self, x: _T, /) -> None:
         self.appendleft(x)
 
     def append(self, x: _T, /) -> None:
@@ -122,3 +135,20 @@ class UniqueDeque(deque, Generic[_T]):
                     self.popleft()
                 self._seen.add(x)
                 super().append(x)
+
+    def next(self, index: int = 0) -> _T:
+        with self._lock:
+            try:
+                return self[index + 1]
+            except IndexError:
+                try:
+                    return self[0]
+                except IndexError:
+                    return None
+
+    def previous(self, index: int = 0) -> _T:
+        with self._lock:
+            try:
+                return self[index - 1]
+            except IndexError:
+                return None

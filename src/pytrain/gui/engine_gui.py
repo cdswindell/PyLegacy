@@ -5,6 +5,13 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
 from __future__ import annotations
 
 import atexit
@@ -334,21 +341,21 @@ class EngineGui(Thread, Generic[S]):
         return cls.__name__
 
     def __init__(
-            self,
-            width: int = None,
-            height: int = None,
-            enabled_bg: str = "green",
-            disabled_bg: str = "white",
-            enabled_text: str = "black",
-            disabled_text: str = "lightgrey",
-            active_bg: str = "green",
-            inactive_bg: str = "white",
-            scale_by: float = 1.0,
-            repeat: int = 2,
-            num_recents: int = 5,
-            initial: int = None,
-            initial_scope: CommandScope = CommandScope.ENGINE,
-            offset: int = 10,
+        self,
+        width: int = None,
+        height: int = None,
+        enabled_bg: str = "green",
+        disabled_bg: str = "white",
+        enabled_text: str = "black",
+        disabled_text: str = "lightgrey",
+        active_bg: str = "green",
+        inactive_bg: str = "white",
+        scale_by: float = 1.0,
+        repeat: int = 2,
+        num_recents: int = 5,
+        initial: int = None,
+        initial_scope: CommandScope = CommandScope.ENGINE,
+        offset: int = 10,
     ) -> None:
         Thread.__init__(self, daemon=True, name="Engine GUI")
         self._cv = Condition(RLock())
@@ -526,9 +533,9 @@ class EngineGui(Thread, Generic[S]):
     def active_engine_state(self) -> EngineState:
         if self.scope in (CommandScope.ENGINE, CommandScope.TRAIN):
             if (
-                    self._active_engine_state
-                    and self._active_engine_state.scope == self.scope
-                    and self._active_engine_state.tmcc_id == self._scope_tmcc_ids[self.scope]
+                self._active_engine_state
+                and self._active_engine_state.scope == self.scope
+                and self._active_engine_state.tmcc_id == self._scope_tmcc_ids[self.scope]
             ):
                 return self._active_engine_state
             else:
@@ -872,14 +879,14 @@ class EngineGui(Thread, Generic[S]):
         self.controller_box.visible = False
 
     def make_slider(
-            self,
-            sliders: Box,
-            title: str,
-            command: Callable,
-            frm: int,
-            to: int,
-            step: int = 1,
-            visible: bool = True,
+        self,
+        sliders: Box,
+        title: str,
+        command: Callable,
+        frm: int,
+        to: int,
+        step: int = 1,
+        visible: bool = True,
     ) -> tuple[Box, TitleBox, Text, Slider]:
         momentum_box = Box(
             sliders,
@@ -1911,9 +1918,25 @@ class EngineGui(Thread, Generic[S]):
         self.image = Picture(image_box, align="top")
         self._isd = SwipeDetector(self.image)
         self._isd.on_long_press = lambda: print("long press")
-        self._isd.on_swipe_right = lambda: print("swipe right")
-        self._isd.on_swipe_left = lambda: print("swipe left")
+        self._isd.on_swipe_right = self.show_previous_component
+        self._isd.on_swipe_left = self.show_next_component
         self.image_box.hide()
+
+    def show_next_component(self) -> None:
+        recents = self._recents_queue.get(self.scope, None)
+        if isinstance(recents, UniqueDeque) and len(recents) > 0:
+            state = cast(ComponentState, cast(object, recents.next()))
+            self._scope_tmcc_ids[self.scope] = state.tmcc_id
+            self.update_component_info(tmcc_id=state.tmcc_id)
+            self.header.select_default()
+
+    def show_previous_component(self) -> None:
+        recents = self._recents_queue.get(self.scope, None)
+        if isinstance(recents, UniqueDeque) and len(recents) > 0:
+            state = cast(ComponentState, cast(object, recents.previous()))
+            self._scope_tmcc_ids[self.scope] = state.tmcc_id
+            self.update_component_info(tmcc_id=state.tmcc_id)
+            self.header.select_default()
 
     def on_sensor_track_change(self) -> None:
         tmcc_id = self._scope_tmcc_ids[self.scope]
@@ -1921,20 +1944,20 @@ class EngineGui(Thread, Generic[S]):
         IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
 
     def make_keypad_button(
-            self,
-            keypad_box: Box,
-            label: str,
-            row: int,
-            col: int,
-            size: int | None = None,
-            image: str = None,
-            visible: bool = True,
-            bolded: bool = True,
-            is_ops: bool = False,
-            is_entry: bool = False,
-            titlebox_text: str = None,
-            command: Callable | bool | None = None,
-            args: list = None,
+        self,
+        keypad_box: Box,
+        label: str,
+        row: int,
+        col: int,
+        size: int | None = None,
+        image: str = None,
+        visible: bool = True,
+        bolded: bool = True,
+        is_ops: bool = False,
+        is_entry: bool = False,
+        titlebox_text: str = None,
+        command: Callable | bool | None = None,
+        args: list = None,
     ):
         if args is None:
             args = [label]
@@ -2210,10 +2233,10 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_info(in_ops_mode=True)
 
     def update_component_info(
-            self,
-            tmcc_id: int = None,
-            not_found_value: str = "Not Configured",
-            in_ops_mode: bool = False,
+        self,
+        tmcc_id: int = None,
+        not_found_value: str = "Not Configured",
+        in_ops_mode: bool = False,
     ) -> None:
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
@@ -2262,9 +2285,9 @@ class EngineGui(Thread, Generic[S]):
         self.image_box.hide()
 
     def update_component_image(
-            self,
-            tmcc_id: int = None,
-            key: tuple[CommandScope, int] | tuple[CommandScope, int, int] = None,
+        self,
+        tmcc_id: int = None,
+        key: tuple[CommandScope, int] | tuple[CommandScope, int, int] = None,
     ) -> None:
         if key is None and self.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             # routes and switches don't use images
@@ -2438,7 +2461,7 @@ class EngineGui(Thread, Generic[S]):
         # Calculate remaining vertical space
         if self.avail_image_height is None:
             avail_image_height = (
-                    self.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
+                self.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
             )
             self.avail_image_height = avail_image_height
         else:
@@ -2526,12 +2549,12 @@ class EngineGui(Thread, Generic[S]):
         req.send()
 
     def on_engine_command(
-            self,
-            targets: str | list[str] | CommandReq,
-            data: int = 0,
-            repeat: int = None,
-            do_ops: bool = False,
-            do_entry: bool = False,
+        self,
+        targets: str | list[str] | CommandReq,
+        data: int = 0,
+        repeat: int = None,
+        do_ops: bool = False,
+        do_entry: bool = False,
     ) -> None:
         repeat = repeat if repeat else self.repeat
         scope = self.scope
@@ -2551,16 +2574,16 @@ class EngineGui(Thread, Generic[S]):
                     self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state)
 
     def do_engine_command(
-            self,
-            tmcc_id: int | Any,
-            targets: str | list[str] | tuple[str],
-            data: int,
-            scope: CommandScope,
-            do_entry: bool,
-            do_ops: bool,
-            repeat: int,
-            state: S,
-            delay: float = 0.0,
+        self,
+        tmcc_id: int | Any,
+        targets: str | list[str] | tuple[str],
+        data: int,
+        scope: CommandScope,
+        do_entry: bool,
+        do_ops: bool,
+        repeat: int,
+        state: S,
+        delay: float = 0.0,
     ):
         if isinstance(targets, str):
             targets = [targets]
@@ -2659,10 +2682,10 @@ class EngineGui(Thread, Generic[S]):
         return prod_info
 
     def get_scaled_image(
-            self,
-            source: str | io.BytesIO,
-            preserve_height: bool = False,
-            force_lionel: bool = False,
+        self,
+        source: str | io.BytesIO,
+        preserve_height: bool = False,
+        force_lionel: bool = False,
     ) -> ImageTk.PhotoImage:
         pil_img = Image.open(source)
         orig_width, orig_height = pil_img.size
@@ -2673,11 +2696,11 @@ class EngineGui(Thread, Generic[S]):
         return img
 
     def _calc_scaled_image_size(
-            self,
-            orig_width: int,
-            orig_height: int,
-            preserve_height: bool = False,
-            force_lionel: bool = False,
+        self,
+        orig_width: int,
+        orig_height: int,
+        preserve_height: bool = False,
+        force_lionel: bool = False,
     ) -> tuple[int, int]:
         available_height, available_width = self.calc_image_box_size()
         if force_lionel:
@@ -2697,12 +2720,12 @@ class EngineGui(Thread, Generic[S]):
 
     # Example lazy loader pattern for images
     def get_image(
-            self,
-            path,
-            size=None,
-            inverse: bool = True,
-            scale: bool = False,
-            preserve_height: bool = False,
+        self,
+        path,
+        size=None,
+        inverse: bool = True,
+        scale: bool = False,
+        preserve_height: bool = False,
     ):
         if path not in self._image_cache:
             img = None
