@@ -1229,9 +1229,9 @@ class EngineGui(Thread, Generic[S]):
             elif isinstance(state, TrainState):
                 p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
             self._info_details["number"].value = state.road_number
-            self._info_details["type"].value = (
-                p_info.engine_type if isinstance(p_info, ProdInfo) else state.engine_type_label
-            )
+            etype = state.engine_type_label
+            etype = f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
+            self._info_details["type"].value = etype
             self._info_details["name"].value = state.road_name
 
     def on_state_info(self) -> None:
