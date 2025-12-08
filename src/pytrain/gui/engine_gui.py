@@ -5,6 +5,7 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+#
 
 #
 #  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
@@ -1923,7 +1924,6 @@ class EngineGui(Thread, Generic[S]):
         self.image_box.hide()
 
     def show_next_component(self) -> None:
-        print("Swipe Left: show next component")
         recents = self._recents_queue.get(self.scope, None)
         if isinstance(recents, UniqueDeque) and len(recents) > 0:
             current = recents[0]
@@ -1934,7 +1934,6 @@ class EngineGui(Thread, Generic[S]):
             self.header.select_default()
 
     def show_previous_component(self) -> None:
-        print("Swipe Right: show previous component")
         recents = self._recents_queue.get(self.scope, None)
         if isinstance(recents, UniqueDeque) and len(recents) > 0:
             state = cast(ComponentState, cast(object, recents.previous()))
