@@ -1195,26 +1195,8 @@ class EngineGui(Thread, Generic[S]):
         # Row 0 – two independent columns: "Road Number" | "Type"
         # ------------------------------------------------------------------
 
-        # Left column: Road Number (col 0, row 0)
-        tb = TitleBox(details_box, text="Road Number", grid=[0, 0])
-        tb.text_size = self.s_10
-        # make this TitleBox fill its grid cell horizontally
-        tb.tk.grid(sticky="ew")
-
-        tf = TextBox(tb, width="fill", height=1)
-        tf.text_size = self.s_18
-        tf.tk.config(bd=0, highlightthickness=0)
-        self._info_details["number"] = tf
-
-        # Right column: Type (col 1, row 0)
-        tb = TitleBox(details_box, text="Type", grid=[1, 0])
-        tb.text_size = self.s_10
-        tb.tk.grid(sticky="ew")
-
-        tf = TextBox(tb, width="fill", height=1)
-        tf.text_size = self.s_18
-        tf.tk.config(bd=0, highlightthickness=0)
-        self._info_details["type"] = tf
+        self._info_details["number"] = self.make_info_field(details_box, "Road Number", grid=[0, 0])
+        self._info_details["type"] = self.make_info_field(details_box, "Type", grid=[1, 0])
 
         # ------------------------------------------------------------------
         # Row 1 – one control spanning both columns: "Road Name"
@@ -1232,6 +1214,17 @@ class EngineGui(Thread, Generic[S]):
 
         self._info_details["name"] = tf
 
+    def make_info_field(self, details_box: Box, title: str, grid: list[int]) -> TextBox:
+        tb = TitleBox(details_box, text=title, grid=grid)
+        tb.text_size = self.s_10
+        # make this TitleBox fill its grid cell horizontally
+        tb.tk.grid(sticky="ew")
+
+        tf = TextBox(tb, width="fill", height=1)
+        tf.text_size = self.s_18
+        tf.tk.config(bd=0, highlightthickness=0)
+        return tf
+
     def fill_in_state_info(self) -> None:
         state = self.active_state
         if state:
@@ -1241,7 +1234,9 @@ class EngineGui(Thread, Generic[S]):
             elif isinstance(state, TrainState):
                 p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
             self._info_details["number"].value = state.road_number
-            self._info_details["type"].value = p_info.engine_type if isinstance(p_info, ProdInfo) else ""
+            self._info_details["type"].value = (
+                p_info.engine_type if isinstance(p_info, ProdInfo) else state.engine_type_label
+            )
             self._info_details["name"].value = state.road_name
 
     def on_state_info(self) -> None:
