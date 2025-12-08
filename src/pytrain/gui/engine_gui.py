@@ -1273,7 +1273,7 @@ class EngineGui(Thread, Generic[S]):
         tb.tk.grid_columnconfigure(0, weight=1)
 
         # Value field inside the TitleBox
-        tf = TextBox(tb, grid=[0, 0], width="fill", height=1)
+        tf = Text(tb, grid=[0, 0], width="fill", height=1)
         tf.text_size = self.s_18
         tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w")  # borderless
 
