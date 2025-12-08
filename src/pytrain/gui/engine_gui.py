@@ -19,7 +19,7 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar, cast
 
-from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
+from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TextBox, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
 
@@ -467,7 +467,7 @@ class EngineGui(Thread, Generic[S]):
         self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
-        self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = None
+        self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = self.state_overlay = None
         self.tower_dialog_overlay = self.crew_dialog_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
@@ -477,6 +477,7 @@ class EngineGui(Thread, Generic[S]):
         self.tower_dialog_box = self.crew_dialog_box = None
         self.can_hack_combo = False  # don't ask
         self._isd = None  # swipe detector for engine image field
+        self._info_details = {}  # manage state details info popup fields
 
         # callbacks
         self._scoped_callbacks = {
@@ -1169,6 +1170,26 @@ class EngineGui(Thread, Generic[S]):
 
                 if dialog:
                     nb.on_hold = (self.on_speed_command, [f"{dialog}, {op[0]}"])
+
+    def build_state_info_body(self, body: Box):
+        details_box = Box(body, layout="grid", border=1)
+
+        tb = TitleBox(details_box, text="Road Name", grid=[0, 0, 2, 1])
+        tb.text_size = self.s_10
+        rn = TextBox(tb)
+        rn.text_size = self.s_20
+        self._info_details["name"] = rn
+
+    def fill_in_state_info(self) -> None:
+        state = self.active_state
+        if state:
+            self._info_details["name"] = state.road_name
+
+    def on_state_info(self) -> None:
+        if self.state_overlay is None:
+            self.state_overlay = self.create_popup("Details", self.build_state_info_body)
+        self.fill_in_state_info()
+        self.show_popup(self.state_overlay)
 
     def on_rr_speed(self) -> None:
         if self.rr_speed_overlay is None:
@@ -1910,7 +1931,7 @@ class EngineGui(Thread, Generic[S]):
         self.image_box = image_box = Box(app, border=2, align="top")
         self.image = Picture(image_box, align="top")
         self._isd = SwipeDetector(self.image)
-        self._isd.on_long_press = lambda: print("long press")
+        self._isd.on_long_press = self.on_state_info
         self._isd.on_swipe_right = self.show_previous_component
         self._isd.on_swipe_left = self.show_next_component
         self.image_box.hide()
