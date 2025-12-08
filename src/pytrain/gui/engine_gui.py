@@ -60,10 +60,10 @@ from ..utils.image_utils import center_text_on_image
 from ..utils.path_utils import find_file
 from ..utils.unique_deque import UniqueDeque
 from .hold_button import HoldButton
+from .swipe_detector import SwipeDetector
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
-
 
 HALT_KEY = "Emergency"
 SWITCH_THRU_KEY = "↑"
@@ -276,7 +276,6 @@ SENSOR_TRACK_OPTS = [
     ["Recorded Sequence", 9],
 ]
 
-
 LIONEL_ORANGE = "#FF6600"
 
 
@@ -335,21 +334,21 @@ class EngineGui(Thread, Generic[S]):
         return cls.__name__
 
     def __init__(
-        self,
-        width: int = None,
-        height: int = None,
-        enabled_bg: str = "green",
-        disabled_bg: str = "white",
-        enabled_text: str = "black",
-        disabled_text: str = "lightgrey",
-        active_bg: str = "green",
-        inactive_bg: str = "white",
-        scale_by: float = 1.0,
-        repeat: int = 2,
-        num_recents: int = 5,
-        initial: int = None,
-        initial_scope: CommandScope = CommandScope.ENGINE,
-        offset: int = 10,
+            self,
+            width: int = None,
+            height: int = None,
+            enabled_bg: str = "green",
+            disabled_bg: str = "white",
+            enabled_text: str = "black",
+            disabled_text: str = "lightgrey",
+            active_bg: str = "green",
+            inactive_bg: str = "white",
+            scale_by: float = 1.0,
+            repeat: int = 2,
+            num_recents: int = 5,
+            initial: int = None,
+            initial_scope: CommandScope = CommandScope.ENGINE,
+            offset: int = 10,
     ) -> None:
         Thread.__init__(self, daemon=True, name="Engine GUI")
         self._cv = Condition(RLock())
@@ -477,6 +476,7 @@ class EngineGui(Thread, Generic[S]):
         self._quill_after_id = None
         self.tower_dialog_box = self.crew_dialog_box = None
         self.can_hack_combo = False  # don't ask
+        self._isd = None  # swipe detector for engine image field
 
         # callbacks
         self._scoped_callbacks = {
@@ -526,9 +526,9 @@ class EngineGui(Thread, Generic[S]):
     def active_engine_state(self) -> EngineState:
         if self.scope in (CommandScope.ENGINE, CommandScope.TRAIN):
             if (
-                self._active_engine_state
-                and self._active_engine_state.scope == self.scope
-                and self._active_engine_state.tmcc_id == self._scope_tmcc_ids[self.scope]
+                    self._active_engine_state
+                    and self._active_engine_state.scope == self.scope
+                    and self._active_engine_state.tmcc_id == self._scope_tmcc_ids[self.scope]
             ):
                 return self._active_engine_state
             else:
@@ -872,14 +872,14 @@ class EngineGui(Thread, Generic[S]):
         self.controller_box.visible = False
 
     def make_slider(
-        self,
-        sliders: Box,
-        title: str,
-        command: Callable,
-        frm: int,
-        to: int,
-        step: int = 1,
-        visible: bool = True,
+            self,
+            sliders: Box,
+            title: str,
+            command: Callable,
+            frm: int,
+            to: int,
+            step: int = 1,
+            visible: bool = True,
     ) -> tuple[Box, TitleBox, Text, Slider]:
         momentum_box = Box(
             sliders,
@@ -1909,6 +1909,10 @@ class EngineGui(Thread, Generic[S]):
         # add a picture placeholder here, we may not use it
         self.image_box = image_box = Box(app, border=2, align="top")
         self.image = Picture(image_box, align="top")
+        self._isd = SwipeDetector(self.image)
+        self._isd.on_long_press = lambda: print("long press")
+        self._isd.on_swipe_right = lambda: print("swipe right")
+        self._isd.on_swipe_left = lambda: print("swipe left")
         self.image_box.hide()
 
     def on_sensor_track_change(self) -> None:
@@ -1917,20 +1921,20 @@ class EngineGui(Thread, Generic[S]):
         IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
 
     def make_keypad_button(
-        self,
-        keypad_box: Box,
-        label: str,
-        row: int,
-        col: int,
-        size: int | None = None,
-        image: str = None,
-        visible: bool = True,
-        bolded: bool = True,
-        is_ops: bool = False,
-        is_entry: bool = False,
-        titlebox_text: str = None,
-        command: Callable | bool | None = None,
-        args: list = None,
+            self,
+            keypad_box: Box,
+            label: str,
+            row: int,
+            col: int,
+            size: int | None = None,
+            image: str = None,
+            visible: bool = True,
+            bolded: bool = True,
+            is_ops: bool = False,
+            is_entry: bool = False,
+            titlebox_text: str = None,
+            command: Callable | bool | None = None,
+            args: list = None,
     ):
         if args is None:
             args = [label]
@@ -2206,10 +2210,10 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_info(in_ops_mode=True)
 
     def update_component_info(
-        self,
-        tmcc_id: int = None,
-        not_found_value: str = "Not Configured",
-        in_ops_mode: bool = False,
+            self,
+            tmcc_id: int = None,
+            not_found_value: str = "Not Configured",
+            in_ops_mode: bool = False,
     ) -> None:
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
@@ -2258,9 +2262,9 @@ class EngineGui(Thread, Generic[S]):
         self.image_box.hide()
 
     def update_component_image(
-        self,
-        tmcc_id: int = None,
-        key: tuple[CommandScope, int] | tuple[CommandScope, int, int] = None,
+            self,
+            tmcc_id: int = None,
+            key: tuple[CommandScope, int] | tuple[CommandScope, int, int] = None,
     ) -> None:
         if key is None and self.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             # routes and switches don't use images
@@ -2434,7 +2438,7 @@ class EngineGui(Thread, Generic[S]):
         # Calculate remaining vertical space
         if self.avail_image_height is None:
             avail_image_height = (
-                self.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
+                    self.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
             )
             self.avail_image_height = avail_image_height
         else:
@@ -2522,12 +2526,12 @@ class EngineGui(Thread, Generic[S]):
         req.send()
 
     def on_engine_command(
-        self,
-        targets: str | list[str] | CommandReq,
-        data: int = 0,
-        repeat: int = None,
-        do_ops: bool = False,
-        do_entry: bool = False,
+            self,
+            targets: str | list[str] | CommandReq,
+            data: int = 0,
+            repeat: int = None,
+            do_ops: bool = False,
+            do_entry: bool = False,
     ) -> None:
         repeat = repeat if repeat else self.repeat
         scope = self.scope
@@ -2547,16 +2551,16 @@ class EngineGui(Thread, Generic[S]):
                     self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state)
 
     def do_engine_command(
-        self,
-        tmcc_id: int | Any,
-        targets: str | list[str] | tuple[str],
-        data: int,
-        scope: CommandScope,
-        do_entry: bool,
-        do_ops: bool,
-        repeat: int,
-        state: S,
-        delay: float = 0.0,
+            self,
+            tmcc_id: int | Any,
+            targets: str | list[str] | tuple[str],
+            data: int,
+            scope: CommandScope,
+            do_entry: bool,
+            do_ops: bool,
+            repeat: int,
+            state: S,
+            delay: float = 0.0,
     ):
         if isinstance(targets, str):
             targets = [targets]
@@ -2655,10 +2659,10 @@ class EngineGui(Thread, Generic[S]):
         return prod_info
 
     def get_scaled_image(
-        self,
-        source: str | io.BytesIO,
-        preserve_height: bool = False,
-        force_lionel: bool = False,
+            self,
+            source: str | io.BytesIO,
+            preserve_height: bool = False,
+            force_lionel: bool = False,
     ) -> ImageTk.PhotoImage:
         pil_img = Image.open(source)
         orig_width, orig_height = pil_img.size
@@ -2669,11 +2673,11 @@ class EngineGui(Thread, Generic[S]):
         return img
 
     def _calc_scaled_image_size(
-        self,
-        orig_width: int,
-        orig_height: int,
-        preserve_height: bool = False,
-        force_lionel: bool = False,
+            self,
+            orig_width: int,
+            orig_height: int,
+            preserve_height: bool = False,
+            force_lionel: bool = False,
     ) -> tuple[int, int]:
         available_height, available_width = self.calc_image_box_size()
         if force_lionel:
@@ -2693,12 +2697,12 @@ class EngineGui(Thread, Generic[S]):
 
     # Example lazy loader pattern for images
     def get_image(
-        self,
-        path,
-        size=None,
-        inverse: bool = True,
-        scale: bool = False,
-        preserve_height: bool = False,
+            self,
+            path,
+            size=None,
+            inverse: bool = True,
+            scale: bool = False,
+            preserve_height: bool = False,
     ):
         if path not in self._image_cache:
             img = None
