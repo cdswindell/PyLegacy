@@ -1250,6 +1250,7 @@ class EngineGui(Thread, Generic[S]):
         aw, _ = self.calc_image_box_size()
         if len(grid) >= 4:
             col, row, colspan, rowspan = grid
+            aw = aw * rowspan
         else:
             col, row = grid
             colspan, rowspan = 1, 1
@@ -1266,8 +1267,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Now tell Tk this one actually spans columns/rows
         tb.tk.grid_configure(column=col, row=row, columnspan=colspan, rowspan=rowspan, sticky="ew")
-        if rowspan > 1:
-            tb.tk.config(width=aw, anchor="w")
+        tb.tk.config(width=aw, anchor="w")
 
         # Let the internal grid column stretch so the TextBox can fill
         tb.tk.grid_columnconfigure(0, weight=1)
@@ -1275,7 +1275,7 @@ class EngineGui(Thread, Generic[S]):
         # Value field inside the TitleBox
         tf = Text(tb, grid=[0, 0], width="fill", height=1)
         tf.text_size = self.s_18
-        tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w")  # borderless
+        tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)  # borderless
 
         return tf
 
