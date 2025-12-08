@@ -21,6 +21,14 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
 from __future__ import annotations
 
 import atexit
@@ -1246,23 +1254,30 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyTypeChecker
     def make_info_field(self, parent: Box, title: str, grid: list[int]) -> TextBox:
-        # TitleBox itself participates in the parent's grid and
-        # *internally* uses a grid layout for its content.
+        # grid can be [col, row] or [col, row, colspan, rowspan]
+        if len(grid) >= 4:
+            col, row, colspan, rowspan = grid
+        else:
+            col, row = grid
+            colspan, rowspan = 1, 1
+
+        # TitleBox participates in the parent's grid
         tb = TitleBox(
             parent,
             text=title,
-            layout="grid",  # IMPORTANT: use grid, not auto
-            grid=grid,
+            layout="grid",  # use grid INSIDE the TitleBox
+            grid=[col, row],  # guizero only understands [x, y]
             width="fill",
         )
         tb.text_size = self.s_10
 
-        # Make the TitleBox fill its grid cell / span
-        tb.tk.grid(sticky="ew")
-        # Let its single internal column stretch
+        # Now tell Tk this one actually spans columns/rows
+        tb.tk.grid_configure(column=col, row=row, columnspan=colspan, rowspan=rowspan, sticky="ew")
+
+        # Let the internal grid column stretch so the TextBox can fill
         tb.tk.grid_columnconfigure(0, weight=1)
 
-        # Value field inside the TitleBox's internal grid
+        # Value field inside the TitleBox
         tf = TextBox(tb, grid=[0, 0], width="fill", height=1)
         tf.text_size = self.s_18
         tf.tk.config(bd=0, highlightthickness=0)  # borderless
