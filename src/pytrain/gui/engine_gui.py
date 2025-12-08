@@ -1180,7 +1180,9 @@ class EngineGui(Thread, Generic[S]):
                     nb.on_hold = (self.on_speed_command, [f"{dialog}, {op[0]}"])
 
     def build_state_info_body(self, body: Box):
+        aw, _ = self.calc_image_box_size()
         details_box = Box(body, layout="grid", border=1)
+        details_box.tk.configure(width=aw)
 
         tb = TitleBox(details_box, text="Road Number", grid=[0, 0])
         tb.text_size = self.s_10
@@ -1197,7 +1199,7 @@ class EngineGui(Thread, Generic[S]):
         tb = TitleBox(details_box, text="Road Name", grid=[0, 1, 2, 1])
         tb.text_size = self.s_10
         rn = TextBox(tb)
-        rn.text_size = self.s_20
+        rn.text_size = self.s_18
         self._info_details["name"] = rn
 
     def fill_in_state_info(self) -> None:
@@ -1208,7 +1210,7 @@ class EngineGui(Thread, Generic[S]):
                 p_info = self._prod_info_cache.get(state.tmcc_id, None)
             elif isinstance(state, TrainState):
                 p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
-            self._info_details["number"].value = state.road_name
+            self._info_details["number"].value = state.road_number
             self._info_details["type"].value = p_info.engine_type if isinstance(p_info, ProdInfo) else ""
             self._info_details["name"].value = state.road_name
 
