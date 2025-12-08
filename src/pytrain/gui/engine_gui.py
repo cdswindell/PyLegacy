@@ -1203,7 +1203,7 @@ class EngineGui(Thread, Generic[S]):
         tb_number.text_size = self.s_10
 
         number_tb = TextBox(tb_number, width="fill", height=1)
-        number_tb.text_size = self.s_20
+        number_tb.text_size = self.s_18
         self._info_details["number"] = number_tb
 
         # Right column: Type (col 1, row 0)
@@ -1217,19 +1217,19 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------------
         # Row 1 – one control spanning both columns: "Road Name"
         # ------------------------------------------------------------------
-
-        # "grid=[0, 1, 2, 1]" => start at col 0, row 1, span 2 columns, 1 row
-        tb_name = TitleBox(
+        # A Box that actually spans both columns and has a real width
+        name_row = Box(
             details_box,
-            text="Road Name",
-            grid=[0, 1, 2, 1],  # span 2 columns
+            layout="auto",
+            grid=[0, 1, 2, 1],  # col=0, row=1, col span=2
             width="fill",
-            align="left",
         )
-        tb_name.text_size = self.s_10
-        details_box.tk.grid_rowconfigure(1, weight=1)
-        tb_name.tk.config(width=aw)
 
+        # Now the TitleBox fills that full-width row
+        tb_name = TitleBox(name_row, text="Road Name", width="fill", align="left")
+        tb_name.text_size = self.s_10
+
+        # And the TextBox fills the TitleBox’s content area
         name_tb = TextBox(tb_name, width="fill", height=1)
         name_tb.text_size = self.s_18
         self._info_details["name"] = name_tb
