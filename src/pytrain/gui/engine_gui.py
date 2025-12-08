@@ -1203,7 +1203,7 @@ class EngineGui(Thread, Generic[S]):
 
         tf = TextBox(tb, width="fill", height=1)
         tf.text_size = self.s_18
-        tf.tk.config(borderwidth=0)
+        tf.tk.config(bd=0, highlightthickness=0)
         self._info_details["number"] = tf
 
         # Right column: Type (col 1, row 0)
@@ -1213,7 +1213,7 @@ class EngineGui(Thread, Generic[S]):
 
         tf = TextBox(tb, width="fill", height=1)
         tf.text_size = self.s_18
-        tf.tk.config(borderwidth=0)
+        tf.tk.config(bd=0, highlightthickness=0)
         self._info_details["type"] = tf
 
         # ------------------------------------------------------------------
@@ -1227,6 +1227,7 @@ class EngineGui(Thread, Generic[S]):
         tb.text_size = self.s_10
 
         tf = TextBox(tb, width="fill", height=1)
+        tf.tk.config(bd=0, highlightthickness=0)
         tf.text_size = self.s_18
 
         self._info_details["name"] = tf
