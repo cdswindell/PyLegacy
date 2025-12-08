@@ -1219,7 +1219,13 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------------
 
         # "grid=[0, 1, 2, 1]" => start at col 0, row 1, span 2 columns, 1 row
-        tb_name = TitleBox(details_box, text="Road Name", grid=[0, 1, 2, 1], width="fill")
+        tb_name = TitleBox(
+            details_box,
+            text="Road Name",
+            grid=[0, 1, 2, 1],  # span 2 columns
+            width="fill",
+            align="left",
+        )
         tb_name.text_size = self.s_10
 
         name_tb = TextBox(tb_name, width="fill", height=1)
