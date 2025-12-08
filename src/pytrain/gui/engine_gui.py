@@ -1216,32 +1216,61 @@ class EngineGui(Thread, Generic[S]):
         self._info_details["control"] = self.make_info_field(details_box, "Control", grid=[0, 2])
         self._info_details["sound"] = self.make_info_field(details_box, "Sound", grid=[1, 2])
 
-    # noinspection PyTypeChecker
-    def make_info_field(self, box: Box, title: str, grid: list[int]) -> TextBox:
-        if len(grid) > 2:  # make containing box
-            # tr = Box(box, layout="grid", grid=grid)
-            # tr.tk.grid(sticky="ew")  # THIS is what makes it visually fill both columns
-            # tr.tk.grid_columnconfigure(0, weight=1)  # let its single column stretch
-            #
-            # tb = TitleBox(tr, text=title, grid=[0, 0], width="fill")
-            # tb.text_size = self.s_10
-            # tb.tk.grid(sticky="ew")
-            # Spanning field: create a row box that spans columns
-            row_box = Box(box, layout="auto", grid=grid)
-            # Make the row_box fill the spanned grid cell horizontally
-            row_box.tk.grid(sticky="ew")
+    # # noinspection PyTypeChecker
+    # def make_info_field(self, box: Box, title: str, grid: list[int]) -> TextBox:
+    #     if len(grid) > 2:  # make containing box
+    #         # tr = Box(box, layout="grid", grid=grid)
+    #         # tr.tk.grid(sticky="ew")  # THIS is what makes it visually fill both columns
+    #         # tr.tk.grid_columnconfigure(0, weight=1)  # let its single column stretch
+    #         #
+    #         # tb = TitleBox(tr, text=title, grid=[0, 0], width="fill")
+    #         # tb.text_size = self.s_10
+    #         # tb.tk.grid(sticky="ew")
+    #         # Spanning field: create a row box that spans columns
+    #         row_box = Box(box, layout="auto", grid=grid)
+    #         # Make the row_box fill the spanned grid cell horizontally
+    #         row_box.tk.grid(sticky="ew")
+    #
+    #         # TitleBox inside that full-width row_box, using pack (no grid=)
+    #         tb = TitleBox(row_box, text=title, width="fill")
+    #         tb.text_size = self.s_10
+    #     else:
+    #         tb = TitleBox(box, text=title, grid=grid)
+    #         tb.text_size = self.s_10
+    #         # make this TitleBox fill its grid cell horizontally
+    #         tb.tk.grid(sticky="ew")
+    #     tf = TextBox(tb, width="fill", height=1)
+    #     tf.text_size = self.s_18
+    #     tf.tk.config(bd=0, highlightthickness=0)
+    #     return tf
 
-            # TitleBox inside that full-width row_box, using pack (no grid=)
-            tb = TitleBox(row_box, text=title, width="fill")
-            tb.text_size = self.s_10
-        else:
-            tb = TitleBox(box, text=title, grid=grid)
-            tb.text_size = self.s_10
-            # make this TitleBox fill its grid cell horizontally
-            tb.tk.grid(sticky="ew")
-        tf = TextBox(tb, width="fill", height=1)
+    # noinspection PyTypeChecker
+    def make_info_field(self, parent: Box, title: str, grid: list[int]) -> TextBox:
+        # A container for one "field" (title + textbox)
+        # grid can be [col, row] or [col, row, colspan, rowspan]
+        field = Box(parent, layout="grid", grid=grid, border=1)
+        # Make this field fill its grid cell (or span)
+        field.tk.grid(sticky="ew")
+        field.tk.grid_columnconfigure(0, weight=1)
+
+        # ---- Faux TitleBox "title bar" ----
+        title_bar = Box(field, layout="auto", grid=[0, 0], width="fill")
+        title_bar.tk.grid(sticky="ew")
+        # Style this like a TitleBox header (tweak colors as needed)
+        title_bar.bg = "#d9d9d9"
+        title_bar.tk.config(relief="ridge")
+
+        title_text = Text(title_bar, text=title, align="left")
+        title_text.text_size = self.s_10
+
+        # ---- Value box (the "content" area) ----
+        value_box = Box(field, layout="auto", grid=[0, 1], width="fill")
+        value_box.tk.grid(sticky="ew")
+
+        tf = TextBox(value_box, width="fill", height=1)
         tf.text_size = self.s_18
-        tf.tk.config(bd=0, highlightthickness=0)
+        tf.tk.config(bd=0, highlightthickness=0)  # borderless textbox
+
         return tf
 
     def fill_in_state_info(self) -> None:
