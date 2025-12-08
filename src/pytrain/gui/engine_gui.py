@@ -13,6 +13,14 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
 from __future__ import annotations
 
 import atexit
@@ -1211,13 +1219,21 @@ class EngineGui(Thread, Generic[S]):
     # noinspection PyTypeChecker
     def make_info_field(self, box: Box, title: str, grid: list[int]) -> TextBox:
         if len(grid) > 2:  # make containing box
-            tr = Box(box, layout="grid", grid=grid)
-            tr.tk.grid(sticky="ew")  # THIS is what makes it visually fill both columns
-            tr.tk.grid_columnconfigure(0, weight=1)  # let its single column stretch
+            # tr = Box(box, layout="grid", grid=grid)
+            # tr.tk.grid(sticky="ew")  # THIS is what makes it visually fill both columns
+            # tr.tk.grid_columnconfigure(0, weight=1)  # let its single column stretch
+            #
+            # tb = TitleBox(tr, text=title, grid=[0, 0], width="fill")
+            # tb.text_size = self.s_10
+            # tb.tk.grid(sticky="ew")
+            # Spanning field: create a row box that spans columns
+            row_box = Box(box, layout="auto", grid=grid)
+            # Make the row_box fill the spanned grid cell horizontally
+            row_box.tk.grid(sticky="ew")
 
-            tb = TitleBox(tr, text=title, grid=[0, 0], width="fill")
+            # TitleBox inside that full-width row_box, using pack (no grid=)
+            tb = TitleBox(row_box, text=title, width="fill")
             tb.text_size = self.s_10
-            tb.tk.grid(sticky="ew")
         else:
             tb = TitleBox(box, text=title, grid=grid)
             tb.text_size = self.s_10
