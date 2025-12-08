@@ -1202,6 +1202,12 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------------
         self._info_details["name"] = self.make_info_field(details_box, "Road Name", grid=[0, 1, 2, 1])
 
+        # ------------------------------------------------------------------
+        # Row 2 – two independent columns: "Control Type" | "Sound Type"
+        # ------------------------------------------------------------------
+        self._info_details["control"] = self.make_info_field(details_box, "Control", grid=[0, 2])
+        self._info_details["sound"] = self.make_info_field(details_box, "Sound", grid=[1, 2])
+
     # noinspection PyTypeChecker
     def make_info_field(self, box: Box, title: str, grid: list[int]) -> TextBox:
         if len(grid) > 2:  # make containing box
@@ -1233,6 +1239,8 @@ class EngineGui(Thread, Generic[S]):
             etype = f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
             self._info_details["type"].value = etype
             self._info_details["name"].value = state.road_name
+            self._info_details["control"].value = state.control_type_label
+            self._info_details["sound"].value = state.sound_type_label
 
     def on_state_info(self) -> None:
         if self.state_overlay is None:
