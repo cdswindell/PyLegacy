@@ -13,6 +13,14 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
 from __future__ import annotations
 
 import atexit
@@ -1211,7 +1219,7 @@ class EngineGui(Thread, Generic[S]):
         tb_type.text_size = self.s_10
 
         type_tb = TextBox(tb_type, width="fill", height=1)
-        type_tb.text_size = self.s_20
+        type_tb.text_size = self.s_18
         self._info_details["type"] = type_tb
 
         # ------------------------------------------------------------------
@@ -1227,8 +1235,8 @@ class EngineGui(Thread, Generic[S]):
             align="left",
         )
         tb_name.text_size = self.s_10
-        # tb_name.tk.config(width=aw)
         details_box.tk.grid_rowconfigure(1, weight=1)
+        tb_name.tk.config(width=aw)
 
         name_tb = TextBox(tb_name, width="fill", height=1)
         name_tb.text_size = self.s_18
