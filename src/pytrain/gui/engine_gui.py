@@ -13,6 +13,14 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
 from __future__ import annotations
 
 import atexit
@@ -1192,21 +1200,21 @@ class EngineGui(Thread, Generic[S]):
         rn = TextBox(tb)
         rn.text_size = self.s_20
         self._info_details["number"] = rn
-        rn.tk.config(width=width)
+        tb.tk.config(width=width)
 
         tb = TitleBox(details_box, text="Type", grid=[1, 0])
         tb.text_size = self.s_10
         rn = TextBox(tb, width="fill", height=1)
         rn.text_size = self.s_20
         self._info_details["type"] = rn
-        rn.tk.config(width=width)
+        tb.tk.config(width=width)
 
         tb = TitleBox(details_box, text="Road Name", grid=[0, 1, 2, 1])
         tb.text_size = self.s_10
         rn = TextBox(tb)
         rn.text_size = self.s_18
         self._info_details["name"] = rn
-        rn.tk.config(width=width * 2)
+        tb.tk.config(width=width * 2)
 
     def fill_in_state_info(self) -> None:
         state = self.active_state
