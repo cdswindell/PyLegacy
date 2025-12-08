@@ -1185,23 +1185,28 @@ class EngineGui(Thread, Generic[S]):
         details_box.tk.config(width=aw)
         details_box.tk.pack_propagate(False)
 
+        width = int(3 * self.button_size)
+
         tb = TitleBox(details_box, text="Road Number", grid=[0, 0])
         tb.text_size = self.s_10
-        rn = TextBox(tb, width="fill", height=1)
+        rn = TextBox(tb)
         rn.text_size = self.s_20
         self._info_details["number"] = rn
+        rn.tk.config(width=width)
 
         tb = TitleBox(details_box, text="Type", grid=[1, 0])
         tb.text_size = self.s_10
         rn = TextBox(tb, width="fill", height=1)
         rn.text_size = self.s_20
         self._info_details["type"] = rn
+        rn.tk.config(width=width)
 
         tb = TitleBox(details_box, text="Road Name", grid=[0, 1, 2, 1])
         tb.text_size = self.s_10
-        rn = TextBox(tb, width="fill", height=1)
+        rn = TextBox(tb)
         rn.text_size = self.s_18
         self._info_details["name"] = rn
+        rn.tk.config(width=width * 2)
 
     def fill_in_state_info(self) -> None:
         state = self.active_state
