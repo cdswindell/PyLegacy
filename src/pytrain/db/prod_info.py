@@ -27,6 +27,9 @@ class ProdInfo:
     id: int
     sku_number: int
     ble_hexid: str
+    product_family: int
+    engine_class: int
+    engine_type: str
     description: str
     road_name: str
     road_number: str
@@ -83,14 +86,21 @@ class ProdInfo:
         sku_number = int(data.get("skuNumber", 0))  # Convert to int
         image_url = data.get("imageUrl", None)
         ble_hexid = data.get("blE_HexId", None)
+        engine_type = data.get("engineType", None)
+        product_family = data.get("productFamily", None)
+        engine_class = data.get("engineClass", None)
         description = data.get("description", None)
         road_name = data.get("roadName", None)
         road_number = data.get("roadNumber", None)
         gauge = data.get("gauge", None)
+
         return cls(
             id=id,
             sku_number=sku_number,
             ble_hexid=ble_hexid,
+            product_family=product_family,
+            engine_class=engine_class,
+            engine_type=engine_type,
             description=description,
             road_name=road_name,
             road_number=road_number,
