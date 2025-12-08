@@ -13,6 +13,14 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
 from __future__ import annotations
 
 import atexit
@@ -1208,9 +1216,9 @@ class EngineGui(Thread, Generic[S]):
                 p_info = self._prod_info_cache.get(state.tmcc_id, None)
             elif isinstance(state, TrainState):
                 p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
-            self._info_details["number"].text = state.road_name
-            self._info_details["type"].text = p_info.engine_type if isinstance(p_info, ProdInfo) else ""
-            self._info_details["name"].text = state.road_name
+            self._info_details["number"].value = state.road_name
+            self._info_details["type"].value = p_info.engine_type if isinstance(p_info, ProdInfo) else ""
+            self._info_details["name"].value = state.road_name
 
     def on_state_info(self) -> None:
         if self.state_overlay is None:
