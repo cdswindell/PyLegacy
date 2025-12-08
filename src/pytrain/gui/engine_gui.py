@@ -1182,23 +1182,24 @@ class EngineGui(Thread, Generic[S]):
     def build_state_info_body(self, body: Box):
         aw, _ = self.calc_image_box_size()
         details_box = Box(body, layout="grid", border=1)
-        details_box.tk.configure(width=aw)
+        details_box.tk.config(width=aw)
+        details_box.tk.pack_propagate(False)
 
         tb = TitleBox(details_box, text="Road Number", grid=[0, 0])
         tb.text_size = self.s_10
-        rn = TextBox(tb)
+        rn = TextBox(tb, width="fill", height=1)
         rn.text_size = self.s_20
         self._info_details["number"] = rn
 
         tb = TitleBox(details_box, text="Type", grid=[1, 0])
         tb.text_size = self.s_10
-        rn = TextBox(tb)
+        rn = TextBox(tb, width="fill", height=1)
         rn.text_size = self.s_20
         self._info_details["type"] = rn
 
         tb = TitleBox(details_box, text="Road Name", grid=[0, 1, 2, 1])
         tb.text_size = self.s_10
-        rn = TextBox(tb)
+        rn = TextBox(tb, width="fill", height=1)
         rn.text_size = self.s_18
         self._info_details["name"] = rn
 
