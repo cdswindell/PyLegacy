@@ -13,14 +13,6 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-#
-
-#
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
-#
-#
-#  SPDX-License-Identifier: LPGL
-#
 from __future__ import annotations
 
 import atexit
@@ -1187,34 +1179,52 @@ class EngineGui(Thread, Generic[S]):
                 if dialog:
                     nb.on_hold = (self.on_speed_command, [f"{dialog}, {op[0]}"])
 
+    # noinspection PyTypeChecker
     def build_state_info_body(self, body: Box):
-        aw, _ = self.calc_image_box_size()
+        # Container for the state info, using a 2-column grid
         details_box = Box(body, layout="grid", border=1)
+
+        # Make both columns share the same width and stretch equally
+        # "uniform" makes them the same size, "weight" lets them expand
+        details_box.tk.grid_columnconfigure(0, weight=1, uniform="stateinfo")
+        details_box.tk.grid_columnconfigure(1, weight=1, uniform="stateinfo")
+
+        # If you still want to respect your calculated image width, you can
+        # keep this (it just controls the overall box, not individual cells)
+        aw, _ = self.calc_image_box_size()
         details_box.tk.config(width=aw)
-        details_box.tk.pack_propagate(False)
 
-        width = int(3 * self.button_size)
+        # ------------------------------------------------------------------
+        # Row 0 – two independent columns: "Road Number" | "Type"
+        # ------------------------------------------------------------------
 
-        tb = TitleBox(details_box, text="Road Number", grid=[0, 0])
-        tb.text_size = self.s_10
-        rn = TextBox(tb)
-        rn.text_size = self.s_20
-        self._info_details["number"] = rn
-        tb.tk.config(width=width)
+        # Left column: Road Number (col 0, row 0)
+        tb_number = TitleBox(details_box, text="Road Number", grid=[0, 0], width="fill")
+        tb_number.text_size = self.s_10
 
-        tb = TitleBox(details_box, text="Type", grid=[1, 0])
-        tb.text_size = self.s_10
-        rn = TextBox(tb, width="fill", height=1)
-        rn.text_size = self.s_20
-        self._info_details["type"] = rn
-        tb.tk.config(width=width)
+        number_tb = TextBox(tb_number, width="fill", height=1)
+        number_tb.text_size = self.s_20
+        self._info_details["number"] = number_tb
 
-        tb = TitleBox(details_box, text="Road Name", grid=[0, 1, 2, 1])
-        tb.text_size = self.s_10
-        rn = TextBox(tb)
-        rn.text_size = self.s_18
-        self._info_details["name"] = rn
-        tb.tk.config(width=width * 2)
+        # Right column: Type (col 1, row 0)
+        tb_type = TitleBox(details_box, text="Type", grid=[1, 0], width="fill")
+        tb_type.text_size = self.s_10
+
+        type_tb = TextBox(tb_type, width="fill", height=1)
+        type_tb.text_size = self.s_20
+        self._info_details["type"] = type_tb
+
+        # ------------------------------------------------------------------
+        # Row 1 – one control spanning both columns: "Road Name"
+        # ------------------------------------------------------------------
+
+        # "grid=[0, 1, 2, 1]" => start at col 0, row 1, span 2 columns, 1 row
+        tb_name = TitleBox(details_box, text="Road Name", grid=[0, 1, 2, 1], width="fill")
+        tb_name.text_size = self.s_10
+
+        name_tb = TextBox(tb_name, width="fill", height=1)
+        name_tb.text_size = self.s_18
+        self._info_details["name"] = name_tb
 
     def fill_in_state_info(self) -> None:
         state = self.active_state
