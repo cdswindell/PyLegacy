@@ -5,6 +5,14 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
 from __future__ import annotations
 
 import atexit
@@ -31,7 +39,7 @@ from ..db.accessory_state import AccessoryState
 from ..db.base_state import BaseState
 from ..db.component_state import ComponentState, RouteState, SwitchState
 from ..db.component_state_store import ComponentStateStore
-from ..db.engine_state import EngineState
+from ..db.engine_state import EngineState, TrainState
 from ..db.irda_state import IrdaState
 from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
@@ -1174,7 +1182,19 @@ class EngineGui(Thread, Generic[S]):
     def build_state_info_body(self, body: Box):
         details_box = Box(body, layout="grid", border=1)
 
-        tb = TitleBox(details_box, text="Road Name", grid=[0, 0, 2, 1])
+        tb = TitleBox(details_box, text="Road Number", grid=[0, 0])
+        tb.text_size = self.s_10
+        rn = TextBox(tb)
+        rn.text_size = self.s_20
+        self._info_details["number"] = rn
+
+        tb = TitleBox(details_box, text="Type", grid=[1, 0])
+        tb.text_size = self.s_10
+        rn = TextBox(tb)
+        rn.text_size = self.s_20
+        self._info_details["type"] = rn
+
+        tb = TitleBox(details_box, text="Road Name", grid=[0, 1, 2, 1])
         tb.text_size = self.s_10
         rn = TextBox(tb)
         rn.text_size = self.s_20
@@ -1183,7 +1203,14 @@ class EngineGui(Thread, Generic[S]):
     def fill_in_state_info(self) -> None:
         state = self.active_state
         if state:
-            self._info_details["name"] = state.road_name
+            p_info = None
+            if isinstance(state, EngineState):
+                p_info = self._prod_info_cache.get(state.tmcc_id, None)
+            elif isinstance(state, TrainState):
+                p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
+            self._info_details["number"].text = state.road_name
+            self._info_details["type"].text = p_info.engine_type if isinstance(p_info, ProdInfo) else ""
+            self._info_details["name"].text = state.road_name
 
     def on_state_info(self) -> None:
         if self.state_overlay is None:
