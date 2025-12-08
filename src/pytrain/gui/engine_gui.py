@@ -1216,41 +1216,11 @@ class EngineGui(Thread, Generic[S]):
         self._info_details["control"] = self.make_info_field(details_box, "Control", grid=[0, 2])
         self._info_details["sound"] = self.make_info_field(details_box, "Sound", grid=[1, 2])
 
-    # # noinspection PyTypeChecker
-    # def make_info_field(self, box: Box, title: str, grid: list[int]) -> TextBox:
-    #     if len(grid) > 2:  # make containing box
-    #         # tr = Box(box, layout="grid", grid=grid)
-    #         # tr.tk.grid(sticky="ew")  # THIS is what makes it visually fill both columns
-    #         # tr.tk.grid_columnconfigure(0, weight=1)  # let its single column stretch
-    #         #
-    #         # tb = TitleBox(tr, text=title, grid=[0, 0], width="fill")
-    #         # tb.text_size = self.s_10
-    #         # tb.tk.grid(sticky="ew")
-    #         # Spanning field: create a row box that spans columns
-    #         row_box = Box(box, layout="auto", grid=grid)
-    #         # Make the row_box fill the spanned grid cell horizontally
-    #         row_box.tk.grid(sticky="ew")
-    #
-    #         # TitleBox inside that full-width row_box, using pack (no grid=)
-    #         tb = TitleBox(row_box, text=title, width="fill")
-    #         tb.text_size = self.s_10
-    #     else:
-    #         tb = TitleBox(box, text=title, grid=grid)
-    #         tb.text_size = self.s_10
-    #         # make this TitleBox fill its grid cell horizontally
-    #         tb.tk.grid(sticky="ew")
-    #     tf = TextBox(tb, width="fill", height=1)
-    #     tf.text_size = self.s_18
-    #     tf.tk.config(bd=0, highlightthickness=0)
-    #     return tf
-
     # noinspection PyTypeChecker
     def make_info_field(self, parent: Box, title: str, grid: list[int]) -> TextBox:
         # grid can be [col, row] or [col, row, colspan, rowspan]
-        aw, _ = self.calc_image_box_size()
         if len(grid) >= 4:
             col, row, colspan, rowspan = grid
-            aw = aw * rowspan
         else:
             col, row = grid
             colspan, rowspan = 1, 1
@@ -1268,7 +1238,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Now tell Tk this one actually spans columns/rows
         tb.tk.grid_configure(column=col, row=row, columnspan=colspan, rowspan=rowspan, sticky="ew")
-        tb.tk.config(width=aw)
+        # tb.tk.config(width=aw)
         tb.tk.pack_propagate(False)
 
         # Let the internal grid column stretch so the TextBox can fill
@@ -1277,7 +1247,7 @@ class EngineGui(Thread, Generic[S]):
         # Value field inside the TitleBox
         tf = Text(tb, grid=[0, 0], width="fill", height=1)
         tf.text_size = self.s_18
-        tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)  # borderless
+        tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w")  # borderless
 
         return tf
 
