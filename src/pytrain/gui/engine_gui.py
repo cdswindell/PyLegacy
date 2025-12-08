@@ -1179,7 +1179,6 @@ class EngineGui(Thread, Generic[S]):
                 if dialog:
                     nb.on_hold = (self.on_speed_command, [f"{dialog}, {op[0]}"])
 
-    # noinspection PyTypeChecker
     def build_state_info_body(self, body: Box):
         # Container for the state info, using a 2-column grid
         details_box = Box(body, layout="grid", border=1)
@@ -1201,25 +1200,21 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------------
         # Row 1 – one control spanning both columns: "Road Name"
         # ------------------------------------------------------------------
-        tr = Box(details_box, layout="auto", grid=[0, 1, 2, 1])  # col=0, row=1, col span=2
-        # THIS is what makes it visually fill both columns
-        tr.tk.grid(sticky="ew")
+        self._info_details["name"] = self.make_info_field(details_box, "Road Name", grid=[0, 1, 2, 1])
 
-        tb = TitleBox(tr, text="Road Name", width="fill")
-        tb.text_size = self.s_10
+    # noinspection PyTypeChecker
+    def make_info_field(self, box: Box, title: str, grid: list[int]) -> TextBox:
+        if len(grid) > 2:  # make containing box
+            tr = Box(box, layout="auto", grid=grid)
+            tr.tk.grid(sticky="ew")  # THIS is what makes it visually fill both columns
 
-        tf = TextBox(tb, width="fill", height=1)
-        tf.tk.config(bd=0, highlightthickness=0)
-        tf.text_size = self.s_18
-
-        self._info_details["name"] = tf
-
-    def make_info_field(self, details_box: Box, title: str, grid: list[int]) -> TextBox:
-        tb = TitleBox(details_box, text=title, grid=grid)
-        tb.text_size = self.s_10
-        # make this TitleBox fill its grid cell horizontally
-        tb.tk.grid(sticky="ew")
-
+            tb = TitleBox(tr, text="Road Name", width="fill")
+            tb.text_size = self.s_10
+        else:
+            tb = TitleBox(box, text=title, grid=grid)
+            tb.text_size = self.s_10
+            # make this TitleBox fill its grid cell horizontally
+            tb.tk.grid(sticky="ew")
         tf = TextBox(tb, width="fill", height=1)
         tf.text_size = self.s_18
         tf.tk.config(bd=0, highlightthickness=0)
