@@ -945,6 +945,7 @@ class EngineGui(Thread, Generic[S]):
             self.app,
             align="top",
             border=2,
+            visible=True,
         )
         overlay.bg = "white"
 
@@ -1352,8 +1353,8 @@ class EngineGui(Thread, Generic[S]):
                 self._on_close_show = self.keypad_box
             self._current_popup = overlay
             x, y = self.popup_position
-            overlay.show()
             overlay.tk.place(x=x, y=y)
+            overlay.show()
 
     def close_popup(self, overlay: Widget = None):
         overlay = overlay or self._current_popup
