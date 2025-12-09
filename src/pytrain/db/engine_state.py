@@ -739,7 +739,7 @@ class EngineState(ComponentState):
 
     @property
     def rpm_label(self) -> str:
-        return self._as_label(self.rpm)
+        return self._as_label(self.rpm) if self.is_rpm else "NA"
 
     @property
     def labor(self) -> int:

@@ -1237,8 +1237,10 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------------
         # Row 5: State information
         # ------------------------------------------------------------------
-        self._info_details["fuel"] = self.make_info_field(details_box, "Direction", grid=[0, 5])
-        self._info_details["water"] = self.make_info_field(details_box, "Smoke Level", grid=[1, 5])
+        self._info_details["labor"] = self.make_info_field(details_box, "Labor", grid=[0, 5])
+        self._info_details["rpm"] = self.make_info_field(details_box, "RPM", grid=[2, 5])
+        self._info_details["fuel"] = self.make_info_field(details_box, "Fuel Level", grid=[2, 5])
+        self._info_details["water"] = self.make_info_field(details_box, "Water Level", grid=[3, 5])
 
     def update_state_info(self) -> None:
         state = self.active_state
@@ -1259,8 +1261,10 @@ class EngineGui(Thread, Generic[S]):
             self._info_details["smoke"].value = state.smoke_text
             self._info_details["mom"].value = state.momentum_text
             self._info_details["brake"].value = state.train_brake_label
-            self._info_details["fuel"].value = state.fuel_level_pct
-            self._info_details["water"].value = state.water_level_pct
+            self._info_details["labor"].value = state.labor_label
+            self._info_details["rpm"].value = state.rpm_label
+            self._info_details["fuel"].value = f"{state.fuel_level_pct:>3d} %"
+            self._info_details["water"].value = f"{state.water_level_pct:>3d} %"
 
             # handle speeds
             s, ts, sl, ms = state.speeds
