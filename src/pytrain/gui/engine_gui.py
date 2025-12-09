@@ -469,7 +469,7 @@ class EngineGui(Thread, Generic[S]):
         self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
-        self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = self.state_overlay = None
+        self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = self.info_overlay = None
         self.tower_dialog_overlay = self.crew_dialog_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
@@ -1174,7 +1174,7 @@ class EngineGui(Thread, Generic[S]):
                 if dialog:
                     nb.on_hold = (self.on_speed_command, [f"{dialog}, {op[0]}"])
 
-    def build_state_info_body(self, body: Box):
+    def build_info_overlay(self, body: Box):
         # Container for the state info, using a 2-column grid
         info_box = Box(body, layout="grid", border=1)
 
@@ -1233,8 +1233,8 @@ class EngineGui(Thread, Generic[S]):
         state = self.active_state
         if state:
             p_info = None
-            self._info_details["number"].value = state.road_number
-            self._info_details["name"].value = state.road_name
+            self._info_details["number"](1).value = state.road_number
+            self._info_details["name"](1).value = state.road_name
             if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 if isinstance(state, EngineState):
                     p_info = self._prod_info_cache.get(state.tmcc_id, None)
@@ -1244,29 +1244,29 @@ class EngineGui(Thread, Generic[S]):
                 etype = (
                     f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
                 )
-                self._info_details["type"].value = etype
-                self._info_details["control"].value = state.control_type_text
-                self._info_details["sound"].value = state.sound_type_label
-                self._info_details["dir"].value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
-                self._info_details["smoke"].value = state.smoke_text
-                self._info_details["mom"].value = state.momentum_text
-                self._info_details["brake"].value = state.train_brake_label
-                self._info_details["labor"].value = state.labor_label
-                self._info_details["rpm"].value = state.rpm_label
-                self._info_details["fuel"].value = f"{state.fuel_level_pct:>3d} %"
-                self._info_details["water"].value = f"{state.water_level_pct:>3d} %"
+                self._info_details["type"](1).value = etype
+                self._info_details["control"](1).value = state.control_type_text
+                self._info_details["sound"](1).value = state.sound_type_label
+                self._info_details["dir"](1).value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
+                self._info_details["smoke"](1).value = state.smoke_text
+                self._info_details["mom"](1).value = state.momentum_text
+                self._info_details["brake"](1).value = state.train_brake_label
+                self._info_details["labor"](1).value = state.labor_label
+                self._info_details["rpm"](1).value = state.rpm_label
+                self._info_details["fuel"](1).value = f"{state.fuel_level_pct:>3d} %"
+                self._info_details["water"](1).value = f"{state.water_level_pct:>3d} %"
 
                 # handle speeds
                 s, ts, sl, ms = state.speeds
-                self._info_details["speed"].value = f"{s:>3d}"
-                self._info_details["target"].value = f"{ts:>3d}"
-                self._info_details["limit"].value = f"{sl:>3d}" if sl is not None else ""
-                self._info_details["max"].value = f"{ms:>3d}"
+                self._info_details["speed"](1).value = f"{s:>3d}"
+                self._info_details["target"](1).value = f"{ts:>3d}"
+                self._info_details["limit"](1).value = f"{sl:>3d}" if sl is not None else ""
+                self._info_details["max"](1).value = f"{ms:>3d}"
             elif isinstance(state, AccessoryState):
-                self._info_details["type"].value = state.accessory_type
+                self._info_details["type"](1).value = state.accessory_type
 
     # noinspection PyTypeChecker
-    def make_info_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> Text:
+    def make_info_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:
         # grid can be [col, row] or [col, row, colspan, rowspan]
         aw, _ = self.calc_image_box_size()
         if len(grid) >= 4:
@@ -1301,13 +1301,13 @@ class EngineGui(Thread, Generic[S]):
         tf.text_size = self.s_18
         tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)  # borderless
 
-        return tf
+        return tb, tf
 
-    def on_state_info(self) -> None:
-        if self.state_overlay is None:
-            self.state_overlay = self.create_popup("Details", self.build_state_info_body)
+    def on_info(self) -> None:
+        if self.info_overlay is None:
+            self.info_overlay = self.create_popup("Details", self.build_info_overlay)
         self.update_state_info()
-        self.show_popup(self.state_overlay)
+        self.show_popup(self.info_overlay)
 
     def on_rr_speed(self) -> None:
         if self.rr_speed_overlay is None:
@@ -1599,7 +1599,7 @@ class EngineGui(Thread, Generic[S]):
         else:
             self.throttle.tk.config(from_=31, to=0)
         # update state popup, if its visible
-        if self.state_overlay and self.state_overlay.visible:
+        if self.info_overlay and self.info_overlay.visible:
             self.update_state_info()
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
@@ -2058,7 +2058,7 @@ class EngineGui(Thread, Generic[S]):
         self.image_box = image_box = Box(app, border=2, align="top")
         self.image = Picture(image_box, align="top")
         self._isd = SwipeDetector(self.image)
-        self._isd.on_long_press = self.on_state_info
+        self._isd.on_long_press = self.on_info
         self._isd.on_swipe_right = self.show_previous_component
         self._isd.on_swipe_left = self.show_next_component
         self.image_box.hide()
