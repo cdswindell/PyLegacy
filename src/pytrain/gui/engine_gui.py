@@ -35,7 +35,7 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar, cast
 
-from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TextBox, TitleBox
+from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
 
@@ -1202,30 +1202,36 @@ class EngineGui(Thread, Generic[S]):
         # Row 0 – two independent columns: "Road Number" | "Type"
         # ------------------------------------------------------------------
 
-        self._info_details["number"] = self.make_info_field(details_box, "Road Number", grid=[0, 0])
-        self._info_details["type"] = self.make_info_field(details_box, "Type", grid=[1, 0])
+        self._info_details["number"] = self.make_info_field(details_box, "Road Number", grid=[0, 0, 2, 1])
+        self._info_details["type"] = self.make_info_field(details_box, "Type", grid=[1, 0, 2, 1])
 
         # ------------------------------------------------------------------
         # Row 1 – one control spanning both columns: "Road Name"
         # ------------------------------------------------------------------
-        self._info_details["name"] = self.make_info_field(details_box, "Road Name", grid=[0, 1, 2, 1])
+        self._info_details["name"] = self.make_info_field(details_box, "Road Name", grid=[0, 1, 4, 1])
 
         # ------------------------------------------------------------------
         # Row 2 – two independent columns: "Control Type" | "Sound Type"
         # ------------------------------------------------------------------
-        self._info_details["control"] = self.make_info_field(details_box, "Control", grid=[0, 2])
-        self._info_details["sound"] = self.make_info_field(details_box, "Sound", grid=[1, 2])
+        self._info_details["control"] = self.make_info_field(details_box, "Control", grid=[0, 2, 2, 1])
+        self._info_details["sound"] = self.make_info_field(details_box, "Sound", grid=[1, 2, 2, 1])
+
+        # ------------------------------------------------------------------
+        # Row 3: State information
+        # ------------------------------------------------------------------
+        self._info_details["speed"] = self.make_info_field(details_box, "Speed", grid=[0, 3])
 
     # noinspection PyTypeChecker
-    def make_info_field(self, parent: Box, title: str, grid: list[int]) -> TextBox:
+    def make_info_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> Text:
         # grid can be [col, row] or [col, row, colspan, rowspan]
         aw, _ = self.calc_image_box_size()
         if len(grid) >= 4:
             col, row, colspan, rowspan = grid
+            aw = colspan * int(aw / max_cols)
         else:
             col, row = grid
             colspan, rowspan = 1, 1
-            aw = int(aw / 2)
+            aw = int(aw / max_cols)
 
         # TitleBox participates in the parent's grid
         tb = TitleBox(
@@ -1268,6 +1274,7 @@ class EngineGui(Thread, Generic[S]):
             self._info_details["name"].value = state.road_name
             self._info_details["control"].value = state.control_type_label
             self._info_details["sound"].value = state.sound_type_label
+            self._info_details["speed"].value = f"{state.speed:>3d}"
 
     def on_state_info(self) -> None:
         if self.state_overlay is None:
