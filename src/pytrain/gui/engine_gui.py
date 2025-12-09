@@ -944,8 +944,8 @@ class EngineGui(Thread, Generic[S]):
         overlay = Box(
             self.app,
             align="top",
-            visible=True,
             border=2,
+            visible=False,
         )
         overlay.bg = "white"
 
@@ -1074,7 +1074,7 @@ class EngineGui(Thread, Generic[S]):
         self.steam_lights_box.hide()
 
     def make_combo_panel(self, body: Box, options: dict) -> Box:
-        combo_box = Box(body, layout="grid", border=1, visible=False)
+        combo_box = Box(body, layout="grid", border=1)
 
         # How many combo boxes do we have; display them in 2 columns:
         boxes_per_column = int(math.ceil(len(options) / 2))
@@ -1176,7 +1176,7 @@ class EngineGui(Thread, Generic[S]):
 
     def build_info_overlay(self, body: Box):
         # Container for the state info, using a 2-column grid
-        info_box = Box(body, layout="grid", border=1, visible=False)
+        info_box = Box(body, layout="grid", border=1)
 
         # Make both columns share the same width and stretch equally
         info_box.tk.grid_columnconfigure(0, weight=1, uniform="stateinfo")
@@ -1351,10 +1351,10 @@ class EngineGui(Thread, Generic[S]):
             if self.keypad_box.visible:
                 self.keypad_box.hide()
                 self._on_close_show = self.keypad_box
-            x, y = self.popup_position
-            overlay.tk.place(x=x, y=y)
             self._current_popup = overlay
+            x, y = self.popup_position
             overlay.show()
+            overlay.tk.place(x=x, y=y)
 
     def close_popup(self, overlay: Widget = None):
         overlay = overlay or self._current_popup
