@@ -945,7 +945,7 @@ class EngineGui(Thread, Generic[S]):
             self.app,
             align="top",
             border=2,
-            visible=True,
+            visible=False,
         )
         overlay.bg = "white"
 
