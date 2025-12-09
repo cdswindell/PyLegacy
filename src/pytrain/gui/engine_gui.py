@@ -21,6 +21,14 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
 from __future__ import annotations
 
 import atexit
@@ -1574,7 +1582,7 @@ class EngineGui(Thread, Generic[S]):
         else:
             self.throttle.tk.config(from_=31, to=0)
         # update state popup, if its visible
-        if self.state_overlay.visible:
+        if self.state_overlay and self.state_overlay.visible:
             self.update_state_info()
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
