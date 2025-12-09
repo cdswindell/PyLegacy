@@ -1224,7 +1224,7 @@ class EngineGui(Thread, Generic[S]):
         self._info_details["speed"] = self.make_info_field(details_box, "Speed", grid=[0, 3])
         self._info_details["dir"] = self.make_info_field(details_box, "Direction", grid=[1, 3])
         self._info_details["mom"] = self.make_info_field(details_box, "Momentum", grid=[2, 3])
-        self._info_details["brake"] = self.make_info_field(details_box, "Trane Brake", grid=[3, 3])
+        self._info_details["brake"] = self.make_info_field(details_box, "Train Brake", grid=[3, 3])
 
     # noinspection PyTypeChecker
     def make_info_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> Text:
@@ -1264,7 +1264,7 @@ class EngineGui(Thread, Generic[S]):
 
         return tf
 
-    def fill_in_state_info(self) -> None:
+    def update_state_info(self) -> None:
         state = self.active_state
         if state:
             p_info = None
@@ -1287,7 +1287,7 @@ class EngineGui(Thread, Generic[S]):
     def on_state_info(self) -> None:
         if self.state_overlay is None:
             self.state_overlay = self.create_popup("Details", self.build_state_info_body)
-        self.fill_in_state_info()
+        self.update_state_info()
         self.show_popup(self.state_overlay)
 
     def on_rr_speed(self) -> None:
@@ -1573,6 +1573,9 @@ class EngineGui(Thread, Generic[S]):
             self.throttle.tk.config(from_=195, to=0)
         else:
             self.throttle.tk.config(from_=31, to=0)
+        # update state popup, if its visible
+        if self.state_overlay.visible:
+            self.update_state_info()
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
         rr_speed = state.rr_speed
