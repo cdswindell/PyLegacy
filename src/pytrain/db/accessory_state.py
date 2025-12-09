@@ -134,6 +134,7 @@ class AccessoryState(TmccState):
                             if self.is_amc2:
                                 self.extract_state_from_req(command)
                 elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req) or isinstance(command, Amc2Req):
+                    print(command)
                     if command.is_config:
                         self._config_req = command
                         self._config_req_count += 1
@@ -150,6 +151,7 @@ class AccessoryState(TmccState):
                         else:
                             self._asc2 = True
                             self._bpc2 = False
+                        print(self)
                         if command.state == 1:
                             self._aux1_state = Aux.AUX1_ON
                             self._aux2_state = Aux.AUX2_ON
