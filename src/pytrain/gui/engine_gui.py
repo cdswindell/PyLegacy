@@ -1194,6 +1194,8 @@ class EngineGui(Thread, Generic[S]):
         # Make both columns share the same width and stretch equally
         details_box.tk.grid_columnconfigure(0, weight=1, uniform="stateinfo")
         details_box.tk.grid_columnconfigure(1, weight=1, uniform="stateinfo")
+        details_box.tk.grid_columnconfigure(2, weight=1, uniform="stateinfo")
+        details_box.tk.grid_columnconfigure(3, weight=1, uniform="stateinfo")
 
         aw, _ = self.calc_image_box_size()
         details_box.tk.config(width=aw)
