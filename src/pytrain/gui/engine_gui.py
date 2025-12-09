@@ -21,6 +21,14 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
 from __future__ import annotations
 
 import atexit
@@ -1238,7 +1246,7 @@ class EngineGui(Thread, Generic[S]):
         # Row 5: State information
         # ------------------------------------------------------------------
         self._info_details["labor"] = self.make_info_field(details_box, "Labor", grid=[0, 5])
-        self._info_details["rpm"] = self.make_info_field(details_box, "RPM", grid=[2, 5])
+        self._info_details["rpm"] = self.make_info_field(details_box, "RPM", grid=[1, 5])
         self._info_details["fuel"] = self.make_info_field(details_box, "Fuel Level", grid=[2, 5])
         self._info_details["water"] = self.make_info_field(details_box, "Water Level", grid=[3, 5])
 
