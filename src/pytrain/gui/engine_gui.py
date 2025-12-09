@@ -1235,7 +1235,7 @@ class EngineGui(Thread, Generic[S]):
         self._info_details["mode"] = self.make_acc_field(info_box, "Mode", grid=[0, 2])
         self._info_details["parent"] = self.make_acc_field(info_box, "Parent", grid=[1, 2])
         self._info_details["port"] = self.make_acc_field(info_box, "Port", grid=[2, 2])
-        self._info_details["firmware"] = self.make_acc_field(info_box, "Port", grid=[3, 2])
+        self._info_details["firmware"] = self.make_acc_field(info_box, "Firmware", grid=[3, 2])
 
     def update_state_info(self) -> None:
         state = self.active_state
