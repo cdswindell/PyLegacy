@@ -7,14 +7,6 @@
 #
 #
 
-#
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
-#
-#
-#  SPDX-License-Identifier: LPGL
-#
-#
-
 from __future__ import annotations
 
 import logging
@@ -180,6 +172,7 @@ class EngineState(ComponentState):
         self._prod_year: int | None = None
         self._start_stop: CommandDefEnum | None = None
         self._d4_rec_no: int | None = None
+        self._is_d4: bool = False
         self._ramping: bool = False
 
     def __repr__(self) -> str:
@@ -273,6 +266,7 @@ class EngineState(ComponentState):
                 if isinstance(command, D4Req):
                     self._is_legacy = True
                     self._d4_rec_no = command.record_no
+                    self._is_d4 = True
                 if self.speed and self.target_speed == 0:
                     self.comp_data.target_speed = self.speed
             elif isinstance(command, CommandReq):
@@ -784,6 +778,13 @@ class EngineState(ComponentState):
     @property
     def control_type_label(self) -> str:
         return CONTROL_TYPE.get(self.control_type, "NA")
+
+    @property
+    def control_type_text(self) -> str:
+        ct = CONTROL_TYPE.get(self.control_type, "NA")
+        if self._is_d4 and ct != "NA":
+            ct += " 4-Digit"
+        return ct
 
     @property
     def sound_type(self) -> int:

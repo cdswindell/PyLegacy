@@ -1234,6 +1234,12 @@ class EngineGui(Thread, Generic[S]):
         self._info_details["mom"] = self.make_info_field(details_box, "Momentum", grid=[2, 4])
         self._info_details["brake"] = self.make_info_field(details_box, "Train Brake", grid=[3, 4])
 
+        # ------------------------------------------------------------------
+        # Row 5: State information
+        # ------------------------------------------------------------------
+        self._info_details["fuel"] = self.make_info_field(details_box, "Direction", grid=[0, 5])
+        self._info_details["water"] = self.make_info_field(details_box, "Smoke Level", grid=[1, 5])
+
     def update_state_info(self) -> None:
         state = self.active_state
         if state:
@@ -1247,12 +1253,14 @@ class EngineGui(Thread, Generic[S]):
             etype = f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
             self._info_details["type"].value = etype
             self._info_details["name"].value = state.road_name
-            self._info_details["control"].value = state.control_type_label
+            self._info_details["control"].value = state.control_type_text
             self._info_details["sound"].value = state.sound_type_label
             self._info_details["dir"].value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
             self._info_details["smoke"].value = state.smoke_text
             self._info_details["mom"].value = state.momentum_text
             self._info_details["brake"].value = state.train_brake_label
+            self._info_details["fuel"].value = state.fuel_level_pct
+            self._info_details["water"].value = state.water_level_pct
 
             # handle speeds
             s, ts, sl, ms = state.speeds
