@@ -15,6 +15,14 @@
 #
 #
 
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
 from __future__ import annotations
 
 import logging
@@ -661,13 +669,13 @@ class EngineState(ComponentState):
     def speeds(self) -> tuple[int, int, int, int]:
         if self.max_speed is None or self.max_speed == 255:
             if self.is_legacy:
-                max_speed = 195
+                max_speed = 199
             else:
                 max_speed = 31
         else:
             max_speed = self.max_speed
         if self.speed_limit is None or self.speed_limit == 255:
-            speed_limit = max_speed
+            speed_limit = None
         else:
             speed_limit = self.speed_limit
         return self.speed, self.target_speed, speed_limit, max_speed

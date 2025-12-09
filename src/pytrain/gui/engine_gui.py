@@ -1258,7 +1258,7 @@ class EngineGui(Thread, Generic[S]):
             s, ts, sl, ms = state.speeds
             self._info_details["speed"].value = f"{s:>3d}"
             self._info_details["target"].value = f"{ts:>3d}"
-            self._info_details["limit"].value = f"{sl:>3d}"
+            self._info_details["limit"].value = f"{sl:>3d}" if sl is not None else ""
             self._info_details["max"].value = f"{ms:>3d}"
 
     # noinspection PyTypeChecker
