@@ -1202,8 +1202,8 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------------
         # Row 2 – two independent columns: "Control Type" | "Sound Type"
         # ------------------------------------------------------------------
-        self._info_details["control"] = self.make_info_field(info_box, "Control", grid=[0, 2, 2, 1])
-        self._info_details["sound"] = self.make_info_field(info_box, "Sound", grid=[2, 2, 2, 1])
+        self._info_details["control"] = self.make_engine_field(info_box, "Control", grid=[0, 2, 2, 1])
+        self._info_details["sound"] = self.make_engine_field(info_box, "Sound", grid=[2, 2, 2, 1])
 
         # ------------------------------------------------------------------
         # Row 3: Speed information
