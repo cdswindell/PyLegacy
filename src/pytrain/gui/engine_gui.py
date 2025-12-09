@@ -1074,7 +1074,7 @@ class EngineGui(Thread, Generic[S]):
         self.steam_lights_box.hide()
 
     def make_combo_panel(self, body: Box, options: dict) -> Box:
-        combo_box = Box(body, layout="grid", border=1)
+        combo_box = Box(body, layout="grid", border=1, visible=False)
 
         # How many combo boxes do we have; display them in 2 columns:
         boxes_per_column = int(math.ceil(len(options) / 2))
@@ -1176,7 +1176,7 @@ class EngineGui(Thread, Generic[S]):
 
     def build_info_overlay(self, body: Box):
         # Container for the state info, using a 2-column grid
-        info_box = Box(body, layout="grid", border=1)
+        info_box = Box(body, layout="grid", border=1, visible=False)
 
         # Make both columns share the same width and stretch equally
         info_box.tk.grid_columnconfigure(0, weight=1, uniform="stateinfo")
