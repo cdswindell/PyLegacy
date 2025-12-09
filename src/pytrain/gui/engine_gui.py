@@ -1671,7 +1671,6 @@ class EngineGui(Thread, Generic[S]):
     def on_new_accessory(self, state: AccessoryState = None):
         tmcc_id = self._scope_tmcc_ids[CommandScope.ACC]
         state = state if state else self.active_state
-        print(state)
         if isinstance(state, AccessoryState):
             if state.is_sensor_track:
                 st_state = self._state_store.get_state(CommandScope.IRDA, tmcc_id, False)

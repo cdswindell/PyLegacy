@@ -134,11 +134,10 @@ class AccessoryState(TmccState):
                             if self.is_amc2:
                                 self.extract_state_from_req(command)
                 elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req) or isinstance(command, Amc2Req):
-                    print(command)
-                    if command.is_config:
+                    if command.is_config_req:
                         self._config_req = command
                         self._config_req_count += 1
-                    else:
+                    elif command.action.is_control:
                         if self._first_pdi_command is None:
                             self._first_pdi_command = command.command
                         if self._first_pdi_action is None:
@@ -151,7 +150,6 @@ class AccessoryState(TmccState):
                         else:
                             self._asc2 = True
                             self._bpc2 = False
-                        print(self)
                         if command.state == 1:
                             self._aux1_state = Aux.AUX1_ON
                             self._aux2_state = Aux.AUX2_ON
@@ -338,8 +336,12 @@ class AccessoryState(TmccState):
         if self._sensor_track:
             byte_str += IrdaReq(self.address, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC).as_bytes
         elif self.is_lcs_component:
-            if self._config_req and self._config_req.is_config:
+            if self._config_req:
                 byte_str += self._config_req.as_bytes
+            if self._firmware_req:
+                byte_str += self._firmware_req.as_bytes
+            if self._info_req:
+                byte_str += self._info_req.as_bytes
             if isinstance(self._first_pdi_action, Asc2Action):
                 byte_str += Asc2Req(
                     self.address,
