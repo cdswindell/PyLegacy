@@ -1175,89 +1175,94 @@ class EngineGui(Thread, Generic[S]):
 
     def build_state_info_body(self, body: Box):
         # Container for the state info, using a 2-column grid
-        details_box = Box(body, layout="grid", border=1)
+        info_box = Box(body, layout="grid", border=1)
 
         # Make both columns share the same width and stretch equally
-        details_box.tk.grid_columnconfigure(0, weight=1, uniform="stateinfo")
-        details_box.tk.grid_columnconfigure(1, weight=1, uniform="stateinfo")
-        details_box.tk.grid_columnconfigure(2, weight=1, uniform="stateinfo")
-        details_box.tk.grid_columnconfigure(3, weight=1, uniform="stateinfo")
+        info_box.tk.grid_columnconfigure(0, weight=1, uniform="stateinfo")
+        info_box.tk.grid_columnconfigure(1, weight=1, uniform="stateinfo")
+        info_box.tk.grid_columnconfigure(2, weight=1, uniform="stateinfo")
+        info_box.tk.grid_columnconfigure(3, weight=1, uniform="stateinfo")
 
         aw, _ = self.calc_image_box_size()
-        details_box.tk.config(width=aw)
+        info_box.tk.config(width=aw)
 
         # ------------------------------------------------------------------
         # Row 0 – two independent columns: "Road Number" | "Type"
         # ------------------------------------------------------------------
 
-        self._info_details["number"] = self.make_info_field(details_box, "Road Number", grid=[0, 0])
-        self._info_details["type"] = self.make_info_field(details_box, "Type", grid=[1, 0, 3, 1])
+        self._info_details["number"] = self.make_info_field(info_box, "Road Number", grid=[0, 0])
+        self._info_details["type"] = self.make_info_field(info_box, "Type", grid=[1, 0, 3, 1])
 
         # ------------------------------------------------------------------
         # Row 1 – one control spanning both columns: "Road Name"
         # ------------------------------------------------------------------
-        self._info_details["name"] = self.make_info_field(details_box, "Road Name", grid=[0, 1, 4, 1])
+        self._info_details["name"] = self.make_info_field(info_box, "Road Name", grid=[0, 1, 4, 1])
 
         # ------------------------------------------------------------------
         # Row 2 – two independent columns: "Control Type" | "Sound Type"
         # ------------------------------------------------------------------
-        self._info_details["control"] = self.make_info_field(details_box, "Control", grid=[0, 2, 2, 1])
-        self._info_details["sound"] = self.make_info_field(details_box, "Sound", grid=[2, 2, 2, 1])
+        self._info_details["control"] = self.make_info_field(info_box, "Control", grid=[0, 2, 2, 1])
+        self._info_details["sound"] = self.make_info_field(info_box, "Sound", grid=[2, 2, 2, 1])
 
         # ------------------------------------------------------------------
         # Row 3: Speed information
         # ------------------------------------------------------------------
-        self._info_details["speed"] = self.make_info_field(details_box, "Speed", grid=[0, 3])
-        self._info_details["target"] = self.make_info_field(details_box, "Target Speed", grid=[1, 3])
-        self._info_details["limit"] = self.make_info_field(details_box, "Speed Limit", grid=[2, 3])
-        self._info_details["max"] = self.make_info_field(details_box, "Max Speed", grid=[3, 3])
+        self._info_details["speed"] = self.make_info_field(info_box, "Speed", grid=[0, 3])
+        self._info_details["target"] = self.make_info_field(info_box, "Target Speed", grid=[1, 3])
+        self._info_details["limit"] = self.make_info_field(info_box, "Speed Limit", grid=[2, 3])
+        self._info_details["max"] = self.make_info_field(info_box, "Max Speed", grid=[3, 3])
 
         # ------------------------------------------------------------------
         # Row 4: State information
         # ------------------------------------------------------------------
-        self._info_details["dir"] = self.make_info_field(details_box, "Direction", grid=[0, 4])
-        self._info_details["smoke"] = self.make_info_field(details_box, "Smoke Level", grid=[1, 4])
-        self._info_details["mom"] = self.make_info_field(details_box, "Momentum", grid=[2, 4])
-        self._info_details["brake"] = self.make_info_field(details_box, "Train Brake", grid=[3, 4])
+        self._info_details["dir"] = self.make_info_field(info_box, "Direction", grid=[0, 4])
+        self._info_details["smoke"] = self.make_info_field(info_box, "Smoke Level", grid=[1, 4])
+        self._info_details["mom"] = self.make_info_field(info_box, "Momentum", grid=[2, 4])
+        self._info_details["brake"] = self.make_info_field(info_box, "Train Brake", grid=[3, 4])
 
         # ------------------------------------------------------------------
         # Row 5: State information
         # ------------------------------------------------------------------
-        self._info_details["labor"] = self.make_info_field(details_box, "Labor", grid=[0, 5])
-        self._info_details["rpm"] = self.make_info_field(details_box, "RPM", grid=[1, 5])
-        self._info_details["fuel"] = self.make_info_field(details_box, "Fuel Level", grid=[2, 5])
-        self._info_details["water"] = self.make_info_field(details_box, "Water Level", grid=[3, 5])
+        self._info_details["labor"] = self.make_info_field(info_box, "Labor", grid=[0, 5])
+        self._info_details["rpm"] = self.make_info_field(info_box, "RPM", grid=[1, 5])
+        self._info_details["fuel"] = self.make_info_field(info_box, "Fuel Level", grid=[2, 5])
+        self._info_details["water"] = self.make_info_field(info_box, "Water Level", grid=[3, 5])
 
     def update_state_info(self) -> None:
         state = self.active_state
         if state:
             p_info = None
-            if isinstance(state, EngineState):
-                p_info = self._prod_info_cache.get(state.tmcc_id, None)
-            elif isinstance(state, TrainState):
-                p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
             self._info_details["number"].value = state.road_number
-            etype = state.engine_type_label
-            etype = f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
-            self._info_details["type"].value = etype
             self._info_details["name"].value = state.road_name
-            self._info_details["control"].value = state.control_type_text
-            self._info_details["sound"].value = state.sound_type_label
-            self._info_details["dir"].value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
-            self._info_details["smoke"].value = state.smoke_text
-            self._info_details["mom"].value = state.momentum_text
-            self._info_details["brake"].value = state.train_brake_label
-            self._info_details["labor"].value = state.labor_label
-            self._info_details["rpm"].value = state.rpm_label
-            self._info_details["fuel"].value = f"{state.fuel_level_pct:>3d} %"
-            self._info_details["water"].value = f"{state.water_level_pct:>3d} %"
+            if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                if isinstance(state, EngineState):
+                    p_info = self._prod_info_cache.get(state.tmcc_id, None)
+                elif isinstance(state, TrainState):
+                    p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
+                etype = state.engine_type_label
+                etype = (
+                    f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
+                )
+                self._info_details["type"].value = etype
+                self._info_details["control"].value = state.control_type_text
+                self._info_details["sound"].value = state.sound_type_label
+                self._info_details["dir"].value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
+                self._info_details["smoke"].value = state.smoke_text
+                self._info_details["mom"].value = state.momentum_text
+                self._info_details["brake"].value = state.train_brake_label
+                self._info_details["labor"].value = state.labor_label
+                self._info_details["rpm"].value = state.rpm_label
+                self._info_details["fuel"].value = f"{state.fuel_level_pct:>3d} %"
+                self._info_details["water"].value = f"{state.water_level_pct:>3d} %"
 
-            # handle speeds
-            s, ts, sl, ms = state.speeds
-            self._info_details["speed"].value = f"{s:>3d}"
-            self._info_details["target"].value = f"{ts:>3d}"
-            self._info_details["limit"].value = f"{sl:>3d}" if sl is not None else ""
-            self._info_details["max"].value = f"{ms:>3d}"
+                # handle speeds
+                s, ts, sl, ms = state.speeds
+                self._info_details["speed"].value = f"{s:>3d}"
+                self._info_details["target"].value = f"{ts:>3d}"
+                self._info_details["limit"].value = f"{sl:>3d}" if sl is not None else ""
+                self._info_details["max"].value = f"{ms:>3d}"
+            elif isinstance(state, AccessoryState):
+                self._info_details["type"].value = state.accessory_type
 
     # noinspection PyTypeChecker
     def make_info_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> Text:

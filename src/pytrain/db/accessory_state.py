@@ -334,6 +334,18 @@ class AccessoryState(TmccState):
                 byte_str += CommandReq.build(self.aux2_state, self.address).as_bytes
         return byte_str
 
+    @property
+    def accessory_type(self) -> str:
+        if self.is_bpc2:
+            return "LCS BPC2"
+        elif self.is_amc2:
+            return "LCS AMC2"
+        elif self.is_asc2:
+            return "LCS ASC2"
+        elif self.is_sensor_track:
+            return "LCS Sensor Track"
+        return "Accessory"
+
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
         if self._sensor_track:
