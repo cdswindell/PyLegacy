@@ -1233,8 +1233,8 @@ class EngineGui(Thread, Generic[S]):
         state = self.active_state
         if state:
             p_info = None
-            self._info_details["number"](1).value = state.road_number
-            self._info_details["name"](1).value = state.road_name
+            self._info_details["number"][1].value = state.road_number
+            self._info_details["name"][1].value = state.road_name
             if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 if isinstance(state, EngineState):
                     p_info = self._prod_info_cache.get(state.tmcc_id, None)
@@ -1244,26 +1244,26 @@ class EngineGui(Thread, Generic[S]):
                 etype = (
                     f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
                 )
-                self._info_details["type"](1).value = etype
-                self._info_details["control"](1).value = state.control_type_text
-                self._info_details["sound"](1).value = state.sound_type_label
-                self._info_details["dir"](1).value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
-                self._info_details["smoke"](1).value = state.smoke_text
-                self._info_details["mom"](1).value = state.momentum_text
-                self._info_details["brake"](1).value = state.train_brake_label
-                self._info_details["labor"](1).value = state.labor_label
-                self._info_details["rpm"](1).value = state.rpm_label
-                self._info_details["fuel"](1).value = f"{state.fuel_level_pct:>3d} %"
-                self._info_details["water"](1).value = f"{state.water_level_pct:>3d} %"
+                self._info_details["type"][1].value = etype
+                self._info_details["control"][1].value = state.control_type_text
+                self._info_details["sound"][1].value = state.sound_type_label
+                self._info_details["dir"][1].value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
+                self._info_details["smoke"][1].value = state.smoke_text
+                self._info_details["mom"][1].value = state.momentum_text
+                self._info_details["brake"][1].value = state.train_brake_label
+                self._info_details["labor"][1].value = state.labor_label
+                self._info_details["rpm"][1].value = state.rpm_label
+                self._info_details["fuel"][1].value = f"{state.fuel_level_pct:>3d} %"
+                self._info_details["water"][1].value = f"{state.water_level_pct:>3d} %"
 
                 # handle speeds
                 s, ts, sl, ms = state.speeds
-                self._info_details["speed"](1).value = f"{s:>3d}"
-                self._info_details["target"](1).value = f"{ts:>3d}"
-                self._info_details["limit"](1).value = f"{sl:>3d}" if sl is not None else ""
-                self._info_details["max"](1).value = f"{ms:>3d}"
+                self._info_details["speed"][1].value = f"{s:>3d}"
+                self._info_details["target"][1].value = f"{ts:>3d}"
+                self._info_details["limit"][1].value = f"{sl:>3d}" if sl is not None else ""
+                self._info_details["max"][1].value = f"{ms:>3d}"
             elif isinstance(state, AccessoryState):
-                self._info_details["type"](1).value = state.accessory_type
+                self._info_details["type"][1].value = state.accessory_type
 
     # noinspection PyTypeChecker
     def make_info_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:
