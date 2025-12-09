@@ -2053,6 +2053,7 @@ class EngineGui(Thread, Generic[S]):
 
     def show_next_component(self) -> None:
         recents = self._recents_queue.get(self.scope, None)
+        self.close_popup()
         if isinstance(recents, UniqueDeque) and len(recents) > 0:
             current = recents[0]
             state = cast(ComponentState, cast(object, recents.next()))
@@ -2062,6 +2063,7 @@ class EngineGui(Thread, Generic[S]):
             self.header.select_default()
 
     def show_previous_component(self) -> None:
+        self.close_popup()
         recents = self._recents_queue.get(self.scope, None)
         if isinstance(recents, UniqueDeque) and len(recents) > 0:
             state = cast(ComponentState, cast(object, recents.previous()))
@@ -2227,6 +2229,7 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_info(int(tmcc_id), "")
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
+        self.close_popup()
         log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         self._scope_tmcc_ids[self.scope] = tmcc_id
         if tmcc_id > 0:
@@ -2369,6 +2372,7 @@ class EngineGui(Thread, Generic[S]):
         not_found_value: str = "Not Configured",
         in_ops_mode: bool = False,
     ) -> None:
+        self.close_popup()
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
         # update the tmcc_id associated with current scope
