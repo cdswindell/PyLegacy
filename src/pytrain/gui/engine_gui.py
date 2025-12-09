@@ -480,6 +480,7 @@ class EngineGui(Thread, Generic[S]):
         self.can_hack_combo = False  # don't ask
         self._isd = None  # swipe detector for engine image field
         self._info_details = {}  # manage state details info popup fields
+        self._on_close_show = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -1344,7 +1345,12 @@ class EngineGui(Thread, Generic[S]):
             if op:
                 _, btn = self.engine_ops_cells[op]
                 btn.restore_color_state()
-            self.controller_box.hide()
+            if self.controller_box.visible:
+                self.controller_box.hide()
+                self._on_close_show = self.controller_box
+            if self.keypad_box.visible:
+                self.keypad_box.hide()
+                self._on_close_show = self.keypad_box
             x, y = self.popup_position
             overlay.tk.place(x=x, y=y)
             self._current_popup = overlay
@@ -1356,8 +1362,9 @@ class EngineGui(Thread, Generic[S]):
         if overlay:
             overlay.hide()
             overlay.tk.place_forget()
-        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-            self.controller_box.show()
+        if self._on_close_show:
+            self._on_close_show.show()
+            self._on_close_show = None
 
     def show_horn_control(self) -> None:
         for loco_type in ["d", "s"]:
