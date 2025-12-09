@@ -1249,13 +1249,17 @@ class EngineGui(Thread, Generic[S]):
             self._info_details["name"].value = state.road_name
             self._info_details["control"].value = state.control_type_label
             self._info_details["sound"].value = state.sound_type_label
-            self._info_details["speed"].value = f"{state.speed:>3d}"
-            self._info_details["target"].value = f"{state.target_speed:>3d}"
-            self._info_details["limit"].value = f"{state.speed_limit:>3d}"
-            self._info_details["max"].value = f"{state.max_speed:>3d}"
             self._info_details["dir"].value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
+            self._info_details["smoke"].value = state.smoke_text
             self._info_details["mom"].value = state.momentum_text
             self._info_details["brake"].value = state.train_brake_label
+
+            # handle speeds
+            s, ts, sl, ms = state.speeds
+            self._info_details["speed"].value = f"{s:>3d}"
+            self._info_details["target"].value = f"{ts:>3d}"
+            self._info_details["limit"].value = f"{sl:>3d}"
+            self._info_details["max"].value = f"{ms:>3d}"
 
     # noinspection PyTypeChecker
     def make_info_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> Text:

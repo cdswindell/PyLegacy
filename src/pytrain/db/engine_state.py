@@ -7,6 +7,22 @@
 #
 #
 
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
+#
+
 from __future__ import annotations
 
 import logging
@@ -617,10 +633,11 @@ class EngineState(ComponentState):
 
     @property
     def target_speed(self) -> int:
+        # TODO: figure out target speed for TMCC engines
         if self.comp_data.is_legacy:
             return self.comp_data.target_speed
         else:
-            return self.comp_data.target_speed_tmcc
+            return self.comp_data.target_speed
 
     @property
     def speed_limit(self) -> int:
@@ -632,7 +649,7 @@ class EngineState(ComponentState):
 
     @property
     def speed_max(self) -> int | None:
-        if self.max_speed and self.max_speed != 255 and self.speed_limit != 255:
+        if self.max_speed and self.max_speed != 255 and self.speed_limit and self.speed_limit != 255:
             ms = min(self.max_speed, self.speed_limit)
         elif self.speed_limit and self.speed_limit != 255:
             ms = self.speed_limit
@@ -647,6 +664,21 @@ class EngineState(ComponentState):
     @property
     def speed_label(self) -> str:
         return self._as_label(self.speed)
+
+    @property
+    def speeds(self) -> tuple[int, int, int, int]:
+        if self.max_speed is None or self.max_speed == 255:
+            if self.is_legacy:
+                max_speed = 195
+            else:
+                max_speed = 31
+        else:
+            max_speed = self.max_speed
+        if self.speed_limit is None or self.speed_limit == 255:
+            speed_limit = max_speed
+        else:
+            speed_limit = self.speed_limit
+        return self.speed, self.target_speed, speed_limit, max_speed
 
     @property
     def rr_speed(self) -> R | None:
@@ -738,6 +770,12 @@ class EngineState(ComponentState):
     @property
     def smoke_label(self) -> str:
         return SMOKE_LABEL.get(self.smoke_level, None)
+
+    @property
+    def smoke_text(self) -> str:
+        if isinstance(self.smoke_level, CommandDefEnum):
+            return self.smoke_level.name.replace("SMOKE_", "").title()
+        return ""
 
     @property
     def train_brake(self) -> int:
