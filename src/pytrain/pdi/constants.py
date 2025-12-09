@@ -290,6 +290,10 @@ class PdiAction(Mixins, FriendlyMixins):
         return self.bits == CommonAction.CONFIG.bits
 
     @property
+    def is_info(self) -> bool:
+        return self.bits == CommonAction.INFO.bits
+
+    @property
     def as_bytes(self) -> bytes:
         return self.bits.to_bytes(1, byteorder="big")
 

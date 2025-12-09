@@ -5,6 +5,7 @@ from abc import ABC
 from typing import Dict, List, TypeVar
 
 from ..pdi.constants import (
+    ALL_CONFIG,
     ALL_FIRMWARE,
     ALL_IDENTIFY,
     ALL_INFO,
@@ -112,6 +113,22 @@ class LcsReq(PdiReq, ABC):
             self.tmcc_id = int(data) if data else 0
             self._ident = ident
 
+    @property
+    def is_firmware_req(self) -> bool:
+        return self._is_action(ALL_FIRMWARE)
+
+    @property
+    def is_status_req(self) -> bool:
+        return self._is_action(ALL_STATUS)
+
+    @property
+    def is_info_req(self) -> bool:
+        return self._is_action(ALL_INFO)
+
+    @property
+    def is_config_req(self) -> bool:
+        return self._is_action(ALL_CONFIG)
+
     def _is_action(self, enums: List[T]) -> bool:
         return self.action in enums
 
@@ -172,6 +189,18 @@ class LcsReq(PdiReq, ABC):
             return UART_MAP[uart]
         return "NA"
 
+    @property
+    def firmware(self) -> str:
+        return f"{self._version}.{self._revision}.{self._sub_revision}"
+
+    @property
+    def action(self) -> T:
+        return self._action
+
+    @property
+    def ident(self) -> int:
+        return self._ident
+
     def __repr__(self) -> str:
         if self.payload is not None:
             payload = " " + self.payload
@@ -186,10 +215,6 @@ class LcsReq(PdiReq, ABC):
             error = ""
 
         return f"[PDI {self._pdi_command.name} {self.action.name} ID: {self.tmcc_id}{error}{payload}]"
-
-    @property
-    def ident(self) -> int:
-        return self._ident
 
     @property
     def payload(self) -> str | None:
@@ -212,10 +237,6 @@ class LcsReq(PdiReq, ABC):
             if self._is_command(ALL_SETs):
                 return f"Ident: {self.ident} ({self.packet})"
         return super().payload
-
-    @property
-    def action(self) -> T:
-        return self._action
 
 
 class Ser2Req(LcsReq):

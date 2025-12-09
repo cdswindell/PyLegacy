@@ -1229,6 +1229,14 @@ class EngineGui(Thread, Generic[S]):
         self._info_details["fuel"] = self.make_engine_field(info_box, "Fuel Level", grid=[2, 5])
         self._info_details["water"] = self.make_engine_field(info_box, "Water Level", grid=[3, 5])
 
+        # ------------------------------------------------------------------
+        # Row 2 – Accessories
+        # ------------------------------------------------------------------
+        self._info_details["mode"] = self.make_acc_field(info_box, "Mode", grid=[0, 2])
+        self._info_details["parent"] = self.make_acc_field(info_box, "Parent", grid=[1, 2])
+        self._info_details["port"] = self.make_acc_field(info_box, "Port", grid=[2, 2])
+        self._info_details["firmware"] = self.make_acc_field(info_box, "Port", grid=[3, 2])
+
     def update_state_info(self) -> None:
         state = self.active_state
         if state:
@@ -1264,6 +1272,8 @@ class EngineGui(Thread, Generic[S]):
                 self._info_details["max"][1].value = f"{ms:>3d}"
             elif isinstance(state, AccessoryState):
                 self._info_details["type"][1].value = state.accessory_type
+                self._info_details["mode"][1].value = state.mode
+                self._info_details["firmware"][1].value = state.firmware
 
     def make_engine_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:
         return self.make_info_field(parent, title, grid, max_cols, scope=CommandScope.ENGINE)

@@ -21,6 +21,7 @@ from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.irda_req import IrdaReq
+from ..pdi.lcs_req import LcsReq
 from ..pdi.pdi_req import PdiReq
 from ..pdi.stm2_req import Stm2Req
 from ..protocol.command_def import CommandDefEnum
@@ -391,6 +392,19 @@ class LcsState(ComponentState, ABC):
 
     def __init__(self, scope: CommandScope = None) -> None:
         super().__init__(scope)
+        self._config_req = self._status_req = self._info_req = self._firmware_req = None
+
+    def update(self, command: P) -> None:
+        super().update(command)
+        if isinstance(command, LcsReq):
+            if command.is_firmware_req:
+                self._firmware_req = command
+            elif command.is_info_req:
+                self._info_req = command
+            elif command.is_status_req:
+                self._status_req = command
+            elif command.is_config_req:
+                self._config_req = command
 
     @property
     def is_tmcc(self) -> bool:
@@ -403,6 +417,22 @@ class LcsState(ComponentState, ABC):
     @property
     def is_lcs(self) -> bool:
         return True
+
+    @property
+    def firmware(self) -> str:
+        return self._firmware_req.firmware if self._firmware_req else "NA"
+
+    @property
+    def board_id(self) -> int | None:
+        return self._info_req if self._info_req.board_id else None
+
+    @property
+    def num_ids(self) -> int | None:
+        return self._info_req if self._info_req.num_ids else None
+
+    @property
+    def model(self) -> int | None:
+        return self._info_req if self._info_req.model else None
 
 
 class SwitchState(TmccState):

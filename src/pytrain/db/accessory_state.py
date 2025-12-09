@@ -16,6 +16,7 @@ from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq
+from ..pdi.lcs_req import LcsReq
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
@@ -31,8 +32,8 @@ class AccessoryState(TmccState):
         super().__init__(scope)
         self._first_pdi_command = None
         self._first_pdi_action = None
-        self._pdi_config = None
-        self._pdi_config_count = 0
+        self._config_req = None
+        self._config_req_count = 0
         self._last_aux1_opt1 = None
         self._last_aux2_opt1 = None
         self._aux1_state: Aux | None = None
@@ -42,8 +43,10 @@ class AccessoryState(TmccState):
         self._bpc2 = False
         self._asc2 = False
         self._amc2 = False
+        self._firmware_req = self._info_req = self._status_req = None
         self._pdi_source = False
         self._number: int | None = None
+        self._parent: AccessoryState | None = None
 
     @property
     def payload(self) -> str:
@@ -53,14 +56,14 @@ class AccessoryState(TmccState):
         elif self._sensor_track:
             aux = "Sensor Track"
         elif self._amc2:
-            if self._pdi_config:
-                at = f"Type: {self._pdi_config.access_type.label}"
-                m1 = f"{self._pdi_config.motor1}"
-                m2 = f"{self._pdi_config.motor2}"
-                l1 = f"{self._pdi_config.lamp1}"
-                l2 = f"{self._pdi_config.lamp2}"
-                l3 = f"{self._pdi_config.lamp3}"
-                l4 = f"{self._pdi_config.lamp4}"
+            if self._config_req:
+                at = f"Type: {self._config_req.access_type.label}"
+                m1 = f"{self._config_req.motor1}"
+                m2 = f"{self._config_req.motor2}"
+                l1 = f"{self._config_req.lamp1}"
+                l2 = f"{self._config_req.lamp2}"
+                l3 = f"{self._config_req.lamp3}"
+                l4 = f"{self._config_req.lamp4}"
                 aux, aux1, aux2, aux_num = self._get_aux_state()
                 aux = f"Amc2 {at} {m1} {m2} {l1} {l2} {l3} {l4} {aux}"
             else:
@@ -132,8 +135,8 @@ class AccessoryState(TmccState):
                                 self.extract_state_from_req(command)
                 elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req) or isinstance(command, Amc2Req):
                     if command.is_config:
-                        self._pdi_config = command
-                        self._pdi_config_count += 1
+                        self._config_req = command
+                        self._config_req_count += 1
                     else:
                         if self._first_pdi_command is None:
                             self._first_pdi_command = command.command
@@ -165,6 +168,15 @@ class AccessoryState(TmccState):
                     if self._first_pdi_action is None:
                         self._first_pdi_action = command.action
                     self._sensor_track = True
+                # check for LCS-specific info
+                if isinstance(command, LcsReq):
+                    if isinstance(command, LcsReq):
+                        if command.is_firmware_req:
+                            self._firmware_req = command
+                        elif command.is_info_req:
+                            self._info_req = command
+                        elif command.is_status_req:
+                            self._status_req = command
                 self.changed.set()
                 self._cv.notify_all()
 
@@ -175,7 +187,7 @@ class AccessoryState(TmccState):
             or self._aux1_state is not None
             or self._aux2_state is not None
             or self._number is not None
-            or self._pdi_config is not None
+            or self._config_req is not None
         )
 
     @property
@@ -197,6 +209,26 @@ class AccessoryState(TmccState):
     @property
     def is_amc2(self) -> bool:
         return self._amc2
+
+    @property
+    def firmware(self) -> str:
+        return self._firmware_req.firmware if self._firmware_req else "NA"
+
+    @property
+    def board_id(self) -> int | None:
+        return self._info_req if self._info_req.board_id else None
+
+    @property
+    def num_ids(self) -> int | None:
+        return self._info_req if self._info_req.num_ids else None
+
+    @property
+    def model(self) -> int | None:
+        return self._info_req if self._info_req.model else None
+
+    @property
+    def mode(self) -> int:
+        return self._config_req.mode if self._config_req and hasattr(self._config_req, "mode") else "NA"
 
     @property
     def is_lcs_component(self) -> bool:
@@ -247,8 +279,8 @@ class AccessoryState(TmccState):
         return self.get_motor(2)
 
     def get_motor(self, num: int) -> Amc2Motor | None:
-        if self.is_amc2 and self._pdi_config:
-            return self._pdi_config.get_motor(num)
+        if self.is_amc2 and self._config_req:
+            return self._config_req.get_motor(num)
         return None
 
     @property
@@ -268,13 +300,13 @@ class AccessoryState(TmccState):
         return self.get_lamp(4)
 
     def get_lamp(self, num: int) -> Amc2Lamp | None:
-        if self.is_amc2 and self._pdi_config:
-            return self._pdi_config.get_lamp(num)
+        if self.is_amc2 and self._config_req:
+            return self._config_req.get_lamp(num)
         return None
 
     def is_motor_on(self, motor: Amc2Motor) -> bool:
         if motor:
-            if self._pdi_config_count == 1:
+            if self._config_req_count == 1:
                 return motor.speed > 0 and motor.restore_state
             else:
                 return motor.speed > 0 and motor.state
@@ -282,8 +314,8 @@ class AccessoryState(TmccState):
 
     def extract_state_from_req(self, req: L | P):
         if isinstance(req, Amc2Req):
-            if isinstance(self._pdi_config, Amc2Req):
-                self._pdi_config.update_config(req)
+            if isinstance(self._config_req, Amc2Req):
+                self._config_req.update_config(req)
                 if req.is_config:
                     self._aux1_state = Aux.AUX1_ON if self.is_motor_on(req.motor1) else Aux.AUX1_OFF
                     self._aux2_state = Aux.AUX2_ON if self.is_motor_on(req.motor2) else Aux.AUX2_OFF
@@ -304,8 +336,8 @@ class AccessoryState(TmccState):
         if self._sensor_track:
             byte_str += IrdaReq(self.address, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC).as_bytes
         elif self.is_lcs_component:
-            if self._pdi_config and self._pdi_config.is_config:
-                byte_str += self._pdi_config.as_bytes
+            if self._config_req and self._config_req.is_config:
+                byte_str += self._config_req.as_bytes
             if isinstance(self._first_pdi_action, Asc2Action):
                 byte_str += Asc2Req(
                     self.address,
@@ -320,7 +352,7 @@ class AccessoryState(TmccState):
                     cast(Bpc2Action, self._first_pdi_action),
                     state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
                 ).as_bytes
-            elif isinstance(self._pdi_config, Amc2Req):
+            elif isinstance(self._config_req, Amc2Req):
                 if self.number:
                     byte_str += CommandReq(Aux.NUMERIC, self.address, self.number).as_bytes
             else:

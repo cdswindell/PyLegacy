@@ -65,22 +65,20 @@ class Acs2DeviceConfig(PdiDeviceConfig):
 
     @property
     def state_requests(self) -> List[T]:
-        cmds = []
-        if self._mode == 0:
-            # Acc mode, 8 TMCC IDs
-            for i in range(8):
-                cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL1))
-        elif self._mode == 1:
-            # Acc mode, 1 TMCC ID, latching
-            cmds.append(Asc2Req(self.tmcc_id, action=Asc2Action.CONTROL2))
-        elif self._mode == 2:
-            # Switch mode, pulsed, 4 TMCC IDs
-            for i in range(4):
-                cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL4))
-        elif self._mode == 3:
-            # Switch mode, latched, 4 TMCC IDs
-            for i in range(4):
-                cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL5))
+        if self._mode in {0, 1}:
+            cmds = [
+                Asc2Req(self.tmcc_id, action=Asc2Action.FIRMWARE),
+                Asc2Req(self.tmcc_id, action=Asc2Action.INFO),
+            ]
+            if self._mode == 0:
+                # Acc mode, 8 TMCC IDs
+                for i in range(8):
+                    cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL1))
+            elif self._mode == 1:
+                # Acc mode, 1 TMCC ID, latching
+                cmds.append(Asc2Req(self.tmcc_id, action=Asc2Action.CONTROL2))
+        else:
+            cmds = []
         return cmds
 
 
@@ -90,7 +88,10 @@ class Amc2DeviceConfig(PdiDeviceConfig):
 
     @property
     def state_requests(self) -> List[T]:
-        return []
+        return [
+            Amc2Req(self.tmcc_id, action=Amc2Action.FIRMWARE),
+            Amc2Req(self.tmcc_id, action=Amc2Action.INFO),
+        ]
 
 
 class Bpc2DeviceConfig(PdiDeviceConfig):
@@ -104,7 +105,10 @@ class Bpc2DeviceConfig(PdiDeviceConfig):
 
     @property
     def state_requests(self) -> List[T]:
-        cmds = []
+        cmds = [
+            Bpc2Req(self.tmcc_id, action=Bpc2Action.FIRMWARE),
+            Bpc2Req(self.tmcc_id, action=Bpc2Action.INFO),
+        ]
         if self._mode == 0:
             # TR mode, 8 TMCC IDs
             for i in range(8):
@@ -133,7 +137,10 @@ class Stm2DeviceConfig(PdiDeviceConfig):
 
     @property
     def state_requests(self) -> List[T]:
-        cmds = []
+        cmds = [
+            Stm2Req(self.tmcc_id, action=Stm2Action.FIRMWARE),
+            Stm2Req(self.tmcc_id, action=Stm2Action.INFO),
+        ]
         if self._mode == 0:
             # 16 inputs, 16 TMCC IDs
             for i in range(16):
@@ -152,6 +159,7 @@ class IrdaDeviceConfig(PdiDeviceConfig):
     @property
     def state_requests(self) -> List[T]:
         cmds = [
+            IrdaReq(self.tmcc_id, action=IrdaAction.FIRMWARE, scope=CommandScope.ACC),
             IrdaReq(self.tmcc_id, action=IrdaAction.INFO, scope=CommandScope.ACC),
             IrdaReq(self.tmcc_id, action=IrdaAction.CONFIG),
         ]
