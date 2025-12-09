@@ -1219,12 +1219,43 @@ class EngineGui(Thread, Generic[S]):
         self._info_details["sound"] = self.make_info_field(details_box, "Sound", grid=[2, 2, 2, 1])
 
         # ------------------------------------------------------------------
-        # Row 3: State information
+        # Row 3: Speed information
         # ------------------------------------------------------------------
         self._info_details["speed"] = self.make_info_field(details_box, "Speed", grid=[0, 3])
-        self._info_details["dir"] = self.make_info_field(details_box, "Direction", grid=[1, 3])
-        self._info_details["mom"] = self.make_info_field(details_box, "Momentum", grid=[2, 3])
-        self._info_details["brake"] = self.make_info_field(details_box, "Train Brake", grid=[3, 3])
+        self._info_details["target"] = self.make_info_field(details_box, "Target Speed", grid=[1, 3])
+        self._info_details["limit"] = self.make_info_field(details_box, "Speed Limit", grid=[2, 3])
+        self._info_details["max"] = self.make_info_field(details_box, "Max Speed", grid=[3, 3])
+
+        # ------------------------------------------------------------------
+        # Row 4: State information
+        # ------------------------------------------------------------------
+        self._info_details["dir"] = self.make_info_field(details_box, "Direction", grid=[0, 4])
+        self._info_details["smoke"] = self.make_info_field(details_box, "Smoke Level", grid=[1, 4])
+        self._info_details["mom"] = self.make_info_field(details_box, "Momentum", grid=[2, 4])
+        self._info_details["brake"] = self.make_info_field(details_box, "Train Brake", grid=[3, 4])
+
+    def update_state_info(self) -> None:
+        state = self.active_state
+        if state:
+            p_info = None
+            if isinstance(state, EngineState):
+                p_info = self._prod_info_cache.get(state.tmcc_id, None)
+            elif isinstance(state, TrainState):
+                p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
+            self._info_details["number"].value = state.road_number
+            etype = state.engine_type_label
+            etype = f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
+            self._info_details["type"].value = etype
+            self._info_details["name"].value = state.road_name
+            self._info_details["control"].value = state.control_type_label
+            self._info_details["sound"].value = state.sound_type_label
+            self._info_details["speed"].value = f"{state.speed:>3d}"
+            self._info_details["target"].value = f"{state.target_speed:>3d}"
+            self._info_details["limit"].value = f"{state.speed_limit:>3d}"
+            self._info_details["max"].value = f"{state.max_speed:>3d}"
+            self._info_details["dir"].value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
+            self._info_details["mom"].value = state.momentum_text
+            self._info_details["brake"].value = state.train_brake_label
 
     # noinspection PyTypeChecker
     def make_info_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> Text:
@@ -1263,26 +1294,6 @@ class EngineGui(Thread, Generic[S]):
         tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)  # borderless
 
         return tf
-
-    def update_state_info(self) -> None:
-        state = self.active_state
-        if state:
-            p_info = None
-            if isinstance(state, EngineState):
-                p_info = self._prod_info_cache.get(state.tmcc_id, None)
-            elif isinstance(state, TrainState):
-                p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
-            self._info_details["number"].value = state.road_number
-            etype = state.engine_type_label
-            etype = f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
-            self._info_details["type"].value = etype
-            self._info_details["name"].value = state.road_name
-            self._info_details["control"].value = state.control_type_label
-            self._info_details["sound"].value = state.sound_type_label
-            self._info_details["speed"].value = f"{state.speed:>3d}"
-            self._info_details["dir"].value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
-            self._info_details["mom"].value = state.momentum_text
-            self._info_details["brake"].value = state.train_brake_label
 
     def on_state_info(self) -> None:
         if self.state_overlay is None:
