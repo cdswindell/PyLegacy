@@ -1208,26 +1208,26 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------------
         # Row 3: Speed information
         # ------------------------------------------------------------------
-        self._info_details["speed"] = self.make_info_field(info_box, "Speed", grid=[0, 3])
-        self._info_details["target"] = self.make_info_field(info_box, "Target Speed", grid=[1, 3])
-        self._info_details["limit"] = self.make_info_field(info_box, "Speed Limit", grid=[2, 3])
-        self._info_details["max"] = self.make_info_field(info_box, "Max Speed", grid=[3, 3])
+        self._info_details["speed"] = self.make_engine_field(info_box, "Speed", grid=[0, 3])
+        self._info_details["target"] = self.make_engine_field(info_box, "Target Speed", grid=[1, 3])
+        self._info_details["limit"] = self.make_engine_field(info_box, "Speed Limit", grid=[2, 3])
+        self._info_details["max"] = self.make_engine_field(info_box, "Max Speed", grid=[3, 3])
 
         # ------------------------------------------------------------------
         # Row 4: State information
         # ------------------------------------------------------------------
-        self._info_details["dir"] = self.make_info_field(info_box, "Direction", grid=[0, 4])
-        self._info_details["smoke"] = self.make_info_field(info_box, "Smoke Level", grid=[1, 4])
-        self._info_details["mom"] = self.make_info_field(info_box, "Momentum", grid=[2, 4])
-        self._info_details["brake"] = self.make_info_field(info_box, "Train Brake", grid=[3, 4])
+        self._info_details["dir"] = self.make_engine_field(info_box, "Direction", grid=[0, 4])
+        self._info_details["smoke"] = self.make_engine_field(info_box, "Smoke Level", grid=[1, 4])
+        self._info_details["mom"] = self.make_engine_field(info_box, "Momentum", grid=[2, 4])
+        self._info_details["brake"] = self.make_engine_field(info_box, "Train Brake", grid=[3, 4])
 
         # ------------------------------------------------------------------
         # Row 5: State information
         # ------------------------------------------------------------------
-        self._info_details["labor"] = self.make_info_field(info_box, "Labor", grid=[0, 5])
-        self._info_details["rpm"] = self.make_info_field(info_box, "RPM", grid=[1, 5])
-        self._info_details["fuel"] = self.make_info_field(info_box, "Fuel Level", grid=[2, 5])
-        self._info_details["water"] = self.make_info_field(info_box, "Water Level", grid=[3, 5])
+        self._info_details["labor"] = self.make_engine_field(info_box, "Labor", grid=[0, 5])
+        self._info_details["rpm"] = self.make_engine_field(info_box, "RPM", grid=[1, 5])
+        self._info_details["fuel"] = self.make_engine_field(info_box, "Fuel Level", grid=[2, 5])
+        self._info_details["water"] = self.make_engine_field(info_box, "Water Level", grid=[3, 5])
 
     def update_state_info(self) -> None:
         state = self.active_state
@@ -1265,8 +1265,21 @@ class EngineGui(Thread, Generic[S]):
             elif isinstance(state, AccessoryState):
                 self._info_details["type"][1].value = state.accessory_type
 
+    def make_engine_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:
+        return self.make_info_field(parent, title, grid, max_cols, scope=CommandScope.ENGINE)
+
+    def make_acc_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:
+        return self.make_info_field(parent, title, grid, max_cols, scope=CommandScope.ACC)
+
     # noinspection PyTypeChecker
-    def make_info_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:
+    def make_info_field(
+        self,
+        parent: Box,
+        title: str,
+        grid: list[int],
+        max_cols: int = 4,
+        scope: CommandScope = None,
+    ) -> tuple[TitleBox, Text]:
         # grid can be [col, row] or [col, row, colspan, rowspan]
         aw, _ = self.calc_image_box_size()
         if len(grid) >= 4:
@@ -1287,6 +1300,7 @@ class EngineGui(Thread, Generic[S]):
             align="left",
         )
         tb.text_size = self.s_10
+        tb.display_scope = scope
 
         # Now tell Tk this one actually spans columns/rows
         tb.tk.grid_configure(column=col, row=row, columnspan=colspan, rowspan=rowspan, sticky="ew")
@@ -1306,6 +1320,19 @@ class EngineGui(Thread, Generic[S]):
     def on_info(self) -> None:
         if self.info_overlay is None:
             self.info_overlay = self.create_popup("Details", self.build_info_overlay)
+        # show/hide fields in the overlay
+        state = self.active_state
+        if state is None:
+            return  # this should never be the case...
+        for tb, _ in self._info_details.values():
+            if tb.display_scope == state.scope:
+                tb.visible = True  # always display fields associated with state.scope
+            elif tb.display_scope is None:
+                tb.visible = True  # always display fields with no scope specified
+            elif state.scope == CommandScope.TRAIN and tb.display_scope == CommandScope.ENGINE:
+                tb.visible = True  # display engine fields for trains
+            else:
+                tb.visible = False
         self.update_state_info()
         self.show_popup(self.info_overlay)
 
