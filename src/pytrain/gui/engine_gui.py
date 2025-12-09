@@ -1204,8 +1204,8 @@ class EngineGui(Thread, Generic[S]):
         # Row 0 – two independent columns: "Road Number" | "Type"
         # ------------------------------------------------------------------
 
-        self._info_details["number"] = self.make_info_field(details_box, "Road Number", grid=[0, 0, 2, 1])
-        self._info_details["type"] = self.make_info_field(details_box, "Type", grid=[1, 0, 2, 1])
+        self._info_details["number"] = self.make_info_field(details_box, "Road Number", grid=[0, 0])
+        self._info_details["type"] = self.make_info_field(details_box, "Type", grid=[1, 0, 3, 1])
 
         # ------------------------------------------------------------------
         # Row 1 – one control spanning both columns: "Road Name"
@@ -1216,12 +1216,13 @@ class EngineGui(Thread, Generic[S]):
         # Row 2 – two independent columns: "Control Type" | "Sound Type"
         # ------------------------------------------------------------------
         self._info_details["control"] = self.make_info_field(details_box, "Control", grid=[0, 2, 2, 1])
-        self._info_details["sound"] = self.make_info_field(details_box, "Sound", grid=[1, 2, 2, 1])
+        self._info_details["sound"] = self.make_info_field(details_box, "Sound", grid=[2, 2, 2, 1])
 
         # ------------------------------------------------------------------
         # Row 3: State information
         # ------------------------------------------------------------------
         self._info_details["speed"] = self.make_info_field(details_box, "Speed", grid=[0, 3])
+        self._info_details["dir"] = self.make_info_field(details_box, "Direction", grid=[1, 3])
 
     # noinspection PyTypeChecker
     def make_info_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> Text:
@@ -1277,6 +1278,7 @@ class EngineGui(Thread, Generic[S]):
             self._info_details["control"].value = state.control_type_label
             self._info_details["sound"].value = state.sound_type_label
             self._info_details["speed"].value = f"{state.speed:>3d}"
+            self._info_details["dir"].value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
 
     def on_state_info(self) -> None:
         if self.state_overlay is None:
