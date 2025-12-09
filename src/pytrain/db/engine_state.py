@@ -678,6 +678,16 @@ class EngineState(ComponentState):
         return self._as_label(self.momentum)
 
     @property
+    def momentum_text(self) -> str:
+        if self.momentum == 0:
+            return "Low"
+        elif self.momentum == 3:
+            return "Medium"
+        elif self.momentum == 7:
+            return "High"
+        return self._as_label(self.momentum)
+
+    @property
     def fuel_level(self) -> int:
         return self.comp_data.fuel_level
 

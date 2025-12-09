@@ -1223,6 +1223,8 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------------
         self._info_details["speed"] = self.make_info_field(details_box, "Speed", grid=[0, 3])
         self._info_details["dir"] = self.make_info_field(details_box, "Direction", grid=[1, 3])
+        self._info_details["mom"] = self.make_info_field(details_box, "Momentum", grid=[2, 3])
+        self._info_details["brake"] = self.make_info_field(details_box, "Trane Brake", grid=[3, 3])
 
     # noinspection PyTypeChecker
     def make_info_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> Text:
@@ -1279,6 +1281,8 @@ class EngineGui(Thread, Generic[S]):
             self._info_details["sound"].value = state.sound_type_label
             self._info_details["speed"].value = f"{state.speed:>3d}"
             self._info_details["dir"].value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
+            self._info_details["mom"].value = state.momentum_text
+            self._info_details["brake"].value = state.train_brake_label
 
     def on_state_info(self) -> None:
         if self.state_overlay is None:
