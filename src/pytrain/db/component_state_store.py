@@ -235,6 +235,11 @@ class ComponentStateStore:
                         slave_state = ComponentStateStore.get_state(CommandScope.ACC, pri_tmcc_id + offset, False)
                         if slave_state:
                             slave_state._parent = pri_state
+            elif config.scope == CommandScope.IRDA:
+                pri_state = ComponentStateStore.get_state(CommandScope.IRDA, config.address, False)
+                slave_state = ComponentStateStore.get_state(CommandScope.ACC, config.address)
+                if pri_state and slave_state:
+                    slave_state._parent = pri_state
 
     @property
     def is_empty(self) -> bool:
