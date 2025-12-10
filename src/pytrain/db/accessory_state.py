@@ -213,6 +213,8 @@ class AccessoryState(TmccState):
     @property
     def firmware(self) -> str:
         if self._parent:
+            if self.is_sensor_track:
+                print(self._parent.firmware)
             return self._parent.firmware
         return self._firmware_req.firmware if self._firmware_req else "NA"
 
