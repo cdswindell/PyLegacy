@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import Dict
 
-from .constants import PdiCommand, IrdaAction, PDI_SOP, PDI_EOP
-from .lcs_req import LcsReq
 from ..protocol.constants import CommandScope, Mixins
+from .constants import PDI_EOP, PDI_SOP, IrdaAction, PdiCommand
+from .lcs_req import LcsReq
 
 
 class IrdaSequence(Mixins):
@@ -218,6 +218,10 @@ class IrdaReq(LcsReq):
     @property
     def number(self) -> str:
         return self._number
+
+    @property
+    def num_addressable_ports(self) -> int:
+        return 1
 
     @property
     def payload(self) -> str | None:

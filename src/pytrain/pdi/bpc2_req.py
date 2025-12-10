@@ -111,6 +111,19 @@ class Bpc2Req(LcsReq):
         return self._valids
 
     @property
+    def num_addressable_ports(self) -> int:
+        if self.mode == 0:
+            return 8
+        elif self.mode == 1:
+            return 1
+        elif self.mode == 2:
+            return 8
+        elif self.mode == 3:
+            return 1
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}")
+
+    @property
     def payload(self) -> str | None:
         if self.is_error:
             return super().payload

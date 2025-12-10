@@ -52,7 +52,7 @@ class AccessoryState(TmccState):
     def payload(self) -> str:
         aux1 = aux2 = aux_num = ""
         if self._bpc2:
-            aux = f"Block Power {'ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
+            aux = f"Block Power Port {self.port}: {'ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
         elif self._sensor_track:
             aux = "Sensor Track"
         elif self._amc2:
@@ -70,7 +70,7 @@ class AccessoryState(TmccState):
                 aux = "Amc2"
         else:
             if self.is_asc2:
-                aux = "Asc2 " + ("ON" if self._aux_state == Aux.AUX1_OPT_ONE else "OFF")
+                aux = f"Asc2 Port {self.port}: {'ON' if self._aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
             else:
                 aux, aux1, aux2, aux_num = self._get_aux_state()
         return f"{aux}{aux1}{aux2}{aux_num}"
@@ -212,23 +212,42 @@ class AccessoryState(TmccState):
 
     @property
     def firmware(self) -> str:
+        if self._parent:
+            return self._parent.firmware
         return self._firmware_req.firmware if self._firmware_req else "NA"
 
     @property
     def board_id(self) -> int | None:
+        if self._parent:
+            return self._parent.board_id
         return self._info_req if self._info_req.board_id else None
 
     @property
     def num_ids(self) -> int | None:
+        if self._parent:
+            return self._parent.num_ids
         return self._info_req if self._info_req.num_ids else None
 
     @property
     def model(self) -> int | None:
+        if self._parent:
+            return self._parent.model
         return self._info_req if self._info_req.model else None
 
     @property
     def mode(self) -> int:
+        if self._parent:
+            return self._parent.mode
         return self._config_req.mode if self._config_req and hasattr(self._config_req, "mode") else "NA"
+
+    @property
+    def port(self) -> int | str | None:
+        if self.is_bpc2 or self.is_asc2 or self.is_amc2:
+            if self._parent is None and self._config_req:  # config requests only exist on the parent device
+                return 1
+            else:
+                return "??"
+        return None
 
     @property
     def is_lcs_component(self) -> bool:

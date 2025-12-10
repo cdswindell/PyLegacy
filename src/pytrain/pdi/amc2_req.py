@@ -231,6 +231,10 @@ class Amc2Req(LcsReq):
             return None
 
     @property
+    def num_addressable_ports(self) -> int:
+        return 1
+
+    @property
     def payload(self) -> str | None:
         if self.is_error:
             return super().payload

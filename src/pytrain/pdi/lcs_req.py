@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Dict, List, TypeVar
 
 from ..pdi.constants import (
@@ -238,6 +238,12 @@ class LcsReq(PdiReq, ABC):
                 return f"Ident: {self.ident} ({self.packet})"
         return super().payload
 
+    @property
+    @abstractmethod
+    def num_addressable_ports(self) -> int:
+        """Return a list of addressable ports on the board."""
+        pass
+
 
 class Ser2Req(LcsReq):
     def __init__(
@@ -251,3 +257,7 @@ class Ser2Req(LcsReq):
         super().__init__(data, pdi_command, action, ident, error)
         if isinstance(data, bytes):
             self._action = Ser2Action(self._action_byte)
+
+    @property
+    def num_addressable_ports(self) -> int:
+        return 0

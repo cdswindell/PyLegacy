@@ -109,3 +109,12 @@ class Stm2Req(LcsReq):
         byte_str += checksum
         byte_str += PDI_EOP.to_bytes(1, byteorder="big")
         return byte_str
+
+    @property
+    def num_addressable_ports(self) -> int:
+        if self.mode == 0:
+            return 16
+        elif self.mode == 1:
+            return 8
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}")

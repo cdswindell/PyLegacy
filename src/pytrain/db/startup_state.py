@@ -45,6 +45,7 @@ class StartupState(Thread):
         self._sync_state = ComponentStateStore.get_state(CommandScope.SYNC, 99)
         self._dispatcher = dispatcher
         self._dispatcher.offer(SYNCING)
+        self._config_reqs = dict()
         self.start()
 
     def __call__(self, cmd: PdiReq) -> None:
@@ -67,6 +68,11 @@ class StartupState(Thread):
                 if state_requests:
                     for state_request in state_requests:
                         self.pdi_listener.enqueue_command(state_request)
+                # save the request, as we will reprocess it to find slave devices later
+                key = self._config_key(cmd)
+                if key in self._config_reqs:
+                    log.warning(f"Duplicate config request: {cmd}/{self._config_reqs[key]}")
+                self._config_reqs[key] = cmd
             elif isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
                 if cmd.scope == CommandScope.TRAIN and cmd.tmcc_id == 98:
                     self._dispatcher.offer(SYNC_COMPLETE)
@@ -172,5 +178,9 @@ class StartupState(Thread):
         # print out any stragglers; this is an error we should address
         for k, v in self._waiting_for.items():
             log.info(f"Failed to receive {k} state: {v}")
-
         self.pdi_listener.unsubscribe_any(self)
+
+        # Iterate over received configs and configure slave devices
+        for config_req in self._config_reqs.values():
+            if config_req.scope == CommandScope.ACC and config_req.num_addressable_ports > 1:
+                print(config_req)

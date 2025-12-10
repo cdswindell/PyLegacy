@@ -123,6 +123,17 @@ class Asc2Req(LcsReq):
         return not self.is_thru if self.is_thru is not None else None
 
     @property
+    def num_addressable_ports(self) -> int:
+        if self.mode == 0:
+            return 8
+        elif self.mode == 1:
+            return 1
+        elif self.mode == 2:
+            return 4
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}")
+
+    @property
     def payload(self) -> str | None:
         if self.is_error:
             return super().payload

@@ -70,3 +70,7 @@ class WiFiReq(LcsReq):
             elif self.action == WiFiAction.RESPBCASTS:
                 return f"Broadcasts {'ENABLED' if payload_bytes[0] == 1 else 'DISABLED'}: {payload_bytes[0]}"
         return super().payload
+
+    @property
+    def num_addressable_ports(self) -> int:
+        return 0
