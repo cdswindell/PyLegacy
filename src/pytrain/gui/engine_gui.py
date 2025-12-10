@@ -42,11 +42,13 @@ from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
+from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, EngineType
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
 from ..protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
 from ..protocol.tmcc1.tmcc1_constants import (
+    TMCC1AuxCommandEnum,
     TMCC1EngineCommandEnum,
     TMCC1HaltCommandEnum,
     TMCC1RRSpeedsEnum,
@@ -327,6 +329,12 @@ ENGINE_TYPE_TO_IMAGE = {
     EngineType.STEAM: find_file("generic_steam_santa.jpg"),
     EngineType.STEAM_PULLMOR: find_file("generic_steam_santa.jpg"),
     EngineType.STEAM_SWITCHER: find_file("generic_steam_switcher.jpg"),
+}
+
+SCOPE_TO_SET_ENUM: dict[CommandScope, CommandDefEnum] = {
+    CommandScope.ENGINE: TMCC1EngineCommandEnum.SET_ADDRESS,
+    CommandScope.SWITCH: TMCC1SwitchCommandEnum.SET_ADDRESS,
+    CommandScope.ACC: TMCC1AuxCommandEnum.SET_ADDRESS,
 }
 
 
@@ -1283,6 +1291,9 @@ class EngineGui(Thread, Generic[S]):
     def make_acc_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:
         return self.make_info_field(parent, title, grid, max_cols, scope=CommandScope.ACC)
 
+    def make_train_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:
+        return self.make_info_field(parent, title, grid, max_cols, scope=CommandScope.TRAIN)
+
     # noinspection PyTypeChecker
     def make_info_field(
         self,
@@ -1702,11 +1713,13 @@ class EngineGui(Thread, Generic[S]):
     def make_scope(self, app: App):
         button_height = int(round(40 * self._scale_by))
         self.scope_box = scope_box = Box(app, layout="grid", border=2, align="bottom")
+        img = tk.PhotoImage(width=self.scope_size, height=button_height)
+        self._btn_images.append(img)
         for i, scope_abbrev in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
             scope = CommandScope.by_prefix(scope_abbrev)
             # Create a PhotoImage to enforce button size
-            img = tk.PhotoImage(width=self.scope_size, height=button_height)
-            self._btn_images.append(img)
+            # img = tk.PhotoImage(width=self.scope_size, height=button_height)
+            # self._btn_images.append(img)
             pb = HoldButton(
                 scope_box,
                 text=scope_abbrev,
@@ -1855,6 +1868,8 @@ class EngineGui(Thread, Generic[S]):
                 elif label == ENTER_KEY:
                     self.entry_cells.add(cell)
                     self.enter_key_cell = cell
+                elif label == SET_KEY:
+                    self.set_key_cell = cell
             row += 1
 
         # fill in last row; contents depends on scope
@@ -2264,6 +2279,11 @@ class EngineGui(Thread, Generic[S]):
             tmcc_id = "0" * num_chars
             self.tmcc_id_text.value = tmcc_id
             self.entry_mode()
+        elif key == SET_KEY:
+            self.reset_on_keystroke = False
+            tmcc_id = int(self.tmcc_id_text.value)
+            self.on_set_key(self.scope, tmcc_id)
+            self.entry_mode()
         elif key == ENTER_KEY:
             # if a valid (existing) entry was entered, go to ops mode,
             # otherwise, stay in entry mode
@@ -2279,6 +2299,19 @@ class EngineGui(Thread, Generic[S]):
         if not self._in_entry_mode and key.isdigit():
             log.debug("on_keypress calling update_component_info...")
             self.update_component_info(int(tmcc_id), "")
+
+    def on_set_key(self, scope: CommandScope, tmcc_id: int) -> None:
+        # Fire the set address command; only valid for switches, accessories, and engines
+        if scope != CommandScope.TRAIN and tmcc_id:
+            cmd_enum = SCOPE_TO_SET_ENUM.get(scope, None)
+            if isinstance(cmd_enum, CommandDefEnum):
+                if scope == CommandScope.ENGINE and tmcc_id > 99:
+                    cmd = TMCC2EngineCommandEnum.SET_ADDRESS
+                else:
+                    cmd = CommandReq.build(cmd_enum, address=tmcc_id, scope=scope)
+                cmd.send(repeat=self.repeat)
+        else:
+            self.entry_mode(clear_info=False)
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         self.close_popup()
@@ -2333,12 +2366,19 @@ class EngineGui(Thread, Generic[S]):
             if cell.visible:
                 cell.hide()
         self.scope_power_btns()
+        self.scope_set_btn()
         if not self.keypad_box.visible:
             self.keypad_box.show()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and self._scope_tmcc_ids[self.scope]:
             self.reset_btn.enable()
         else:
             self.reset_btn.disable()
+
+    def scope_set_btn(self) -> None:
+        if self.scope in {CommandScope.ROUTE}:
+            self.set_btn.disable()
+        else:
+            self.set_btn.enable()
 
     def show_diesel_keys(self) -> None:
         for btn in self.steam_btns:
