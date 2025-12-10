@@ -2283,7 +2283,6 @@ class EngineGui(Thread, Generic[S]):
             self.reset_on_keystroke = False
             tmcc_id = int(self.tmcc_id_text.value)
             self.on_set_key(self.scope, tmcc_id)
-            self.entry_mode()
         elif key == ENTER_KEY:
             # if a valid (existing) entry was entered, go to ops mode,
             # otherwise, stay in entry mode
@@ -2376,9 +2375,9 @@ class EngineGui(Thread, Generic[S]):
 
     def scope_set_btn(self) -> None:
         if self.scope in {CommandScope.ROUTE}:
-            self.set_btn.disable()
+            self.set_btn.hide()
         else:
-            self.set_btn.enable()
+            self.set_btn.show()
 
     def show_diesel_keys(self) -> None:
         for btn in self.steam_btns:
