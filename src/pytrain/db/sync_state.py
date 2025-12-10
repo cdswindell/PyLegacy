@@ -9,12 +9,12 @@
 
 from __future__ import annotations
 
-from typing import Dict, Any
+from typing import Any, Dict
 
-from .component_state import ComponentState, L, P, SCOPE_TO_STATE_MAP
-from ..protocol.constants import CommandScope, PROGRAM_NAME
 from ..protocol.command_req import CommandReq
+from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+from .component_state import SCOPE_TO_STATE_MAP, ComponentState, L, P
 
 
 class SyncState(ComponentState):
@@ -23,9 +23,12 @@ class SyncState(ComponentState):
     """
 
     def __init__(self, scope: CommandScope = CommandScope.SYNC) -> None:
+        from .component_state_store import ComponentStateStore
+
         if scope != CommandScope.SYNC:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
+        self._state_store = ComponentStateStore.get()
         self._state_synchronized: bool | None = None
         self._state_synchronizing: bool | None = None
 
@@ -36,15 +39,18 @@ class SyncState(ComponentState):
             msg = f"Synchronized: {self._state_synchronized if self._state_synchronized is not None else 'NA'}"
         return f"{PROGRAM_NAME} {msg}"
 
+    # noinspection PyProtectedMember
     def update(self, command: L | P) -> None:
         if isinstance(command, CommandReq):
             self._ev.clear()
             with self._cv:
                 # Note: super().update is explicitly not called
                 if command.command in {TMCC1SyncCommandEnum.SYNCHRONIZING, TMCC1SyncCommandEnum.RESYNC}:
+                    self._state_store._clear_config_cache()  # protected to prevent users from calling this directly
                     self._state_synchronized = False
                     self._state_synchronizing = True
                 elif command.command == TMCC1SyncCommandEnum.SYNCHRONIZED:
+                    self._state_store._process_config_cache()
                     self._state_synchronized = True
                     self._state_synchronizing = False
                 self.changed.set()

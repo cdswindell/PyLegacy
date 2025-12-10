@@ -666,6 +666,9 @@ class CommBufferProxy(CommBuffer):
             raise ce
 
     def sync_state(self, port: int = None) -> None:
+        """
+        Called at client start-up to retrieve current state from server
+        """
         port = self._client_port if port is None else port
         try:
             from ..comm.enqueue_proxy_requests import EnqueueProxyRequests

@@ -161,7 +161,6 @@ class IrdaDeviceConfig(PdiDeviceConfig):
         cmds = [
             IrdaReq(self.tmcc_id, action=IrdaAction.FIRMWARE, scope=CommandScope.ACC),
             IrdaReq(self.tmcc_id, action=IrdaAction.INFO, scope=CommandScope.ACC),
-            IrdaReq(self.tmcc_id, action=IrdaAction.CONFIG),
         ]
         return cmds
 

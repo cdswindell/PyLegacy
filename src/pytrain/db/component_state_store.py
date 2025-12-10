@@ -145,6 +145,8 @@ class ComponentStateStore:
         is_base: bool = False,
         is_ser2: bool = False,
     ) -> None:
+        from ..pdi.constants import PdiCommand
+
         if self._initialized:
             return
         else:
@@ -155,6 +157,7 @@ class ComponentStateStore:
         self._is_base = is_base
         self._is_ser2 = is_ser2
         self._filter_updates = is_base is True and is_ser2 is True
+        self._lcs_config_reqs: dict[tuple[PdiCommand, int], LcsReq] = {}
         if topics:
             for topic in topics:
                 if self.is_valid_topic(topic):
@@ -209,10 +212,29 @@ class ComponentStateStore:
                                 if state and state.address != command.address:
                                     del self._state[command.scope][command.address]
                             self._state[command.scope][command.address].update(command)
+                            if isinstance(command, LcsReq) and command.is_config_req:
+                                if (command.command, command.address) in self._lcs_config_reqs:
+                                    log.info(f"Updating LCS config for {command.command.name} {command.address}")
+                                self._lcs_config_reqs[(command.command, command.address)] = command
                 else:
                     log.warning(f"Received Unknown State Update: {command.scope} {command}")
             except RequestConfigurationException:
                 pass
+
+    def _clear_config_cache(self) -> None:
+        self._lcs_config_reqs.clear()
+
+    # noinspection PyTypeChecker
+    def _process_config_cache(self) -> None:
+        for config in self._lcs_config_reqs.values():
+            if config.scope == CommandScope.ACC and config.num_addressable_ports > 1:
+                pri_state = ComponentStateStore.get_state(CommandScope.ACC, config.address, False)
+                if pri_state:
+                    pri_tmcc_id = pri_state.address
+                    for offset in range(1, config.num_addressable_ports):
+                        slave_state = ComponentStateStore.get_state(CommandScope.ACC, pri_tmcc_id + offset, False)
+                        if slave_state:
+                            slave_state._parent = pri_state
 
     @property
     def is_empty(self) -> bool:
