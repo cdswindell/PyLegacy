@@ -241,12 +241,12 @@ class AccessoryState(TmccState):
         return self._config_req.mode if self._config_req and hasattr(self._config_req, "mode") else "NA"
 
     @property
-    def port(self) -> int | str | None:
+    def port(self) -> int | None:
         if self.is_bpc2 or self.is_asc2 or self.is_amc2:
-            if self._parent is None and self._config_req:  # config requests only exist on the parent device
+            if self._config_req:  # config requests only exist on the parent device
                 return 1
-            else:
-                return "??"
+            elif self._parent:
+                return self.address - self._parent.address + 1
         return None
 
     @property

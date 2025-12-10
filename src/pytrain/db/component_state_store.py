@@ -19,6 +19,7 @@ from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
 from ..db.client_state_listener import ClientStateListener
 from ..db.sync_state import SyncState
+from ..pdi.lcs_req import LcsReq
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import BROADCAST_ADDRESS, CommandScope
@@ -107,6 +108,24 @@ class ComponentStateStore:
         if sync_state is None:
             return False
         return cast(SyncState, sync_state).is_synchronizing
+
+    # noinspection PyTypeChecker
+    @classmethod
+    def configure_slave_devices(cls, configs: list[LcsReq]) -> None:
+        """
+        For LCS devices that have more than one addressable port, the device config is only sent
+        once for the first port, which coincides with the device's configured TMCC ID. This method
+        is used to send the device config to the remaining ports.
+        """
+        for config in configs:
+            if config.scope == CommandScope.ACC and config.num_addressable_ports > 1:
+                pri_state = ComponentStateStore.get_state(CommandScope.ACC, config.address, False)
+                if pri_state:
+                    pri_tmcc_id = pri_state.address
+                    for offset in range(1, config.num_addressable_ports):
+                        slave_state = ComponentStateStore.get_state(CommandScope.ACC, pri_tmcc_id + offset, False)
+                        if slave_state:
+                            slave_state._parent = pri_state
 
     def __new__(cls, *args, **kwargs):
         """
