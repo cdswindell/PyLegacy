@@ -43,7 +43,7 @@ class AccessoryState(TmccState):
         self._bpc2 = False
         self._asc2 = False
         self._amc2 = False
-        self._firmware_req = self._info_req = self._status_req = None
+        self._firmware_req = self._info_req = self._status_req = self._control_req = None
         self._pdi_source = False
         self._number: int | None = None
         self._parent: AccessoryState | None = None
@@ -177,6 +177,8 @@ class AccessoryState(TmccState):
                             self._info_req = command
                         elif command.is_status_req:
                             self._status_req = command
+                        elif command.is_control_req:
+                            self._control_req = command
                 self.changed.set()
                 self._cv.notify_all()
 

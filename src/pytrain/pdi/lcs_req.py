@@ -125,6 +125,11 @@ class LcsReq(PdiReq, ABC):
     def is_info_req(self) -> bool:
         return self._is_action(ALL_INFO)
 
+    # noinspection PyTypeChecker
+    @property
+    def is_control_req(self) -> bool:
+        return self.action.is_control
+
     @property
     def is_config_req(self) -> bool:
         return self._is_action(ALL_CONFIG)
