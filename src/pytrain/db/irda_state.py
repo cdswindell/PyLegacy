@@ -118,6 +118,10 @@ class IrdaState(LcsState):
         return self._sequence
 
     @property
+    def mode(self) -> int:
+        return self._sequence.value if self._sequence else None
+
+    @property
     def sequence_str(self) -> str | None:
         return self.sequence.name.title() if self.sequence else "NA"
 
