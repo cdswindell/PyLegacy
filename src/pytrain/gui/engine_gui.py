@@ -2564,7 +2564,6 @@ class EngineGui(Thread, Generic[S]):
                         img = self.get_image(self.amc2_image, inverse=False, scale=True, preserve_height=True)
                     elif state.is_sensor_track:
                         img = self.get_scaled_image(self.sensor_track_image, force_lionel=True)
-                        # img = self.get_image(self.sensor_track_image, inverse=False, scale=True, preserve_height=True)
                     if img:
                         self._image_cache[(CommandScope.ACC, tmcc_id)] = img
                     else:

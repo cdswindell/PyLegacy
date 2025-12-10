@@ -23,6 +23,7 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
 from .comp_data import CompDataMixin
 from .component_state import SCOPE_TO_STATE_MAP, L, P, TmccState, log
+from .irda_state import IrdaState
 
 
 class AccessoryState(TmccState):
@@ -215,8 +216,6 @@ class AccessoryState(TmccState):
     @property
     def firmware(self) -> str:
         if self._parent:
-            if self.is_sensor_track:
-                print(self._parent.firmware)
             return self._parent.firmware
         return self._firmware_req.firmware if self._firmware_req else "NA"
 
@@ -245,13 +244,13 @@ class AccessoryState(TmccState):
         return self._config_req.mode if self._config_req and hasattr(self._config_req, "mode") else "NA"
 
     @property
-    def port(self) -> int | None:
+    def port(self) -> int:
         if self.is_bpc2 or self.is_asc2 or self.is_amc2:
             if self._config_req:  # config requests only exist on the parent device
                 return 1
             elif self._parent:
                 return self.address - self._parent.address + 1
-        return None
+        return 1
 
     @property
     def parent_id(self) -> int | None:
@@ -260,6 +259,10 @@ class AccessoryState(TmccState):
         elif self._parent:
             return self._parent.address
         return None
+
+    @property
+    def parent(self) -> AccessoryState | IrdaState:
+        return self._parent
 
     @property
     def is_lcs_component(self) -> bool:
