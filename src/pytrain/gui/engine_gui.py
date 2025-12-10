@@ -1390,6 +1390,9 @@ class EngineGui(Thread, Generic[S]):
             if self.keypad_box.visible:
                 self.keypad_box.hide()
                 self._on_close_show = self.keypad_box
+            if self.sensor_track_box.visible:
+                self.sensor_track_box.hide()
+                self._on_close_show = self.sensor_track_box
             self._current_popup = overlay
             x, y = self.popup_position
             overlay.tk.place(x=x, y=y)
@@ -2560,7 +2563,8 @@ class EngineGui(Thread, Generic[S]):
                     elif state.is_amc2:
                         img = self.get_image(self.amc2_image, inverse=False, scale=True, preserve_height=True)
                     elif state.is_sensor_track:
-                        img = self.get_image(self.sensor_track_image, inverse=False, scale=True, preserve_height=True)
+                        img = self.get_scaled_image(self.sensor_track_image, force_lionel=True)
+                        # img = self.get_image(self.sensor_track_image, inverse=False, scale=True, preserve_height=True)
                     if img:
                         self._image_cache[(CommandScope.ACC, tmcc_id)] = img
                     else:
