@@ -27,6 +27,7 @@ class IrdaState(LcsState):
         if scope != CommandScope.IRDA:
             raise ValueError(f"Invalid scope: {scope}, expected {CommandScope.IRDA.name}")
         super().__init__(scope)
+        self._data_req = self._sequence_req = None
         self._sequence: IrdaSequence | None = None
         self._loco_rl: int | None = 255
         self._loco_lr: int | None = 255
@@ -62,8 +63,10 @@ class IrdaState(LcsState):
                         self._loco_rl = command.loco_rl
                         self._loco_lr = command.loco_lr
                     elif command.action == IrdaAction.SEQUENCE:
+                        self._sequence_req = command
                         self._sequence = command.sequence
                     elif command.action == IrdaAction.DATA:
+                        self._data_req = command
                         # change engine/train speed, based on the direction of travel
                         self._last_engine_id = command.engine_id
                         self._last_train_id = command.train_id
@@ -163,18 +166,7 @@ class IrdaState(LcsState):
         return (self._last_train_id is not None) and (self._last_train_id > 0)
 
     def as_bytes(self) -> bytes:
-        # TODO: return IrdaAction.DATA
-        if self.is_known:
-            return IrdaReq(
-                self.address,
-                PdiCommand.IRDA_RX,
-                IrdaAction.CONFIG,
-                sequence=self._sequence,
-                loco_rl=self._loco_rl,
-                loco_lr=self._loco_lr,
-            ).as_bytes
-        else:
-            return bytes()
+        return super().as_bytes()
 
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()

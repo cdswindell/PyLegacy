@@ -397,14 +397,24 @@ class LcsState(ComponentState, ABC):
     def update(self, command: P) -> None:
         super().update(command)
         if isinstance(command, LcsReq):
-            if command.is_firmware_req:
+            if command.is_config_req:
+                self._config_req = command
+            elif command.is_firmware_req:
                 self._firmware_req = command
             elif command.is_info_req:
                 self._info_req = command
             elif command.is_status_req:
                 self._status_req = command
-            elif command.is_config_req:
-                self._config_req = command
+
+    def as_bytes(self) -> bytes:
+        byte_str = super().as_bytes()
+        if self._config_req:
+            byte_str += self._config_req.as_bytes
+        if self._firmware_req:
+            byte_str += self._firmware_req.as_bytes
+        if self._info_req:
+            byte_str += self._info_req.as_bytes
+        return byte_str
 
     @property
     def is_tmcc(self) -> bool:
