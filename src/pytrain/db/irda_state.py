@@ -166,7 +166,10 @@ class IrdaState(LcsState):
         return (self._last_train_id is not None) and (self._last_train_id > 0)
 
     def as_bytes(self) -> bytes:
-        return super().as_bytes()
+        byte_str = super().as_bytes()
+        if self._data_req:
+            byte_str += self._data_req.as_bytes
+        return byte_str
 
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
