@@ -1273,6 +1273,8 @@ class EngineGui(Thread, Generic[S]):
             elif isinstance(state, AccessoryState):
                 self._info_details["type"][1].value = state.accessory_type
                 self._info_details["mode"][1].value = state.mode
+                self._info_details["parent"][1].value = state.parent_id
+                self._info_details["port"][1].value = state.port
                 self._info_details["firmware"][1].value = state.firmware
 
     def make_engine_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:

@@ -250,6 +250,14 @@ class AccessoryState(TmccState):
         return None
 
     @property
+    def parent_id(self) -> int | None:
+        if self._config_req:
+            return self.address
+        elif self._parent:
+            return self._parent.address
+        return None
+
+    @property
     def is_lcs_component(self) -> bool:
         return self._pdi_source
 
