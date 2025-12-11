@@ -285,6 +285,32 @@ TOWER_DIALOGS = {
     ],
 }
 
+CONDUCTOR_ACTIONS = {
+    "Dialogs": [
+        ["All Aboard", "CONDUCTOR_ALL_ABOARD"],
+        ["Next Stop", "CONDUCTOR_NEXT_STOP"],
+        ["Premature Stop", "CONDUCTOR_PREMATURE_STOP"],
+        ["Tickets Please", "CONDUCTOR_TICKETS_PLEASE"],
+        ["Watch Your Step", "CONDUCTOR_WATCH_YOUR_STEP"],
+    ],
+    "Actions": [
+        ["Passenger Car Startup", "PASSENGER_CAR_STARTUP"],
+        ["Passenger Car Shutdown", "PASSENGER_CAR_SHUTDOWN"],
+        ["Special Guest Enabled", "SPECIAL_GUEST_ENABLED"],
+        ["Special Guest Disabled", "SPECIAL_GUEST_DISABLED"],
+    ],
+}
+
+STEWARD_DIALOGS = [
+    [("STEWARD_WELCOME_ABOARD", "Welcome\nAboard"), ("STEWARD_LOUNGE_CAR_OPEN", "Lounge Car\nOpen")],
+    [("STEWARD_FIRST_SEATING", "First\nSeating"), ("STEWARD_SECOND_SEATING", "Second\nSeating")],
+]
+
+STATION_DIALOGS = [
+    [("STEWARD_WELCOME_ABOARD", "Welcome\nAboard"), ("STEWARD_LOUNGE_CAR_OPEN", "Lounge Car\nOpen")],
+    [("STEWARD_FIRST_SEATING", "First\nSeating"), ("STEWARD_SECOND_SEATING", "Second\nSeating")],
+]
+
 REPEAT_EXCEPTIONS = {
     TMCC1EngineCommandEnum.AUX2_OPTION_ONE: 1,
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,
@@ -370,21 +396,21 @@ class EngineGui(Thread, Generic[S]):
         return cls.__name__
 
     def __init__(
-        self,
-        width: int = None,
-        height: int = None,
-        enabled_bg: str = "green",
-        disabled_bg: str = "white",
-        enabled_text: str = "black",
-        disabled_text: str = "lightgrey",
-        active_bg: str = "green",
-        inactive_bg: str = "white",
-        scale_by: float = 1.0,
-        repeat: int = 2,
-        num_recents: int = 5,
-        initial: int = None,
-        initial_scope: CommandScope = CommandScope.ENGINE,
-        offset: int = 10,
+            self,
+            width: int = None,
+            height: int = None,
+            enabled_bg: str = "green",
+            disabled_bg: str = "white",
+            enabled_text: str = "black",
+            disabled_text: str = "lightgrey",
+            active_bg: str = "green",
+            inactive_bg: str = "white",
+            scale_by: float = 1.0,
+            repeat: int = 2,
+            num_recents: int = 5,
+            initial: int = None,
+            initial_scope: CommandScope = CommandScope.ENGINE,
+            offset: int = 10,
     ) -> None:
         Thread.__init__(self, daemon=True, name="Engine GUI")
         self._cv = Condition(RLock())
@@ -514,9 +540,11 @@ class EngineGui(Thread, Generic[S]):
         self._freight_btns = set()
         self._quill_after_id = None
         self.tower_dialog_box = self.crew_dialog_box = None
+        self.conductor_actions_box = self.station_dialog_box = self.steward_dialog_box = None
         self.can_hack_combo = False  # don't ask
         self._isd = None  # swipe detector for engine image field
         self._info_details = {}  # manage state details info popup fields
+        self.conductor_overlay = self.steward_overlay = self.station_overlay = None
         self._on_close_show = None
 
         # callbacks
@@ -567,9 +595,9 @@ class EngineGui(Thread, Generic[S]):
     def active_engine_state(self) -> EngineState:
         if self.scope in (CommandScope.ENGINE, CommandScope.TRAIN):
             if (
-                self._active_engine_state
-                and self._active_engine_state.scope == self.scope
-                and self._active_engine_state.tmcc_id == self._scope_tmcc_ids[self.scope]
+                    self._active_engine_state
+                    and self._active_engine_state.scope == self.scope
+                    and self._active_engine_state.tmcc_id == self._scope_tmcc_ids[self.scope]
             ):
                 return self._active_engine_state
             else:
@@ -794,6 +822,9 @@ class EngineGui(Thread, Generic[S]):
         _, btn = self.engine_ops_cells[("ENGINEER_CHATTER", "e")]
         btn.on_hold = self.on_crew_dialog
 
+        _, btn = self.engine_ops_cells[("CONDUCTOR_CHATTER", "p")]
+        btn.on_hold = self.on_conductor_actions
+
         for loco_type in ["d", "s"]:
             _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
             btn.on_hold = self.show_horn_control
@@ -917,14 +948,14 @@ class EngineGui(Thread, Generic[S]):
         self.controller_box.visible = False
 
     def make_slider(
-        self,
-        sliders: Box,
-        title: str,
-        command: Callable,
-        frm: int,
-        to: int,
-        step: int = 1,
-        visible: bool = True,
+            self,
+            sliders: Box,
+            title: str,
+            command: Callable,
+            frm: int,
+            to: int,
+            step: int = 1,
+            visible: bool = True,
     ) -> tuple[Box, TitleBox, Text, Slider]:
         momentum_box = Box(
             sliders,
@@ -1034,6 +1065,9 @@ class EngineGui(Thread, Generic[S]):
 
     def build_crew_dialogs_body(self, body: Box):
         self.crew_dialog_box = self.make_combo_panel(body, CREW_DIALOGS)
+
+    def build_conductor_actions_body(self, body: Box):
+        self.conductor_actions_box = self.make_combo_panel(body, CONDUCTOR_ACTIONS)
 
     def build_lights_body(self, body: Box):
         # cab light
@@ -1329,12 +1363,12 @@ class EngineGui(Thread, Generic[S]):
 
     # noinspection PyTypeChecker
     def make_info_field(
-        self,
-        parent: Box,
-        title: str,
-        grid: list[int],
-        max_cols: int = 4,
-        scope: CommandScope = None,
+            self,
+            parent: Box,
+            title: str,
+            grid: list[int],
+            max_cols: int = 4,
+            scope: CommandScope = None,
     ) -> tuple[TitleBox, Text]:
         # grid can be [col, row] or [col, row, colspan, rowspan]
         aw, _ = self.calc_image_box_size()
@@ -1422,6 +1456,11 @@ class EngineGui(Thread, Generic[S]):
         if self.crew_dialog_overlay is None:
             self.crew_dialog_overlay = self.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
         self.show_popup(self.crew_dialog_overlay, "ENGINEER_CHATTER")
+
+    def on_conductor_actions(self) -> None:
+        if self.conductor_overlay is None:
+            self.conductor_overlay = self.create_popup("Conductor Actions", self.build_conductor_actions_body)
+        self.show_popup(self.conductor_overlay, "CONDUCTOR_CHATTER")
 
     def show_popup(self, overlay, op: str = None):
         with self._cv:
@@ -2177,20 +2216,20 @@ class EngineGui(Thread, Generic[S]):
         IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
 
     def make_keypad_button(
-        self,
-        keypad_box: Box,
-        label: str,
-        row: int,
-        col: int,
-        size: int | None = None,
-        image: str = None,
-        visible: bool = True,
-        bolded: bool = True,
-        is_ops: bool = False,
-        is_entry: bool = False,
-        titlebox_text: str = None,
-        command: Callable | bool | None = None,
-        args: list = None,
+            self,
+            keypad_box: Box,
+            label: str,
+            row: int,
+            col: int,
+            size: int | None = None,
+            image: str = None,
+            visible: bool = True,
+            bolded: bool = True,
+            is_ops: bool = False,
+            is_entry: bool = False,
+            titlebox_text: str = None,
+            command: Callable | bool | None = None,
+            args: list = None,
     ):
         if args is None:
             args = [label]
@@ -2523,10 +2562,10 @@ class EngineGui(Thread, Generic[S]):
             self.update_component_info(in_ops_mode=True)
 
     def update_component_info(
-        self,
-        tmcc_id: int = None,
-        not_found_value: str = "Not Configured",
-        in_ops_mode: bool = False,
+            self,
+            tmcc_id: int = None,
+            not_found_value: str = "Not Configured",
+            in_ops_mode: bool = False,
     ) -> None:
         self.close_popup()
         if tmcc_id is None:
@@ -2576,9 +2615,9 @@ class EngineGui(Thread, Generic[S]):
         self.image_box.hide()
 
     def update_component_image(
-        self,
-        tmcc_id: int = None,
-        key: tuple[CommandScope, int] | tuple[CommandScope, int, int] = None,
+            self,
+            tmcc_id: int = None,
+            key: tuple[CommandScope, int] | tuple[CommandScope, int, int] = None,
     ) -> None:
         if key is None and self.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             # routes and switches don't use images
@@ -2752,7 +2791,7 @@ class EngineGui(Thread, Generic[S]):
         # Calculate remaining vertical space
         if self.avail_image_height is None:
             avail_image_height = (
-                self.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
+                    self.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
             )
             self.avail_image_height = avail_image_height
         else:
@@ -2840,12 +2879,12 @@ class EngineGui(Thread, Generic[S]):
         req.send()
 
     def on_engine_command(
-        self,
-        targets: str | list[str] | CommandReq,
-        data: int = 0,
-        repeat: int = None,
-        do_ops: bool = False,
-        do_entry: bool = False,
+            self,
+            targets: str | list[str] | CommandReq,
+            data: int = 0,
+            repeat: int = None,
+            do_ops: bool = False,
+            do_entry: bool = False,
     ) -> None:
         repeat = repeat if repeat else self.repeat
         scope = self.scope
@@ -2865,16 +2904,16 @@ class EngineGui(Thread, Generic[S]):
                     self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state)
 
     def do_engine_command(
-        self,
-        tmcc_id: int | Any,
-        targets: str | list[str] | tuple[str],
-        data: int,
-        scope: CommandScope,
-        do_entry: bool,
-        do_ops: bool,
-        repeat: int,
-        state: S,
-        delay: float = 0.0,
+            self,
+            tmcc_id: int | Any,
+            targets: str | list[str] | tuple[str],
+            data: int,
+            scope: CommandScope,
+            do_entry: bool,
+            do_ops: bool,
+            repeat: int,
+            state: S,
+            delay: float = 0.0,
     ):
         if isinstance(targets, str):
             targets = [targets]
@@ -2975,10 +3014,10 @@ class EngineGui(Thread, Generic[S]):
         return prod_info
 
     def get_scaled_image(
-        self,
-        source: str | io.BytesIO,
-        preserve_height: bool = False,
-        force_lionel: bool = False,
+            self,
+            source: str | io.BytesIO,
+            preserve_height: bool = False,
+            force_lionel: bool = False,
     ) -> ImageTk.PhotoImage:
         pil_img = Image.open(source)
         orig_width, orig_height = pil_img.size
@@ -2989,11 +3028,11 @@ class EngineGui(Thread, Generic[S]):
         return img
 
     def _calc_scaled_image_size(
-        self,
-        orig_width: int,
-        orig_height: int,
-        preserve_height: bool = False,
-        force_lionel: bool = False,
+            self,
+            orig_width: int,
+            orig_height: int,
+            preserve_height: bool = False,
+            force_lionel: bool = False,
     ) -> tuple[int, int]:
         available_height, available_width = self.calc_image_box_size()
         if force_lionel:
@@ -3013,12 +3052,12 @@ class EngineGui(Thread, Generic[S]):
 
     # Example lazy loader pattern for images
     def get_image(
-        self,
-        path,
-        size=None,
-        inverse: bool = True,
-        scale: bool = False,
-        preserve_height: bool = False,
+            self,
+            path,
+            size=None,
+            inverse: bool = True,
+            scale: bool = False,
+            preserve_height: bool = False,
     ):
         if path not in self._image_cache:
             img = None
