@@ -47,6 +47,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, EngineType
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2LightingControl
 from ..protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
+from ..protocol.sequence.sequence_constants import SequenceCommandEnum
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,
     TMCC1EngineCommandEnum,
@@ -2884,6 +2885,8 @@ class EngineGui(Thread, Generic[S]):
                     cmd_enum = self.get_tmcc2_smoke_cmd(target, state)
                 else:
                     cmd_enum = TMCC2EngineOpsEnum.look_up(target)
+                    if cmd_enum is None:
+                        cmd_enum = SequenceCommandEnum.by_name(target)
             else:
                 cmd_enum = TMCC1EngineCommandEnum.by_name(target)
             print(target, cmd_enum)

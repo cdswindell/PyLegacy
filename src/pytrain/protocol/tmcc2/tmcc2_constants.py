@@ -54,13 +54,11 @@ class TMCC2EngineOpsEnum(CommandDefEnum):
 
     @classmethod
     def look_up(cls, name: str, raise_exception: bool = False) -> "TMCC2EngineOpsEnum  | None":
-        from ..sequence.sequence_constants import SequenceCommandEnum
-
         name = name.strip().upper()
         for descendant in cls.descendants():
             if hasattr(descendant, "by_name"):
                 result = cast(CommandDefEnum, descendant).by_name(name, False)
-                if isinstance(result, TMCC2EngineOpsEnum) or isinstance(result, SequenceCommandEnum):
+                if isinstance(result, TMCC2EngineOpsEnum):
                     return result
         if raise_exception:
             raise ValueError(f"TMCC2EngineOpsEnum: {name} not found")
