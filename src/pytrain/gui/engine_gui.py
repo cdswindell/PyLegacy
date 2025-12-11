@@ -1674,9 +1674,9 @@ class EngineGui(Thread, Generic[S]):
             else:
                 self.momentum.tk.config(resolution=4, showvalue=False)
 
-            _, btn = self.engine_ops_cells["FORWARD_DIRECTION"]
+            _, btn = self.engine_ops_cells[("FORWARD_DIRECTION", "e")]
             btn.bg = self._active_bg if state.is_forward else self._inactive_bg
-            _, btn = self.engine_ops_cells["REVERSE_DIRECTION"]
+            _, btn = self.engine_ops_cells[("REVERSE_DIRECTION", "e")]
             btn.bg = self._active_bg if state.is_reverse else self._inactive_bg
 
         if state is None or state.is_legacy:
