@@ -799,7 +799,7 @@ class EngineGui(Thread, Generic[S]):
 
         # set some repeating commands
         for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
-            _, btn = self.engine_ops_cells[command]
+            _, btn = self.engine_ops_cells[(command, "e")]
             btn.on_repeat = btn.on_press
             btn.repeat_interval = 0.3
 
