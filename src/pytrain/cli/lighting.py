@@ -67,6 +67,13 @@ class LightingCli(CliBaseTMCC):
         car_group.add_argument(
             "-off", action="store_const", const=TMCC2LightingControl.CAR_OFF, dest="option", help="Car cabin lights off"
         )
+        car_group.add_argument(
+            "-toggle",
+            action="store_const",
+            const=TMCC2LightingControl.CAR_TOGGLE,
+            dest="option",
+            help="Car cabin lights toggle",
+        )
 
         ditch = sp.add_parser("ditch", aliases=["di"], help="Ditch lighting options")
         ditch_group = ditch.add_mutually_exclusive_group()

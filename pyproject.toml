@@ -82,10 +82,10 @@ Homepage = "https://github.com/cdswindell/PyLegacy"
 Source = "https://github.com/cdswindell/PyLegacy"
 Issues = "https://github.com/cdswindell/PyLegacy/issues"
 
+[tool.ruff]
+line-length = 120
+extend-exclude = ["test", "scripts"]
+
 [tool.ruff.lint]
 select = ["E", "F", "W"]
 ignore = ["F403", "F405"]
-line-length = 120
-
-[tool.ruff]
-extend-exclude = ["test", "scripts"]
