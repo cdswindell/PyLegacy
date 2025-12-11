@@ -2889,7 +2889,6 @@ class EngineGui(Thread, Generic[S]):
                         cmd_enum = SequenceCommandEnum.by_name(target)
             else:
                 cmd_enum = TMCC1EngineCommandEnum.by_name(target)
-            print(target, cmd_enum)
             if cmd_enum:
                 cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
                 repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
