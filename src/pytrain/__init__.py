@@ -107,6 +107,9 @@ from .protocol.sequence.sequence_req import (
 from .protocol.sequence.set_speed_req import (
     SetSpeedReq,  # noqa: F401
 )
+from .protocol.sequence.steward_chatter_req import (
+    StewardChatterReq,  # noqa: F401
+)
 from .protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,  # noqa: F401
     TMCC1EngineCommandEnum,  # noqa: F401

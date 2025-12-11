@@ -70,3 +70,4 @@ class SequenceCommandEnum(CommandDefEnum):
     RAMPED_SPEED_DIALOG_SEQ = SequenceDef(3, d_max=199)
     RAMPED_SPEED_SEQ = SequenceDef(2, d_max=199)
     SET_SPEED_RPM = SequenceDef(8, d_max=199)
+    STEWARD_CHATTER = SequenceDef(9)

@@ -60,7 +60,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
 
         # if there is no state information, treat this as an ABSOLUTE_SPEED req
         if address == DEFAULT_ADDRESS or not isinstance(self.state, EngineState) or self.state.speed is None:
-            if tower and engr and dialog is True:
+            if tower and engr and dialog:
                 from .speed_req import SpeedReq
 
                 sr = SpeedReq(address, speed, scope, self.is_tmcc1)
@@ -85,7 +85,8 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 TMCC2EngineCommandEnum.ABSOLUTE_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
             )
             # issue tower dialog, if requested
-            if tower and dialog is True:
+            if tower and dialog:
+                # noinspection PyUnreachableCode
                 self.add(tower, address, scope=scope)
             # use current speed and momentum to build up or down speed
             cs = self.state.speed
@@ -141,7 +142,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             else:
                 self.add(speed_enum, address, speed_req, scope)
             # issue engineer dialog, if requested
-            if engr and dialog is True:
+            if engr and dialog:
                 if delay < 2.00:
                     delay = 2.50
                 self.add(engr, address, scope=scope, delay=delay)
