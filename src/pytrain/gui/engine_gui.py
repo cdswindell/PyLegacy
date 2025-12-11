@@ -105,46 +105,50 @@ ENGINE_OPS_LAYOUT = [
         ("VOLUME_UP", "vol-up.jpg"),
         [
             ("ENGINEER_CHATTER", "walkie_talkie.jpg", "", "Crew...", "e"),
-            ("ENGINEER_CHATTER", "conductor.jpg", "", "Conductor...", "p"),
         ],
         [
             ("RPM_UP", "rpm-up.jpg", "", "", "d"),
             ("LET_OFF_LONG, NUMBER_6", "let-off.jpg", "", "", "s"),
-            ("CONDUCTOR_NEXT_STOP", "next-stop.jpg", "", "", "p"),
+            ("ENGINEER_CHATTER", "conductor.jpg", "", "Conductor...", "p"),
         ],
         [
             ("BLOW_HORN_ONE", "horn.jpg", "", "Horn...", "d"),
             ("BLOW_HORN_ONE", "whistle.jpg", "", "Whistle...", "s"),
-            ("NUMBER_9", "car-lights-on.jpg", "", "", "p"),
+            ("CONDUCTOR_NEXT_STOP", "next-stop.jpg", "", "", "p"),
         ],
     ],
     [
         ("VOLUME_DOWN", "vol-down.jpg"),
         [
             ("TOWER_CHATTER", "tower.jpg", "", "Tower...", "e"),
-            ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
         ],
         [
             ("RPM_DOWN", "rpm-down.jpg", "", "", "d"),
             ("WATER_INJECTOR, NUMBER_5", "water-inject.jpg", "", "", "s"),
-            ("CONDUCTOR_NEXT_STOP", "steward.jpg", "Steward...", "", "p"),
+            ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
         ],
         [
             ("RING_BELL", "bell.jpg", "e"),
-            ("NUMBER_8", "car-lights-off.jpg", "", "", "p"),
+            ("STEWARD_CHATTER", "steward.jpg", "Steward...", "", "p"),
         ],
     ],
     [
         ("FRONT_COUPLER", "front-coupler.jpg"),
-        (SMOKE_ON, "smoke-up.jpg"),
-        ("BOOST_SPEED", "boost.jpg", "", "Boost"),
-        ("FORWARD_DIRECTION", "", FWD_KEY),
+        (SMOKE_ON, "smoke-up.jpg", "", "", "e"),
+        ("BOOST_SPEED", "boost.jpg", "", "Boost", "e"),
+        [
+            ("FORWARD_DIRECTION", "", FWD_KEY, "", "e"),
+            ("NUMBER_9", "car-lights-on.jpg", "", "", "p"),
+        ],
     ],
     [
         ("REAR_COUPLER", "rear-coupler.jpg"),
-        (SMOKE_OFF, "smoke-down.jpg"),
-        ("BRAKE_SPEED", "brake.jpg", "", "Brake"),
-        ("REVERSE_DIRECTION", "", REV_KEY),
+        (SMOKE_OFF, "smoke-down.jpg", "", "", "e"),
+        ("BRAKE_SPEED", "brake.jpg", "", "Brake", "e"),
+        [
+            ("REVERSE_DIRECTION", "", REV_KEY, "", "e"),
+            ("NUMBER_8", "car-lights-auto.jpg", "", "", "p"),
+        ],
     ],
     [
         ("AUX1_OPTION_ONE", "", AUX1_KEY, "Sequence"),
