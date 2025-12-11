@@ -129,7 +129,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("RING_BELL", "bell.jpg", "e"),
-            ("STEWARD_CHATTER", "steward.jpg", "Steward...", "", "p"),
+            ("STEWARD_CHATTER", "steward.jpg", "", "Steward...", "p"),
         ],
     ],
     [
@@ -147,7 +147,7 @@ ENGINE_OPS_LAYOUT = [
         ("BRAKE_SPEED", "brake.jpg", "", "Brake", "e"),
         [
             ("REVERSE_DIRECTION", "", REV_KEY, "", "e"),
-            ("NUMBER_8", "car-lights-auto.jpg", "", "", "p"),
+            ("NUMBER_8", "car-lights-off.jpg", "", "", "p"),
         ],
     ],
     [
