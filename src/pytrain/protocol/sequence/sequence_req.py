@@ -69,6 +69,15 @@ class SequenceReq(CommandReq, Sequence):
     def __getitem__(self, index) -> SequencedReq:
         return self._requests[index]
 
+    def __setitem__(self, index: int, value: SequencedReq | CommandReq) -> None:
+        if isinstance(value, SequencedReq):
+            pass
+        elif isinstance(value, CommandReq):
+            value = SequencedReq(value)
+        else:
+            raise ValueError(f"Invalid value type: {type(value)}")
+        self._requests[index] = value
+
     @property
     def as_bytes(self) -> bytes:
         self._recalculate()

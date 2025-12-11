@@ -7,6 +7,7 @@
 #
 import random
 
+from ..command_req import CommandReq
 from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
 from .sequence_constants import SequenceCommandEnum
@@ -23,8 +24,7 @@ class StewardChatterReq(SequenceReq):
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
         super().__init__(SequenceCommandEnum.STEWARD_CHATTER, address, scope)
-        s_enum = self._dialog
-        self.add(s_enum, address, data, scope)
+        self.add(self._dialog, address, data, scope)
 
     @property
     def _dialog(self) -> TMCC2RailSoundsDialogControl:
@@ -38,7 +38,7 @@ class StewardChatterReq(SequenceReq):
         )
 
     def _on_before_send(self) -> None:
-        pass
+        self[0] = CommandReq.build(self._dialog, self.address, 0, self.scope)
 
 
 SequenceCommandEnum.STEWARD_CHATTER.value.register_cmd_class(StewardChatterReq)
