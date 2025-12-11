@@ -110,7 +110,7 @@ ENGINE_OPS_LAYOUT = [
         [
             ("RPM_UP", "rpm-up.jpg", "", "", "d"),
             ("LET_OFF_LONG, NUMBER_6", "let-off.jpg", "", "", "s"),
-            ("CONDUCTOR_NEXT_STOP, NUMBER_6", "next-stop.jpg", "", "", "p"),
+            ("CONDUCTOR_NEXT_STOP", "next-stop.jpg", "", "", "p"),
         ],
         [
             ("BLOW_HORN_ONE", "horn.jpg", "", "Horn...", "d"),
@@ -120,9 +120,19 @@ ENGINE_OPS_LAYOUT = [
     ],
     [
         ("VOLUME_DOWN", "vol-down.jpg"),
-        ("TOWER_CHATTER", "tower.jpg", "", "Tower..."),
-        [("RPM_DOWN", "rpm-down.jpg", "", "", "d"), ("WATER_INJECTOR, NUMBER_5", "water-inject.jpg", "", "", "s")],
-        ("RING_BELL", "bell.jpg"),
+        [
+            ("TOWER_CHATTER", "tower.jpg", "", "Tower...", "e"),
+            ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
+        ],
+        [
+            ("RPM_DOWN", "rpm-down.jpg", "", "", "d"),
+            ("WATER_INJECTOR, NUMBER_5", "water-inject.jpg", "", "", "s"),
+            ("CONDUCTOR_NEXT_STOP", "steward.jpg", "Steward...", "", "p"),
+        ],
+        [
+            ("RING_BELL", "bell.jpg", "e"),
+            ("NUMBER_8", "car-lights-off.jpg", "", "", "p"),
+        ],
     ],
     [
         ("FRONT_COUPLER", "front-coupler.jpg"),
@@ -773,7 +783,7 @@ class EngineGui(Thread, Generic[S]):
         _, btn = self.engine_ops_cells["AUX2_OPTION_ONE"]
         btn.on_hold = self.on_lights
 
-        _, btn = self.engine_ops_cells["TOWER_CHATTER"]
+        _, btn = self.engine_ops_cells[("TOWER_CHATTER", "e")]
         btn.on_hold = self.on_tower_dialog
 
         _, btn = self.engine_ops_cells[("ENGINEER_CHATTER", "e")]
