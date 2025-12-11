@@ -23,6 +23,7 @@ from ..protocol.constants import (
     CRANE_TYPE,
     DIESEL_TYPE,
     ELECTRIC_TYPE,
+    FREIGHT_TYPE,
     LEGACY_CONTROL_TYPE,
     LOCO_CLASS,
     LOCO_TRACK_CRANE,
@@ -600,6 +601,10 @@ class EngineState(ComponentState):
     @property
     def is_passenger(self) -> bool:
         return self.comp_data and self.comp_data.engine_type in PASSENGER_TYPE
+
+    @property
+    def is_freight(self) -> bool:
+        return self.comp_data and self.comp_data.engine_type in FREIGHT_TYPE
 
     @property
     def is_acela(self) -> bool:

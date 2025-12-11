@@ -103,9 +103,20 @@ ENTRY_LAYOUT = [
 ENGINE_OPS_LAYOUT = [
     [
         ("VOLUME_UP", "vol-up.jpg"),
-        ("ENGINEER_CHATTER", "walkie_talkie.jpg", "", "Crew..."),
-        [("RPM_UP", "rpm-up.jpg", "", "", "d"), ("LET_OFF_LONG, NUMBER_6", "let-off.jpg", "", "", "s")],
-        [("BLOW_HORN_ONE", "horn.jpg", "", "Horn...", "d"), ("BLOW_HORN_ONE", "whistle.jpg", "", "Whistle...", "s")],
+        [
+            ("ENGINEER_CHATTER", "walkie_talkie.jpg", "", "Crew...", "e"),
+            ("ENGINEER_CHATTER", "conductor.jpg", "", "Conductor...", "p"),
+        ],
+        [
+            ("RPM_UP", "rpm-up.jpg", "", "", "d"),
+            ("LET_OFF_LONG, NUMBER_6", "let-off.jpg", "", "", "s"),
+            ("CONDUCTOR_NEXT_STOP, NUMBER_6", "next-stop.jpg", "", "", "p"),
+        ],
+        [
+            ("BLOW_HORN_ONE", "horn.jpg", "", "Horn...", "d"),
+            ("BLOW_HORN_ONE", "whistle.jpg", "", "Whistle...", "s"),
+            ("NUMBER_9", "car-lights-on.jpg", "", "", "p"),
+        ],
     ],
     [
         ("VOLUME_DOWN", "vol-down.jpg"),
@@ -481,8 +492,11 @@ class EngineGui(Thread, Generic[S]):
         self.tower_dialog_overlay = self.crew_dialog_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
-        self.diesel_btns = set()
-        self.steam_btns = set()
+        self._engine_btns = set()
+        self._passenger_btns = set()
+        self._diesel_btns = set()
+        self._steam_btns = set()
+        self._freight_btns = set()
         self._quill_after_id = None
         self.tower_dialog_box = self.crew_dialog_box = None
         self.can_hack_combo = False  # don't ask
@@ -731,10 +745,14 @@ class EngineGui(Thread, Generic[S]):
 
                     # if the key is marked as engine type-specific, save as appropriate
                     if len(op) > 4 and op[4]:
-                        if op[4] == "d":
-                            self.diesel_btns.add(cell)
+                        if op[4] == "e":
+                            self._engine_btns.add(cell)
+                        elif op[4] == "p":
+                            self._passenger_btns.add(cell)
+                        elif op[4] == "d":
+                            self._diesel_btns.add(cell)
                         elif op[4] == "s":
-                            self.steam_btns.add(cell)
+                            self._steam_btns.add(cell)
                         key = (cmd, op[4])
                     else:
                         key = cmd
@@ -2380,18 +2398,46 @@ class EngineGui(Thread, Generic[S]):
             self.set_btn.show()
 
     def show_diesel_keys(self) -> None:
-        for btn in self.steam_btns:
-            btn.hide()
-        for btn in self.diesel_btns:
+        for btn in self._engine_btns:
             btn.show()
+        for btn in self._diesel_btns:
+            btn.show()
+        for btn in self._passenger_btns:
+            btn.hide()
+        for btn in self._steam_btns:
+            btn.hide()
         self.horn_title_box.text = "Horn"
 
     def show_steam_keys(self) -> None:
-        for btn in self.diesel_btns:
-            btn.hide()
-        for btn in self.steam_btns:
+        for btn in self._engine_btns:
             btn.show()
+        for btn in self._steam_btns:
+            btn.show()
+        for btn in self._passenger_btns:
+            btn.hide()
+        for btn in self._diesel_btns:
+            btn.hide()
         self.horn_title_box.text = "Whistle"
+
+    def show_passenger_keys(self) -> None:
+        for btn in self._passenger_btns:
+            btn.show()
+        for btn in self._engine_btns:
+            btn.hide()
+        for btn in self._diesel_btns:
+            btn.show()
+        for btn in self._steam_btns:
+            btn.hide()
+
+    def show_freight_keys(self) -> None:
+        for btn in self._freight_btns:
+            btn.show()
+        for btn in self._engine_btns:
+            btn.hide()
+        for btn in self._diesel_btns:
+            btn.show()
+        for btn in self._steam_btns:
+            btn.hide()
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
         self._in_entry_mode = False
@@ -2407,19 +2453,23 @@ class EngineGui(Thread, Generic[S]):
                 self._active_engine_state = state = self._state_store.get_state(
                     self.scope, self._scope_tmcc_ids[self.scope], False
                 )
+            self.on_new_engine(state, ops_mode_setup=True)
+            if self.keypad_box.visible:
+                self.keypad_box.hide()
             # assume it's a diesel
             self.show_diesel_keys()
-            self.on_new_engine(state, ops_mode_setup=True)
+            if state:  # Display motive-appropriate control keys
+                self.reset_btn.enable()
+                if state.is_steam:
+                    self.show_steam_keys()
+                elif state.is_passenger:
+                    self.show_passenger_keys()
+                elif state.is_freight:
+                    self.show_freight_keys()
             if not self.controller_box.visible:
                 self.controller_box.show()
             if not self.controller_keypad_box.visible:
                 self.controller_keypad_box.show()
-            if self.keypad_box.visible:
-                self.keypad_box.hide()
-            if state:
-                self.reset_btn.enable()
-                if state.is_steam:
-                    self.show_steam_keys()
         elif self.scope == CommandScope.ROUTE:
             self.on_new_route()
             self.fire_route_cell.show()
