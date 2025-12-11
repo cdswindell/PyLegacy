@@ -776,7 +776,7 @@ class EngineGui(Thread, Generic[S]):
         _, btn = self.engine_ops_cells["TOWER_CHATTER"]
         btn.on_hold = self.on_tower_dialog
 
-        _, btn = self.engine_ops_cells["ENGINEER_CHATTER"]
+        _, btn = self.engine_ops_cells[("e", "ENGINEER_CHATTER")]
         btn.on_hold = self.on_crew_dialog
 
         for loco_type in ["d", "s"]:
