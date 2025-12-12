@@ -824,6 +824,9 @@ class EngineGui(Thread, Generic[S]):
         _, btn = self.engine_ops_cells[("ENGINEER_CHATTER", "p")]
         btn.on_hold = self.on_conductor_actions
 
+        _, btn = self.engine_ops_cells[("STATION_CHATTER", "p")]
+        btn.on_hold = self.on_station_dialogs
+
         for loco_type in ["d", "s"]:
             _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
             btn.on_hold = self.show_horn_control
@@ -1205,6 +1208,37 @@ class EngineGui(Thread, Generic[S]):
         else:
             cb.select_default()
 
+    def build_button_panel(
+        self,
+        body: Box,
+        buttons: list[list[tuple]],
+    ) -> Box:
+        button_box = Box(body, layout="grid", border=1)
+
+        for r, kr in enumerate(buttons):
+            for c, button in enumerate(kr):
+                if isinstance(button, tuple):
+                    op = button[0]
+                    label = button[1]
+                else:
+                    raise ValueError(f"Invalid button: {button} ({type(button)})")
+                cell, nb = self.make_keypad_button(
+                    button_box,
+                    label,
+                    r,
+                    c,
+                    bolded=True,
+                    size=self.s_18,
+                    command=self.on_engine_command,
+                    args=[op],
+                )
+                self._elements.add(nb)
+
+        return button_box
+
+    def build_station_dialogs_body(self, body: Box):
+        self.station_dialog_box = self.build_button_panel(body, STATION_DIALOGS)
+
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
         width = int(3 * self.button_size)
@@ -1459,6 +1493,11 @@ class EngineGui(Thread, Generic[S]):
         if self.conductor_overlay is None:
             self.conductor_overlay = self.create_popup("Conductor Actions", self.build_conductor_actions_body)
         self.show_popup(self.conductor_overlay, "ENGINEER_CHATTER", "p")
+
+    def on_station_dialogs(self) -> None:
+        if self.station_overlay is None:
+            self.station_overlay = self.create_popup("Station Dialogs", self.build_station_dialogs_body)
+        self.show_popup(self.station_overlay, "STATION_CHATTER", "p")
 
     def show_popup(self, overlay, op: str = None, modifier: str = None):
         with self._cv:
