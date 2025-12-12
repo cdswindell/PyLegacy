@@ -1448,22 +1448,23 @@ class EngineGui(Thread, Generic[S]):
     def on_tower_dialog(self) -> None:
         if self.tower_dialog_overlay is None:
             self.tower_dialog_overlay = self.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
-        self.show_popup(self.tower_dialog_overlay, "TOWER_CHATTER")
+        self.show_popup(self.tower_dialog_overlay, "TOWER_CHATTER", "e")
 
     def on_crew_dialog(self) -> None:
         if self.crew_dialog_overlay is None:
             self.crew_dialog_overlay = self.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
-        self.show_popup(self.crew_dialog_overlay, "ENGINEER_CHATTER")
+        self.show_popup(self.crew_dialog_overlay, "ENGINEER_CHATTER", "e")
 
     def on_conductor_actions(self) -> None:
         if self.conductor_overlay is None:
             self.conductor_overlay = self.create_popup("Conductor Actions", self.build_conductor_actions_body)
-        self.show_popup(self.conductor_overlay, "CONDUCTOR_CHATTER")
+        self.show_popup(self.conductor_overlay, "ENGINEER_CHATTER", "p")
 
-    def show_popup(self, overlay, op: str = None):
+    def show_popup(self, overlay, op: str = None, modifier: str = None):
         with self._cv:
             if op:
-                _, btn = self.engine_ops_cells[op]
+                key = (op, modifier) if modifier else op
+                _, btn = self.engine_ops_cells[key]
                 btn.restore_color_state()
             if self.controller_box.visible:
                 self.controller_box.hide()
