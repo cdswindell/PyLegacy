@@ -105,6 +105,7 @@ ENGINE_OPS_LAYOUT = [
         ("VOLUME_UP", "vol-up.jpg"),
         [
             ("ENGINEER_CHATTER", "walkie_talkie.jpg", "", "Crew...", "e"),
+            ("NUMBER_3", "sound-on.jpg", "", "", "e"),
         ],
         [
             ("RPM_UP", "rpm-up.jpg", "", "", "d"),
@@ -121,6 +122,7 @@ ENGINE_OPS_LAYOUT = [
         ("VOLUME_DOWN", "vol-down.jpg"),
         [
             ("TOWER_CHATTER", "tower.jpg", "", "Tower...", "e"),
+            ("NUMBER_5", "sound-off.jpg", "", "", "e"),
         ],
         [
             ("RPM_DOWN", "rpm-down.jpg", "", "", "d"),
