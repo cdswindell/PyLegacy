@@ -1146,12 +1146,12 @@ class EngineGui(Thread, Generic[S]):
         self.steam_lights_box = self.make_combo_panel(body, STEAM_LIGHTS)
         self.steam_lights_box.hide()
 
-    def make_combo_panel(self, body: Box, options: dict) -> Box:
+    def make_combo_panel(self, body: Box, options: dict, min_width: int = 10) -> Box:
         combo_box = Box(body, layout="grid", border=1)
 
         # How many combo boxes do we have; display them in 2 columns:
         boxes_per_column = int(math.ceil(len(options) / 2))
-        width = max(map(len, options.keys())) - 1
+        width = max(max(map(len, options.keys())) - 1, min_width)
 
         for idx, (title, values) in enumerate(options.items()):
             # place 4 per column
