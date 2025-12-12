@@ -13,6 +13,7 @@ import logging
 from abc import ABC, ABCMeta, abstractmethod
 from typing import Any, Callable, Generic, TypeVar, cast
 
+from .components import ConsistComponent, RouteComponent
 from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.pdi_req import PdiReq
 from ..protocol.command_req import CommandReq
@@ -20,7 +21,6 @@ from ..protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..utils.text_utils import title
-from .components import ConsistComponent, RouteComponent
 
 log = logging.getLogger(__name__)
 
@@ -189,7 +189,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x09: CompDataHandler("_train_brake"),
     0x0A: CompDataHandler("_unk_a"),
     0x0B: CompDataHandler("_unk_b"),
-    0x0C: CompDataHandler("_rpm_labor"),
+    0x0C: CompDataHandler("_rpm_labor"),  # Sound on/off on passenger and freight cars
     0x0D: CompDataHandler("_fuel_level"),
     0x0E: CompDataHandler("_water_level"),
     0x0F: CompDataHandler("_unk_f"),
@@ -368,7 +368,7 @@ REQUEST_TO_UPDATES_MAP = {
 #
 # Additionally, some requests require a query to the Base 3 to determine the
 # current state of the component. This map defines the fields that must be
-# queried, and the corresponding update fields that must be set.
+# queried and the corresponding update fields that must be set.
 #
 REQUEST_TO_QUERIES_MAP = {}
 
@@ -675,7 +675,7 @@ class CompData(ABC, Generic[R]):
 
     def __setattr__(self, name: str, value: Any) -> None:
         # hack for target_speed; have to scale it if not legacy
-        # if value and not self.is_legacy and "target_speed" in name :
+        # if value and not self.is_legacy and "target_speed" in name:
         #     value = int(round(value * 0.15577889))  # scale by 31/199
         if name.startswith("_"):
             super().__setattr__(name, value)
