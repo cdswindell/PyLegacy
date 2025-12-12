@@ -306,8 +306,8 @@ STEWARD_DIALOGS = [
 ]
 
 STATION_DIALOGS = [
-    [("STEWARD_WELCOME_ABOARD", "Welcome\nAboard"), ("STEWARD_LOUNGE_CAR_OPEN", "Lounge Car\nOpen")],
-    [("STEWARD_FIRST_SEATING", "First\nSeating"), ("STEWARD_SECOND_SEATING", "Second\nSeating")],
+    [("STATION_ARRIVING", "Arriving"), ("STATION_ARRIVED", "Arrived")],
+    [("STATION_BOARDING", "Boarding"), ("STATION_DEPARTING", "Departing")],
 ]
 
 REPEAT_EXCEPTIONS = {
@@ -1214,6 +1214,7 @@ class EngineGui(Thread, Generic[S]):
         buttons: list[list[tuple]],
     ) -> Box:
         button_box = Box(body, layout="grid", border=1)
+        width = int(3 * self.button_size)
 
         for r, kr in enumerate(buttons):
             for c, button in enumerate(kr):
@@ -1232,12 +1233,17 @@ class EngineGui(Thread, Generic[S]):
                     command=self.on_engine_command,
                     args=[op],
                 )
+                cell.tk.config(width=width)
+                nb.tk.config(width=width)
                 self._elements.add(nb)
 
         return button_box
 
     def build_station_dialogs_body(self, body: Box):
         self.station_dialog_box = self.build_button_panel(body, STATION_DIALOGS)
+
+    def build_steward_dialogs_body(self, body: Box):
+        self.steward_dialog_box = self.build_button_panel(body, STEWARD_DIALOGS)
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
