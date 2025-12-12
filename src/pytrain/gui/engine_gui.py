@@ -805,7 +805,7 @@ class EngineGui(Thread, Generic[S]):
             row += 1
 
         # Postprocess some buttons
-        _, btn = self.engine_ops_cells[MOM_TB]
+        _, btn = self.engine_ops_cells[(MOM_TB, "e")]
         btn.text_size = self.s_12
         btn.update_command(self.toggle_momentum_train_brake, [btn])
 
@@ -1559,7 +1559,7 @@ class EngineGui(Thread, Generic[S]):
         if btn is None:  # called from horn handler
             # restore what was there before; if swap button says "Momentum"
             # then show Train Brake, and vice versa
-            _, btn = self.engine_ops_cells[MOM_TB]
+            _, btn = self.engine_ops_cells[(MOM_TB, "e")]
             if btn.text == MOMENTUM:
                 self.momentum_box.visible = False
                 self.brake_box.visible = True
