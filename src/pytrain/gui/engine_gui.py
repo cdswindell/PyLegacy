@@ -154,7 +154,7 @@ ENGINE_OPS_LAYOUT = [
         ("AUX1_OPTION_ONE", "", AUX1_KEY, "Sequence"),
         ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights..."),
         ("AUX3_OPTION_ONE", "", AUX3_KEY),
-        (MOM_TB, "", MOMENTUM),
+        (MOM_TB, "", MOMENTUM, "", "e"),
     ],
 ]
 
@@ -826,6 +826,9 @@ class EngineGui(Thread, Generic[S]):
 
         _, btn = self.engine_ops_cells[("TOWER_CHATTER", "p")]
         btn.on_hold = self.on_station_dialogs
+
+        _, btn = self.engine_ops_cells[("STEWARD_CHATTER", "p")]
+        btn.on_hold = self.on_steward_dialogs
 
         for loco_type in ["d", "s"]:
             _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
@@ -1504,6 +1507,11 @@ class EngineGui(Thread, Generic[S]):
         if self.station_overlay is None:
             self.station_overlay = self.create_popup("Station Dialogs", self.build_station_dialogs_body)
         self.show_popup(self.station_overlay, "TOWER_CHATTER", "p")
+
+    def on_steward_dialogs(self) -> None:
+        if self.steward_overlay is None:
+            self.steward_overlay = self.create_popup("Steward Dialogs", self.build_steward_dialogs_body)
+        self.show_popup(self.steward_overlay, "STEWARD_CHATTER", "p")
 
     def show_popup(self, overlay, op: str = None, modifier: str = None):
         with self._cv:
