@@ -134,8 +134,14 @@ ENGINE_OPS_LAYOUT = [
     ],
     [
         ("FRONT_COUPLER", "front-coupler.jpg"),
-        (SMOKE_ON, "smoke-up.jpg", "", "", "e"),
-        ("BOOST_SPEED", "boost.jpg", "", "Boost", "e"),
+        [
+            (SMOKE_ON, "smoke-up.jpg", "", "", "e"),
+            ("STOCK_OPTION_ONE_ON", "stock-a-on.jpg", "", "", "p"),
+        ],
+        [
+            ("BOOST_SPEED", "boost.jpg", "", "Boost", "e"),
+            ("STOCK_OPTION_TWO_ON", "stock-b-on.jpg", "", "", "p"),
+        ],
         [
             ("FORWARD_DIRECTION", "", FWD_KEY, "", "e"),
             ("NUMBER_9", "car-lights-on.jpg", "", "", "p"),
@@ -143,8 +149,14 @@ ENGINE_OPS_LAYOUT = [
     ],
     [
         ("REAR_COUPLER", "rear-coupler.jpg"),
-        (SMOKE_OFF, "smoke-down.jpg", "", "", "e"),
-        ("BRAKE_SPEED", "brake.jpg", "", "Brake", "e"),
+        [
+            (SMOKE_OFF, "smoke-down.jpg", "", "", "e"),
+            ("STOCK_OPTION_ONE_OFF", "stock-a-off.jpg", "", "", "p"),
+        ],
+        [
+            ("BRAKE_SPEED", "brake.jpg", "", "Brake", "e"),
+            ("STOCK_OPTION_TWO_OFF", "stock-b-off.jpg", "", "", "p"),
+        ],
         [
             ("REVERSE_DIRECTION", "", REV_KEY, "", "e"),
             ("NUMBER_8", "car-lights-off.jpg", "", "", "p"),
