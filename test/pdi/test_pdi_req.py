@@ -5,9 +5,6 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-
-# test/pdi/test_pdi_req_ai.py
-
 from src.pytrain.pdi.constants import PDI_EOP, PDI_SOP, PDI_STF, PdiCommand
 from src.pytrain.pdi.pdi_req import PdiReq, PingReq, TmccReq
 from src.pytrain.protocol.command_req import CommandReq

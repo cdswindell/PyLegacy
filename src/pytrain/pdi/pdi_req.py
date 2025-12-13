@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 from abc import ABC, ABCMeta, abstractmethod
 from time import sleep
@@ -12,6 +13,8 @@ if sys.version_info >= (3, 11):
 
 from ..protocol.constants import DEFAULT_DURATION_INTERVAL_MSEC, MINIMUM_DURATION_INTERVAL_MSEC, CommandScope
 from .constants import PDI_EOP, PDI_SOP, PDI_STF, CommonAction, PdiAction, PdiCommand
+
+log = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=PdiAction)
 
@@ -244,6 +247,15 @@ class PdiReq(ABC):
         if num_ffs == len(data):
             return None
         return name
+
+    @staticmethod
+    def decode_int(data: bytes) -> int:
+        txt = PdiReq.decode_text(data)
+        try:
+            return int(txt)
+        except ValueError:
+            log.warning(f"Expected int; got: {data}")
+            return 0
 
     @staticmethod
     def encode_text(text: str, field_len: int) -> bytes | None:

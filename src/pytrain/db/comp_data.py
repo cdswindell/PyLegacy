@@ -227,7 +227,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0xB8: CompDataHandler(
         "_tmcc_id",
         4,
-        lambda t: int(PdiReq.decode_text(t)),
+        lambda t: int(PdiReq.decode_int(t)),
         lambda t: PdiReq.encode_text(str(t).zfill(4), 4),
         True,
     ),
