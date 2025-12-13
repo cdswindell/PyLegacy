@@ -61,7 +61,13 @@ To prevent conflicts between Python applications that use different versions of 
 libraries, most platforms (macOS and Raspberry) require new python packages to be installed into
 [virtual environments](https://developer.vonage.com/en/blog/a-comprehensive-guide-on-working-with-python-virtual-environments#using-venv).
 This step only needs to be done once, but it does need to happen on every system
-where __PyTrain__ will be installed (macOS/Raspberry Pi/Linux example):
+where __PyTrain__ will be installed (macOS/Raspberry Pi/Linux example).
+
+*Note: If you have installed Raspberry Pi OS Trixie, you will need to use Python 3.13 and must first run this command:*
+
+```aiignore
+sudo apt install liblgpio-dev swig
+```
 
 * Open a Terminal shell window and navigate to the folder/directory where you will install __PyTrain__
 * Create the new virtual environment with the command:
@@ -522,9 +528,9 @@ you to operate engines, control switches and accessories, and fire custom routes
 
 `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
 
-- Python 3.12.6 (your version may be newer):
+- Python 3.13 (your version may be newer):
 
-`brew install python@3.12`
+`brew install python@3.13`
 
 - gh:
 
@@ -536,21 +542,15 @@ you to operate engines, control switches and accessories, and fire custom routes
 
 #### Raspberry Pi and Pi Zero W 2
 
-- Python 3.11, gh, and git:
+- Python 3.13, gh, and git:
 
 ```
 sudo apt update
 sudo apt upgrade
+sudo apt install liblgpio-dev swig
 
-sudo apt install python3
 sudo apt install gh
 sudo apt install git
-```
-
-For the Raspberry Pi Zero W (**NOT** the 2 W):
-
-```
-sudo apt-get install swig
 ```
 
 **Note**: some or all of this software may already be installed on your pi
@@ -560,8 +560,11 @@ sudo apt-get install swig
 ```
 cd /where/you/like/your/source
 
-# Make sure this says 3.11. or greater; don't keep going in these directions until it does
+# Make sure this says 3.13. or greater; don't keep going in these directions until it does
 python3 --version
+
+# Install library required for GPIO access on Raspberry Pi under Python 3.13
+sudo apt install liblgpio-dev swig
 
 # authenticate gh/git:
 gh auth login
