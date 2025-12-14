@@ -253,6 +253,9 @@ class PdiReq(ABC):
         txt = PdiReq.decode_text(data)
         try:
             return int(txt)
+        except TypeError:
+            log.warning(f"Expected int; got: {data}")
+            return 0
         except ValueError:
             log.warning(f"Expected int; got: {data}")
             return 0

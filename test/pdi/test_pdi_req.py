@@ -57,10 +57,16 @@ def test_decode_int_valid_and_invalid():
     assert PdiReq.decode_int(b"ABC\x00") == 0
 
 
-def test_decode_int_all_ffs_raises_type_error():
+def test_decode_int_all_ffs_returns_zero():
+    # decode_text returns None for all-0xFF fields; int(None) raises TypeError (not caught)
+    assert PdiReq.decode_int(b"\xff\xff\xff\xff") == 0
+
+
+def test_decode_int_none_raises_type_error():
     # decode_text returns None for all-0xFF fields; int(None) raises TypeError (not caught)
     with pytest.raises(TypeError):
-        _ = PdiReq.decode_int(b"\xff\xff\xff\xff")
+        # noinspection PyTypeChecker
+        _ = PdiReq.decode_int(None)
 
 
 def test_scope_record_length_map():
