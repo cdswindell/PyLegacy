@@ -70,6 +70,12 @@ class IrdaState(LcsState):
                         # change engine/train speed, based on the direction of travel
                         self._last_engine_id = self.harvest_tmcc_id(command)
                         self._last_train_id = command.train_id
+                        # check train exists
+                        if (
+                            self._last_train_id
+                            and ComponentStateStore.get_state(CommandScope.TRAIN, self._last_train_id, False) is None
+                        ):
+                            self._last_train_id = 0
                         self._last_dir = command.direction
                         self._product_id = command.product_id
                         if log.isEnabledFor(logging.DEBUG):
@@ -90,25 +96,28 @@ class IrdaState(LcsState):
                             if rr_speed:
                                 address = None
                                 scope = CommandScope.ENGINE
-                                if command.train_id:
-                                    address = command.train_id
+                                if self._last_train_id:
+                                    address = self._last_train_id
                                     scope = CommandScope.TRAIN
+                                elif self._last_engine_id:
+                                    address = self._last_engine_id
                                 elif command.engine_id:
                                     address = command.engine_id
-                                state = ComponentStateStore.get_state(scope, address)
+                                state = ComponentStateStore.get_state(scope, address, False)
                                 if state is not None:
                                     from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
-                                    # noinspection PyTypeChecker
                                     RampedSpeedReq(address, rr_speed, scope=scope).send()
                             # send update to Train and component engines as well
                             orig_scope = command.scope
                             orig_tmcc_id = command.tmcc_id
                             try:
-                                if command.engine_id:
-                                    engine_state = ComponentStateStore.get_state(CommandScope.ENGINE, command.engine_id)
+                                if self._last_engine_id:
+                                    engine_state = ComponentStateStore.get_state(
+                                        CommandScope.ENGINE, self._last_engine_id
+                                    )
                                     command.scope = CommandScope.ENGINE
-                                    command.tmcc_id = command.engine_id
+                                    command.tmcc_id = self._last_engine_id
                                     engine_state.update(command)
                             finally:
                                 command.scope = orig_scope
@@ -183,7 +192,7 @@ class IrdaState(LcsState):
     def harvest_tmcc_id(command) -> int:
         from ..db.component_state_store import ComponentStateStore
 
-        tmcc_id = command.tmcc_id
+        tmcc_id = command.engine_id
         if tmcc_id == 1 and command.number and command.number.isdigit():
             road_number = int(command.number)
             state = ComponentStateStore.get_state(CommandScope.ENGINE, road_number, False)

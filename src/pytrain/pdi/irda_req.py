@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import Dict
 
-from ..protocol.constants import CommandScope, Mixins
 from .constants import PDI_EOP, PDI_SOP, IrdaAction, PdiCommand
 from .lcs_req import LcsReq
+from ..protocol.constants import CommandScope, Mixins
 
 
 class IrdaSequence(Mixins):
@@ -190,6 +190,14 @@ class IrdaReq(LcsReq):
     @property
     def bluetooth_id(self) -> bytes:
         return self._bluetooth_id
+
+    @property
+    def valid1(self) -> int:
+        return self._valid1
+
+    @property
+    def valid2(self) -> int:
+        return self._valid2
 
     @property
     def year(self) -> int:

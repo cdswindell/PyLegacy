@@ -17,6 +17,7 @@ from threading import Condition, RLock, Thread
 from time import sleep
 from typing import Generic, List, Protocol, Tuple, TypeVar, cast, runtime_checkable
 
+from .comm_buffer import CommBuffer
 from ..db.component_state import ComponentState
 from ..pdi.amc2_req import Amc2Req
 from ..pdi.base_req import BaseReq
@@ -39,7 +40,6 @@ from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1AuxCommandEnum, TMCC1SyncCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, TMCC2EngineCommandEnum
 from ..utils.ip_tools import get_ip_address
-from .comm_buffer import CommBuffer
 
 log = logging.getLogger(__name__)
 
@@ -635,6 +635,11 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                     with self._client_lock:
                         state: ComponentState = store.query(scope, address)
                         if state is not None:
+                            # don't send records that do not have component state; this
+                            # means the Base 2/3 never provided initial state
+                            if state.comp_data is None:
+                                log.debug(f"Skipping state sync for {scope}:{address}; no initial state available")
+                                continue
                             state_bytes = state.as_bytes()
                             if isinstance(state_bytes, bytes):
                                 state_bytes = [state_bytes]
@@ -665,10 +670,17 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             if isinstance(state, bytes):
                 packet = state
             elif isinstance(state, ComponentState):
-                # TODO: for safety, make this code handle if bytes are returned as list
-                packet = state.as_bytes()
+                if state.comp_data:
+                    packet = state.as_bytes()
+                else:
+                    log.debug(f"Skipping state send for {state.scope}:{state.address}; no initial state available")
             if isinstance(packet, list):
-                log.error(f"send_state_packet: Invalid state type: {type(packet)}")
+                byte_str = bytes()
+                for pck in packet:
+                    byte_str += pck if pck and isinstance(pck, bytes) else bytes()
+                    if not isinstance(pck, bytes):
+                        log.error(f"send_state_packet: Invalid state type: {type(pck)}")
+                packet = byte_str
 
             if packet:  # we can only send states for tracked conditions
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

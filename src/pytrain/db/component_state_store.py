@@ -15,6 +15,13 @@ import threading
 from collections import defaultdict
 from typing import Generic, List, Set, Tuple, TypeVar, cast
 
+from .component_state import (
+    SCOPE_TO_STATE_MAP,
+    ComponentState,
+    ComponentStateDict,
+    RequestConfigurationException,
+    SystemStateDict,
+)
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
 from ..db.client_state_listener import ClientStateListener
@@ -28,13 +35,6 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as Engine1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as Engine2
-from .component_state import (
-    SCOPE_TO_STATE_MAP,
-    ComponentState,
-    ComponentStateDict,
-    RequestConfigurationException,
-    SystemStateDict,
-)
 
 log = logging.getLogger(__name__)
 
@@ -145,15 +145,19 @@ class ComponentStateStore:
         is_base: bool = False,
         is_ser2: bool = False,
     ) -> None:
-        from ..pdi.constants import PdiCommand
-
         if self._initialized:
             return
         else:
             self._initialized = True
+
+        from .engine_state import EngineState
+        from ..pdi.constants import PdiCommand
+
         self._dependencies = DependencyCache.build()
         self._listeners = listeners
         self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
+
+        self._bt_index = dict[int, EngineState]
         self._is_base = is_base
         self._is_ser2 = is_ser2
         self._filter_updates = is_base is True and is_ser2 is True
