@@ -12,6 +12,14 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, TypeVar
 
+from .comp_data import CompDataHandler, CompDataMixin
+from .component_state import (
+    SCOPE_TO_STATE_MAP,
+    ComponentState,
+    L,
+    P,
+    log,
+)
 from ..pdi.constants import D4Action, IrdaAction, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.irda_req import IrdaReq
@@ -37,23 +45,17 @@ from ..protocol.constants import (
     OfficialRRSpeeds,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+
+# noinspection PyPep8Naming
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1_COMMAND_TO_ALIAS_MAP,
     TMCC1EngineCommandEnum,
     TMCC1HaltCommandEnum,
     TMCC1RRSpeedsEnum,
 )
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
-from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
-from .comp_data import CompDataHandler, CompDataMixin
-from .component_state import (
-    SCOPE_TO_STATE_MAP,
-    ComponentState,
-    L,
-    P,
-    log,
-)
+from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
 
 DIRECTIONS_SET = {
     TMCC1EngineCommandEnum.FORWARD_DIRECTION,
@@ -177,62 +179,69 @@ class EngineState(ComponentState):
         self._ramping: bool = False
 
     def __repr__(self) -> str:
-        sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = ""
-        if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
-            dr = " FWD"
-        elif self._direction in {TMCC1EngineCommandEnum.REVERSE_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION}:
-            dr = " REV"
-        else:
-            dr = " N/A"
+        try:
+            sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = ""
+            if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
+                dr = " FWD"
+            elif self._direction in {
+                TMCC1EngineCommandEnum.REVERSE_DIRECTION,
+                TMCC2EngineCommandEnum.REVERSE_DIRECTION,
+            }:
+                dr = " REV"
+            else:
+                dr = " N/A"
 
-        if self.speed is not None:
-            sp = f" Speed: {self.speed:03}"
-            if self.target_speed is not None:
-                speed_limit = self.decode_speed_info(self.target_speed)
-                sp += f"/{speed_limit:03}"
-            if self.speed_limit is not None:
-                speed_limit = self.decode_speed_info(self.speed_limit)
-                sp += f"/{speed_limit:03}"
-            elif self.max_speed is not None:
-                max_speed = self.decode_speed_info(self.max_speed)
-                sp += f"/{max_speed:03}"
-        if self._start_stop in STARTUP_SET:
-            ss = " Started up"
-        elif self._start_stop in SHUTDOWN_SET:
-            ss = " Shut down"
-        if self.momentum is not None:
-            mom = f" Mom: {self.momentum_label}"
-        if self.train_brake is not None:
-            tb = f" TB: {self.train_brake_label}"
-        if self.rpm is not None:
-            rl = f" RPM: {self.rpm}"
-        if self.labor is not None:
-            lb = f" Labor: {self.labor:>2d}"
-        if self._numeric is not None:
-            nu = f" Num: {self._numeric}"
-        if self.road_name is not None:
-            name = f" {self.road_name}"
-        if self.road_number is not None:
-            num = f" #{self.road_number}"
-        if self.year is not None:
-            num = f" Released: {self.year}"
-        if self.engine_type is not None:
-            lt = f" {LOCO_TYPE.get(self.engine_type, 'NA')}"
-        if isinstance(self._aux2, CommandDefEnum):
-            aux = f" Aux2: {self._aux2.name.split('_')[-1]}"
-        if isinstance(self.smoke_level, CommandDefEnum):
-            sm = f" Smoke: {self.smoke_level.name.split('_')[-1].lower():<4}"
-        if self.bt_int:
-            bt = f" BT: {self.bt_id}"
-        ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
-        if isinstance(self, TrainState) and self.consist_components:
-            c = "\n"
-            for cc in self.consist_components:
-                c += f"{cc} "
-        return (
-            f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{dr}{sm}"
-            f"{name}{num}{lt}{ct}{yr}{bt}{ss}{nu}{aux}{c}"
-        )
+            if self.speed is not None:
+                sp = f" Speed: {self.speed:03}"
+                if self.target_speed is not None:
+                    speed_limit = self.decode_speed_info(self.target_speed)
+                    sp += f"/{speed_limit:03}"
+                if self.speed_limit is not None:
+                    speed_limit = self.decode_speed_info(self.speed_limit)
+                    sp += f"/{speed_limit:03}"
+                elif self.max_speed is not None:
+                    max_speed = self.decode_speed_info(self.max_speed)
+                    sp += f"/{max_speed:03}"
+            if self._start_stop in STARTUP_SET:
+                ss = " Started up"
+            elif self._start_stop in SHUTDOWN_SET:
+                ss = " Shut down"
+            if self.momentum is not None:
+                mom = f" Mom: {self.momentum_label}"
+            if self.train_brake is not None:
+                tb = f" TB: {self.train_brake_label}"
+            if self.rpm is not None:
+                rl = f" RPM: {self.rpm}"
+            if self.labor is not None:
+                lb = f" Labor: {self.labor:>2d}"
+            if self._numeric is not None:
+                nu = f" Num: {self._numeric}"
+            if self.road_name is not None:
+                name = f" {self.road_name}"
+            if self.road_number is not None:
+                num = f" #{self.road_number}"
+            if self.year is not None:
+                num = f" Released: {self.year}"
+            if self.engine_type is not None:
+                lt = f" {LOCO_TYPE.get(self.engine_type, 'NA')}"
+            if isinstance(self._aux2, CommandDefEnum):
+                aux = f" Aux2: {self._aux2.name.split('_')[-1]}"
+            if isinstance(self.smoke_level, CommandDefEnum):
+                sm = f" Smoke: {self.smoke_level.name.split('_')[-1].lower():<4}"
+            if self.bt_int:
+                bt = f" BT: {self.bt_id}"
+            ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
+            if isinstance(self, TrainState) and self.consist_components:
+                c = "\n"
+                for cc in self.consist_components:
+                    c += f"{cc} "
+            return (
+                f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{dr}{sm}"
+                f"{name}{num}{lt}{ct}{yr}{bt}{ss}{nu}{aux}{c}"
+            )
+        except AttributeError as ae:
+            log.exception(f"Exception wile processing {self.scope.title} {self._address:04} state: {ae}", exec_info=ae)
+            return f"{self.scope.title} {self._address:04} unavailable"
 
     @property
     def is_ramping(self) -> bool:
