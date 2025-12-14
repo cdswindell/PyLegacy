@@ -12,10 +12,10 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
+from .component_state import SCOPE_TO_STATE_MAP, LcsState, P, log
 from ..pdi.constants import IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.constants import CommandScope, Direction
-from .component_state import SCOPE_TO_STATE_MAP, LcsState, P, log
 
 
 class IrdaState(LcsState):
@@ -68,7 +68,7 @@ class IrdaState(LcsState):
                     elif command.action == IrdaAction.DATA:
                         self._data_req = command
                         # change engine/train speed, based on the direction of travel
-                        self._last_engine_id = command.engine_id
+                        self._last_engine_id = self.harvest_tmcc_id(command)
                         self._last_train_id = command.train_id
                         self._last_dir = command.direction
                         self._product_id = command.product_id
@@ -178,6 +178,17 @@ class IrdaState(LcsState):
         d["last_train_id"] = self.last_train_id
         d["sequence"] = self.sequence.name.lower() if self.sequence else "none"
         return d
+
+    @staticmethod
+    def harvest_tmcc_id(command) -> int:
+        from ..db.component_state_store import ComponentStateStore
+
+        tmcc_id = command.tmcc_id
+        if tmcc_id == 1 and command.number and command.number.isdigit():
+            road_number = int(command.number)
+            state = ComponentStateStore.get_state(CommandScope.ENGINE, road_number, False)
+            tmcc_id = state.address if state else 1
+        return tmcc_id
 
 
 SCOPE_TO_STATE_MAP.update({CommandScope.IRDA: IrdaState})

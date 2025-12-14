@@ -240,8 +240,11 @@ class EngineState(ComponentState):
                 f"{name}{num}{lt}{ct}{yr}{bt}{ss}{nu}{aux}{c}"
             )
         except AttributeError as ae:
-            log.exception(f"Exception wile processing {self.scope.title} {self._address:04} state: {ae}", exec_info=ae)
-            return f"{self.scope.title} {self._address:04} unavailable"
+            if self.comp_data is None:
+                return f"{self.scope.title} {self._address:04}: no information provided from Base 2/3"
+            else:
+                log.error(f"Exception while processing {self.scope.title} {self._address:04} state: {ae}", exc_info=ae)
+            return f"{self.scope.title} {self._address:04}: unavailable"
 
     @property
     def is_ramping(self) -> bool:

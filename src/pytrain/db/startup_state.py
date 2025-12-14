@@ -78,7 +78,7 @@ class StartupState(Thread):
                 if cmd.action == D4Action.COUNT and cmd.count:
                     # request first record of D4 engines/trains
                     req = D4Req(0, cmd.pdi_command, D4Action.FIRST_REC)
-                    log.info(
+                    log.debug(
                         f"Found {cmd.count} 4-digit {'train' if cmd.pdi_command == PdiCommand.D4_TRAIN else 'engine'}s."
                     )
                 elif cmd.action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:

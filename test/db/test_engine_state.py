@@ -37,9 +37,15 @@ class TestEngineStateBehavior:
 
         # 4-digit address implies Legacy if _is_legacy not explicitly set
         e2 = self._new_engine(addr=2345)
-        # Clear any control_type so address rule applies
+        # Clear any control_type so the address rule applies
         e2.comp_data._control_type = None  # type: ignore[attr-defined]
         assert e2.is_legacy is True
+
+    def test_engine_state_without_comp_data_no_exception(self):
+        e = EngineState(CommandScope.ENGINE)
+        e._address = 123
+        assert e.tmcc_id == 123
+        assert str(e) == "Engine 0123: no information provided from Base 2/3"
 
     def test_decode_speed_info_255_conversion(self):
         e = self._new_engine()
@@ -144,6 +150,7 @@ class TestEngineStateBehavior:
         assert d["smoke"] == "smoke_low"
         assert "engine_type" in d and "sound_type" in d and "engine_class" in d
 
+    # noinspection PyUnresolvedReferences
     def test_can_not_define_out_of_scope_field(self):
         e = self._new_engine()
         with pytest.raises(AttributeError):

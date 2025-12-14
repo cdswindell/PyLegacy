@@ -27,6 +27,18 @@ from typing import Any, Dict, List, Tuple, cast
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
+from .acc import AccCli
+from .amc2 import Amc2Cli
+from .asc2 import Asc2Cli
+from .bpc2 import Bpc2Cli
+from .dialogs import DialogsCli
+from .effects import EffectsCli
+from .engine import EngineCli
+from .halt import HaltCli
+from .lighting import LightingCli
+from .route import RouteCli
+from .sounds import SoundEffectsCli
+from .switch import SwitchCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandDispatcher, CommandListener
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -66,18 +78,6 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
 from ..utils.dual_logging import set_up_logging
 from ..utils.ip_tools import find_base_address, get_ip_address
-from .acc import AccCli
-from .amc2 import Amc2Cli
-from .asc2 import Asc2Cli
-from .bpc2 import Bpc2Cli
-from .dialogs import DialogsCli
-from .effects import EffectsCli
-from .engine import EngineCli
-from .halt import HaltCli
-from .lighting import LightingCli
-from .route import RouteCli
-from .sounds import SoundEffectsCli
-from .switch import SwitchCli
 
 DEFAULT_BUTTONS_FILE: str = "buttons.py"
 DEFAULT_REPLAY_FILE: str = "replay.txt"
@@ -1085,9 +1085,11 @@ class PyTrain:
                         if param[1].isdigit():
                             address = int(param[1])
                             state: ComponentState = self._state_store.query(scope, address)
-                            if state is not None:
+                            if state:
                                 print(state)
-                                return
+                            else:
+                                print(f"No data available for this {scope.title}.")
+                            return
                         else:
                             query = param[1].strip().lower()
                     if scope in self._state_store:
