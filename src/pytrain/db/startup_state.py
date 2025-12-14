@@ -78,6 +78,9 @@ class StartupState(Thread):
                 if cmd.action == D4Action.COUNT and cmd.count:
                     # request first record of D4 engines/trains
                     req = D4Req(0, cmd.pdi_command, D4Action.FIRST_REC)
+                    log.info(
+                        f"Found {cmd.count} 4-digit {'train' if cmd.pdi_command == PdiCommand.D4_TRAIN else 'engine'}s."
+                    )
                 elif cmd.action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:
                     if cmd.next_record_no == 0xFFFF:
                         pass
@@ -132,7 +135,7 @@ class StartupState(Thread):
         self.pdi_listener.subscribe_any(self)
         self.pdi_listener.enqueue_command(AllReq())
         self.pdi_listener.enqueue_command(BaseReq(0, PdiCommand.BASE))
-        for pdi_command in [PdiCommand.D4_ENGINE, PdiCommand.D4_TRAIN]:
+        for pdi_command in [PdiCommand.D4_ENGINE]:  # TODO: , PdiCommand.D4_TRAIN
             req = D4Req(0, pdi_command, D4Action.COUNT)
             with self._cv:
                 self._waiting_for[req.as_key] = req
