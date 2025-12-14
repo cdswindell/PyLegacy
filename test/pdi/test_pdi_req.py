@@ -5,6 +5,8 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+import pytest
+
 from src.pytrain.pdi.constants import PDI_EOP, PDI_SOP, PDI_STF, PdiCommand
 from src.pytrain.pdi.pdi_req import PdiReq, PingReq, TmccReq
 from src.pytrain.protocol.command_req import CommandReq
@@ -31,6 +33,34 @@ def test_encode_decode_text_roundtrip_ascii_and_nulls():
     # All 0xFF payload decodes to None
     dec_ffs = PdiReq.decode_text(b"\xff\xff\xff\xff")
     assert dec_ffs is None
+
+
+def test_decode_text_stops_at_null_and_skips_ffs():
+    # Stops at NUL terminator
+    assert PdiReq.decode_text(b"ABC\x00XYZ") == "ABC"
+
+    # Skips 0xFF bytes inside the field
+    assert PdiReq.decode_text(b"A\xffB\x00") == "AB"
+
+    # Empty input -> empty string (current behavior)
+    assert PdiReq.decode_text(b"") == ""
+
+
+def test_decode_int_valid_and_invalid():
+    # Positive: plain integer (with NUL terminator)
+    assert PdiReq.decode_int(b"123\x00") == 123
+
+    # Positive: signed integer with whitespace (mirrors int() behavior)
+    assert PdiReq.decode_int(b" -7\x00") == -7
+
+    # Negative: non-numeric returns 0 (ValueError path)
+    assert PdiReq.decode_int(b"ABC\x00") == 0
+
+
+def test_decode_int_all_ffs_raises_type_error():
+    # decode_text returns None for all-0xFF fields; int(None) raises TypeError (not caught)
+    with pytest.raises(TypeError):
+        _ = PdiReq.decode_int(b"\xff\xff\xff\xff")
 
 
 def test_scope_record_length_map():

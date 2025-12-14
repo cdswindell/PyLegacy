@@ -244,7 +244,7 @@ class PdiReq(ABC):
                 num_ffs += 1
             else:
                 name += chr(b)
-        if num_ffs == len(data):
+        if len(data) and num_ffs == len(data):
             return None
         return name
 
