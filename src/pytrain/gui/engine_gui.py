@@ -2522,13 +2522,13 @@ class EngineGui(Thread, Generic[S]):
             self.set_btn.show()
 
     def show_motive_specific_keys(self, code: str):
-        self.show_hide_keys("d" == code, self._engine_btns | self._diesel_btns)
-        self.show_hide_keys("s" == code, self._engine_btns | self._steam_btns)
-        self.show_hide_keys("p" == code, self._passenger_btns | self._passenger_freight_btns)
-        self.show_hide_keys("f" == code, self._freight_btns | self._passenger_freight_btns)
+        self.set_key_visibility("d" == code, self._engine_btns | self._diesel_btns)
+        self.set_key_visibility("s" == code, self._engine_btns | self._steam_btns)
+        self.set_key_visibility("p" == code, self._passenger_btns | self._passenger_freight_btns)
+        self.set_key_visibility("f" == code, self._freight_btns | self._passenger_freight_btns)
 
     @staticmethod
-    def show_hide_keys(show: bool, btns: set[Widget]):
+    def set_key_visibility(show: bool, btns: set[Widget]):
         for btn in btns:
             if show:
                 btn.show()
@@ -2544,24 +2544,10 @@ class EngineGui(Thread, Generic[S]):
         self.horn_title_box.text = "Whistle"
 
     def show_passenger_keys(self) -> None:
-        for btn in self._passenger_btns:
-            btn.show()
-        for btn in self._engine_btns:
-            btn.hide()
-        for btn in self._diesel_btns:
-            btn.show()
-        for btn in self._steam_btns:
-            btn.hide()
+        self.show_motive_specific_keys("p")
 
     def show_freight_keys(self) -> None:
-        for btn in self._freight_btns:
-            btn.show()
-        for btn in self._engine_btns:
-            btn.hide()
-        for btn in self._diesel_btns:
-            btn.show()
-        for btn in self._steam_btns:
-            btn.hide()
+        self.show_motive_specific_keys("f")
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
         self._in_entry_mode = False
