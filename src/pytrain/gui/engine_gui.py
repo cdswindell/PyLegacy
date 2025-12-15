@@ -3047,12 +3047,13 @@ class EngineGui(Thread, Generic[S]):
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
 
     def request_prod_info(self, scope: CommandScope, tmcc_id: int | None) -> ProdInfo | None:
+        prod_info = "N/A"
         state = self._state_store.get_state(scope, tmcc_id, False)
         if state and state.bt_id:
-            # TODO: wrap in try/catch as it is likely user won't have API Key
-            prod_info = ProdInfo.by_btid(state.bt_id)
-        else:
-            prod_info = "N/A"
+            try:
+                prod_info = ProdInfo.by_btid(state.bt_id)
+            except ValueError as ve:
+                print(f"Failed to get ProdInfo for {state.bt_id}: {ve}")
         return prod_info
 
     def _fetch_prod_info(self, scope: CommandScope, tmcc_id: int, train_id: int = None) -> ProdInfo | None:
@@ -3069,10 +3070,11 @@ class EngineGui(Thread, Generic[S]):
             self._prod_info_cache[tmcc_id] = prod_info
             self._pending_prod_infos.discard((scope, tmcc_id))
             # now get image
-            img = self.get_scaled_image(BytesIO(prod_info.image_content))
-            self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
-            if train_id:
-                self._image_cache[(CommandScope.TRAIN, train_id)] = img
+            if isinstance(prod_info, ProdInfo):
+                img = self.get_scaled_image(BytesIO(prod_info.image_content))
+                self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+                if train_id:
+                    self._image_cache[(CommandScope.TRAIN, train_id)] = img
         # Schedule the UI update on the main thread
         self.queue_message(self.update_component_image, tmcc_id, key)
         return prod_info

@@ -24,7 +24,7 @@ PROD_INFO_URL = os.environ.get("PROD_INFO_URL")
 # noinspection PyTypeChecker
 @dataclass
 class ProdInfo:
-    id: int
+    pid: int
     sku_number: int
     ble_hexid: str
     product_family: int
@@ -52,7 +52,7 @@ class ProdInfo:
             if response.status_code == 200:
                 self._image_content = response.content
             else:
-                msg = f"Request for product image on {self.id} failed with status code {response.status_code}"
+                msg = f"Request for product image on {self.pid} failed with status code {response.status_code}"
                 raise requests.RequestException(msg)
         return self._image_content
 
@@ -82,7 +82,7 @@ class ProdInfo:
     @classmethod
     def from_dict(cls, data: dict) -> ProdInfo:
         # Handle potential missing keys or type conversions
-        id = data.get("id", None)
+        pid = data.get("id", None)
         sku_number = int(data.get("skuNumber", 0))  # Convert to int
         image_url = data.get("imageUrl", None)
         ble_hexid = data.get("blE_HexId", None)
@@ -95,7 +95,7 @@ class ProdInfo:
         gauge = data.get("gauge", None)
 
         return cls(
-            id=id,
+            pid=pid,
             sku_number=sku_number,
             ble_hexid=ble_hexid,
             product_family=product_family,
