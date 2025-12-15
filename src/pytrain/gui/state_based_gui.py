@@ -148,6 +148,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     continue
                 if self._exclude_unnamed and not acc.is_name:
                     continue
+                print(
+                    f"is_name: {acc.is_name} {acc.is_road_name} {acc.is_road_number},"
+                    " road_name: {acc.road_name}, name: {acc.name}, exclude: {self._exclude_unnamed}"
+                )
                 # noinspection PyUnresolvedReferences
                 if acc.road_name and "unused" in acc.road_name.lower():
                     continue
