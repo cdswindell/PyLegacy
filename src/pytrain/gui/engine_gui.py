@@ -130,7 +130,7 @@ ENGINE_OPS_LAYOUT = [
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
         ],
         [
-            ("RING_BELL", "bell.jpg", "e"),
+            ("RING_BELL", "bell.jpg", "", "e"),
             ("STEWARD_CHATTER", "steward.jpg", "", "Steward...", "p"),
         ],
     ],
