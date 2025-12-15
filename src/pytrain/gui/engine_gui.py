@@ -423,7 +423,6 @@ class EngineGui(Thread, Generic[S]):
         num_recents: int = 5,
         initial: int = None,
         initial_scope: CommandScope = CommandScope.ENGINE,
-        offset: int = 10,
     ) -> None:
         Thread.__init__(self, daemon=True, name="Engine GUI")
         self._cv = Condition(RLock())
@@ -460,7 +459,6 @@ class EngineGui(Thread, Generic[S]):
         self.s_12: int = int(round(12 * scale_by))
         self.s_10: int = int(round(10 * scale_by))
         self.s_8: int = int(round(8 * scale_by))
-        self.offset = offset
         self.button_size = int(round(self.width / 6))
         self.slider_height = self.button_size * 4
         self.titled_button_size = int(round((self.width / 6) * 0.80))
@@ -505,7 +503,7 @@ class EngineGui(Thread, Generic[S]):
         self._executor = ThreadPoolExecutor(max_workers=3)
         self.size_cache = {}
         self._message_queue = Queue()
-        self.scope = initial_scope
+        self.scope = initial_scope if initial_scope else CommandScope.ENGINE
         self.initial = initial
         self._active_engine_state = None
         self.reset_on_keystroke = False

@@ -17,15 +17,16 @@ from pathlib import Path
 
 from .make_base import _MakeBase
 from .pytrain import DEFAULT_BUTTONS_FILE
-from ..gui.component_state_gui import ComponentStateGui
 from ..gui.accessories_gui import AccessoriesGui
+from ..gui.component_state_gui import ComponentStateGui
+from ..gui.engine_gui import EngineGui
 from ..gui.launch_gui import LaunchGui
 from ..gui.motors_gui import MotorsGui
 from ..gui.power_district_gui import PowerDistrictsGui
 from ..gui.routes_gui import RoutesGui
 from ..gui.switches_gui import SwitchesGui
 from ..gui.systems_gui import SystemsGui
-from ..protocol.constants import PROGRAM_NAME
+from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..utils.argument_parser import PyTrainArgumentParser, UniqueChoice, IntRange
 from ..utils.path_utils import find_file, find_dir
 
@@ -34,6 +35,8 @@ GUI_ARG_TO_CLASS = {
     "accessories": AccessoriesGui,
     "co": ComponentStateGui,
     "component_state": ComponentStateGui,
+    "cp": EngineGui,
+    "control_panel": EngineGui,
     "la": LaunchGui,
     "launch_pad": LaunchGui,
     "mo": MotorsGui,
@@ -64,6 +67,8 @@ CLASS_TO_TEMPLATE = {
     RoutesGui: f"{RoutesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
     SwitchesGui: f"{SwitchesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__, exclude_unnamed=__EXCLUDE_UNNAMED__)",
     SystemsGui: f"{SystemsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__, press_for=__PRESS_FOR__)",
+    EngineGui: f"{EngineGui.__name__}(initial_scope=__INITIAL_SCOPE__, initial=__TMCC_ID__,"
+    " scale_by=__SCALE_BY__, num_recents=__NUM_RECENTS__)",
 }
 
 NEED_FONTS = {
@@ -80,6 +85,14 @@ CHOICES = [
 ]
 
 CHOICES_HELP = ", ".join([x.title() for x in CHOICES]).replace(PROGRAM_NAME.title(), PROGRAM_NAME)
+
+SCOPES = [
+    "accessory",
+    "engine",
+    "route",
+    "switch",
+    "train",
+]
 
 
 class MakeGui(_MakeBase):
@@ -178,6 +191,41 @@ class MakeGui(_MakeBase):
         parent = self._command_line_parser()
         parser = ArgumentParser(add_help=False)
         sp = parser.add_subparsers(dest="gui", help="Available GUIs")
+
+        # Launch Pad GUI
+        hhcp = sp.add_parser(
+            "control_panel",
+            aliases=["cp"],
+            allow_abbrev=True,
+            help="Control Panel GUI",
+        )
+        hhcp.add_argument(
+            "-scale_by",
+            type=float,
+            default=1.0,
+            metavar="",
+            help="Text Scale Factor (default: 1.0)",
+        )
+        hhcp.add_argument(
+            "-history",
+            type=IntRange(1, 15),
+            default=5,
+            metavar="",
+            help="History Depth (default: 5)",
+        )
+        hhcp.add_argument(
+            "-tmcc_id",
+            type=IntRange(1, 9999),
+            metavar="",
+            help="Initial Engine/Train/Switch/Accessory/Route to display",
+        )
+        hhcp.add_argument(
+            "-scope",
+            type=UniqueChoice(SCOPES),
+            metavar="",
+            default="engine",
+            help="Initial Component Type to display (default: engine)",
+        )
 
         # Launch Pad GUI
         pad = sp.add_parser(
@@ -466,12 +514,23 @@ class MakeGui(_MakeBase):
             self._gui_config["__SCALE_BY__"] = str(self._args.scale_by)
         if hasattr(self._args, "press_for"):
             self._gui_config["__PRESS_FOR__"] = str(self._args.press_for)
-        if hasattr(self._args, "tmcc_id"):
-            self._gui_config["__TMCC_ID__"] = str(self._args.tmcc_id)
         if hasattr(self._args, "track_id"):
             self._gui_config["__TRACK_ID__"] = str(self._args.track_id)
         if hasattr(self._args, "exclude_unnamed"):
             self._gui_config["__EXCLUDE_UNNAMED__"] = str(self._args.exclude_unnamed)
+        if hasattr(self._args, "history"):
+            self._gui_config["__NUM_RECENTS__"] = str(self._args.history)
+        if hasattr(self._args, "scope"):
+            scope = CommandScope.by_name(self._args.scope)
+            if scope is None and self._args.scope.lower() == "accessory":
+                scope = CommandScope.ACC
+            self._gui_config["__INITIAL_SCOPE__"] = f"CommandScope.{scope.name}"
+        else:
+            self._gui_config["__INITIAL_SCOPE__"] = "None"
+        if hasattr(self._args, "tmcc_id"):
+            self._gui_config["__TMCC_ID__"] = str(self._args.tmcc_id)
+        else:
+            self._gui_config["__TMCC_ID__"] = "None"
 
     def construct_gui_stmt(self):
         stmt = CLASS_TO_TEMPLATE.get(self._gui_class)
