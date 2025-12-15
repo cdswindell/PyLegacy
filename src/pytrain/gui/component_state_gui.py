@@ -24,12 +24,13 @@ class ComponentStateGui(Thread):
         return cls.__name__
 
     def __init__(
-        self,
-        label: str = None,
-        initial: str = "Power Districts",
-        width: int = None,
-        height: int = None,
-        scale_by: float = 1.0,
+            self,
+            label: str = None,
+            initial: str = "Power Districts",
+            width: int = None,
+            height: int = None,
+            scale_by: float = 1.0,
+            exclude_unnamed: bool = False,
     ) -> None:
         from ..gui.accessories_gui import AccessoriesGui
         from ..gui.motors_gui import MotorsGui
@@ -77,6 +78,7 @@ class ComponentStateGui(Thread):
             self.height = height
         self._scale_by = scale_by
         self._gui = None
+        self._exclude_unnamed = exclude_unnamed
         self.requested_gui = initial
 
         self.start()
@@ -104,7 +106,12 @@ class ComponentStateGui(Thread):
 
             # create and display new gui
             self._gui = self._guis.get(self.requested_gui)(
-                self.label, self.width, self.height, aggrigator=self, scale_by=self._scale_by
+                self.label,
+                self.width,
+                self.height,
+                aggrigator=self,
+                scale_by=self._scale_by,
+                exclude_unnamed=self._exclude_unnamed,
             )
 
     def cycle_gui(self, gui: str):
