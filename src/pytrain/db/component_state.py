@@ -131,11 +131,11 @@ class ComponentState(ABC, CompDataMixin):
 
     @property
     def road_name(self) -> str | None:
-        return self._road_name
+        return self._road_name if self._road_name else self.moniker
 
     @property
     def road_number(self) -> str | None:
-        return self._road_number
+        return self._road_number if self._road_number else self._address
 
     @property
     def name(self) -> str:
@@ -146,6 +146,10 @@ class ComponentState(ABC, CompDataMixin):
     @property
     def payload(self) -> str:
         return ""
+
+    @property
+    def moniker(self) -> str:
+        return self.scope.title
 
     @property
     def spare_1(self) -> int:

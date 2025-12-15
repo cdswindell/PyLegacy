@@ -416,6 +416,16 @@ class AccessoryState(TmccState):
             return "LCS Sensor Track"
         return "Accessory"
 
+    @property
+    def moniker(self) -> str:
+        if self.is_bpc2:
+            return "Power District"
+        elif self.is_amc2:
+            return "Motor Controller"
+        elif self.is_sensor_track:
+            return "Sensor Track"
+        return "Accessory"
+
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
         if self._sensor_track:

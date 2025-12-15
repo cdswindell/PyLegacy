@@ -645,14 +645,7 @@ class BaseReq(PdiReq, CompDataMixin):
             and self.comp_data
             and self.is_comp_data_record is True
         ):
-            # if (
-            #     self.comp_data.prev_link == 255
-            #     and self.comp_data.next_link == 255
-            #     and not self.name
-            #     and not self.number
-            # ):
-            #     return False
-            if not self.comp_data.is_active:
+            if not self.comp_data.is_active():
                 return False
         if self.pdi_command in {
             PdiCommand.BASE_ENGINE,
