@@ -111,11 +111,13 @@ ENGINE_OPS_LAYOUT = [
             ("RPM_UP", "rpm-up.jpg", "", "", "d"),
             ("LET_OFF_LONG, NUMBER_6", "let-off.jpg", "", "", "s"),
             ("ENGINEER_CHATTER", "conductor.jpg", "", "Conductor...", "p"),
+            ("NUMBER_3", "load.jpg", "", "", "f"),
         ],
         [
             ("BLOW_HORN_ONE", "horn.jpg", "", "Horn...", "d"),
             ("BLOW_HORN_ONE", "whistle.jpg", "", "Whistle...", "s"),
             ("CONDUCTOR_NEXT_STOP", "next-stop.jpg", "", "", "p"),
+            ("NUMBER_6", "unload.jpg", "", "", "f"),
         ],
     ],
     [
@@ -128,6 +130,7 @@ ENGINE_OPS_LAYOUT = [
             ("RPM_DOWN", "rpm-down.jpg", "", "", "d"),
             ("WATER_INJECTOR, NUMBER_5", "water-inject.jpg", "", "", "s"),
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
+            ("TOWER_CHATTER", "tower.jpg", "", "", "f"),
         ],
         [
             ("RING_BELL", "bell.jpg", "", "", "e"),
