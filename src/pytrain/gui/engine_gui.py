@@ -105,7 +105,7 @@ ENGINE_OPS_LAYOUT = [
         ("VOLUME_UP", "vol-up.jpg"),
         [
             ("ENGINEER_CHATTER", "walkie_talkie.jpg", "", "Crew...", "e"),
-            ("NUMBER_3", "sound-on.jpg", "", "", "p"),
+            ("NUMBER_3", "sound-on.jpg", "", "", "pf"),
         ],
         [
             ("RPM_UP", "rpm-up.jpg", "", "", "d"),
@@ -122,7 +122,7 @@ ENGINE_OPS_LAYOUT = [
         ("VOLUME_DOWN", "vol-down.jpg"),
         [
             ("TOWER_CHATTER", "tower.jpg", "", "Tower...", "e"),
-            ("NUMBER_5", "sound-off.jpg", "", "", "p"),
+            ("NUMBER_5", "sound-off.jpg", "", "", "pf"),
         ],
         [
             ("RPM_DOWN", "rpm-down.jpg", "", "", "d"),
@@ -138,11 +138,11 @@ ENGINE_OPS_LAYOUT = [
         ("FRONT_COUPLER", "front-coupler.jpg"),
         [
             (SMOKE_ON, "smoke-up.jpg", "", "", "e"),
-            ("STOCK_OPTION_ONE_ON", "stock-a-on.jpg", "", "", "p"),
+            ("STOCK_OPTION_ONE_ON", "stock-a-on.jpg", "", "", "pf"),
         ],
         [
             ("BOOST_SPEED", "boost.jpg", "", "Boost", "e"),
-            ("STOCK_OPTION_TWO_ON", "stock-b-on.jpg", "", "", "p"),
+            ("STOCK_OPTION_TWO_ON", "stock-b-on.jpg", "", "", "pf"),
         ],
         [
             ("FORWARD_DIRECTION", "", FWD_KEY, "", "e"),
@@ -153,11 +153,11 @@ ENGINE_OPS_LAYOUT = [
         ("REAR_COUPLER", "rear-coupler.jpg"),
         [
             (SMOKE_OFF, "smoke-down.jpg", "", "", "e"),
-            ("STOCK_OPTION_ONE_OFF", "stock-a-off.jpg", "", "", "p"),
+            ("STOCK_OPTION_ONE_OFF", "stock-a-off.jpg", "", "", "pf"),
         ],
         [
             ("BRAKE_SPEED", "brake.jpg", "", "Brake", "e"),
-            ("STOCK_OPTION_TWO_OFF", "stock-b-off.jpg", "", "", "p"),
+            ("STOCK_OPTION_TWO_OFF", "stock-b-off.jpg", "", "", "pf"),
         ],
         [
             ("REVERSE_DIRECTION", "", REV_KEY, "", "e"),
@@ -546,6 +546,7 @@ class EngineGui(Thread, Generic[S]):
         self.rr_speed_btns = set()
         self._engine_btns = set()
         self._passenger_btns = set()
+        self._passenger_freight_btns = set()
         self._diesel_btns = set()
         self._steam_btns = set()
         self._freight_btns = set()
@@ -803,6 +804,10 @@ class EngineGui(Thread, Generic[S]):
                             self._engine_btns.add(cell)
                         elif op[4] == "p":
                             self._passenger_btns.add(cell)
+                        elif op[4] == "f":
+                            self._freight_btns.add(cell)
+                        elif op[4] == "pf":
+                            self._passenger_freight_btns.add(cell)
                         elif op[4] == "d":
                             self._diesel_btns.add(cell)
                         elif op[4] == "s":
@@ -2515,26 +2520,26 @@ class EngineGui(Thread, Generic[S]):
         else:
             self.set_btn.show()
 
+    def show_motive_specific_keys(self, code: str):
+        self.show_hide_keys("d" in code, self._engine_btns | self._diesel_btns)
+        self.show_hide_keys("s" in code, self._engine_btns | self._steam_btns)
+        self.show_hide_keys("p" in code, self._passenger_btns | self._passenger_freight_btns)
+        self.show_hide_keys("f" in code, self._freight_btns | self._passenger_freight_btns)
+
+    @staticmethod
+    def show_hide_keys(show: bool, btns: set[Widget]):
+        for btn in btns:
+            if show:
+                btn.show()
+            else:
+                btn.hide()
+
     def show_diesel_keys(self) -> None:
-        for btn in self._engine_btns:
-            btn.show()
-        for btn in self._diesel_btns:
-            btn.show()
-        for btn in self._passenger_btns:
-            btn.hide()
-        for btn in self._steam_btns:
-            btn.hide()
+        self.show_motive_specific_keys("d")
         self.horn_title_box.text = "Horn"
 
     def show_steam_keys(self) -> None:
-        for btn in self._engine_btns:
-            btn.show()
-        for btn in self._steam_btns:
-            btn.show()
-        for btn in self._passenger_btns:
-            btn.hide()
-        for btn in self._diesel_btns:
-            btn.hide()
+        self.show_motive_specific_keys("s")
         self.horn_title_box.text = "Whistle"
 
     def show_passenger_keys(self) -> None:
