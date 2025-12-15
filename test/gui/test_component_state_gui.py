@@ -25,7 +25,15 @@ class DummyGui:
     instances = []
     closed = []
 
-    def __init__(self, label=None, width=None, height=None, aggrigator=None, scale_by: float = 1.0):
+    def __init__(
+        self,
+        label=None,
+        width=None,
+        height=None,
+        aggrigator=None,
+        scale_by: float = 1.0,
+        exclude_unnamed: bool = False,
+    ):
         self.label = label
         self.width = width
         self.height = height
@@ -33,6 +41,7 @@ class DummyGui:
         self.destroy_complete = Event()
         self._closed = False
         self._scale_by = scale_by
+        self._exclude_unnamed = exclude_unnamed
 
         # track instance lifecycle for tests
         DummyGui.instances.append(self)
@@ -96,6 +105,7 @@ def test_invalid_initial_gui_raises():
         src.pytrain.gui.component_state_gui.ComponentStateGui(label="X", initial="Not A GUI", width=100, height=100)
 
 
+# noinspection PyTypeHints
 def test_initial_gui_is_created_and_aggregator_set():
     # Using default initial "Power Districts" which we patched to DummyGui
     comp = src.pytrain.gui.component_state_gui.ComponentStateGui(label="My Label", width=320, height=240)
@@ -112,6 +122,7 @@ def test_initial_gui_is_created_and_aggregator_set():
     assert inst.height == 240
 
 
+# noinspection PyTypeHints
 def test_cycle_gui_switches_and_closes_previous():
     comp = src.pytrain.gui.component_state_gui.ComponentStateGui(label=None, width=640, height=480)
 
@@ -135,6 +146,7 @@ def test_cycle_gui_switches_and_closes_previous():
     assert comp._gui is DummyGui.instances[1]
 
 
+# noinspection PyTypeHints
 def test_cycle_gui_ignores_unknown_key():
     comp = src.pytrain.gui.component_state_gui.ComponentStateGui(width=200, height=200)
 
