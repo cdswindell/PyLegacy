@@ -180,7 +180,10 @@ ENGINE_OPS_LAYOUT = [
             ("AUX2_OPTION_ONE", "", AUX2_KEY, "", "pf"),
         ],
         ("AUX3_OPTION_ONE", "", AUX3_KEY),
-        (MOM_TB, "", MOMENTUM, "", "e"),
+        [
+            (MOM_TB, "", MOMENTUM, "", "e"),
+            ("", "", "Etc...", "", "f"),
+        ],
     ],
 ]
 
