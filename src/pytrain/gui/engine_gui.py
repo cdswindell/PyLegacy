@@ -2522,14 +2522,15 @@ class EngineGui(Thread, Generic[S]):
             self.set_btn.show()
 
     def show_motive_specific_keys(self, code: str):
-        self.set_key_visibility("d" == code, self._engine_btns | self._diesel_btns)
-        self.set_key_visibility("s" == code, self._engine_btns | self._steam_btns)
+        self.set_key_visibility("d" == code, self._diesel_btns | self._engine_btns)
+        self.set_key_visibility("s" == code, self._steam_btns | self._engine_btns)
         self.set_key_visibility("p" == code, self._passenger_btns | self._passenger_freight_btns)
         self.set_key_visibility("f" == code, self._freight_btns | self._passenger_freight_btns)
 
     @staticmethod
     def set_key_visibility(show: bool, btns: set[Widget]):
         for btn in btns:
+            print(f"Show: {show} {btn}")
             if show:
                 btn.show()
             else:
