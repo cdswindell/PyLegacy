@@ -802,16 +802,17 @@ class EngineGui(Thread, Generic[S]):
                     if len(op) > 4 and op[4]:
                         if op[4] == "e":
                             self._engine_btns.add(cell)
+                        elif op[4] == "d":
+                            self._diesel_btns.add(cell)
+                        elif op[4] == "s":
+                            self._steam_btns.add(cell)
                         elif op[4] == "p":
                             self._passenger_btns.add(cell)
                         elif op[4] == "f":
                             self._freight_btns.add(cell)
                         elif op[4] == "pf":
                             self._passenger_freight_btns.add(cell)
-                        elif op[4] == "d":
-                            self._diesel_btns.add(cell)
-                        elif op[4] == "s":
-                            self._steam_btns.add(cell)
+
                         key = (cmd, op[4])
                     else:
                         key = cmd
@@ -2521,10 +2522,10 @@ class EngineGui(Thread, Generic[S]):
             self.set_btn.show()
 
     def show_motive_specific_keys(self, code: str):
-        self.show_hide_keys("d" in code, self._engine_btns | self._diesel_btns)
-        self.show_hide_keys("s" in code, self._engine_btns | self._steam_btns)
-        self.show_hide_keys("p" in code, self._passenger_btns | self._passenger_freight_btns)
-        self.show_hide_keys("f" in code, self._freight_btns | self._passenger_freight_btns)
+        self.show_hide_keys("d" == code, self._engine_btns | self._diesel_btns)
+        self.show_hide_keys("s" == code, self._engine_btns | self._steam_btns)
+        self.show_hide_keys("p" == code, self._passenger_btns | self._passenger_freight_btns)
+        self.show_hide_keys("f" == code, self._freight_btns | self._passenger_freight_btns)
 
     @staticmethod
     def show_hide_keys(show: bool, btns: set[Widget]):
