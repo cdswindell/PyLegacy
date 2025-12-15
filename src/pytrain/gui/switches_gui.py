@@ -27,16 +27,25 @@ class SwitchesGui(StateBasedGui):
         height: int = None,
         aggrigator: ComponentStateGui = None,
         scale_by: float = 1.0,
+        exclude_unnamed: bool = False,
     ) -> None:
-        StateBasedGui.__init__(self, "Switches", label, width, height, aggrigator, disabled_bg="red", scale_by=scale_by)
+        StateBasedGui.__init__(
+            self,
+            "Switches",
+            label,
+            width,
+            height,
+            aggrigator,
+            disabled_bg="red",
+            scale_by=scale_by,
+            exclude_unnamed=exclude_unnamed,
+        )
 
     def get_target_states(self) -> list[SwitchState]:
         pds: list[SwitchState] = []
         accs = self._state_store.get_all(CommandScope.SWITCH)
         for acc in accs:
-            acc = cast(SwitchState, acc)
-            if acc.road_name and acc.road_name.lower() != "unused":
-                pds.append(acc)
+            pds.append(cast(SwitchState, acc))
         return pds
 
     def is_active(self, state: SwitchState) -> bool:

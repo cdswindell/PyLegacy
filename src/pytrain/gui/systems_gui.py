@@ -42,6 +42,7 @@ class SystemsGui(StateBasedGui):
             aggrigator,
             enabled_bg="red",
             scale_by=scale_by,
+            exclude_unnamed=False,
         )
         self._press_for = press_for
 

@@ -32,10 +32,20 @@ class AccessoriesGui(StateBasedGui):
         height: int = None,
         aggrigator: ComponentStateGui = None,
         scale_by: float = 1.0,
+        exclude_unnamed: bool = False,
     ) -> None:
         self._is_momentary = set()
         self._released_events = dict[int, Event]()
-        StateBasedGui.__init__(self, "Accessories", label, width, height, aggrigator, scale_by=scale_by)
+        StateBasedGui.__init__(
+            self,
+            "Accessories",
+            label,
+            width,
+            height,
+            aggrigator,
+            scale_by=scale_by,
+            exclude_unnamed=exclude_unnamed,
+        )
 
     def _post_process_state_buttons(self) -> None:
         for tmcc_id in self._is_momentary:
@@ -51,11 +61,10 @@ class AccessoriesGui(StateBasedGui):
             acc = cast(AccessoryState, acc)
             if acc.is_power_district or acc.is_sensor_track or acc.is_amc2:
                 continue
-            if acc.road_name and acc.road_name.lower().strip() != "unused":
-                pds.append(acc)
-                name_lc = acc.road_name.lower()
-                if "aux1" in name_lc or "ax1" in name_lc or "(a1)" in name_lc or "(m)" in name_lc:
-                    self._is_momentary.add(acc.address)
+            pds.append(acc)
+            name_lc = acc.road_name.lower()
+            if "aux1" in name_lc or "ax1" in name_lc or "(a1)" in name_lc or "(m)" in name_lc:
+                self._is_momentary.add(acc.address)
         return pds
 
     def is_active(self, state: AccessoryState) -> bool:

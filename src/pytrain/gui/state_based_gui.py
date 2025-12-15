@@ -51,6 +51,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         enabled_text: str = "black",
         disabled_text: str = "lightgrey",
         scale_by: float = 1.0,
+        exclude_unnamed: bool = False,
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
@@ -72,6 +73,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.label = label
         self._aggrigator = aggrigator
         self._scale_by = scale_by
+        self._exclude_unnamed = exclude_unnamed
         self._text_size: int = 24
         self._button_pad_x = 20
         self._button_pad_y = 10
@@ -142,6 +144,13 @@ class StateBasedGui(Thread, Generic[S], ABC):
             # get all target states; watch for state changes
             accs = self.get_target_states()
             for acc in accs:
+                if acc is None:
+                    continue
+                if self._exclude_unnamed and not acc.is_name:
+                    continue
+                # noinspection PyUnresolvedReferences
+                if acc.road_name and "unused" in acc.road_name.lower():
+                    continue
                 nl = len(acc.road_name)
                 self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
                 self._states[acc.tmcc_id] = acc
@@ -418,7 +427,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
     ) -> tuple[PushButton | list[Widget], int, int]:
         pb = PushButton(
             self.btn_box,
-            text=f"#{pd.tmcc_id} {pd.road_name}",
+            text=f"{pd.tmcc_id}) {pd.road_name}",
             grid=[col, row],
             width=int(round(self.width / 2 / (13 * self._scale_by))),
             command=self.switch_state,

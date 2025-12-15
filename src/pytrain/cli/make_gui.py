@@ -53,13 +53,16 @@ GUI_ARG_TO_CLASS = {
 }
 
 CLASS_TO_TEMPLATE = {
-    AccessoriesGui: f"{AccessoriesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
-    ComponentStateGui: f"{ComponentStateGui.name()}(label=__LABEL__, initial=__INITIAL__, scale_by=__SCALE_BY__)",
+    AccessoriesGui: f"{AccessoriesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__,"
+    " exclude_unnamed=__EXCLUDE_UNNAMED__)",
+    ComponentStateGui: f"{ComponentStateGui.name()}(label=__LABEL__, initial=__INITIAL__, scale_by=__SCALE_BY__,"
+    " exclude_unnamed=__EXCLUDE_UNNAMED__))",
     LaunchGui: f"{LaunchGui.__name__}(tmcc_id=__TMCC_ID__, track_id=__TRACK_ID__)",
     MotorsGui: f"{MotorsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
-    PowerDistrictsGui: f"{PowerDistrictsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
+    PowerDistrictsGui: f"{PowerDistrictsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__,"
+    " exclude_unnamed=__EXCLUDE_UNNAMED__)",
     RoutesGui: f"{RoutesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
-    SwitchesGui: f"{SwitchesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
+    SwitchesGui: f"{SwitchesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__, exclude_unnamed=__EXCLUDE_UNNAMED__)",
     SystemsGui: f"{SystemsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__, press_for=__PRESS_FOR__)",
 }
 
@@ -94,6 +97,7 @@ class MakeGui(_MakeBase):
         self._launch_path = self._desktop_path = self._buttons_path = self._fonts_path = None
         self._imports = self._gui_class = self._gui_stmt = None
         self._gui_config = dict()
+        self._exclude_unnamed = False
         super().__init__(cmd_line)
 
     def program(self) -> str:
@@ -109,6 +113,8 @@ class MakeGui(_MakeBase):
             self._parser.error("the following arguments are required: gui")
         if self._args.start is True:
             self._start_gui = True
+        if self._args.exclude_unnamed:
+            self._exclude_unnamed = True
         self._buttons_file = DEFAULT_BUTTONS_FILE
         self._launch_path = Path(self._home, "launch_pytrain.bash")
         self._desktop_path = Path(self._home, ".config", "autostart", "pytrain.desktop")
@@ -169,6 +175,7 @@ class MakeGui(_MakeBase):
 
     # noinspection PyTypeChecker
     def command_line_parser(self) -> ArgumentParser:
+        parent = self._command_line_parser()
         parser = ArgumentParser(add_help=False)
         sp = parser.add_subparsers(dest="gui", help="Available GUIs")
 
@@ -344,6 +351,14 @@ class MakeGui(_MakeBase):
             help="Time button must be pressed before performing action (default: 5 seconds)",
         )
 
+        # add one more item to parent miscellaneous group
+        # make sure parent parser is created first
+        self._misc_options.add_argument(
+            "-exclude_unnamed",
+            action="store_true",
+            help="Exclude unnamed components from the GUI display",
+        )
+
         misc_opts = parser.add_argument_group("Service options")
         misc_opts.add_argument(
             "-start",
@@ -353,7 +368,7 @@ class MakeGui(_MakeBase):
         return PyTrainArgumentParser(
             prog=self._prog,
             description=f"Launch {PROGRAM_NAME} GUI when your Raspberry Pi is powered on",
-            parents=[self._command_line_parser(), parser],
+            parents=[parent, parser],
         )
 
     def make_shell_script(self) -> Path | None:
@@ -455,6 +470,8 @@ class MakeGui(_MakeBase):
             self._gui_config["__TMCC_ID__"] = str(self._args.tmcc_id)
         if hasattr(self._args, "track_id"):
             self._gui_config["__TRACK_ID__"] = str(self._args.track_id)
+        if hasattr(self._args, "exclude_unnamed"):
+            self._gui_config["__EXCLUDE__"] = str(self._args.exclude_unnamed)
 
     def construct_gui_stmt(self):
         stmt = CLASS_TO_TEMPLATE.get(self._gui_class)
