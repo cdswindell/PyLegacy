@@ -139,7 +139,7 @@ class ComponentState(ABC, CompDataMixin):
 
     @property
     def road_number(self) -> str | None:
-        return self._road_number if self._road_number else self._address
+        return self._road_number if self._road_number else str(self._address)
 
     @property
     def is_road_number(self) -> bool:
@@ -147,8 +147,11 @@ class ComponentState(ABC, CompDataMixin):
 
     @property
     def name(self) -> str:
-        the_name = " #" + self.road_number if self.road_number else ""
-        the_name = self.road_name + the_name if self.road_name else "NA"
+        if self.is_road_name or self.is_road_number:
+            the_name = " #" + self._road_number if self._road_number else ""
+            the_name = self._road_name + the_name if self._road_name else "NA"
+        else:
+            the_name = f"{self.moniker} {self._address}"
         return the_name
 
     @property
