@@ -171,8 +171,14 @@ ENGINE_OPS_LAYOUT = [
         ],
     ],
     [
-        ("AUX1_OPTION_ONE", "", AUX1_KEY, "Sequence"),
-        ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights..."),
+        [
+            ("AUX1_OPTION_ONE", "", AUX1_KEY, "Sequence", "e"),
+            ("AUX1_OPTION_ONE", "", AUX1_KEY, "", "pf"),
+        ],
+        [
+            ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights...", "e"),
+            ("AUX2_OPTION_ONE", "", AUX2_KEY, "", "pf"),
+        ],
         ("AUX3_OPTION_ONE", "", AUX3_KEY),
         (MOM_TB, "", MOMENTUM, "", "e"),
     ],
@@ -835,10 +841,10 @@ class EngineGui(Thread, Generic[S]):
         btn.text_size = self.s_12
         btn.update_command(self.toggle_momentum_train_brake, [btn])
 
-        _, btn = self.engine_ops_cells["AUX1_OPTION_ONE"]
+        _, btn = self.engine_ops_cells[("AUX1_OPTION_ONE", "e")]
         btn.on_repeat = btn.on_press
 
-        _, btn = self.engine_ops_cells["AUX2_OPTION_ONE"]
+        _, btn = self.engine_ops_cells[("AUX2_OPTION_ONE", "e")]
         btn.on_hold = self.on_lights
 
         _, btn = self.engine_ops_cells[("TOWER_CHATTER", "e")]
@@ -2564,6 +2570,7 @@ class EngineGui(Thread, Generic[S]):
 
     def show_freight_keys(self) -> None:
         self.scope_engine_keys(self._engine_type_key_map["f"])
+        self.show_horn_control()
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
         self._in_entry_mode = False
