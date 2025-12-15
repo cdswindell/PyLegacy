@@ -130,7 +130,7 @@ ENGINE_OPS_LAYOUT = [
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
         ],
         [
-            ("RING_BELL", "bell.jpg", "", "e"),
+            ("RING_BELL", "bell.jpg", "", "", "e"),
             ("STEWARD_CHATTER", "steward.jpg", "", "Steward...", "p"),
         ],
     ],
@@ -147,6 +147,7 @@ ENGINE_OPS_LAYOUT = [
         [
             ("FORWARD_DIRECTION", "", FWD_KEY, "", "e"),
             ("NUMBER_9", "car-lights-on.jpg", "", "", "p"),
+            ("NUMBER_9", "lights-on.jpg", "", "", "f"),
         ],
     ],
     [
@@ -162,6 +163,7 @@ ENGINE_OPS_LAYOUT = [
         [
             ("REVERSE_DIRECTION", "", REV_KEY, "", "e"),
             ("NUMBER_8", "car-lights-off.jpg", "", "", "p"),
+            ("NUMBER_8", "lights-off.jpg", "", "", "f"),
         ],
     ],
     [
