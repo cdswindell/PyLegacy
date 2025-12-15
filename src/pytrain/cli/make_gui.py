@@ -166,7 +166,7 @@ class MakeGui(_MakeBase):
         if not self.is_gui_present:
             print(f"\nNo {PROGRAM_NAME} GUI detected. Exiting")
             return
-        if self.confirm(f"Are you sure you want to remove the {PROGRAM_NAME} GUI?"):
+        if not self._do_confirm or self.confirm(f"Are you sure you want to remove the {PROGRAM_NAME} GUI?"):
             self.find_and_kill_process(cmdline="python3 headless -buttons")
             for path in (self._desktop_path, self._launch_path, self._buttons_path):
                 if path.exists():

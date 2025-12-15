@@ -61,7 +61,9 @@ class MakeService(_MakeBase):
         else:
             print(f"\nNo {PROGRAM_NAME} server or client is currently running. Exiting")
             return
-        if self.confirm(f"Are you sure you want to deactivate and remove {PROGRAM_NAME} {mode}?"):
+        if not self._do_confirm or self.confirm(
+            f"Are you sure you want to deactivate and remove {PROGRAM_NAME} {mode}?"
+        ):
             path = Path(self._home, "pytrain_server.bash" if mode == "Server" else "pytrain_client.bash")
             if path.exists():
                 print(f"\nRemoving {path}...")
