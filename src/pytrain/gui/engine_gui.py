@@ -567,6 +567,7 @@ class EngineGui(Thread, Generic[S]):
         self._freight_btns = set()
         self._all_engine_btns = set()
         self._engine_type_key_map: dict[str, set[Widget]] = {}
+        self._last_engine_type = None
         self._quill_after_id = None
         self.tower_dialog_box = self.crew_dialog_box = None
         self.conductor_actions_box = self.station_dialog_box = self.steward_dialog_box = None
@@ -1931,6 +1932,7 @@ class EngineGui(Thread, Generic[S]):
         self.scope_box.hide()
         force_entry_mode = False
         clear_info = True
+        self._last_engine_type = None
         for k, v in self._scope_buttons.items():
             if k == scope:
                 v.bg = self._enabled_bg
@@ -2561,18 +2563,26 @@ class EngineGui(Thread, Generic[S]):
             btn.hide()
 
     def show_diesel_keys(self) -> None:
-        self.scope_engine_keys(self._engine_type_key_map["d"])
+        if self._last_engine_type != "d":
+            self.scope_engine_keys(self._engine_type_key_map["d"])
+            self._last_engine_type = "d"
         self.horn_title_box.text = "Horn"
 
     def show_steam_keys(self) -> None:
-        self.scope_engine_keys(self._engine_type_key_map["s"])
+        if self._last_engine_type != "s":
+            self.scope_engine_keys(self._engine_type_key_map["s"])
+            self._last_engine_type = "s"
         self.horn_title_box.text = "Whistle"
 
     def show_passenger_keys(self) -> None:
-        self.scope_engine_keys(self._engine_type_key_map["p"])
+        if self._last_engine_type != "p":
+            self.scope_engine_keys(self._engine_type_key_map["p"])
+            self._last_engine_type = "p"
 
     def show_freight_keys(self) -> None:
-        self.scope_engine_keys(self._engine_type_key_map["f"])
+        if self._last_engine_type != "f":
+            self.scope_engine_keys(self._engine_type_key_map["f"])
+            self._last_engine_type = "f"
         self.show_horn_control()
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
