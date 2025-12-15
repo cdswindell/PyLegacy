@@ -56,7 +56,7 @@ CLASS_TO_TEMPLATE = {
     AccessoriesGui: f"{AccessoriesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__,"
     " exclude_unnamed=__EXCLUDE_UNNAMED__)",
     ComponentStateGui: f"{ComponentStateGui.name()}(label=__LABEL__, initial=__INITIAL__, scale_by=__SCALE_BY__,"
-    " exclude_unnamed=__EXCLUDE_UNNAMED__))",
+    " exclude_unnamed=__EXCLUDE_UNNAMED__)",
     LaunchGui: f"{LaunchGui.__name__}(tmcc_id=__TMCC_ID__, track_id=__TRACK_ID__)",
     MotorsGui: f"{MotorsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
     PowerDistrictsGui: f"{PowerDistrictsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__,"
@@ -471,7 +471,7 @@ class MakeGui(_MakeBase):
         if hasattr(self._args, "track_id"):
             self._gui_config["__TRACK_ID__"] = str(self._args.track_id)
         if hasattr(self._args, "exclude_unnamed"):
-            self._gui_config["__EXCLUDE__"] = str(self._args.exclude_unnamed)
+            self._gui_config["__EXCLUDE_UNNAMED__"] = str(self._args.exclude_unnamed)
 
     def construct_gui_stmt(self):
         stmt = CLASS_TO_TEMPLATE.get(self._gui_class)
