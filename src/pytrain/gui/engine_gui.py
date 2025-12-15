@@ -135,6 +135,7 @@ ENGINE_OPS_LAYOUT = [
         [
             ("RING_BELL", "bell.jpg", "", "", "e"),
             ("STEWARD_CHATTER", "steward.jpg", "", "Steward...", "p"),
+            ("STOCK_WHEEL_ON", "flat-wheel-on.jpg", "", "", "f"),
         ],
     ],
     [
