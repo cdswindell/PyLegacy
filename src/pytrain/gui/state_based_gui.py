@@ -150,7 +150,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     continue
                 log.info(
                     f"is_name: {acc.is_name} {acc.is_road_name} {acc.is_road_number},"
-                    " road_name: {acc.road_name}, name: {acc.name}, exclude: {self._exclude_unnamed}"
+                    f" road_name: {acc.road_name}, name: {acc.name}, exclude: {self._exclude_unnamed}"
                 )
                 # noinspection PyUnresolvedReferences
                 if acc.road_name and "unused" in acc.road_name.lower():
