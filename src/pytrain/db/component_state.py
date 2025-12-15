@@ -36,7 +36,7 @@ from ..protocol.tmcc1.tmcc1_constants import (
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
 from ..utils.text_utils import title
-from .comp_data import CompData, CompDataMixin
+from .comp_data import CompDataMixin, CompData
 
 log = logging.getLogger(__name__)
 
@@ -454,6 +454,7 @@ class SwitchState(TmccState):
         if scope != CommandScope.SWITCH:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
+        self._pdi_source = False
         self._state: Switch | None = None
         self._routes: set[RouteState] = set()
 
@@ -469,6 +470,7 @@ class SwitchState(TmccState):
                     if command.command != Switch.SET_ADDRESS:
                         self._state = command.command
                 elif isinstance(command, Asc2Req) or isinstance(command, Stm2Req):
+                    self._pdi_source = True
                     self._state = Switch.THRU if command.is_thru else Switch.OUT
                 else:
                     log.warning(f"Unhandled Switch State Update received: {command}")
@@ -496,6 +498,10 @@ class SwitchState(TmccState):
     @property
     def is_out(self) -> bool:
         return self._state == Switch.OUT
+
+    @property
+    def is_lcs_component(self) -> bool:
+        return self._pdi_source
 
     @property
     def payload(self) -> str:
@@ -542,6 +548,8 @@ class RouteState(TmccState):
         self._current_state: dict[str, bool | None] = dict()
 
     def update(self, command: L | P) -> None:
+        from .comp_data import CompDataMixin
+
         if command:
             if command.command == TMCC1HaltCommandEnum.HALT:
                 return

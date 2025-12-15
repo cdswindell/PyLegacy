@@ -635,6 +635,25 @@ class CompData(ABC, Generic[R]):
         if data:
             self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
 
+    @property
+    def is_active(self) -> bool:
+        """
+        If there is no name, road number, or prev/next links, the record is considered inactive.
+        Subclasses should override this method to return True if there are other signs of
+        activity that should be considered active.
+        """
+        if self.prev_link == 255 and self.next_link == 255 and not self.road_name and not self.road_number:
+            # do one more check; if this is an accessory or a switch, check if associated state
+            # has recorded any LCS activity, which would indicate activity
+            # if self.scope in {CommandScope.ACC, CommandScope.SWITCH}:
+            #     from .component_state_store import ComponentStateStore
+            #
+            #     state = ComponentStateStore.get_state(self.scope, self.address, False)
+            #     if state and state.is_lcs_component:
+            #         return True
+            return False
+        return True
+
     def __repr__(self) -> str:
         nm = nu = ""
         if self.road_name is not None:
