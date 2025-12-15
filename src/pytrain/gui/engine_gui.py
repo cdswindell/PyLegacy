@@ -550,6 +550,8 @@ class EngineGui(Thread, Generic[S]):
         self._diesel_btns = set()
         self._steam_btns = set()
         self._freight_btns = set()
+        self._all_engine_btns = set()
+        self._engine_type_key_map: dict[str, set[Widget]] = {}
         self._quill_after_id = None
         self.tower_dialog_box = self.crew_dialog_box = None
         self.conductor_actions_box = self.station_dialog_box = self.steward_dialog_box = None
@@ -857,6 +859,22 @@ class EngineGui(Thread, Generic[S]):
             _, btn = self.engine_ops_cells[(command, "e")]
             btn.on_repeat = btn.on_press
             btn.repeat_interval = 0.3
+
+        # assemble key maps
+        self._all_engine_btns = (
+            self._engine_btns
+            | self._diesel_btns
+            | self._steam_btns
+            | self._passenger_btns
+            | self._freight_btns
+            | self._passenger_freight_btns
+        )
+        self._engine_type_key_map = {
+            "d": self._engine_btns | self._diesel_btns,
+            "s": self._engine_btns | self._steam_btns,
+            "p": self._passenger_freight_btns | self._passenger_btns,
+            "f": self._passenger_freight_btns | self._freight_btns,
+        }
 
         # used to make sure brake and throttle get focus when needed
         self.controller_box.visible = True
@@ -2521,34 +2539,25 @@ class EngineGui(Thread, Generic[S]):
         else:
             self.set_btn.show()
 
-    def show_motive_specific_keys(self, code: str):
-        self.set_key_visibility("d" == code, self._diesel_btns | self._engine_btns)
-        self.set_key_visibility("s" == code, self._steam_btns | self._engine_btns)
-        self.set_key_visibility("p" == code, self._passenger_btns | self._passenger_freight_btns)
-        self.set_key_visibility("f" == code, self._freight_btns | self._passenger_freight_btns)
-
-    @staticmethod
-    def set_key_visibility(show: bool, btns: set[Widget]):
+    def scope_engine_keys(self, btns: set[Widget]):
         for btn in btns:
-            print(f"Show: {show} {btn}")
-            if show:
-                btn.show()
-            else:
-                btn.hide()
+            btn.show()
+        for btn in self._all_engine_btns - btns:
+            btn.hide()
 
     def show_diesel_keys(self) -> None:
-        self.show_motive_specific_keys("d")
+        self.scope_engine_keys(self._engine_type_key_map["d"])
         self.horn_title_box.text = "Horn"
 
     def show_steam_keys(self) -> None:
-        self.show_motive_specific_keys("s")
+        self.scope_engine_keys(self._engine_type_key_map["s"])
         self.horn_title_box.text = "Whistle"
 
     def show_passenger_keys(self) -> None:
-        self.show_motive_specific_keys("p")
+        self.scope_engine_keys(self._engine_type_key_map["p"])
 
     def show_freight_keys(self) -> None:
-        self.show_motive_specific_keys("f")
+        self.scope_engine_keys(self._engine_type_key_map["f"])
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
         self._in_entry_mode = False
