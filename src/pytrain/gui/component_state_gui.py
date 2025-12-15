@@ -24,13 +24,13 @@ class ComponentStateGui(Thread):
         return cls.__name__
 
     def __init__(
-            self,
-            label: str = None,
-            initial: str = "Power Districts",
-            width: int = None,
-            height: int = None,
-            scale_by: float = 1.0,
-            exclude_unnamed: bool = False,
+        self,
+        label: str = None,
+        initial: str = "Power Districts",
+        width: int = None,
+        height: int = None,
+        scale_by: float = 1.0,
+        exclude_unnamed: bool = False,
     ) -> None:
         from ..gui.accessories_gui import AccessoriesGui
         from ..gui.motors_gui import MotorsGui
@@ -86,7 +86,12 @@ class ComponentStateGui(Thread):
     def run(self) -> None:
         # create the initially requested gui
         self._gui = self._guis[self.requested_gui](
-            self.label, self.width, self.height, aggrigator=self, scale_by=self._scale_by
+            self.label,
+            self.width,
+            self.height,
+            aggrigator=self,
+            scale_by=self._scale_by,
+            exclude_unnamed=self._exclude_unnamed,
         )
 
         # wait for user to request a different GUI

@@ -44,7 +44,9 @@ class PowerDistrictsGui(StateBasedGui):
         pds: list[AccessoryState] = []
         accs = self._state_store.get_all(CommandScope.ACC)
         for acc in accs:
-            pds.append(cast(AccessoryState, acc))
+            acc = cast(AccessoryState, acc)
+            if acc.is_power_district:
+                pds.append(acc)
         return pds
 
     def is_active(self, state: AccessoryState) -> bool:
