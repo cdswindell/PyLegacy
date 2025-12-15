@@ -3053,7 +3053,7 @@ class EngineGui(Thread, Generic[S]):
             try:
                 prod_info = ProdInfo.by_btid(state.bt_id)
             except ValueError as ve:
-                print(f"Failed to get ProdInfo for {state.bt_id}: {ve}")
+                log.info(f"Product info for engine {state.address} ({state.bt_id}) is unavailable: {ve}")
         return prod_info
 
     def _fetch_prod_info(self, scope: CommandScope, tmcc_id: int, train_id: int = None) -> ProdInfo | None:

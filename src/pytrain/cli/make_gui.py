@@ -202,9 +202,9 @@ class MakeGui(_MakeBase):
         hhcp.add_argument(
             "-scale_by",
             type=float,
-            default=1.0,
+            default=1.5,
             metavar="",
-            help="Text Scale Factor (default: 1.0)",
+            help="Text Scale Factor (default: 1.5)",
         )
         hhcp.add_argument(
             "-history",
