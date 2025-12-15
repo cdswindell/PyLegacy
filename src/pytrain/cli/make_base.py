@@ -44,7 +44,7 @@ class _MakeBase(ABC):
         else:
             args = parser.parse_args()
         self._args = args
-        self._do_confirm = bool(args.yes) is False
+        self._do_confirm = True if bool(args.yes) is False else False
 
         # handle subclass arguments
         self.postprocess_args()
