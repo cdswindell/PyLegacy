@@ -194,7 +194,6 @@ class PushButtonHoldHelper:
                 self._after_id = None
             # Schedule command for required hold time
             self._gui.set_button_active(btn)
-            print(f"Scheduling command {self._command} for {self._press_for}ms")
             self._after_id = self._tk.after(self._press_for, self.fire)
 
     def on_release(self, event: EventData) -> None:
@@ -202,7 +201,6 @@ class PushButtonHoldHelper:
             btn = event.widget
             self._gui.set_button_inactive(btn)
             if self._after_id is not None:
-                print(f"Cancelling command {self._command}")
                 self._tk.after_cancel(self._after_id)
                 self._after_id = None
 

@@ -44,6 +44,7 @@ class _MakeBase(ABC):
         else:
             args = parser.parse_args()
         self._args = args
+        self._do_confirm = bool(args.yes) is False
 
         # handle subclass arguments
         self.postprocess_args()
@@ -189,7 +190,8 @@ class _MakeBase(ABC):
         print(f"  {PROGRAM_NAME} Exe: {self._exe}")
         print(f"  {PROGRAM_NAME} Home: {self._cwd}")
         print(f"  {PROGRAM_NAME} Command Line: {self._cmd_line}")
-        return self.confirm("\nConfirm? [y/n] ")
+
+        return self.confirm("\nConfirm? [y/n] ") if self._do_confirm else True
 
     @staticmethod
     def find_and_kill_process(process_name: str = None, cmdline: str | set[str] = None) -> None:
@@ -324,6 +326,11 @@ class _MakeBase(ABC):
             action="version",
             version=f"{self.__class__.__name__} {get_version()}",
             help="Show version and exit",
+        )
+        misc_opts.add_argument(
+            "-yes",
+            action="store_true",
+            help="Skip confirmation prompt and proceed with installation/removal",
         )
         return parser
 
