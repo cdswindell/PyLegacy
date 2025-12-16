@@ -110,6 +110,7 @@ class ComponentStateGui(Thread):
             self._gui = None
 
             # create and display new gui
+            # TODO: handle push_for argument for the sys admin stuff
             self._gui = self._guis.get(self.requested_gui)(
                 self.label,
                 self.width,

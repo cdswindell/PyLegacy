@@ -32,6 +32,7 @@ class SystemsGui(StateBasedGui):
         aggrigator: ComponentStateGui = None,
         scale_by: float = 1.0,
         press_for: int = 5,
+        exclude_unnamed: bool = True,
     ) -> None:
         StateBasedGui.__init__(
             self,
@@ -42,7 +43,7 @@ class SystemsGui(StateBasedGui):
             aggrigator,
             enabled_bg="red",
             scale_by=scale_by,
-            exclude_unnamed=False,
+            exclude_unnamed=exclude_unnamed,
         )
         self._press_for = press_for
 
