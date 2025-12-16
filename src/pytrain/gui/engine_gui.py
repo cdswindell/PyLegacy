@@ -552,7 +552,8 @@ class EngineGui(Thread, Generic[S]):
         # controller
         self.controller_box = self.controller_keypad_box = None
         self.brake_box = self.brake_level = self.brake = self.focus_widget = None
-        self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = None
+        self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = self._rr_speed_box = None
+        self._bell_box = self._bell_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = self.info_overlay = None
@@ -977,7 +978,7 @@ class EngineGui(Thread, Generic[S]):
         h = (5 * self.button_size) - (self.brake.tk.winfo_height() + self.brake_level.tk.winfo_height()) - 5
 
         # RR Speeds button
-        rr_box = Box(
+        self._rr_speed_box = rr_box = Box(
             sliders,
             grid=[0, 1, 2, 1],  # spans two columns under sliders
             align="top",
@@ -1000,6 +1001,21 @@ class EngineGui(Thread, Generic[S]):
             highlightthickness=0,
         )
         rr_btn.images = (img, inverted_img)
+
+        # Bell button for freight sounds
+        self._bell_box = bell_box = Box(
+            sliders,
+            grid=[0, 1, 2, 1],  # spans two columns under sliders
+            align="top",
+        )
+        self._bell_btn = bell_btn = HoldButton(
+            bell_box,
+            BELL_KEY,
+            text_size=self.s_24,
+            command=self.on_rr_speed,
+        )
+        bell_btn.tk.pack(fill="both", expand=True)
+        bell_box.hide()
 
         # --- HIDE IT AGAIN after sizing is complete ---
         self.controller_box.visible = False
@@ -2557,6 +2573,8 @@ class EngineGui(Thread, Generic[S]):
             self.set_btn.show()
 
     def scope_engine_keys(self, btns: set[Widget]):
+        self._bell_box.hide()
+        self._rr_speed_box.hide()
         for btn in btns:
             btn.show()
         for btn in self._all_engine_btns - btns:
@@ -2566,12 +2584,14 @@ class EngineGui(Thread, Generic[S]):
         if self._last_engine_type != "d":
             self.scope_engine_keys(self._engine_type_key_map["d"])
             self._last_engine_type = "d"
+        self._rr_speed_box.show()
         self.horn_title_box.text = "Horn"
 
     def show_steam_keys(self) -> None:
         if self._last_engine_type != "s":
             self.scope_engine_keys(self._engine_type_key_map["s"])
             self._last_engine_type = "s"
+        self._rr_speed_box.show()
         self.horn_title_box.text = "Whistle"
 
     def show_passenger_keys(self) -> None:
@@ -2583,6 +2603,7 @@ class EngineGui(Thread, Generic[S]):
         if self._last_engine_type != "f":
             self.scope_engine_keys(self._engine_type_key_map["f"])
             self._last_engine_type = "f"
+        self._bell_box.show()
         self.show_horn_control()
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
