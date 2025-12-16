@@ -27,6 +27,7 @@ class RoutesGui(StateBasedGui):
         height: int = None,
         aggrigator: ComponentStateGui = None,
         scale_by: float = 1.0,
+        exclude_unnamed: bool = True,
     ) -> None:
         StateBasedGui.__init__(
             self,
@@ -37,7 +38,7 @@ class RoutesGui(StateBasedGui):
             aggrigator,
             disabled_bg="red",
             scale_by=scale_by,
-            exclude_unnamed=True,
+            exclude_unnamed=exclude_unnamed,
         )
 
     def get_target_states(self) -> list[RouteState]:
