@@ -1012,7 +1012,9 @@ class EngineGui(Thread, Generic[S]):
             bell_box,
             BELL_KEY,
             text_size=self.s_24,
-            command=self.on_rr_speed,
+            text_bold=True,
+            command=self.on_engine_command,
+            args=[["BELL_ONE_SHOT_DING", "RING_BELL"]],
         )
         bell_btn.tk.pack(fill="both", expand=True)
         bell_box.hide()
