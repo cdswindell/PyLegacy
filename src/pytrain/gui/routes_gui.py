@@ -44,8 +44,7 @@ class RoutesGui(StateBasedGui):
         pds: list[RouteState] = []
         accs = self._state_store.get_all(CommandScope.ROUTE)
         for acc in accs:
-            acc = cast(RouteState, acc)
-            pds.append(acc)
+            pds.append(cast(RouteState, acc))
         return pds
 
     def is_active(self, state: RouteState) -> bool:

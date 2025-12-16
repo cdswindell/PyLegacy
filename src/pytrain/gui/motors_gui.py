@@ -60,7 +60,8 @@ class MotorsGui(StateBasedGui):
         pds: list[AccessoryState] = []
         accs = self._state_store.get_all(CommandScope.ACC)
         for acc in accs:
-            pds.append(cast(AccessoryState, acc))
+            if acc.is_amc2:
+                pds.append(cast(AccessoryState, acc))
         return pds
 
     def is_active(self, state: AccessoryState) -> bool:
