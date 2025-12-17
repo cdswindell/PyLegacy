@@ -21,14 +21,13 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar, cast
 
-# noinspection PyPackageRequirements
-from PIL import Image, ImageOps, ImageTk
 from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
 
-from .hold_button import HoldButton
-from .swipe_detector import SwipeDetector
+# noinspection PyPackageRequirements
+from PIL import Image, ImageOps, ImageTk
+
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
 from ..db.base_state import BaseState
@@ -65,6 +64,8 @@ from ..protocol.tmcc2.tmcc2_constants import (
 from ..utils.image_utils import center_text_on_image
 from ..utils.path_utils import find_file
 from ..utils.unique_deque import UniqueDeque
+from .hold_button import HoldButton
+from .swipe_detector import SwipeDetector
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
@@ -1627,7 +1628,7 @@ class EngineGui(Thread, Generic[S]):
             self.horn_box.hide()
 
         if btn is None:  # called from horn handler
-            # restore what was there before; if swap button says "Momentum"
+            # restore what was there before; if the swaped button says "Momentum"
             # then show Train Brake, and vice versa
             _, btn = self.engine_ops_cells[(MOM_TB, "e")]
             if btn.text == MOMENTUM:
