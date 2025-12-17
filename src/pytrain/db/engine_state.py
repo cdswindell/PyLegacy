@@ -12,14 +12,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, TypeVar
 
-from .comp_data import CompDataHandler, CompDataMixin
-from .component_state import (
-    SCOPE_TO_STATE_MAP,
-    ComponentState,
-    L,
-    P,
-    log,
-)
 from ..pdi.constants import D4Action, IrdaAction, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.irda_req import IrdaReq
@@ -45,17 +37,25 @@ from ..protocol.constants import (
     OfficialRRSpeeds,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-
-# noinspection PyPep8Naming
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1_COMMAND_TO_ALIAS_MAP,
     TMCC1EngineCommandEnum,
     TMCC1HaltCommandEnum,
     TMCC1RRSpeedsEnum,
 )
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
+
+# noinspection PyPep8Naming
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
+from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
+from .comp_data import CompDataHandler, CompDataMixin
+from .component_state import (
+    SCOPE_TO_STATE_MAP,
+    ComponentState,
+    L,
+    P,
+    log,
+)
 
 DIRECTIONS_SET = {
     TMCC1EngineCommandEnum.FORWARD_DIRECTION,
@@ -282,6 +282,7 @@ class EngineState(ComponentState):
                     self._is_d4 = True
                 if self.speed and self.target_speed == 0:
                     self.comp_data.target_speed = self.speed
+
             elif isinstance(command, CommandReq):
                 if command.is_tmcc2 is True or self.address > 99:
                     self._is_legacy = True

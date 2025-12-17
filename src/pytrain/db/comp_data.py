@@ -13,7 +13,6 @@ import logging
 from abc import ABC, ABCMeta, abstractmethod
 from typing import Any, Callable, Generic, TypeVar, cast
 
-from .components import ConsistComponent, RouteComponent
 from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.pdi_req import PdiReq
 from ..protocol.command_req import CommandReq
@@ -21,6 +20,7 @@ from ..protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..utils.text_utils import title
+from .components import ConsistComponent, RouteComponent
 
 log = logging.getLogger(__name__)
 
@@ -923,6 +923,15 @@ class CompDataMixin(Generic[C]):
     @property
     def comp_data(self) -> C:
         return self._comp_data
+
+    # noinspection PyProtectedMember
+    @property
+    def address(self) -> int:
+        return self.comp_data._tmcc_id if self.comp_data else 0
+
+    @property
+    def tmcc_id(self) -> int:
+        return self.address
 
     @property
     def is_comp_data_record(self) -> bool:

@@ -15,13 +15,6 @@ import threading
 from collections import defaultdict
 from typing import Generic, List, Set, Tuple, TypeVar, cast
 
-from .component_state import (
-    SCOPE_TO_STATE_MAP,
-    ComponentState,
-    ComponentStateDict,
-    RequestConfigurationException,
-    SystemStateDict,
-)
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
 from ..db.client_state_listener import ClientStateListener
@@ -35,6 +28,14 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as Engine1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as Engine2
+from .comp_data import CompDataMixin
+from .component_state import (
+    SCOPE_TO_STATE_MAP,
+    ComponentState,
+    ComponentStateDict,
+    RequestConfigurationException,
+    SystemStateDict,
+)
 
 log = logging.getLogger(__name__)
 
@@ -150,14 +151,14 @@ class ComponentStateStore:
         else:
             self._initialized = True
 
-        from .engine_state import EngineState
         from ..pdi.constants import PdiCommand
+        from .engine_state import EngineState
 
         self._dependencies = DependencyCache.build()
         self._listeners = listeners
         self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
 
-        self._bt_index = dict[int, EngineState]
+        self._bt_index: dict[int, EngineState] = {}
         self._is_base = is_base
         self._is_ser2 = is_ser2
         self._filter_updates = is_base is True and is_ser2 is True
@@ -220,6 +221,9 @@ class ComponentStateStore:
                                 if (command.command, command.address) in self._lcs_config_reqs:
                                     log.info(f"Updating LCS config for {command.command.name} {command.address}")
                                 self._lcs_config_reqs[(command.command, command.address)] = command
+                            if isinstance(command, CompDataMixin) and hasattr(command, "_bt_id"):
+                                # noinspection PyProtectedMember
+                                self._bt_index[command._bt_id] = self._state[CommandScope.ENGINE][command.address]
                 else:
                     log.warning(f"Received Unknown State Update: {command.scope} {command}")
             except RequestConfigurationException:
