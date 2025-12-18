@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, TypeVar
+from typing import Any, Dict, List, TypeVar, cast
 
 from ..pdi.constants import Bpc2Action, D4Action, IrdaAction, PdiCommand
 from ..pdi.d4_req import D4Req
@@ -565,32 +565,33 @@ class EngineState(ComponentState):
             pdi = D4Req(self.record_no, pdi_cmd, state=self)
         packets.append(pdi.as_bytes)
 
-        # now encode state that isn't managed by the Base 3, AFAIK
-        if isinstance(self._start_stop, CommandDefEnum):
-            packets.append(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
-        if isinstance(self.smoke_level, CommandDefEnum):
-            packets.append(CommandReq.build(self.smoke_level, self.address, scope=self.scope).as_bytes)
-        if isinstance(self._direction, CommandDefEnum):
-            # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
-            packets.append(CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes)
-        if self._numeric is not None and isinstance(self._numeric_cmd, CommandDefEnum):
-            if self.engine_type in {
-                LOCO_TRACK_CRANE,
-            }:
-                packets.append(
-                    CommandReq.build(
-                        self._numeric_cmd,
-                        self.address,
-                        data=self._numeric,
-                        scope=self.scope,
-                    ).as_bytes
-                )
-        if isinstance(self._aux, CommandDefEnum):
-            packets.append(CommandReq.build(self._aux, self.address).as_bytes)
-        if isinstance(self._aux1, CommandDefEnum):
-            packets.append(CommandReq.build(self.aux1, self.address).as_bytes)
-        if isinstance(self._aux2, CommandDefEnum):
-            packets.append(CommandReq.build(self.aux2, self.address).as_bytes)
+        if not self._pdi_source:
+            # now encode state that isn't managed by the Base 3, AFAIK
+            if isinstance(self._start_stop, CommandDefEnum):
+                packets.append(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
+            if isinstance(self.smoke_level, CommandDefEnum):
+                packets.append(CommandReq.build(self.smoke_level, self.address, scope=self.scope).as_bytes)
+            if isinstance(self._direction, CommandDefEnum):
+                # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
+                packets.append(CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes)
+            if self._numeric is not None and isinstance(self._numeric_cmd, CommandDefEnum):
+                if self.engine_type in {
+                    LOCO_TRACK_CRANE,
+                }:
+                    packets.append(
+                        CommandReq.build(
+                            self._numeric_cmd,
+                            self.address,
+                            data=self._numeric,
+                            scope=self.scope,
+                        ).as_bytes
+                    )
+            if isinstance(self._aux, CommandDefEnum):
+                packets.append(CommandReq.build(self._aux, self.address).as_bytes)
+            if isinstance(self._aux1, CommandDefEnum):
+                packets.append(CommandReq.build(self.aux1, self.address).as_bytes)
+            if isinstance(self._aux2, CommandDefEnum):
+                packets.append(CommandReq.build(self.aux2, self.address).as_bytes)
         return packets
 
     @property
@@ -950,16 +951,25 @@ class TrainState(EngineState):
         self._is_legacy: bool = True
         self._is_bpc2: bool = False
         self._parent: TrainState | None = None
+        self._config_req = self._firmware_req = self._info_req = self._status_req = self._control_req = None
 
     def update(self, command: L | P) -> None:
         from ..pdi.bpc2_req import Bpc2Req
 
         with self._cv:
-            super().update(command)
             if isinstance(command, Bpc2Req):
-                print(command)
                 self._is_bpc2 = True
                 self._pdi_source = True
+                if command.is_config_req:
+                    self._config_req = command
+                elif command.is_firmware_req:
+                    self._firmware_req = command
+                elif command.is_info_req:
+                    self._info_req = command
+                elif command.is_status_req:
+                    self._status_req = command
+                elif command.is_control_req:
+                    self._control_req = command
                 if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                     if command.state:
                         self._aux1 = TMCC2.AUX1_ON
@@ -969,6 +979,7 @@ class TrainState(EngineState):
                         self._aux1 = TMCC2.AUX1_OFF
                         self._aux2 = TMCC2.AUX2_OFF
                         self._aux = TMCC2.AUX2_OPTION_ONE
+            super().update(command)
 
     @property
     def consist_flags(self) -> int:
@@ -1013,6 +1024,20 @@ class TrainState(EngineState):
         if self.is_bpc2 or self._is_legacy:
             return True
         return super().is_legacy
+
+    def as_bytes(self) -> list[bytes]:
+        packets = []
+        if self._pdi_source:
+            if self._config_req:
+                packets.append(self._config_req.as_bytes)
+            if self._firmware_req:
+                packets.append(self._firmware_req.as_bytes)
+            if self._info_req:
+                packets.append(self._info_req.as_bytes)
+            if self._control_req:
+                packets.append(self._control_req.as_bytes)
+        packets.extend(cast(list[bytes], cast(object, super().as_bytes)))
+        return packets
 
 
 SCOPE_TO_STATE_MAP.update({CommandScope.ENGINE: EngineState})

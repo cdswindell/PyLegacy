@@ -171,15 +171,14 @@ class AccessoryState(TmccState):
                     self._sensor_track = True
                 # check for LCS-specific info
                 if isinstance(command, LcsReq):
-                    if isinstance(command, LcsReq):
-                        if command.is_firmware_req:
-                            self._firmware_req = command
-                        elif command.is_info_req:
-                            self._info_req = command
-                        elif command.is_status_req:
-                            self._status_req = command
-                        elif command.is_control_req:
-                            self._control_req = command
+                    if command.is_firmware_req:
+                        self._firmware_req = command
+                    elif command.is_info_req:
+                        self._info_req = command
+                    elif command.is_status_req:
+                        self._status_req = command
+                    elif command.is_control_req:
+                        self._control_req = command
                 self.changed.set()
                 self._cv.notify_all()
 
