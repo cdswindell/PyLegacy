@@ -66,12 +66,12 @@ class Bpc2Req(LcsReq):
                     from .pdi_device import Bpc2DeviceConfig, PdiDevice
                     from .pdi_state_store import PdiStateStore
 
+                    print("***", self.scope, self)
                     config = PdiStateStore.get_config(PdiDevice.BPC2, self.address)
                     if isinstance(config, Bpc2DeviceConfig):
                         self.scope = CommandScope.TRAIN if config.mode in {0, 1} else CommandScope.ACC
                     else:
                         self.scope = CommandScope.ACC
-            print(self.scope, self)
         else:
             Validations.validate_int(mode, 0, 3, "Mode", True)
             Validations.validate_int(state, 0, 1, "State", True)
