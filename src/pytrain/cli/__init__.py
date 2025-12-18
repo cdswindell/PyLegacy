@@ -239,7 +239,7 @@ class CliBase(ABC):
     @staticmethod
     def _validate_time(arg: Any) -> float:
         try:
-            arg = float(arg)  # try convert to float
+            arg = float(arg)  # try to convert to float
             if arg >= 0.0:
                 return arg
         except ValueError:
@@ -249,7 +249,7 @@ class CliBase(ABC):
     @staticmethod
     def _validate_interval(arg: Any) -> int:
         try:
-            arg = int(arg)  # try convert to float
+            arg = int(arg)  # try to convert to float
             if arg >= DEFAULT_DURATION_INTERVAL_MSEC:
                 return arg
         except ValueError:

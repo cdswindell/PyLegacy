@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import Dict
 
+from ..protocol.constants import CommandScope, Mixins
 from .constants import PDI_EOP, PDI_SOP, IrdaAction, PdiCommand
 from .lcs_req import LcsReq
-from ..protocol.constants import CommandScope, Mixins
 
 
 class IrdaSequence(Mixins):
@@ -128,6 +128,14 @@ class IrdaReq(LcsReq):
                 self._tsdb_right = self._data[63] if data_len > 63 else None
                 self._max_speed = self._data[64] if data_len > 64 else None
                 self._odometer = int.from_bytes(self._data[65:68], byteorder="little") if data_len > 68 else None
+                # if BlueTooth ID present, update engine_id, if necessary
+                if self._bluetooth_id:
+                    from ..db.component_state_store import ComponentStateStore
+
+                    bt_id = int.from_bytes(self._bluetooth_id, byteorder="big")
+                    state = ComponentStateStore.by_bluetooth_id(bt_id)
+                    if state:
+                        self._engine_id = state.tmcc_id
             elif self._action == IrdaAction.SEQUENCE:
                 self._sequence = IrdaSequence.by_value(self._data[3], True) if data_len > 3 else None
             elif self._action == IrdaAction.RECORD:

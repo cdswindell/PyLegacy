@@ -110,6 +110,10 @@ class ComponentStateStore:
             return False
         return cast(SyncState, sync_state).is_synchronizing
 
+    @classmethod
+    def by_bluetooth_id(cls, bt_id: int) -> T | None:
+        return cls._instance._bt_index.get(bt_id, None) if cls._instance else None
+
     # noinspection PyTypeChecker
     @classmethod
     def configure_slave_devices(cls, configs: list[LcsReq]) -> None:
@@ -178,6 +182,7 @@ class ComponentStateStore:
     def __contains__(self, scope: CommandScope) -> bool:
         return scope in self._state
 
+    # noinspection PyProtectedMember
     def __call__(self, command: Message) -> None:
         """
         Callback, per the Subscriber protocol in CommandListener
@@ -212,18 +217,24 @@ class ComponentStateStore:
                                 self._state[command.scope][address].update(command)
                         else:  # update the device state (identified by scope/address)
                             # make sure we haven't filled a slot based on a previous engine's road number
-                            if command.address > 99:
-                                state = self.query(command.scope, command.address)
-                                if state and state.address != command.address:
-                                    del self._state[command.scope][command.address]
-                            self._state[command.scope][command.address].update(command)
+                            address = command.address
+                            scope = command.scope
+                            if address > 99:
+                                state = self.query(scope, address)
+                                if state and state.address != address:
+                                    del self._state[scope][address]
+                            self._state[scope][address].update(command)
                             if isinstance(command, LcsReq) and command.is_config_req:
-                                if (command.command, command.address) in self._lcs_config_reqs:
-                                    log.info(f"Updating LCS config for {command.command.name} {command.address}")
-                                self._lcs_config_reqs[(command.command, command.address)] = command
-                            if isinstance(command, CompDataMixin) and hasattr(command, "_bt_id"):
-                                # noinspection PyProtectedMember
-                                self._bt_index[command._bt_id] = self._state[CommandScope.ENGINE][command.address]
+                                if (command.command, address) in self._lcs_config_reqs:
+                                    log.info(f"Updating LCS config for {command.command.name} {address}")
+                                self._lcs_config_reqs[(command.command, address)] = command
+                            if (
+                                isinstance(command, CompDataMixin)
+                                and command.comp_data
+                                and command.comp_data.scope == CommandScope.ENGINE
+                                and command.comp_data._bt_id
+                            ):
+                                self._bt_index[command.comp_data._bt_id] = self._state[CommandScope.ENGINE][address]
                 else:
                     log.warning(f"Received Unknown State Update: {command.scope} {command}")
             except RequestConfigurationException:

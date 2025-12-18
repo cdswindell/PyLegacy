@@ -924,15 +924,6 @@ class CompDataMixin(Generic[C]):
     def comp_data(self) -> C:
         return self._comp_data
 
-    # noinspection PyProtectedMember
-    @property
-    def address(self) -> int:
-        return self.comp_data._tmcc_id if self.comp_data else 0
-
-    @property
-    def tmcc_id(self) -> int:
-        return self.address
-
     @property
     def is_comp_data_record(self) -> bool:
         return self._comp_data is not None and self._comp_data_record is True
