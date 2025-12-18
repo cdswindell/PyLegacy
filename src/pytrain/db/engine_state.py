@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, TypeVar
 
-from ..pdi.constants import D4Action, IrdaAction, PdiCommand
+from ..pdi.constants import Bpc2Action, D4Action, IrdaAction, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.irda_req import IrdaReq
 from ..protocol.command_def import CommandDefEnum
@@ -177,6 +177,7 @@ class EngineState(ComponentState):
         self._d4_rec_no: int | None = None
         self._is_d4: bool = False
         self._ramping: bool = False
+        self._pdi_source: bool = False  # for train is LCS BPC2
 
     def __repr__(self) -> str:
         try:
@@ -362,18 +363,19 @@ class EngineState(ComponentState):
                         self._aux = cmd if cmd in {TMCC1.AUX1_OPTION_ONE, TMCC2.AUX1_OPTION_ONE} else self._aux
                         self._aux1 = cmd
 
-                for cmd in {command.command} | (cmd_effects & ENGINE_AUX2_SET):
-                    if cmd in ENGINE_AUX2_SET:
-                        self._aux = cmd if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE} else self._aux
-                        if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
-                            if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
-                                if self._is_legacy:
-                                    self._aux2 = self.update_aux_state(
-                                        self._aux2,
-                                        TMCC2.AUX2_ON,
-                                        TMCC2.AUX2_OPTION_ONE,
-                                        TMCC2.AUX2_OFF,
-                                    )
+                if not self._pdi_source:
+                    for cmd in {command.command} | (cmd_effects & ENGINE_AUX2_SET):
+                        if cmd in ENGINE_AUX2_SET:
+                            self._aux = cmd if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE} else self._aux
+                            if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
+                                if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
+                                    if self._is_legacy:
+                                        self._aux2 = self.update_aux_state(
+                                            self._aux2,
+                                            TMCC2.AUX2_ON,
+                                            TMCC2.AUX2_OPTION_ONE,
+                                            TMCC2.AUX2_OFF,
+                                        )
                                 else:
                                     self._aux2 = self.update_aux_state(
                                         self._aux2,
@@ -945,7 +947,28 @@ class TrainState(EngineState):
         super().__init__(scope)
         # TODO: FIXME!!
         # hard code TMCC2, for now
-        self._is_legacy = True
+        self._is_legacy: bool = True
+        self._is_bpc2: bool = False
+        self._parent: TrainState | None = None
+
+    def update(self, command: L | P) -> None:
+        from ..pdi.bpc2_req import Bpc2Req
+
+        with self._cv:
+            super().update(command)
+            if isinstance(command, Bpc2Req):
+                print(command)
+                self._is_bpc2 = True
+                self._pdi_source = True
+                if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
+                    if command.state:
+                        self._aux1 = TMCC2.AUX1_ON
+                        self._aux2 = TMCC2.AUX2_OFF
+                        self._aux = TMCC2.AUX1_OPTION_ONE
+                    else:
+                        self._aux1 = TMCC2.AUX1_OFF
+                        self._aux2 = TMCC2.AUX2_OFF
+                        self._aux = TMCC2.AUX2_OPTION_ONE
 
     @property
     def consist_flags(self) -> int:
@@ -980,6 +1003,16 @@ class TrainState(EngineState):
                     ids.append(comp.tmcc_id)
             return ids
         return None
+
+    @property
+    def is_bpc2(self) -> bool:
+        return self._is_bpc2
+
+    @property
+    def is_legacy(self) -> bool:
+        if self.is_bpc2 or self._is_legacy:
+            return True
+        return super().is_legacy
 
 
 SCOPE_TO_STATE_MAP.update({CommandScope.ENGINE: EngineState})
