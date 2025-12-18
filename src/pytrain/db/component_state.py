@@ -411,12 +411,14 @@ class LcsState(ComponentState, ABC):
 
     def __init__(self, scope: CommandScope = None) -> None:
         super().__init__(scope)
+        self._config_req_count = 0
         self._config_req = self._status_req = self._info_req = self._firmware_req = self._control_req = None
 
     def update(self, command: P) -> None:
         if isinstance(command, LcsReq):
             if command.is_config_req:
                 self._config_req = command
+                self._config_req_count += 1
             elif command.is_firmware_req:
                 self._firmware_req = command
             elif command.is_info_req:

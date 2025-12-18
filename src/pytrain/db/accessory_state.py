@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, cast
+from typing import Any, Dict
 
 from ..pdi.amc2_req import Amc2Lamp, Amc2Motor, Amc2Req
 from ..pdi.asc2_req import Asc2Req
@@ -21,7 +21,7 @@ from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
 from .comp_data import CompDataMixin
-from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState, log
+from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState
 
 
 class AccessoryState(TmccState, LcsProxyState):
@@ -29,10 +29,6 @@ class AccessoryState(TmccState, LcsProxyState):
         if scope != CommandScope.ACC:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
-        self._first_pdi_command = None
-        self._first_pdi_action = None
-        self._config_req = None
-        self._config_req_count = 0
         self._last_aux1_opt1 = None
         self._last_aux2_opt1 = None
         self._aux1_state: Aux | None = None
@@ -126,14 +122,6 @@ class AccessoryState(TmccState, LcsProxyState):
                             if self.is_amc2:
                                 self.extract_state_from_req(command)
                 elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req) or isinstance(command, Amc2Req):
-                    if command.is_config_req:
-                        self._config_req = command
-                        self._config_req_count += 1
-                    elif command.action.is_control:
-                        if self._first_pdi_command is None:
-                            self._first_pdi_command = command.command
-                        if self._first_pdi_action is None:
-                            self._first_pdi_action = command.action
                     if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                         if command.state == 1:
                             self._aux1_state = Aux.AUX1_ON
@@ -145,11 +133,6 @@ class AccessoryState(TmccState, LcsProxyState):
                             self._aux_state = Aux.AUX2_OPT_ONE
                     elif isinstance(command, Amc2Req):
                         self.extract_state_from_req(command)
-                elif isinstance(command, IrdaReq):
-                    if self._first_pdi_command is None:
-                        self._first_pdi_command = command.command
-                    if self._first_pdi_action is None:
-                        self._first_pdi_action = command.action
                 self.changed.set()
                 self._cv.notify_all()
 
@@ -267,29 +250,15 @@ class AccessoryState(TmccState, LcsProxyState):
         elif self.is_lcs_component:
             if self._config_req:
                 byte_str += self._config_req.as_bytes
+            if self._control_req:
+                byte_str += self._control_req.as_bytes
             if self._firmware_req:
                 byte_str += self._firmware_req.as_bytes
             if self._info_req:
                 byte_str += self._info_req.as_bytes
-            if isinstance(self._first_pdi_action, Asc2Action):
-                byte_str += Asc2Req(
-                    self.address,
-                    self._first_pdi_command,
-                    cast(Asc2Action, self._first_pdi_action),
-                    values=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
-                ).as_bytes
-            elif isinstance(self._first_pdi_action, Bpc2Action):
-                byte_str += Bpc2Req(
-                    self.address,
-                    self._first_pdi_command,
-                    cast(Bpc2Action, self._first_pdi_action),
-                    state=1 if self._aux_state == Aux.AUX1_OPT_ONE else 0,
-                ).as_bytes
-            elif isinstance(self._config_req, Amc2Req):
+            if isinstance(self._config_req, Amc2Req):
                 if self.number:
                     byte_str += CommandReq(Aux.NUMERIC, self.address, self.number).as_bytes
-            else:
-                log.error(f"State req for lcs device: {self._first_pdi_command.name} {self._first_pdi_action.name}")
         else:
             if self._aux_state is not None:
                 byte_str += CommandReq.build(self.aux_state, self.address).as_bytes
