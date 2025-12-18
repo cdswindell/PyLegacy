@@ -16,17 +16,15 @@ from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq
-from ..pdi.lcs_req import LcsReq
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
 from .comp_data import CompDataMixin
-from .component_state import SCOPE_TO_STATE_MAP, L, P, TmccState, log
-from .irda_state import IrdaState
+from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState, log
 
 
-class AccessoryState(TmccState):
+class AccessoryState(TmccState, LcsProxyState):
     def __init__(self, scope: CommandScope = CommandScope.ACC) -> None:
         if scope != CommandScope.ACC:
             raise ValueError(f"Invalid scope: {scope}")
@@ -40,23 +38,16 @@ class AccessoryState(TmccState):
         self._aux1_state: Aux | None = None
         self._aux2_state: Aux | None = None
         self._aux_state: Aux | None = None
-        self._sensor_track = False
-        self._bpc2 = False
-        self._asc2 = False
-        self._amc2 = False
-        self._firmware_req = self._info_req = self._status_req = self._control_req = None
-        self._pdi_source = False
         self._number: int | None = None
-        self._parent: AccessoryState | None = None
 
     @property
     def payload(self) -> str:
         aux1 = aux2 = aux_num = ""
-        if self._bpc2:
+        if self.is_bpc2:
             aux = f"Block Power Port {self.port}: {'ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
-        elif self._sensor_track:
+        elif self.is_sensor_track:
             aux = "Sensor Track"
-        elif self._amc2:
+        elif self.is_amc2:
             if self._config_req:
                 at = f"Type: {self._config_req.access_type.label}"
                 m1 = f"{self._config_req.motor1}"
@@ -144,13 +135,6 @@ class AccessoryState(TmccState):
                         if self._first_pdi_action is None:
                             self._first_pdi_action = command.action
                     if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
-                        self._pdi_source = True
-                        if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
-                            self._bpc2 = True
-                            self._asc2 = False
-                        else:
-                            self._asc2 = True
-                            self._bpc2 = False
                         if command.state == 1:
                             self._aux1_state = Aux.AUX1_ON
                             self._aux2_state = Aux.AUX2_ON
@@ -160,25 +144,12 @@ class AccessoryState(TmccState):
                             self._aux2_state = Aux.AUX2_OFF
                             self._aux_state = Aux.AUX2_OPT_ONE
                     elif isinstance(command, Amc2Req):
-                        self._pdi_source = True
-                        self._amc2 = True
                         self.extract_state_from_req(command)
                 elif isinstance(command, IrdaReq):
                     if self._first_pdi_command is None:
                         self._first_pdi_command = command.command
                     if self._first_pdi_action is None:
                         self._first_pdi_action = command.action
-                    self._sensor_track = True
-                # check for LCS-specific info
-                if isinstance(command, LcsReq):
-                    if command.is_firmware_req:
-                        self._firmware_req = command
-                    elif command.is_info_req:
-                        self._info_req = command
-                    elif command.is_status_req:
-                        self._status_req = command
-                    elif command.is_control_req:
-                        self._control_req = command
                 self.changed.set()
                 self._cv.notify_all()
 
@@ -191,81 +162,6 @@ class AccessoryState(TmccState):
             or self._number is not None
             or self._config_req is not None
         )
-
-    @property
-    def is_power_district(self) -> bool:
-        return self._bpc2
-
-    @property
-    def is_sensor_track(self) -> bool:
-        return self._sensor_track
-
-    @property
-    def is_asc2(self) -> bool:
-        return self._asc2
-
-    @property
-    def is_bpc2(self) -> bool:
-        return self._bpc2
-
-    @property
-    def is_amc2(self) -> bool:
-        return self._amc2
-
-    @property
-    def firmware(self) -> str:
-        if self._parent:
-            return self._parent.firmware
-        return self._firmware_req.firmware if self._firmware_req else "NA"
-
-    @property
-    def board_id(self) -> int | None:
-        if self._parent:
-            return self._parent.board_id
-        return self._info_req if self._info_req.board_id else None
-
-    @property
-    def num_ids(self) -> int | None:
-        if self._parent:
-            return self._parent.num_ids
-        return self._info_req if self._info_req.num_ids else None
-
-    @property
-    def model(self) -> int | None:
-        if self._parent:
-            return self._parent.model
-        return self._info_req if self._info_req.model else None
-
-    @property
-    def mode(self) -> int:
-        if self._parent:
-            return self._parent.mode
-        return self._config_req.mode if self._config_req and hasattr(self._config_req, "mode") else "NA"
-
-    @property
-    def port(self) -> int:
-        if self.is_bpc2 or self.is_asc2 or self.is_amc2:
-            if self._config_req:  # config requests only exist on the parent device
-                return 1
-            elif self._parent:
-                return self.address - self._parent.address + 1
-        return 1
-
-    @property
-    def parent_id(self) -> int | None:
-        if self._config_req:
-            return self.address
-        elif self._parent:
-            return self._parent.address
-        return None
-
-    @property
-    def parent(self) -> AccessoryState | IrdaState:
-        return self._parent
-
-    @property
-    def is_lcs_component(self) -> bool:
-        return self._pdi_source
 
     @property
     def aux_state(self) -> Aux:
@@ -366,7 +262,7 @@ class AccessoryState(TmccState):
         if self.comp_data is None:
             self.initialize(self.scope, self.address)
         byte_str = super().as_bytes()
-        if self._sensor_track:
+        if self.is_sensor_track:
             byte_str += IrdaReq(self.address, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC).as_bytes
         elif self.is_lcs_component:
             if self._config_req:
@@ -403,33 +299,11 @@ class AccessoryState(TmccState):
                 byte_str += CommandReq.build(self.aux2_state, self.address).as_bytes
         return byte_str
 
-    @property
-    def accessory_type(self) -> str:
-        if self.is_bpc2:
-            return "LCS BPC2"
-        elif self.is_amc2:
-            return "LCS AMC2"
-        elif self.is_asc2:
-            return "LCS ASC2"
-        elif self.is_sensor_track:
-            return "LCS Sensor Track"
-        return "Accessory"
-
-    @property
-    def moniker(self) -> str:
-        if self.is_bpc2:
-            return "Power District"
-        elif self.is_amc2:
-            return "Motor Controller"
-        elif self.is_sensor_track:
-            return "Sensor Track"
-        return "Accessory"
-
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
-        if self._sensor_track:
+        if self.is_sensor_track:
             d["type"] = "sensor track"
-        elif self._bpc2:
+        elif self.is_bpc2:
             d["type"] = "power district"
             d["block"] = "on" if self._aux_state == Aux.AUX1_OPT_ONE else "off"
         else:

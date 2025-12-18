@@ -15,7 +15,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from collections import defaultdict
 from threading import Condition, Event, RLock
 from time import time
-from typing import Any, Dict, List, Set, TypeVar
+from typing import Any, Dict, List, Self, Set, TypeVar
 
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import PdiCommand
@@ -36,7 +36,7 @@ from ..protocol.tmcc1.tmcc1_constants import (
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
 from ..utils.text_utils import title
-from .comp_data import CompDataMixin, CompData
+from .comp_data import CompData, CompDataMixin
 
 log = logging.getLogger(__name__)
 
@@ -411,10 +411,9 @@ class LcsState(ComponentState, ABC):
 
     def __init__(self, scope: CommandScope = None) -> None:
         super().__init__(scope)
-        self._config_req = self._status_req = self._info_req = self._firmware_req = None
+        self._config_req = self._status_req = self._info_req = self._firmware_req = self._control_req = None
 
     def update(self, command: P) -> None:
-        super().update(command)
         if isinstance(command, LcsReq):
             if command.is_config_req:
                 self._config_req = command
@@ -424,6 +423,9 @@ class LcsState(ComponentState, ABC):
                 self._info_req = command
             elif command.is_status_req:
                 self._status_req = command
+            elif command.is_control_req:
+                self._control_req = command
+        super().update(command)
 
     def as_bytes(self) -> bytes:
         byte_str = super().as_bytes()
@@ -441,7 +443,7 @@ class LcsState(ComponentState, ABC):
 
     @property
     def is_legacy(self) -> bool:
-        return False
+        return True
 
     @property
     def is_lcs(self) -> bool:
@@ -462,6 +464,141 @@ class LcsState(ComponentState, ABC):
     @property
     def model(self) -> int | None:
         return self._info_req if self._info_req.model else None
+
+
+class LcsProxyState(LcsState, ABC):
+    __metaclass__ = ABCMeta
+
+    def __init__(self, scope: CommandScope = None) -> None:
+        super().__init__(scope)
+        self._parent = None
+        self._pdi_source = False
+
+    def update(self, command: L | P) -> None:
+        if isinstance(command, LcsReq):
+            self._pdi_source = True
+        super().update(command)
+
+    @property
+    def accessory_type(self) -> str:
+        if self.is_bpc2:
+            return "LCS BPC2"
+        elif self.is_amc2:
+            return "LCS AMC2"
+        elif self.is_asc2:
+            return "LCS ASC2"
+        elif self.is_stm2:
+            return "LCS STM2"
+        elif self.is_sensor_track:
+            return "LCS Sensor Track"
+        return "Accessory"
+
+    @property
+    def moniker(self) -> str:
+        if self.is_bpc2:
+            return "Power District"
+        elif self.is_amc2:
+            return "Motor Controller"
+        elif self.is_stm2:
+            return "Switch Sensor"
+        elif self.is_sensor_track:
+            return "Sensor Track"
+        return "Accessory"
+
+    @property
+    def is_bpc2(self):
+        from ..pdi.bpc2_req import Bpc2Req
+
+        return isinstance(self._control_req, Bpc2Req) or isinstance(self._config_req, Bpc2Req)
+
+    @property
+    def is_power_district(self) -> bool:
+        return self.is_bpc2
+
+    @property
+    def is_amc2(self):
+        from ..pdi.amc2_req import Amc2Req
+
+        return isinstance(self._control_req, Amc2Req) or isinstance(self._config_req, Amc2Req)
+
+    @property
+    def is_asc2(self):
+        from ..pdi.asc2_req import Asc2Req
+
+        return isinstance(self._control_req, Asc2Req) or isinstance(self._config_req, Asc2Req)
+
+    @property
+    def is_stm2(self):
+        from ..pdi.stm2_req import Stm2Req
+
+        return isinstance(self._control_req, Stm2Req) or isinstance(self._config_req, Stm2Req)
+
+    @property
+    def is_sensor_track(self):
+        from ..pdi.irda_req import IrdaReq
+
+        return (
+            isinstance(self._control_req, IrdaReq)
+            or isinstance(self._config_req, IrdaReq)
+            or isinstance(self._info_req, IrdaReq)
+        )
+
+    @property
+    def parent_id(self) -> int | None:
+        if self._config_req:
+            return self.address
+        elif self._parent:
+            return self._parent.address
+        return None
+
+    @property
+    def parent(self) -> Self:
+        return self._parent
+
+    @property
+    def is_lcs_component(self) -> bool:
+        return self._pdi_source
+
+    @property
+    def is_lcs(self) -> bool:
+        return self.is_lcs_component
+
+    @property
+    def firmware(self) -> str:
+        if self._parent:
+            return self._parent.firmware
+        return self._firmware_req.firmware if self._firmware_req else "NA"
+
+    @property
+    def board_id(self) -> int | None:
+        if self._parent:
+            return self._parent.board_id
+        return self._info_req if self._info_req.board_id else None
+
+    @property
+    def num_ids(self) -> int | None:
+        if self._parent:
+            return self._parent.num_ids
+        return self._info_req if self._info_req.num_ids else None
+
+    @property
+    def model(self) -> int | None:
+        if self._parent:
+            return self._parent.model
+        return self._info_req if self._info_req.model else None
+
+    @property
+    def mode(self) -> int:
+        if self._parent:
+            return self._parent.mode
+        return self._config_req.mode if self._config_req and hasattr(self._config_req, "mode") else "NA"
+
+    @property
+    def port(self) -> int:
+        if self._parent:
+            return self.address - self._parent.address + 1
+        else:
+            return 1
 
 
 class SwitchState(TmccState):

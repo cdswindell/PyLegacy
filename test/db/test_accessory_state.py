@@ -49,7 +49,7 @@ class TestAccessoryState:
         req_num = CommandReq.build(Aux.NUMERIC, acc.address, data=7)
         acc.update(req_num)
         assert acc.value == 7
-        # is_known reflects presence of aux/number
+        # is_known reflects the presence of aux/number
         assert acc.is_known is True
 
     def test_bpc2_control3_sets_block_power_and_on_off(self):

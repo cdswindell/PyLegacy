@@ -53,6 +53,7 @@ from .component_state import (
     SCOPE_TO_STATE_MAP,
     ComponentState,
     L,
+    LcsProxyState,
     P,
     log,
 )
@@ -939,7 +940,7 @@ class EngineState(ComponentState):
         return d
 
 
-class TrainState(EngineState):
+class TrainState(EngineState, LcsProxyState):
     from .components import ConsistComponent
 
     def __init__(self, scope: CommandScope = CommandScope.TRAIN) -> None:
@@ -949,28 +950,14 @@ class TrainState(EngineState):
         # TODO: FIXME!!
         # hard code TMCC2, for now
         self._is_legacy: bool = True
-        self._is_bpc2: bool = False
-        self._parent: TrainState | None = None
-        self._config_req = self._firmware_req = self._info_req = self._status_req = self._control_req = None
+        self._bpc2: bool = False
 
     def update(self, command: L | P) -> None:
         from ..pdi.bpc2_req import Bpc2Req
 
         with self._cv:
             if isinstance(command, Bpc2Req):
-                print(command)
-                self._is_bpc2 = True
-                self._pdi_source = True
-                if command.is_config_req:
-                    self._config_req = command
-                elif command.is_firmware_req:
-                    self._firmware_req = command
-                elif command.is_info_req:
-                    self._info_req = command
-                elif command.is_status_req:
-                    self._status_req = command
-                elif command.is_control_req:
-                    self._control_req = command
+                self._bpc2 = True
                 if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                     if command.state:
                         self._aux1 = TMCC2.AUX1_ON
@@ -1018,33 +1005,17 @@ class TrainState(EngineState):
 
     @property
     def is_bpc2(self) -> bool:
-        return self._is_bpc2
+        return self._bpc2
+
+    @property
+    def is_power_district(self) -> bool:
+        return self._bpc2
 
     @property
     def is_legacy(self) -> bool:
         if self.is_bpc2 or self._is_legacy:
             return True
         return super().is_legacy
-
-    @property
-    def parent_id(self) -> int | None:
-        if self._config_req:
-            return self.address
-        elif self._parent:
-            return self._parent.address
-        return None
-
-    @property
-    def parent(self) -> TrainState:
-        return self._parent
-
-    @property
-    def is_lcs_component(self) -> bool:
-        return self._pdi_source
-
-    @property
-    def is_lcs(self) -> bool:
-        return self.is_lcs_component
 
     def as_bytes(self) -> list[bytes]:
         packets = []
