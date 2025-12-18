@@ -644,7 +644,7 @@ class CompData(ABC, Generic[R]):
         if self.prev_link == 255 and self.next_link == 255 and not self.road_name and not self.road_number:
             # do one more check; if this is an accessory or a switch, check if associated state
             # has recorded any LCS activity, which would indicate activity
-            if self.scope in {CommandScope.ACC, CommandScope.SWITCH}:
+            if self.scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.TRAIN}:
                 from .component_state_store import ComponentStateStore
 
                 state = ComponentStateStore.get_state(self.scope, self.tmcc_id, False)

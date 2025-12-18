@@ -1042,6 +1042,10 @@ class TrainState(EngineState):
     def is_lcs_component(self) -> bool:
         return self._pdi_source
 
+    @property
+    def is_lcs(self) -> bool:
+        return self.is_lcs_component
+
     def as_bytes(self) -> list[bytes]:
         packets = []
         if self._pdi_source:
