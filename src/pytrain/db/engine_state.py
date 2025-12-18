@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, TypeVar, cast
+from typing import Any, Dict, List, TypeVar
 
 from ..pdi.constants import Bpc2Action, D4Action, IrdaAction, PdiCommand
 from ..pdi.d4_req import D4Req
@@ -1036,7 +1036,7 @@ class TrainState(EngineState):
                 packets.append(self._info_req.as_bytes)
             if self._control_req:
                 packets.append(self._control_req.as_bytes)
-        packets.extend(cast(list[bytes], cast(object, super().as_bytes)))
+        packets.extend(super().as_bytes())
         return packets
 
 
