@@ -42,8 +42,8 @@ class Bpc2Req(LcsReq):
                     self._mode &= 0x7F
                 self._scope = CommandScope.TRAIN if self._mode in {0, 1} else CommandScope.ACC
             else:
-                self._mode = self._debug = self._restore = None
-                self._scope = CommandScope.ACC
+                self._state = self._values = self._valids = self._mode = self._debug = self._restore = None
+                self._scope = None
 
             if self._action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                 self._state = self._data[3] if data_len > 3 else None
@@ -62,6 +62,16 @@ class Bpc2Req(LcsReq):
                     self.scope = CommandScope.TRAIN
             else:
                 self._state = self._values = self._valids = None
+                if self.scope is None:
+                    from .pdi_device import Bpc2DeviceConfig, PdiDevice
+                    from .pdi_state_store import PdiStateStore
+
+                    config = PdiStateStore.get_config(PdiDevice.BPC2, self.address)
+                    if isinstance(config, Bpc2DeviceConfig):
+                        self.scope = CommandScope.TRAIN if config.mode in {0, 1} else CommandScope.ACC
+                    else:
+                        self.scope = CommandScope.ACC
+            print(self.scope, self)
         else:
             Validations.validate_int(mode, 0, 3, "Mode", True)
             Validations.validate_int(state, 0, 1, "State", True)

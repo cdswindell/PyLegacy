@@ -105,9 +105,10 @@ class Bpc2DeviceConfig(PdiDeviceConfig):
 
     @property
     def state_requests(self) -> List[T]:
+        scope = CommandScope.ACC if self._mode in {2, 3} else CommandScope.TRAIN
         cmds = [
-            Bpc2Req(self.tmcc_id, action=Bpc2Action.FIRMWARE),
-            Bpc2Req(self.tmcc_id, action=Bpc2Action.INFO),
+            Bpc2Req(self.tmcc_id, action=Bpc2Action.FIRMWARE, scope=scope),
+            Bpc2Req(self.tmcc_id, action=Bpc2Action.INFO, scope=scope),
         ]
         if self._mode == 0:
             # TR mode, 8 TMCC IDs

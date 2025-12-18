@@ -1017,6 +1017,12 @@ class TrainState(EngineState, LcsProxyState):
             return True
         return super().is_legacy
 
+    @property
+    def payload(self) -> str:
+        if self.is_bpc2:
+            return f"Block Power Port {self.port}: {'ON' if self._aux == TMCC2.AUX1_OPT_ONE else 'OFF'}"
+        return super().payload
+
     def as_bytes(self) -> list[bytes]:
         packets = []
         if self._pdi_source:
