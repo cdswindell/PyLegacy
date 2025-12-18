@@ -958,6 +958,7 @@ class TrainState(EngineState):
 
         with self._cv:
             if isinstance(command, Bpc2Req):
+                print(command)
                 self._is_bpc2 = True
                 self._pdi_source = True
                 if command.is_config_req:
@@ -1024,6 +1025,22 @@ class TrainState(EngineState):
         if self.is_bpc2 or self._is_legacy:
             return True
         return super().is_legacy
+
+    @property
+    def parent_id(self) -> int | None:
+        if self._config_req:
+            return self.address
+        elif self._parent:
+            return self._parent.address
+        return None
+
+    @property
+    def parent(self) -> TrainState:
+        return self._parent
+
+    @property
+    def is_lcs_component(self) -> bool:
+        return self._pdi_source
 
     def as_bytes(self) -> list[bytes]:
         packets = []

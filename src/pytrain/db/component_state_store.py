@@ -225,8 +225,6 @@ class ComponentStateStore:
                                     del self._state[scope][address]
                             self._state[scope][address].update(command)
                             if isinstance(command, LcsReq) and command.is_config_req:
-                                if (command.command, address) in self._lcs_config_reqs:
-                                    log.info(f"Updating LCS config for {command.command.name} {address}")
                                 self._lcs_config_reqs[(command.command, address)] = command
                             if (
                                 isinstance(command, CompDataMixin)
@@ -246,12 +244,12 @@ class ComponentStateStore:
     # noinspection PyTypeChecker
     def _process_config_cache(self) -> None:
         for config in self._lcs_config_reqs.values():
-            if config.scope == CommandScope.ACC and config.num_addressable_ports > 1:
-                pri_state = ComponentStateStore.get_state(CommandScope.ACC, config.address, False)
+            if config.scope in {CommandScope.ACC, CommandScope.TRAIN} and config.num_addressable_ports > 1:
+                pri_state = ComponentStateStore.get_state(config.scope, config.address, False)
                 if pri_state:
                     pri_tmcc_id = pri_state.address
                     for offset in range(1, config.num_addressable_ports):
-                        slave_state = ComponentStateStore.get_state(CommandScope.ACC, pri_tmcc_id + offset, False)
+                        slave_state = ComponentStateStore.get_state(config.scope, pri_tmcc_id + offset, False)
                         if slave_state:
                             slave_state._parent = pri_state
             elif config.scope == CommandScope.IRDA:
