@@ -63,15 +63,7 @@ class Bpc2Req(LcsReq):
             else:
                 self._state = self._values = self._valids = None
                 if self.scope is None:
-                    from .pdi_device import Bpc2DeviceConfig, PdiDevice
-                    from .pdi_state_store import PdiStateStore
-
-                    print("***", self.scope, self)
-                    config = PdiStateStore.get_config(PdiDevice.BPC2, self.address)
-                    if isinstance(config, Bpc2DeviceConfig):
-                        self.scope = CommandScope.TRAIN if config.mode in {0, 1} else CommandScope.ACC
-                    else:
-                        self.scope = CommandScope.ACC
+                    self._scope = self.scope_request()
         else:
             Validations.validate_int(mode, 0, 3, "Mode", True)
             Validations.validate_int(state, 0, 1, "State", True)
@@ -177,3 +169,13 @@ class Bpc2Req(LcsReq):
         byte_str += checksum
         byte_str += PDI_EOP.to_bytes(1, byteorder="big")
         return byte_str
+
+    def scope_request(self) -> CommandScope:
+        from ..db.component_state_store import ComponentStateStore
+        from ..db.engine_state import TrainState
+
+        if self.scope is None:
+            state = ComponentStateStore.get_state(CommandScope.TRAIN, self.address, False)
+            if isinstance(state, TrainState) and state.is_bpc2:
+                return CommandScope.TRAIN if state.mode in {0, 1} else CommandScope.ACC
+        return CommandScope.ACC
