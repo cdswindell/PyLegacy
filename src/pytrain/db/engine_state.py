@@ -952,6 +952,11 @@ class TrainState(EngineState, LcsProxyState):
         self._is_legacy: bool = True
         self._bpc2: bool = False
 
+    def __repr__(self) -> str:
+        if self.is_bpc2:
+            return super(ComponentState, self).__repr__()
+        return super().__repr__()
+
     def update(self, command: L | P) -> None:
         from ..pdi.bpc2_req import Bpc2Req
 
@@ -968,6 +973,12 @@ class TrainState(EngineState, LcsProxyState):
                         self._aux2 = TMCC2.AUX2_OFF
                         self._aux = TMCC2.AUX2_OPTION_ONE
             super().update(command)
+
+    @property
+    def payload(self) -> str:
+        if self.is_bpc2:
+            return f"Block Power Port {self.port}: {'ON' if self._aux == TMCC2.AUX1_OPT_ONE else 'OFF'}"
+        return super().payload
 
     @property
     def consist_flags(self) -> int:
@@ -1016,12 +1027,6 @@ class TrainState(EngineState, LcsProxyState):
         if self.is_bpc2 or self._is_legacy:
             return True
         return super().is_legacy
-
-    @property
-    def payload(self) -> str:
-        if self.is_bpc2:
-            return f"Block Power Port {self.port}: {'ON' if self._aux == TMCC2.AUX1_OPT_ONE else 'OFF'}"
-        return super().payload
 
     def as_bytes(self) -> list[bytes]:
         packets = []
