@@ -954,7 +954,7 @@ class TrainState(EngineState, LcsProxyState):
 
     def __repr__(self) -> str:
         if self.is_bpc2:
-            return super(ComponentState, self).__repr__()
+            return super(EngineState, self).__repr__()
         return super().__repr__()
 
     def update(self, command: L | P) -> None:
@@ -977,7 +977,7 @@ class TrainState(EngineState, LcsProxyState):
     @property
     def payload(self) -> str:
         if self.is_bpc2:
-            return f"Block Power Port {self.port}: {'ON' if self._aux == TMCC2.AUX1_OPT_ONE else 'OFF'}"
+            return f"Block Power Port {self.port}: {' ON' if self._aux == TMCC2.AUX1_OPTION_ONE else 'OFF'}"
         return super().payload
 
     @property

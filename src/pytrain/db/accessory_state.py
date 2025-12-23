@@ -40,7 +40,7 @@ class AccessoryState(TmccState, LcsProxyState):
     def payload(self) -> str:
         aux1 = aux2 = aux_num = ""
         if self.is_bpc2:
-            aux = f"Block Power Port {self.port}: {'ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
+            aux = f"Block Power Port {self.port}: {' ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
         elif self.is_sensor_track:
             aux = "Sensor Track"
         elif self.is_amc2:
@@ -58,7 +58,7 @@ class AccessoryState(TmccState, LcsProxyState):
                 aux = "Amc2"
         else:
             if self.is_asc2:
-                aux = f"Asc2 Port {self.port}: {'ON' if self._aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
+                aux = f"Asc2 Port {self.port}: {' ON' if self._aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
             else:
                 aux, aux1, aux2, aux_num = self._get_aux_state()
         return f"{aux}{aux1}{aux2}{aux_num}"

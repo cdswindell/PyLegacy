@@ -10,7 +10,7 @@ range-key-dict>=1.1
 requests>=2.32.5
 setuptools>=80.9.0
 setuptools_scm>=9.2.2
-smbus2>=0.5.0
+smbus2>=0.6.0
 zeroconf>=0.148.0
 rpi-lgpio>=0.6; sys_platform == 'linux'
 spidev>=3.8.0; sys_platform == 'linux'
