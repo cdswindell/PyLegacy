@@ -2772,7 +2772,7 @@ class EngineGui(Thread, Generic[S]):
         img = None
 
         # for Trains, use the image of the lead engine
-        if scope == CommandScope.TRAIN and tmcc_id > 0:
+        if scope == CommandScope.TRAIN and not self.active_state.is_power_district and tmcc_id > 0:
             img = self._image_cache.get((CommandScope.TRAIN, tmcc_id), None)
             if img is None:
                 train_state = self.active_state
@@ -2832,21 +2832,21 @@ class EngineGui(Thread, Generic[S]):
                                 scope = CommandScope.TRAIN
                     else:
                         self.clear_image()
-        elif self.scope in {CommandScope.ACC} and tmcc_id != 0:
+        elif self.scope in {CommandScope.ACC, CommandScope.TRAIN} and tmcc_id != 0:
             state = self._state_store.get_state(self.scope, tmcc_id, False)
-            if isinstance(state, AccessoryState):
-                img = self._image_cache.get((CommandScope.ACC, tmcc_id), None)
+            if state:
+                img = self._image_cache.get((self.scope, tmcc_id), None)
                 if img is None:
-                    if state.is_asc2:
+                    if isinstance(state, AccessoryState) and state.is_asc2:
                         img = self.get_image(self.asc2_image, inverse=False, scale=True, preserve_height=True)
                     elif state.is_bpc2:
                         img = self.get_image(self.bpc2_image, inverse=False, scale=True, preserve_height=True)
-                    elif state.is_amc2:
+                    elif isinstance(state, AccessoryState) and state.is_amc2:
                         img = self.get_image(self.amc2_image, inverse=False, scale=True, preserve_height=True)
-                    elif state.is_sensor_track:
+                    elif isinstance(state, AccessoryState) and state.is_sensor_track:
                         img = self.get_scaled_image(self.sensor_track_image, force_lionel=True)
                     if img:
-                        self._image_cache[(CommandScope.ACC, tmcc_id)] = img
+                        self._image_cache[(self.scope, tmcc_id)] = img
                     else:
                         self.clear_image()
         if img is None:
