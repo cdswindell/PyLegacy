@@ -1811,6 +1811,7 @@ class EngineGui(Thread, Generic[S]):
         if state:
             # special case tain being used as BPC2
             if isinstance(state, TrainState) and state.is_power_district:
+                self.on_new_accessory(state)
                 return
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             self.speed.value = f"{state.speed:03d}"
@@ -1883,8 +1884,8 @@ class EngineGui(Thread, Generic[S]):
             self.switch_thru_btn.bg = self.switch_out_btn.bg = self._inactive_bg
 
     def on_new_accessory(self, state: AccessoryState | TrainState = None):
-        tmcc_id = self._scope_tmcc_ids[CommandScope.ACC]
         state = state if state else self.active_state
+        tmcc_id = self._scope_tmcc_ids[CommandScope.ACC]
         if isinstance(state, AccessoryState):
             if state.is_sensor_track:
                 st_state = self._state_store.get_state(CommandScope.IRDA, tmcc_id, False)
