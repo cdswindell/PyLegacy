@@ -2022,7 +2022,7 @@ class EngineGui(Thread, Generic[S]):
 
     def scope_power_btns(self):
         if self.scope == CommandScope.ENGINE or (
-            self.scope == CommandScope.TRAIN and not self.active_state.is_power_district
+            self.scope == CommandScope.TRAIN and self.active_state and not self.active_state.is_power_district
         ):
             self.on_key_cell.show()
             self.off_key_cell.show()
