@@ -63,8 +63,10 @@ class PowerDistrictsGui(StateBasedGui):
         with self._cv:
             if isinstance(pd, AccessoryState):
                 enum = TMCC1AuxCommandEnum.AUX2_OPT_ONE if pd.is_aux_on else TMCC1AuxCommandEnum.AUX1_OPT_ONE
+                scope = CommandScope.ACC
             elif isinstance(pd, TrainState):
                 enum = (
                     TMCC2EngineCommandEnum.AUX2_OPTION_ONE if pd.is_aux_on else TMCC2EngineCommandEnum.AUX1_OPTION_ONE
                 )
-            CommandReq(enum, pd.tmcc_id).send()
+                scope = CommandScope.TRAIN
+            CommandReq(enum, pd.tmcc_id, scope=scope).send()
