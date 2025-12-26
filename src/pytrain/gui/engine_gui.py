@@ -2770,7 +2770,7 @@ class EngineGui(Thread, Generic[S]):
         img = None
 
         # for Trains, use the image of the lead engine
-        if scope == CommandScope.TRAIN and not self.active_state.is_power_district and tmcc_id > 0:
+        if scope == CommandScope.TRAIN and self.active_state and not self.active_state.is_power_district and tmcc_id:
             img = self._image_cache.get((CommandScope.TRAIN, tmcc_id), None)
             if img is None:
                 train_state = self.active_state
