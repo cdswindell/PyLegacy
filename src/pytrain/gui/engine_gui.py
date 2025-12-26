@@ -1811,8 +1811,10 @@ class EngineGui(Thread, Generic[S]):
         if state:
             # special case tain being used as BPC2
             if isinstance(state, TrainState) and state.is_power_district:
-                self.on_new_accessory(state)
+                self.ops_mode(update_info=False, state=state)
                 return
+            else:
+                pass
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             self.speed.value = f"{state.speed:03d}"
             self.update_rr_speed_buttons(state)
@@ -2021,7 +2023,9 @@ class EngineGui(Thread, Generic[S]):
                 self.keypad_box.show()
 
     def scope_power_btns(self):
-        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+        if self.scope == CommandScope.ENGINE or (
+            self.scope == CommandScope.TRAIN and not self.active_state.is_power_district
+        ):
             self.on_key_cell.show()
             self.off_key_cell.show()
         else:
@@ -2615,6 +2619,18 @@ class EngineGui(Thread, Generic[S]):
         self._bell_box.show()
         self.show_horn_control()
 
+    @property
+    def is_engine_or_train(self) -> bool:
+        return self.scope == CommandScope.ENGINE or (
+            self.scope == CommandScope.TRAIN and not self.active_state.is_power_district
+        )
+
+    @property
+    def is_accessory_or_bpc2(self) -> bool:
+        return self.scope == CommandScope.ACC or (
+            self.scope == CommandScope.TRAIN and self.active_state.is_power_district
+        )
+
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
         self._in_entry_mode = False
         for cell in self.entry_cells:
@@ -2624,7 +2640,7 @@ class EngineGui(Thread, Generic[S]):
             if cell.visible:
                 cell.hide()
         self.reset_btn.disable()
-        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+        if self.is_engine_or_train:
             if not isinstance(state, EngineState):
                 self._active_engine_state = state = self._state_store.get_state(
                     self.scope, self._scope_tmcc_ids[self.scope], False
@@ -2657,15 +2673,15 @@ class EngineGui(Thread, Generic[S]):
             self.switch_out_cell.show()
             if not self.keypad_box.visible:
                 self.keypad_box.show()
-        elif self.scope == CommandScope.ACC:
-            if not isinstance(state, AccessoryState):
+        elif self.is_accessory_or_bpc2:
+            if state is None:
                 state = self._state_store.get_state(CommandScope.ACC, self._scope_tmcc_ids[self.scope], False)
             self.on_new_accessory(state)
-            if isinstance(state, AccessoryState):
-                if state.is_sensor_track:
+            if state:
+                if isinstance(state, AccessoryState) and state.is_sensor_track:
                     self.sensor_track_box.show()
                     self.keypad_box.hide()
-                elif state.is_bpc2 or state.is_asc2:
+                elif state.is_bpc2 or (isinstance(state, AccessoryState) and state.is_asc2):
                     self.ac_off_cell.show()
                     self.ac_status_cell.show()
                     self.ac_on_cell.show()
