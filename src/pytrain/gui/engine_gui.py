@@ -1811,7 +1811,7 @@ class EngineGui(Thread, Generic[S]):
         if state:
             # special case tain being used as BPC2
             if isinstance(state, TrainState) and state.is_power_district:
-                self.ops_mode(update_info=False, state=state)
+                self.ops_mode(update_info=True, state=state)
                 return
             else:
                 pass
@@ -2685,7 +2685,7 @@ class EngineGui(Thread, Generic[S]):
                     self.ac_off_cell.show()
                     self.ac_status_cell.show()
                     self.ac_on_cell.show()
-                    if state.is_asc2:
+                    if isinstance(state, AccessoryState) and state.is_asc2:
                         self.ac_aux1_cell.show()
                     if not self.keypad_box.visible:
                         self.keypad_box.show()
