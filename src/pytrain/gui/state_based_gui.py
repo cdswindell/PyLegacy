@@ -153,7 +153,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     continue
                 nl = len(acc.road_name)
                 self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
-                self._states[acc.tmcc_id] = acc
+                self._states[(acc.tmcc_id, acc.scope)] = acc
                 self._state_watchers[acc] = StateWatcher(acc, self.on_state_change_action(acc))
 
             # start GUI
