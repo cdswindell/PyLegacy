@@ -1813,8 +1813,6 @@ class EngineGui(Thread, Generic[S]):
             if isinstance(state, TrainState) and state.is_power_district:
                 self.ops_mode(update_info=True, state=state)
                 return
-            else:
-                pass
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             self.speed.value = f"{state.speed:03d}"
             self.update_rr_speed_buttons(state)
