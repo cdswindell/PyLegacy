@@ -69,4 +69,4 @@ class PowerDistrictsGui(StateBasedGui):
                     TMCC2EngineCommandEnum.AUX2_OPTION_ONE if pd.is_aux_on else TMCC2EngineCommandEnum.AUX1_OPTION_ONE
                 )
                 scope = CommandScope.TRAIN
-            CommandReq(enum, pd.tmcc_id, scope=scope).send()
+            CommandReq(enum, pd.tmcc_id, scope=scope).send(repeat=2)
