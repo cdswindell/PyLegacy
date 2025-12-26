@@ -1809,6 +1809,9 @@ class EngineGui(Thread, Generic[S]):
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         self._active_engine_state = state
         if state:
+            # special case tain being used as BPC2
+            if isinstance(state, TrainState) and state.is_power_district:
+                return
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             self.speed.value = f"{state.speed:03d}"
             self.update_rr_speed_buttons(state)
@@ -1879,7 +1882,7 @@ class EngineGui(Thread, Generic[S]):
         else:
             self.switch_thru_btn.bg = self.switch_out_btn.bg = self._inactive_bg
 
-    def on_new_accessory(self, state: AccessoryState = None):
+    def on_new_accessory(self, state: AccessoryState | TrainState = None):
         tmcc_id = self._scope_tmcc_ids[CommandScope.ACC]
         state = state if state else self.active_state
         if isinstance(state, AccessoryState):
@@ -1893,8 +1896,10 @@ class EngineGui(Thread, Generic[S]):
                 self.update_ac_status(state)
             elif state.is_amc2:
                 pass
+        elif isinstance(state, TrainState) and state.is_power_district:
+            self.update_ac_status(state)
 
-    def update_ac_status(self, state: AccessoryState):
+    def update_ac_status(self, state: AccessoryState | TrainState):
         power_on_image, _ = self.get_titled_image(self.power_on_path)
         power_off_image, _ = self.get_titled_image(self.power_off_path)
         img = power_on_image if state.is_aux_on else power_off_image
