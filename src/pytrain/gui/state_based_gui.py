@@ -10,15 +10,14 @@ from __future__ import annotations
 import atexit
 import logging
 from abc import ABC, ABCMeta, abstractmethod
-from queue import Queue, Empty
+from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
-from typing import Callable, Generic, TypeVar, Any
+from typing import Any, Callable, Generic, TypeVar
 
 from guizero import App, Box, Combo, PushButton, Text
 from guizero.base import Widget
 
-from .component_state_gui import ComponentStateGui
 from ..comm.command_listener import CommandDispatcher
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
@@ -26,6 +25,7 @@ from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
 from ..protocol.constants import CommandScope
 from ..utils.path_utils import find_file
+from .component_state_gui import ComponentStateGui
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
@@ -97,9 +97,9 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self._message_queue = Queue()
 
         # States
-        self._states = dict[int, S]()
-        self._state_buttons = dict[int, PushButton]()
-        self._state_watchers = dict[int, StateWatcher]()
+        self._states = dict[tuple[int, CommandScope], S]()
+        self._state_buttons = dict[S, PushButton]()
+        self._state_watchers = dict[S, StateWatcher]()
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -154,17 +154,17 @@ class StateBasedGui(Thread, Generic[S], ABC):
                 nl = len(acc.road_name)
                 self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
                 self._states[acc.tmcc_id] = acc
-                self._state_watchers[acc.tmcc_id] = StateWatcher(acc, self.on_state_change_action(acc.tmcc_id))
+                self._state_watchers[acc] = StateWatcher(acc, self.on_state_change_action(acc))
 
             # start GUI
             self.start()
 
     # noinspection PyTypeChecker
-    def update_button(self, tmcc_id: int) -> None:
+    def update_button(self, state: S) -> None:
         with self._cv:
-            pd: S = self._states[tmcc_id]
-            pb = self._state_buttons[tmcc_id]
-            if self.is_active(pd):
+            # pd: S = self._states[tmcc_id]
+            pb = self._state_buttons[state]
+            if self.is_active(state):
                 self.set_button_active(pb)
             else:
                 self.set_button_inactive(pb)
@@ -179,10 +179,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
         widget.bg = self._enabled_bg
         widget.text_color = self._enabled_text
 
-    def on_state_change_action(self, tmcc_id: int) -> Callable:
+    def on_state_change_action(self, state: S) -> Callable:
         def upd():
             if not self._shutdown_flag.is_set():
-                self._message_queue.put((self.update_button, [tmcc_id]))
+                self._message_queue.put((self.update_button, [state]))
 
         return upd
 
@@ -401,7 +401,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
                     col += 1
                 if col in active_cols:
                     pb, btn_h, btn_y = self._make_state_button(pd, row, col)
-                    self._state_buttons[pd.tmcc_id] = pb
+                    self._state_buttons[pd] = pb
                 else:
                     btn_y += btn_h
                 row += 1

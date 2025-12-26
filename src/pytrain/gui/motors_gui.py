@@ -14,14 +14,15 @@ from typing import cast
 from guizero import PushButton, Slider, Text
 from guizero.base import Widget
 
-from ..pdi.amc2_req import Amc2Req
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
 from ..db.accessory_state import AccessoryState
 from ..gui.component_state_gui import ComponentStateGui
 from ..gui.state_based_gui import StateBasedGui
-from ..pdi.constants import PdiCommand, Amc2Action
+from ..pdi.amc2_req import Amc2Req
+from ..pdi.constants import Amc2Action, PdiCommand
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import CommandScope
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+from .state_based_gui import S
 
 
 class MotorsGui(StateBasedGui):
@@ -71,9 +72,10 @@ class MotorsGui(StateBasedGui):
         pass
 
     # noinspection PyTypeChecker
-    def update_button(self, tmcc_id: int) -> None:
+    def update_button(self, state: S) -> None:
         with self._cv:
-            pd = self._states[tmcc_id]
+            tmcc_id = state.tmcc_id
+            pd = cast(AccessoryState, state)
             widgets = self._state_buttons[tmcc_id]
             if isinstance(widgets, list):
                 for widget in widgets:
