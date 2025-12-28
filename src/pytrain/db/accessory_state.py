@@ -11,17 +11,16 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from .comp_data import CompDataMixin
+from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState
 from ..pdi.amc2_req import Amc2Lamp, Amc2Motor, Amc2Req
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
-from ..pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
-from ..pdi.irda_req import IrdaReq
+from ..pdi.constants import Asc2Action, Bpc2Action
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
-from .comp_data import CompDataMixin
-from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState
 
 
 class AccessoryState(TmccState, LcsProxyState):
@@ -245,9 +244,7 @@ class AccessoryState(TmccState, LcsProxyState):
         if self.comp_data is None:
             self.initialize(self.scope, self.address)
         byte_str = super().as_bytes()
-        if self.is_sensor_track:
-            byte_str += IrdaReq(self.address, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC).as_bytes
-        elif self.is_lcs_component:
+        if self.is_lcs_component:
             if self._config_req:
                 byte_str += self._config_req.as_bytes
             if self._control_req:

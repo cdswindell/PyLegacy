@@ -208,6 +208,7 @@ class ComponentStateStore:
                             self._state[scope][address].update(command)
                             if isinstance(command, LcsReq) and command.is_config_req:
                                 self._lcs_config_reqs[(command.command, address)] = command
+                                print(f"Caching config for {command.scope} {command.address}")
                             if (
                                 isinstance(command, CompDataMixin)
                                 and command.comp_data
@@ -235,6 +236,7 @@ class ComponentStateStore:
                         if slave_state:
                             slave_state._parent = pri_state
             elif config.scope == CommandScope.IRDA:
+                print(f"Creating ACC proxy to IRDA: {config.address} {config}")
                 pri_state = ComponentStateStore.get_state(CommandScope.IRDA, config.address, False)
                 slave_state = ComponentStateStore.get_state(CommandScope.ACC, config.address)
                 if pri_state and slave_state:
