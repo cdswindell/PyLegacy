@@ -1847,11 +1847,11 @@ class EngineGui(Thread, Generic[S]):
             _, btn = self.engine_ops_cells[("REVERSE_DIRECTION", "e")]
             btn.bg = self._active_bg if state.is_reverse else self._inactive_bg
 
-        if state is None or state.is_legacy:
+        if state and state.is_legacy:
             self.throttle.tk.config(from_=195, to=0)
         else:
             self.throttle.tk.config(from_=31, to=0)
-        # update state popup, if its visible
+        # update info detail popup, if its visible
         if self.info_overlay and self.info_overlay.visible:
             self.update_state_info()
 
@@ -2989,7 +2989,7 @@ class EngineGui(Thread, Generic[S]):
             speed = speed_req.split(", ")
             do_dialog = isinstance(speed, list) and len(speed) > 1
             speed = (speed[-1] if isinstance(speed, list) else speed).replace("SPEED_", "")
-            if state.is_legacy:
+            if state and state.is_legacy:
                 rr_speed = TMCC2RRSpeedsEnum.by_name(speed)
             else:
                 rr_speed = TMCC1RRSpeedsEnum.by_name(speed)
