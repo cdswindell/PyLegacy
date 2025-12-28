@@ -660,9 +660,9 @@ class CompData(ABC, Generic[R]):
         if self.road_number is not None:
             nu = f" #{self.road_number}"
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-            return f"{self.scope.title} {self.tmcc_id:04}: {self.payload()}{nm}{nu}"
+            return f"{self.scope.title} {self.tmcc_id:04}:{self.payload()}{nm}{nu}"
         else:
-            return f"{self.scope.title} {self.tmcc_id:>2}: {self.payload()}{nm}{nu}"
+            return f"{self.scope.title} {self.tmcc_id:>2}:{self.payload()}{nm}{nu}"
 
     def __getattr__(self, name: str) -> Any:
         if name in self.__dict__:

@@ -39,9 +39,9 @@ class AccessoryState(TmccState, LcsProxyState):
     def payload(self) -> str:
         aux1 = aux2 = aux_num = ""
         if self.is_bpc2:
-            aux = f"Block Power Port {self.port}: {' ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
+            aux = f"Bpc2 Port {self.port}: {' ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
         elif self.is_sensor_track:
-            aux = "Sensor Track"
+            aux = "Sensor Track" if self.is_road_name and not self.road_name.startswith("Sensor Track") else ""
         elif self.is_amc2:
             if self._config_req:
                 at = f"Type: {self._config_req.access_type.label}"
