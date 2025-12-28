@@ -539,6 +539,8 @@ class LcsProxyState(LcsState, ABC):
     def is_sensor_track(self):
         from ..pdi.irda_req import IrdaReq
 
+        if self._parent:
+            return self._parent.is_sensor_track
         return (
             isinstance(self._control_req, IrdaReq)
             or isinstance(self._config_req, IrdaReq)
