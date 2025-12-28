@@ -210,7 +210,7 @@ class ComponentState(ABC, CompDataMixin):
             if not self.is_comp_data_record and isinstance(command, CommandReq):
                 self.request_config(command)
 
-            if self.scope != command.scope:
+            if self.scope != command.scope and (self.scope == CommandScope.ACC and command.scope != CommandScope.IRDA):
                 scope = command.scope.name.title()
                 raise AttributeError(f"{self.friendly_scope} {self.address} received update for {scope}, ignoring")
             if (
