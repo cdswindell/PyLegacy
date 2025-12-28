@@ -3026,14 +3026,13 @@ class EngineGui(Thread, Generic[S]):
             self._scope_tmcc_ids[scope] = tmcc_id
         if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
             state = self._state_store.get_state(scope, tmcc_id, False)
-            if state:
-                if isinstance(targets, str):
-                    for ix, target in enumerate(targets.split(",")):
-                        target = target.strip()
-                        delay = 0.100 if ix else 0.0
-                        self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state, delay)
-                else:
-                    self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state)
+            if isinstance(targets, str):
+                for ix, target in enumerate(targets.split(",")):
+                    target = target.strip()
+                    delay = 0.100 if ix else 0.0
+                    self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state, delay)
+            else:
+                self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state)
 
     def do_engine_command(
         self,
@@ -3050,7 +3049,7 @@ class EngineGui(Thread, Generic[S]):
         if isinstance(targets, str):
             targets = [targets]
         for target in targets:
-            if state.is_legacy:
+            if state and state.is_legacy:
                 # there are a few special cases
                 if target in {SMOKE_ON, SMOKE_OFF}:
                     cmd_enum = self.get_tmcc2_smoke_cmd(target, state)
