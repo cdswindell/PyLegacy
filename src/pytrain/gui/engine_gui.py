@@ -1808,6 +1808,7 @@ class EngineGui(Thread, Generic[S]):
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         self._active_engine_state = state
+        print(f"on new engine: {state} (1)")
         if state:
             # special case tain being used as BPC2
             if isinstance(state, TrainState) and state.is_power_district:
@@ -2631,7 +2632,7 @@ class EngineGui(Thread, Generic[S]):
         )
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
-        print(state)
+        print(f"Entering ops_mode: {state}")
         self._in_entry_mode = False
         for cell in self.entry_cells:
             if cell.visible:
@@ -2678,7 +2679,7 @@ class EngineGui(Thread, Generic[S]):
         elif self.is_accessory_or_bpc2:
             print(f"Is accessory or BPC2: {self.scope} {state}")
             if state is None:
-                state = self._state_store.get_state(CommandScope.ACC, self._scope_tmcc_ids[self.scope], False)
+                state = self.active_state
             self.on_new_accessory(state)
             show_keypad = True
             if state:
