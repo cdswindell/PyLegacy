@@ -638,7 +638,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                             # don't send records that do not have component state; this
                             # means the Base 2/3 never provided initial state
                             if state.comp_data is None:
-                                log.debug(f"Skipping state sync for {scope}:{address}; no initial state available")
+                                log.info(f"Skipping state sync for {scope}:{address}; no initial state available")
                                 continue
                             state_bytes = state.as_bytes()
                             if isinstance(state_bytes, bytes):
