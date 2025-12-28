@@ -364,12 +364,12 @@ SENSOR_TRACK_OPTS = [
 LIONEL_ORANGE = "#FF6600"
 
 
-def send_lcs_command(state: AccessoryState, value) -> None:
+def send_lcs_command(state: AccessoryState | TrainState, value) -> None:
     if state.is_bpc2:
         Bpc2Req(
             state.tmcc_id,
             PdiCommand.BPC2_SET,
-            Bpc2Action.CONTROL3,
+            Bpc2Action.CONTROL1 if state.scope == CommandScope.TRAIN else Bpc2Action.CONTROL3,
             state=value,
         ).send()
     elif state.is_asc2:
@@ -1808,11 +1808,9 @@ class EngineGui(Thread, Generic[S]):
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         self._active_engine_state = state
-        print(f"on new engine: {state} (1)")
         if state:
             # special case tain being used as BPC2
             if isinstance(state, TrainState) and state.is_power_district:
-                print(f"on new engine: {state}")
                 self.ops_mode(update_info=True, state=state)
                 return
             # only set throttle/brake/momentum value if we are not in the middle of setting it
@@ -2632,7 +2630,6 @@ class EngineGui(Thread, Generic[S]):
         )
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
-        print(f"Entering ops_mode: {state}")
         self._in_entry_mode = False
         for cell in self.entry_cells:
             if cell.visible:
@@ -2641,9 +2638,7 @@ class EngineGui(Thread, Generic[S]):
             if cell.visible:
                 cell.hide()
         self.reset_btn.disable()
-        print(state)
         if self.is_engine_or_train:
-            print(f"Is engine or train: {self.scope} {state}")
             if not isinstance(state, EngineState):
                 self._active_engine_state = state = self._state_store.get_state(
                     self.scope, self._scope_tmcc_ids[self.scope], False
@@ -2677,7 +2672,6 @@ class EngineGui(Thread, Generic[S]):
             if not self.keypad_box.visible:
                 self.keypad_box.show()
         elif self.is_accessory_or_bpc2:
-            print(f"Is accessory or BPC2: {self.scope} {state}")
             if state is None:
                 state = self.active_state
             self.on_new_accessory(state)
@@ -2691,7 +2685,6 @@ class EngineGui(Thread, Generic[S]):
                     self.ac_off_cell.show()
                     self.ac_status_cell.show()
                     self.ac_on_cell.show()
-                    print("Showing AC2 controls")
                     if isinstance(state, AccessoryState) and state.is_asc2:
                         self.ac_aux1_cell.show()
             if show_keypad and not self.keypad_box.visible:
