@@ -2021,9 +2021,7 @@ class EngineGui(Thread, Generic[S]):
                 self.keypad_box.show()
 
     def scope_power_btns(self):
-        if self.scope == CommandScope.ENGINE or (
-            self.scope == CommandScope.TRAIN and self.active_state and not self.active_state.is_power_district
-        ):
+        if self.is_engine_or_train:
             self.on_key_cell.show()
             self.off_key_cell.show()
         else:
@@ -2619,14 +2617,16 @@ class EngineGui(Thread, Generic[S]):
 
     @property
     def is_engine_or_train(self) -> bool:
-        return self.scope == CommandScope.ENGINE or (
-            self.scope == CommandScope.TRAIN and not self.active_state.is_power_district
+        return (
+            self.scope == CommandScope.ENGINE
+            or (self.scope == CommandScope.TRAIN and self.active_state is None)
+            or (self.scope == CommandScope.TRAIN and not self.active_state.is_power_district)
         )
 
     @property
     def is_accessory_or_bpc2(self) -> bool:
         return self.scope == CommandScope.ACC or (
-            self.scope == CommandScope.TRAIN and self.active_state.is_power_district
+            self.scope == CommandScope.TRAIN and self.active_state and self.active_state.is_power_district
         )
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
@@ -2675,25 +2675,21 @@ class EngineGui(Thread, Generic[S]):
             if state is None:
                 state = self._state_store.get_state(CommandScope.ACC, self._scope_tmcc_ids[self.scope], False)
             self.on_new_accessory(state)
+            show_keypad = True
             if state:
                 if isinstance(state, AccessoryState) and state.is_sensor_track:
                     self.sensor_track_box.show()
                     self.keypad_box.hide()
+                    show_keypad = False
                 elif state.is_bpc2 or (isinstance(state, AccessoryState) and state.is_asc2):
                     self.ac_off_cell.show()
                     self.ac_status_cell.show()
                     self.ac_on_cell.show()
+                    print("Showing AC2 controls")
                     if isinstance(state, AccessoryState) and state.is_asc2:
                         self.ac_aux1_cell.show()
-                    if not self.keypad_box.visible:
-                        self.keypad_box.show()
-                else:
-                    if not self.keypad_box.visible:
-                        self.keypad_box.show()
-            else:
-                if not self.keypad_box.visible:
-                    self.keypad_box.show()
-
+            if show_keypad and not self.keypad_box.visible:
+                self.keypad_box.show()
         if update_info:
             self.update_component_info(in_ops_mode=True)
 
