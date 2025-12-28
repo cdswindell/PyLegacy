@@ -1437,6 +1437,8 @@ class EngineGui(Thread, Generic[S]):
                 elif isinstance(state, TrainState):
                     p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
                     print("is train", p_info)
+                    print(self.scope == CommandScope.TRAIN and self.active_state is None)
+                    print(self.scope == CommandScope.TRAIN and not self.active_state.is_power_district)
                 etype = state.engine_type_label
                 etype = (
                     f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
