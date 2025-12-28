@@ -1433,12 +1433,8 @@ class EngineGui(Thread, Generic[S]):
             if self.is_engine_or_train:
                 if isinstance(state, EngineState):
                     p_info = self._prod_info_cache.get(state.tmcc_id, None)
-                    print("is engine", p_info)
                 elif isinstance(state, TrainState):
                     p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
-                    print("is train", p_info)
-                    print(self.scope == CommandScope.TRAIN and self.active_state is None)
-                    print(self.scope == CommandScope.TRAIN and not self.active_state.is_power_district)
                 etype = state.engine_type_label
                 etype = (
                     f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
@@ -1531,12 +1527,13 @@ class EngineGui(Thread, Generic[S]):
         state = self.active_state
         if state is None:
             return  # this should never be the case...
+        scope = CommandScope.ACC if isinstance(state, LcsProxyState) and state.is_lcs else state.scope
         for tb, _ in self._info_details.values():
-            if tb.display_scope == state.scope:
+            if tb.display_scope == scope:
                 tb.visible = True  # always display fields associated with state.scope
             elif tb.display_scope is None:
                 tb.visible = True  # always display fields with no scope specified
-            elif state.scope == CommandScope.TRAIN and tb.display_scope == CommandScope.ENGINE:
+            elif scope == CommandScope.TRAIN and tb.display_scope == CommandScope.ENGINE:
                 tb.visible = True  # display engine fields for trains
             else:
                 tb.visible = False
