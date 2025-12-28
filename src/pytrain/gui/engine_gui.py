@@ -2997,17 +2997,22 @@ class EngineGui(Thread, Generic[S]):
                 rr_speed = TMCC1RRSpeedsEnum.by_name(speed)
             if rr_speed is None and speed == "EMERGENCY_STOP":
                 # dispatch directly to on_engine_command for processing
-                state.is_ramping = False
+                if state:
+                    state.is_ramping = False
                 self.on_engine_command(speed_req)
                 return
         else:
             do_dialog = False
             rr_speed = speed_req
 
-        if do_dialog:
-            req = RampedSpeedDialogReq(state.tmcc_id, rr_speed, state.scope)
+        if state:
+            if do_dialog:
+                req = RampedSpeedDialogReq(state.tmcc_id, rr_speed, state.scope)
+            else:
+                req = RampedSpeedReq(state.tmcc_id, rr_speed, state.scope)
         else:
-            req = RampedSpeedReq(state.tmcc_id, rr_speed, state.scope)
+            tmcc_id = self._scope_tmcc_ids[self.scope]
+            req = CommandReq(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, tmcc_id, scope=self.scope, data=rr_speed)
 
         # dispatch command
         req.send()
