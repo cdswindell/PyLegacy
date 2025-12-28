@@ -952,3 +952,6 @@ class CompDataMixin(Generic[C]):
         self._comp_data._control_type = 1  # TMCC
         self._comp_data._sound_type = 0  # None
         self._comp_data._engine_class = 0  # Locomotive
+        self._comp_data._momentum = 0
+        self._comp_data._rpm_labor = 0
+        self._comp_data._train_brake = 0
