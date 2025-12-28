@@ -1811,6 +1811,7 @@ class EngineGui(Thread, Generic[S]):
         if state:
             # special case tain being used as BPC2
             if isinstance(state, TrainState) and state.is_power_district:
+                print(f"on new engine: {state}")
                 self.ops_mode(update_info=True, state=state)
                 return
             # only set throttle/brake/momentum value if we are not in the middle of setting it
@@ -2630,6 +2631,7 @@ class EngineGui(Thread, Generic[S]):
         )
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
+        print(state)
         self._in_entry_mode = False
         for cell in self.entry_cells:
             if cell.visible:
