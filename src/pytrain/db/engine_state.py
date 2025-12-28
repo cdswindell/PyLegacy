@@ -701,7 +701,7 @@ class EngineState(ComponentState):
     # noinspection PyTypeChecker
     @property
     def bt_id(self) -> str:
-        if self.bt_int:
+        if self.bt_int and self.bt_int != 0xFFFF:
             return int.to_bytes(self.bt_int, 2, "big").hex().upper()
         return None
 
