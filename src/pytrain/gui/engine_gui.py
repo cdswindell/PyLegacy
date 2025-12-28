@@ -1559,7 +1559,7 @@ class EngineGui(Thread, Generic[S]):
             self.steam_lights_box.hide()
             self.diesel_lights_box.show()
         # make sure button is reset, as popup prevents normal handling
-        self.show_popup(self.lights_overlay, "AUX2_OPTION_ONE")
+        self.show_popup(self.lights_overlay, "AUX2_OPTION_ONE", "e")
 
     def on_tower_dialog(self) -> None:
         if self.tower_dialog_overlay is None:
