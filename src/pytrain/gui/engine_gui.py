@@ -2546,11 +2546,13 @@ class EngineGui(Thread, Generic[S]):
                     cmd.address = self._scope_tmcc_ids[self.scope]
                     cmd.send(repeat=self.repeat)
                 elif cmd == send_lcs_on_command:
-                    state = self._state_store.get_state(self.scope, tmcc_id)
-                    cmd(state)
+                    state = self._state_store.get_state(self.scope, tmcc_id, False)
+                    if state:
+                        cmd(state)
                 elif cmd == send_lcs_off_command:
-                    state = self._state_store.get_state(self.scope, tmcc_id)
-                    cmd(state)
+                    state = self._state_store.get_state(self.scope, tmcc_id, False)
+                    if state:
+                        cmd(state)
         else:
             print(f"Unknown key: {key}")
 
