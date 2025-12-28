@@ -1433,8 +1433,10 @@ class EngineGui(Thread, Generic[S]):
             if self.is_engine_or_train:
                 if isinstance(state, EngineState):
                     p_info = self._prod_info_cache.get(state.tmcc_id, None)
+                    print("is engine", p_info)
                 elif isinstance(state, TrainState):
                     p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
+                    print("is train", p_info)
                 etype = state.engine_type_label
                 etype = (
                     f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
@@ -1458,6 +1460,7 @@ class EngineGui(Thread, Generic[S]):
                 self._info_details["limit"][1].value = f"{sl:>3d}" if sl is not None else ""
                 self._info_details["max"][1].value = f"{ms:>3d}"
             elif isinstance(state, LcsProxyState):
+                print("is lcs", state)
                 self._info_details["type"][1].value = state.accessory_type
                 self._info_details["mode"][1].value = state.mode
                 self._info_details["parent"][1].value = state.parent_id
