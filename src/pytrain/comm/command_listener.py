@@ -635,10 +635,10 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                     with self._client_lock:
                         state: ComponentState = store.query(scope, address)
                         if state is not None:
-                            # don't send records that do not have component state; this
-                            # means the Base 2/3 never provided initial state
-                            if state.comp_data is None:
-                                log.info(f"Skipping state sync for {scope}:{address}; no initial state available")
+                            # don't send records that do not have a component state, unless the state is from
+                            # an LCS device. Otherwise, this means the Base 2/3 never provided initial state
+                            if state.scope not in {CommandScope.BASE, CommandScope.IRDA} and state.comp_data is None:
+                                log.debug(f"Skipping state sync for {scope}:{address}; no initial state available")
                                 continue
                             state_bytes = state.as_bytes()
                             if isinstance(state_bytes, bytes):
