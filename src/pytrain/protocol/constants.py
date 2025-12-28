@@ -297,6 +297,7 @@ class EngineType(Mixins, IntEnum):
         return self.name.replace("_", " ").title()
 
 
+TMCC_CONTROL_TYPE = 1
 LEGACY_CONTROL_TYPE = 2
 CAB1_CONTROL_TYPE = 0
 LOCO_ACCESSORY = 4

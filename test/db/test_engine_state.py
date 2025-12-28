@@ -7,11 +7,11 @@
 #
 import pytest
 
-from src.pytrain import TMCC2EffectsControl
-from src.pytrain.db.comp_data import LEGACY_CONTROL_TYPE, CompData
+from src.pytrain import TMCC2EffectsControl, CommandScope
+from src.pytrain.db.comp_data import CompData
 from src.pytrain.db.components import ConsistComponent
 from src.pytrain.db.engine_state import EngineState, TrainState
-from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
 
@@ -52,7 +52,7 @@ class TestEngineStateBehavior:
         # Explicitly force protocol flavor
         assert not e.is_legacy
         assert e.decode_speed_info(255) == 31
-        e._is_legacy = True  # type: ignore[attr-defined]
+        e._comp_data._control_type = LEGACY_CONTROL_TYPE
         assert e.is_legacy
         assert e.decode_speed_info(255) == 195
         # Pass-through non-255
@@ -60,7 +60,7 @@ class TestEngineStateBehavior:
 
     def test_speed_max_logic_limits(self):
         e = self._new_engine()
-        e._is_legacy = True  # type: ignore[attr-defined]
+        e._comp_data._control_type = LEGACY_CONTROL_TYPE
         e.comp_data._speed_limit = 255  # type: ignore[attr-defined]
         assert e.speed_max == 199  # legacy default cap when limits unset (255)
 
@@ -69,6 +69,7 @@ class TestEngineStateBehavior:
         assert e.speed_max == 200  # legacy default cap when limits unset (255)
 
         # Non-legacy should never exceed 31
+        e._comp_data._control_type = TMCC_CONTROL_TYPE
         e._is_legacy = False  # type: ignore[attr-defined]
         e.comp_data._max_speed = 100  # type: ignore[attr-defined]
         e.comp_data._speed_limit = 100  # type: ignore[attr-defined]
@@ -82,6 +83,7 @@ class TestEngineStateBehavior:
     def test_change_direction_toggle_tmcc1_and_tmcc2(self):
         e = self._new_engine()
         # Start in TMCC1; set a TMCC1 direction
+        e._comp_data._control_type = TMCC_CONTROL_TYPE
         e._is_legacy = False  # type: ignore[attr-defined]
         e._direction = TMCC1.FORWARD_DIRECTION  # type: ignore[attr-defined]
         nd = e._change_direction(TMCC1.TOGGLE_DIRECTION)
@@ -94,6 +96,7 @@ class TestEngineStateBehavior:
         assert nd3 == TMCC1.FORWARD_DIRECTION
 
         # Now simulate Legacy/TMCC2 flavor and TMCC2 direction
+        e._comp_data._control_type = LEGACY_CONTROL_TYPE
         e._is_legacy = True  # type: ignore[attr-defined]
         e._direction = TMCC2.FORWARD_DIRECTION  # type: ignore[attr-defined]
         nd4 = e._change_direction(TMCC2.TOGGLE_DIRECTION)

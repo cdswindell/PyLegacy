@@ -935,8 +935,10 @@ class CompDataMixin(Generic[C]):
             self._comp_data = SwitchData(b"\xff" * data_len, tmcc_id)
         elif scope == CommandScope.ENGINE:
             self._comp_data = EngineData(b"\xff" * data_len, tmcc_id)
+            self._init_engine_data()
         elif scope == CommandScope.TRAIN:
             self._comp_data = TrainData(b"\xff" * data_len, tmcc_id)
+            self._init_engine_data()
         elif scope == CommandScope.ROUTE:
             self._comp_data = RouteData(b"\xff" * data_len, tmcc_id)
         elif scope == CommandScope.ACC:
@@ -944,3 +946,9 @@ class CompDataMixin(Generic[C]):
         else:
             raise NotImplementedError(f"Unknown scope {scope.name}")
         self._comp_data_record = True
+
+    def _init_engine_data(self) -> None:
+        self._comp_data._engine_type = 0  # Diesel
+        self._comp_data._control_type = 1  # TMCC
+        self._comp_data._sound_type = 0  # None
+        self._comp_data._engine_class = 0  # Locomotive
