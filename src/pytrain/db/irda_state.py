@@ -58,6 +58,7 @@ class IrdaState(LcsState):
                 self._is_known = True
                 super().update(command)
                 if isinstance(command, IrdaReq) and command.pdi_command == PdiCommand.IRDA_RX:
+                    print(command)
                     if command.action == IrdaAction.CONFIG:
                         self._sequence = command.sequence
                         self._loco_rl = command.loco_rl
