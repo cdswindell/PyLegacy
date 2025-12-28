@@ -31,7 +31,7 @@ from PIL import Image, ImageOps, ImageTk
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
 from ..db.base_state import BaseState
-from ..db.component_state import ComponentState, RouteState, SwitchState
+from ..db.component_state import ComponentState, RouteState, SwitchState, LcsProxyState
 from ..db.component_state_store import ComponentStateStore
 from ..db.engine_state import EngineState, TrainState
 from ..db.irda_state import IrdaState
@@ -1430,7 +1430,7 @@ class EngineGui(Thread, Generic[S]):
             p_info = None
             self._info_details["number"][1].value = state.road_number
             self._info_details["name"][1].value = state.road_name
-            if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            if self.is_engine_or_train:
                 if isinstance(state, EngineState):
                     p_info = self._prod_info_cache.get(state.tmcc_id, None)
                 elif isinstance(state, TrainState):
@@ -1457,7 +1457,7 @@ class EngineGui(Thread, Generic[S]):
                 self._info_details["target"][1].value = f"{ts:>3d}"
                 self._info_details["limit"][1].value = f"{sl:>3d}" if sl is not None else ""
                 self._info_details["max"][1].value = f"{ms:>3d}"
-            elif isinstance(state, AccessoryState):
+            elif isinstance(state, LcsProxyState):
                 self._info_details["type"][1].value = state.accessory_type
                 self._info_details["mode"][1].value = state.mode
                 self._info_details["parent"][1].value = state.parent_id
@@ -2626,7 +2626,7 @@ class EngineGui(Thread, Generic[S]):
     @property
     def is_accessory_or_bpc2(self) -> bool:
         return self.scope == CommandScope.ACC or (
-            self.scope == CommandScope.TRAIN and self.active_state and self.active_state.is_power_district
+            isinstance(self.active_state, LcsProxyState) and self.active_state.is_power_district
         )
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
