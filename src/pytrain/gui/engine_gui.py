@@ -2639,6 +2639,7 @@ class EngineGui(Thread, Generic[S]):
                 cell.hide()
         self.reset_btn.disable()
         if self.is_engine_or_train:
+            print(f"Is engine or train: {self.scope} {state}")
             if not isinstance(state, EngineState):
                 self._active_engine_state = state = self._state_store.get_state(
                     self.scope, self._scope_tmcc_ids[self.scope], False
@@ -2672,6 +2673,7 @@ class EngineGui(Thread, Generic[S]):
             if not self.keypad_box.visible:
                 self.keypad_box.show()
         elif self.is_accessory_or_bpc2:
+            print(f"Is accessory or BPC2: {self.scope} {state}")
             if state is None:
                 state = self._state_store.get_state(CommandScope.ACC, self._scope_tmcc_ids[self.scope], False)
             self.on_new_accessory(state)
