@@ -114,24 +114,6 @@ class ComponentStateStore:
     def by_bluetooth_id(cls, bt_id: int) -> T | None:
         return cls._instance._bt_index.get(bt_id, None) if cls._instance else None
 
-    # noinspection PyTypeChecker
-    @classmethod
-    def configure_slave_devices(cls, configs: list[LcsReq]) -> None:
-        """
-        For LCS devices that have more than one addressable port, the device config is only sent
-        once for the first port, which coincides with the device's configured TMCC ID. This method
-        is used to send the device config to the remaining ports.
-        """
-        for config in configs:
-            if config.scope == CommandScope.ACC and config.num_addressable_ports > 1:
-                pri_state = ComponentStateStore.get_state(CommandScope.ACC, config.address, False)
-                if pri_state:
-                    pri_tmcc_id = pri_state.address
-                    for offset in range(1, config.num_addressable_ports):
-                        slave_state = ComponentStateStore.get_state(CommandScope.ACC, pri_tmcc_id + offset, False)
-                        if slave_state:
-                            slave_state._parent = pri_state
-
     def __new__(cls, *args, **kwargs):
         """
         Provides singleton functionality. We only want one instance
@@ -249,7 +231,7 @@ class ComponentStateStore:
                 if pri_state:
                     pri_tmcc_id = pri_state.address
                     for offset in range(1, config.num_addressable_ports):
-                        slave_state = ComponentStateStore.get_state(config.scope, pri_tmcc_id + offset, False)
+                        slave_state = ComponentStateStore.get_state(config.scope, pri_tmcc_id + offset, True)
                         if slave_state:
                             slave_state._parent = pri_state
             elif config.scope == CommandScope.IRDA:

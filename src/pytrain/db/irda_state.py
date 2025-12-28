@@ -58,12 +58,10 @@ class IrdaState(LcsState):
                 self._is_known = True
                 super().update(command)
                 if isinstance(command, IrdaReq) and command.pdi_command == PdiCommand.IRDA_RX:
-                    print(command)
                     if command.action == IrdaAction.CONFIG:
                         self._sequence = command.sequence
                         self._loco_rl = command.loco_rl
                         self._loco_lr = command.loco_lr
-                        print(f"IRDA {self.address} Config: {self.sequence} RL: {self._loco_rl} LR: {self._loco_lr}")
                     elif command.action == IrdaAction.SEQUENCE:
                         self._sequence_req = command
                         self._sequence = command.sequence
@@ -126,9 +124,6 @@ class IrdaState(LcsState):
                                 command.tmcc_id = orig_tmcc_id
                     self.changed.set()
                     self._cv.notify_all()
-                    # update corresponding accessory
-                    acc_state = ComponentStateStore.get_state(CommandScope.ACC, self.address, True)
-                    acc_state.update(command)
 
     @property
     def sequence(self) -> IrdaSequence:
