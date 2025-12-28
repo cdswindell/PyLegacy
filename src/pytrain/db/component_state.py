@@ -479,7 +479,6 @@ class LcsProxyState(LcsState, ABC):
     def update(self, command: L | P) -> None:
         if isinstance(command, LcsReq):
             self._pdi_source = True
-            print(f"Setting PDI Source to True for {self}")
         super().update(command)
 
     @property

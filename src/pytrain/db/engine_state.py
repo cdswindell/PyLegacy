@@ -950,7 +950,6 @@ class TrainState(EngineState, LcsProxyState):
         # TODO: FIXME!!
         # hard code TMCC2, for now
         self._is_legacy: bool = True
-        self._bpc2: bool = False
 
     def __repr__(self) -> str:
         if self.is_bpc2:
@@ -962,7 +961,6 @@ class TrainState(EngineState, LcsProxyState):
 
         with self._cv:
             if isinstance(command, Bpc2Req):
-                self._bpc2 = True
                 if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                     if command.state:
                         self._aux1 = TMCC2.AUX1_ON
@@ -1015,18 +1013,14 @@ class TrainState(EngineState, LcsProxyState):
         return None
 
     @property
-    def is_bpc2(self) -> bool:
-        return self._bpc2
-
-    @property
-    def is_power_district(self) -> bool:
-        return self._bpc2
-
-    @property
     def is_legacy(self) -> bool:
         if self.is_bpc2 or self._is_legacy:
             return True
         return super().is_legacy
+
+    @property
+    def is_lcs(self) -> bool:
+        return True if self.is_bpc2 else super().is_lcs
 
     def as_bytes(self) -> list[bytes]:
         packets = []
