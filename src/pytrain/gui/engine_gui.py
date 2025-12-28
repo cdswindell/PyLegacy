@@ -1430,6 +1430,7 @@ class EngineGui(Thread, Generic[S]):
             p_info = None
             self._info_details["number"][1].value = state.road_number
             self._info_details["name"][1].value = state.road_name
+            print(f"Updating details: {state.scope} {state.address}")
             if self.is_engine_or_train:
                 if isinstance(state, EngineState):
                     p_info = self._prod_info_cache.get(state.tmcc_id, None)
