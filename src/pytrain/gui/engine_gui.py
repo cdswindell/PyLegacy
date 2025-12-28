@@ -352,8 +352,8 @@ SENSOR_TRACK_OPTS = [
     ["No Action", 0],
     ["Sound Horn R➟L/None L➟R", 1],
     ["None R➟L/Sound Horn L➟R", 2],
-    ["10sec Bell R➟L/None L➟R", 3],
-    ["None L➟R/10sec Bell L➟R", 4],
+    ["10 sec Bell R➟L/None L➟R", 3],
+    ["None L➟R/10 sec Bell L➟R", 4],
     ["Begin Run R➟L/End Run L➟R", 5],
     ["End Run R➟L/Begin Run L➟R", 6],
     ["Go Slow R➟L/Go Normal L➟R", 7],
@@ -1458,7 +1458,6 @@ class EngineGui(Thread, Generic[S]):
                 self._info_details["limit"][1].value = f"{sl:>3d}" if sl is not None else ""
                 self._info_details["max"][1].value = f"{ms:>3d}"
             elif isinstance(state, LcsProxyState):
-                print("is lcs", state)
                 self._info_details["type"][1].value = state.accessory_type
                 self._info_details["mode"][1].value = state.mode
                 self._info_details["parent"][1].value = state.parent_id
@@ -1528,7 +1527,6 @@ class EngineGui(Thread, Generic[S]):
         if state is None:
             return  # this should never be the case...
         scope = CommandScope.ACC if isinstance(state, LcsProxyState) and state.is_lcs else state.scope
-        print(f"scope: {scope} ({state.scope}) is LCS: {state.is_lcs}")
         for tb, _ in self._info_details.values():
             if tb.display_scope == scope:
                 tb.visible = True  # always display fields associated with state.scope

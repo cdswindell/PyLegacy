@@ -62,6 +62,7 @@ class IrdaState(LcsState):
                         self._sequence = command.sequence
                         self._loco_rl = command.loco_rl
                         self._loco_lr = command.loco_lr
+                        print(f"IRDA {self.address} Config: {self.sequence} RL: {self._loco_rl} LR: {self._loco_lr}")
                     elif command.action == IrdaAction.SEQUENCE:
                         self._sequence_req = command
                         self._sequence = command.sequence
