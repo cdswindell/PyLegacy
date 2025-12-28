@@ -2638,6 +2638,7 @@ class EngineGui(Thread, Generic[S]):
             if cell.visible:
                 cell.hide()
         self.reset_btn.disable()
+        print(state)
         if self.is_engine_or_train:
             print(f"Is engine or train: {self.scope} {state}")
             if not isinstance(state, EngineState):
