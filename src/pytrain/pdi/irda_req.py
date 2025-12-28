@@ -95,12 +95,12 @@ class IrdaReq(LcsReq):
         self._valid1 = self._valid2 = self._dir = self._engine_id = self._train_id = self._status = None
         self._fuel = self._water = self._burn = self._fwb_mask = None
         super().__init__(data, pdi_command, action, ident, error)
-        self.scope = CommandScope.ACC
+        self.scope = CommandScope.IRDA
         if isinstance(data, bytes):
             self._action = IrdaAction(self._action_byte)
             data_len = len(self._data)
             if self._action == IrdaAction.INFO:
-                self.scope = CommandScope.ACC
+                self.scope = CommandScope.IRDA
             elif self._action == IrdaAction.CONFIG:
                 self._debug = self._data[4] if data_len > 4 else None
                 self._sequence = IrdaSequence.by_value(self._data[7], True) if data_len > 7 else None

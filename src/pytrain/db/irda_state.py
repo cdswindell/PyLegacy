@@ -126,6 +126,9 @@ class IrdaState(LcsState):
                                 command.tmcc_id = orig_tmcc_id
                     self.changed.set()
                     self._cv.notify_all()
+                    # update corresponding accessory
+                    acc_state = ComponentStateStore.get_state(CommandScope.ACC, self.address, True)
+                    acc_state.update(command)
 
     @property
     def sequence(self) -> IrdaSequence:
