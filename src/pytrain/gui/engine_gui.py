@@ -2647,10 +2647,10 @@ class EngineGui(Thread, Generic[S]):
             self.on_new_engine(state, ops_mode_setup=True)
             if self.keypad_box.visible:
                 self.keypad_box.hide()
+            self.reset_btn.enable()
             # assume it's a diesel
             self.show_diesel_keys()
             if state:  # Display motive-appropriate control keys
-                self.reset_btn.enable()
                 if state.is_steam:
                     self.show_steam_keys()
                 elif state.is_passenger:
