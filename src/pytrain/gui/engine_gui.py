@@ -1528,6 +1528,7 @@ class EngineGui(Thread, Generic[S]):
         if state is None:
             return  # this should never be the case...
         scope = CommandScope.ACC if isinstance(state, LcsProxyState) and state.is_lcs else state.scope
+        print(f"scope: {scope} ({state.scope}) is LCS: {state.is_lcs}")
         for tb, _ in self._info_details.values():
             if tb.display_scope == scope:
                 tb.visible = True  # always display fields associated with state.scope
