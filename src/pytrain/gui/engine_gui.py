@@ -878,6 +878,11 @@ class EngineGui(Thread, Generic[S]):
             btn.on_repeat = btn.on_press
             btn.repeat_interval = 0.3
 
+        for command in ["WATER_INJECTOR", "LET_OFF_LONG"]:
+            _, btn = self.engine_ops_cells[(command, "s")]
+            btn.on_repeat = btn.on_press
+            btn.repeat_interval = 0.2
+
         # assemble key maps
         self._all_engine_btns = (
             self._engine_btns
@@ -3072,7 +3077,6 @@ class EngineGui(Thread, Generic[S]):
             if cmd_enum:
                 cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
                 repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
-                print(target, cmd)
                 cmd.send(repeat=repeat, delay=delay)
                 if do_ops is True and self._in_entry_mode is True:
                     self.ops_mode(update_info=True)
