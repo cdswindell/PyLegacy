@@ -129,7 +129,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("RPM_DOWN", "rpm-down.jpg", "", "", "d"),
-            ("WATER_INJECTOR", "water-inject.jpg", "", "", "s"),
+            ("WATER_INJECTORR", "water-inject.jpg", "", "", "s"),
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
             ("TOWER_CHATTER", "tower.jpg", "", "", "f"),
         ],
@@ -362,7 +362,7 @@ SENSOR_TRACK_OPTS = [
 ]
 
 COMMAND_FALLBACKS = {
-    "WATER_INJECTOR": "NUMBER_5",
+    "WATER_INJECTORR": "NUMBER_5",
     "LET_OFF_LONG": "NUMBER_6",
 }
 
@@ -883,7 +883,7 @@ class EngineGui(Thread, Generic[S]):
             btn.on_repeat = btn.on_press
             btn.repeat_interval = 0.3
 
-        for command in ["WATER_INJECTOR", "LET_OFF_LONG"]:
+        for command in ["WATER_INJECTORR", "LET_OFF_LONG"]:
             _, btn = self.engine_ops_cells[(command, "s")]
             btn.on_repeat = btn.on_press
             btn.repeat_interval = 0.2
@@ -3048,8 +3048,7 @@ class EngineGui(Thread, Generic[S]):
                 for ix, target in enumerate(targets.split(",")):
                     target = target.strip()
                     delay = 0.100 if ix else 0.0
-                    if self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state, delay):
-                        break
+                    self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state, delay)
             else:
                 self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state)
 
@@ -3089,6 +3088,12 @@ class EngineGui(Thread, Generic[S]):
                     self.entry_mode(clear_info=False)
                 sent_command = True
                 break
+            else:
+                target = COMMAND_FALLBACKS.get(target, None)
+                if target:
+                    if self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state, delay):
+                        sent_command = True
+                        break
         return sent_command
 
     @staticmethod
