@@ -1348,8 +1348,11 @@ class EngineGui(Thread, Generic[S]):
             height=cs,
             width=6 * cs,
         )
+        bell_box.text_size = self.s_18
         bt = Text(bell_box, text="Bell: ", grid=[0, 0])
-        sb = Box(bell_box, grid=[1, 0, 2, 1], border=0)
+        bt.text_size = self.s_20
+        bt.text_bold = True
+        sb = Box(bell_box, grid=[1, 0, 2, 1], border=1, height=cs, width=2 * cs)
         spinbox = tk.Spinbox(sb.tk, from_=1, to=5, width=4)
         self._elements.add(bt)
         self._elements.add(spinbox)
