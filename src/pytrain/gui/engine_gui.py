@@ -1430,7 +1430,7 @@ class EngineGui(Thread, Generic[S]):
         # Row 6: Train information
         # ------------------------------------------------------------------
         self._info_details["engines"] = self.make_train_field(info_box, "Engines", grid=[0, 6])
-        self._info_details["lead"] = self.make_train_field(info_box, "Lead", grid=[1, 6])
+        self._info_details["lead"] = self.make_train_field(info_box, "Lead TMCC ID", grid=[1, 6])
         self._info_details["cars"] = self.make_train_field(info_box, "Cars", grid=[2, 6])
         self._info_details["accessories"] = self.make_train_field(info_box, "Accessories", grid=[3, 6])
 
@@ -1479,7 +1479,7 @@ class EngineGui(Thread, Generic[S]):
 
                 # train-specific
                 self._info_details["engines"][1].value = f"{state.num_engines}"
-                self._info_details["lead"][1].value = f"{state.head_tmcc_id}"
+                self._info_details["lead"][1].value = f"{state.head_tmcc_id:04d}"
                 self._info_details["cars"][1].value = f"{state.num_train_linked}"
                 self._info_details["accessories"][1].value = f"{state.num_accessories}"
             elif isinstance(state, LcsProxyState):
