@@ -1478,10 +1478,11 @@ class EngineGui(Thread, Generic[S]):
                 self._info_details["max"][1].value = f"{ms:>3d}"
 
                 # train-specific
-                self._info_details["engines"][1].value = f"{state.num_engines}"
-                self._info_details["lead"][1].value = f"{state.head_tmcc_id:04d}"
-                self._info_details["cars"][1].value = f"{state.num_train_linked}"
-                self._info_details["accessories"][1].value = f"{state.num_accessories}"
+                if isinstance(state, TrainState):
+                    self._info_details["engines"][1].value = f"{state.num_engines}"
+                    self._info_details["lead"][1].value = f"{state.head_tmcc_id:04d}"
+                    self._info_details["cars"][1].value = f"{state.num_train_linked}"
+                    self._info_details["accessories"][1].value = f"{state.num_accessories}"
             elif isinstance(state, LcsProxyState):
                 self._info_details["type"][1].value = state.accessory_type
                 self._info_details["mode"][1].value = state.mode
