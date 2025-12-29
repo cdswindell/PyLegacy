@@ -454,6 +454,20 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         self._server_ips = get_ip_address()
         self.start()
 
+    @property
+    def is_server(self) -> bool:
+        return self._is_server
+
+    @property
+    def is_client(self) -> bool:
+        return not self.is_server
+
+    @property
+    def version(self) -> str:
+        from .. import get_version
+
+        return f"{PROGRAM_NAME} {'Client' if self.is_client else 'Server'} {get_version()}"
+
     def run(self) -> None:
         while self._is_running:
             with self._cv:

@@ -627,6 +627,10 @@ class EngineGui(Thread, Generic[S]):
     def destroy_complete(self) -> Event:
         return self._ev
 
+    @property
+    def version(self) -> str:
+        return self._dispatcher.version
+
     # noinspection PyTypeChecker
     @property
     def active_engine_state(self) -> EngineState:
