@@ -3038,7 +3038,8 @@ class EngineGui(Thread, Generic[S]):
                 for ix, target in enumerate(targets.split(",")):
                     target = target.strip()
                     delay = 0.100 if ix else 0.0
-                    self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state, delay)
+                    if self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state, delay):
+                        break
             else:
                 self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state)
 
@@ -3053,7 +3054,8 @@ class EngineGui(Thread, Generic[S]):
         repeat: int,
         state: S,
         delay: float = 0.0,
-    ):
+    ) -> bool:
+        sent_command = False
         if isinstance(targets, str):
             targets = [targets]
         for target in targets:
@@ -3076,7 +3078,9 @@ class EngineGui(Thread, Generic[S]):
                     self.ops_mode(update_info=True)
                 elif do_entry and self._in_entry_mode is False:
                     self.entry_mode(clear_info=False)
+                sent_command = True
                 break
+        return sent_command
 
     @staticmethod
     def get_tmcc2_smoke_cmd(cmd: str, state: EngineState) -> TMCC2EngineOpsEnum | None:
