@@ -834,6 +834,8 @@ class EngineGui(Thread, Generic[S]):
                             self._passenger_freight_btns.add(cell)
 
                         key = (cmd, op[4])
+                        if cmd == "WATER_INJECTOR":
+                            print(f"Key: {key}")
                     else:
                         key = cmd
 
