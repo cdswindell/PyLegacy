@@ -129,7 +129,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("RPM_DOWN", "rpm-down.jpg", "", "", "d"),
-            ("WATER_INJECTOR, NUMBER_5", "water-inject.jpg", "", "s"),
+            ("WATER_INJECTOR, NUMBER_5", "water-inject.jpg", "", "", "s"),
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
             ("TOWER_CHATTER", "tower.jpg", "", "", "f"),
         ],
@@ -3070,6 +3070,7 @@ class EngineGui(Thread, Generic[S]):
             if cmd_enum:
                 cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
                 repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
+                print(cmd)
                 cmd.send(repeat=repeat, delay=delay)
                 if do_ops is True and self._in_entry_mode is True:
                     self.ops_mode(update_info=True)
