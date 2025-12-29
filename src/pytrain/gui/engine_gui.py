@@ -3070,7 +3070,7 @@ class EngineGui(Thread, Generic[S]):
             if cmd_enum:
                 cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
                 repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
-                print(cmd)
+                print(target, cmd)
                 cmd.send(repeat=repeat, delay=delay)
                 if do_ops is True and self._in_entry_mode is True:
                     self.ops_mode(update_info=True)
