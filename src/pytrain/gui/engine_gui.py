@@ -134,7 +134,7 @@ ENGINE_OPS_LAYOUT = [
             ("TOWER_CHATTER", "tower.jpg", "", "", "f"),
         ],
         [
-            ("RING_BELL", "bell.jpg", "", "", "e"),
+            ("RING_BELL", "bell.jpg", "", "Bell/Horn...", "e"),
             ("STEWARD_CHATTER", "steward.jpg", "", "Steward...", "p"),
             ("STOCK_WHEEL_ON", "flat-wheel-on.jpg", "", "", "f"),
         ],
@@ -581,7 +581,7 @@ class EngineGui(Thread, Generic[S]):
         self.can_hack_combo = False  # don't ask
         self._isd = None  # swipe detector for engine image field
         self._info_details = {}  # manage state details info popup fields
-        self.conductor_overlay = self.steward_overlay = self.station_overlay = None
+        self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
         self._on_close_show = None
 
         # callbacks
@@ -880,6 +880,10 @@ class EngineGui(Thread, Generic[S]):
         for loco_type in ["d", "s"]:
             _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
             btn.on_hold = self.show_horn_control
+
+        for loco_type in ["e"]:
+            _, btn = self.engine_ops_cells[("RING_BELL", loco_type)]
+            btn.on_hold = self.on_bell_horn_options
 
         # set some repeating commands
         for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
@@ -1333,6 +1337,23 @@ class EngineGui(Thread, Generic[S]):
     def build_steward_dialogs_body(self, body: Box):
         self.steward_dialog_box = self.build_button_panel(body, STEWARD_DIALOGS)
 
+    def build_bell_horn_body(self, body: Box):
+        cs = self.button_size
+        bell_box = TitleBox(
+            body,
+            text="Bell Options",
+            layout="grid",
+            align="top",
+            border=1,
+            height=cs,
+            width=6 * cs,
+        )
+        bt = Text(bell_box, text="Bell: ", grid=[0, 0])
+        sb = Box(bell_box, grid=[1, 0, 2, 1], border=0)
+        spinbox = tk.Spinbox(sb.tk, from_=1, to=5, width=4)
+        self._elements.add(bt)
+        self._elements.add(spinbox)
+
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
         width = int(3 * self.button_size)
@@ -1614,6 +1635,11 @@ class EngineGui(Thread, Generic[S]):
         if self.steward_overlay is None:
             self.steward_overlay = self.create_popup("Steward Dialogs", self.build_steward_dialogs_body)
         self.show_popup(self.steward_overlay, "STEWARD_CHATTER", "p")
+
+    def on_bell_horn_options(self) -> None:
+        if self.bell_overlay is None:
+            self.bell_overlay = self.create_popup("Bell/Horn Options", self.build_bell_horn_body)
+        self.show_popup(self.bell_overlay, "RING_BELL", "e")
 
     def show_popup(self, overlay, op: str = None, modifier: str = None):
         with self._cv:
