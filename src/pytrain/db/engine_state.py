@@ -1003,6 +1003,16 @@ class TrainState(EngineState, LcsProxyState):
         return None
 
     @property
+    def engine_ids(self) -> list[int] | None:
+        if self.consist_components:
+            ids = []
+            for comp in self.consist_components:
+                if not comp.is_train_link and not comp.is_accessory:
+                    ids.append(comp.tmcc_id)
+            return ids
+        return None
+
+    @property
     def link_tmcc_ids(self) -> list[int] | None:
         if self.consist_components:
             ids = []
@@ -1011,6 +1021,28 @@ class TrainState(EngineState, LcsProxyState):
                     ids.append(comp.tmcc_id)
             return ids
         return None
+
+    @property
+    def accessory_ids(self) -> list[int] | None:
+        if self.consist_components:
+            ids = []
+            for comp in self.consist_components:
+                if comp.is_accessory:
+                    ids.append(comp.tmcc_id)
+            return ids
+        return None
+
+    @property
+    def num_engines(self) -> int:
+        return len(self.engine_ids) if self.engine_ids else 0
+
+    @property
+    def num_train_linked(self) -> int:
+        return len(self.link_tmcc_ids) if self.link_tmcc_ids else 0
+
+    @property
+    def num_accessories(self) -> int:
+        return len(self.accessory_ids) if self.accessory_ids else 0
 
     @property
     def is_legacy(self) -> bool:

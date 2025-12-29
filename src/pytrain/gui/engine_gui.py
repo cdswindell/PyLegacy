@@ -1427,6 +1427,14 @@ class EngineGui(Thread, Generic[S]):
         self._info_details["water"] = self.make_engine_field(info_box, "Water Level", grid=[3, 5])
 
         # ------------------------------------------------------------------
+        # Row 6: Train information
+        # ------------------------------------------------------------------
+        self._info_details["engines"] = self.make_train_field(info_box, "Engines", grid=[0, 6])
+        self._info_details["lead"] = self.make_train_field(info_box, "Lead", grid=[1, 6])
+        self._info_details["cars"] = self.make_train_field(info_box, "Cars", grid=[2, 6])
+        self._info_details["accessories"] = self.make_train_field(info_box, "Accessories", grid=[3, 6])
+
+        # ------------------------------------------------------------------
         # Row 2 – Accessories
         # ------------------------------------------------------------------
         self._info_details["mode"] = self.make_acc_field(info_box, "Mode", grid=[0, 2])
@@ -1468,6 +1476,12 @@ class EngineGui(Thread, Generic[S]):
                 self._info_details["target"][1].value = f"{ts:>3d}"
                 self._info_details["limit"][1].value = f"{sl:>3d}" if sl is not None else ""
                 self._info_details["max"][1].value = f"{ms:>3d}"
+
+                # train-specific
+                self._info_details["engines"][1].value = f"{state.num_engines} Engines"
+                self._info_details["lead"][1].value = f"{state.head_tmcc_id}"
+                self._info_details["cars"][1].value = f"{state.num_train_linked} Cars"
+                self._info_details["accessories"][1].value = f"{state.num_accessories} Accessories"
             elif isinstance(state, LcsProxyState):
                 self._info_details["type"][1].value = state.accessory_type
                 self._info_details["mode"][1].value = state.mode
