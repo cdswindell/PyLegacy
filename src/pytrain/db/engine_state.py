@@ -331,7 +331,6 @@ class EngineState(ComponentState):
                 elif cmd_effects & NUMERIC_SET:
                     numeric = self._harvest_effect(cmd_effects & NUMERIC_SET)
                     log.info(f"What to do? {command}: {numeric} {type(numeric)}")
-                    log.info(f"What to do? Effects: {cmd_effects}: {command.data} {NUMERIC_SET}")
 
                 # Direction changes trigger several other changes; we want to avoid resettling
                 # rpm, labor, and speed if the direction really didn't change
