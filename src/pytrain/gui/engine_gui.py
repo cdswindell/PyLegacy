@@ -110,7 +110,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("RPM_UP", "rpm-up.jpg", "", "", "d"),
-            ("LET_OFF_LONG, NUMBER_6", "let-off.jpg", "", "", "s"),
+            ("LET_OFF_LONG", "let-off.jpg", "", "", "s"),
             ("ENGINEER_CHATTER", "conductor.jpg", "", "Conductor...", "p"),
             ("NUMBER_3", "load.jpg", "", "", "f"),
         ],
@@ -129,7 +129,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("RPM_DOWN", "rpm-down.jpg", "", "", "d"),
-            ("WATER_INJECTOR, NUMBER_5", "water-inject.jpg", "", "", "s"),
+            ("WATER_INJECTOR", "water-inject.jpg", "", "", "s"),
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
             ("TOWER_CHATTER", "tower.jpg", "", "", "f"),
         ],
@@ -360,6 +360,11 @@ SENSOR_TRACK_OPTS = [
     ["Go Normal R➟L/Go Slow L➟R", 8],
     ["Recorded Sequence", 9],
 ]
+
+COMMAND_FALLBACKS = {
+    "WATER_INJECTOR": "NUMBER_5",
+    "LET_OFF_LONG": "NUMBER_6",
+}
 
 LIONEL_ORANGE = "#FF6600"
 
@@ -834,8 +839,6 @@ class EngineGui(Thread, Generic[S]):
                             self._passenger_freight_btns.add(cell)
 
                         key = (cmd, op[4])
-                        if cmd == "WATER_INJECTOR":
-                            print(f"Key: {key}")
                     else:
                         key = cmd
 
