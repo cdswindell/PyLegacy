@@ -1551,7 +1551,7 @@ class EngineGui(Thread, Generic[S]):
 
     def on_info(self) -> None:
         if self.info_overlay is None:
-            self.info_overlay = self.create_popup("Details", self.build_info_overlay)
+            self.info_overlay = self.create_popup(self.version, self.build_info_overlay)
         # show/hide fields in the overlay
         state = self.active_state
         if state is None:
