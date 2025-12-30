@@ -66,7 +66,6 @@ from ..utils.image_utils import center_text_on_image
 from ..utils.path_utils import find_file
 from ..utils.unique_deque import UniqueDeque
 from .hold_button import HoldButton
-from .spinner import Spinner
 from .swipe_detector import SwipeDetector
 
 log = logging.getLogger(__name__)
@@ -77,7 +76,8 @@ SWITCH_THRU_KEY = "↑"
 SWITCH_OUT_KEY = "↖↗"
 FIRE_ROUTE_KEY = "⚡"
 CYCLE_KEY = "↻"
-PLAY_KEY = "▶/⏸"
+PLAY_KEY = "▶"
+PLAY_PAUSE_KEY = "▶/⏸"
 PAUSE_KEY = "⏸"
 CLEAR_KEY = "clr"
 ENTER_KEY = "↵"
@@ -354,6 +354,7 @@ REPEAT_EXCEPTIONS = {
 FONT_SIZE_EXCEPTIONS = {
     CYCLE_KEY,
     PLAY_KEY,
+    PLAY_PAUSE_KEY,
     PAUSE_KEY,
 }
 
@@ -1349,7 +1350,7 @@ class EngineGui(Thread, Generic[S]):
     def build_bell_horn_body(self, body: Box):
         cs = self.button_size
         height = int(1.2 * cs)
-        bell_box = Box(
+        opts_box = Box(
             body,
             layout="grid",
             align="top",
@@ -1358,12 +1359,12 @@ class EngineGui(Thread, Generic[S]):
             width=6 * cs,
         )
 
-        bt = Text(bell_box, text="Bell: ", grid=[0, 0], align="left")
+        bt = Text(opts_box, text="Bell: ", grid=[0, 0], align="left")
         bt.text_size = self.s_20
         bt.text_bold = True
 
         _, bc = self.make_keypad_button(
-            bell_box,
+            opts_box,
             CYCLE_KEY,
             0,
             1,
@@ -1372,8 +1373,8 @@ class EngineGui(Thread, Generic[S]):
             args=["CYCLE_BELL_TONE"],
         )
         _, bp = self.make_keypad_button(
-            bell_box,
-            PLAY_KEY,
+            opts_box,
+            PLAY_PAUSE_KEY,
             0,
             2,
             align="left",
@@ -1381,7 +1382,7 @@ class EngineGui(Thread, Generic[S]):
             args=["RING_BELL"],
         )
         _, bon = self.make_keypad_button(
-            bell_box,
+            opts_box,
             "On",
             0,
             3,
@@ -1390,7 +1391,7 @@ class EngineGui(Thread, Generic[S]):
             args=["BELL_ON"],
         )
         _, boff = self.make_keypad_button(
-            bell_box,
+            opts_box,
             "Off",
             0,
             4,
@@ -1404,30 +1405,32 @@ class EngineGui(Thread, Generic[S]):
         self._elements.add(bon)
         self._elements.add(boff)
 
-        horn_box = Box(
-            body,
-            layout="grid",
-            align="top",
-            border=1,
-            height=height,
-            width=6 * cs,
-        )
-
-        ht = Text(horn_box, text="Horn: ", grid=[0, 0])
+        ht = Text(opts_box, text="Horn: ", grid=[0, 1])
         ht.text_size = self.s_20
         ht.text_bold = True
-        horn = Spinner(
-            horn_box,
-            grid=[1, 0, 2, 1],
-            min_value=1,
-            max_value=5,
-            step=1,
-            value=3,
-            wrap=False,
-            on_change=lambda s, x: print(f"Horn level: {x}"),
+
+        _, hc = self.make_keypad_button(
+            opts_box,
+            CYCLE_KEY,
+            1,
+            1,
+            align="left",
+            command=self.on_engine_command,
+            args=["CYCLE_HORN_TONE"],
         )
+        _, hp = self.make_keypad_button(
+            opts_box,
+            PLAY_KEY,
+            1,
+            2,
+            align="left",
+            command=self.on_engine_command,
+            args=["BLOW_HORN_ONE"],
+        )
+
         self._elements.add(ht)
-        self._elements.add(horn)
+        self._elements.add(hc)
+        self._elements.add(hp)
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
