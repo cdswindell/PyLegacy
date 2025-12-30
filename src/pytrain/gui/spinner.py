@@ -22,9 +22,11 @@ ValueT = Union[int, str]
 @dataclass(frozen=True)
 class SpinnerStyle:
     button_width: int = 2
-    value_width: int = 3
+    value_width: int = 2
     button_padx: int = 2
     button_pady: int = 0
+    button_text_size: int = 14
+    value_text_size: int = 14
 
 
 class Spinner(Box):
@@ -141,7 +143,11 @@ class Spinner(Box):
             pady=self._style.button_pady,
             command=down_cmd,
         )
+        self._btn_down.text_size = self._style.button_text_size
+
         self._txt = TextBox(self._inner, text=str(self._value), width=self._style.value_width)
+        self._txt.text_size = self._style.value_text_size
+
         self._btn_up = PushButton(
             self._inner,
             text="+",
@@ -150,6 +156,7 @@ class Spinner(Box):
             pady=self._style.button_pady,
             command=up_cmd,
         )
+        self._btn_up.text_size = self._style.button_text_size
 
         # Apply orientation ordering
         self._apply_orientation()

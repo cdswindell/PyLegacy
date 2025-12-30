@@ -1341,19 +1341,21 @@ class EngineGui(Thread, Generic[S]):
 
     def build_bell_horn_body(self, body: Box):
         cs = self.button_size
-        bell_box = TitleBox(
+        bell_box = Box(
             body,
-            text="Bell Options",
+            # text="Bell Options",
             layout="grid",
             align="top",
             border=1,
             height=cs,
             width=6 * cs,
         )
-        bell_box.text_size = self.s_12
-        bt = Text(bell_box, text="Bell: ", grid=[0, 0])
+        # bell_box.text_size = self.s_12
+
+        bt = Text(bell_box, text="Bell: ", grid=[0, 0], align="left")
         bt.text_size = self.s_20
         bt.text_bold = True
+
         bell = Spinner(
             bell_box,
             grid=[1, 0, 2, 1],
@@ -1365,22 +1367,30 @@ class EngineGui(Thread, Generic[S]):
             on_change=lambda s, x: print(f"Bell level: {x}"),
         )
         _, bp = self.make_keypad_button(bell_box, "Play", 0, 3)
-        _, bd = self.make_keypad_button(bell_box, "Default", 0, 4)
+        _, bd = self.make_keypad_button(
+            bell_box,
+            "Default",
+            0,
+            4,
+            command=self.default_bell,
+            args=[bell],
+        )
         self._elements.add(bt)
         self._elements.add(bp)
         self._elements.add(bd)
         self._elements.add(bell)
 
-        horn_box = TitleBox(
+        horn_box = Box(
             body,
-            text="Horn Options",
+            # text="Horn Options",
             layout="grid",
             align="top",
             border=1,
             height=cs,
             width=6 * cs,
         )
-        horn_box.text_size = self.s_12
+        # horn_box.text_size = self.s_12
+
         ht = Text(horn_box, text="Horn: ", grid=[0, 0])
         ht.text_size = self.s_20
         ht.text_bold = True
@@ -1396,6 +1406,9 @@ class EngineGui(Thread, Generic[S]):
         )
         self._elements.add(ht)
         self._elements.add(horn)
+
+    def default_bell(self, spinner: Spinner) -> None:
+        spinner.value = 3
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
