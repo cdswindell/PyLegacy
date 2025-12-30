@@ -21,12 +21,12 @@ ValueT = Union[int, str]
 
 @dataclass(frozen=True)
 class SpinnerStyle:
-    button_width: int = 2
+    button_width: int = 3
     value_width: int = 2
     button_padx: int = 2
     button_pady: int = 0
-    button_text_size: int = 14
-    value_text_size: int = 14
+    button_text_size: int = 20
+    value_text_size: int = 20
 
 
 class Spinner(Box):
