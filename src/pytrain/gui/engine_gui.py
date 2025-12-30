@@ -1427,10 +1427,21 @@ class EngineGui(Thread, Generic[S]):
             command=self.on_engine_command,
             args=["BLOW_HORN_ONE"],
         )
+        _, hrc = self.make_keypad_button(
+            opts_box,
+            "",
+            1,
+            3,
+            image=find_file("rail_crossing.jpg"),
+            align="left",
+            command=self.on_engine_command,
+            args=["GRADE_CROSSING_SEQ"],
+        )
 
         self._elements.add(ht)
         self._elements.add(hc)
         self._elements.add(hp)
+        self._elements.add(hrc)
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
