@@ -20,7 +20,7 @@ from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq
 
 
-class SetToneBase(SequenceReq, ABC):
+class SetToneReqBase(SequenceReq, ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(
@@ -52,7 +52,7 @@ class SetToneBase(SequenceReq, ABC):
             raise AttributeError(f"Scope {new_scope} not supported for {self}")
 
 
-class SetHornToneReq(SetToneBase):
+class SetHornToneReq(SetToneReqBase):
     def __init__(
         self,
         address: int = DEFAULT_ADDRESS,
@@ -67,7 +67,7 @@ class SetHornToneReq(SetToneBase):
 SequenceCommandEnum.SET_HORN_TONE.value.register_cmd_class(SetHornToneReq)
 
 
-class SetBellToneReq(SetToneBase):
+class SetBellToneReq(SetToneReqBase):
     def __init__(
         self,
         address: int = DEFAULT_ADDRESS,
