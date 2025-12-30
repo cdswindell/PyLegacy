@@ -77,7 +77,6 @@ class CycleBellToneReq(CycleToneReqBase):
         super().__init__(SequenceCommandEnum.CYCLE_BELL_TONE, address, scope, data)
         self.add(TMCC2EngineCommandEnum.BELL_SLIDER_POSITION, address, scope=scope, data=2, delay=0.2)
         self.add(TMCC2EngineCommandEnum.BELL_ONE_SHOT_DING, address, scope=scope, data=3, delay=0.4)
-        print(self)
 
 
 SequenceCommandEnum.CYCLE_BELL_TONE.value.register_cmd_class(CycleBellToneReq)
