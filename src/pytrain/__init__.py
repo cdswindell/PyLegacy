@@ -86,6 +86,10 @@ from .protocol.multibyte.multibyte_constants import (
     TMCC2VariableEnum,  # noqa: F401
     UnitAssignment,  # noqa: F401
 )
+from .protocol.sequence.cycle_tone_req import (
+    CycleBellToneReq,  # noqa: F401
+    CycleHornToneReq,  # noqa: F401
+)
 from .protocol.sequence.grade_crossing_req import (
     GradeCrossingReq,  # noqa: F401
 )
@@ -106,10 +110,6 @@ from .protocol.sequence.sequence_req import (
 )
 from .protocol.sequence.set_speed_req import (
     SetSpeedReq,  # noqa: F401
-)
-from .protocol.sequence.set_tone_req import (
-    SetBellToneReq,  # noqa: F401
-    SetHornToneReq,  # noqa: F401
 )
 from .protocol.sequence.steward_chatter_req import (
     StewardChatterReq,  # noqa: F401

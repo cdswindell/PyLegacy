@@ -76,7 +76,8 @@ HALT_KEY = "Emergency"
 SWITCH_THRU_KEY = "↑"
 SWITCH_OUT_KEY = "↖↗"
 FIRE_ROUTE_KEY = "⚡"
-PLAY_KEY = "▶"
+CYCLE_KEY = "↻"
+PLAY_KEY = "⏯"
 PAUSE_KEY = "⏸"
 CLEAR_KEY = "clr"
 ENTER_KEY = "↵"
@@ -351,6 +352,7 @@ REPEAT_EXCEPTIONS = {
 }
 
 FONT_SIZE_EXCEPTIONS = {
+    CYCLE_KEY,
     PLAY_KEY,
     PAUSE_KEY,
 }
@@ -1360,37 +1362,44 @@ class EngineGui(Thread, Generic[S]):
         bt.text_size = self.s_20
         bt.text_bold = True
 
-        bell = Spinner(
+        _, bc = self.make_keypad_button(
             bell_box,
-            grid=[1, 0, 2, 1],
-            min_value=1,
-            max_value=5,
-            step=1,
-            value=3,
-            wrap=False,
-            on_change=lambda s, x: print(f"Bell level: {x}"),
+            CYCLE_KEY,
+            0,
+            1,
+            align="left",
+            command=self.on_engine_command,
+            args=["RING_BELL"],
         )
         _, bp = self.make_keypad_button(
             bell_box,
             PLAY_KEY,
             0,
-            3,
-            align="left",
-            command=self.on_bell_play,
-            args=[bell],
+            2,
+            command=self.on_engine_command,
+            args=["BELL_ON"],
         )
-        _, bd = self.make_keypad_button(
+        _, bon = self.make_keypad_button(
             bell_box,
-            "Dflt",
+            "On",
+            0,
+            3,
+            command=self.on_engine_command,
+            args=["BELL_ON"],
+        )
+        _, boff = self.make_keypad_button(
+            bell_box,
+            "On",
             0,
             4,
-            command=self.on_default_bell,
-            args=[bell],
+            command=self.on_engine_command,
+            args=["BELL_OFF"],
         )
         self._elements.add(bt)
+        self._elements.add(bc)
         self._elements.add(bp)
-        self._elements.add(bd)
-        self._elements.add(bell)
+        self._elements.add(bon)
+        self._elements.add(boff)
 
         horn_box = Box(
             body,
@@ -1417,13 +1426,8 @@ class EngineGui(Thread, Generic[S]):
         self._elements.add(ht)
         self._elements.add(horn)
 
-    def on_default_bell(self, spinner: Spinner) -> None:
-        spinner.value = 3
-        self.on_bell_play(spinner)
-
-    def on_bell_play(self, spinner: Spinner) -> None:
-        print(f"Playing bell level {spinner.value}")
-        self.on_engine_command("SET_BELL_TONE", data=spinner.value)
+    def on_cycle_bell(self, spinner: Spinner) -> None:
+        self.on_engine_command("CYCLE_BELL_TONE")
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)

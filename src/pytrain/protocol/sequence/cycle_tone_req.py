@@ -20,7 +20,7 @@ from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq
 
 
-class SetToneReqBase(SequenceReq, ABC):
+class CycleToneReqBase(SequenceReq, ABC):
     __metaclass__ = abc.ABCMeta
 
     def __init__(
@@ -28,7 +28,7 @@ class SetToneReqBase(SequenceReq, ABC):
         command: SequenceCommandEnum,
         address: int,
         scope: CommandScope = CommandScope.ENGINE,
-        data: int = 3,
+        data: int = None,
     ) -> None:
         super().__init__(command, address, scope)
         self._scope = scope
@@ -52,32 +52,32 @@ class SetToneReqBase(SequenceReq, ABC):
             raise AttributeError(f"Scope {new_scope} not supported for {self}")
 
 
-class SetHornToneReq(SetToneReqBase):
+class CycleHornToneReq(CycleToneReqBase):
     def __init__(
         self,
         address: int = DEFAULT_ADDRESS,
-        data: int = 3,
+        data: int = None,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
-        super().__init__(SequenceCommandEnum.SET_HORN_TONE, address, scope, data)
-        self.add(TMCC2EngineCommandEnum.QUILLING_HORN, address, scope=scope, data=data, delay=0.2)
-        self.add(TMCC2EngineCommandEnum.BLOW_HORN_ONE, address, scope=scope, data=data, delay=0.4, repeat=2)
+        super().__init__(SequenceCommandEnum.CYCLE_HORN_TONE, address, scope, data)
+        self.add(TMCC2EngineCommandEnum.QUILLING_HORN, address, scope=scope, data=2, delay=0.2)
+        self.add(TMCC2EngineCommandEnum.BLOW_HORN_ONE, address, scope=scope, delay=0.4, repeat=2)
 
 
-SequenceCommandEnum.SET_HORN_TONE.value.register_cmd_class(SetHornToneReq)
+SequenceCommandEnum.CYCLE_HORN_TONE.value.register_cmd_class(CycleHornToneReq)
 
 
-class SetBellToneReq(SetToneReqBase):
+class CycleBellToneReq(CycleToneReqBase):
     def __init__(
         self,
         address: int = DEFAULT_ADDRESS,
-        data: int = 3,
+        data: int = None,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
-        super().__init__(SequenceCommandEnum.SET_BELL_TONE, address, scope, data)
-        self.add(TMCC2EngineCommandEnum.BELL_SLIDER_POSITION, address, scope=scope, data=data, delay=0.2)
+        super().__init__(SequenceCommandEnum.CYCLE_BELL_TONE, address, scope, data)
+        self.add(TMCC2EngineCommandEnum.BELL_SLIDER_POSITION, address, scope=scope, data=2, delay=0.2)
         self.add(TMCC2EngineCommandEnum.BELL_ONE_SHOT_DING, address, scope=scope, data=3, delay=0.4)
         print(self)
 
 
-SequenceCommandEnum.SET_BELL_TONE.value.register_cmd_class(SetBellToneReq)
+SequenceCommandEnum.CYCLE_BELL_TONE.value.register_cmd_class(CycleBellToneReq)
