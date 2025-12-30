@@ -77,7 +77,7 @@ SWITCH_THRU_KEY = "↑"
 SWITCH_OUT_KEY = "↖↗"
 FIRE_ROUTE_KEY = "⚡"
 CYCLE_KEY = "↻"
-PLAY_KEY = "⏯"
+PLAY_KEY = "▶/⏸"
 PAUSE_KEY = "⏸"
 CLEAR_KEY = "clr"
 ENTER_KEY = "↵"
@@ -1391,7 +1391,7 @@ class EngineGui(Thread, Generic[S]):
         )
         _, boff = self.make_keypad_button(
             bell_box,
-            "On",
+            "Off",
             0,
             4,
             align="left",
