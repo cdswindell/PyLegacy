@@ -29,12 +29,21 @@ class SpinnerStyle:
 
 class Spinner(Box):
     """
-    GuiZero-compatible spinner (numeric up/down):
-      [-] [ value ] [+]
+    GuiZero-compatible spinner (numeric up/down).
+
+    Layout:
+      - orientation="horizontal":  [ − ] [ value ] [ + ]
+      - orientation="vertical":    [ + ]
+                                  [ value ]
+                                  [ − ]
 
     Modes:
-      - Integer range mode via min_value/max_value/step
+      - Integer range via min_value/max_value/step
       - Enum mode via values=[...] (overrides integer mode)
+
+    Tap vs hold:
+      - repeat=False: tap only
+      - repeat=True: tap = one step, hold starts repeating after repeat_delay_ms
 
     Callback:
       on_change(spinner, value)
@@ -45,18 +54,26 @@ class Spinner(Box):
         parent,
         *,
         value: Optional[ValueT] = None,
+        # Integer mode:
         min_value: Optional[int] = None,
         max_value: Optional[int] = None,
         step: int = 1,
+        # Enum mode:
         values: Optional[Sequence[ValueT]] = None,
+        # Behavior:
         wrap: bool = False,
         readonly: bool = True,
         allow_typing: bool = False,
         clamp_on_focus_lost: bool = True,
-        repeat: bool = True,
+        # Layout:
+        orientation: str = "horizontal",  # "horizontal" | "vertical"
+        # Repeat:
+        repeat: bool = False,
         repeat_delay_ms: int = 450,
-        repeat_interval_ms: int = 90,
+        repeat_interval_ms: int = 120,
+        # Callback:
         on_change: Optional[Callable[["Spinner", ValueT], None]] = None,
+        # Style:
         style: SpinnerStyle = SpinnerStyle(),
         align: str = "left",
         **box_kwargs,
@@ -66,21 +83,28 @@ class Spinner(Box):
         if step == 0:
             raise ValueError("step must be non-zero")
 
+        if orientation not in ("horizontal", "vertical"):
+            raise ValueError("orientation must be 'horizontal' or 'vertical'")
+
         self._style = style
         self._on_change = on_change
 
         self._values: Optional[List[ValueT]] = list(values) if values is not None else None
         self._wrap = bool(wrap)
 
-        self._min = min_value
-        self._max = max_value
+        self._min = 0 if min_value is None else min_value
+        self._max = 100 if max_value is None else max_value
         self._step = int(step)
 
+        self._orientation = orientation
+
+        # Repeat config/state (tap vs. hold)
         self._repeat = bool(repeat)
         self._repeat_delay_ms = int(repeat_delay_ms)
         self._repeat_interval_ms = int(repeat_interval_ms)
         self._repeat_job: Optional[str] = None
-        self._repeat_direction = 0
+        self._repeat_direction: int = 0
+        self._repeat_started: bool = False
 
         # Determine initial value + mode
         if self._values is not None:
@@ -92,40 +116,43 @@ class Spinner(Box):
                 raise ValueError(f"Initial value {value!r} not in values list")
             self._value: ValueT = value
         else:
-            if self._min is None:
-                self._min = 0
-            if self._max is None:
-                self._max = 100
             if self._min > self._max:
                 raise ValueError("min_value must be <= max_value")
             if value is None:
                 value = self._min
-
             try:
                 iv = int(value)  # type: ignore[arg-type]
             except (TypeError, ValueError) as e:
                 raise ValueError(f"Initial value {value!r} not an int") from e
-
             self._value = self._clamp_int(iv)
 
-        # Widgets
+        # Inner container so we can control orientation reliably
+        self._inner = Box(self, layout="auto")
+
+        # If repeat is enabled, do NOT also use command= (prevents double-trigger)
+        down_cmd = None if self._repeat else self.decrement
+        up_cmd = None if self._repeat else self.increment
+
         self._btn_down = PushButton(
-            self,
+            self._inner,
             text="−",
             width=self._style.button_width,
             padx=self._style.button_padx,
             pady=self._style.button_pady,
-            command=self.decrement,
+            command=down_cmd,
         )
-        self._txt = TextBox(self, text=str(self._value), width=self._style.value_width)
+        self._txt = TextBox(self._inner, text=str(self._value), width=self._style.value_width)
         self._btn_up = PushButton(
-            self,
+            self._inner,
             text="+",
             width=self._style.button_width,
             padx=self._style.button_padx,
             pady=self._style.button_pady,
-            command=self.increment,
+            command=up_cmd,
         )
+
+        # Apply orientation ordering
+        self._apply_orientation()
 
         # Text behavior
         self._txt.enabled = (not readonly) or bool(allow_typing)
@@ -179,11 +206,16 @@ class Spinner(Box):
         step: Optional[int] = None,
         values: Optional[Sequence[ValueT]] = None,
         wrap: Optional[bool] = None,
+        orientation: Optional[str] = None,
+        repeat: Optional[bool] = None,
+        repeat_delay_ms: Optional[int] = None,
+        repeat_interval_ms: Optional[int] = None,
     ) -> None:
         if values is not None:
             if len(values) == 0:
                 raise ValueError("values must be non-empty")
             self._values = list(values)
+
         if min_value is not None:
             self._min = min_value
         if max_value is not None:
@@ -194,6 +226,25 @@ class Spinner(Box):
             self._step = int(step)
         if wrap is not None:
             self._wrap = bool(wrap)
+
+        if orientation is not None:
+            if orientation not in ("horizontal", "vertical"):
+                raise ValueError("orientation must be 'horizontal' or 'vertical'")
+            self._orientation = orientation
+            self._apply_orientation()
+
+        if repeat is not None:
+            self._repeat = bool(repeat)
+            # Swap command usage depending on repeat mode
+            self._btn_down.command = None if self._repeat else self.decrement
+            self._btn_up.command = None if self._repeat else self.increment
+            if self._repeat:
+                self._install_repeat_bindings()
+
+        if repeat_delay_ms is not None:
+            self._repeat_delay_ms = int(repeat_delay_ms)
+        if repeat_interval_ms is not None:
+            self._repeat_interval_ms = int(repeat_interval_ms)
 
         self._value = self._coerce_to_mode(self._value)
         self._render()
@@ -211,7 +262,6 @@ class Spinner(Box):
             assert self._values is not None
             if v in self._values:
                 return v
-
             sv = str(v)
             for item in self._values:
                 if str(item) == sv:
@@ -225,7 +275,6 @@ class Spinner(Box):
         return self._clamp_int(iv)
 
     def _clamp_int(self, iv: int) -> int:
-        assert self._min is not None and self._max is not None
         if iv < self._min:
             return self._min
         if iv > self._max:
@@ -239,7 +288,6 @@ class Spinner(Box):
                 return self._values.index(self._value) == 0
             except ValueError:
                 return True
-        assert self._min is not None
         return int(self._value) <= self._min  # type: ignore[arg-type]
 
     def _at_max(self) -> bool:
@@ -249,7 +297,6 @@ class Spinner(Box):
                 return self._values.index(self._value) == (len(self._values) - 1)
             except ValueError:
                 return True
-        assert self._max is not None
         return int(self._value) >= self._max  # type: ignore[arg-type]
 
     def _step_by(self, direction: int) -> None:
@@ -274,7 +321,6 @@ class Spinner(Box):
             iv = int(self._value)  # type: ignore[arg-type]
             iv2 = iv + (direction * self._step)
 
-            assert self._min is not None and self._max is not None
             if self._wrap:
                 span = self._max - self._min + 1
                 if span <= 0:
@@ -307,11 +353,45 @@ class Spinner(Box):
         (self._btn_up.disable() if self._at_max() else self._btn_up.enable())
 
     def _commit_typed_value(self) -> None:
-        typed = self._txt.value
-        self.set(typed, fire=True)
+        self.set(self._txt.value, fire=True)
 
     # ----------------------------
-    # Tk bindings (focus commit + repeat)
+    # Orientation
+    # ----------------------------
+
+    def _apply_orientation(self) -> None:
+        """
+        Re-pack the inner widgets in the requested order.
+        Requires access to underlying tk widgets.
+        """
+        try:
+            down = self._btn_down.tk
+            txt = self._txt.tk
+            up = self._btn_up.tk
+        except AttributeError:
+            return
+
+        try:
+            down.pack_forget()
+            txt.pack_forget()
+            up.pack_forget()
+        except TclError:
+            return
+
+        try:
+            if self._orientation == "horizontal":
+                down.pack(side="left")
+                txt.pack(side="left")
+                up.pack(side="left")
+            else:
+                up.pack(side="top")
+                txt.pack(side="top")
+                down.pack(side="top")
+        except TclError:
+            return
+
+    # ----------------------------
+    # Tk bindings: commit + repeat
     # ----------------------------
 
     def _install_commit_bindings(self) -> None:
@@ -326,7 +406,6 @@ class Spinner(Box):
             return
 
     def _install_repeat_bindings(self) -> None:
-        # Fall back to click-only if tk bindings aren't available
         try:
             down_tk = self._btn_down.tk
             up_tk = self._btn_up.tk
@@ -335,35 +414,42 @@ class Spinner(Box):
             return
 
         try:
-            down_tk.bind("<ButtonPress-1>", lambda _e: self._start_repeat(-1))
-            down_tk.bind("<ButtonRelease-1>", lambda _e: self._stop_repeat())
+            down_tk.bind("<ButtonPress-1>", lambda _e: self._on_press(-1))
+            down_tk.bind("<ButtonRelease-1>", lambda _e: self._on_release(-1))
             down_tk.bind("<Leave>", lambda _e: self._stop_repeat())
 
-            up_tk.bind("<ButtonPress-1>", lambda _e: self._start_repeat(+1))
-            up_tk.bind("<ButtonRelease-1>", lambda _e: self._stop_repeat())
+            up_tk.bind("<ButtonPress-1>", lambda _e: self._on_press(+1))
+            up_tk.bind("<ButtonRelease-1>", lambda _e: self._on_release(+1))
             up_tk.bind("<Leave>", lambda _e: self._stop_repeat())
         except TclError:
             self._repeat = False
 
-    def _start_repeat(self, direction: int) -> None:
-        if not self._repeat:
-            return
-
+    def _on_press(self, direction: int) -> None:
+        # Schedule repeat; no immediate step (prevents "light press" jumping)
         self._stop_repeat()
         self._repeat_direction = direction
-
-        # immediate step for responsiveness
-        self._step_by(direction)
-
+        self._repeat_started = False
         try:
-            self._repeat_job = self.tk.after(self._repeat_delay_ms, self._repeat_tick)
+            self._repeat_job = self.tk.after(self._repeat_delay_ms, self._begin_repeat)
         except (AttributeError, TclError):
             self._repeat_job = None
+
+    def _on_release(self, direction: int) -> None:
+        # If repeat never started, treat as a tap => exactly one step.
+        started = self._repeat_started
+        self._stop_repeat()
+        if not started:
+            self._step_by(direction)
+
+    def _begin_repeat(self) -> None:
+        if self._repeat_direction == 0:
+            return
+        self._repeat_started = True
+        self._repeat_tick()
 
     def _repeat_tick(self) -> None:
         if self._repeat_direction == 0:
             return
-
         self._step_by(self._repeat_direction)
         try:
             self._repeat_job = self.tk.after(self._repeat_interval_ms, self._repeat_tick)
@@ -372,6 +458,7 @@ class Spinner(Box):
 
     def _stop_repeat(self) -> None:
         self._repeat_direction = 0
+        self._repeat_started = False
         if self._repeat_job is None:
             return
         try:
