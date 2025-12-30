@@ -1370,13 +1370,21 @@ class EngineGui(Thread, Generic[S]):
             wrap=False,
             on_change=lambda s, x: print(f"Bell level: {x}"),
         )
-        _, bp = self.make_keypad_button(bell_box, PLAY_KEY, 0, 3)
+        _, bp = self.make_keypad_button(
+            bell_box,
+            PLAY_KEY,
+            0,
+            3,
+            align="left",
+            command=self.on_bell_play,
+            args=[bell],
+        )
         _, bd = self.make_keypad_button(
             bell_box,
             "Dflt",
             0,
             4,
-            command=self.default_bell,
+            command=self.on_default_bell,
             args=[bell],
         )
         self._elements.add(bt)
@@ -1409,8 +1417,12 @@ class EngineGui(Thread, Generic[S]):
         self._elements.add(ht)
         self._elements.add(horn)
 
-    def default_bell(self, spinner: Spinner) -> None:
+    def on_default_bell(self, spinner: Spinner) -> None:
         spinner.value = 3
+        self.on_bell_play(spinner)
+
+    def on_bell_play(self, spinner: Spinner) -> None:
+        self.on_engine_command("SET_BELL_TONE", data=spinner.value)
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
@@ -2473,6 +2485,7 @@ class EngineGui(Thread, Generic[S]):
         is_ops: bool = False,
         is_entry: bool = False,
         titlebox_text: str = None,
+        align: str = "bottom",
         command: Callable | bool | None = None,
         args: list = None,
     ):
@@ -2512,7 +2525,7 @@ class EngineGui(Thread, Generic[S]):
             except (tk.TclError, AttributeError) as e:
                 log.exception(f"Warning adjusting LabelFrame padding: {e}", exc_info=e)
         else:
-            cell = Box(keypad_box, layout="auto", grid=[col, row], align="bottom", visible=True)
+            cell = Box(keypad_box, layout="auto", grid=[col, row], align=align, visible=True)
             button_size = self.button_size
             grid_pad_by = self.grid_pad_by
 
@@ -3136,9 +3149,19 @@ class EngineGui(Thread, Generic[S]):
         targets: str | list[str] | CommandReq,
         data: int = 0,
         repeat: int = None,
+        delay: float = 0.0,
         do_ops: bool = False,
         do_entry: bool = False,
     ) -> None:
+        """
+        Send commands to a TMCC or Legacy Engine or Train.
+
+        To allow for command differences between TMCC and Legacy engines, commands can be sent in as
+        lists, with each element being tried in order, until one is found that is appropriate for the
+        engine generation.
+
+        TODO: allow for command sequences
+        """
         repeat = repeat if repeat else self.repeat
         scope = self.scope
         tmcc_id = self._scope_tmcc_ids[scope]
@@ -3153,7 +3176,7 @@ class EngineGui(Thread, Generic[S]):
                     delay = 0.100 if ix else 0.0
                     self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state, delay)
             else:
-                self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state)
+                self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state, delay)
 
     def do_engine_command(
         self,

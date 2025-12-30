@@ -71,3 +71,5 @@ class SequenceCommandEnum(CommandDefEnum):
     RAMPED_SPEED_SEQ = SequenceDef(2, d_max=199)
     SET_SPEED_RPM = SequenceDef(8, d_max=199)
     STEWARD_CHATTER = SequenceDef(9)
+    SET_BELL_TONE = SequenceDef(10, d_min=1, d_max=5)
+    SET_HORN_TONE = SequenceDef(11, d_min=1, d_max=5)
