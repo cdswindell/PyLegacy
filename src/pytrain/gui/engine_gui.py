@@ -1732,6 +1732,10 @@ class EngineGui(Thread, Generic[S]):
 
     def show_popup(self, overlay, op: str = None, modifier: str = None):
         with self._cv:
+            if self._current_popup:
+                self._current_popup.hide()
+                self._current_popup.tk.place_forget()
+                self._current_popup = None
             if op:
                 key = (op, modifier) if modifier else op
                 _, btn = self.engine_ops_cells[key]
@@ -1751,14 +1755,15 @@ class EngineGui(Thread, Generic[S]):
             overlay.show()
 
     def close_popup(self, overlay: Widget = None):
-        overlay = overlay or self._current_popup
-        self._current_popup = None
-        if overlay:
-            overlay.hide()
-            overlay.tk.place_forget()
-        if self._on_close_show:
-            self._on_close_show.show()
-            self._on_close_show = None
+        with self._cv:
+            overlay = overlay or self._current_popup
+            self._current_popup = None
+            if overlay:
+                overlay.hide()
+                overlay.tk.place_forget()
+            if self._on_close_show:
+                self._on_close_show.show()
+                self._on_close_show = None
 
     def show_horn_control(self) -> None:
         for loco_type in ["d", "s"]:
