@@ -1350,7 +1350,7 @@ class EngineGui(Thread, Generic[S]):
             height=cs,
             width=6 * cs,
         )
-        bell_box.text_size = self.s_18
+        bell_box.text_size = self.s_12
         bt = Text(bell_box, text="Bell: ", grid=[0, 0])
         bt.text_size = self.s_20
         bt.text_bold = True
@@ -1364,8 +1364,38 @@ class EngineGui(Thread, Generic[S]):
             wrap=False,
             on_change=lambda s, x: print(f"Bell level: {x}"),
         )
+        _, bp = self.make_keypad_button(bell_box, "Play", 0, 3)
+        _, bd = self.make_keypad_button(bell_box, "Default", 0, 4)
         self._elements.add(bt)
+        self._elements.add(bp)
+        self._elements.add(bd)
         self._elements.add(bell)
+
+        horn_box = TitleBox(
+            body,
+            text="Horn Options",
+            layout="grid",
+            align="top",
+            border=1,
+            height=cs,
+            width=6 * cs,
+        )
+        horn_box.text_size = self.s_12
+        ht = Text(horn_box, text="Horn: ", grid=[0, 0])
+        ht.text_size = self.s_20
+        ht.text_bold = True
+        horn = Spinner(
+            horn_box,
+            grid=[1, 0, 2, 1],
+            min_value=1,
+            max_value=5,
+            step=1,
+            value=3,
+            wrap=False,
+            on_change=lambda s, x: print(f"Horn level: {x}"),
+        )
+        self._elements.add(ht)
+        self._elements.add(horn)
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
@@ -2417,7 +2447,7 @@ class EngineGui(Thread, Generic[S]):
 
     def make_keypad_button(
         self,
-        keypad_box: Box,
+        keypad_box: Box | TitleBox,
         label: str,
         row: int,
         col: int,
