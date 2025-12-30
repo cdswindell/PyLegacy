@@ -1543,8 +1543,8 @@ class EngineGui(Thread, Generic[S]):
         # ------------------------------------------------------------------
         # Row 6: Train information
         # ------------------------------------------------------------------
-        self._info_details["engines"] = self.make_train_field(info_box, "Engines", grid=[0, 6])
-        self._info_details["lead"] = self.make_train_field(info_box, "Lead Engine ID", grid=[1, 6])
+        self._info_details["lead"] = self.make_train_field(info_box, "Lead Engine ID", grid=[0, 6])
+        self._info_details["engines"] = self.make_train_field(info_box, "Engines", grid=[1, 6])
         self._info_details["cars"] = self.make_train_field(info_box, "Cars", grid=[2, 6])
         self._info_details["accessories"] = self.make_train_field(info_box, "Accessories", grid=[3, 6])
 
