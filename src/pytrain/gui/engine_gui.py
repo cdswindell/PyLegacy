@@ -1369,21 +1369,23 @@ class EngineGui(Thread, Generic[S]):
             1,
             align="left",
             command=self.on_engine_command,
-            args=["RING_BELL"],
+            args=["CYCLE_BELL_TONE"],
         )
         _, bp = self.make_keypad_button(
             bell_box,
             PLAY_KEY,
             0,
             2,
+            align="left",
             command=self.on_engine_command,
-            args=["BELL_ON"],
+            args=["RING_BELL"],
         )
         _, bon = self.make_keypad_button(
             bell_box,
             "On",
             0,
             3,
+            align="left",
             command=self.on_engine_command,
             args=["BELL_ON"],
         )
@@ -1392,6 +1394,7 @@ class EngineGui(Thread, Generic[S]):
             "On",
             0,
             4,
+            align="left",
             command=self.on_engine_command,
             args=["BELL_OFF"],
         )
@@ -1425,9 +1428,6 @@ class EngineGui(Thread, Generic[S]):
         )
         self._elements.add(ht)
         self._elements.add(horn)
-
-    def on_cycle_bell(self, spinner: Spinner) -> None:
-        self.on_engine_command("CYCLE_BELL_TONE")
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)
