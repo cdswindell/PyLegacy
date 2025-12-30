@@ -1368,7 +1368,7 @@ class EngineGui(Thread, Generic[S]):
         _, bp = self.make_keypad_button(bell_box, "Play", 0, 3)
         _, bd = self.make_keypad_button(
             bell_box,
-            "Default",
+            "Dflt",
             0,
             4,
             command=self.default_bell,
