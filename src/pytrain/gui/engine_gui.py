@@ -1354,9 +1354,9 @@ class EngineGui(Thread, Generic[S]):
         bt = Text(bell_box, text="Bell: ", grid=[0, 0])
         bt.text_size = self.s_20
         bt.text_bold = True
-        sb = Box(bell_box, grid=[1, 0, 2, 1], border=1, height=cs, width=2 * cs)
         bell = Spinner(
-            sb,
+            bell_box,
+            grid=[1, 0, 2, 1],
             min_value=1,
             max_value=5,
             step=1,
