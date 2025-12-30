@@ -1,10 +1,11 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
 #  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  All Rights Reserved.
 #
+#  This work is licensed under the terms of the LPGL license.
 #  SPDX-License-Identifier: LPGL
-#
 #
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from PIL import Image, ImageOps, ImageTk
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
 from ..db.base_state import BaseState
-from ..db.component_state import ComponentState, RouteState, SwitchState, LcsProxyState
+from ..db.component_state import ComponentState, LcsProxyState, RouteState, SwitchState
 from ..db.component_state_store import ComponentStateStore
 from ..db.engine_state import EngineState, TrainState
 from ..db.irda_state import IrdaState
@@ -65,6 +66,7 @@ from ..utils.image_utils import center_text_on_image
 from ..utils.path_utils import find_file
 from ..utils.unique_deque import UniqueDeque
 from .hold_button import HoldButton
+from .spinner import Spinner
 from .swipe_detector import SwipeDetector
 
 log = logging.getLogger(__name__)
@@ -1353,9 +1355,17 @@ class EngineGui(Thread, Generic[S]):
         bt.text_size = self.s_20
         bt.text_bold = True
         sb = Box(bell_box, grid=[1, 0, 2, 1], border=1, height=cs, width=2 * cs)
-        spinbox = tk.Spinbox(sb.tk, from_=1, to=5, width=4)
+        bell = Spinner(
+            sb,
+            min_value=1,
+            max_value=5,
+            step=1,
+            value=3,
+            wrap=False,
+            on_change=lambda s, x: print(f"Bell level: {x}"),
+        )
         self._elements.add(bt)
-        self._elements.add(spinbox)
+        self._elements.add(bell)
 
     def build_rr_speed_body(self, body: Box):
         keypad_box = Box(body, layout="grid", border=1)

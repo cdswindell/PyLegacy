@@ -1,17 +1,27 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
 #  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  All Rights Reserved.
 #
+#  This work is licensed under the terms of the LPGL license.
 #  SPDX-License-Identifier: LPGL
 #
 #
-
 from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, TypeVar
 
+from .comp_data import CompDataHandler, CompDataMixin
+from .component_state import (
+    SCOPE_TO_STATE_MAP,
+    ComponentState,
+    L,
+    LcsProxyState,
+    P,
+    log,
+)
 from ..pdi.constants import Bpc2Action, D4Action, IrdaAction, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.irda_req import IrdaReq
@@ -37,26 +47,17 @@ from ..protocol.constants import (
     OfficialRRSpeeds,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+
+# noinspection PyPep8Naming
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1_COMMAND_TO_ALIAS_MAP,
     TMCC1EngineCommandEnum,
     TMCC1HaltCommandEnum,
     TMCC1RRSpeedsEnum,
 )
-
-# noinspection PyPep8Naming
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
-from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
-from .comp_data import CompDataHandler, CompDataMixin
-from .component_state import (
-    SCOPE_TO_STATE_MAP,
-    ComponentState,
-    L,
-    LcsProxyState,
-    P,
-    log,
-)
+from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
 
 DIRECTIONS_SET = {
     TMCC1EngineCommandEnum.FORWARD_DIRECTION,
