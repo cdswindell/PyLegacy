@@ -76,6 +76,8 @@ HALT_KEY = "Emergency"
 SWITCH_THRU_KEY = "↑"
 SWITCH_OUT_KEY = "↖↗"
 FIRE_ROUTE_KEY = "⚡"
+PLAY_KEY = "▶"
+PAUSE_KEY = "⏸"
 CLEAR_KEY = "clr"
 ENTER_KEY = "↵"
 SET_KEY = "Set"
@@ -348,7 +350,10 @@ REPEAT_EXCEPTIONS = {
     TMCC2LightingControl.CAB_AUTO: 1,
 }
 
-FONT_SIZE_EXCEPTIONS = {}
+FONT_SIZE_EXCEPTIONS = {
+    PLAY_KEY,
+    PAUSE_KEY,
+}
 
 SENSOR_TRACK_OPTS = [
     ["No Action", 0],
@@ -1365,7 +1370,7 @@ class EngineGui(Thread, Generic[S]):
             wrap=False,
             on_change=lambda s, x: print(f"Bell level: {x}"),
         )
-        _, bp = self.make_keypad_button(bell_box, "Play", 0, 3)
+        _, bp = self.make_keypad_button(bell_box, PLAY_KEY, 0, 3)
         _, bd = self.make_keypad_button(
             bell_box,
             "Dflt",
