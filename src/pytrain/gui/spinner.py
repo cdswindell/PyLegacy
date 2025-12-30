@@ -22,7 +22,7 @@ ValueT = Union[int, str]
 @dataclass(frozen=True)
 class SpinnerStyle:
     button_width: int = 2
-    value_width: int = 6
+    value_width: int = 3
     button_padx: int = 2
     button_pady: int = 0
 
@@ -155,9 +155,21 @@ class Spinner(Box):
         self._apply_orientation()
 
         # Text behavior
-        self._txt.enabled = (not readonly) or bool(allow_typing)
+        # self._txt.enabled = (not readonly) or bool(allow_typing)
+        # if readonly and not allow_typing:
+        #     self._txt.disable()
         if readonly and not allow_typing:
-            self._txt.disable()
+            try:
+                # Tk "readonly" keeps normal text color and prevents editing
+                self._txt.tk.configure(
+                    state="readonly",
+                    readonlybackground="white",
+                    fg="black",
+                    insertbackground="black",  # caret color (rarely seen in readonly)
+                )
+            except (AttributeError, TclError):
+                # Fallback: keep it enabled; it will be editable if Tk isn't available
+                pass
 
         if clamp_on_focus_lost:
             self._install_commit_bindings()
