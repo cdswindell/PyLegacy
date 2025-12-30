@@ -1349,7 +1349,7 @@ class EngineGui(Thread, Generic[S]):
 
     def build_bell_horn_body(self, body: Box):
         cs = self.button_size
-        height = int(1.2 * cs)
+        height = int(2.5 * cs)
         opts_box = Box(
             body,
             layout="grid",
