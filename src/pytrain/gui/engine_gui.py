@@ -1341,16 +1341,15 @@ class EngineGui(Thread, Generic[S]):
 
     def build_bell_horn_body(self, body: Box):
         cs = self.button_size
+        height = int(1.2 * cs)
         bell_box = Box(
             body,
-            # text="Bell Options",
             layout="grid",
             align="top",
             border=1,
-            height=cs,
+            height=height,
             width=6 * cs,
         )
-        # bell_box.text_size = self.s_12
 
         bt = Text(bell_box, text="Bell: ", grid=[0, 0], align="left")
         bt.text_size = self.s_20
@@ -1382,14 +1381,12 @@ class EngineGui(Thread, Generic[S]):
 
         horn_box = Box(
             body,
-            # text="Horn Options",
             layout="grid",
             align="top",
             border=1,
-            height=cs,
+            height=height,
             width=6 * cs,
         )
-        # horn_box.text_size = self.s_12
 
         ht = Text(horn_box, text="Horn: ", grid=[0, 0])
         ht.text_size = self.s_20
