@@ -1422,6 +1422,7 @@ class EngineGui(Thread, Generic[S]):
         self.on_bell_play(spinner)
 
     def on_bell_play(self, spinner: Spinner) -> None:
+        print(f"Playing bell level {spinner.value}")
         self.on_engine_command("SET_BELL_TONE", data=spinner.value)
 
     def build_rr_speed_body(self, body: Box):

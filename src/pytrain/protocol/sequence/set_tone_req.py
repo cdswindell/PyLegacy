@@ -60,8 +60,8 @@ class SetHornToneReq(SetToneReqBase):
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
         super().__init__(SequenceCommandEnum.SET_HORN_TONE, address, scope, data)
-        self.add(TMCC2EngineCommandEnum.QUILLING_HORN, scope=scope, data=data, delay=0.2)
-        self.add(TMCC2EngineCommandEnum.BLOW_HORN_ONE, scope=scope, data=data, delay=0.4, repeat=2)
+        self.add(TMCC2EngineCommandEnum.QUILLING_HORN, address, scope=scope, data=data, delay=0.2)
+        self.add(TMCC2EngineCommandEnum.BLOW_HORN_ONE, address, scope=scope, data=data, delay=0.4, repeat=2)
 
 
 SequenceCommandEnum.SET_HORN_TONE.value.register_cmd_class(SetHornToneReq)
@@ -75,8 +75,9 @@ class SetBellToneReq(SetToneReqBase):
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
         super().__init__(SequenceCommandEnum.SET_BELL_TONE, address, scope, data)
-        self.add(TMCC2EngineCommandEnum.BELL_SLIDER_POSITION, scope=scope, data=data, delay=0.2)
-        self.add(TMCC2EngineCommandEnum.BELL_ONE_SHOT_DING, scope=scope, data=3, delay=0.4)
+        self.add(TMCC2EngineCommandEnum.BELL_SLIDER_POSITION, address, scope=scope, data=data, delay=0.2)
+        self.add(TMCC2EngineCommandEnum.BELL_ONE_SHOT_DING, address, scope=scope, data=3, delay=0.4)
+        print(self)
 
 
 SequenceCommandEnum.SET_BELL_TONE.value.register_cmd_class(SetBellToneReq)
