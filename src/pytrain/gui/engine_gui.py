@@ -1347,7 +1347,7 @@ class EngineGui(Thread, Generic[S]):
             layout="grid",
             align="top",
             border=1,
-            height=cs * 2,
+            height=cs,
             width=6 * cs,
         )
         bell_box.text_size = self.s_18

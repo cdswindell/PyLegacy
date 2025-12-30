@@ -154,22 +154,14 @@ class Spinner(Box):
         # Apply orientation ordering
         self._apply_orientation()
 
-        # Text behavior
-        # self._txt.enabled = (not readonly) or bool(allow_typing)
-        # if readonly and not allow_typing:
-        #     self._txt.disable()
-        if readonly and not allow_typing:
-            try:
-                # Tk "readonly" keeps normal text color and prevents editing
-                self._txt.tk.configure(
-                    state="readonly",
-                    readonlybackground="white",
-                    fg="black",
-                    insertbackground="black",  # caret color (rarely seen in readonly)
-                )
-            except (AttributeError, TclError):
-                # Fallback: keep it enabled; it will be editable if Tk isn't available
-                pass
+        # Text behavior: non-editable display that stays black-on-white
+        self._txt_is_readonly = bool(readonly and not allow_typing)
+
+        # If typing is allowed, leave it as a normal TextBox (GuiZero handles it)
+        if not self._txt_is_readonly:
+            self._txt.enabled = True
+        else:
+            self._set_textbox_readonly_appearance()
 
         if clamp_on_focus_lost:
             self._install_commit_bindings()
@@ -178,6 +170,44 @@ class Spinner(Box):
             self._install_repeat_bindings()
 
         self._update_buttons_enabled()
+
+    def _set_textbox_readonly_appearance(self) -> None:
+        try:
+            self._txt.tk.configure(
+                state="readonly",
+                readonlybackground="white",
+                fg="black",
+                disabledbackground="white",
+                disabledforeground="black",
+            )
+            # Optional: prevent focus/caret
+            self._txt.tk.configure(takefocus=0)
+        except (AttributeError, TclError):
+            pass
+
+    def _set_textbox_text(self, text: str) -> None:
+        """
+        Update the Entry *without* using guizero's TextBox.value setter,
+        because that setter can disable the widget when state='readonly'.
+        """
+        try:
+            entry = self._txt.tk
+            if self._txt_is_readonly:
+                entry.configure(state="normal")
+            entry.delete(0, "end")
+            entry.insert(0, text)
+            if self._txt_is_readonly:
+                entry.configure(state="readonly")
+                # Re-assert colors in case anything toggled state internally
+                entry.configure(
+                    readonlybackground="white",
+                    fg="black",
+                    disabledbackground="white",
+                    disabledforeground="black",
+                )
+        except (AttributeError, TclError):
+            # Fallback (may gray out again on some guizero versions, but better than crashing)
+            self._txt.value = text
 
     # ----------------------------
     # Public API
@@ -353,7 +383,7 @@ class Spinner(Box):
             self._on_change(self, self._value)
 
     def _render(self) -> None:
-        self._txt.value = str(self._value)
+        self._set_textbox_text(str(self._value))
 
     def _update_buttons_enabled(self) -> None:
         if self._wrap:
