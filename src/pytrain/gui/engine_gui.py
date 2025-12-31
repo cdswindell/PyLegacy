@@ -2002,8 +2002,8 @@ class EngineGui(Thread, Generic[S]):
             self.update_state_info()
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
+        print(f"New Train State: {state}")
         if state:
-            print(state)
             # special case tain being used as BPC2
             if isinstance(state, TrainState) and state.is_power_district:
                 self.ops_mode(update_info=True, state=state)
@@ -2014,7 +2014,6 @@ class EngineGui(Thread, Generic[S]):
                 self._scope_buttons[CommandScope.ENGINE].bg = "lightgreen"
             else:
                 self._scope_buttons[CommandScope.ENGINE].bg = "white"
-
         self.on_new_engine(state, ops_mode_setup=ops_mode_setup)
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
