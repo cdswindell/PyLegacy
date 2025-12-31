@@ -175,8 +175,8 @@ class UpdatePkg(QueryPkg):
 BASE_MEMORY_ENGINE_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
-    0x02: CompDataHandler("_unk_2"),
-    0x03: CompDataHandler("_unk_3"),
+    0x02: CompDataHandler("_record_type"),
+    0x03: CompDataHandler("_lc_flags"),
     0x04: CompDataHandler(
         "_bt_id",
         2,
@@ -196,8 +196,10 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x11: CompDataHandler("_unk_11"),
     0x12: CompDataHandler("_unk_12"),
     0x13: CompDataHandler("_unk_13"),
-    0x17: CompDataHandler("_unk_17"),
+    0x17: CompDataHandler("_momentum_setting"),
     0x18: CompDataHandler("_momentum"),
+    0x1C: CompDataHandler("_train_tmcc_id"),
+    0x1D: CompDataHandler("_train_position"),
     0x1E: CompDataHandler("_road_name_len"),
     0x1F: CompDataHandler(
         "_road_name",
@@ -224,6 +226,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x69: CompDataHandler("_smoke"),
     0x6A: CompDataHandler("_speed_limit"),
     0x6B: CompDataHandler("_max_speed"),
+    0x6D: CompDataHandler("_lighting"),
     0xB8: CompDataHandler(
         "_tmcc_id",
         4,
@@ -788,8 +791,13 @@ class EngineData(CompData):
         self._control_type: int | None = None
         self._engine_class: int | None = None
         self._engine_type: int | None = None
+        self._fuel_level: int | None = None
+        self._lc_flags: int | None = None
+        self._lighting: int | None = None
         self._max_speed: int | None = None
         self._momentum: int | None = None
+        self._momentum_setting: int | None = None
+        self._record_type: int | None = None
         self._rpm_labor: int | None = None
         self._smoke: int | None = None
         self._sound_type: int | None = None
@@ -798,12 +806,11 @@ class EngineData(CompData):
         self._target_speed: int | None = None
         self._timestamp: int | None = None
         self._train_brake: int | None = None
+        self._train_tmcc_id: int | None = None
+        self._train_position: int | None = None
         self._tsdb_left: int | None = None
         self._tsdb_right: int | None = None
-        self._fuel_level: int | None = None
         self._water_level: int | None = None
-        self._unk_2: int | None = None
-        self._unk_3: int | None = None
         self._unk_6: int | None = None
         self._unk_a: int | None = None
         self._unk_b: int | None = None
@@ -811,7 +818,6 @@ class EngineData(CompData):
         self._unk_11: int | None = None
         self._unk_12: int | None = None
         self._unk_13: int | None = None
-        self._unk_17: int | None = None
         self._unk_5c: int | None = None
         self._unk_5e: int | None = None
         self._unk_68: int | None = None
