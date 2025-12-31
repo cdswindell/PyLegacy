@@ -34,7 +34,7 @@ class CycleToneReqBase(SequenceReq, ABC):
         self._scope = scope
         self._data = data
         self._state = None
-        self.add(TMCC2EngineCommandEnum.AUX1_OPTION_ONE, scope=scope)
+        self.add(TMCC2EngineCommandEnum.AUX1_OPTION_ONE, address, scope=scope)
 
     @property
     def scope(self) -> CommandScope | None:
