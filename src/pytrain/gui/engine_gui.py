@@ -452,8 +452,8 @@ class EngineGui(Thread, Generic[S]):
         scale_by: float = 1.0,
         repeat: int = 2,
         num_recents: int = 5,
-        initial: int = None,
-        initial_scope: CommandScope = CommandScope.ENGINE,
+        tmcc_id: int = None,
+        scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
         Thread.__init__(self, daemon=True, name="Engine GUI")
         self._cv = Condition(RLock())
@@ -524,6 +524,7 @@ class EngineGui(Thread, Generic[S]):
         self._scope_tmcc_ids = {}
         self._scope_watchers = {}
         self._recents_queue = {}
+        self._train_linked_queue: UniqueDeque[EngineState] = UniqueDeque()
         self._options_to_state = {}
         self._prod_info_cache = {}
         self._image_cache = {}
@@ -534,8 +535,8 @@ class EngineGui(Thread, Generic[S]):
         self._executor = ThreadPoolExecutor(max_workers=3)
         self.size_cache = {}
         self._message_queue = Queue()
-        self.scope = initial_scope if initial_scope else CommandScope.ENGINE
-        self.initial = initial
+        self.scope = scope if scope else CommandScope.ENGINE
+        self.initial = tmcc_id
         self._active_engine_state = None
         self.reset_on_keystroke = False
         self._current_popup = None
@@ -2004,11 +2005,28 @@ class EngineGui(Thread, Generic[S]):
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
         if state:
             # set up for Train; if there are train-linked cars available, remember them
-            # and set "Eng" scope key accordingly
+            # and set "Eng" scope key color accordingly. Also, add train-linked cars to
+            # list of recent engines
+            recent_engines = self._recents_queue.get(CommandScope.ENGINE, None)
+            if self._train_linked_queue:
+                if isinstance(recent_engines, UniqueDeque):
+                    for car_state in self._train_linked_queue:
+                        if car_state in recent_engines:
+                            recent_engines.remove(car_state)
+                self._train_linked_queue.clear()
             if state.num_train_linked > 0:
                 self._scope_buttons[CommandScope.ENGINE].bg = "lightgreen"
+                cars = state.link_tmcc_ids.copy()
+                cars.reverse()
+                for tmcc_id in cars:
+                    car_state = self._state_store.get_state(CommandScope.ENGINE, tmcc_id, False)
+                    if car_state:
+                        self._train_linked_queue.append(car_state)
+                        if recent_engines:
+                            recent_engines.appendleft(car_state)
             else:
                 self._scope_buttons[CommandScope.ENGINE].bg = "white"
+            self.rebuild_options()
         self.on_new_engine(state, ops_mode_setup=ops_mode_setup)
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
