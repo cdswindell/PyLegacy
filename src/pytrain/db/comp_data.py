@@ -187,12 +187,12 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x07: CompDataHandler("_speed"),
     0x08: CompDataHandler("_target_speed"),
     0x09: CompDataHandler("_train_brake"),
-    0x0A: CompDataHandler("_unk_a"),
+    0x0A: CompDataHandler("_control_id"),
     0x0B: CompDataHandler("_unk_b"),
     0x0C: CompDataHandler("_rpm_labor"),  # Sound on/off on passenger and freight cars
     0x0D: CompDataHandler("_fuel_level"),
     0x0E: CompDataHandler("_water_level"),
-    0x0F: CompDataHandler("_unk_f"),
+    0x0F: CompDataHandler("_labor_level"),
     0x11: CompDataHandler("_unk_11"),
     0x12: CompDataHandler("_unk_12"),
     0x13: CompDataHandler("_unk_13"),
@@ -218,6 +218,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x44: CompDataHandler("_control_type"),
     0x45: CompDataHandler("_sound_type"),
     0x46: CompDataHandler("_engine_class"),
+    0x4A: CompDataHandler("_min_os"),
     0x59: CompDataHandler("_tsdb_left"),
     0x5B: CompDataHandler("_tsdb_right"),
     0x5C: CompDataHandler("_unk_5c"),
@@ -788,13 +789,16 @@ class EngineData(CompData):
     ) -> None:
         self._signal_initializing()
         self._bt_id: int | None = None
+        self._control_id: int | None = None
         self._control_type: int | None = None
         self._engine_class: int | None = None
         self._engine_type: int | None = None
         self._fuel_level: int | None = None
+        self._labor_level: int | None = None
         self._lc_flags: int | None = None
         self._lighting: int | None = None
         self._max_speed: int | None = None
+        self._min_os: int | None = None
         self._momentum: int | None = None
         self._momentum_setting: int | None = None
         self._record_type: int | None = None
@@ -806,21 +810,20 @@ class EngineData(CompData):
         self._target_speed: int | None = None
         self._timestamp: int | None = None
         self._train_brake: int | None = None
-        self._train_tmcc_id: int | None = None
         self._train_position: int | None = None
+        self._train_tmcc_id: int | None = None
         self._tsdb_left: int | None = None
         self._tsdb_right: int | None = None
         self._water_level: int | None = None
-        self._unk_6: int | None = None
-        self._unk_a: int | None = None
-        self._unk_b: int | None = None
-        self._unk_f: int | None = None
+
         self._unk_11: int | None = None
         self._unk_12: int | None = None
         self._unk_13: int | None = None
         self._unk_5c: int | None = None
         self._unk_5e: int | None = None
         self._unk_68: int | None = None
+        self._unk_6: int | None = None
+        self._unk_b: int | None = None
         super().__init__(data, scope, tmcc_id=tmcc_id)
 
     @property
