@@ -2002,12 +2002,7 @@ class EngineGui(Thread, Generic[S]):
             self.update_state_info()
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
-        print(f"New Train State: {state}")
         if state:
-            # special case tain being used as BPC2
-            if isinstance(state, TrainState) and state.is_power_district:
-                self.ops_mode(update_info=True, state=state)
-                return
             # set up for Train; if there are train-linked cars available, remember them
             # and set "Eng" scope key accordingly
             if state.num_train_linked > 0:
@@ -2808,7 +2803,10 @@ class EngineGui(Thread, Generic[S]):
                 self._active_engine_state = state = self._state_store.get_state(
                     self.scope, self._scope_tmcc_ids[self.scope], False
                 )
-            self.on_new_engine(state, ops_mode_setup=True)
+            if isinstance(state, TrainState):
+                self.on_new_train(state, ops_mode_setup=True)
+            else:
+                self.on_new_engine(state, ops_mode_setup=True)
             if self.keypad_box.visible:
                 self.keypad_box.hide()
             self.reset_btn.enable()
