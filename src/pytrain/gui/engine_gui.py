@@ -2003,6 +2003,7 @@ class EngineGui(Thread, Generic[S]):
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
         if state:
+            print(state)
             # special case tain being used as BPC2
             if isinstance(state, TrainState) and state.is_power_district:
                 self.ops_mode(update_info=True, state=state)
