@@ -600,7 +600,7 @@ class EngineGui(Thread, Generic[S]):
             CommandScope.SWITCH: self.on_new_switch,
             CommandScope.ACC: self.on_new_accessory,
             CommandScope.ENGINE: self.on_new_engine,
-            CommandScope.TRAIN: self.on_new_engine,
+            CommandScope.TRAIN: self.on_new_train,
         }
 
         self.engine_ops_cells = {}
@@ -1575,7 +1575,7 @@ class EngineGui(Thread, Generic[S]):
                 self._info_details["type"][1].value = etype
                 self._info_details["control"][1].value = state.control_type_text
                 self._info_details["sound"][1].value = state.sound_type_label
-                self._info_details["dir"][1].value = "Fwd" if state.is_forward else "Rwd" if state.is_reverse else ""
+                self._info_details["dir"][1].value = "Fwd" if state.is_forward else "Rev" if state.is_reverse else ""
                 self._info_details["smoke"][1].value = state.smoke_text
                 self._info_details["mom"][1].value = state.momentum_text
                 self._info_details["brake"][1].value = state.train_brake_label
@@ -1948,7 +1948,7 @@ class EngineGui(Thread, Generic[S]):
                     self._scope_watchers[self.scope] = StateWatcher(state, action)
 
     def get_scoped_on_change(self, state: S) -> Callable:
-        action = self._scoped_callbacks.get(self.scope, lambda s: print(s))
+        action = self._scoped_callbacks.get(self.scope, lambda s: log.info(f"** No scope changed callback for {s}"))
 
         def upd():
             if not self._shutdown_flag.is_set():
@@ -1960,10 +1960,6 @@ class EngineGui(Thread, Generic[S]):
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         self._active_engine_state = state
         if state:
-            # special case tain being used as BPC2
-            if isinstance(state, TrainState) and state.is_power_district:
-                self.ops_mode(update_info=True, state=state)
-                return
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             self.speed.value = f"{state.speed:03d}"
             self.update_rr_speed_buttons(state)
@@ -2004,6 +2000,21 @@ class EngineGui(Thread, Generic[S]):
         # update info detail popup, if its visible
         if self.info_overlay and self.info_overlay.visible:
             self.update_state_info()
+
+    def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
+        if state:
+            # special case tain being used as BPC2
+            if isinstance(state, TrainState) and state.is_power_district:
+                self.ops_mode(update_info=True, state=state)
+                return
+            # set up for Train; if there are train-linked cars available, remember them
+            # and set "Eng" scope key accordingly
+            if state.num_train_linked > 0:
+                self._scope_buttons[CommandScope.ENGINE].bg = "lightgreen"
+            else:
+                self._scope_buttons[CommandScope.ENGINE].bg = "white"
+
+        self.on_new_engine(state, ops_mode_setup=ops_mode_setup)
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
         rr_speed = state.rr_speed
