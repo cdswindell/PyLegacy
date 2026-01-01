@@ -67,8 +67,13 @@ class UniqueDeque(deque, Generic[_T]):
     def __mul__(self, value, /):
         raise NotImplementedError
 
-    def insert(self, i, x: _T, /):
-        raise NotImplementedError
+    def insert(self, i, value: _T, /):
+        with self._lock:
+            if value in self._seen:
+                super().remove(value)
+            else:
+                self._seen.add(value)
+            super().insert(i, value)
 
     def remove(self, value: _T, /):
         with self._lock:

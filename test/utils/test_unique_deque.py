@@ -44,10 +44,30 @@ class TestUniqueDequeue:
         assert len(ud) == 0
         assert ud is not None
 
-    def test_insert(self):
-        ud = UniqueDeque()
-        with pytest.raises(NotImplementedError):
-            ud.insert(0, 1)
+    def test_insert_basic(self):
+        ud = UniqueDeque([1, 2, 3])
+        ud.insert(1, 4)
+        assert list(ud) == [1, 4, 2, 3]
+        assert len(ud) == 4
+
+    def test_insert_existing_moves_item(self):
+        ud = UniqueDeque([1, 2, 3, 4])
+        # Insert existing '4' at index 1
+        ud.insert(1, 4)
+        assert list(ud) == [1, 4, 2, 3]
+        assert len(ud) == 4
+
+        # Insert existing '1' at the end
+        ud.insert(len(ud), 1)
+        assert list(ud) == [4, 2, 3, 1]
+        assert len(ud) == 4
+
+    def test_insert_boundaries(self):
+        ud = UniqueDeque([1, 2])
+        ud.insert(0, 0)
+        assert list(ud) == [0, 1, 2]
+        ud.insert(len(ud), 3)
+        assert list(ud) == [0, 1, 2, 3]
 
     def test_remove(self):
         ud = UniqueDeque(range(0, 10))
