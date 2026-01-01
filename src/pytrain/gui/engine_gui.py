@@ -1646,12 +1646,10 @@ class EngineGui(Thread, Generic[S]):
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
         self._active_engine_state = state
         if state:
-            print(f"On new engine: {state}")
             if self._active_current_train_id and state in self._train_linked_queue:
                 # if we are operating on a train-linked car with the associated train
                 # active in the Train scope tab, indicate that on the gui
                 self._scope_buttons[CommandScope.TRAIN].bg = "lightgreen"
-                print(f"Train mode? {self._active_current_train_id} {self._train_linked_queue}")
             elif is_engine:
                 # otherwise, indicate we are in "Engine": mode and tear down the
                 # train-linked gui components
