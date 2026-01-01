@@ -1705,12 +1705,11 @@ class EngineGui(Thread, Generic[S]):
             if state.num_train_linked > 0:
                 self._scope_buttons[CommandScope.ENGINE].bg = "lightgreen"
                 cars = state.link_tmcc_ids.copy()
-                cars.reverse()
                 for tmcc_id in cars:
                     car_state = self._state_store.get_state(CommandScope.ENGINE, tmcc_id, False)
                     if car_state:
                         self._train_linked_queue.append(car_state)
-                self._setup_train_link_gui(state)
+                self._setup_train_link_gui(self._train_linked_queue[0])
             else:
                 self._scope_buttons[CommandScope.ENGINE].bg = "white"
                 self._tear_down_link_gui()
