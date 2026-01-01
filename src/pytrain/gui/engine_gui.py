@@ -1863,11 +1863,61 @@ class EngineGui(Thread, Generic[S]):
         self.scope_box.show()
         self.scope_keypad(force_entry_mode, clear_info)
 
-    def display_most_recent(self, scope: CommandScope):
+    def display_most_recent(self, scope: CommandScope) -> None:
+        """
+        Display the most recent scoped component in the recents queue.
+        """
         recents = self._recents_queue.get(scope, None)
         if isinstance(recents, UniqueDeque) and len(recents) > 0:
             state = cast(ComponentState, cast(object, recents[0]))
             self._scope_tmcc_ids[scope] = state.tmcc_id
+
+    def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
+        self.close_popup()
+        log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
+        self._scope_tmcc_ids[self.scope] = tmcc_id
+        if tmcc_id > 0:
+            if state is None:
+                state = self._state_store.get_state(self.scope, tmcc_id, False)
+            if state:
+                # add to scope queue
+                if state in self._train_linked_queue:
+                    queue = self._train_linked_queue
+                else:
+                    queue = self._recents_queue.get(self.scope, None)
+                    if queue is None:
+                        queue = UniqueDeque[S](maxlen=self.num_recents)
+                        self._recents_queue[self.scope] = queue
+                queue.appendleft(state)
+                self.rebuild_options()
+                return True
+        return False
+
+    def show_next_component(self) -> None:
+        self.close_popup()
+        if self.scope == CommandScope.ENGINE and self._train_linked_queue:
+            recents = self._train_linked_queue
+        else:
+            recents = self._recents_queue.get(self.scope, None)
+        if isinstance(recents, UniqueDeque) and len(recents) > 0:
+            current = recents[0]
+            state = cast(ComponentState, cast(object, recents.next()))
+            recents.append(current)
+            self._scope_tmcc_ids[self.scope] = state.tmcc_id
+            self.update_component_info(tmcc_id=state.tmcc_id)
+            self.header.select_default()
+
+    def show_previous_component(self) -> None:
+        self.close_popup()
+        if self.scope == CommandScope.ENGINE and self._train_linked_queue:
+            recents = self._train_linked_queue
+        else:
+            recents = self._recents_queue.get(self.scope, None)
+        if isinstance(recents, UniqueDeque) and len(recents) > 0:
+            state = cast(ComponentState, cast(object, recents.previous()))
+            self._scope_tmcc_ids[self.scope] = state.tmcc_id
+            self.update_component_info(tmcc_id=state.tmcc_id)
+            self.header.select_default()
 
     def rebuild_options(self):
         self.header.clear()
@@ -2185,26 +2235,6 @@ class EngineGui(Thread, Generic[S]):
         self._isd.on_swipe_left = self.show_next_component
         self.image_box.hide()
 
-    def show_next_component(self) -> None:
-        recents = self._recents_queue.get(self.scope, None)
-        self.close_popup()
-        if isinstance(recents, UniqueDeque) and len(recents) > 0:
-            current = recents[0]
-            state = cast(ComponentState, cast(object, recents.next()))
-            recents.append(current)
-            self._scope_tmcc_ids[self.scope] = state.tmcc_id
-            self.update_component_info(tmcc_id=state.tmcc_id)
-            self.header.select_default()
-
-    def show_previous_component(self) -> None:
-        self.close_popup()
-        recents = self._recents_queue.get(self.scope, None)
-        if isinstance(recents, UniqueDeque) and len(recents) > 0:
-            state = cast(ComponentState, cast(object, recents.previous()))
-            self._scope_tmcc_ids[self.scope] = state.tmcc_id
-            self.update_component_info(tmcc_id=state.tmcc_id)
-            self.header.select_default()
-
     def on_sensor_track_change(self) -> None:
         tmcc_id = self._scope_tmcc_ids[self.scope]
         st_seq = IrdaSequence.by_value(int(self.sensor_track_buttons.value))
@@ -2379,24 +2409,6 @@ class EngineGui(Thread, Generic[S]):
                 cmd.send(repeat=self.repeat)
         else:
             self.entry_mode(clear_info=False)
-
-    def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
-        self.close_popup()
-        log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
-        self._scope_tmcc_ids[self.scope] = tmcc_id
-        if tmcc_id > 0:
-            if state is None:
-                state = self._state_store.get_state(self.scope, tmcc_id, False)
-            if state:
-                # add to scope queue
-                queue = self._recents_queue.get(self.scope, None)
-                if queue is None:
-                    queue = UniqueDeque[S](maxlen=self.num_recents)
-                    self._recents_queue[self.scope] = queue
-                queue.appendleft(state)
-                self.rebuild_options()
-                return True
-        return False
 
     def do_command(self, key: str) -> None:
         cmd = KEY_TO_COMMAND.get(key, None)
