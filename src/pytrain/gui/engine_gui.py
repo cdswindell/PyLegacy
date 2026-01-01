@@ -1728,8 +1728,10 @@ class EngineGui(Thread, Generic[S]):
     def _tear_down_link_gui(self) -> None:
         self._active_current_train_id = 0
         current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
+        ids = [x.tmcc_id for x in self._train_linked_queue]
+        print(f"Current engine train linked? {ids} {current_engine_id in ids}")
         if current_engine_id and current_engine_id in [x.tmcc_id for x in self._train_linked_queue]:
-            print("Current engine was train linked!!")
+            print(f"Current engine was train linked!!: {ids}")
             self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
         self._train_linked_queue.clear()
         print(f"Tear down train link gui; current engine id: {current_engine_id}")
