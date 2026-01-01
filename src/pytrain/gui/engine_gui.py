@@ -1727,6 +1727,7 @@ class EngineGui(Thread, Generic[S]):
         # if state is None:
         #     self._scope_tmcc_ids[CommandScope.ENGINE] = self._actual_current_engine_id
         self._active_current_train_id = 0
+        self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
         self._train_linked_queue.clear()
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
