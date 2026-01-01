@@ -1731,6 +1731,7 @@ class EngineGui(Thread, Generic[S]):
         if current_engine_id and [x for x in self._train_linked_queue if x.tmcc_id == current_engine_id]:
             self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
         self._train_linked_queue.clear()
+        print(f"Tear down train link gui; current engine id: {current_engine_id}")
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
         rr_speed = state.rr_speed
