@@ -2540,6 +2540,7 @@ class EngineGui(Thread, Generic[S]):
                 self._active_engine_state = state = self._state_store.get_state(
                     self.scope, self._scope_tmcc_ids[self.scope], False
                 )
+            print(f"ops_mode: calling new engine/new train; update_info: {update_info}")
             if isinstance(state, TrainState):
                 self.on_new_train(state, ops_mode_setup=True)
             else:
