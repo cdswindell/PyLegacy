@@ -1646,10 +1646,12 @@ class EngineGui(Thread, Generic[S]):
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
         self._active_engine_state = state
         if state:
+            print(f"On new engine: {state}")
             if self._active_current_train_id and state in self._train_linked_queue:
                 # if we are operating on a train-linked car with the associated train
                 # active in the Train scope tab, indicate that on the gui
                 self._scope_buttons[CommandScope.TRAIN].bg = "lightgreen"
+                print(f"Train mode? {self._active_current_train_id} {self._train_linked_queue}")
             elif is_engine:
                 # otherwise, indicate we are in "Engine": mode and tear down the
                 # train-linked gui components
@@ -2399,6 +2401,7 @@ class EngineGui(Thread, Generic[S]):
             # if a valid (existing) entry was entered, go to ops mode,
             # otherwise, stay in entry mode
             self.reset_on_keystroke = False
+            print("From on_keypress")
             if self.make_recent(self.scope, int(tmcc_id)):
                 self.ops_mode()
             else:
@@ -2614,6 +2617,7 @@ class EngineGui(Thread, Generic[S]):
                 name = name if name and name != "NA" else not_found_value
                 update_button_state = False
                 # noinspection PyTypeChecker
+                print("From update_component_info")
                 self.make_recent(self.scope, tmcc_id, state)
                 if not in_ops_mode:
                     self.ops_mode(update_info=False)
