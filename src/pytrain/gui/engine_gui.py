@@ -1719,13 +1719,13 @@ class EngineGui(Thread, Generic[S]):
         self.on_new_engine(state, ops_mode_setup=ops_mode_setup, is_engine=False)
 
     def _setup_train_link_gui(self, state: TrainState) -> None:
-        self._actual_current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
+        # self._actual_current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
         self._active_current_train_id = state.tmcc_id
         self._scope_tmcc_ids[CommandScope.ENGINE] = self._train_linked_queue[0].tmcc_id
 
     def _tear_down_link_gui(self, state: EngineState = None) -> None:
-        if state is None:
-            self._scope_tmcc_ids[CommandScope.ENGINE] = self._actual_current_engine_id
+        # if state is None:
+        #     self._scope_tmcc_ids[CommandScope.ENGINE] = self._actual_current_engine_id
         self._active_current_train_id = 0
         self._train_linked_queue.clear()
 
