@@ -1729,13 +1729,9 @@ class EngineGui(Thread, Generic[S]):
             self._scope_buttons[CommandScope.ENGINE].bg = "white"
         self._active_current_train_id = 0
         current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
-        ids = [x.tmcc_id for x in self._train_linked_queue]
-        print(f"Current engine train linked? {ids} {current_engine_id in ids}")
-        if current_engine_id and current_engine_id in [x.tmcc_id for x in self._train_linked_queue]:
-            print(f"Current engine was train linked!!: {ids}")
+        if current_engine_id and current_engine_id in {x.tmcc_id for x in self._train_linked_queue}:
             self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
         self._train_linked_queue.clear()
-        print(f"Tear down train link gui; current engine id: {current_engine_id}")
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
         rr_speed = state.rr_speed
@@ -1894,13 +1890,10 @@ class EngineGui(Thread, Generic[S]):
         self.close_popup()
         log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         self._scope_tmcc_ids[self.scope] = tmcc_id
-        print(f"Make recent: {tmcc_id} {scope}")
         if tmcc_id > 0:
             if state is None:
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
-            print(f"State: {state}")
             if state:
-                print(f"State: {state}")
                 # add to scope queue
                 if state in self._train_linked_queue:
                     queue = self._train_linked_queue
@@ -2408,7 +2401,6 @@ class EngineGui(Thread, Generic[S]):
             # if a valid (existing) entry was entered, go to ops mode,
             # otherwise, stay in entry mode
             self.reset_on_keystroke = False
-            print("From on_keypress")
             if self.make_recent(self.scope, int(tmcc_id)):
                 self.ops_mode()
             else:
@@ -2547,7 +2539,6 @@ class EngineGui(Thread, Generic[S]):
                 self._active_engine_state = state = self._state_store.get_state(
                     self.scope, self._scope_tmcc_ids[self.scope], False
                 )
-            print(f"ops_mode: calling new engine/new train; update_info: {update_info}")
             if isinstance(state, TrainState):
                 self.on_new_train(state, ops_mode_setup=True)
             else:
@@ -2625,7 +2616,6 @@ class EngineGui(Thread, Generic[S]):
                 name = name if name and name != "NA" else not_found_value
                 update_button_state = False
                 # noinspection PyTypeChecker
-                print("From update_component_info")
                 self.make_recent(self.scope, tmcc_id, state)
                 if not in_ops_mode:
                     self.ops_mode(update_info=False)
