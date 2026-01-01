@@ -1653,7 +1653,7 @@ class EngineGui(Thread, Generic[S]):
             elif is_engine:
                 # otherwise, indicate we are in "Engine": mode and tear down the
                 # train-linked gui components
-                self._tear_down_link_gui(state)
+                self._tear_down_link_gui()
                 self._scope_buttons[CommandScope.TRAIN].bg = "white"
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             self.speed.value = f"{state.speed:03d}"
@@ -1723,9 +1723,7 @@ class EngineGui(Thread, Generic[S]):
         self._active_current_train_id = state.tmcc_id
         self._scope_tmcc_ids[CommandScope.ENGINE] = self._train_linked_queue[0].tmcc_id
 
-    def _tear_down_link_gui(self, state: EngineState = None) -> None:
-        # if state is None:
-        #     self._scope_tmcc_ids[CommandScope.ENGINE] = self._actual_current_engine_id
+    def _tear_down_link_gui(self) -> None:
         self._active_current_train_id = 0
         self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
         self._train_linked_queue.clear()
@@ -1887,16 +1885,18 @@ class EngineGui(Thread, Generic[S]):
         self.close_popup()
         log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         self._scope_tmcc_ids[self.scope] = tmcc_id
+        print(f"Make recent: {tmcc_id} {scope}")
         if tmcc_id > 0:
             if state is None:
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
             if state:
+                print(f"State: {state}")
                 # add to scope queue
                 if state in self._train_linked_queue:
                     queue = self._train_linked_queue
                 else:
                     if scope == CommandScope.ENGINE:
-                        self._tear_down_link_gui(state)
+                        self._tear_down_link_gui()
                     queue = self._recents_queue.get(self.scope, None)
                     if queue is None:
                         queue = UniqueDeque[S](maxlen=self.num_recents)
