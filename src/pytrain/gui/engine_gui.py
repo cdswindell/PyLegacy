@@ -1606,8 +1606,6 @@ class EngineGui(Thread, Generic[S]):
         if isinstance(queue, UniqueDeque):
             num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
             for state in queue:
-                if state in self._train_linked_queue:
-                    continue
                 name = f"{state.tmcc_id:0{num_chars}d}: {state.road_name}"
                 road_number = state.road_number
                 if road_number and road_number.isnumeric() and int(road_number) != state.tmcc_id:
