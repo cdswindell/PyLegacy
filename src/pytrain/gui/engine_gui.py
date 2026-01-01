@@ -1599,9 +1599,7 @@ class EngineGui(Thread, Generic[S]):
             if queue:
                 # we want to preserve the order of the original queue
                 queue = queue.copy()
-            linked = self._train_linked_queue.copy()
-            linked.reverse()
-            for state in linked:
+            for state in self._train_linked_queue:
                 queue.appendleft(state)
         if isinstance(queue, UniqueDeque):
             num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
@@ -1647,6 +1645,11 @@ class EngineGui(Thread, Generic[S]):
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         self._active_engine_state = state
         if state:
+            if state in self._train_linked_queue:
+                self._scope_buttons[CommandScope.TRAIN].bg = "lightgreen"
+            else:
+                self._tear_down_link_gui(state)
+                self._scope_buttons[CommandScope.TRAIN].bg = "white"
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             self.speed.value = f"{state.speed:03d}"
             self.update_rr_speed_buttons(state)
