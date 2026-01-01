@@ -722,10 +722,12 @@ class EngineGui(Thread, Generic[S]):
             BELL_KEY,
             text_size=self.s_24,
             text_bold=True,
+            titlebox_text="Bell/Horn...",
             command=self.on_engine_command,
             args=[["BELL_ONE_SHOT_DING", "RING_BELL"]],
         )
         bell_btn.tk.pack(fill="both", expand=True)
+        bell_btn.on_hold = self.on_bell_horn_options
         bell_box.hide()
 
         # --- HIDE IT AGAIN after sizing is complete ---
