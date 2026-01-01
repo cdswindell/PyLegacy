@@ -1889,6 +1889,7 @@ class EngineGui(Thread, Generic[S]):
         if tmcc_id > 0:
             if state is None:
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
+            print(f"State: {state}")
             if state:
                 print(f"State: {state}")
                 # add to scope queue
