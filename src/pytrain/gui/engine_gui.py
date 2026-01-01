@@ -1643,13 +1643,16 @@ class EngineGui(Thread, Generic[S]):
         return upd
 
     # noinspection PyUnusedLocal
-    def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
+    def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
         self._active_engine_state = state
         if state:
-            if self._active_current_train_id:
-                if state in self._train_linked_queue:
-                    self._scope_buttons[CommandScope.TRAIN].bg = "lightgreen"
-            else:
+            if self._active_current_train_id and state in self._train_linked_queue:
+                # if we are operating on a train-linked car with the associated train
+                # active in the Train scope tab, indicate that on the gui
+                self._scope_buttons[CommandScope.TRAIN].bg = "lightgreen"
+            elif is_engine:
+                # otherwise, indicate we are in "Engine": mode and tear down the
+                # train-linked gui components
                 self._tear_down_link_gui(state)
                 self._scope_buttons[CommandScope.TRAIN].bg = "white"
             # only set throttle/brake/momentum value if we are not in the middle of setting it
@@ -1714,7 +1717,7 @@ class EngineGui(Thread, Generic[S]):
         else:
             self._tear_down_link_gui()
         self.rebuild_options()
-        self.on_new_engine(state, ops_mode_setup=ops_mode_setup)
+        self.on_new_engine(state, ops_mode_setup=ops_mode_setup, is_engine=False)
 
     def _setup_train_link_gui(self, state: TrainState) -> None:
         self._actual_current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
