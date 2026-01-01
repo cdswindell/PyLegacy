@@ -1703,8 +1703,8 @@ class EngineGui(Thread, Generic[S]):
             # set up for Train; if there are train-linked cars available, remember them
             # and set "Eng" scope key color accordingly. Also, add train-linked cars to
             # list of recent engines
-            self._train_linked_queue.clear()
             if state.num_train_linked > 0:
+                self._train_linked_queue.clear()
                 self._scope_buttons[CommandScope.ENGINE].bg = "lightgreen"
                 cars = state.link_tmcc_ids
                 for tmcc_id in cars:
