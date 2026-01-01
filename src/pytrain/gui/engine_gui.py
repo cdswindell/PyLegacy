@@ -1715,8 +1715,9 @@ class EngineGui(Thread, Generic[S]):
         self._actual_current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
         self._scope_tmcc_ids[CommandScope.ENGINE] = self._train_linked_queue[0].tmcc_id
 
-    def _tear_down_link_gui(self) -> None:
-        self._scope_tmcc_ids[CommandScope.ENGINE] = self._actual_current_engine_id
+    def _tear_down_link_gui(self, state: EngineState = None) -> None:
+        if state is None:
+            self._scope_tmcc_ids[CommandScope.ENGINE] = self._actual_current_engine_id
         self._train_linked_queue.clear()
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
@@ -1884,6 +1885,8 @@ class EngineGui(Thread, Generic[S]):
                 if state in self._train_linked_queue:
                     queue = self._train_linked_queue
                 else:
+                    if scope == CommandScope.ENGINE:
+                        self._tear_down_link_gui(state)
                     queue = self._recents_queue.get(self.scope, None)
                     if queue is None:
                         queue = UniqueDeque[S](maxlen=self.num_recents)
