@@ -200,7 +200,7 @@ class EngineGui(Thread, Generic[S]):
         self._scope_buttons = {}
         self._scope_tmcc_ids = {}
         self._scope_watchers = {}
-        self._recents_queue = {}
+        self._recents_queue: dict[CommandScope, UniqueDeque[S]] = {}
         self._train_linked_queue: UniqueDeque[EngineState] = UniqueDeque()
         self._options_to_state = {}
         self._prod_info_cache = {}
@@ -215,6 +215,7 @@ class EngineGui(Thread, Generic[S]):
         self.scope = scope if scope else CommandScope.ENGINE
         self.initial = tmcc_id
         self._active_engine_state = None
+        self._actual_current_engine_id = 0
         self.reset_on_keystroke = False
         self._current_popup = None
 
@@ -1593,10 +1594,20 @@ class EngineGui(Thread, Generic[S]):
     def get_options(self) -> list[str]:
         options = [self.title]
         self._options_to_state.clear()
-        queue = self._recents_queue.get(self.scope, None)
+        queue = self._recents_queue.get(self.scope, UniqueDeque())
+        if self.scope == CommandScope.ENGINE and self._train_linked_queue:
+            if queue:
+                # we want to preserve the order of the original queue
+                queue = queue.copy()
+            linked = self._train_linked_queue.copy()
+            linked.reverse()
+            for state in linked:
+                queue.appendleft(state)
         if isinstance(queue, UniqueDeque):
             num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
             for state in queue:
+                if state in self._train_linked_queue:
+                    continue
                 name = f"{state.tmcc_id:0{num_chars}d}: {state.road_name}"
                 road_number = state.road_number
                 if road_number and road_number.isnumeric() and int(road_number) != state.tmcc_id:
@@ -1693,10 +1704,22 @@ class EngineGui(Thread, Generic[S]):
                     car_state = self._state_store.get_state(CommandScope.ENGINE, tmcc_id, False)
                     if car_state:
                         self._train_linked_queue.append(car_state)
+                self._setup_train_link_gui()
             else:
                 self._scope_buttons[CommandScope.ENGINE].bg = "white"
-            self.rebuild_options()
+                self._tear_down_link_gui()
+        else:
+            self._tear_down_link_gui()
+        self.rebuild_options()
         self.on_new_engine(state, ops_mode_setup=ops_mode_setup)
+
+    def _setup_train_link_gui(self) -> None:
+        self._actual_current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
+        self._scope_tmcc_ids[CommandScope.ENGINE] = self._train_linked_queue[0].tmcc_id
+
+    def _tear_down_link_gui(self) -> None:
+        self._scope_tmcc_ids[CommandScope.ENGINE] = self._actual_current_engine_id
+        self._train_linked_queue.clear()
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
         rr_speed = state.rr_speed
