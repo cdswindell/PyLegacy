@@ -216,6 +216,7 @@ class EngineGui(Thread, Generic[S]):
         self.initial = tmcc_id
         self._active_engine_state = None
         self._actual_current_engine_id = 0
+        self._active_current_train_id = 0
         self.reset_on_keystroke = False
         self._current_popup = None
 
@@ -1645,8 +1646,9 @@ class EngineGui(Thread, Generic[S]):
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False) -> None:
         self._active_engine_state = state
         if state:
-            if state in self._train_linked_queue:
-                self._scope_buttons[CommandScope.TRAIN].bg = "lightgreen"
+            if self._active_current_train_id:
+                if state in self._train_linked_queue:
+                    self._scope_buttons[CommandScope.TRAIN].bg = "lightgreen"
             else:
                 self._tear_down_link_gui(state)
                 self._scope_buttons[CommandScope.TRAIN].bg = "white"
@@ -1705,7 +1707,7 @@ class EngineGui(Thread, Generic[S]):
                     car_state = self._state_store.get_state(CommandScope.ENGINE, tmcc_id, False)
                     if car_state:
                         self._train_linked_queue.append(car_state)
-                self._setup_train_link_gui()
+                self._setup_train_link_gui(state)
             else:
                 self._scope_buttons[CommandScope.ENGINE].bg = "white"
                 self._tear_down_link_gui()
@@ -1714,13 +1716,15 @@ class EngineGui(Thread, Generic[S]):
         self.rebuild_options()
         self.on_new_engine(state, ops_mode_setup=ops_mode_setup)
 
-    def _setup_train_link_gui(self) -> None:
+    def _setup_train_link_gui(self, state: TrainState) -> None:
         self._actual_current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
+        self._active_current_train_id = state.tmcc_id
         self._scope_tmcc_ids[CommandScope.ENGINE] = self._train_linked_queue[0].tmcc_id
 
     def _tear_down_link_gui(self, state: EngineState = None) -> None:
         if state is None:
             self._scope_tmcc_ids[CommandScope.ENGINE] = self._actual_current_engine_id
+        self._active_current_train_id = 0
         self._train_linked_queue.clear()
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
