@@ -1727,7 +1727,9 @@ class EngineGui(Thread, Generic[S]):
 
     def _tear_down_link_gui(self) -> None:
         self._active_current_train_id = 0
-        self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
+        current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
+        if current_engine_id and [x for x in self._train_linked_queue if x.tmcc_id == current_engine_id]:
+            self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
         self._train_linked_queue.clear()
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
