@@ -1713,7 +1713,6 @@ class EngineGui(Thread, Generic[S]):
                         self._train_linked_queue.append(car_state)
                 self._setup_train_link_gui(self._train_linked_queue[0])
             else:
-                self._scope_buttons[CommandScope.ENGINE].bg = "white"
                 self._tear_down_link_gui()
         else:
             self._tear_down_link_gui()
@@ -1726,6 +1725,8 @@ class EngineGui(Thread, Generic[S]):
         self._scope_tmcc_ids[CommandScope.ENGINE] = self._train_linked_queue[0].tmcc_id
 
     def _tear_down_link_gui(self) -> None:
+        if self.scope != CommandScope.ENGINE:
+            self._scope_buttons[CommandScope.ENGINE].bg = "white"
         self._active_current_train_id = 0
         current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
         ids = [x.tmcc_id for x in self._train_linked_queue]
