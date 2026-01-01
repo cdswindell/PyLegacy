@@ -722,7 +722,6 @@ class EngineGui(Thread, Generic[S]):
             BELL_KEY,
             text_size=self.s_24,
             text_bold=True,
-            titlebox_text="Bell/Horn...",
             command=self.on_engine_command,
             args=[["BELL_ONE_SHOT_DING", "RING_BELL"]],
         )
