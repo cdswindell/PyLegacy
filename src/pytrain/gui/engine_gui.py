@@ -1600,8 +1600,8 @@ class EngineGui(Thread, Generic[S]):
             if queue:
                 # we want to preserve the order of the original queue
                 queue = queue.copy()
-            for state in self._train_linked_queue:
-                queue.appendleft(state)
+            for i, state in enumerate(self._train_linked_queue):
+                queue.insert(i, state)
         if isinstance(queue, UniqueDeque):
             num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
             for state in queue:
@@ -1704,7 +1704,7 @@ class EngineGui(Thread, Generic[S]):
             self._train_linked_queue.clear()
             if state.num_train_linked > 0:
                 self._scope_buttons[CommandScope.ENGINE].bg = "lightgreen"
-                cars = state.link_tmcc_ids.copy()
+                cars = state.link_tmcc_ids
                 for tmcc_id in cars:
                     car_state = self._state_store.get_state(CommandScope.ENGINE, tmcc_id, False)
                     if car_state:
