@@ -723,7 +723,7 @@ class EngineGui(Thread, Generic[S]):
         bell_box = TitleBox(
             pair_cell,
             "Bell/Horn...",
-            grid=[0, 0],
+            grid=[2, 0],
         )
         self._bell_btn = bell_btn = HoldButton(
             bell_box,
@@ -739,11 +739,17 @@ class EngineGui(Thread, Generic[S]):
 
         # Allow Tk to compute geometry
         self.app.tk.update_idletasks()
-        bell_size = int(bell_box.tk.winfo_height() * 0.9)
+        bell_size = bell_box.tk.winfo_height()
 
+        # spacer box
+        sp_size = int(bell_size * 0.1)
+        sp = Box(pair_cell, grid=[1, 0], height=sp_size, width=sp_size)
+        self._elements.add(sp)
+
+        # Horn button
         horn_box = Box(
             pair_cell,
-            grid=[1, 0],
+            grid=[0, 0],
             width=bell_size,
             height=bell_size,
             border=0,
