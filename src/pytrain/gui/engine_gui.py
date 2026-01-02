@@ -727,7 +727,7 @@ class EngineGui(Thread, Generic[S]):
             args=[["BELL_ONE_SHOT_DING", "RING_BELL"]],
         )
         bell_btn.tk.pack(fill="both", expand=True)
-        bell_btn.on_hold = (self.on_bell_horn_options, {"button": bell_btn})
+        bell_btn.on_hold = self.on_bell_horn_options_fs
         bell_box.hide()
 
         # --- HIDE IT AGAIN after sizing is complete ---
