@@ -144,7 +144,7 @@ ENGINE_OPS_LAYOUT = [
         ("AUX3_OPTION_ONE", "", AUX3_KEY),
         [
             (MOM_TB, "", MOMENTUM, "", "e"),
-            ("", "", "Etc...", "", "f"),
+            # ("", "", "Etc...", "", "f"),
         ],
     ],
 ]
