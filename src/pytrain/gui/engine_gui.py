@@ -723,7 +723,7 @@ class EngineGui(Thread, Generic[S]):
             BELL_KEY,
             text_size=self.s_24,
             text_bold=True,
-            align="left",
+            align="right",
             command=self.on_engine_command,
             args=[["BELL_ONE_SHOT_DING", "RING_BELL"]],
         )
@@ -740,11 +740,13 @@ class EngineGui(Thread, Generic[S]):
             align="top",
             width=bell_size,
             height=bell_size,
+            border=0,
         )
         self._horn_btn = horn_btn = HoldButton(
             horn_box,
             "",
-            align="right",
+            align="left",
+            bordered=True,
             command=self.on_engine_command,
             args=["BLOW_HORN_ONE"],
         )
@@ -755,8 +757,8 @@ class EngineGui(Thread, Generic[S]):
             compound="center",
             width=bell_size,
             height=bell_size,
-            padx=0,
-            pady=0,
+            padx=3,
+            pady=3,
         )
         horn_btn.tk.pack(fill="both", expand=True)
         bell_box.hide()
