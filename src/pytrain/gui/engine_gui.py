@@ -746,19 +746,18 @@ class EngineGui(Thread, Generic[S]):
             horn_box,
             "",
             align="left",
-            bordered=True,
             command=self.on_engine_command,
             args=["BLOW_HORN_ONE"],
         )
+        horn_btn.border = 1
         image = find_file("horn.jpg")
         horn_btn.image = image
         horn_btn.images = self.get_titled_image(image)
         horn_btn.tk.config(
+            borderwidth=2,
             compound="center",
             width=bell_size,
             height=bell_size,
-            padx=3,
-            pady=3,
         )
         horn_btn.tk.pack(fill="both", expand=True)
         bell_box.hide()
