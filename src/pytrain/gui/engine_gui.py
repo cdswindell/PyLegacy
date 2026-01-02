@@ -753,7 +753,7 @@ class EngineGui(Thread, Generic[S]):
         # Horn button
         horn_cell = Box(btn_row, grid=[0, 0], border=0, align="bottom")
         horn_pad = Box(horn_cell)
-        horn_pad.tk.pack(padx=1, pady=1)
+        horn_pad.tk.pack(padx=(1, 1), pady=(1, 0))
         self._horn_btn = horn_btn = HoldButton(
             horn_pad,
             "",
