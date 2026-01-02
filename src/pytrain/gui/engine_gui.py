@@ -249,7 +249,7 @@ class EngineGui(Thread, Generic[S]):
         self.controller_box = self.controller_keypad_box = None
         self.brake_box = self.brake_level = self.brake = self.focus_widget = None
         self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = self._rr_speed_box = None
-        self._bell_box = self._bell_btn = None
+        self._bell_box = self._bell_btn = self._horn_btn = None
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = self.info_overlay = None
@@ -729,6 +729,25 @@ class EngineGui(Thread, Generic[S]):
         )
         bell_btn.tk.pack(fill="both", expand=True)
         bell_btn.on_hold = self.on_bell_horn_options_fs
+
+        self._horn_btn = horn_btn = HoldButton(
+            bell_box,
+            "",
+            align="left",
+            command=self.on_engine_command,
+            args=["BLOW_HORN_ONE"],
+        )
+        image = find_file("horn.jpg")
+        horn_btn.image = image
+        horn_btn.images = self.get_titled_image(image)
+        horn_btn.tk.config(
+            compound="center",
+            width=self.button_size,
+            height=self.button_size,
+            padx=0,
+            pady=0,
+        )
+        horn_btn.tk.pack(fill="both", expand=True)
         bell_box.hide()
 
         # --- HIDE IT AGAIN after sizing is complete ---
