@@ -742,8 +742,8 @@ class EngineGui(Thread, Generic[S]):
         horn_btn.images = self.get_titled_image(image)
         horn_btn.tk.config(
             compound="center",
-            width=self.button_size,
-            height=self.button_size,
+            # width=self.button_size,
+            # height=self.button_size,
             padx=0,
             pady=0,
         )
