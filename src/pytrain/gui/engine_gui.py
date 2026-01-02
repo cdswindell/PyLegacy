@@ -743,7 +743,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Allow Tk to compute geometry
         self.app.tk.update_idletasks()
-        horn_size = int(bell_box.tk.winfo_height() * 0.95)
+        horn_size = int(bell_box.tk.winfo_height() * 0.90)
 
         # spacer box
         sp_size = int(horn_size * 0.1)
@@ -753,7 +753,7 @@ class EngineGui(Thread, Generic[S]):
         # Horn button
         horn_cell = Box(btn_row, grid=[0, 0], border=0, align="bottom")
         horn_pad = Box(horn_cell)
-        horn_pad.tk.pack(padx=2, pady=2)
+        horn_pad.tk.pack(padx=1, pady=1)
         self._horn_btn = horn_btn = HoldButton(
             horn_pad,
             "",
