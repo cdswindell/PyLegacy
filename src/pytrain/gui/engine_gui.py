@@ -730,6 +730,10 @@ class EngineGui(Thread, Generic[S]):
         bell_btn.tk.pack(fill="both", expand=True)
         bell_btn.on_hold = self.on_bell_horn_options_fs
 
+        # Allow Tk to compute geometry
+        self.app.tk.update_idletasks()
+        bell_size = bell_btn.tk.winfo_height()
+
         self._horn_btn = horn_btn = HoldButton(
             bell_box,
             "",
@@ -742,8 +746,8 @@ class EngineGui(Thread, Generic[S]):
         horn_btn.images = self.get_titled_image(image)
         horn_btn.tk.config(
             compound="center",
-            # width=self.button_size,
-            # height=self.button_size,
+            width=bell_size,
+            height=bell_size,
             padx=0,
             pady=0,
         )
