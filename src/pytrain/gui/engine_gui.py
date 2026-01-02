@@ -716,12 +716,13 @@ class EngineGui(Thread, Generic[S]):
             sliders,
             grid=[0, 1, 2, 1],
             border=0,
-            align="top",
+            align="grid",
         )
         self._bell_box = bell_box = TitleBox(
             pair_cell,
             "Bell/Horn...",
-            align="right",
+            grid=[0, 0],
+            align="bottom",
         )
         self._bell_btn = bell_btn = HoldButton(
             bell_box,
@@ -740,7 +741,8 @@ class EngineGui(Thread, Generic[S]):
 
         horn_box = Box(
             pair_cell,
-            align="left",
+            grid=[1, 0],
+            align="bottom",
             width=bell_size,
             height=bell_size,
             border=0,
@@ -751,7 +753,6 @@ class EngineGui(Thread, Generic[S]):
             command=self.on_engine_command,
             args=["BLOW_HORN_ONE"],
         )
-        horn_btn.border = 1
         image = find_file("horn.jpg")
         horn_btn.image = image
         horn_btn.images = self.get_image(image, size=bell_size)
