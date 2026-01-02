@@ -727,6 +727,7 @@ class EngineGui(Thread, Generic[S]):
             btn_row,
             "Bell/Horn...",
             grid=[2, 0],
+            align="bottom",
         )
         self._bell_btn = bell_btn = HoldButton(
             bell_box,
@@ -750,16 +751,17 @@ class EngineGui(Thread, Generic[S]):
         self._elements.add(sp)
 
         # Horn button
-        horn_box = Box(
-            btn_row,
-            grid=[0, 0],
-            width=horn_size,
-            height=horn_size,
-            border=0,
-        )
+        # horn_box = Box(
+        #     btn_row,
+        #     grid=[0, 0],
+        #     width=horn_size,
+        #     height=horn_size,
+        #     border=0,
+        # )
         self._horn_btn = horn_btn = HoldButton(
-            horn_box,
+            btn_row,
             "",
+            grid=[0, 0],
             align="bottom",
             command=self.on_engine_command,
             args=["BLOW_HORN_ONE"],
