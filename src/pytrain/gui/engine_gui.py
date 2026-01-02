@@ -715,7 +715,7 @@ class EngineGui(Thread, Generic[S]):
         self._bell_box = bell_box = TitleBox(
             sliders,
             "Bell/Horn...",
-            grid=[0, 1, 2, 1],  # spans two columns under sliders
+            grid=[0, 1],  # spans two columns under sliders
             align="top",
         )
         self._bell_btn = bell_btn = HoldButton(
@@ -734,10 +734,17 @@ class EngineGui(Thread, Generic[S]):
         self.app.tk.update_idletasks()
         bell_size = bell_btn.tk.winfo_height()
 
+        bell_box = Box(
+            sliders,
+            grid=[1, 1],
+            align="top",
+            width=bell_size,
+            height=bell_size,
+        )
         self._horn_btn = horn_btn = HoldButton(
             bell_box,
             "",
-            align="left",
+            align="right",
             command=self.on_engine_command,
             args=["BLOW_HORN_ONE"],
         )
