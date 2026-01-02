@@ -711,11 +711,11 @@ class EngineGui(Thread, Generic[S]):
         )
         rr_btn.images = (img, inverted_img)
 
-        # Bell button for freight sounds
+        # Bell/horn buttons for freight sounds
         self._bell_box = bell_box = TitleBox(
             sliders,
             "Bell/Horn...",
-            grid=[0, 1],  # spans two columns under sliders
+            grid=[1, 1],  # spans two columns under sliders
             align="top",
         )
         self._bell_btn = bell_btn = HoldButton(
@@ -732,11 +732,11 @@ class EngineGui(Thread, Generic[S]):
 
         # Allow Tk to compute geometry
         self.app.tk.update_idletasks()
-        bell_size = bell_btn.tk.winfo_height()
+        bell_size = bell_box.tk.winfo_height()
 
         horn_box = Box(
             sliders,
-            grid=[1, 1],
+            grid=[0, 1],
             align="top",
             width=bell_size,
             height=bell_size,
