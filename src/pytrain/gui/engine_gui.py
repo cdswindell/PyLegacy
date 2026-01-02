@@ -718,10 +718,13 @@ class EngineGui(Thread, Generic[S]):
             grid=[0, 1, 2, 1],
             border=0,
             align="top",
-            layout="grid",
         )
+        # Inner container to hold the two buttons side-by-side
+        btn_row = Box(pair_cell, align="top", layout="grid")  # uses pack internally
+        btn_row.tk.pack(expand=True)  # Center the *pair* within the TitleBox
+
         bell_box = TitleBox(
-            pair_cell,
+            btn_row,
             "Bell/Horn...",
             grid=[2, 0],
         )
@@ -743,12 +746,12 @@ class EngineGui(Thread, Generic[S]):
 
         # spacer box
         sp_size = int(horn_size * 0.1)
-        sp = Box(pair_cell, grid=[1, 0], height=sp_size, width=sp_size)
+        sp = Box(btn_row, grid=[1, 0], height=sp_size, width=sp_size)
         self._elements.add(sp)
 
         # Horn button
         horn_box = Box(
-            pair_cell,
+            btn_row,
             grid=[0, 0],
             width=horn_size,
             height=horn_size,
