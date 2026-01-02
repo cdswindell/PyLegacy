@@ -712,8 +712,9 @@ class EngineGui(Thread, Generic[S]):
         rr_btn.images = (img, inverted_img)
 
         # Bell button for freight sounds
-        self._bell_box = bell_box = Box(
+        self._bell_box = bell_box = TitleBox(
             sliders,
+            "Bell/Horn...",
             grid=[0, 1, 2, 1],  # spans two columns under sliders
             align="top",
         )
@@ -726,7 +727,7 @@ class EngineGui(Thread, Generic[S]):
             args=[["BELL_ONE_SHOT_DING", "RING_BELL"]],
         )
         bell_btn.tk.pack(fill="both", expand=True)
-        bell_btn.on_hold = self.on_bell_horn_options
+        bell_btn.on_hold = (self.on_bell_horn_options, {"button": bell_btn})
         bell_box.hide()
 
         # --- HIDE IT AGAIN after sizing is complete ---
@@ -1411,13 +1412,20 @@ class EngineGui(Thread, Generic[S]):
             self.bell_overlay = self.create_popup("Bell/Horn Options", self.build_bell_horn_body)
         self.show_popup(self.bell_overlay, "RING_BELL", "e")
 
-    def show_popup(self, overlay, op: str = None, modifier: str = None):
+    def on_bell_horn_options_fs(self) -> None:
+        if self.bell_overlay is None:
+            self.bell_overlay = self.create_popup("Bell/Horn Options", self.build_bell_horn_body)
+        self.show_popup(self.bell_overlay, button=self._bell_btn)
+
+    def show_popup(self, overlay, op: str = None, modifier: str = None, button: HoldButton = None):
         with self._cv:
             if self._current_popup:
                 self._current_popup.hide()
                 self._current_popup.tk.place_forget()
                 self._current_popup = None
-            if op:
+            if button:
+                button.restore_color_state()
+            elif op:
                 key = (op, modifier) if modifier else op
                 _, btn = self.engine_ops_cells[key]
                 btn.restore_color_state()
