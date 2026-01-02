@@ -734,7 +734,7 @@ class EngineGui(Thread, Generic[S]):
         self.app.tk.update_idletasks()
         bell_size = bell_btn.tk.winfo_height()
 
-        bell_box = Box(
+        horn_box = Box(
             sliders,
             grid=[1, 1],
             align="top",
@@ -742,7 +742,7 @@ class EngineGui(Thread, Generic[S]):
             height=bell_size,
         )
         self._horn_btn = horn_btn = HoldButton(
-            bell_box,
+            horn_box,
             "",
             align="right",
             command=self.on_engine_command,
