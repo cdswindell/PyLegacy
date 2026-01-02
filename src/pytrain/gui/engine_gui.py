@@ -715,7 +715,6 @@ class EngineGui(Thread, Generic[S]):
         # A container spanning both columns under sliders (this is the "group row")
         pair_cell = Box(
             sliders,
-            layout="grid",
             grid=[0, 1, 2, 1],  # span two columns
             border=0,
             align="top",
