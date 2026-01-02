@@ -739,10 +739,10 @@ class EngineGui(Thread, Generic[S]):
 
         # Allow Tk to compute geometry
         self.app.tk.update_idletasks()
-        bell_size = bell_box.tk.winfo_height()
+        horn_size = int(bell_box.tk.winfo_height() * 0.95)
 
         # spacer box
-        sp_size = int(bell_size * 0.1)
+        sp_size = int(horn_size * 0.1)
         sp = Box(pair_cell, grid=[1, 0], height=sp_size, width=sp_size)
         self._elements.add(sp)
 
@@ -750,8 +750,8 @@ class EngineGui(Thread, Generic[S]):
         horn_box = Box(
             pair_cell,
             grid=[0, 0],
-            width=bell_size,
-            height=bell_size,
+            width=horn_size,
+            height=horn_size,
             border=0,
         )
         self._horn_btn = horn_btn = HoldButton(
@@ -763,12 +763,12 @@ class EngineGui(Thread, Generic[S]):
         )
         image = find_file("horn.jpg")
         horn_btn.image = image
-        horn_btn.images = self.get_image(image, size=bell_size)
+        horn_btn.images = self.get_image(image, size=horn_size)
         horn_btn.tk.config(
             borderwidth=2,
             compound="center",
-            width=bell_size,
-            height=bell_size,
+            width=horn_size,
+            height=horn_size,
         )
         self._freight_sounds_bell_horn_box.hide()
 
