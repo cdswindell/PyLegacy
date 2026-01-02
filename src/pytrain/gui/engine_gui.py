@@ -249,7 +249,8 @@ class EngineGui(Thread, Generic[S]):
         self.controller_box = self.controller_keypad_box = None
         self.brake_box = self.brake_level = self.brake = self.focus_widget = None
         self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = self._rr_speed_box = None
-        self._bell_box = self._bell_btn = self._horn_btn = None
+        self._bell_btn = self._horn_btn = None
+        self._freight_sounds_bell_horn_box = None
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = self.info_overlay = None
@@ -712,21 +713,22 @@ class EngineGui(Thread, Generic[S]):
         rr_btn.images = (img, inverted_img)
 
         # Bell/horn buttons for freight sounds
-        pair_cell = Box(
+        self._freight_sounds_bell_horn_box = pair_cell = Box(
             sliders,
             grid=[0, 1, 2, 1],
             border=0,
-            align="grid",
+            align="top",
+            layout="grid",
         )
-        self._bell_box = bell_box = TitleBox(
+        bell_box = TitleBox(
             pair_cell,
             "Bell/Horn...",
             grid=[0, 0],
-            align="bottom",
         )
         self._bell_btn = bell_btn = HoldButton(
             bell_box,
             BELL_KEY,
+            align="bottom",
             text_size=self.s_24,
             text_bold=True,
             command=self.on_engine_command,
@@ -742,7 +744,6 @@ class EngineGui(Thread, Generic[S]):
         horn_box = Box(
             pair_cell,
             grid=[1, 0],
-            align="bottom",
             width=bell_size,
             height=bell_size,
             border=0,
@@ -750,6 +751,7 @@ class EngineGui(Thread, Generic[S]):
         self._horn_btn = horn_btn = HoldButton(
             horn_box,
             "",
+            align="bottom",
             command=self.on_engine_command,
             args=["BLOW_HORN_ONE"],
         )
@@ -762,7 +764,7 @@ class EngineGui(Thread, Generic[S]):
             width=bell_size,
             height=bell_size,
         )
-        bell_box.hide()
+        self._freight_sounds_bell_horn_box.hide()
 
         # --- HIDE IT AGAIN after sizing is complete ---
         self.controller_box.visible = False
@@ -2519,7 +2521,7 @@ class EngineGui(Thread, Generic[S]):
             self.set_btn.show()
 
     def scope_engine_keys(self, btns: set[Widget]):
-        self._bell_box.hide()
+        self._freight_sounds_bell_horn_box.hide()
         self._rr_speed_box.hide()
         for btn in btns:
             btn.show()
@@ -2549,7 +2551,7 @@ class EngineGui(Thread, Generic[S]):
         if self._last_engine_type != "f":
             self.scope_engine_keys(self._engine_type_key_map["f"])
             self._last_engine_type = "f"
-        self._bell_box.show()
+        self._freight_sounds_bell_horn_box.show()
         self.show_horn_control()
 
     @property
