@@ -712,18 +712,22 @@ class EngineGui(Thread, Generic[S]):
         rr_btn.images = (img, inverted_img)
 
         # Bell/horn buttons for freight sounds
-        self._bell_box = bell_box = TitleBox(
+        pair_cell = Box(
             sliders,
-            "Bell/Horn...",
-            grid=[1, 1],  # spans two columns under sliders
+            grid=[0, 1, 2, 1],
+            border=0,
             align="top",
+        )
+        self._bell_box = bell_box = TitleBox(
+            pair_cell,
+            "Bell/Horn...",
+            align="right",
         )
         self._bell_btn = bell_btn = HoldButton(
             bell_box,
             BELL_KEY,
             text_size=self.s_24,
             text_bold=True,
-            align="right",
             command=self.on_engine_command,
             args=[["BELL_ONE_SHOT_DING", "RING_BELL"]],
         )
@@ -735,9 +739,8 @@ class EngineGui(Thread, Generic[S]):
         bell_size = int(bell_box.tk.winfo_height() * 0.9)
 
         horn_box = Box(
-            sliders,
-            grid=[0, 1],
-            align="top",
+            pair_cell,
+            align="left",
             width=bell_size,
             height=bell_size,
             border=0,
@@ -745,21 +748,19 @@ class EngineGui(Thread, Generic[S]):
         self._horn_btn = horn_btn = HoldButton(
             horn_box,
             "",
-            align="left",
             command=self.on_engine_command,
             args=["BLOW_HORN_ONE"],
         )
         horn_btn.border = 1
         image = find_file("horn.jpg")
         horn_btn.image = image
-        horn_btn.images = self.get_titled_image(image)
+        horn_btn.images = self.get_image(image, size=bell_size)
         horn_btn.tk.config(
             borderwidth=2,
             compound="center",
             width=bell_size,
             height=bell_size,
         )
-        horn_btn.tk.pack(fill="both", expand=True)
         bell_box.hide()
 
         # --- HIDE IT AGAIN after sizing is complete ---
