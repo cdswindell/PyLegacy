@@ -732,7 +732,7 @@ class EngineGui(Thread, Generic[S]):
 
         # Allow Tk to compute geometry
         self.app.tk.update_idletasks()
-        bell_size = bell_box.tk.winfo_height()
+        bell_size = int(bell_box.tk.winfo_height() * 0.9)
 
         horn_box = Box(
             sliders,
