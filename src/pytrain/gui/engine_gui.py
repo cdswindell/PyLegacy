@@ -751,17 +751,12 @@ class EngineGui(Thread, Generic[S]):
         self._elements.add(sp)
 
         # Horn button
-        # horn_box = Box(
-        #     btn_row,
-        #     grid=[0, 0],
-        #     width=horn_size,
-        #     height=horn_size,
-        #     border=0,
-        # )
+        horn_cell = Box(btn_row, grid=[0, 0], border=0, align="bottom")
+        horn_pad = Box(horn_cell)
+        horn_pad.tk.pack(padx=10, pady=10)
         self._horn_btn = horn_btn = HoldButton(
-            btn_row,
+            horn_pad,
             "",
-            grid=[0, 0],
             align="bottom",
             command=self.on_engine_command,
             args=["BLOW_HORN_ONE"],
