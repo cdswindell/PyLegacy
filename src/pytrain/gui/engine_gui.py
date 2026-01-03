@@ -367,7 +367,6 @@ class EngineGui(Thread, Generic[S]):
                     self._sensor_track_watcher = StateWatcher(state, action)
 
     def on_sensor_track_update(self, state: IrdaState) -> None:
-        print(state)
         if state.last_train_id:
             scope = CommandScope.TRAIN
             tmcc_id = state.last_train_id
@@ -377,6 +376,7 @@ class EngineGui(Thread, Generic[S]):
         else:
             scope = tmcc_id = None
         if scope and tmcc_id:
+            print(f"**** Sensor Track update: {scope} {tmcc_id} (cur scope: {self.scope})")
             if self.make_recent(scope, tmcc_id):
                 self.ops_mode()
 
@@ -1965,29 +1965,26 @@ class EngineGui(Thread, Generic[S]):
         self.close_popup()
         log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         self._scope_tmcc_ids[self.scope] = tmcc_id
-        try:
-            if tmcc_id > 0:
-                if state is None:
-                    state = self._state_store.get_state(self.scope, tmcc_id, False)
-                if state:
-                    # add to scope queue
-                    if state in self._train_linked_queue:
-                        queue = self._train_linked_queue
-                    else:
-                        if scope == CommandScope.ENGINE:
-                            self._tear_down_link_gui()
-                        queue = self._recents_queue.get(self.scope, None)
-                        if queue is None:
-                            queue = UniqueDeque[S](maxlen=self.num_recents)
-                            self._recents_queue[self.scope] = queue
-                    queue.appendleft(state)
-                    self.rebuild_options()
-                    return True
-            return False
-        finally:
-            # reset scope, if needed
-            if scope != self.scope:
-                self.on_scope(scope)
+        if scope != self.scope:
+            self.on_scope(scope)
+        if tmcc_id > 0:
+            if state is None:
+                state = self._state_store.get_state(self.scope, tmcc_id, False)
+            if state:
+                # add to scope queue
+                if state in self._train_linked_queue:
+                    queue = self._train_linked_queue
+                else:
+                    if scope == CommandScope.ENGINE:
+                        self._tear_down_link_gui()
+                    queue = self._recents_queue.get(self.scope, None)
+                    if queue is None:
+                        queue = UniqueDeque[S](maxlen=self.num_recents)
+                        self._recents_queue[self.scope] = queue
+                queue.appendleft(state)
+                self.rebuild_options()
+                return True
+        return False
 
     def show_next_component(self) -> None:
         self.close_popup()
