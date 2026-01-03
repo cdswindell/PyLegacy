@@ -1421,15 +1421,17 @@ class EngineGui(Thread, Generic[S]):
             return  # this should never be the case...
         scope = CommandScope.ACC if isinstance(state, LcsProxyState) and state.is_lcs else state.scope
         for tb, _ in self._info_details.values():
-            print(tb, _)
-            if tb.display_scope == scope:
-                tb.visible = True  # always display fields associated with state.scope
-            elif tb.display_scope is None:
-                tb.visible = True  # always display fields with no scope specified
-            elif scope == CommandScope.TRAIN and tb.display_scope == CommandScope.ENGINE:
-                tb.visible = True  # display engine fields for trains
-            else:
-                tb.visible = False
+            try:
+                if tb.display_scope == scope:
+                    tb.visible = True  # always display fields associated with state.scope
+                elif tb.display_scope is None:
+                    tb.visible = True  # always display fields with no scope specified
+                elif scope == CommandScope.TRAIN and tb.display_scope == CommandScope.ENGINE:
+                    tb.visible = True  # display engine fields for trains
+                else:
+                    tb.visible = False
+            except AttributeError as ae:
+                log.warning(f"Error accessing display scope of {tb}: {ae}")
         self.update_state_info()
         self.show_popup(self.info_overlay)
 
