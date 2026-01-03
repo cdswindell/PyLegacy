@@ -1681,7 +1681,7 @@ class EngineGui(Thread, Generic[S]):
             for i, state in enumerate(self._train_linked_queue):
                 queue.insert(i, state)
         if isinstance(queue, UniqueDeque):
-            num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
+            num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
             for state in queue:
                 name = f"{state.tmcc_id:0{num_chars}d}: {state.road_name}"
                 road_number = state.road_number
@@ -1948,7 +1948,7 @@ class EngineGui(Thread, Generic[S]):
         if self._scope_tmcc_ids[scope] == 0:
             force_entry_mode = True
         self.rebuild_options()
-        num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
+        num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
         self.scope_box.show()
         self.scope_keypad(force_entry_mode, clear_info)
@@ -2679,7 +2679,7 @@ class EngineGui(Thread, Generic[S]):
         # update the tmcc_id associated with current scope
         self._scope_tmcc_ids[self.scope] = tmcc_id
         update_button_state = True
-        num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
+        num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         if tmcc_id:
             state = self.active_state
             if state:
