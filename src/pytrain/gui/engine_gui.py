@@ -376,10 +376,12 @@ class EngineGui(Thread, Generic[S]):
         else:
             scope = tmcc_id = None
         if scope and tmcc_id:
-            print(f"**** Sensor Track update: {scope} {tmcc_id} (cur scope: {self.scope})")
             if scope != self.scope:
                 self.on_scope(scope)
-            self.update_component_info(tmcc_id)
+            if tmcc_id != self._scope_tmcc_ids[scope]:
+                self.update_component_info(tmcc_id)
+            elif self._in_entry_mode:
+                self.ops_mode()
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
