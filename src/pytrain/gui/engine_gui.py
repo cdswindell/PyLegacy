@@ -377,8 +377,9 @@ class EngineGui(Thread, Generic[S]):
             scope = tmcc_id = None
         if scope and tmcc_id:
             print(f"**** Sensor Track update: {scope} {tmcc_id} (cur scope: {self.scope})")
-            if self.make_recent(scope, tmcc_id):
-                self.ops_mode()
+            if scope != self.scope:
+                self.on_scope(scope)
+            self.update_component_info(tmcc_id)
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
@@ -1965,8 +1966,6 @@ class EngineGui(Thread, Generic[S]):
         self.close_popup()
         log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         self._scope_tmcc_ids[self.scope] = tmcc_id
-        if scope != self.scope:
-            self.on_scope(scope)
         if tmcc_id > 0:
             if state is None:
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
