@@ -216,9 +216,8 @@ class EngineGui(Thread, Generic[S]):
         self._message_queue = Queue()
         self.scope = scope if scope else CommandScope.ENGINE
         self.initial = tmcc_id
-        self._active_engine_state = None
+        self._active_engine_state = self._active_train_state = None
         self._actual_current_engine_id = 0
-        self._active_current_train_id = 0
         self.reset_on_keystroke = False
         self._current_popup = None
         self._sensor_track_watcher = None
@@ -1729,7 +1728,7 @@ class EngineGui(Thread, Generic[S]):
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
         self._active_engine_state = state
         if state:
-            if self._active_current_train_id and state in self._train_linked_queue:
+            if self._active_train_state and state in self._train_linked_queue:
                 # if we are operating on a train-linked car with the associated train
                 # active in the Train scope tab, indicate that on the gui
                 self._scope_buttons[CommandScope.TRAIN].bg = "lightgreen"
@@ -1795,6 +1794,7 @@ class EngineGui(Thread, Generic[S]):
                 self._setup_train_link_gui(self._train_linked_queue[0])
             else:
                 self._tear_down_link_gui()
+            self._active_train_state = state
         else:
             self._tear_down_link_gui()
         self.rebuild_options()
@@ -1802,17 +1802,17 @@ class EngineGui(Thread, Generic[S]):
 
     def _setup_train_link_gui(self, state: TrainState) -> None:
         # self._actual_current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
-        self._active_current_train_id = state.tmcc_id
+        self._active_train_state = state
         self._scope_tmcc_ids[CommandScope.ENGINE] = self._train_linked_queue[0].tmcc_id
 
     def _tear_down_link_gui(self) -> None:
         if self.scope != CommandScope.ENGINE:
             self._scope_buttons[CommandScope.ENGINE].bg = "white"
-        self._active_current_train_id = 0
         current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
         if current_engine_id and current_engine_id in {x.tmcc_id for x in self._train_linked_queue}:
             self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
         self._train_linked_queue.clear()
+        self._active_train_state = None
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
         rr_speed = state.rr_speed
@@ -2964,6 +2964,8 @@ class EngineGui(Thread, Generic[S]):
 
     def on_speed_command(self, speed_req: str | int) -> None:
         state = self.active_engine_state
+        if self._active_train_state and state in self._train_linked_queue:
+            state = self._active_train_state
         if isinstance(speed_req, str):
             speed = speed_req.split(", ")
             do_dialog = isinstance(speed, list) and len(speed) > 1
@@ -2976,7 +2978,7 @@ class EngineGui(Thread, Generic[S]):
                 # dispatch directly to on_engine_command for processing
                 if state:
                     state.is_ramping = False
-                self.on_engine_command(speed_req)
+                self.on_engine_command(speed_req, state=state, scope=CommandScope.TRAIN)
                 return
         else:
             do_dialog = False
@@ -3002,6 +3004,8 @@ class EngineGui(Thread, Generic[S]):
         delay: float = 0.0,
         do_ops: bool = False,
         do_entry: bool = False,
+        state: EngineState | TrainState = None,
+        scope: CommandScope = None,
     ) -> None:
         """
         Send commands to a TMCC or Legacy Engine or Train.
@@ -3012,13 +3016,13 @@ class EngineGui(Thread, Generic[S]):
 
         """
         repeat = repeat if repeat else self.repeat
-        scope = self.scope
-        tmcc_id = self._scope_tmcc_ids[scope]
+        scope = scope or self.scope
+        tmcc_id = state.address if state else self._scope_tmcc_ids[scope]
         if tmcc_id == 0:
             tmcc_id = int(self.tmcc_id_text.value)
             self._scope_tmcc_ids[scope] = tmcc_id
         if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and tmcc_id:
-            state = self._state_store.get_state(scope, tmcc_id, False)
+            state = state or self._state_store.get_state(scope, tmcc_id, False)
             if isinstance(targets, str):
                 for ix, target in enumerate(targets.split(",")):
                     target = target.strip()
