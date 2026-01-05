@@ -22,21 +22,21 @@ from ..protocol.constants import (
     ACELA_TYPE,
     CONTROL_TYPE,
     CRANE_TYPE,
-    CommandScope,
     DIESEL_TYPE,
     ELECTRIC_TYPE,
-    EngineType,
     FREIGHT_TYPE,
     LEGACY_CONTROL_TYPE,
     LOCO_CLASS,
     LOCO_TRACK_CRANE,
     LOCO_TYPE,
-    OfficialRRSpeeds,
     PASSENGER_TYPE,
     RPM_TYPE,
     SOUND_TYPE,
     STEAM_TYPE,
     THROTTLE_TYPE,
+    CommandScope,
+    EngineType,
+    OfficialRRSpeeds,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.tmcc1.tmcc1_constants import (
@@ -961,6 +961,13 @@ class TrainState(EngineState, LcsProxyState):
         if self.is_bpc2:
             return super(EngineState, self).__repr__()
         return super().__repr__()
+
+    def __contains__(self, item: object) -> bool:
+        if isinstance(item, EngineState) and item.scope == CommandScope.ENGINE and self.consist_components:
+            for comp in self.consist_components:
+                if comp.tmcc_id == item.tmcc_id:
+                    return True
+        return False
 
     def update(self, command: L | P) -> None:
         from ..pdi.bpc2_req import Bpc2Req

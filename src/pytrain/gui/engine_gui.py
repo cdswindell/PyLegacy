@@ -1741,12 +1741,19 @@ class EngineGui(Thread, Generic[S]):
             # and if the engine is not a passenger or freight sounds car
             if self._active_train_state and state in self._train_linked_queue:
                 throttle_state = self._active_train_state
+            elif self.scope == CommandScope.ENGINE and self._active_train_state and state in self._active_train_state:
+                # don't allow throttle of an engine in a consist to be modified directly
+                throttle_state = None
             elif state.has_throttle:
                 throttle_state = state
             else:
                 throttle_state = None
 
             if throttle_state:
+                if self.speed.disabled:
+                    self.speed.enable()
+                if self.throttle.disabled:
+                    self.throttle.enable()
                 self.speed.value = f"{throttle_state.speed:03d}"
                 self.update_rr_speed_buttons(throttle_state)
                 if self.throttle.tk.focus_displayof() != self.throttle.tk:
@@ -1764,6 +1771,11 @@ class EngineGui(Thread, Generic[S]):
                     self.throttle.tk.config(from_=195, to=0)
                 else:
                     self.throttle.tk.config(from_=31, to=0)
+            else:
+                if self.speed.enabled:
+                    self.speed.disable()
+                if self.throttle.enabled:
+                    self.throttle.disable()
 
             self.brake_level.value = f"{state.train_brake:02d}"
             if self.brake.tk.focus_displayof() != self.brake.tk:
