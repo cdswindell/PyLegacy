@@ -1669,7 +1669,7 @@ class EngineGui(Thread, Generic[S]):
 
     @property
     def active_state(self) -> S | None:
-        if self.scope and self._scope_tmcc_ids.get(self.scope):
+        if self.scope and self._scope_tmcc_ids.get(self.scope, None):
             return self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
         else:
             return None
@@ -1709,7 +1709,7 @@ class EngineGui(Thread, Generic[S]):
                 self._scope_watchers[self.scope] = None
             if tmcc_id:
                 # create a new state watcher to monitor state of scoped entity
-                state = self._state_store.get_state(self.scope, tmcc_id, False)
+                state = self.active_state
                 # state shouldn't be None, but good to check
                 if state:
                     action = self.on_state_changed_action(state)
@@ -1727,7 +1727,7 @@ class EngineGui(Thread, Generic[S]):
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
         self._active_engine_state = state
-        if state:
+        if isinstance(state, EngineState):
             if self._active_train_state and state in self._train_linked_queue:
                 # if we are operating on a train-linked car with the associated train
                 # active in the Train scope tab, indicate that on the gui
@@ -1738,18 +1738,32 @@ class EngineGui(Thread, Generic[S]):
                 self._tear_down_link_gui()
                 self._scope_buttons[CommandScope.TRAIN].bg = "white"
             # only set throttle/brake/momentum value if we are not in the middle of setting it
-            self.speed.value = f"{state.speed:03d}"
-            self.update_rr_speed_buttons(state)
-            if self.throttle.tk.focus_displayof() != self.throttle.tk:
-                self.throttle.value = state.target_speed
-            if state.speed != state.target_speed:
-                self.throttle.tk.config(
-                    troughcolor="#4C96C5",
-                )
+            # and if the engine is not a passenger or freight sounds car
+            if state.has_throttle:
+                throttle_state = state
+            elif self._active_train_state and state in self._train_linked_queue:
+                throttle_state = self._active_train_state
             else:
-                self.throttle.tk.config(
-                    troughcolor="#003366",  # deep Lionel blue for the track,
-                )
+                throttle_state = None
+
+            if throttle_state:
+                self.speed.value = f"{throttle_state.speed:03d}"
+                self.update_rr_speed_buttons(throttle_state)
+                if self.throttle.tk.focus_displayof() != self.throttle.tk:
+                    self.throttle.value = throttle_state.target_speed
+                if throttle_state.speed != throttle_state.target_speed:
+                    self.throttle.tk.config(
+                        troughcolor="#4C96C5",
+                    )
+                else:
+                    self.throttle.tk.config(
+                        troughcolor="#003366",  # deep Lionel blue for the track,
+                    )
+
+                if throttle_state and throttle_state.is_legacy:
+                    self.throttle.tk.config(from_=195, to=0)
+                else:
+                    self.throttle.tk.config(from_=31, to=0)
 
             self.brake_level.value = f"{state.train_brake:02d}"
             if self.brake.tk.focus_displayof() != self.brake.tk:
@@ -1761,7 +1775,6 @@ class EngineGui(Thread, Generic[S]):
 
             if state.is_legacy:
                 self.momentum.tk.config(resolution=1, showvalue=True)
-
             else:
                 self.momentum.tk.config(resolution=4, showvalue=False)
 
@@ -1770,10 +1783,6 @@ class EngineGui(Thread, Generic[S]):
             _, btn = self.engine_ops_cells[("REVERSE_DIRECTION", "e")]
             btn.bg = self._active_bg if state.is_reverse else self._inactive_bg
 
-        if state and state.is_legacy:
-            self.throttle.tk.config(from_=195, to=0)
-        else:
-            self.throttle.tk.config(from_=31, to=0)
         # update info detail popup, if its visible
         if self.info_overlay and self.info_overlay.visible:
             self.update_state_info()
