@@ -2648,8 +2648,13 @@ class EngineGui(Thread, Generic[S]):
         for cell in self.ops_cells:
             if cell.visible:
                 cell.hide()
-        self.reset_btn.disable()
         if self.is_engine_or_train:
+            if self.controller_box.visible:
+                self.controller_box.hide()
+            if self.keypad_box.visible:
+                self.keypad_box.hide()
+            self.reset_btn.enable()
+
             if not isinstance(state, EngineState):
                 self._active_engine_state = state = self._state_store.get_state(
                     self.scope, self._scope_tmcc_ids[self.scope], False
@@ -2658,51 +2663,54 @@ class EngineGui(Thread, Generic[S]):
                 self.on_new_train(state, ops_mode_setup=True)
             else:
                 self.on_new_engine(state, ops_mode_setup=True)
-            if self.keypad_box.visible:
-                self.keypad_box.hide()
-            self.reset_btn.enable()
-            # assume it's a diesel
-            self.show_diesel_keys()
+
             if state:  # Display motive-appropriate control keys
-                if state.is_steam:
+                if state.is_diesel:
+                    self.show_diesel_keys()
+                elif state.is_steam:
                     self.show_steam_keys()
                 elif state.is_passenger:
                     self.show_passenger_keys()
                 elif state.is_freight:
                     self.show_freight_keys()
-            if not self.controller_box.visible:
-                self.controller_box.show()
+                else:
+                    self.show_diesel_keys()
             if not self.controller_keypad_box.visible:
                 self.controller_keypad_box.show()
-        elif self.scope == CommandScope.ROUTE:
-            self.on_new_route()
-            self.fire_route_cell.show()
-            if not self.keypad_box.visible:
-                self.keypad_box.show()
-        elif self.scope == CommandScope.SWITCH:
-            self.on_new_switch()
-            self.switch_thru_cell.show()
-            self.switch_out_cell.show()
-            if not self.keypad_box.visible:
-                self.keypad_box.show()
-        elif self.is_accessory_or_bpc2:
-            if state is None:
-                state = self.active_state
-            self.on_new_accessory(state)
-            show_keypad = True
-            if state:
-                if isinstance(state, AccessoryState) and state.is_sensor_track:
-                    self.sensor_track_box.show()
-                    self.keypad_box.hide()
-                    show_keypad = False
-                elif state.is_bpc2 or (isinstance(state, AccessoryState) and state.is_asc2):
-                    self.ac_off_cell.show()
-                    self.ac_status_cell.show()
-                    self.ac_on_cell.show()
-                    if isinstance(state, AccessoryState) and state.is_asc2:
-                        self.ac_aux1_cell.show()
-            if show_keypad and not self.keypad_box.visible:
-                self.keypad_box.show()
+            if not self.controller_box.visible:
+                self.controller_box.show()
+        else:
+            if self.reset_btn.enabled:
+                self.reset_btn.disable()
+            if self.scope == CommandScope.ROUTE:
+                self.on_new_route()
+                self.fire_route_cell.show()
+                if not self.keypad_box.visible:
+                    self.keypad_box.show()
+            elif self.scope == CommandScope.SWITCH:
+                self.on_new_switch()
+                self.switch_thru_cell.show()
+                self.switch_out_cell.show()
+                if not self.keypad_box.visible:
+                    self.keypad_box.show()
+            elif self.is_accessory_or_bpc2:
+                if state is None:
+                    state = self.active_state
+                self.on_new_accessory(state)
+                show_keypad = True
+                if state:
+                    if isinstance(state, AccessoryState) and state.is_sensor_track:
+                        self.sensor_track_box.show()
+                        self.keypad_box.hide()
+                        show_keypad = False
+                    elif state.is_bpc2 or (isinstance(state, AccessoryState) and state.is_asc2):
+                        self.ac_off_cell.show()
+                        self.ac_status_cell.show()
+                        self.ac_on_cell.show()
+                        if isinstance(state, AccessoryState) and state.is_asc2:
+                            self.ac_aux1_cell.show()
+                if show_keypad and not self.keypad_box.visible:
+                    self.keypad_box.show()
         if update_info:
             self.update_component_info(in_ops_mode=True)
 
