@@ -886,13 +886,15 @@ class EngineGui(Thread, Generic[S]):
             borderwidth=3,
             relief="raised",
             highlightthickness=1,
-            # highlightbackground="black",
-            padx=20,
-            pady=20,
-            # activebackground="#e0e0e0",
-            # background="#f7f7f7",
+            highlightbackground="black",
+            padx=6,
+            pady=4,
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
         )
+        btn.tk.pack_configure(padx=20, pady=20)
         overlay.hide()
+
         return overlay
 
     def build_tower_dialogs_body(self, body: Box):
