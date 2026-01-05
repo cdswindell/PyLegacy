@@ -1222,73 +1222,43 @@ class EngineGui(Thread, Generic[S]):
     def build_info_overlay(self, body: Box):
         # Container for the state info, using a 2-column grid
         info_box = Box(body, layout="grid", border=1)
-
-        # Make both columns share the same width and stretch equally
-        info_box.tk.grid_columnconfigure(0, weight=1, uniform="stateinfo")
-        info_box.tk.grid_columnconfigure(1, weight=1, uniform="stateinfo")
-        info_box.tk.grid_columnconfigure(2, weight=1, uniform="stateinfo")
-        info_box.tk.grid_columnconfigure(3, weight=1, uniform="stateinfo")
+        for i in range(4):
+            info_box.tk.grid_columnconfigure(i, weight=1, uniform="stateinfo")
 
         aw, _ = self.calc_image_box_size()
         info_box.tk.config(width=aw)
 
-        # ------------------------------------------------------------------
-        # Row 0 – two independent columns: "Road Number" | "Type"
-        # ------------------------------------------------------------------
+        # Map field keys to their layout: [title, grid, scope]
+        layouts = {
+            "number": ["Road Number", [0, 0], None],
+            "type": ["Type", [1, 0, 3, 1], None],
+            "name": ["Road Name", [0, 1, 4, 1], None],
+            "control": ["Control", [0, 2, 2, 1], CommandScope.ENGINE],
+            "sound": ["Sound", [2, 2, 2, 1], CommandScope.ENGINE],
+            "speed": ["Speed", [0, 3], CommandScope.ENGINE],
+            "target": ["Target Speed", [1, 3], CommandScope.ENGINE],
+            "limit": ["Speed Limit", [2, 3], CommandScope.ENGINE],
+            "max": ["Max Speed", [3, 3], CommandScope.ENGINE],
+            "dir": ["Direction", [0, 4], CommandScope.ENGINE],
+            "smoke": ["Smoke Level", [1, 4], CommandScope.ENGINE],
+            "mom": ["Momentum", [2, 4], CommandScope.ENGINE],
+            "brake": ["Train Brake", [3, 4], CommandScope.ENGINE],
+            "labor": ["Labor", [0, 5], CommandScope.ENGINE],
+            "rpm": ["RPM", [1, 5], CommandScope.ENGINE],
+            "fuel": ["Fuel Level", [2, 5], CommandScope.ENGINE],
+            "water": ["Water Level", [3, 5], CommandScope.ENGINE],
+            "lead": ["Lead Engine ID", [0, 6], CommandScope.TRAIN],
+            "engines": ["Engines", [1, 6], CommandScope.TRAIN],
+            "cars": ["Cars", [2, 6], CommandScope.TRAIN],
+            "accessories": ["Accessories", [3, 6], CommandScope.TRAIN],
+            "mode": ["Mode", [0, 2], CommandScope.ACC],
+            "parent": ["Parent", [1, 2], CommandScope.ACC],
+            "port": ["Port", [2, 2], CommandScope.ACC],
+            "firmware": ["Firmware", [3, 2], CommandScope.ACC],
+        }
 
-        self._info_details["number"] = self.make_info_field(info_box, "Road Number", grid=[0, 0])
-        self._info_details["type"] = self.make_info_field(info_box, "Type", grid=[1, 0, 3, 1])
-
-        # ------------------------------------------------------------------
-        # Row 1 – one control spanning both columns: "Road Name"
-        # ------------------------------------------------------------------
-        self._info_details["name"] = self.make_info_field(info_box, "Road Name", grid=[0, 1, 4, 1])
-
-        # ------------------------------------------------------------------
-        # Row 2 – two independent columns: "Control Type" | "Sound Type"
-        # ------------------------------------------------------------------
-        self._info_details["control"] = self.make_engine_field(info_box, "Control", grid=[0, 2, 2, 1])
-        self._info_details["sound"] = self.make_engine_field(info_box, "Sound", grid=[2, 2, 2, 1])
-
-        # ------------------------------------------------------------------
-        # Row 3: Speed information
-        # ------------------------------------------------------------------
-        self._info_details["speed"] = self.make_engine_field(info_box, "Speed", grid=[0, 3])
-        self._info_details["target"] = self.make_engine_field(info_box, "Target Speed", grid=[1, 3])
-        self._info_details["limit"] = self.make_engine_field(info_box, "Speed Limit", grid=[2, 3])
-        self._info_details["max"] = self.make_engine_field(info_box, "Max Speed", grid=[3, 3])
-
-        # ------------------------------------------------------------------
-        # Row 4: State information
-        # ------------------------------------------------------------------
-        self._info_details["dir"] = self.make_engine_field(info_box, "Direction", grid=[0, 4])
-        self._info_details["smoke"] = self.make_engine_field(info_box, "Smoke Level", grid=[1, 4])
-        self._info_details["mom"] = self.make_engine_field(info_box, "Momentum", grid=[2, 4])
-        self._info_details["brake"] = self.make_engine_field(info_box, "Train Brake", grid=[3, 4])
-
-        # ------------------------------------------------------------------
-        # Row 5: State information
-        # ------------------------------------------------------------------
-        self._info_details["labor"] = self.make_engine_field(info_box, "Labor", grid=[0, 5])
-        self._info_details["rpm"] = self.make_engine_field(info_box, "RPM", grid=[1, 5])
-        self._info_details["fuel"] = self.make_engine_field(info_box, "Fuel Level", grid=[2, 5])
-        self._info_details["water"] = self.make_engine_field(info_box, "Water Level", grid=[3, 5])
-
-        # ------------------------------------------------------------------
-        # Row 6: Train information
-        # ------------------------------------------------------------------
-        self._info_details["lead"] = self.make_train_field(info_box, "Lead Engine ID", grid=[0, 6])
-        self._info_details["engines"] = self.make_train_field(info_box, "Engines", grid=[1, 6])
-        self._info_details["cars"] = self.make_train_field(info_box, "Cars", grid=[2, 6])
-        self._info_details["accessories"] = self.make_train_field(info_box, "Accessories", grid=[3, 6])
-
-        # ------------------------------------------------------------------
-        # Row 2 – Accessories
-        # ------------------------------------------------------------------
-        self._info_details["mode"] = self.make_acc_field(info_box, "Mode", grid=[0, 2])
-        self._info_details["parent"] = self.make_acc_field(info_box, "Parent", grid=[1, 2])
-        self._info_details["port"] = self.make_acc_field(info_box, "Port", grid=[2, 2])
-        self._info_details["firmware"] = self.make_acc_field(info_box, "Firmware", grid=[3, 2])
+        for key, config in layouts.items():
+            self._info_details[key] = self.make_info_field(info_box, config[0], config[1], scope=config[2])
 
     def update_state_info(self) -> None:
         state = self.active_state
@@ -1337,15 +1307,6 @@ class EngineGui(Thread, Generic[S]):
                 self._info_details["parent"][1].value = state.parent_id
                 self._info_details["port"][1].value = state.port
                 self._info_details["firmware"][1].value = state.firmware
-
-    def make_engine_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:
-        return self.make_info_field(parent, title, grid, max_cols, scope=CommandScope.ENGINE)
-
-    def make_acc_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:
-        return self.make_info_field(parent, title, grid, max_cols, scope=CommandScope.ACC)
-
-    def make_train_field(self, parent: Box, title: str, grid: list[int], max_cols: int = 4) -> tuple[TitleBox, Text]:
-        return self.make_info_field(parent, title, grid, max_cols, scope=CommandScope.TRAIN)
 
     # noinspection PyTypeChecker
     def make_info_field(
@@ -1477,8 +1438,6 @@ class EngineGui(Thread, Generic[S]):
             if self._current_popup:
                 self._current_popup.hide()
 
-                # self._current_popup.tk.place_forget()
-                # self._current_popup = None
             if button:
                 button.restore_color_state()
             elif op:
