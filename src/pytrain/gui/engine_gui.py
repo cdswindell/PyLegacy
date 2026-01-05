@@ -105,6 +105,7 @@ from .engine_gui_conf import (
     send_lcs_on_command,
 )
 from .hold_button import HoldButton
+from .state_info_overlay import StateInfoOverlay
 from .swipe_detector import SwipeDetector
 
 log = logging.getLogger(__name__)
@@ -220,6 +221,7 @@ class EngineGui(Thread, Generic[S]):
         self._actual_current_engine_id = 0
         self.reset_on_keystroke = False
         self._current_popup = None
+        self._state_info = None  # Init later in run()
         self._sensor_track_watcher = None
         self._sensor_track_state = None
 
@@ -1219,185 +1221,27 @@ class EngineGui(Thread, Generic[S]):
                 if dialog:
                     nb.on_hold = (self.on_speed_command, [f"{dialog}, {op[0]}"])
 
-    def build_info_overlay(self, body: Box):
-        # Container for the state info, using a 2-column grid
-        info_box = Box(body, layout="grid", border=1)
-        for i in range(4):
-            info_box.tk.grid_columnconfigure(i, weight=1, uniform="stateinfo")
-
-        aw, _ = self.calc_image_box_size()
-        info_box.tk.config(width=aw)
-
-        # Map field keys to their layout: [title, grid, scope]
-        layouts = {
-            "number": ["Road Number", [0, 0], None],
-            "type": ["Type", [1, 0, 3, 1], None],
-            "name": ["Road Name", [0, 1, 4, 1], None],
-            "control": ["Control", [0, 2, 2, 1], CommandScope.ENGINE],
-            "sound": ["Sound", [2, 2, 2, 1], CommandScope.ENGINE],
-            "speed": ["Speed", [0, 3], CommandScope.ENGINE],
-            "target": ["Target Speed", [1, 3], CommandScope.ENGINE],
-            "limit": ["Speed Limit", [2, 3], CommandScope.ENGINE],
-            "max": ["Max Speed", [3, 3], CommandScope.ENGINE],
-            "dir": ["Direction", [0, 4], CommandScope.ENGINE],
-            "smoke": ["Smoke Level", [1, 4], CommandScope.ENGINE],
-            "mom": ["Momentum", [2, 4], CommandScope.ENGINE],
-            "brake": ["Train Brake", [3, 4], CommandScope.ENGINE],
-            "labor": ["Labor", [0, 5], CommandScope.ENGINE],
-            "rpm": ["RPM", [1, 5], CommandScope.ENGINE],
-            "fuel": ["Fuel Level", [2, 5], CommandScope.ENGINE],
-            "water": ["Water Level", [3, 5], CommandScope.ENGINE],
-            "lead": ["Lead Engine ID", [0, 6], CommandScope.TRAIN],
-            "engines": ["Engines", [1, 6], CommandScope.TRAIN],
-            "cars": ["Cars", [2, 6], CommandScope.TRAIN],
-            "accessories": ["Accessories", [3, 6], CommandScope.TRAIN],
-            "mode": ["Mode", [0, 2], CommandScope.ACC],
-            "parent": ["Parent", [1, 2], CommandScope.ACC],
-            "port": ["Port", [2, 2], CommandScope.ACC],
-            "firmware": ["Firmware", [3, 2], CommandScope.ACC],
-        }
-
-        for key, config in layouts.items():
-            self._info_details[key] = self.make_info_field(info_box, config[0], config[1], scope=config[2])
-
     def update_state_info(self) -> None:
-        state = self.active_state
-        if state:
-            p_info = None
-            if "number" in self._info_details:
-                self._info_details["number"][1].value = state.road_number
-            if "name" in self._info_details:
-                self._info_details["name"][1].value = state.road_name
-
-            log.debug(f"Updating details: {state.scope} {state.address}")
-            if self.is_engine_or_train:
-                if isinstance(state, EngineState):
-                    p_info = self._prod_info_cache.get(state.tmcc_id, None)
-                elif isinstance(state, TrainState):
-                    p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
-
-                etype = state.engine_type_label
-                if isinstance(p_info, ProdInfo) and p_info.engine_type:
-                    etype = f"{p_info.engine_type} {etype}"
-
-                fields = {
-                    "type": etype,
-                    "control": state.control_type_text,
-                    "sound": state.sound_type_label,
-                    "dir": "Fwd" if state.is_forward else "Rev" if state.is_reverse else "",
-                    "smoke": state.smoke_text,
-                    "mom": state.momentum_text,
-                    "brake": state.train_brake_label,
-                    "labor": state.labor_label,
-                    "rpm": state.rpm_label,
-                    "fuel": f"{state.fuel_level_pct:>3d} %",
-                    "water": f"{state.water_level_pct:>3d} %",
-                }
-
-                # Batch update engine fields
-                for key, val in fields.items():
-                    if key in self._info_details:
-                        self._info_details[key][1].value = val
-
-                # handle speeds
-                s, ts, sl, ms = state.speeds
-                speed_fields = {"speed": f"{s:>3d}", "target": f"{ts:>3d}", "max": f"{ms:>3d}"}
-                for key, val in speed_fields.items():
-                    if key in self._info_details:
-                        self._info_details[key][1].value = val
-
-                if "limit" in self._info_details:
-                    self._info_details["limit"][1].value = f"{sl:>3d}" if sl is not None else ""
-
-                # train-specific
-                if isinstance(state, TrainState):
-                    train_fields = {
-                        "engines": f"{state.num_engines}",
-                        "lead": f"{state.head_tmcc_id:04d}",
-                        "cars": f"{state.num_train_linked}",
-                        "accessories": f"{state.num_accessories}",
-                    }
-                    for key, val in train_fields.items():
-                        if key in self._info_details:
-                            self._info_details[key][1].value = val
-            elif isinstance(state, LcsProxyState):
-                proxy_fields = {
-                    "type": state.accessory_type,
-                    "mode": state.mode,
-                    "parent": state.parent_id,
-                    "port": state.port,
-                    "firmware": state.firmware,
-                }
-                for key, val in proxy_fields.items():
-                    if key in self._info_details:
-                        self._info_details[key][1].value = val
-
-    def make_info_field(
-        self,
-        parent: Box,
-        title: str,
-        grid: list[int],
-        max_cols: int = 4,
-        scope: CommandScope = None,
-    ) -> tuple[TitleBox, Text]:
-        # grid can be [col, row] or [col, row, colspan, rowspan]
-        aw, _ = self.calc_image_box_size()
-        if len(grid) >= 4:
-            col, row, colspan, rowspan = grid
-            aw = colspan * int(aw / max_cols)
-        else:
-            col, row = grid
-            colspan, rowspan = 1, 1
-            aw = int(aw / max_cols)
-
-        # TitleBox participates in the parent's grid
-        # noinspection PyTypeChecker
-        tb = TitleBox(
-            parent,
-            text=title,
-            layout="grid",  # use grid INSIDE the TitleBox
-            grid=grid,
-            width="fill",
-            align="left",
-        )
-        tb.text_size = self.s_10
-        tb.display_scope = scope
-
-        # Now tell Tk this one actually spans columns/rows
-        tb.tk.grid_configure(column=col, row=row, columnspan=colspan, rowspan=rowspan, sticky="ew")
-        tb.tk.config(width=aw)
-        tb.tk.pack_propagate(False)
-
-        # Let the internal grid column stretch so the TextBox can fill
-        tb.tk.grid_columnconfigure(0, weight=1)
-
-        # Value field inside the TitleBox
-        tf = Text(tb, grid=[0, 0], width="fill", height=1)
-        tf.text_size = self.s_18
-        tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)  # borderless
-
-        return tb, tf
+        with self._cv:
+            if self._state_info is None:
+                self._state_info = StateInfoOverlay(self)
+            self._state_info.update(self.active_state)
 
     def on_info(self) -> None:
-        if self.info_overlay is None:
-            self.info_overlay = self.create_popup(self.version, self.build_info_overlay)
+        with self._cv:
+            if self._state_info is None:
+                self._state_info = StateInfoOverlay(self)
+            if self.info_overlay is None:
+                self.info_overlay = self.create_popup(self.version, self._state_info.build)
+
         # show/hide fields in the overlay
         state = self.active_state
         if state is None:
             return  # this should never be the case...
+
         scope = CommandScope.ACC if isinstance(state, LcsProxyState) and state.is_lcs else state.scope
-        for tb, _ in self._info_details.values():
-            try:
-                if tb.display_scope == scope:
-                    tb.visible = True  # always display fields associated with state.scope
-                elif tb.display_scope is None:
-                    tb.visible = True  # always display fields with no scope specified
-                elif scope == CommandScope.TRAIN and tb.display_scope == CommandScope.ENGINE:
-                    tb.visible = True  # display engine fields for trains
-                else:
-                    tb.visible = False
-            except AttributeError as ae:
-                log.warning(f"Error accessing display scope of {tb}: {ae}")
+        is_lcs = isinstance(state, LcsProxyState) and state.is_lcs
+        self._state_info.refresh_visibility(scope, is_lcs_proxy=is_lcs)
         self.update_state_info()
         self.show_popup(self.info_overlay)
 
