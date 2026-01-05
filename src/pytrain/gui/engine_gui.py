@@ -1476,23 +1476,22 @@ class EngineGui(Thread, Generic[S]):
         with self._cv:
             if self._current_popup:
                 self._current_popup.hide()
-                self._current_popup.tk.place_forget()
-                self._current_popup = None
+
+                # self._current_popup.tk.place_forget()
+                # self._current_popup = None
             if button:
                 button.restore_color_state()
             elif op:
                 key = (op, modifier) if modifier else op
                 _, btn = self.engine_ops_cells[key]
                 btn.restore_color_state()
-            if self.controller_box.visible:
-                self.controller_box.hide()
-                self._on_close_show = self.controller_box
-            if self.keypad_box.visible:
-                self.keypad_box.hide()
-                self._on_close_show = self.keypad_box
-            if self.sensor_track_box.visible:
-                self.sensor_track_box.hide()
-                self._on_close_show = self.sensor_track_box
+
+            # Automatically hide active UI elements and remember what to show later
+            for box in [self.controller_box, self.keypad_box, self.sensor_track_box]:
+                if box and box.visible:
+                    box.hide()
+                    self._on_close_show = box
+
             self._current_popup = overlay
             x, y = self.popup_position
             overlay.tk.place(x=x, y=y)
