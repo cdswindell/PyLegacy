@@ -1750,9 +1750,9 @@ class EngineGui(Thread, Generic[S]):
                 throttle_state = None
 
             if throttle_state:
-                if self.speed.disabled:
+                if not self.speed.enabled:
                     self.speed.enable()
-                if self.throttle.disabled:
+                if not self.throttle.enabled:
                     self.throttle.enable()
                 self.speed.value = f"{throttle_state.speed:03d}"
                 self.update_rr_speed_buttons(throttle_state)
