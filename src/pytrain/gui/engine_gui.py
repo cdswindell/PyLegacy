@@ -1788,13 +1788,14 @@ class EngineGui(Thread, Generic[S]):
             self.update_state_info()
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
-        if state:
+        if state and state != self._active_train_state:
             # set up for Train; if there are train-linked cars available, remember them
             # and set "Eng" scope key color accordingly. Also, add train-linked cars to
             # list of recent engines
             if state.num_train_linked > 0:
                 self._train_linked_queue.clear()
-                self._scope_buttons[CommandScope.ENGINE].bg = "lightgreen"
+                if self.scope == CommandScope.TRAIN:
+                    self._scope_buttons[CommandScope.ENGINE].bg = "lightgreen"
                 cars = state.link_tmcc_ids
                 for tmcc_id in cars:
                     car_state = self._state_store.get_state(CommandScope.ENGINE, tmcc_id, False)
@@ -1804,7 +1805,7 @@ class EngineGui(Thread, Generic[S]):
             else:
                 self._tear_down_link_gui()
             self._active_train_state = state
-        else:
+        elif state is None:
             self._tear_down_link_gui()
         self.rebuild_options()
         self.on_new_engine(state, ops_mode_setup=ops_mode_setup, is_engine=False)
