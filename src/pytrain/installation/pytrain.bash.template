@@ -1,12 +1,11 @@
 #!/bin/bash
 #
-# PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+# PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-# Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+# Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-# SPDX-License-Identifier: LPGL
-#
-# Use the PyTrain make_service script to configure this file.
+# SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+# SPDX-License-Identifier: LGPL-3.0-only
 #
 PYTRAIN_HOME="___PYTRAINHOME___"
 BUTTONS_FILE="___BUTTONS___"
@@ -43,4 +42,3 @@ source ___ACTIVATE___; export PYTHONPATH=.
 
 # run the program with appropriate arguments
 ___PYTRAIN___  -headless___CLIENT______LIONELBASE______LCSSER2______ECHO___ $START $BUTTONS_FILE
-

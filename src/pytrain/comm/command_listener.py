@@ -1,11 +1,12 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
-#
+
 
 from __future__ import annotations
 
@@ -17,7 +18,6 @@ from threading import Condition, RLock, Thread
 from time import sleep
 from typing import Generic, List, Protocol, Tuple, TypeVar, cast, runtime_checkable
 
-from .comm_buffer import CommBuffer
 from ..db.component_state import ComponentState
 from ..pdi.amc2_req import Amc2Req
 from ..pdi.base_req import BaseReq
@@ -40,6 +40,7 @@ from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1AuxCommandEnum, TMCC1SyncCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, TMCC2EngineCommandEnum
 from ..utils.ip_tools import get_ip_address
+from .comm_buffer import CommBuffer
 
 log = logging.getLogger(__name__)
 

@@ -1,10 +1,10 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
-#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 
 from __future__ import annotations
@@ -12,10 +12,10 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
-from .component_state import SCOPE_TO_STATE_MAP, LcsState, P, log
 from ..pdi.constants import IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.constants import CommandScope, Direction
+from .component_state import SCOPE_TO_STATE_MAP, LcsState, P, log
 
 
 class IrdaState(LcsState):
