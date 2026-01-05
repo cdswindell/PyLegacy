@@ -11,7 +11,7 @@
 
 import logging
 
-from guizero import Box, TitleBox, Text
+from guizero import Box, Text, TitleBox
 
 from ..db.component_state import LcsProxyState
 from ..db.engine_state import EngineState, TrainState
