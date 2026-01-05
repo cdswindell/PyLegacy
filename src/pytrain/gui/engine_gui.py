@@ -806,18 +806,6 @@ class EngineGui(Thread, Generic[S]):
         for loco in ["d", "s"]:
             get_btn(("BLOW_HORN_ONE", loco)).on_hold = self.show_horn_control
 
-        # 5. Repeating commands
-        for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
-            get_btn(("BLOW_HORN_ONE", loco))
-            _, btn = self.engine_ops_cells[(command, "e")]
-            btn.on_repeat = btn.on_press
-            btn.repeat_interval = 0.3
-
-        for command in ["WATER_INJECTOR", "LET_OFF_LONG"]:
-            btn = get_btn((command, "s"))
-            btn.on_repeat = btn.on_press
-            btn.repeat_interval = 0.2
-
     def make_slider(
         self,
         sliders: Box,
