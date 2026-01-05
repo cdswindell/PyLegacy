@@ -1805,9 +1805,13 @@ class EngineGui(Thread, Generic[S]):
             else:
                 self._tear_down_link_gui()
             self._active_train_state = state
+            self.rebuild_options()
         elif state is None:
             self._tear_down_link_gui()
-        self.rebuild_options()
+        if self.scope == CommandScope.TRAIN and state == self._active_train_state and self._train_linked_queue:
+            self._scope_buttons[CommandScope.ENGINE].bg = "lightgreen"
+        else:
+            self._scope_buttons[CommandScope.ENGINE].bg = "white"
         self.on_new_engine(state, ops_mode_setup=ops_mode_setup, is_engine=False)
 
     def _setup_train_link_gui(self, state: TrainState) -> None:
@@ -1823,6 +1827,7 @@ class EngineGui(Thread, Generic[S]):
             self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
         self._train_linked_queue.clear()
         self._active_train_state = None
+        self.rebuild_options()
 
     def update_rr_speed_buttons(self, state: EngineState) -> None:
         rr_speed = state.rr_speed
