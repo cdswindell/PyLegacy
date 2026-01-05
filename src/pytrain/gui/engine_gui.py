@@ -1264,51 +1264,74 @@ class EngineGui(Thread, Generic[S]):
         state = self.active_state
         if state:
             p_info = None
-            self._info_details["number"][1].value = state.road_number
-            self._info_details["name"][1].value = state.road_name
+            if "number" in self._info_details:
+                self._info_details["number"][1].value = state.road_number
+            if "name" in self._info_details:
+                self._info_details["name"][1].value = state.road_name
+
             log.debug(f"Updating details: {state.scope} {state.address}")
             if self.is_engine_or_train:
                 if isinstance(state, EngineState):
                     p_info = self._prod_info_cache.get(state.tmcc_id, None)
                 elif isinstance(state, TrainState):
                     p_info = self._prod_info_cache.get(state.head_tmcc_id, None)
+
                 etype = state.engine_type_label
-                etype = (
-                    f"{p_info.engine_type} {etype}" if isinstance(p_info, ProdInfo) and p_info.engine_type else etype
-                )
-                self._info_details["type"][1].value = etype
-                self._info_details["control"][1].value = state.control_type_text
-                self._info_details["sound"][1].value = state.sound_type_label
-                self._info_details["dir"][1].value = "Fwd" if state.is_forward else "Rev" if state.is_reverse else ""
-                self._info_details["smoke"][1].value = state.smoke_text
-                self._info_details["mom"][1].value = state.momentum_text
-                self._info_details["brake"][1].value = state.train_brake_label
-                self._info_details["labor"][1].value = state.labor_label
-                self._info_details["rpm"][1].value = state.rpm_label
-                self._info_details["fuel"][1].value = f"{state.fuel_level_pct:>3d} %"
-                self._info_details["water"][1].value = f"{state.water_level_pct:>3d} %"
+                if isinstance(p_info, ProdInfo) and p_info.engine_type:
+                    etype = f"{p_info.engine_type} {etype}"
+
+                fields = {
+                    "type": etype,
+                    "control": state.control_type_text,
+                    "sound": state.sound_type_label,
+                    "dir": "Fwd" if state.is_forward else "Rev" if state.is_reverse else "",
+                    "smoke": state.smoke_text,
+                    "mom": state.momentum_text,
+                    "brake": state.train_brake_label,
+                    "labor": state.labor_label,
+                    "rpm": state.rpm_label,
+                    "fuel": f"{state.fuel_level_pct:>3d} %",
+                    "water": f"{state.water_level_pct:>3d} %",
+                }
+
+                # Batch update engine fields
+                for key, val in fields.items():
+                    if key in self._info_details:
+                        self._info_details[key][1].value = val
 
                 # handle speeds
                 s, ts, sl, ms = state.speeds
-                self._info_details["speed"][1].value = f"{s:>3d}"
-                self._info_details["target"][1].value = f"{ts:>3d}"
-                self._info_details["limit"][1].value = f"{sl:>3d}" if sl is not None else ""
-                self._info_details["max"][1].value = f"{ms:>3d}"
+                speed_fields = {"speed": f"{s:>3d}", "target": f"{ts:>3d}", "max": f"{ms:>3d}"}
+                for key, val in speed_fields.items():
+                    if key in self._info_details:
+                        self._info_details[key][1].value = val
+
+                if "limit" in self._info_details:
+                    self._info_details["limit"][1].value = f"{sl:>3d}" if sl is not None else ""
 
                 # train-specific
                 if isinstance(state, TrainState):
-                    self._info_details["engines"][1].value = f"{state.num_engines}"
-                    self._info_details["lead"][1].value = f"{state.head_tmcc_id:04d}"
-                    self._info_details["cars"][1].value = f"{state.num_train_linked}"
-                    self._info_details["accessories"][1].value = f"{state.num_accessories}"
+                    train_fields = {
+                        "engines": f"{state.num_engines}",
+                        "lead": f"{state.head_tmcc_id:04d}",
+                        "cars": f"{state.num_train_linked}",
+                        "accessories": f"{state.num_accessories}",
+                    }
+                    for key, val in train_fields.items():
+                        if key in self._info_details:
+                            self._info_details[key][1].value = val
             elif isinstance(state, LcsProxyState):
-                self._info_details["type"][1].value = state.accessory_type
-                self._info_details["mode"][1].value = state.mode
-                self._info_details["parent"][1].value = state.parent_id
-                self._info_details["port"][1].value = state.port
-                self._info_details["firmware"][1].value = state.firmware
+                proxy_fields = {
+                    "type": state.accessory_type,
+                    "mode": state.mode,
+                    "parent": state.parent_id,
+                    "port": state.port,
+                    "firmware": state.firmware,
+                }
+                for key, val in proxy_fields.items():
+                    if key in self._info_details:
+                        self._info_details[key][1].value = val
 
-    # noinspection PyTypeChecker
     def make_info_field(
         self,
         parent: Box,
@@ -1328,6 +1351,7 @@ class EngineGui(Thread, Generic[S]):
             aw = int(aw / max_cols)
 
         # TitleBox participates in the parent's grid
+        # noinspection PyTypeChecker
         tb = TitleBox(
             parent,
             text=title,
