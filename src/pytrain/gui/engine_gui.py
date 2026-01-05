@@ -573,44 +573,7 @@ class EngineGui(Thread, Generic[S]):
             row += 1
 
         # Postprocess some buttons
-        _, btn = self.engine_ops_cells[(MOM_TB, "e")]
-        btn.text_size = self.s_12
-        btn.update_command(self.toggle_momentum_train_brake, [btn])
-
-        _, btn = self.engine_ops_cells[("AUX1_OPTION_ONE", "e")]
-        btn.on_repeat = btn.on_press
-
-        _, btn = self.engine_ops_cells[("AUX2_OPTION_ONE", "e")]
-        btn.on_hold = self.on_lights
-
-        _, btn = self.engine_ops_cells[("TOWER_CHATTER", "e")]
-        btn.on_hold = self.on_tower_dialog
-
-        _, btn = self.engine_ops_cells[("ENGINEER_CHATTER", "e")]
-        btn.on_hold = self.on_crew_dialog
-
-        _, btn = self.engine_ops_cells[("ENGINEER_CHATTER", "p")]
-        btn.on_hold = self.on_conductor_actions
-
-        _, btn = self.engine_ops_cells[("TOWER_CHATTER", "p")]
-        btn.on_hold = self.on_station_dialogs
-
-        _, btn = self.engine_ops_cells[("STEWARD_CHATTER", "p")]
-        btn.on_hold = self.on_steward_dialogs
-
-        for loco_type in ["d", "s"]:
-            _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
-            btn.on_hold = self.show_horn_control
-
-        for loco_type in ["e"]:
-            _, btn = self.engine_ops_cells[("RING_BELL", loco_type)]
-            btn.on_hold = self.on_bell_horn_options
-
-        # set some repeating commands
-        for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
-            _, btn = self.engine_ops_cells[(command, "e")]
-            btn.on_repeat = btn.on_press
-            btn.repeat_interval = 0.3
+        self._setup_controller_behaviors()
 
         for command in ["WATER_INJECTOR", "LET_OFF_LONG"]:
             _, btn = self.engine_ops_cells[(command, "s")]
@@ -804,6 +767,55 @@ class EngineGui(Thread, Generic[S]):
 
         # --- HIDE IT AGAIN after sizing is complete ---
         self.controller_box.visible = False
+
+    def _setup_controller_behaviors(self):
+        """Configures specific button behaviors like repeats, holds, and special toggles."""
+
+        # Helper to get the HoldButton widget from the dictionary
+        def get_btn(k):
+            return self.engine_ops_cells[k][1]
+
+        # 1. Toggle Momentum/Train Brake
+        mom_tb_btn = get_btn((MOM_TB, "e"))
+        mom_tb_btn.text_size = self.s_12
+        mom_tb_btn.update_command(self.toggle_momentum_train_brake, [mom_tb_btn])
+
+        # 2. Setup Repeating Commands
+        # Logic: Assign current on_press to on_repeat and set the interval
+        repeats = [
+            (("AUX1_OPTION_ONE", "e"), 0.2),  # Standard repeat
+            (("BOOST_SPEED", "e"), 0.3),
+            (("BRAKE_SPEED", "e"), 0.3),
+            (("WATER_INJECTOR", "s"), 0.2),
+            (("LET_OFF_LONG", "s"), 0.2),
+        ]
+        for key, interval in repeats:
+            btn = get_btn(key)
+            btn.on_repeat = btn.on_press
+            btn.repeat_interval = interval
+
+        # 3. Setup Hold behaviors (Popups)
+        holds = [
+            (("AUX2_OPTION_ONE", "e"), self.on_lights),
+            (("TOWER_CHATTER", "e"), self.on_tower_dialog),
+            (("ENGINEER_CHATTER", "e"), self.on_crew_dialog),
+            (("ENGINEER_CHATTER", "p"), self.on_conductor_actions),
+            (("TOWER_CHATTER", "p"), self.on_station_dialogs),
+            (("STEWARD_CHATTER", "p"), self.on_steward_dialogs),
+            (("RING_BELL", "e"), self.on_bell_horn_options),
+        ]
+        for key, callback in holds:
+            get_btn(key).on_hold = callback
+
+        # 4. Loco-specific Horn/Whistle control holds
+        for loco in ["d", "s"]:
+            get_btn(("BLOW_HORN_ONE", loco)).on_hold = self.show_horn_control
+
+        # 5. Repeating commands
+        for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
+            _, btn = self.engine_ops_cells[(command, "e")]
+            btn.on_repeat = btn.on_press
+            btn.repeat_interval = 0.3
 
     def make_slider(
         self,
@@ -1238,7 +1250,6 @@ class EngineGui(Thread, Generic[S]):
         state = self.active_state
         if state is None:
             return  # this should never be the case...
-
         scope = CommandScope.ACC if isinstance(state, LcsProxyState) and state.is_lcs else state.scope
         is_lcs = isinstance(state, LcsProxyState) and state.is_lcs
         self._state_info.refresh_visibility(scope, is_lcs_proxy=is_lcs)
