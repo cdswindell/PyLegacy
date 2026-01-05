@@ -1728,7 +1728,6 @@ class EngineGui(Thread, Generic[S]):
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
         self._active_engine_state = state
         if isinstance(state, EngineState):
-            print(state, self._active_train_state)
             if self._active_train_state and state in self._active_train_state:
                 # if we are operating on a train-linked car with the associated train
                 # active in the Train scope tab, indicate that on the gui
@@ -1756,6 +1755,8 @@ class EngineGui(Thread, Generic[S]):
                     self.speed.enable()
                 if not self.throttle.enabled:
                     self.throttle.enable()
+                if not self._rr_speed_btn.enabled:
+                    self._rr_speed_btn.enable()
                 self.speed.value = f"{throttle_state.speed:03d}"
                 self.update_rr_speed_buttons(throttle_state)
                 if self.throttle.tk.focus_displayof() != self.throttle.tk:
@@ -1778,6 +1779,8 @@ class EngineGui(Thread, Generic[S]):
                     self.speed.disable()
                 if self.throttle.enabled:
                     self.throttle.disable()
+                if self._rr_speed_btn.enabled:
+                    self._rr_speed_btn.disable()
 
             self.brake_level.value = f"{state.train_brake:02d}"
             if self.brake.tk.focus_displayof() != self.brake.tk:
