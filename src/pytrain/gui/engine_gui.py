@@ -1728,6 +1728,7 @@ class EngineGui(Thread, Generic[S]):
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
         self._active_engine_state = state
         if isinstance(state, EngineState):
+            print(state, self._active_train_state)
             if self._active_train_state and state in self._active_train_state:
                 # if we are operating on a train-linked car with the associated train
                 # active in the Train scope tab, indicate that on the gui
@@ -1737,6 +1738,7 @@ class EngineGui(Thread, Generic[S]):
                 # train-linked gui components
                 self._tear_down_link_gui()
                 self._scope_buttons[CommandScope.TRAIN].bg = "white"
+
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             # and if the engine is not a passenger or freight sounds car
             if self._active_train_state and state in self._train_linked_queue:
