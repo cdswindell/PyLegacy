@@ -208,6 +208,7 @@ class HoldButton(PushButton):
         elif self._on_hold:
             self._invoke_callback(self._on_hold)
             handled = True
+            self.restore_color_state()
         elif self._on_press and not self._on_hold and not self._on_repeat:
             # fire on_press here if no dedicated hold/repeat
             self._invoke_callback(self._on_press)
