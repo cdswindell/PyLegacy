@@ -2006,7 +2006,11 @@ class EngineGui(Thread, Generic[S]):
                 if state in self._train_linked_queue:
                     queue = self._train_linked_queue
                 else:
-                    if scope == CommandScope.ENGINE:
+                    if (
+                        scope == CommandScope.ENGINE
+                        and self._active_train_state
+                        and state not in self._active_train_state
+                    ):
                         self._tear_down_link_gui()
                     queue = self._recents_queue.get(self.scope, None)
                     if queue is None:
