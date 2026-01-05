@@ -1664,7 +1664,8 @@ class EngineGui(Thread, Generic[S]):
     def on_recents(self, value: str):
         if value != self.title:
             state = self._options_to_state[value]
-            self.update_component_info(tmcc_id=state.tmcc_id)
+            if state and state not in {self._active_engine_state, self._active_train_state}:
+                self.update_component_info(tmcc_id=state.tmcc_id)
             self.header.select_default()
 
     @property
