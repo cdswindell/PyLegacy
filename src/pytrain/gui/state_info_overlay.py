@@ -11,7 +11,7 @@
 
 import logging
 
-from guizero import Box
+from guizero import Box, TitleBox, Text
 
 from ..db.component_state import LcsProxyState
 from ..db.engine_state import EngineState, TrainState
@@ -25,6 +25,52 @@ class StateInfoOverlay:
     def __init__(self, gui):
         self.gui = gui
         self.details = {}
+
+    def make_field(
+        self,
+        parent: Box,
+        title: str,
+        grid: list[int],
+        max_cols: int = 4,
+        scope: CommandScope = None,
+    ) -> tuple[TitleBox, Text]:
+        # grid can be [col, row] or [col, row, colspan, rowspan]
+        aw, _ = self.gui.calc_image_box_size()
+        if len(grid) >= 4:
+            col, row, colspan, rowspan = grid
+            aw = colspan * int(aw / max_cols)
+        else:
+            col, row = grid
+            colspan, rowspan = 1, 1
+            aw = int(aw / max_cols)
+
+        # TitleBox participates in the parent's grid
+        # noinspection PyTypeChecker
+        tb = TitleBox(
+            parent,
+            text=title,
+            layout="grid",  # use grid INSIDE the TitleBox
+            grid=grid,
+            width="fill",
+            align="left",
+        )
+        tb.text_size = self.gui.s_10
+        tb.display_scope = scope
+
+        # Now tell Tk this one actually spans columns/rows
+        tb.tk.grid_configure(column=col, row=row, columnspan=colspan, rowspan=rowspan, sticky="ew")
+        tb.tk.config(width=aw)
+        tb.tk.pack_propagate(False)
+
+        # Let the internal grid column stretch so the TextBox can fill
+        tb.tk.grid_columnconfigure(0, weight=1)
+
+        # Value field inside the TitleBox
+        tf = Text(tb, grid=[0, 0], width="fill", height=1)
+        tf.text_size = self.gui.s_18
+        tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)  # borderless
+
+        return tb, tf
 
     def build(self, body: Box):
         """Builds the 4-column grid layout for the info popup."""
@@ -66,7 +112,7 @@ class StateInfoOverlay:
 
         for key, title, grid, scope in layouts:
             # Reusing the existing make_info_field logic from the main GUI
-            self.details[key] = self.gui.make_info_field(info_box, title, grid, scope=scope)
+            self.details[key] = self.make_field(info_box, title, grid, scope=scope)
 
     def update(self, state):
         """Populates the fields with data from the current state."""
