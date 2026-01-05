@@ -1739,10 +1739,10 @@ class EngineGui(Thread, Generic[S]):
                 self._scope_buttons[CommandScope.TRAIN].bg = "white"
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             # and if the engine is not a passenger or freight sounds car
-            if state.has_throttle:
-                throttle_state = state
-            elif self._active_train_state and state in self._train_linked_queue:
+            if self._active_train_state and state in self._train_linked_queue:
                 throttle_state = self._active_train_state
+            elif state.has_throttle:
+                throttle_state = state
             else:
                 throttle_state = None
 
@@ -1811,6 +1811,7 @@ class EngineGui(Thread, Generic[S]):
         if self.scope == CommandScope.TRAIN and state == self._active_train_state and self._train_linked_queue:
             self._scope_buttons[CommandScope.ENGINE].bg = "lightgreen"
         else:
+            print(f"Scope: {self.scope} State: {state} {len(self._train_linked_queue)}")
             self._scope_buttons[CommandScope.ENGINE].bg = "white"
         self.on_new_engine(state, ops_mode_setup=ops_mode_setup, is_engine=False)
 
