@@ -866,53 +866,33 @@ class EngineGui(Thread, Generic[S]):
     def create_popup(self, title_text: str, build_body: Callable[[Box], None]):
         """
         Create a top-level overlay popup with a title, custom body, and close button.
-        `build_body` receives a Box to populate with popup-specific content.
-        Returns the overlay Box.
         """
-        overlay = Box(
-            self.app,
-            align="top",
-            border=2,
-            visible=False,
-        )
+        overlay = Box(self.app, align="top", border=2, visible=False)
         overlay.bg = "white"
 
         # Title row
-        w = self.emergency_box_width
-        h = self.button_size // 3
-        title_row = Box(overlay, width=w, height=h)
+        title_row = Box(overlay, width=self.emergency_box_width, height=self.button_size // 3)
         title_row.bg = "lightgrey"
-
-        title = Text(title_row, text=title_text, bold=True, size=self.s_18)
-        title.bg = "lightgrey"
+        Text(title_row, text=title_text, bold=True, size=self.s_18).bg = "lightgrey"
 
         # Body container (the caller populates this)
         body = Box(overlay, layout="auto")
         build_body(body)
 
         # Close button
-        btn = PushButton(
-            overlay,
-            text="Close",
-            align="bottom",
-            command=self.close_popup,
-            args=[overlay],
-        )
-        btn.text_bolded = False
+        btn = PushButton(overlay, text="Close", align="bottom", command=self.close_popup, args=[overlay])
         btn.text_size = self.s_20
         btn.tk.config(
             borderwidth=3,
             relief="raised",
             highlightthickness=1,
-            highlightbackground="black",
-            padx=6,
-            pady=4,
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
+            # highlightbackground="black",
+            padx=20,
+            pady=20,
+            # activebackground="#e0e0e0",
+            # background="#f7f7f7",
         )
-        btn.tk.pack_configure(padx=20, pady=20)
         overlay.hide()
-
         return overlay
 
     def build_tower_dialogs_body(self, body: Box):
