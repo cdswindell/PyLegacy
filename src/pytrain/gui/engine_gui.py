@@ -575,11 +575,6 @@ class EngineGui(Thread, Generic[S]):
         # Postprocess some buttons
         self._setup_controller_behaviors()
 
-        for command in ["WATER_INJECTOR", "LET_OFF_LONG"]:
-            _, btn = self.engine_ops_cells[(command, "s")]
-            btn.on_repeat = btn.on_press
-            btn.repeat_interval = 0.2
-
         # assemble key maps
         self._all_engine_btns = (
             self._engine_btns
@@ -813,9 +808,15 @@ class EngineGui(Thread, Generic[S]):
 
         # 5. Repeating commands
         for command in ["BOOST_SPEED", "BRAKE_SPEED"]:
+            get_btn(("BLOW_HORN_ONE", loco))
             _, btn = self.engine_ops_cells[(command, "e")]
             btn.on_repeat = btn.on_press
             btn.repeat_interval = 0.3
+
+        for command in ["WATER_INJECTOR", "LET_OFF_LONG"]:
+            btn = get_btn((command, "s"))
+            btn.on_repeat = btn.on_press
+            btn.repeat_interval = 0.2
 
     def make_slider(
         self,
