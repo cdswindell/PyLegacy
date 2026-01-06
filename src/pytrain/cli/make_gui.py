@@ -1,11 +1,12 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
-#
+
 from __future__ import annotations
 
 import os
@@ -15,8 +16,6 @@ import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
-from .make_base import _MakeBase
-from .pytrain import DEFAULT_BUTTONS_FILE
 from ..gui.accessories_gui import AccessoriesGui
 from ..gui.component_state_gui import ComponentStateGui
 from ..gui.engine_gui import EngineGui
@@ -27,8 +26,10 @@ from ..gui.routes_gui import RoutesGui
 from ..gui.switches_gui import SwitchesGui
 from ..gui.systems_gui import SystemsGui
 from ..protocol.constants import PROGRAM_NAME, CommandScope
-from ..utils.argument_parser import PyTrainArgumentParser, UniqueChoice, IntRange
-from ..utils.path_utils import find_file, find_dir
+from ..utils.argument_parser import IntRange, PyTrainArgumentParser, UniqueChoice
+from ..utils.path_utils import find_dir, find_file
+from .make_base import _MakeBase
+from .pytrain import DEFAULT_BUTTONS_FILE
 
 GUI_ARG_TO_CLASS = {
     "ac": AccessoriesGui,
@@ -67,7 +68,7 @@ CLASS_TO_TEMPLATE = {
     RoutesGui: f"{RoutesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
     SwitchesGui: f"{SwitchesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__, exclude_unnamed=__EXCLUDE_UNNAMED__)",
     SystemsGui: f"{SystemsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__, press_for=__PRESS_FOR__)",
-    EngineGui: f"{EngineGui.__name__}(initial_scope=__INITIAL_SCOPE__, initial=__TMCC_ID__,"
+    EngineGui: f"{EngineGui.__name__}(scope=__SCOPE__, tmcc_id=__TMCC_ID__,"
     " scale_by=__SCALE_BY__, num_recents=__NUM_RECENTS__)",
 }
 
@@ -524,9 +525,9 @@ class MakeGui(_MakeBase):
             scope = CommandScope.by_name(self._args.scope)
             if scope is None and self._args.scope.lower() == "accessory":
                 scope = CommandScope.ACC
-            self._gui_config["__INITIAL_SCOPE__"] = f"CommandScope.{scope.name}"
+            self._gui_config["__SCOPE__"] = f"CommandScope.{scope.name}"
         else:
-            self._gui_config["__INITIAL_SCOPE__"] = "None"
+            self._gui_config["__SCOPE__"] = "None"
         if hasattr(self._args, "tmcc_id"):
             self._gui_config["__TMCC_ID__"] = str(self._args.tmcc_id)
         else:
