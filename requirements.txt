@@ -1,7 +1,7 @@
 RPLCD>=1.4.0
 colorzero>=2.0
 gpiozero>=2.0.1
-guizero~=1.6.0
+guizero>=1.6.0
 luma.oled>=3.14.0
 psutil>=5.9.8
 python-dotenv>=1.2.1
