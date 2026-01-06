@@ -2303,7 +2303,7 @@ class EngineGui(Thread, Generic[S]):
         return cell, nb
 
     def on_keypress(self, key: str) -> None:
-        num_chars = 4 if self.scope in {CommandScope.ENGINE} else 2
+        num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         tmcc_id = self.tmcc_id_text.value
         if key.isdigit():
             if int(tmcc_id) and self.reset_on_keystroke:
