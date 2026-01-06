@@ -2426,12 +2426,14 @@ class EngineGui(Thread, Generic[S]):
         if self._last_engine_type != "p":
             self.scope_engine_keys(self._engine_type_key_map["p"])
             self._last_engine_type = "p"
+        self._rr_speed_box.show()
 
     def show_freight_keys(self) -> None:
         if self._last_engine_type != "f":
             self.scope_engine_keys(self._engine_type_key_map["f"])
             self._last_engine_type = "f"
         self._freight_sounds_bell_horn_box.show()
+        self.horn_title_box.text = "Horn"
         self.show_horn_control()
 
     @property
