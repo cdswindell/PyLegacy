@@ -778,8 +778,10 @@ class EngineState(ComponentState):
         return self._as_label(self.labor)
 
     @property
-    def smoke_level(self) -> CommandDefEnum:
-        return self.comp_data.smoke_tmcc
+    def smoke_level(self) -> CommandDefEnum | None:
+        if self.comp_data and self.comp_data.smoke != 255:
+            return self.comp_data.smoke_tmcc
+        return None
 
     @property
     def smoke_label(self) -> str:
