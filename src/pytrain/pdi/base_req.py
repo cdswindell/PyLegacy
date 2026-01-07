@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from enum import IntEnum, unique
 from math import floor
-from typing import Dict, List, Tuple, cast
+from typing import Dict, List, Tuple
 
 from ..db.comp_data import (
     SCOPE_TO_COMP_MAP,
@@ -202,17 +202,16 @@ class BaseReq(PdiReq, CompDataMixin):
 
             for pkg in pkgs:
                 if 1 <= cmd.address <= 99:
-                    cmds.append(
-                        BaseReq(
-                            cmd.address,
-                            pdi_command=PdiCommand.BASE_MEMORY,
-                            flags=0xC2,
-                            scope=cast(CommandScope, cast(object, state.scope)),
-                            start=pkg.offset,
-                            data_length=pkg.length,
-                            data_bytes=pkg.data_bytes,
-                        )
+                    req = BaseReq(
+                        cmd.address,
+                        pdi_command=PdiCommand.BASE_MEMORY,
+                        flags=0xC2,
+                        scope=scope,
+                        start=pkg.offset,
+                        data_length=pkg.length,
+                        data_bytes=pkg.data_bytes,
                     )
+                    cmds.append(req)
                 else:
                     assert cur_state.record_no != 0xFFFF
                     pdi_cmd = PdiCommand.D4_ENGINE if cmd.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
