@@ -256,7 +256,8 @@ class BaseReq(PdiReq, CompDataMixin):
             byte_str += checksum
             byte_str += PDI_EOP.to_bytes(1, byteorder="big")
             cmds.append(cls(byte_str))
-            log.info(f"********* Using old-style {pdi_cmd.name} for updates from {cmd}")
+            log.warning(f"********* Using old-style {pdi_cmd.name} for updates from {cmd}")
+            print(f"********* Using old-style {pdi_cmd.name} for updates from {cmd}")
         return cmds
 
     def __init__(

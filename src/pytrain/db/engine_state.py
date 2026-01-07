@@ -942,9 +942,6 @@ class EngineState(ComponentState):
         d["sound_type"] = self.sound_type_label.lower() if self.sound_type is not None else None
         d["engine_type"] = self.engine_type_label.lower() if self.engine_type is not None else None
         d["engine_class"] = self.engine_class_label.lower() if self.engine_class is not None else None
-        if isinstance(self, TrainState):
-            d["flags"] = self.consist_flags
-            d["components"] = {c.tmcc_id: c.info for c in self.consist_components}
         return d
 
 
@@ -1082,6 +1079,12 @@ class TrainState(EngineState, LcsProxyState):
                 packets.append(self._control_req.as_bytes)
         packets.extend(super().as_bytes())
         return packets
+
+    def as_dict(self) -> Dict[str, Any]:
+        d = super()._as_dict()
+        d["flags"] = self.consist_flags
+        d["components"] = {c.tmcc_id: c.info for c in self.consist_components}
+        return d
 
 
 SCOPE_TO_STATE_MAP.update({CommandScope.ENGINE: EngineState})
