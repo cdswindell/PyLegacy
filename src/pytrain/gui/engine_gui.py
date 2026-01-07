@@ -267,6 +267,7 @@ class EngineGui(Thread, Generic[S]):
         self._diesel_btns = set()
         self._steam_btns = set()
         self._freight_btns = set()
+        self._transformer_btns = set()
         self._all_engine_btns = set()
         self._engine_type_key_map: dict[str, set[Widget]] = {}
         self._last_engine_type = None
@@ -561,6 +562,8 @@ class EngineGui(Thread, Generic[S]):
                             self._freight_btns.add(cell)
                         elif op[4] == "pf":
                             self._passenger_freight_btns.add(cell)
+                        elif op[4] == "t":
+                            self._transformer_btns.add(cell)
 
                         key = (cmd, op[4])
                     else:
@@ -588,6 +591,7 @@ class EngineGui(Thread, Generic[S]):
             "s": self._engine_btns | self._steam_btns,
             "p": self._passenger_freight_btns | self._passenger_btns,
             "f": self._passenger_freight_btns | self._freight_btns,
+            "t": self._transformer_btns,
         }
 
         # used to make sure brake and throttle get focus when needed
@@ -2436,6 +2440,12 @@ class EngineGui(Thread, Generic[S]):
         self.horn_title_box.text = "Horn"
         self.show_horn_control()
 
+    def show_transformer_keys(self) -> None:
+        if self._last_engine_type != "t":
+            self.scope_engine_keys(self._engine_type_key_map["t"])
+            self._last_engine_type = "t"
+        self._rr_speed_box.show()
+
     @property
     def is_engine_or_train(self) -> bool:
         return (
@@ -2483,6 +2493,8 @@ class EngineGui(Thread, Generic[S]):
                     self.show_passenger_keys()
                 elif state.is_freight:
                     self.show_freight_keys()
+                elif state.is_transformer:
+                    self.show_transformer_keys()
                 else:
                     self.show_diesel_keys()
             if not self.controller_keypad_box.visible:

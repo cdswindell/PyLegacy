@@ -75,6 +75,7 @@ ENGINE_OPS_LAYOUT = [
         [
             ("BLOW_HORN_ONE", "horn.jpg", "", "Horn...", "d"),
             ("BLOW_HORN_ONE", "whistle.jpg", "", "Whistle...", "s"),
+            ("BLOW_HORN_ONE", "horn.jpg", "", "", "t"),
             ("CONDUCTOR_NEXT_STOP", "next-stop.jpg", "", "", "p"),
             ("NUMBER_6", "unload.jpg", "", "", "f"),
         ],
@@ -93,6 +94,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("RING_BELL", "bell.jpg", "", "Bell/Horn...", "e"),
+            ("RING_BELL", "bell.jpg", "", "", "t"),
             ("STEWARD_CHATTER", "steward.jpg", "", "Steward...", "p"),
             ("STOCK_WHEEL_ON", "flat-wheel-on.jpg", "", "", "f"),
         ],
