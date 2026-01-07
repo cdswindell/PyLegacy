@@ -34,6 +34,7 @@ from ..protocol.constants import (
     SOUND_TYPE,
     STEAM_TYPE,
     THROTTLE_TYPE,
+    TRANSFORMER_TYPE,
     CommandScope,
     EngineType,
     OfficialRRSpeeds,
@@ -624,6 +625,10 @@ class EngineState(ComponentState):
     @property
     def is_freight(self) -> bool:
         return self.comp_data and self.comp_data.engine_type in FREIGHT_TYPE
+
+    @property
+    def is_transformer(self) -> bool:
+        return self.comp_data and self.comp_data.engine_type in TRANSFORMER_TYPE
 
     @property
     def has_throttle(self) -> bool:
