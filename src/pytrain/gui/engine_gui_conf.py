@@ -363,6 +363,7 @@ ENGINE_TYPE_TO_IMAGE = {
     EngineType.STEAM: find_file("generic_steam.jpg"),
     EngineType.STEAM_PULLMOR: find_file("generic_steam_santa.jpg"),
     EngineType.STEAM_SWITCHER: find_file("generic_steam_switcher.jpg"),
+    EngineType.TRANSFORMER: find_file("power_master.jpg"),
 }
 SCOPE_TO_SET_ENUM: dict[CommandScope, CommandDefEnum] = {
     CommandScope.ENGINE: TMCC1EngineCommandEnum.SET_ADDRESS,
