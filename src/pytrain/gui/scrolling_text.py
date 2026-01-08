@@ -18,14 +18,12 @@ class ScrollingText(Text):
     """
     Drop-in replacement for guizero.Text with truncation-aware marquee scrolling.
 
-    Additions vs. previous version:
-      - start_delay_ms: wait this long BEFORE starting scrolling
-      - press-to-pause: mouse/touch press stops scrolling and resets to start;
-                        release resumes (after start_delay_ms)
-
-    Notes:
-      - Intended for single-line ticker use.
-      - Uses Tk font measurement for accurate truncation detection.
+    Features:
+      - Detects truncation via Tk font measurement
+      - Optional auto-scroll with configurable start delay
+      - Touch interaction modes:
+          * "hold": press pauses and resets, release resumes
+          * "toggle": tap toggles scrolling on/off
     """
 
     def __init__(
@@ -36,7 +34,8 @@ class ScrollingText(Text):
         gap: str = "  ",
         speed_ms: int = 500,
         pause_ms: int = 0,
-        start_delay_ms: int = 10_000,  # 10 seconds default
+        start_delay_ms: int = 10_000,
+        touch_mode: str = "toggle",  # "hold" or "toggle"
         **kwargs,
     ):
         super().__init__(*args, text=text, **kwargs)
@@ -47,6 +46,7 @@ class ScrollingText(Text):
         self._pause_ms = max(0, int(pause_ms))
         self._start_delay_ms = max(0, int(start_delay_ms))
         self._auto_scroll = bool(auto_scroll)
+        self._touch_mode = touch_mode
 
         self._running = False
         self._pressed = False
@@ -62,10 +62,7 @@ class ScrollingText(Text):
         except TclError:
             pass
 
-        # Press/release bindings for mouse + touch-like behavior
         self._bind_press_release()
-
-        # Kick off auto-management after geometry settles
         self._schedule_start_check(delay_ms=0)
 
     # -------------------------
@@ -81,20 +78,29 @@ class ScrollingText(Text):
         self.set_text(new_text)
 
     def set_text(self, text: str) -> None:
-        self.stop_scroll()  # <-- force stop on every value change
-        """Set base text and re-evaluate scrolling (with start delay)."""
+        """Set base text and re-evaluate scrolling."""
         self._base_text = "" if text is None else str(text)
 
-        # You said you already added the "stop on assign" behavior—so keep it:
         self.stop_scroll(reset_to_start=True, cancel_start=True)
         self._set_label_text(self._base_text)
 
         self._schedule_start_check(delay_ms=0)
 
+    def set_touch_mode(self, mode: str) -> None:
+        """
+        Change touch interaction mode at runtime.
+        Valid values: "hold", "toggle"
+        """
+        if mode not in ("hold", "toggle"):
+            raise ValueError("touch_mode must be 'hold' or 'toggle'")
+
+        self._touch_mode = mode
+        self._unbind_touch_events()
+        self._bind_press_release()
+
     def needs_scroll(self) -> bool:
         """True if base text width exceeds widget width."""
         label = self.tk
-
         try:
             label.update_idletasks()
         except TclError:
@@ -105,14 +111,9 @@ class ScrollingText(Text):
             return False
 
         tk_font = tkfont.Font(font=label.cget("font"))
-        text_px = tk_font.measure(self._base_text)
-        return text_px > widget_width
+        return tk_font.measure(self._base_text) > widget_width
 
     def start_scroll(self, delay_ms: int | None = None) -> None:
-        """
-        Begin scrolling. If delay_ms is provided (or start_delay_ms is set),
-        scrolling begins after that delay.
-        """
         if self._pressed:
             return
 
@@ -123,17 +124,10 @@ class ScrollingText(Text):
             delay_ms = self._start_delay_ms
         delay_ms = max(0, int(delay_ms))
 
-        # If already running, just keep ticking
-        if self._running and delay_ms == 0:
-            self._tick()
-            return
-
-        # Not running yet; schedule actual start
         self._running = False
         self._start_after_id = self._after(delay_ms, self._start_now)
 
     def stop_scroll(self, *, reset_to_start: bool = False, cancel_start: bool = True) -> None:
-        """Stop scrolling. Optionally reset to base text start, and cancel pending start."""
         self._running = False
         self._cancel_tick()
         if cancel_start:
@@ -142,27 +136,11 @@ class ScrollingText(Text):
             self._scroll_buf = ""
             self._set_label_text(self._base_text)
 
-    def set_speed(self, speed_ms: int) -> None:
-        self._speed_ms = max(10, int(speed_ms))
-
-    def set_gap(self, gap: str) -> None:
-        self._gap = "" if gap is None else str(gap)
-        if self._running:
-            self._scroll_buf = self._base_text + self._gap
-
-    def set_start_delay(self, start_delay_ms: int) -> None:
-        self._start_delay_ms = max(0, int(start_delay_ms))
-
-    def set_auto_scroll(self, enabled: bool) -> None:
-        self._auto_scroll = bool(enabled)
-        self._schedule_start_check(delay_ms=0)
-
     # -------------------------
     # Internals: scrolling
     # -------------------------
 
     def _schedule_start_check(self, delay_ms: int) -> None:
-        """Re-evaluate whether we should scroll (auto_scroll), respecting press state and delay."""
         self._after(max(0, int(delay_ms)), self._auto_manage_scroll)
 
     def _auto_manage_scroll(self) -> None:
@@ -170,14 +148,11 @@ class ScrollingText(Text):
             return
 
         if self.needs_scroll():
-            # start after delay
             self.start_scroll()
         else:
-            # stop immediately
             self.stop_scroll(reset_to_start=True, cancel_start=True)
 
     def _start_now(self) -> None:
-        """Actual start (after delay)."""
         self._start_after_id = None
 
         if self._pressed:
@@ -197,7 +172,6 @@ class ScrollingText(Text):
         if not self._scroll_buf:
             self._scroll_buf = self._base_text + self._gap
 
-        # Rotate left by one character
         self._scroll_buf = self._scroll_buf[1:] + self._scroll_buf[0]
         self._set_label_text(self._scroll_buf)
 
@@ -209,39 +183,47 @@ class ScrollingText(Text):
         self._tick_after_id = self._after(delay, self._tick)
 
     # -------------------------
-    # Internals: press/release
+    # Internals: touch handling
     # -------------------------
 
     def _bind_press_release(self) -> None:
-        # Mouse press/release
         try:
             self.tk.bind("<ButtonPress-1>", self._on_press, add="+")
-            self.tk.bind("<ButtonRelease-1>", self._on_release, add="+")
-            # A little extra robustness if pointer leaves widget while pressed:
-            self.tk.bind("<Leave>", self._on_leave, add="+")
+            if self._touch_mode == "hold":
+                self.tk.bind("<ButtonRelease-1>", self._on_release, add="+")
+                self.tk.bind("<Leave>", self._on_leave, add="+")
+        except TclError:
+            pass
+
+    def _unbind_touch_events(self) -> None:
+        try:
+            self.tk.unbind("<ButtonPress-1>")
+            self.tk.unbind("<ButtonRelease-1>")
+            self.tk.unbind("<Leave>")
         except TclError:
             pass
 
     def _on_press(self, _event=None) -> None:
-        # Stop + reset immediately, cancel any pending start
+        if not self.needs_scroll():
+            return
+
+        if self._touch_mode == "toggle":
+            if self._running or self._start_after_id is not None:
+                self.stop_scroll(reset_to_start=True, cancel_start=True)
+            else:
+                self.start_scroll(delay_ms=0)
+            return
+
         self._pressed = True
         self.stop_scroll(reset_to_start=True, cancel_start=True)
 
     def _on_release(self, _event=None) -> None:
         self._pressed = False
 
-        # Restart immediately on release (NO start_delay_ms)
-        if self._auto_scroll:
-            if self.needs_scroll():
-                self.start_scroll(delay_ms=0)  # <-- immediate resume
-            else:
-                self.stop_scroll(reset_to_start=True, cancel_start=True)
-        else:
-            # If auto_scroll is disabled, don't auto-start anything
-            self._cancel_start()
+        if self._auto_scroll and self.needs_scroll():
+            self.start_scroll(delay_ms=0)
 
     def _on_leave(self, _event=None) -> None:
-        # If user drags off while pressed, we keep paused until release
         pass
 
     # -------------------------
@@ -249,7 +231,6 @@ class ScrollingText(Text):
     # -------------------------
 
     def _set_label_text(self, s: str) -> None:
-        # Avoid recursion through our overridden .value setter
         super(ScrollingText, self.__class__).value.fset(self, s)  # type: ignore
 
     def _after(self, delay_ms: int, fn) -> str | None:
