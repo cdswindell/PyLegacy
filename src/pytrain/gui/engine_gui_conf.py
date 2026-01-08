@@ -371,6 +371,7 @@ KEY_TO_COMMAND = {
     SWITCH_THRU_KEY: CommandReq(TMCC1SwitchCommandEnum.THRU),
 }
 ENGINE_TYPE_TO_IMAGE = {
+    EngineType.ACELA: find_file("acela.jpg"),
     EngineType.CRANE: find_file("generic_crane_car.jpg"),
     EngineType.DIESEL: find_file("generic_diesel.jpg"),
     EngineType.DIESEL_PULLMOR: find_file("generic_diesel.jpg"),
