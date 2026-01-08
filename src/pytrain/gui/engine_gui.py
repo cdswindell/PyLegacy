@@ -588,6 +588,7 @@ class EngineGui(Thread, Generic[S]):
             | self._passenger_btns
             | self._freight_btns
             | self._passenger_freight_btns
+            | self._transformer_btns
             | self._common_buttons
         )
         self._engine_type_key_map = {
