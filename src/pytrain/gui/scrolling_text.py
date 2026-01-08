@@ -229,8 +229,16 @@ class ScrollingText(Text):
 
     def _on_release(self, _event=None) -> None:
         self._pressed = False
-        # Resume (after start delay) if it needs scrolling / auto_scroll enabled
-        self._schedule_start_check(delay_ms=0)
+
+        # Restart immediately on release (NO start_delay_ms)
+        if self._auto_scroll:
+            if self.needs_scroll():
+                self.start_scroll(delay_ms=0)  # <-- immediate resume
+            else:
+                self.stop_scroll(reset_to_start=True, cancel_start=True)
+        else:
+            # If auto_scroll is disabled, don't auto-start anything
+            self._cancel_start()
 
     def _on_leave(self, _event=None) -> None:
         # If user drags off while pressed, we keep paused until release
