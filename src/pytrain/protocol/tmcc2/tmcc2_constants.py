@@ -415,6 +415,7 @@ class TMCC2EngineCommandEnum(TMCC2Enum, TMCC2EngineOpsEnum):
     NUMBER_8 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 8, alias="NUMERIC", data=8)
     NUMBER_9 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 9, alias="NUMERIC", data=9)
     NUMBER_0 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 0, alias="NUMERIC", data=0)
+    POWERMASTER_ON = TMCC2CommandDef(TMCC2_BOOST_SPEED_COMMAND, alias="BOOST_SPEED")
 
 
 # map dereferenced commands to their aliases

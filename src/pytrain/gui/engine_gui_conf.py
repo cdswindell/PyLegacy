@@ -62,7 +62,7 @@ ENTRY_LAYOUT = [
 ]
 ENGINE_OPS_LAYOUT = [
     [
-        ("VOLUME_UP", "vol-up.jpg"),
+        ("VOLUME_UP", "vol-up.jpg", "", "", "c"),
         [
             ("ENGINEER_CHATTER", "walkie_talkie.jpg", "", "Crew...", "e"),
             ("NUMBER_3", "sound-on.jpg", "", "", "pf"),
@@ -82,7 +82,7 @@ ENGINE_OPS_LAYOUT = [
         ],
     ],
     [
-        ("VOLUME_DOWN", "vol-down.jpg"),
+        ("VOLUME_DOWN", "vol-down.jpg", "", "", "c"),
         [
             ("TOWER_CHATTER", "tower.jpg", "", "Tower...", "e"),
             ("NUMBER_5", "sound-off.jpg", "", "", "pf"),
@@ -139,14 +139,14 @@ ENGINE_OPS_LAYOUT = [
         [
             ("AUX1_OPTION_ONE", "", AUX1_KEY, "Sequence", "e"),
             ("AUX1_OPTION_ONE", "", AUX1_KEY, "", "pf"),
-            ("BOOST_SPEED", "on_button.jpg", "", "", "t"),
+            ("POWERMASTER_ON", "on_button.jpg", "", "", "t"),
         ],
         [
             ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights...", "e"),
             ("AUX2_OPTION_ONE", "", AUX2_KEY, "", "pf"),
             ("NUMBER_0", "off_button.jpg", "", "", "t"),
         ],
-        ("AUX3_OPTION_ONE", "", AUX3_KEY),
+        ("AUX3_OPTION_ONE", "", AUX3_KEY, "", "c"),
         [
             (MOM_TB, "", MOMENTUM, "", "e"),
             # ("", "", "Etc...", "", "f"),

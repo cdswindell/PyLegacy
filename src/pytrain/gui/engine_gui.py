@@ -261,6 +261,7 @@ class EngineGui(Thread, Generic[S]):
         self.tower_dialog_overlay = self.crew_dialog_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
+        self._common_buttons = set()
         self._engine_btns = set()
         self._passenger_btns = set()
         self._passenger_freight_btns = set()
@@ -564,6 +565,8 @@ class EngineGui(Thread, Generic[S]):
                             self._passenger_freight_btns.add(cell)
                         elif op[4] == "t":
                             self._transformer_btns.add(cell)
+                        elif op[4] == "c":
+                            self._common_buttons.add(cell)
 
                         key = (cmd, op[4])
                     else:
@@ -585,12 +588,13 @@ class EngineGui(Thread, Generic[S]):
             | self._passenger_btns
             | self._freight_btns
             | self._passenger_freight_btns
+            | self._common_buttons
         )
         self._engine_type_key_map = {
-            "d": self._engine_btns | self._diesel_btns,
-            "s": self._engine_btns | self._steam_btns,
-            "p": self._passenger_freight_btns | self._passenger_btns,
-            "f": self._passenger_freight_btns | self._freight_btns,
+            "d": self._common_buttons | self._engine_btns | self._diesel_btns,
+            "s": self._common_buttons | self._engine_btns | self._steam_btns,
+            "p": self._common_buttons | self._passenger_freight_btns | self._passenger_btns,
+            "f": self._common_buttons | self._passenger_freight_btns | self._freight_btns,
             "t": self._transformer_btns,
         }
 
