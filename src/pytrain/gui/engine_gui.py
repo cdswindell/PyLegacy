@@ -104,6 +104,7 @@ from .engine_gui_conf import (
     send_lcs_on_command,
 )
 from .hold_button import HoldButton
+from .scrolling_text import ScrollingText
 from .state_info_overlay import StateInfoOverlay
 from .swipe_detector import SwipeDetector
 
@@ -2149,7 +2150,7 @@ class EngineGui(Thread, Generic[S]):
         # ───────────────────────────────
         self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
         name_box.text_size = self.s_12
-        self.name_text = Text(name_box, text="", align="top", bold=True, width="fill")
+        self.name_text = ScrollingText(name_box, text="", align="top", bold=True, width="fill")
         self.name_text.text_color = "blue"
         self.name_text.text_size = self.s_18
         self.name_text.tk.config(justify="left", anchor="w")
