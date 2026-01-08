@@ -2459,7 +2459,7 @@ class EngineGui(Thread, Generic[S]):
         if self._last_engine_type != "t":
             self.scope_engine_keys(self._engine_type_key_map["t"])
             self._last_engine_type = "t"
-        self.momentum_box.hide()
+        self._rr_speed_box.show()
         self.toggle_momentum_train_brake(show_btn="brake")
 
     @property
