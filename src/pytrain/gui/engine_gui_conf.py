@@ -62,7 +62,10 @@ ENTRY_LAYOUT = [
 ]
 ENGINE_OPS_LAYOUT = [
     [
-        ("VOLUME_UP", "vol-up.jpg", "", "", "c"),
+        [
+            ("VOLUME_UP", "vol-up.jpg", "", "", "c"),
+            ("BLOW_HORN_ONE", "horn.jpg", "", "", "t"),
+        ],
         [
             ("ENGINEER_CHATTER", "walkie_talkie.jpg", "", "Crew...", "e"),
             ("NUMBER_3", "sound-on.jpg", "", "", "pf"),
@@ -72,11 +75,11 @@ ENGINE_OPS_LAYOUT = [
             ("LET_OFF_LONG", "let-off.jpg", "", "", "s"),
             ("ENGINEER_CHATTER", "conductor.jpg", "", "Conductor...", "p"),
             ("NUMBER_3", "load.jpg", "", "", "f"),
+            ("RING_BELL", "bell.jpg", "", "", "t"),
         ],
         [
             ("BLOW_HORN_ONE", "horn.jpg", "", "Horn...", "d"),
             ("BLOW_HORN_ONE", "whistle.jpg", "", "Whistle...", "s"),
-            ("BLOW_HORN_ONE", "horn.jpg", "", "", "t"),
             ("CONDUCTOR_NEXT_STOP", "next-stop.jpg", "", "", "p"),
             ("NUMBER_6", "unload.jpg", "", "", "f"),
         ],
@@ -95,7 +98,6 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("RING_BELL", "bell.jpg", "", "Bell/Horn...", "e"),
-            ("RING_BELL", "bell.jpg", "", "", "t"),
             ("STEWARD_CHATTER", "steward.jpg", "", "Steward...", "p"),
             ("STOCK_WHEEL_ON", "flat-wheel-on.jpg", "", "", "f"),
         ],
