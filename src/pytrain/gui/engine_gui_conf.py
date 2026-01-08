@@ -85,7 +85,10 @@ ENGINE_OPS_LAYOUT = [
         ],
     ],
     [
-        ("VOLUME_DOWN", "vol-down.jpg", "", "", "c"),
+        [
+            ("VOLUME_DOWN", "vol-down.jpg", "", "", "c"),
+            ("FRONT_COUPLER", "front-coupler.jpg", "", "", "t"),
+        ],
         [
             ("TOWER_CHATTER", "tower.jpg", "", "Tower...", "e"),
             ("NUMBER_5", "sound-off.jpg", "", "", "pf"),
@@ -103,7 +106,10 @@ ENGINE_OPS_LAYOUT = [
         ],
     ],
     [
-        ("FRONT_COUPLER", "front-coupler.jpg"),
+        [
+            ("FRONT_COUPLER", "front-coupler.jpg", "", "", "c"),
+            ("REAR_COUPLER", "rear-coupler.jpg", "", "", "t"),
+        ],
         [
             (SMOKE_ON, "smoke-up.jpg", "", "", "e"),
             ("STOCK_OPTION_ONE_ON", "stock-a-on.jpg", "", "", "pf"),
@@ -121,7 +127,7 @@ ENGINE_OPS_LAYOUT = [
         ],
     ],
     [
-        ("REAR_COUPLER", "rear-coupler.jpg"),
+        ("REAR_COUPLER", "rear-coupler.jpg", "", "", "c"),
         [
             (SMOKE_OFF, "smoke-down.jpg", "", "", "e"),
             ("STOCK_OPTION_ONE_OFF", "stock-a-off.jpg", "", "", "pf"),
