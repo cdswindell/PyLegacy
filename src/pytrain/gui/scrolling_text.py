@@ -29,7 +29,7 @@ class ScrollingText(Text):
         text: str = "",
         auto_scroll: bool = True,
         gap: str = "  ",
-        speed_ms: int = 1000,
+        speed_ms: int = 600,
         pause_ms: int = 0,
         **kwargs,
     ):
