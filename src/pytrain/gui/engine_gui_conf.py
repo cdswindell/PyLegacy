@@ -98,6 +98,7 @@ ENGINE_OPS_LAYOUT = [
             ("WATER_INJECTOR", "water-inject.jpg", "", "", "s"),
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
             ("TOWER_CHATTER", "tower.jpg", "", "", "f"),
+            ("BOOST_SPEED", "boost.jpg", "", "Boost", "t"),
         ],
         [
             ("RING_BELL", "bell.jpg", "", "Bell/Horn...", "e"),
@@ -116,7 +117,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("BOOST_SPEED", "boost.jpg", "", "Boost", "e"),
-            ("BOOST_SPEED", "boost.jpg", "", "Boost", "t"),
+            ("BRAKE_SPEED", "brake.jpg", "", "Brake", "t"),
             ("STOCK_OPTION_TWO_ON", "stock-b-on.jpg", "", "", "pf"),
         ],
         [
@@ -134,7 +135,6 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("BRAKE_SPEED", "brake.jpg", "", "Brake", "e"),
-            ("BRAKE_SPEED", "brake.jpg", "", "Brake", "t"),
             ("STOCK_OPTION_TWO_OFF", "stock-b-off.jpg", "", "", "pf"),
         ],
         [
