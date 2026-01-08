@@ -133,6 +133,7 @@ class EngineGui(Thread, Generic[S]):
         sensor_track_id: int = None,
         tmcc_id: int = None,
         scope: CommandScope = CommandScope.ENGINE,
+        auto_scroll: bool = True,
     ) -> None:
         Thread.__init__(self, daemon=True, name="Engine GUI")
         self._cv = Condition(RLock())
@@ -151,6 +152,7 @@ class EngineGui(Thread, Generic[S]):
             self.width = width
             self.height = height
         self.title = None
+        self.auto_scroll = auto_scroll
         self.image_file = None
         self._base_state = None
         self._engine_tmcc_id = None
@@ -2150,7 +2152,14 @@ class EngineGui(Thread, Generic[S]):
         # ───────────────────────────────
         self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
         name_box.text_size = self.s_12
-        self.name_text = ScrollingText(name_box, text="", align="top", bold=True, width="fill")
+        self.name_text = ScrollingText(
+            name_box,
+            text="",
+            align="top",
+            bold=True,
+            width="fill",
+            auto_scroll=self.auto_scroll,
+        )
         self.name_text.text_color = "blue"
         self.name_text.text_size = self.s_18
         self.name_text.tk.config(justify="left", anchor="w")
