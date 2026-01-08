@@ -122,7 +122,6 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("FORWARD_DIRECTION", "", FWD_KEY, "", "e"),
-            ("TOGGLE_DIRECTION", "", DIR_KEY, "", "t"),
             ("NUMBER_9", "car-lights-on.jpg", "", "", "p"),
             ("NUMBER_9", "lights-on.jpg", "", "", "f"),
         ],
@@ -132,6 +131,7 @@ ENGINE_OPS_LAYOUT = [
         [
             (SMOKE_OFF, "smoke-down.jpg", "", "", "e"),
             ("STOCK_OPTION_ONE_OFF", "stock-a-off.jpg", "", "", "pf"),
+            ("TOGGLE_DIRECTION", "", DIR_KEY, "", "t"),
         ],
         [
             ("BRAKE_SPEED", "brake.jpg", "", "Brake", "e"),
@@ -152,9 +152,11 @@ ENGINE_OPS_LAYOUT = [
         [
             ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights...", "e"),
             ("AUX2_OPTION_ONE", "", AUX2_KEY, "", "pf"),
-            ("NUMBER_0", "off_button.jpg", "", "", "t"),
         ],
-        ("AUX3_OPTION_ONE", "", AUX3_KEY, "", "c"),
+        [
+            ("AUX3_OPTION_ONE", "", AUX3_KEY, "", "c"),
+            ("POWERMASTER_OFF", "off_button.jpg", "", "", "t"),
+        ],
         [
             (MOM_TB, "", MOMENTUM, "", "e"),
             # ("", "", "Etc...", "", "f"),
