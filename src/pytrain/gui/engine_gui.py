@@ -1351,12 +1351,22 @@ class EngineGui(Thread, Generic[S]):
         self.brake_box.hide()
         self.horn_box.show()
 
-    def toggle_momentum_train_brake(self, btn: PushButton = None) -> None:
+    def toggle_momentum_train_brake(self, btn: PushButton = None, show_btn: str = None) -> None:
         if self.horn_box.visible:
             # hide the horn box
             self.horn_box.hide()
 
-        if btn is None:  # called from horn handler
+        if show_btn:
+            _, btn = self.engine_ops_cells[(MOM_TB, "e")]
+            if show_btn == "brake":
+                btn.text = MOMENTUM
+                self.momentum_box.visible = False
+                self.brake_box.visible = True
+            else:
+                btn.text = TRAIN_BRAKE
+                self.brake_box.visible = False
+                self.momentum_box.visible = True
+        elif btn is None:  # called from horn handler
             # restore what was there before; if the swaped button says "Momentum"
             # then show Train Brake, and vice versa
             _, btn = self.engine_ops_cells[(MOM_TB, "e")]
@@ -2450,9 +2460,7 @@ class EngineGui(Thread, Generic[S]):
             self.scope_engine_keys(self._engine_type_key_map["t"])
             self._last_engine_type = "t"
         self.momentum_box.hide()
-        self.horn_box.hide()
-        self.brake_box.show()
-        self._rr_speed_box.show()
+        self.toggle_momentum_train_brake(show_btn="brake")
 
     @property
     def is_engine_or_train(self) -> bool:
