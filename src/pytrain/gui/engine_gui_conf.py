@@ -108,13 +108,14 @@ ENGINE_OPS_LAYOUT = [
     ],
     [
         [
-            ("PANTO_BOTH_UP", "panto-up-a.jpg", "", "", "a"),
             ("FRONT_COUPLER", "front-coupler.jpg", "", "", "cp"),
             ("REAR_COUPLER", "rear-coupler.jpg", "", "", "t"),
+            ("PANTO_BOTH_DOWN.jpg", "panto-up-down.jpg", "", "", "a"),
         ],
         [
             (SMOKE_ON, "smoke-up.jpg", "", "", "sm"),
             ("STOCK_OPTION_ONE_ON", "stock-a-on.jpg", "", "", "pf"),
+            ("PANTO_BOTH_UP", "panto-up-a.jpg", "", "", "a"),
         ],
         [
             ("BOOST_SPEED", "boost.jpg", "", "Boost", "e"),
