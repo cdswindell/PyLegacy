@@ -151,6 +151,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights...", "e"),
+            ("AUX2_OPTION_ONE", "", AUX2_KEY, "", "a"),
             ("AUX2_OPTION_ONE", "", AUX2_KEY, "", "pf"),
         ],
         [

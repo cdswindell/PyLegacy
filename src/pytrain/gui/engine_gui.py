@@ -613,13 +613,12 @@ class EngineGui(Thread, Generic[S]):
             | self._cplr_btns
         )
         self._common_btns |= self._vol_btns | self._cplr_btns
-        self._engine_btns |= self._smoke_btns
         self._engine_type_key_map = {
             "a": self._vol_btns | self._engine_btns | self._diesel_btns | self._acela_btns,
-            "d": self._common_btns | self._engine_btns | self._diesel_btns,
+            "d": self._common_btns | self._engine_btns | self._smoke_btns | self._diesel_btns,
             "f": self._common_btns | self._passenger_freight_btns | self._freight_btns,
             "p": self._common_btns | self._passenger_freight_btns | self._passenger_btns,
-            "s": self._common_btns | self._engine_btns | self._steam_btns,
+            "s": self._common_btns | self._engine_btns | self._smoke_btns | self._steam_btns,
             "t": self._transformer_btns,
         }
 
