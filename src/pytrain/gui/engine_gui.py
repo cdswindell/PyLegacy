@@ -1544,6 +1544,7 @@ class EngineGui(Thread, Generic[S]):
                 if name:
                     options.append(name)
                     self._options_to_state[name] = state
+        options.append("PyTrain Administration")
         return options
 
     def monitor_state(self):
