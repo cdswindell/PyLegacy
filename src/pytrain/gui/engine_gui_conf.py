@@ -108,6 +108,7 @@ ENGINE_OPS_LAYOUT = [
     ],
     [
         [
+            ("PANTO_BOTH_UP", "panto-up-a", "", "", "a"),
             ("FRONT_COUPLER", "front-coupler.jpg", "", "", "cp"),
             ("REAR_COUPLER", "rear-coupler.jpg", "", "", "t"),
         ],
