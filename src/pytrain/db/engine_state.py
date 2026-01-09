@@ -631,12 +631,12 @@ class EngineState(ComponentState):
         return self.comp_data and self.comp_data.engine_type in TRANSFORMER_TYPE
 
     @property
-    def has_throttle(self) -> bool:
-        return self.comp_data and self.comp_data.engine_type in THROTTLE_TYPE
-
-    @property
     def is_acela(self) -> bool:
         return self.comp_data and self.comp_data.engine_type in ACELA_TYPE
+
+    @property
+    def has_throttle(self) -> bool:
+        return self.comp_data and self.comp_data.engine_type in THROTTLE_TYPE
 
     @property
     def has_lights(self) -> bool:

@@ -63,7 +63,7 @@ ENTRY_LAYOUT = [
 ENGINE_OPS_LAYOUT = [
     [
         [
-            ("VOLUME_UP", "vol-up.jpg", "", "", "c"),
+            ("VOLUME_UP", "vol-up.jpg", "", "", "vo"),
             ("BLOW_HORN_ONE", "horn.jpg", "", "", "t"),
         ],
         [
@@ -86,7 +86,7 @@ ENGINE_OPS_LAYOUT = [
     ],
     [
         [
-            ("VOLUME_DOWN", "vol-down.jpg", "", "", "c"),
+            ("VOLUME_DOWN", "vol-down.jpg", "", "", "vo"),
             ("FRONT_COUPLER", "front-coupler.jpg", "", "", "t"),
         ],
         [
@@ -108,11 +108,11 @@ ENGINE_OPS_LAYOUT = [
     ],
     [
         [
-            ("FRONT_COUPLER", "front-coupler.jpg", "", "", "c"),
+            ("FRONT_COUPLER", "front-coupler.jpg", "", "", "cp"),
             ("REAR_COUPLER", "rear-coupler.jpg", "", "", "t"),
         ],
         [
-            (SMOKE_ON, "smoke-up.jpg", "", "", "e"),
+            (SMOKE_ON, "smoke-up.jpg", "", "", "sm"),
             ("STOCK_OPTION_ONE_ON", "stock-a-on.jpg", "", "", "pf"),
         ],
         [
@@ -127,9 +127,9 @@ ENGINE_OPS_LAYOUT = [
         ],
     ],
     [
-        ("REAR_COUPLER", "rear-coupler.jpg", "", "", "c"),
+        ("REAR_COUPLER", "rear-coupler.jpg", "", "", "cp"),
         [
-            (SMOKE_OFF, "smoke-down.jpg", "", "", "e"),
+            (SMOKE_OFF, "smoke-down.jpg", "", "", "sm"),
             ("STOCK_OPTION_ONE_OFF", "stock-a-off.jpg", "", "", "pf"),
             ("TOGGLE_DIRECTION", "", DIR_KEY, "", "t"),
         ],
@@ -155,6 +155,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("AUX3_OPTION_ONE", "", AUX3_KEY, "", "c"),
+            ("AUX3_OPTION_ONE", "", AUX3_KEY, "Arcing", "a"),
             ("POWERMASTER_OFF", "off_button.jpg", "", "", "t"),
         ],
         [

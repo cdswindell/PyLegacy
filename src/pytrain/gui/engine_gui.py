@@ -264,14 +264,19 @@ class EngineGui(Thread, Generic[S]):
         self.tower_dialog_overlay = self.crew_dialog_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
-        self._common_buttons = set()
+        self._acela_btns = set()
+        self._crane_btns = set()
+        self._diesel_btns = set()
         self._engine_btns = set()
+        self._freight_btns = set()
         self._passenger_btns = set()
         self._passenger_freight_btns = set()
-        self._diesel_btns = set()
         self._steam_btns = set()
-        self._freight_btns = set()
         self._transformer_btns = set()
+        self._vol_btns = set()
+        self._smoke_btns = set()
+        self._cplr_btns = set()
+        self._common_btns = set()
         self._all_engine_btns = set()
         self._engine_type_key_map: dict[str, set[Widget]] = {}
         self._last_engine_type = None
@@ -556,21 +561,29 @@ class EngineGui(Thread, Generic[S]):
                     if len(op) > 4 and op[4]:
                         if op[4] == "e":
                             self._engine_btns.add(cell)
+                        elif op[4] == "c":
+                            self._common_btns.add(cell)
+                        elif op[4] == "a":
+                            self._acela_btns.add(cell)
                         elif op[4] == "d":
                             self._diesel_btns.add(cell)
-                        elif op[4] == "s":
-                            self._steam_btns.add(cell)
-                        elif op[4] == "p":
-                            self._passenger_btns.add(cell)
                         elif op[4] == "f":
                             self._freight_btns.add(cell)
+                        elif op[4] == "p":
+                            self._passenger_btns.add(cell)
                         elif op[4] == "pf":
                             self._passenger_freight_btns.add(cell)
+                        elif op[4] == "s":
+                            self._steam_btns.add(cell)
                         elif op[4] == "t":
                             self._transformer_btns.add(cell)
-                        elif op[4] == "c":
-                            self._common_buttons.add(cell)
 
+                        elif op[4] == "vo":
+                            self._vol_btns.add(cell)
+                        elif op[4] == "sm":
+                            self._smoke_btns.add(cell)
+                        elif op[4] == "cp":
+                            self._cplr_btns.add(cell)
                         key = (cmd, op[4])
                     else:
                         key = cmd
@@ -586,19 +599,27 @@ class EngineGui(Thread, Generic[S]):
         # assemble key maps
         self._all_engine_btns = (
             self._engine_btns
+            | self._common_btns
+            | self._acela_btns
+            | self._crane_btns
             | self._diesel_btns
-            | self._steam_btns
-            | self._passenger_btns
             | self._freight_btns
+            | self._passenger_btns
             | self._passenger_freight_btns
+            | self._steam_btns
             | self._transformer_btns
-            | self._common_buttons
+            | self._vol_btns
+            | self._smoke_btns
+            | self._cplr_btns
         )
+        self._common_btns |= self._vol_btns | self._cplr_btns
+        self._engine_btns |= self._smoke_btns
         self._engine_type_key_map = {
-            "d": self._common_buttons | self._engine_btns | self._diesel_btns,
-            "s": self._common_buttons | self._engine_btns | self._steam_btns,
-            "p": self._common_buttons | self._passenger_freight_btns | self._passenger_btns,
-            "f": self._common_buttons | self._passenger_freight_btns | self._freight_btns,
+            "a": self._vol_btns | self._acela_btns,
+            "d": self._common_btns | self._engine_btns | self._diesel_btns,
+            "f": self._common_btns | self._passenger_freight_btns | self._freight_btns,
+            "p": self._common_btns | self._passenger_freight_btns | self._passenger_btns,
+            "s": self._common_btns | self._engine_btns | self._steam_btns,
             "t": self._transformer_btns,
         }
 
@@ -2451,6 +2472,13 @@ class EngineGui(Thread, Generic[S]):
         self._rr_speed_box.show()
         self.horn_title_box.text = "Whistle"
 
+    def show_acela_keys(self) -> None:
+        if self._last_engine_type != "a":
+            self.scope_engine_keys(self._engine_type_key_map["a"])
+            self._last_engine_type = "a"
+        self._rr_speed_box.show()
+        self.horn_title_box.text = "Horn"
+
     def show_passenger_keys(self) -> None:
         if self._last_engine_type != "p":
             self.scope_engine_keys(self._engine_type_key_map["p"])
@@ -2519,6 +2547,8 @@ class EngineGui(Thread, Generic[S]):
                     self.show_passenger_keys()
                 elif state.is_freight:
                     self.show_freight_keys()
+                elif state.is_acela:
+                    self.show_acela_keys()
                 elif state.is_transformer:
                     self.show_transformer_keys()
                 else:
