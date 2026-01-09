@@ -127,11 +127,15 @@ ENGINE_OPS_LAYOUT = [
         ],
     ],
     [
-        ("REAR_COUPLER", "rear-coupler.jpg", "", "", "cp"),
+        [
+            ("REAR_COUPLER", "rear-coupler.jpg", "", "", "cp"),
+            ("START_UP_IMMEDIATE", "on_button.jpg", "", "", "a"),
+        ],
         [
             (SMOKE_OFF, "smoke-down.jpg", "", "", "sm"),
             ("STOCK_OPTION_ONE_OFF", "stock-a-off.jpg", "", "", "pf"),
             ("TOGGLE_DIRECTION", "", DIR_KEY, "", "t"),
+            ("SHUTDOWN_IMMEDIATE", "off_button.jpg", "", "", "a"),
         ],
         [
             ("BRAKE_SPEED", "brake.jpg", "", "Brake", "e"),
