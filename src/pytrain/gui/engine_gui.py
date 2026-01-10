@@ -267,6 +267,7 @@ class EngineGui(Thread, Generic[S]):
         self._acela_btns = set()
         self._crane_btns = set()
         self._diesel_btns = set()
+        self._electric_btns = set()
         self._engine_btns = set()
         self._freight_btns = set()
         self._passenger_btns = set()
@@ -569,6 +570,8 @@ class EngineGui(Thread, Generic[S]):
                             self._diesel_btns.add(cell)
                         elif op[4] == "f":
                             self._freight_btns.add(cell)
+                        elif op[4] == "l":
+                            self._electric_btns.add(cell)
                         elif op[4] == "p":
                             self._passenger_btns.add(cell)
                         elif op[4] == "pf":
@@ -617,6 +620,7 @@ class EngineGui(Thread, Generic[S]):
             "a": self._vol_btns | self._engine_btns | self._diesel_btns | self._acela_btns,
             "d": self._common_btns | self._engine_btns | self._smoke_btns | self._diesel_btns,
             "f": self._common_btns | self._passenger_freight_btns | self._freight_btns,
+            "l": self._common_btns | self._electric_btns,
             "p": self._common_btns | self._passenger_freight_btns | self._passenger_btns,
             "s": self._common_btns | self._engine_btns | self._smoke_btns | self._steam_btns,
             "t": self._transformer_btns,
