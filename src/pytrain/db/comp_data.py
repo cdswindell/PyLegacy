@@ -464,7 +464,10 @@ class CompData(ABC, Generic[R]):
 
         update_pkgs: list[UpdatePkg] = []
         cmd = req.command
+        dp = cmd.name == "TRAIN_ADDRESS"
         updates = REQUEST_TO_UPDATES_MAP.get(cmd.name, [])
+        if dp:
+            print(updates)
         if req.has_command_alias:
             for update in REQUEST_TO_UPDATES_MAP.get(req.command_alias.name, []):
                 if update not in updates:
@@ -473,6 +476,8 @@ class CompData(ABC, Generic[R]):
             if isinstance(update, tuple) and len(update) >= 1:
                 transform = update[1] if len(update) >= 2 else None
                 pkg = cls._create_update_pkg(update[0], cmd.is_legacy, req.scope, req.address, req.data, transform)
+                if dp:
+                    print(f"pkg: {pkg}")
                 if pkg:
                     update_pkgs.append(pkg)
         return update_pkgs
