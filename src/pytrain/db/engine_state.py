@@ -987,10 +987,10 @@ class TrainState(EngineState, LcsProxyState):
         from ..pdi.bpc2_req import Bpc2Req
 
         with self._cv:
-            if isinstance(command, CommandReq) and command.command in {TMCC2EngineCommandEnum.CLEAR_CONSIST}:
-                from .component_state_store import ComponentStateStore
-
-                ComponentStateStore.delete_state(self)
+            # if isinstance(command, CommandReq) and command.command in {TMCC2EngineCommandEnum.CLEAR_CONSIST}:
+            #     from .component_state_store import ComponentStateStore
+            #
+            #     ComponentStateStore.delete_state(self)
             if isinstance(command, Bpc2Req):
                 if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                     if command.state:
