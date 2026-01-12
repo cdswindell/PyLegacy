@@ -263,6 +263,7 @@ class BaseReq(PdiReq, CompDataMixin):
     @classmethod
     def do_update_eng(cls, tmcc_cmd: CommandReq):
         sync_reqs = BaseReq.update_eng(tmcc_cmd)
+        print(f"Command: {tmcc_cmd} Reqs: {sync_reqs}")
         if sync_reqs:
             for sync_req in sync_reqs:
                 print(f"Sending {sync_req}")

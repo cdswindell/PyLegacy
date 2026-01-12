@@ -718,7 +718,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
     def update_base_state(cmd: CommandReq):
         if isinstance(cmd, CommandReq):
             action = REQUIRE_BASE_UPDATE.get(cmd.command, None)
-            print(f"Command: {cmd} action: {action}")
             if isinstance(action, tuple) and len(action) >= 1:
                 action[0](cmd)
 
