@@ -366,6 +366,7 @@ REQUEST_TO_UPDATES_MAP = {
         ("target_speed", lambda x: 0),
         ("rpm_labor", lambda x: 0),
     ],
+    "TRAIN_ADDRESS": [("train_tmcc_id",)],
     "TRAIN_BRAKE": [("train_brake",)],
 }
 

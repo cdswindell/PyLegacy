@@ -39,7 +39,7 @@ from ..protocol.constants import (
     EngineType,
     OfficialRRSpeeds,
 )
-from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2R4LCEnum
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1_COMMAND_TO_ALIAS_MAP,
     TMCC1EngineCommandEnum,
@@ -486,6 +486,8 @@ class EngineState(ComponentState):
                             self._start_stop = TMCC2_COMMAND_TO_ALIAS_MAP[shutdown]
                         elif shutdown in TMCC1_COMMAND_TO_ALIAS_MAP:
                             self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[shutdown]
+                elif command.command == TMCC2R4LCEnum.TRAIN_ADDRESS and self._comp_data:
+                    self._comp_data.train_tmcc_id = command.data
             elif (
                 isinstance(command, BaseReq)
                 and command.status == 0
@@ -649,6 +651,10 @@ class EngineState(ComponentState):
         else:
             # noinspection PyTypeChecker
             return None
+
+    @property
+    def train_tmcc_id(self) -> int:
+        return self.comp_data.train_tmcc_id if self.comp_data else None
 
     @property
     def target_speed(self) -> int:
