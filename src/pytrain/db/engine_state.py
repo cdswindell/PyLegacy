@@ -185,7 +185,7 @@ class EngineState(ComponentState):
 
     def __repr__(self) -> str:
         try:
-            sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = ""
+            sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = tr = ""
             if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
                 dr = " FWD"
             elif self._direction in {
@@ -240,9 +240,11 @@ class EngineState(ComponentState):
                 c = "\n"
                 for cc in self.consist_components:
                     c += f"{cc} "
+            elif self.train_tmcc_id:
+                tr = f" Train: {self.train_tmcc_id}"
             return (
                 f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{dr}{sm}"
-                f"{name}{num}{lt}{ct}{yr}{bt}{ss}{nu}{aux}{c}"
+                f"{name}{num}{lt}{ct}{yr}{bt}{ss}{tr}{nu}{aux}{c}"
             )
         except AttributeError as ae:
             if self.comp_data is None:
@@ -656,7 +658,7 @@ class EngineState(ComponentState):
 
     @property
     def train_tmcc_id(self) -> int:
-        return self.comp_data.train_tmcc_id if self.comp_data else None
+        return self.comp_data.train_tmcc_id if self.comp_data and self.comp_data.train_tmcc_id != 255 else None
 
     @property
     def target_speed(self) -> int:
