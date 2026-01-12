@@ -620,7 +620,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 log.debug(f"Skipping update of {client}:{port} {command}")
                 continue
             try:
-                print(f"Sending {command} to {client}:{port}")
                 with self._client_lock:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((client, port))

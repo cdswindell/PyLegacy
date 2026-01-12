@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-
 import sys
 
 from .multibyte_command_req import MultiByteReq
-from .multibyte_constants import TMCC2R4LCIndex, TMCC2R4LCEnum, UnitAssignment
+from .multibyte_constants import TMCC2R4LCEnum, TMCC2R4LCIndex, UnitAssignment
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -12,8 +11,7 @@ elif sys.version_info >= (3, 9):
     from typing_extensions import Self
 
 from ..constants import DEFAULT_ADDRESS, CommandScope
-from ..tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX
-from ..tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
+from ..tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, LEGACY_TRAIN_COMMAND_PREFIX
 
 """
 Commands to modify R4LC EEPROM
@@ -51,7 +49,7 @@ class R4LCCommandReq(MultiByteReq):
             # build_req the request and return
             address = cmd_enum.value.address_from_bytes(param[1:3])
             cmd_req = R4LCCommandReq.build(cmd_enum, address, data, scope)
-            if from_tmcc_rx is True:
+            if from_tmcc_rx:
                 cmd_req._is_tmcc_rx = True
             return cmd_req
         raise ValueError(f"Invalid R4LC command: : {param.hex(':')}")
@@ -78,4 +76,4 @@ class R4LCCommandReq(MultiByteReq):
 
     @property
     def data_byte(self) -> bytes:
-        return (0x00).to_bytes(1, byteorder="big")
+        return (self.data if self.data is not None else 0x00).to_bytes(1, byteorder="big")
