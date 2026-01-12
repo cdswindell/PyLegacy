@@ -368,6 +368,7 @@ REQUEST_TO_UPDATES_MAP = {
     ],
     "TRAIN_ADDRESS": [("train_tmcc_id",)],
     "TRAIN_BRAKE": [("train_brake",)],
+    "TRAIN_UNIT": [("train_unit",)],
 }
 
 #

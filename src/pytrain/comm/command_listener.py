@@ -34,7 +34,7 @@ from ..protocol.constants import (
     PROGRAM_NAME,
     CommandScope,
 )
-from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
+from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2R4LCEnum
 from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1AuxCommandEnum, TMCC1SyncCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, TMCC2EngineCommandEnum
 from ..utils.ip_tools import get_ip_address
@@ -62,6 +62,14 @@ COMMAND_IMPACTS = {
         lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
         BaseReq.request_config,
     ),
+}
+
+#
+# On receipt of select commands, we must update the Base 3 state to reflect the new state
+#
+REQUIRE_BASE_UPDATE = {
+    TMCC2R4LCEnum.TRAIN_ADDRESS: (BaseReq.do_update_eng,),
+    TMCC2R4LCEnum.TRAIN_UNIT: (BaseReq.do_update_eng,),
 }
 
 
@@ -531,6 +539,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                             log.debug(f"Filtering client update: {cmd}")
                         else:
                             self.update_client_state(cmd)
+                            self.update_base_state(cmd)
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {cmd}; see log for details")
                 log.exception(e)
@@ -703,6 +712,14 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         except Exception as e:
             log.warning(f"Exception sending TMCC state update {state} to {client_ip}:{client_port}")
             log.exception(e)
+
+    # noinspection PyArgumentList
+    @staticmethod
+    def update_base_state(cmd: CommandReq):
+        if isinstance(cmd, CommandReq):
+            action = REQUIRE_BASE_UPDATE.get(cmd.command, None)
+            if isinstance(action, tuple) and len(action) >= 1:
+                action[0](cmd)
 
     @property
     def broadcasts_enabled(self) -> bool:

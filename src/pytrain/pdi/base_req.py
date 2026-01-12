@@ -260,6 +260,13 @@ class BaseReq(PdiReq, CompDataMixin):
             print(f"********* Using old-style {pdi_cmd.name} for updates from {cmd}")
         return cmds
 
+    @classmethod
+    def do_update_eng(cls, tmcc_cmd: CommandReq):
+        sync_reqs = BaseReq.update_eng(tmcc_cmd)
+        if sync_reqs:
+            for sync_req in sync_reqs:
+                sync_req.send()
+
     def __init__(
         self,
         data: bytes | int = 0,
