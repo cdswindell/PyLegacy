@@ -536,7 +536,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                             log.debug(f"Filtering client update: {cmd}")
                         else:
                             self.update_client_state(cmd)
-                            self.update_base_state(cmd, update_clients=True)
+                            self.update_base_state(cmd)
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {cmd}; see log for details")
                 log.exception(e)
@@ -711,15 +711,17 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             log.exception(e)
 
     # noinspection PyArgumentList
-    def update_base_state(self, cmd: CommandReq, update_clients: bool = False):
+    @staticmethod
+    def update_base_state(cmd: CommandReq):
         if isinstance(cmd, CommandReq):
             action = REQUIRE_BASE_UPDATE.get(cmd.command, None)
             if isinstance(action, tuple) and len(action) >= 1:
-                sync_reqs = action[0](cmd)
-
-                if update_clients and False:
-                    for sync_req in sync_reqs:
-                        self.update_client_state(sync_req)
+                action[0](cmd)
+                # sync_reqs = action[0](cmd)
+                #
+                # if update_clients and False:
+                #     for sync_req in sync_reqs:
+                #         self.update_client_state(sync_req)
 
     @property
     def broadcasts_enabled(self) -> bool:
@@ -888,7 +890,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
 
         if self.is_server:
             state = ComponentStateStore.get_state(CommandScope.TRAIN, tmcc_cmd.address, create=False)
-            print(state)
             if state and state.consist_components:
                 for comp in state.consist_components:
                     CommandReq.build(
