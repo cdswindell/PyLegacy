@@ -406,7 +406,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
 
     @classmethod
     def on_clear_consist(cls, tmcc_cmd: CommandReq) -> None:
-        print(tmcc_cmd)
         cls.get()._on_clear_consist(tmcc_cmd)
 
     def __new__(cls, *args, **kwargs):
