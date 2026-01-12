@@ -64,14 +64,6 @@ COMMAND_IMPACTS = {
     ),
 }
 
-#
-# On receipt of select commands, we must update the Base 3 state to reflect the new state
-#
-REQUIRE_BASE_UPDATE = {
-    TMCC2R4LCEnum.TRAIN_ADDRESS: (BaseReq.do_update_eng,),
-    TMCC2R4LCEnum.TRAIN_UNIT: (BaseReq.do_update_eng,),
-}
-
 
 class CommandListener(Thread):
     _instance: None = None
@@ -412,6 +404,11 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
     def is_built(cls) -> bool:
         return cls._instance is not None
 
+    @classmethod
+    def on_clear_consist(cls, tmcc_cmd: CommandReq) -> None:
+        print(tmcc_cmd)
+        cls.get()._on_clear_consist(tmcc_cmd)
+
     def __new__(cls, *args, **kwargs):
         """
         Provides singleton functionality. We only want one instance
@@ -539,7 +536,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                             log.debug(f"Filtering client update: {cmd}")
                         else:
                             self.update_client_state(cmd)
-                            self.update_base_state(cmd)
+                            self.update_base_state(cmd, update_clients=True)
             except Exception as e:
                 log.warning(f"CommandDispatcher: Error publishing {cmd}; see log for details")
                 log.exception(e)
@@ -604,7 +601,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         self.update_client_state(option, client=client, port=port)
 
     # noinspection DuplicatedCode
-    def update_client_state(self, command: CommandReq, client: str = None, port: int = None):
+    def update_client_state(self, command: CommandReq | BaseReq, client: str = None, port: int = None):
         """
         Update all PyTrain clients with the dispatched command. Used to keep
         client states in sync with server
@@ -714,12 +711,15 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             log.exception(e)
 
     # noinspection PyArgumentList
-    @staticmethod
-    def update_base_state(cmd: CommandReq):
+    def update_base_state(self, cmd: CommandReq, update_clients: bool = False):
         if isinstance(cmd, CommandReq):
             action = REQUIRE_BASE_UPDATE.get(cmd.command, None)
             if isinstance(action, tuple) and len(action) >= 1:
-                action[0](cmd)
+                sync_reqs = action[0](cmd)
+
+                if update_clients and False:
+                    for sync_req in sync_reqs:
+                        self.update_client_state(sync_req)
 
     @property
     def broadcasts_enabled(self) -> bool:
@@ -881,3 +881,35 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                     )
             for query in cmds:
                 query.send()
+
+    def _on_clear_consist(self, tmcc_cmd: CommandReq) -> None:
+        # only runs on server
+        from ..db.component_state_store import ComponentStateStore
+
+        if self.is_server:
+            state = ComponentStateStore.get_state(CommandScope.TRAIN, tmcc_cmd.address, create=False)
+            print(state)
+            if state and state.consist_components:
+                for comp in state.consist_components:
+                    CommandReq.build(
+                        TMCC2R4LCEnum.TRAIN_ADDRESS,
+                        comp.tmcc_id,
+                        data=0,
+                        scope=CommandScope.ENGINE,
+                    ).send()
+                    CommandReq.build(
+                        TMCC2R4LCEnum.TRAIN_UNIT,
+                        comp.tmcc_id,
+                        data=0,
+                        scope=CommandScope.ENGINE,
+                    ).send()
+
+
+#
+# On receipt of select commands, we must update the Base 3 state to reflect the new state
+#
+REQUIRE_BASE_UPDATE = {
+    TMCC2R4LCEnum.TRAIN_ADDRESS: (BaseReq.do_update_eng,),
+    TMCC2R4LCEnum.TRAIN_UNIT: (BaseReq.do_update_eng,),
+    TMCC2EngineCommandEnum.CLEAR_CONSIST: (CommandDispatcher.on_clear_consist,),
+}
