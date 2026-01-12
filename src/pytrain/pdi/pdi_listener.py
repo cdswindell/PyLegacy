@@ -302,7 +302,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                             continue
                     # for TMCC requests, forward to TMCC Command Dispatcher
                     if isinstance(cmd, TmccReq):
-                        print(f"Sending state update {cmd}")
                         self._tmcc_dispatcher.offer(cmd.tmcc_command, from_pdi=True)
                     elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
                         if hasattr(cmd, "action"):
