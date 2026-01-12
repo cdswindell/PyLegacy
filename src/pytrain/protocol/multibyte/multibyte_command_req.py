@@ -4,7 +4,7 @@ import sys
 from abc import ABC, ABCMeta, abstractmethod
 from typing import TypeVar
 
-from .multibyte_constants import TMCC2ParameterEnum, TMCC2VariableEnum, TMCCPrefixEnum
+from .multibyte_constants import TMCC2ParameterEnum, TMCC2R4LCEnum, TMCC2VariableEnum, TMCCPrefixEnum
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -19,6 +19,7 @@ E = TypeVar("E", bound=TMCC2MultiByteEnum)
 MULTIBYTE_PREFIX_BYTE = LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
 
 
+# noinspection PyUnreachableCode
 class MultiByteReq(CommandReq, ABC):
     __metaclass__ = ABCMeta
 
@@ -30,6 +31,10 @@ class MultiByteReq(CommandReq, ABC):
             from .param_command_req import ParameterCommandReq  # noqa: E402
 
             return ParameterCommandReq.build(command, address, data, scope)
+        elif isinstance(command, TMCC2R4LCEnum):
+            from .r4lc_command_req import R4LCCommandReq
+
+            return R4LCCommandReq.build(command, address, data, scope)
         elif isinstance(command, TMCC2VariableEnum):
             from .dcds_command_req import VariableCommandReq
 
