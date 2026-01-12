@@ -302,6 +302,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                             continue
                     # for TMCC requests, forward to TMCC Command Dispatcher
                     if isinstance(cmd, TmccReq):
+                        print(f"Sending state update {cmd}")
                         self._tmcc_dispatcher.offer(cmd.tmcc_command, from_pdi=True)
                     elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
                         if hasattr(cmd, "action"):
@@ -331,7 +332,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             if client in self._server_ips and port == self._server_port:
                 continue  # don't notify ourself
             try:
-                print(f"Sending state update to {client}:{port}: {command}")
                 with self._lock:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((client, port))
