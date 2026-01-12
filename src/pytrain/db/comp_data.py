@@ -199,7 +199,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x17: CompDataHandler("_momentum_setting"),
     0x18: CompDataHandler("_momentum"),
     0x1C: CompDataHandler("_train_tmcc_id"),
-    0x1D: CompDataHandler("_train_position"),
+    0x1D: CompDataHandler("_train_unit"),
     0x1E: CompDataHandler("_road_name_len"),
     0x1F: CompDataHandler(
         "_road_name",
@@ -811,7 +811,7 @@ class EngineData(CompData):
         self._target_speed: int | None = None
         self._timestamp: int | None = None
         self._train_brake: int | None = None
-        self._train_position: int | None = None
+        self._train_unit: int | None = None
         self._train_tmcc_id: int | None = None
         self._tsdb_left: int | None = None
         self._tsdb_right: int | None = None

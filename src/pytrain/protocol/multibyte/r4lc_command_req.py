@@ -1,3 +1,12 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
+
 from __future__ import annotations
 
 import sys
@@ -7,8 +16,6 @@ from .multibyte_constants import TMCC2R4LCEnum, TMCC2R4LCIndex, UnitAssignment
 
 if sys.version_info >= (3, 11):
     from typing import Self
-elif sys.version_info >= (3, 9):
-    from typing_extensions import Self
 
 from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, LEGACY_TRAIN_COMMAND_PREFIX
